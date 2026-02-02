@@ -1,0 +1,22 @@
+{
+  "name": "odyssey-to-olympus",
+  "version": "1.0.0",
+  "description": "Greek Mythology Educational Game - **Core Foundation Complete!**",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "sql.js": "^1.13.0"
+  },
+  "devDependencies": {}
+}
