@@ -1744,11 +1744,11 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
   }
 });
 
-// Teacher: Update a student (name, class_period)
-app.put('/api/teacher/student/:student_id', authenticateToken, (req, res) => {
+// Teacher: Update a student (name, class_period, alliance, password)
+app.put('/api/teacher/student/:student_id', authenticateToken, async (req, res) => {
   try {
     const { student_id } = req.params;
-    const { name, class_period } = req.body;
+    const { name, class_period, alliance_id, new_password } = req.body;
     
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Name is required' });
@@ -1762,25 +1762,35 @@ app.put('/api/teacher/student/:student_id', authenticateToken, (req, res) => {
     
     const oldAllianceId = student.alliance_id;
     const classChanged = student.class_period !== class_period;
+    const allianceChanged = String(oldAllianceId || '') !== String(alliance_id || '');
     
-    // If class period changed, remove from alliance (they become a free agent)
-    if (classChanged && oldAllianceId) {
-      run(`UPDATE students SET name = ?, class_period = ?, alliance_id = NULL WHERE student_id = ?`, 
-        [name.trim(), class_period, student_id]);
-      
-      // Check if old alliance is now empty and delete it if so
+    // Handle password reset if provided
+    if (new_password && new_password.trim()) {
+      const password_hash = await bcrypt.hash(new_password.trim(), 10);
+      run(`UPDATE students SET password_hash = ? WHERE student_id = ?`, [password_hash, student_id]);
+      console.log(`🔑 Password reset for student ${student_id}`);
+    }
+    
+    // Update student info
+    run(`UPDATE students SET name = ?, class_period = ?, alliance_id = ? WHERE student_id = ?`, 
+      [name.trim(), class_period, alliance_id || null, student_id]);
+    
+    // Check if old alliance is now empty and delete it
+    if (oldAllianceId && (classChanged || allianceChanged)) {
       const remainingMembers = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [oldAllianceId])[0];
       if (remainingMembers.count === 0) {
         run('DELETE FROM alliances WHERE alliance_id = ?', [oldAllianceId]);
         console.log(`🗑️ Deleted empty alliance ${oldAllianceId}`);
       }
-    } else {
-      run(`UPDATE students SET name = ?, class_period = ? WHERE student_id = ?`, 
-        [name.trim(), class_period, student_id]);
     }
     
     saveDatabase();
-    res.json({ success: true, classChanged, removedFromAlliance: classChanged && oldAllianceId });
+    res.json({ 
+      success: true, 
+      classChanged, 
+      allianceChanged,
+      passwordReset: !!(new_password && new_password.trim())
+    });
   } catch (err) {
     console.error('Update student error:', err);
     res.status(500).json({ error: 'Failed to update student' });
@@ -4551,7 +4561,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       return res.json({ 
         arena_unlocked: false, 
         reason: 'Student account not found',
-        requirements: { hasAlliance: false, hasTownCenter: false, hasHouse: false }
+        requirements: { hasAlliance: false, hasTownCenter: false, hasHouse: false },
+        god_powers: GOD_POWERS
       });
     }
     
@@ -4560,7 +4571,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       return res.json({ 
         arena_unlocked: false, 
         reason: 'You must join an alliance first to enter the Battle Arena.',
-        requirements: { hasAlliance: false, hasTownCenter: false, hasHouse: false }
+        requirements: { hasAlliance: false, hasTownCenter: false, hasHouse: false },
+        god_powers: GOD_POWERS
       });
     }
     
@@ -4569,7 +4581,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       return res.json({ 
         arena_unlocked: false, 
         reason: 'Your alliance was disbanded.',
-        requirements: { hasAlliance: false, hasTownCenter: false, hasHouse: false }
+        requirements: { hasAlliance: false, hasTownCenter: false, hasHouse: false },
+        god_powers: GOD_POWERS
       });
     }
     
@@ -4605,7 +4618,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
           hasHouse,
           allianceName: alliance.alliance_name,
           alliancePoints: alliance.total_points
-        }
+        },
+        god_powers: GOD_POWERS
       });
     }
     
@@ -4617,7 +4631,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       return res.json({
         arena_unlocked: true,
         arena_enabled: false,
-        reason: 'The Battle Arena is currently disabled by your teacher.'
+        reason: 'The Battle Arena is currently disabled by your teacher.',
+        god_powers: GOD_POWERS
       });
     }
     
@@ -4627,7 +4642,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       return res.json({
         arena_unlocked: true,
         arena_enabled: false,
-        reason: 'Your access to the Battle Arena has been temporarily disabled by your teacher.'
+        reason: 'Your access to the Battle Arena has been temporarily disabled by your teacher.',
+        god_powers: GOD_POWERS
       });
     }
     

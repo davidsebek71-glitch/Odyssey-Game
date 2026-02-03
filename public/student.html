@@ -5986,7 +5986,19 @@
                 }
                 
                 if (!data.arena_enabled) {
-                    content.innerHTML = `<div style="text-align:center;padding:40px;"><div style="font-size:50px;margin-bottom:15px;">🚫</div><h3 style="color:#ff6b6b;">Arena Disabled</h3><p style="color:rgba(255,255,255,0.7);">${data.reason}</p></div>`;
+                    arenaGodPowers = data.god_powers || {};
+                    content.innerHTML = `
+                        <div style="text-align:center;padding:40px;">
+                            <div style="font-size:50px;margin-bottom:15px;">🚫</div>
+                            <h3 style="color:#ff6b6b;">Arena Disabled</h3>
+                            <p style="color:rgba(255,255,255,0.7);">${data.reason}</p>
+                            <div style="margin-top: 20px;">
+                                <button onclick="showGodPowersInfo()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; color: white; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                    ⚔️ View God Powers Guide
+                                </button>
+                            </div>
+                        </div>
+                    `;
                     return;
                 }
                 
