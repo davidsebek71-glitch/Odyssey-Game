@@ -995,7 +995,7 @@ function seedReferenceData() {
       ['section_1', 'quiz', 'Nine Muses', 'Nine Muses Quiz', 10, 'Quiz on the Nine Muses', null, 0, 'Archaic'],
       ['section_1', 'quiz', 'Athena', 'Athena Quiz', 5, 'Quiz on Athena', null, 0, 'Archaic'],
       ['section_1', 'quiz', 'Hera', 'Hera Quiz', 5, 'Quiz on Hera', null, 0, 'Archaic'],
-      ['section_1', 'quiz', 'Exit Ticket', 'Exit Ticket', 5, 'Exit ticket assessment', null, 0, 'Archaic'],
+      ['section_1', 'quiz', 'Exit Ticket', 'Exit Ticket', 2, 'Exit ticket assessment', null, 0, 'Archaic'],
       
       // Mural - Section 1
       ['section_1', 'mural', 'Pixton Retelling', 'Pixton Retelling', 8, 'Comic retelling using Pixton', null, 0, 'Archaic'],
