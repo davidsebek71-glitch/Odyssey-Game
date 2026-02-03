@@ -1754,11 +1754,33 @@ app.put('/api/teacher/student/:student_id', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Name is required' });
     }
     
-    run(`UPDATE students SET name = ?, class_period = ? WHERE student_id = ?`, 
-      [name.trim(), class_period, student_id]);
+    // Get student's current info
+    const student = query('SELECT * FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    const oldAllianceId = student.alliance_id;
+    const classChanged = student.class_period !== class_period;
+    
+    // If class period changed, remove from alliance (they become a free agent)
+    if (classChanged && oldAllianceId) {
+      run(`UPDATE students SET name = ?, class_period = ?, alliance_id = NULL WHERE student_id = ?`, 
+        [name.trim(), class_period, student_id]);
+      
+      // Check if old alliance is now empty and delete it if so
+      const remainingMembers = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [oldAllianceId])[0];
+      if (remainingMembers.count === 0) {
+        run('DELETE FROM alliances WHERE alliance_id = ?', [oldAllianceId]);
+        console.log(`🗑️ Deleted empty alliance ${oldAllianceId}`);
+      }
+    } else {
+      run(`UPDATE students SET name = ?, class_period = ? WHERE student_id = ?`, 
+        [name.trim(), class_period, student_id]);
+    }
     
     saveDatabase();
-    res.json({ success: true });
+    res.json({ success: true, classChanged, removedFromAlliance: classChanged && oldAllianceId });
   } catch (err) {
     console.error('Update student error:', err);
     res.status(500).json({ error: 'Failed to update student' });
@@ -1770,6 +1792,10 @@ app.delete('/api/teacher/student/:student_id', authenticateToken, (req, res) => 
   try {
     const { student_id } = req.params;
     
+    // Get student's alliance before deleting
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    const allianceId = student ? student.alliance_id : null;
+    
     // Delete related records first
     run('DELETE FROM grade_records WHERE student_id = ?', [student_id]);
     run('DELETE FROM point_submissions WHERE student_id = ?', [student_id]);
@@ -1778,6 +1804,15 @@ app.delete('/api/teacher/student/:student_id', authenticateToken, (req, res) => 
     
     // Delete the student
     run('DELETE FROM students WHERE student_id = ?', [student_id]);
+    
+    // Check if alliance is now empty and delete it
+    if (allianceId) {
+      const remainingMembers = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [allianceId])[0];
+      if (remainingMembers.count === 0) {
+        run('DELETE FROM alliances WHERE alliance_id = ?', [allianceId]);
+        console.log(`🗑️ Deleted empty alliance ${allianceId}`);
+      }
+    }
     
     saveDatabase();
     res.json({ success: true });

@@ -4127,10 +4127,15 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('✅ Student updated successfully');
+                    let message = '✅ Student updated successfully';
+                    if (result.removedFromAlliance) {
+                        message += '\n\n⚠️ Student was removed from their alliance due to class change. They can join a new alliance in their new class.';
+                    }
+                    alert(message);
                     closeEditStudentModal();
                     openStudentManagementModal(); // Refresh the list
                     loadStudents(); // Refresh student dropdowns
+                    loadLeaderboard(); // Refresh leaderboard
                 } else {
                     alert('Error: ' + result.error);
                 }
@@ -4165,6 +4170,7 @@
                     closeDeleteStudentModal();
                     openStudentManagementModal(); // Refresh the list
                     loadStudents(); // Refresh student dropdowns
+                    loadLeaderboard(); // Refresh leaderboard
                 } else {
                     alert('Error: ' + result.error);
                 }
