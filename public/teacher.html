@@ -2222,7 +2222,9 @@
         async function loadStudents() {
             try {
                 const response = await fetch(`${API_URL}/teacher/students`, { headers });
-                studentsData = await response.json();
+                const data = await response.json();
+                // Handle both array and {students: []} format
+                studentsData = data.students || data;
                 
                 const select = document.getElementById('award-student');
                 select.innerHTML = '<option value="">Select a student...</option>' +
