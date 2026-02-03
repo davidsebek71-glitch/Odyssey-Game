@@ -1742,6 +1742,66 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
   }
 });
 
+// Teacher: Get all students for management
+app.get('/api/teacher/students', authenticateToken, (req, res) => {
+  try {
+    const students = query(`
+      SELECT s.student_id, s.name, s.email, s.class_period, a.name as alliance_name
+      FROM students s
+      LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
+      ORDER BY s.class_period, s.name
+    `);
+    
+    res.json({ students });
+  } catch (err) {
+    console.error('Get students error:', err);
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
+// Teacher: Update a student (name, class_period)
+app.put('/api/teacher/student/:student_id', authenticateToken, (req, res) => {
+  try {
+    const { student_id } = req.params;
+    const { name, class_period } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    
+    run(`UPDATE students SET name = ?, class_period = ? WHERE student_id = ?`, 
+      [name.trim(), class_period, student_id]);
+    
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update student error:', err);
+    res.status(500).json({ error: 'Failed to update student' });
+  }
+});
+
+// Teacher: Delete a student
+app.delete('/api/teacher/student/:student_id', authenticateToken, (req, res) => {
+  try {
+    const { student_id } = req.params;
+    
+    // Delete related records first
+    run('DELETE FROM grade_records WHERE student_id = ?', [student_id]);
+    run('DELETE FROM point_submissions WHERE student_id = ?', [student_id]);
+    run('DELETE FROM arena_battles WHERE challenger_id = ? OR defender_id = ?', [student_id, student_id]);
+    run('DELETE FROM arena_battle_rounds WHERE battle_id NOT IN (SELECT battle_id FROM arena_battles)');
+    
+    // Delete the student
+    run('DELETE FROM students WHERE student_id = ?', [student_id]);
+    
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete student error:', err);
+    res.status(500).json({ error: 'Failed to delete student' });
+  }
+});
+
 // Get all submissions for a specific student (for teacher to view/delete)
 app.get('/api/teacher/student-submissions/:student_id', authenticateToken, (req, res) => {
   try {
@@ -3017,8 +3077,8 @@ function calculateAgeReadiness(alliance) {
   const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
   const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [alliance.alliance_id])[0].count;
   
-  // Required buildings for Classical Age (5 buildings)
-  const requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship'];
+  // Required buildings for Classical Age (6 buildings - includes Wooden Wall)
+  const requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall'];
   const ownedRequired = requiredBuildings.filter(b => ownedBuildings.includes(b));
   
   // Points threshold based on alliance size (reduced by 50 as discussed)

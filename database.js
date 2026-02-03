@@ -753,10 +753,10 @@ function seedReferenceData() {
       ['Library', 80, 1, 'Athena', 1, 1, 'Archaic', 0, 0.08, 48, 72, 0, 1, 'Houses knowledge. +8% point bonus when active. Requires Athena Bonus. Required for Classical Age.'],
       // House - 40 pts, +3% each, max 4, just points, REQUIRED for Classical (at least 1)
       ['House', 40, 1, 'Hestia', 0, 4, 'Archaic', 0, 0.03, 48, 24, 0, 1, 'Population growth. +3% point bonus per house when active. Maximum 4. Required for Classical Age.'],
-      // Wooden Wall - 60 pts, battle only, requires Ares Bonus, REQUIRED for Classical
-      ['Wooden Wall', 60, 1, 'Ares', 1, 1, 'Archaic', 50, 0, 0, 0, 1, 0, 'Defensive structure. +50 battle bonus. Always active. Requires Ares Bonus.'],
-      // Stone Wall - 100 pts, battle only, NOT required
-      ['Stone Wall', 100, 4, 'Ares', 0, 1, 'Archaic', 100, 0, 0, 0, 1, 0, 'Enhanced defense. +100 battle bonus. Always active. Replaces Wooden Wall bonus.'],
+      // Wooden Wall - 80 pts, battle only, requires Ares Bonus, REQUIRED for Classical
+      ['Wooden Wall', 80, 1, 'Ares', 1, 1, 'Archaic', 50, 0, 0, 0, 1, 1, 'Defensive structure. +50 battle bonus. Always active. Requires Ares Bonus. Required for Classical Age.'],
+      // Stone Wall - 150 pts, battle only, NOT required
+      ['Stone Wall', 150, 4, 'Ares', 0, 1, 'Archaic', 100, 0, 0, 0, 1, 0, 'Enhanced defense. +100 battle bonus. Always active. Replaces Wooden Wall bonus.'],
       // Dock - 50 pts, +6%, requires Poseidon Bonus, REQUIRED for Classical
       ['Dock', 50, 2, 'Poseidon', 1, 1, 'Archaic', 0, 0.06, 48, 48, 0, 1, 'Coastal trade hub. +6% point bonus when active. Requires Poseidon Bonus. Required for Classical Age.'],
       // Granary - 30 pts, requires Demeter Side Quest, reduces negative Fate outcomes

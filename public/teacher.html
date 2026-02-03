@@ -847,6 +847,11 @@
                 <div class="title">Grade Overview</div>
                 <div class="description">View all student grades</div>
             </div>
+            <div class="action-card" onclick="openStudentManagementModal()" style="background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.2)); border-color: rgba(59,130,246,0.4);">
+                <div class="icon">👥</div>
+                <div class="title">Manage Students</div>
+                <div class="description">Edit or remove students</div>
+            </div>
         </div>
 
         <div class="dashboard-grid">
@@ -1129,6 +1134,74 @@
             </div>
             <div id="student-submissions-content" style="max-height: 60vh; overflow-y: auto;">
                 Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- STUDENT MANAGEMENT MODAL -->
+    <div id="student-management-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
+                👥 Student Management
+                <button onclick="closeStudentManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+            </div>
+            <div style="margin-bottom: 15px; padding: 10px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
+                📝 <strong>Manage your students:</strong> Change class periods or remove students who have left.
+            </div>
+            <div id="student-management-content" style="max-height: 70vh; overflow-y: auto;">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT STUDENT MODAL -->
+    <div id="edit-student-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
+                ✏️ Edit Student
+                <button onclick="closeEditStudentModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+            </div>
+            <form id="edit-student-form" onsubmit="saveStudentChanges(event)">
+                <input type="hidden" id="edit-student-id">
+                <div class="form-group">
+                    <label for="edit-student-name">Student Name</label>
+                    <input type="text" id="edit-student-name" required style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 16px;">
+                </div>
+                <div class="form-group">
+                    <label for="edit-student-period">Class Period</label>
+                    <select id="edit-student-period" required style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 16px;">
+                        <option value="1st">1st Period</option>
+                        <option value="2nd">2nd Period</option>
+                        <option value="3rd">3rd Period</option>
+                        <option value="4th">4th Period</option>
+                    </select>
+                </div>
+                <div class="modal-buttons" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditStudentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DELETE STUDENT CONFIRMATION MODAL -->
+    <div id="delete-student-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-title" style="color: #ef4444;">⚠️ Delete Student</div>
+            <div style="margin-bottom: 20px; padding: 15px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px;">
+                <p style="margin-bottom: 10px;">Are you sure you want to delete <strong id="delete-student-name" style="color: #ffd700;"></strong>?</p>
+                <p style="color: rgba(255,255,255,0.7); font-size: 14px;">This will permanently remove:</p>
+                <ul style="color: rgba(255,255,255,0.7); font-size: 14px; margin-left: 20px; margin-top: 5px;">
+                    <li>All their grades and submissions</li>
+                    <li>Their game progress and map</li>
+                    <li>Their battle history</li>
+                </ul>
+                <p style="color: #ef4444; font-weight: 600; margin-top: 10px;">This action cannot be undone!</p>
+            </div>
+            <input type="hidden" id="delete-student-id">
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteStudentModal()">Cancel</button>
+                <button type="button" class="btn" style="background: rgba(239,68,68,0.3); border-color: #ef4444; color: #fca5a5;" onclick="confirmDeleteStudent()">🗑️ Delete Student</button>
             </div>
         </div>
     </div>
@@ -3923,6 +3996,178 @@
                 }
             } catch (err) {
                 alert('Failed to delete submission: ' + err.message);
+            }
+        }
+
+        // ====================
+        // STUDENT MANAGEMENT
+        // ====================
+        
+        async function openStudentManagementModal() {
+            document.getElementById('student-management-modal').classList.add('show');
+            document.getElementById('student-management-content').innerHTML = 'Loading...';
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/students`, { headers });
+                const data = await response.json();
+                renderStudentManagement(data);
+            } catch (err) {
+                document.getElementById('student-management-content').innerHTML = '<div style="color: #f87171;">Failed to load students</div>';
+            }
+        }
+        
+        function closeStudentManagementModal() {
+            document.getElementById('student-management-modal').classList.remove('show');
+        }
+        
+        function renderStudentManagement(data) {
+            const content = document.getElementById('student-management-content');
+            
+            if (!data.students || data.students.length === 0) {
+                content.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 40px;">No students found</div>';
+                return;
+            }
+            
+            // Group students by period
+            const byPeriod = {};
+            data.students.forEach(s => {
+                const period = s.class_period || 'Unassigned';
+                if (!byPeriod[period]) byPeriod[period] = [];
+                byPeriod[period].push(s);
+            });
+            
+            // Sort periods
+            const periodOrder = ['1st', '2nd', '3rd', '4th', 'Unassigned'];
+            const sortedPeriods = Object.keys(byPeriod).sort((a, b) => {
+                return periodOrder.indexOf(a) - periodOrder.indexOf(b);
+            });
+            
+            let html = '';
+            
+            sortedPeriods.forEach(period => {
+                const students = byPeriod[period].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                
+                html += `
+                    <div style="margin-bottom: 25px;">
+                        <div style="background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.2)); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid rgba(59,130,246,0.5);">
+                            <span style="font-weight: 700; color: #93c5fd;">${period} Period</span>
+                            <span style="color: rgba(255,255,255,0.6); margin-left: 10px;">(${students.length} student${students.length !== 1 ? 's' : ''})</span>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); border-radius: 0 0 10px 10px; padding: 10px;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                        <th style="text-align: left; padding: 8px; color: rgba(255,255,255,0.6); font-weight: 500;">Name</th>
+                                        <th style="text-align: left; padding: 8px; color: rgba(255,255,255,0.6); font-weight: 500;">Email</th>
+                                        <th style="text-align: left; padding: 8px; color: rgba(255,255,255,0.6); font-weight: 500;">Alliance</th>
+                                        <th style="text-align: center; padding: 8px; color: rgba(255,255,255,0.6); font-weight: 500;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                students.forEach(student => {
+                    html += `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 10px; color: white; font-weight: 500;">${student.name || '<em style="color: rgba(255,255,255,0.4);">No name</em>'}</td>
+                            <td style="padding: 10px; color: rgba(255,255,255,0.7); font-size: 13px;">${student.email}</td>
+                            <td style="padding: 10px; color: rgba(255,255,255,0.7); font-size: 13px;">${student.alliance_name || '<em style="color: rgba(255,255,255,0.4);">None</em>'}</td>
+                            <td style="padding: 10px; text-align: center;">
+                                <button onclick="openEditStudentModal(${student.student_id}, '${(student.name || '').replace(/'/g, "\\'")}', '${student.class_period || ''}')" 
+                                    style="background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.5); color: #93c5fd; padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
+                                    ✏️ Edit
+                                </button>
+                                <button onclick="openDeleteStudentModal(${student.student_id}, '${(student.name || '').replace(/'/g, "\\'")}')" 
+                                    style="background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); color: #fca5a5; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                    🗑️ Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = html;
+        }
+        
+        function openEditStudentModal(studentId, name, period) {
+            document.getElementById('edit-student-id').value = studentId;
+            document.getElementById('edit-student-name').value = name;
+            document.getElementById('edit-student-period').value = period || '1st';
+            document.getElementById('edit-student-modal').classList.add('show');
+        }
+        
+        function closeEditStudentModal() {
+            document.getElementById('edit-student-modal').classList.remove('show');
+        }
+        
+        async function saveStudentChanges(event) {
+            event.preventDefault();
+            
+            const studentId = document.getElementById('edit-student-id').value;
+            const name = document.getElementById('edit-student-name').value;
+            const classPeriod = document.getElementById('edit-student-period').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/student/${studentId}`, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify({ name, class_period: classPeriod })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Student updated successfully');
+                    closeEditStudentModal();
+                    openStudentManagementModal(); // Refresh the list
+                    loadDashboard(); // Refresh main dashboard
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to update student: ' + err.message);
+            }
+        }
+        
+        function openDeleteStudentModal(studentId, name) {
+            document.getElementById('delete-student-id').value = studentId;
+            document.getElementById('delete-student-name').textContent = name || 'this student';
+            document.getElementById('delete-student-modal').classList.add('show');
+        }
+        
+        function closeDeleteStudentModal() {
+            document.getElementById('delete-student-modal').classList.remove('show');
+        }
+        
+        async function confirmDeleteStudent() {
+            const studentId = document.getElementById('delete-student-id').value;
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/student/${studentId}`, {
+                    method: 'DELETE',
+                    headers
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Student deleted successfully');
+                    closeDeleteStudentModal();
+                    openStudentManagementModal(); // Refresh the list
+                    loadDashboard(); // Refresh main dashboard
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to delete student: ' + err.message);
             }
         }
     </script>
