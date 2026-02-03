@@ -2,7 +2,16 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'odyssey_game.db');
+// Use /app/data for Railway volume, fallback to local for development
+const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/app/data' : __dirname;
+const DB_PATH = path.join(DATA_DIR, 'odyssey_game.db');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+console.log('📁 Database path:', DB_PATH);
 
 let db = null;
 
