@@ -756,6 +756,14 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: Exit Ticket update -', e.message);
   }
+  
+  // Update Demeter question wording
+  try {
+    db.run("UPDATE battle_questions SET question_text = 'The main purpose of the Demeter myth is to...' WHERE question_text = 'The main purpose of this myth is to...' AND god_associated = 'Demeter'");
+    console.log('✅ Demeter question updated');
+  } catch (e) {
+    console.log('Migration note: Demeter question -', e.message);
+  }
   // ==================== END MIGRATIONS ====================
   
   if (buildingsExist && choicesExist && sideQuestsExist) {
@@ -1170,7 +1178,7 @@ function seedReferenceData() {
       ['Hermes', 'What is the best trait to describe Hermes\' behavior throughout the myth?', 'Witty', 'Dimwitted', 'Jealous', 'Honest', 'easy'],
       ['Hermes', 'What devious idea did Hermes give Zeus?', 'Disguise himself and mingle with the mortals', 'Hide Apollo\'s cows', 'Hermes wished to answer the pantheon', 'That Hermes was so smart that he could be the messenger god', 'medium'],
       ['Hermes', 'What did Hermes trade Apollo for his golden staff?', 'Pipes', 'Lyre', 'Cows', 'His winged sandals', 'medium'],
-      ['Demeter', 'The main purpose of this myth is to...', 'tell the story of why we have the seasons', 'show how important Demeter was to growing things', 'show how much Zeus loved her', 'tell the story of fruit in the Underworld', 'easy'],
+      ['Demeter', 'The main purpose of the Demeter myth is to...', 'tell the story of why we have the seasons', 'show how important Demeter was to growing things', 'show how much Zeus loved her', 'tell the story of fruit in the Underworld', 'easy'],
       ['Demeter', 'Who stole Persephone from Demeter?', 'Hades', 'Poseidon', 'Zeus', 'Ares', 'easy'],
       ['Demeter', 'What is the Law of the Abode?', 'If you eat food in the Underworld you have to stay in the Underworld', 'If you pick flowers in the Underworld you have to stay in the Underworld', 'If you sleep in the Underworld you have to stay in the Underworld', 'If you take your shoes off in the Underworld you have to stay in the Underworld', 'medium'],
       ['Demeter', 'What did Zeus see and hear that made him realize that he needed to settle the dispute over Persephone?', 'He looked down upon the earth. Nothing grew', 'Demeter was running away from Poseidon', 'Hera would not stop crying', 'Hephaestus was making noise making lightning bolts', 'medium'],
