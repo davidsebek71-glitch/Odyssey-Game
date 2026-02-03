@@ -1064,8 +1064,21 @@
             <div class="modal-title">Deduct Points</div>
             <form id="deduct-form">
                 <div class="form-group">
+                    <label>Deduct From</label>
+                    <select id="deduct-type" onchange="toggleDeductTarget()" style="margin-bottom: 10px;">
+                        <option value="student">Individual Student</option>
+                        <option value="alliance">Entire Alliance</option>
+                    </select>
+                </div>
+                <div class="form-group" id="deduct-student-group">
+                    <label>Select Student</label>
+                    <select id="deduct-student" required>
+                        <option value="">Loading students...</option>
+                    </select>
+                </div>
+                <div class="form-group" id="deduct-alliance-group" style="display: none;">
                     <label>Select Alliance</label>
-                    <select id="deduct-alliance" required>
+                    <select id="deduct-alliance">
                         <option value="">Loading alliances...</option>
                     </select>
                 </div>
@@ -2226,23 +2239,35 @@
                 // Handle both array and {students: []} format
                 studentsData = data.students || data;
                 
-                const select = document.getElementById('award-student');
-                select.innerHTML = '<option value="">Select a student...</option>' +
+                // Build options HTML
+                const studentOptions = '<option value="">Select a student...</option>' +
                     studentsData.map(s => `
                         <option value="${s.student_id}" data-alliance="${s.alliance_id}">
-                            ${s.name}${s.class_period ? ` [${s.class_period}]` : ''} ${s.alliance_name ? `(${s.alliance_name})` : '(No alliance)'}
+                            ${s.name || '(No name)'}${s.class_period ? ` [${s.class_period}]` : ''} ${s.alliance_name ? `(${s.alliance_name})` : '(No alliance)'}
                         </option>
                     `).join('');
+                
+                // Populate award student dropdown
+                const awardSelect = document.getElementById('award-student');
+                if (awardSelect) awardSelect.innerHTML = studentOptions;
+                
+                // Populate deduct student dropdown
+                const deductStudentSelect = document.getElementById('deduct-student');
+                if (deductStudentSelect) deductStudentSelect.innerHTML = studentOptions;
 
                 // Also populate deduct alliance select
                 const response2 = await fetch(`${API_URL}/teacher/leaderboard`, { headers });
                 alliancesData = await response2.json();
                 
                 const allianceSelect = document.getElementById('deduct-alliance');
-                allianceSelect.innerHTML = '<option value="">Select an alliance...</option>' +
-                    alliancesData.map(a => `
-                        <option value="${a.alliance_id}">${a.alliance_name} (${a.total_points} pts)</option>
-                    `).join('');
+                if (allianceSelect) {
+                    allianceSelect.innerHTML = '<option value="">Select an alliance...</option>' +
+                        alliancesData.map(a => `
+                            <option value="${a.alliance_id}">${a.alliance_name} (${a.total_points} pts)</option>
+                        `).join('');
+                }
+                
+                console.log('✅ Loaded', studentsData.length, 'students and', alliancesData.length, 'alliances');
             } catch (err) {
                 console.error('Failed to load students:', err);
             }
@@ -2260,11 +2285,34 @@
 
         function openDeductModal() {
             document.getElementById('deduct-modal').classList.add('show');
+            // Reset to student mode
+            document.getElementById('deduct-type').value = 'student';
+            toggleDeductTarget();
         }
 
         function closeDeductModal() {
             document.getElementById('deduct-modal').classList.remove('show');
             document.getElementById('deduct-form').reset();
+        }
+        
+        function toggleDeductTarget() {
+            const type = document.getElementById('deduct-type').value;
+            const studentGroup = document.getElementById('deduct-student-group');
+            const allianceGroup = document.getElementById('deduct-alliance-group');
+            const studentSelect = document.getElementById('deduct-student');
+            const allianceSelect = document.getElementById('deduct-alliance');
+            
+            if (type === 'student') {
+                studentGroup.style.display = 'block';
+                allianceGroup.style.display = 'none';
+                studentSelect.required = true;
+                allianceSelect.required = false;
+            } else {
+                studentGroup.style.display = 'none';
+                allianceGroup.style.display = 'block';
+                studentSelect.required = false;
+                allianceSelect.required = true;
+            }
         }
 
         // Award points form
@@ -2313,8 +2361,28 @@
         document.getElementById('deduct-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const deductType = document.getElementById('deduct-type').value;
+            let allianceId;
+            let targetName;
+            
+            if (deductType === 'student') {
+                const studentId = parseInt(document.getElementById('deduct-student').value);
+                const student = studentsData.find(s => s.student_id === studentId);
+                
+                if (!student || !student.alliance_id) {
+                    alert('This student is not in an alliance yet!');
+                    return;
+                }
+                allianceId = student.alliance_id;
+                targetName = student.name + "'s alliance (" + student.alliance_name + ")";
+            } else {
+                allianceId = parseInt(document.getElementById('deduct-alliance').value);
+                const alliance = alliancesData.find(a => a.alliance_id === allianceId);
+                targetName = alliance ? alliance.alliance_name : 'the alliance';
+            }
+            
             const data = {
-                alliance_id: parseInt(document.getElementById('deduct-alliance').value),
+                alliance_id: allianceId,
                 amount: parseInt(document.getElementById('deduct-amount').value),
                 reason: document.getElementById('deduct-reason').value
             };
@@ -2329,7 +2397,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`✅ ${data.amount} points deducted!`);
+                    alert(`✅ ${data.amount} points deducted from ${targetName}!`);
                     closeDeductModal();
                     loadLeaderboard();
                     loadTransactions();
