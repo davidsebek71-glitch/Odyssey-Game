@@ -729,15 +729,23 @@ app.get('/api/teacher/pending-submissions', authenticateToken, (req, res) => {
       SELECT 
         ps.*,
         s.name as student_name,
-        a.alliance_name
+        a.alliance_name,
+        ar.max_points as correct_max_points
       FROM point_submissions ps
       JOIN students s ON ps.student_id = s.student_id
       JOIN alliances a ON ps.alliance_id = a.alliance_id
+      LEFT JOIN assignments_ref ar ON UPPER(ps.description) LIKE '%' || UPPER(ar.assignment_name) || '%'
       WHERE ps.status = 'pending'
       ORDER BY ps.submitted_at ASC
     `);
     
-    res.json(submissions);
+    // Use correct_max_points from assignments_ref if available
+    const fixedSubmissions = submissions.map(s => ({
+      ...s,
+      max_points: s.correct_max_points || s.max_points
+    }));
+    
+    res.json(fixedSubmissions);
   } catch (err) {
     console.error('Pending submissions error:', err);
     res.status(500).json({ error: 'Failed to fetch pending submissions' });
