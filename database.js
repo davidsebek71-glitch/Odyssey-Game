@@ -747,11 +747,11 @@ function seedReferenceData() {
   
   // Fix Exit Ticket max points (was 5, should be 2)
   try {
-    db.run("UPDATE assignments_ref SET max_points = 2 WHERE assignment_name = 'Exit Ticket' AND max_points = 5");
-    // Also fix any pending submissions that have the old max_points
-    db.run("UPDATE point_submissions SET max_points = 2 WHERE description LIKE '%Exit Ticket%' AND max_points = 5");
+    db.run("UPDATE assignments_ref SET max_points = 2 WHERE assignment_name = 'Exit Ticket'");
+    // Fix ALL pending quiz submissions with max_points=5 where description mentions EXIT TICKET
+    db.run("UPDATE point_submissions SET max_points = 2 WHERE max_points = 5 AND UPPER(description) LIKE '%EXIT%TICKET%'");
     // And fix any grade records
-    db.run("UPDATE grade_records SET max_points = 2 WHERE assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE assignment_name = 'Exit Ticket') AND max_points = 5");
+    db.run("UPDATE grade_records SET max_points = 2 WHERE assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE assignment_name = 'Exit Ticket')");
     console.log('✅ Exit Ticket max points updated to 2');
   } catch (e) {
     console.log('Migration note: Exit Ticket update -', e.message);
