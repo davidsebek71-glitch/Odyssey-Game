@@ -744,6 +744,14 @@ function seedReferenceData() {
     db.run('ALTER TABLE students ADD COLUMN wall_points TEXT');
     console.log('✅ wall_points column added');
   }
+  
+  // Fix Exit Ticket max points (was 5, should be 2)
+  try {
+    db.run("UPDATE assignments_ref SET max_points = 2 WHERE assignment_name = 'Exit Ticket' AND max_points = 5");
+    console.log('✅ Exit Ticket max points updated to 2');
+  } catch (e) {
+    console.log('Migration note: Exit Ticket update -', e.message);
+  }
   // ==================== END MIGRATIONS ====================
   
   if (buildingsExist && choicesExist && sideQuestsExist) {
