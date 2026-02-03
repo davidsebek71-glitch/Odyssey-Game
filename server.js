@@ -698,13 +698,14 @@ app.get('/api/student/contribution-history', authenticateToken, (req, res) => {
   }
 });
 
-// Get All Students (for point awarding)
+// Get All Students (for point awarding and student management)
 app.get('/api/teacher/students', authenticateToken, (req, res) => {
   try {
     const students = query(`
       SELECT 
         s.student_id,
         s.name,
+        s.email,
         s.class_period,
         s.alliance_id,
         a.alliance_name
@@ -713,7 +714,8 @@ app.get('/api/teacher/students', authenticateToken, (req, res) => {
       ORDER BY s.class_period, a.alliance_name, s.name
     `);
     
-    res.json(students);
+    // Return in format that works for both award modal and student management
+    res.json({ students });
   } catch (err) {
     console.error('Students error:', err);
     res.status(500).json({ error: 'Failed to fetch students' });
@@ -1739,23 +1741,6 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Get grade overview error:', err);
     res.status(500).json({ error: 'Failed to fetch grade overview' });
-  }
-});
-
-// Teacher: Get all students for management
-app.get('/api/teacher/students', authenticateToken, (req, res) => {
-  try {
-    const students = query(`
-      SELECT s.student_id, s.name, s.email, s.class_period, a.name as alliance_name
-      FROM students s
-      LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
-      ORDER BY s.class_period, s.name
-    `);
-    
-    res.json({ students });
-  } catch (err) {
-    console.error('Get students error:', err);
-    res.status(500).json({ error: 'Failed to fetch students' });
   }
 });
 
