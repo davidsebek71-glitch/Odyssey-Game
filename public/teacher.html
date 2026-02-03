@@ -4130,7 +4130,7 @@
                     alert('✅ Student updated successfully');
                     closeEditStudentModal();
                     openStudentManagementModal(); // Refresh the list
-                    loadDashboard(); // Refresh main dashboard
+                    loadStudents(); // Refresh student dropdowns
                 } else {
                     alert('Error: ' + result.error);
                 }
@@ -4164,7 +4164,7 @@
                     alert('✅ Student deleted successfully');
                     closeDeleteStudentModal();
                     openStudentManagementModal(); // Refresh the list
-                    loadDashboard(); // Refresh main dashboard
+                    loadStudents(); // Refresh student dropdowns
                 } else {
                     alert('Error: ' + result.error);
                 }
