@@ -159,6 +159,47 @@
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
         }
 
+        /* Password field wrapper for show/hide button */
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper input {
+            padding-right: 50px; /* Make room for the toggle button */
+        }
+
+        .toggle-password-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            width: auto;
+            box-shadow: none;
+            transition: color 0.2s ease;
+        }
+
+        .toggle-password-btn:hover {
+            color: #ffd700;
+            transform: translateY(-50%); /* Override the button:hover transform */
+            box-shadow: none;
+        }
+
+        .toggle-password-btn:hover::before {
+            display: none; /* Disable the ripple effect for this button */
+        }
+
+        .toggle-password-btn:active {
+            transform: translateY(-50%);
+        }
+
         button {
             width: 100%;
             padding: 18px;
@@ -302,7 +343,10 @@
 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password" required>
+                    <div class="password-wrapper">
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                        <button type="button" class="toggle-password-btn" id="toggle-password" onclick="togglePasswordVisibility()" title="Show/Hide Password">👁️</button>
+                    </div>
                 </div>
 
                 <div class="form-group hidden" id="name-group">
@@ -342,9 +386,11 @@
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 toggleBtn.textContent = '🙈';
+                toggleBtn.title = 'Hide Password';
             } else {
                 passwordInput.type = 'password';
                 toggleBtn.textContent = '👁️';
+                toggleBtn.title = 'Show Password';
             }
         }
 

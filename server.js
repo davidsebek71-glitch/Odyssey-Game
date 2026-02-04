@@ -725,6 +725,7 @@ app.get('/api/teacher/students', authenticateToken, (req, res) => {
 // Get Pending Point Submissions
 app.get('/api/teacher/pending-submissions', authenticateToken, (req, res) => {
   try {
+    // V91 FIX: Changed ar.assignment_name to ar.display_name (correct column name)
     const submissions = query(`
       SELECT 
         ps.*,
@@ -734,7 +735,7 @@ app.get('/api/teacher/pending-submissions', authenticateToken, (req, res) => {
       FROM point_submissions ps
       JOIN students s ON ps.student_id = s.student_id
       JOIN alliances a ON ps.alliance_id = a.alliance_id
-      LEFT JOIN assignments_ref ar ON UPPER(ps.description) LIKE '%' || UPPER(ar.assignment_name) || '%'
+      LEFT JOIN assignments_ref ar ON UPPER(ps.description) LIKE '%' || UPPER(ar.display_name) || '%'
       WHERE ps.status = 'pending'
       ORDER BY ps.submitted_at ASC
     `);

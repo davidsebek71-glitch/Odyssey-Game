@@ -746,12 +746,13 @@ function seedReferenceData() {
   }
   
   // Fix Exit Ticket max points (was 5, should be 2)
+  // V91 FIX: Changed assignment_name to display_name (correct column name)
   try {
-    db.run("UPDATE assignments_ref SET max_points = 2 WHERE assignment_name = 'Exit Ticket'");
+    db.run("UPDATE assignments_ref SET max_points = 2 WHERE display_name = 'Exit Ticket'");
     // Fix ALL pending quiz submissions with max_points=5 where description mentions EXIT TICKET
     db.run("UPDATE point_submissions SET max_points = 2 WHERE max_points = 5 AND UPPER(description) LIKE '%EXIT%TICKET%'");
     // And fix any grade records
-    db.run("UPDATE grade_records SET max_points = 2 WHERE assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE assignment_name = 'Exit Ticket')");
+    db.run("UPDATE grade_records SET points_possible = 2 WHERE assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE display_name = 'Exit Ticket')");
     console.log('✅ Exit Ticket max points updated to 2');
   } catch (e) {
     console.log('Migration note: Exit Ticket update -', e.message);
