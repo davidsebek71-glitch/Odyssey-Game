@@ -2,7 +2,16 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'odyssey_game.db');
+// Use /app/data for Railway volume, fallback to local for development
+const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/app/data' : __dirname;
+const DB_PATH = path.join(DATA_DIR, 'odyssey_game.db');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+console.log('📁 Database path:', DB_PATH);
 
 let db = null;
 
@@ -735,6 +744,27 @@ function seedReferenceData() {
     db.run('ALTER TABLE students ADD COLUMN wall_points TEXT');
     console.log('✅ wall_points column added');
   }
+  
+  // Fix Exit Ticket max points (was 5, should be 2)
+  // V91 FIX: Changed assignment_name to display_name (correct column name)
+  try {
+    db.run("UPDATE assignments_ref SET max_points = 2 WHERE display_name = 'Exit Ticket'");
+    // Fix ALL pending quiz submissions with max_points=5 where description mentions EXIT TICKET
+    db.run("UPDATE point_submissions SET max_points = 2 WHERE max_points = 5 AND UPPER(description) LIKE '%EXIT%TICKET%'");
+    // And fix any grade records
+    db.run("UPDATE grade_records SET points_possible = 2 WHERE assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE display_name = 'Exit Ticket')");
+    console.log('✅ Exit Ticket max points updated to 2');
+  } catch (e) {
+    console.log('Migration note: Exit Ticket update -', e.message);
+  }
+  
+  // Update Demeter question wording
+  try {
+    db.run("UPDATE battle_questions SET question_text = 'The main purpose of the Demeter myth is to...' WHERE question_text = 'The main purpose of this myth is to...' AND god_associated = 'Demeter'");
+    console.log('✅ Demeter question updated');
+  } catch (e) {
+    console.log('Migration note: Demeter question -', e.message);
+  }
   // ==================== END MIGRATIONS ====================
   
   if (buildingsExist && choicesExist && sideQuestsExist) {
@@ -986,7 +1016,7 @@ function seedReferenceData() {
       ['section_1', 'quiz', 'Nine Muses', 'Nine Muses Quiz', 10, 'Quiz on the Nine Muses', null, 0, 'Archaic'],
       ['section_1', 'quiz', 'Athena', 'Athena Quiz', 5, 'Quiz on Athena', null, 0, 'Archaic'],
       ['section_1', 'quiz', 'Hera', 'Hera Quiz', 5, 'Quiz on Hera', null, 0, 'Archaic'],
-      ['section_1', 'quiz', 'Exit Ticket', 'Exit Ticket', 5, 'Exit ticket assessment', null, 0, 'Archaic'],
+      ['section_1', 'quiz', 'Exit Ticket', 'Exit Ticket', 2, 'Exit ticket assessment', null, 0, 'Archaic'],
       
       // Mural - Section 1
       ['section_1', 'mural', 'Pixton Retelling', 'Pixton Retelling', 8, 'Comic retelling using Pixton', null, 0, 'Archaic'],
@@ -1149,7 +1179,7 @@ function seedReferenceData() {
       ['Hermes', 'What is the best trait to describe Hermes\' behavior throughout the myth?', 'Witty', 'Dimwitted', 'Jealous', 'Honest', 'easy'],
       ['Hermes', 'What devious idea did Hermes give Zeus?', 'Disguise himself and mingle with the mortals', 'Hide Apollo\'s cows', 'Hermes wished to answer the pantheon', 'That Hermes was so smart that he could be the messenger god', 'medium'],
       ['Hermes', 'What did Hermes trade Apollo for his golden staff?', 'Pipes', 'Lyre', 'Cows', 'His winged sandals', 'medium'],
-      ['Demeter', 'The main purpose of this myth is to...', 'tell the story of why we have the seasons', 'show how important Demeter was to growing things', 'show how much Zeus loved her', 'tell the story of fruit in the Underworld', 'easy'],
+      ['Demeter', 'The main purpose of the Demeter myth is to...', 'tell the story of why we have the seasons', 'show how important Demeter was to growing things', 'show how much Zeus loved her', 'tell the story of fruit in the Underworld', 'easy'],
       ['Demeter', 'Who stole Persephone from Demeter?', 'Hades', 'Poseidon', 'Zeus', 'Ares', 'easy'],
       ['Demeter', 'What is the Law of the Abode?', 'If you eat food in the Underworld you have to stay in the Underworld', 'If you pick flowers in the Underworld you have to stay in the Underworld', 'If you sleep in the Underworld you have to stay in the Underworld', 'If you take your shoes off in the Underworld you have to stay in the Underworld', 'medium'],
       ['Demeter', 'What did Zeus see and hear that made him realize that he needed to settle the dispute over Persephone?', 'He looked down upon the earth. Nothing grew', 'Demeter was running away from Poseidon', 'Hera would not stop crying', 'Hephaestus was making noise making lightning bolts', 'medium'],
