@@ -592,6 +592,11 @@ function runMigrations() {
       db.run('ALTER TABLE alliances ADD COLUMN underdog_blessing INTEGER DEFAULT 0');
     }
     
+    if (!colNames.includes('side_quest_rewards')) {
+      console.log('  Adding side_quest_rewards column to alliances...');
+      db.run("ALTER TABLE alliances ADD COLUMN side_quest_rewards TEXT DEFAULT '[]'");
+    }
+    
     // Check and add pantheon unlock columns to student_achievement_progress
     const achieveCols = db.exec("PRAGMA table_info(student_achievement_progress)");
     const achieveColNames = achieveCols[0] ? achieveCols[0].values.map(c => c[1]) : [];
@@ -826,8 +831,8 @@ function seedReferenceData() {
       console.log('🗺️  Seeding side quests...');
       const sideQuests = [
         // Format: [quest_name, god_associated, description, reward_type, reward_name, reward_description, form_url, icon]
-        ['The Ring of Many', 'Hephaestus', 'A powerful ring forged by Hephaestus has fallen from the heavens. Return it to the gods and prove your worth.', 'technology', 'Pickaxe', '-10% cost on all building purchases', 'https://docs.google.com/forms/d/1GmU7Etpre0In5GXWcEy-Xlbsae5PdsW_0DcHlq0g-6s/viewform', '🪓'],
-        ['Panacea\'s Remedy', 'Artemis', 'One of Artemis\' nymphs has been injured by Echidna. Journey to find Panacea\'s remedy to save her.', 'technology', 'Handaxe', '+5% on all points earned', 'https://docs.google.com/forms/d/1sxZVm3NP5w5mn1zGg1I2CsaT2cFUIh0eBjPricwXWmQ/viewform', '🪓'],
+        ['The Ring of Many', 'Hephaestus', 'A powerful ring forged by Hephaestus has fallen from the heavens. Return it to the gods and prove your worth.', 'technology', 'Pickaxe', '-10% cost on all building purchases', 'https://docs.google.com/forms/d/1GmU7Etpre0In5GXWcEy-Xlbsae5PdsW_0DcHlq0g-6s/viewform', '🔨'],
+        ['Panacea\'s Remedy', 'Artemis', 'One of Artemis\' nymphs has been injured by Echidna. Journey to find Panacea\'s remedy to save her.', 'technology', 'Handaxe', '+5% on all points earned', 'https://docs.google.com/forms/d/1sxZVm3NP5w5mn1zGg1I2CsaT2cFUIh0eBjPricwXWmQ/viewform', '🏹'],
         ['The Three Seeds', 'Demeter', 'When Hades stole Persephone, she dropped three seeds. Find them and return them to Demeter.', 'building_unlock', 'Granary', 'Unlocks Granary building (-30% negative Fate outcomes)', 'https://docs.google.com/forms/d/1RfocW-Bzl-ajEaaOgPzIcFR-RueCe1S6qjCk32bGd-w/viewform', '🌾']
       ];
 
@@ -837,6 +842,10 @@ function seedReferenceData() {
       });
       console.log('✅ Side quests seeded');
     }
+    
+    // Fix side quest icons for existing databases (emoji update)
+    db.run("UPDATE side_quests_ref SET icon = '🔨' WHERE quest_name = 'The Ring of Many' AND icon != '🔨'");
+    db.run("UPDATE side_quests_ref SET icon = '🏹' WHERE quest_name = 'Panacea''s Remedy' AND icon != '🏹'");
 
     // Seed Fates (20 Archaic Age fates) - MUST be in order 1-20 so fate_id = fate_number
     console.log('🎲 Seeding fates...');

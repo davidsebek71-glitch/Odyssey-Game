@@ -1169,7 +1169,7 @@
 
     <!-- EDIT STUDENT MODAL -->
     <div id="edit-student-modal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 550px;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 ✏️ Edit Student
                 <button onclick="closeEditStudentModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1188,6 +1188,23 @@
                         <option value="3rd">3rd Period</option>
                         <option value="4th">4th Period</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-student-alliance">Alliance</label>
+                    <select id="edit-student-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 16px;">
+                        <option value="">No Alliance (Free Agent)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-student-password">Reset Password (leave blank to keep current)</label>
+                    <input type="text" id="edit-student-password" placeholder="Enter new password" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 16px;">
+                    <p style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 5px;">⚠️ Password will be visible here - share with student securely</p>
+                </div>
+                <div class="form-group" style="margin-top: 15px; padding: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #fca5a5;">
+                        <input type="checkbox" id="edit-student-allow-reregister" style="width: 18px; height: 18px;">
+                        <span>Allow Re-registration (deletes account so student can register fresh)</span>
+                    </label>
                 </div>
                 <div class="modal-buttons" style="margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closeEditStudentModal()">Cancel</button>
@@ -4143,7 +4160,7 @@
                             <td style="padding: 10px; color: rgba(255,255,255,0.7); font-size: 13px;">${student.email}</td>
                             <td style="padding: 10px; color: rgba(255,255,255,0.7); font-size: 13px;">${student.alliance_name || '<em style="color: rgba(255,255,255,0.4);">None</em>'}</td>
                             <td style="padding: 10px; text-align: center;">
-                                <button onclick="openEditStudentModal(${student.student_id}, '${(student.name || '').replace(/'/g, "\\'")}', '${student.class_period || ''}')" 
+                                <button onclick="openEditStudentModal(${student.student_id}, '${(student.name || '').replace(/'/g, "\\'")}', '${student.class_period || ''}', ${student.alliance_id || 'null'})" 
                                     style="background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.5); color: #93c5fd; padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
                                     ✏️ Edit
                                 </button>
@@ -4167,10 +4184,24 @@
             content.innerHTML = html;
         }
         
-        function openEditStudentModal(studentId, name, period) {
+        async function openEditStudentModal(studentId, name, period, allianceId) {
             document.getElementById('edit-student-id').value = studentId;
             document.getElementById('edit-student-name').value = name;
             document.getElementById('edit-student-period').value = period || '1st';
+            document.getElementById('edit-student-password').value = '';
+            document.getElementById('edit-student-allow-reregister').checked = false;
+            
+            // Load alliances for dropdown
+            try {
+                const response = await fetch(`${API_URL}/teacher/leaderboard`, { headers });
+                const alliances = await response.json();
+                const allianceSelect = document.getElementById('edit-student-alliance');
+                allianceSelect.innerHTML = '<option value="">No Alliance (Free Agent)</option>' +
+                    alliances.map(a => `<option value="${a.alliance_id}" ${a.alliance_id === allianceId ? 'selected' : ''}>${a.alliance_name} [${a.class_period || 'No period'}]</option>`).join('');
+            } catch (err) {
+                console.error('Failed to load alliances:', err);
+            }
+            
             document.getElementById('edit-student-modal').classList.add('show');
         }
         
@@ -4184,12 +4215,47 @@
             const studentId = document.getElementById('edit-student-id').value;
             const name = document.getElementById('edit-student-name').value;
             const classPeriod = document.getElementById('edit-student-period').value;
+            const allianceId = document.getElementById('edit-student-alliance').value || null;
+            const newPassword = document.getElementById('edit-student-password').value;
+            const allowReregister = document.getElementById('edit-student-allow-reregister').checked;
+            
+            // If allow re-register is checked, confirm and delete student
+            if (allowReregister) {
+                if (!confirm(`Are you sure you want to allow ${name} to re-register?\n\nThis will DELETE their current account and all progress. They will need to register again with the same email.`)) {
+                    return;
+                }
+                // Delete the student so they can re-register
+                try {
+                    const response = await fetch(`${API_URL}/teacher/student/${studentId}`, {
+                        method: 'DELETE',
+                        headers
+                    });
+                    if (response.ok) {
+                        alert('✅ Student account deleted. They can now re-register with the same email.');
+                        closeEditStudentModal();
+                        openStudentManagementModal();
+                        loadStudents();
+                        loadLeaderboard();
+                    } else {
+                        const result = await response.json();
+                        alert('Error: ' + result.error);
+                    }
+                } catch (err) {
+                    alert('Failed to delete student: ' + err.message);
+                }
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_URL}/teacher/student/${studentId}`, {
                     method: 'PUT',
                     headers,
-                    body: JSON.stringify({ name, class_period: classPeriod })
+                    body: JSON.stringify({ 
+                        name, 
+                        class_period: classPeriod,
+                        alliance_id: allianceId,
+                        new_password: newPassword || null
+                    })
                 });
                 
                 const result = await response.json();

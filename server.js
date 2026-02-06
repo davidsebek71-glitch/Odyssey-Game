@@ -382,6 +382,7 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
         a.current_age,
         a.buildings_owned,
         a.underdog_blessing,
+        a.side_quest_rewards,
         COUNT(s.student_id) as member_count
       FROM alliances a
       LEFT JOIN students s ON a.alliance_id = s.alliance_id
@@ -393,6 +394,17 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
     // Parse JSON fields and get member names
     alliances.forEach(alliance => {
       alliance.buildings_owned = JSON.parse(alliance.buildings_owned || '[]');
+      
+      // Parse side quest rewards and convert to emoji string
+      const rewards = JSON.parse(alliance.side_quest_rewards || '[]');
+      const rewardEmojis = rewards.map(questId => {
+        if (questId === 1) return '🔨';
+        if (questId === 2) return '🏹';
+        if (questId === 3) return '🌾';
+        return '';
+      }).join('');
+      alliance.side_quest_reward_icons = rewardEmojis;
+      alliance.side_quest_rewards = rewards;
       
       // Get member names for this alliance
       const members = query(`
@@ -984,7 +996,8 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         a.total_points as alliance_points,
         a.current_age,
         a.buildings_owned,
-        a.reverse_cards
+        a.reverse_cards,
+        a.side_quest_rewards
       FROM students s
       LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
       WHERE s.student_id = ?
@@ -998,6 +1011,15 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
     student.technologies_unlocked = JSON.parse(student.technologies_unlocked || '[]');
     student.badges_earned = JSON.parse(student.badges_earned || '[]');
     student.buildings_owned = JSON.parse(student.buildings_owned || '[]');
+    
+    // Parse side quest rewards and convert to icons
+    const rewards = JSON.parse(student.side_quest_rewards || '[]');
+    student.side_quest_reward_icons = rewards.map(questId => {
+      if (questId === 1) return '🔨';
+      if (questId === 2) return '🏹';
+      if (questId === 3) return '🌾';
+      return '';
+    }).join('');
     
     // Get alliance members
     let members = [];
@@ -1019,18 +1041,30 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         alliance_id,
         alliance_name,
         total_points,
-        current_age
+        current_age,
+        side_quest_rewards
       FROM alliances
+      WHERE is_disbanded = 0
       ORDER BY total_points DESC
     `);
     
-    // Add technologies to each alliance
+    // Add technologies and side quest icons to each alliance
     const leaderboardWithTechs = leaderboard.map(alliance => {
       const techs = query(
         'SELECT tech_name FROM alliance_technologies WHERE alliance_id = ?',
         [alliance.alliance_id]
       ).map(t => t.tech_name);
-      return { ...alliance, technologies: techs };
+      
+      // Parse side quest rewards and convert to emoji string
+      const rewards = JSON.parse(alliance.side_quest_rewards || '[]');
+      const rewardIcons = rewards.map(questId => {
+        if (questId === 1) return '🔨';
+        if (questId === 2) return '🏹';
+        if (questId === 3) return '🌾';
+        return '';
+      }).join('');
+      
+      return { ...alliance, technologies: techs, side_quest_reward_icons: rewardIcons };
     });
     
     res.json({
@@ -1262,7 +1296,7 @@ app.get('/api/student/pantheon', authenticateToken, (req, res) => {
       { name: 'zeus', emoji: '⚡', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10 },
       { name: 'poseidon', emoji: '🔱', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10 },
       { name: 'prometheus', emoji: '🔥', threshold: 17, maxScore: 20, quizMax: 10, notesMax: 10 },
-      { name: 'apollo', emoji: '☀️', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10, quizGod: 'Apollo and Artemis' },
+      { name: 'apollo', emoji: '☀️', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10, quizGod: 'Apollo and Artemis' },
       { name: 'artemis', emoji: '🏹', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10, quizGod: 'Apollo and Artemis' },
       { name: 'athena', emoji: '🦉', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10 },
       { name: 'hera', emoji: '🦚', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10 },
@@ -1271,7 +1305,7 @@ app.get('/api/student/pantheon', authenticateToken, (req, res) => {
       { name: 'hermes', emoji: '🪽', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10 },
       { name: 'hephaestus', emoji: '🔨', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10 },
       { name: 'hades', emoji: '💀', isBonus: true },
-      { name: 'ares', emoji: '⚔️', isBonus: true }
+      { name: 'ares', emoji: '⚔️', isBonus: true }
     ];
     
     const pantheon = {};
@@ -1789,7 +1823,7 @@ app.put('/api/teacher/student/:student_id', authenticateToken, async (req, res) 
       const remainingMembers = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [oldAllianceId])[0];
       if (remainingMembers.count === 0) {
         run('DELETE FROM alliances WHERE alliance_id = ?', [oldAllianceId]);
-        console.log(`🗑️ Deleted empty alliance ${oldAllianceId}`);
+        console.log(`🗑ï¸ Deleted empty alliance ${oldAllianceId}`);
       }
     }
     
@@ -1829,7 +1863,7 @@ app.delete('/api/teacher/student/:student_id', authenticateToken, (req, res) => 
       const remainingMembers = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [allianceId])[0];
       if (remainingMembers.count === 0) {
         run('DELETE FROM alliances WHERE alliance_id = ?', [allianceId]);
-        console.log(`🗑️ Deleted empty alliance ${allianceId}`);
+        console.log(`🗑ï¸ Deleted empty alliance ${allianceId}`);
       }
     }
     
@@ -2877,6 +2911,250 @@ app.get('/api/teacher/god-assignments', authenticateToken, (req, res) => {
   }
 });
 
+// Side Quest Icons constant
+const SIDE_QUEST_ICONS = {
+  'The Ring of Many': '🔨',
+  'Panacea\'s Remedy': '🏹',
+  'The Three Seeds': '🌾'
+};
+
+// Teacher: Get eligible alliances for a side quest reward
+// An alliance is eligible when ALL members have status='approved' for that quest
+app.get('/api/teacher/eligible-alliances-for-quest', authenticateToken, (req, res) => {
+  try {
+    const { quest_id, period } = req.query;
+    
+    if (!quest_id) {
+      return res.status(400).json({ error: 'quest_id is required' });
+    }
+    
+    // Get the quest info
+    const quest = query('SELECT * FROM side_quests_ref WHERE quest_id = ?', [quest_id])[0];
+    if (!quest) {
+      return res.status(404).json({ error: 'Quest not found' });
+    }
+    
+    // Get all alliances (optionally filtered by period)
+    let alliancesQuery = 'SELECT alliance_id, alliance_name, class_period, side_quest_rewards FROM alliances WHERE is_disbanded = 0';
+    const params = [];
+    if (period && period !== 'all') {
+      alliancesQuery += ' AND class_period = ?';
+      params.push(period);
+    }
+    const alliances = query(alliancesQuery, params);
+    
+    const eligibleAlliances = [];
+    
+    for (const alliance of alliances) {
+      // Check if already has this reward
+      const currentRewards = JSON.parse(alliance.side_quest_rewards || '[]');
+      if (currentRewards.includes(parseInt(quest_id))) {
+        continue; // Already has this reward
+      }
+      
+      // Get all members of this alliance
+      const members = query(
+        'SELECT student_id FROM students WHERE alliance_id = ?',
+        [alliance.alliance_id]
+      );
+      
+      if (members.length === 0) {
+        continue; // No members
+      }
+      
+      // Check if ALL members have approved status for this quest
+      const approvedCount = query(
+        `SELECT COUNT(*) as cnt FROM side_quest_completions 
+         WHERE quest_id = ? AND alliance_id = ? AND status = 'approved'`,
+        [quest_id, alliance.alliance_id]
+      )[0].cnt;
+      
+      if (approvedCount >= members.length) {
+        eligibleAlliances.push({
+          alliance_id: alliance.alliance_id,
+          alliance_name: alliance.alliance_name,
+          class_period: alliance.class_period,
+          member_count: members.length,
+          approved_count: approvedCount
+        });
+      }
+    }
+    
+    res.json({
+      quest: quest,
+      eligible_alliances: eligibleAlliances
+    });
+  } catch (err) {
+    console.error('Get eligible alliances error:', err);
+    res.status(500).json({ error: 'Failed to fetch eligible alliances' });
+  }
+});
+
+// Teacher: Grant side quest reward to an alliance
+app.post('/api/teacher/grant-side-quest-reward', authenticateToken, (req, res) => {
+  try {
+    const { alliance_id, quest_id } = req.body;
+    const teacher_id = req.user.id;
+    
+    // Get quest info
+    const quest = query('SELECT * FROM side_quests_ref WHERE quest_id = ?', [quest_id])[0];
+    if (!quest) {
+      return res.status(404).json({ error: 'Quest not found' });
+    }
+    
+    // Get alliance info
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) {
+      return res.status(404).json({ error: 'Alliance not found' });
+    }
+    
+    // Check if already granted
+    const currentRewards = JSON.parse(alliance.side_quest_rewards || '[]');
+    if (currentRewards.includes(parseInt(quest_id))) {
+      return res.status(400).json({ error: `${quest.quest_name} reward already granted to this alliance` });
+    }
+    
+    // Verify all members have approved status
+    const members = query(
+      'SELECT student_id FROM students WHERE alliance_id = ?',
+      [alliance_id]
+    );
+    const approvedCount = query(
+      `SELECT COUNT(*) as cnt FROM side_quest_completions 
+       WHERE quest_id = ? AND alliance_id = ? AND status = 'approved'`,
+      [quest_id, alliance_id]
+    )[0].cnt;
+    
+    if (approvedCount < members.length) {
+      return res.status(400).json({ 
+        error: `Not all members have completed ${quest.quest_name}. ${approvedCount}/${members.length} approved.` 
+      });
+    }
+    
+    // Add reward to alliance
+    currentRewards.push(parseInt(quest_id));
+    run('UPDATE alliances SET side_quest_rewards = ? WHERE alliance_id = ?',
+        [JSON.stringify(currentRewards), alliance_id]);
+    
+    // Also add to alliance_technologies table
+    run(`INSERT OR IGNORE INTO alliance_technologies (alliance_id, tech_name, source_quest_id) 
+         VALUES (?, ?, ?)`,
+        [alliance_id, quest.reward_name, quest_id]);
+    
+    const icon = SIDE_QUEST_ICONS[quest.quest_name] || '⭐';
+    
+    console.log(`✅ Side quest reward granted: ${quest.quest_name} (${icon}) to ${alliance.alliance_name}`);
+    
+    res.json({ 
+      success: true, 
+      message: `${quest.quest_name} ${icon} reward granted to ${alliance.alliance_name}!`,
+      icon: icon,
+      reward_name: quest.reward_name,
+      reward_description: quest.reward_description
+    });
+  } catch (err) {
+    console.error('Grant side quest reward error:', err);
+    res.status(500).json({ error: 'Failed to grant side quest reward' });
+  }
+});
+
+// Teacher: Get quest and bonus tracking grid data
+app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
+  try {
+    const { period } = req.query;
+    
+    // Get all students (optionally filtered by period)
+    let studentsQuery = `
+      SELECT s.student_id, s.name, s.class_period, s.alliance_id, a.alliance_name
+      FROM students s
+      LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (period && period !== 'all') {
+      studentsQuery += ' AND s.class_period = ?';
+      params.push(period);
+    }
+    studentsQuery += ' ORDER BY s.class_period, s.name';
+    const students = query(studentsQuery, params);
+    
+    // Get all side quests
+    const sideQuests = query('SELECT * FROM side_quests_ref ORDER BY quest_id');
+    
+    // Get all bonus assignments (is_bonus = 1)
+    const bonusAssignments = query(
+      `SELECT assignment_id, myth_god, display_name, max_points 
+       FROM assignments_ref WHERE is_bonus = 1 ORDER BY myth_god`
+    );
+    
+    // Get all side quest completions
+    const sideQuestCompletions = query(
+      `SELECT student_id, quest_id, status FROM side_quest_completions WHERE status = 'approved'`
+    );
+    const sqCompletionMap = {};
+    sideQuestCompletions.forEach(c => {
+      if (!sqCompletionMap[c.student_id]) sqCompletionMap[c.student_id] = {};
+      sqCompletionMap[c.student_id][c.quest_id] = true;
+    });
+    
+    // Get all bonus grades (need to check if >= 80% of max)
+    const bonusGrades = query(
+      `SELECT gr.student_id, gr.assignment_id, gr.points_earned, ar.max_points
+       FROM grade_records gr
+       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+       WHERE ar.is_bonus = 1`
+    );
+    const bonusCompletionMap = {};
+    bonusGrades.forEach(g => {
+      const threshold = g.max_points * 0.8;
+      if (g.points_earned >= threshold) {
+        if (!bonusCompletionMap[g.student_id]) bonusCompletionMap[g.student_id] = {};
+        bonusCompletionMap[g.student_id][g.assignment_id] = true;
+      }
+    });
+    
+    // Build student data with completion status
+    const studentData = students.map(student => {
+      const sqStatus = {};
+      sideQuests.forEach(sq => {
+        sqStatus[sq.quest_id] = sqCompletionMap[student.student_id]?.[sq.quest_id] || false;
+      });
+      
+      const bonusStatus = {};
+      bonusAssignments.forEach(ba => {
+        bonusStatus[ba.assignment_id] = bonusCompletionMap[student.student_id]?.[ba.assignment_id] || false;
+      });
+      
+      return {
+        student_id: student.student_id,
+        name: student.name,
+        class_period: student.class_period,
+        alliance_name: student.alliance_name || 'No Alliance',
+        side_quests: sqStatus,
+        bonuses: bonusStatus
+      };
+    });
+    
+    res.json({
+      students: studentData,
+      side_quests: sideQuests.map(sq => ({
+        quest_id: sq.quest_id,
+        quest_name: sq.quest_name,
+        icon: SIDE_QUEST_ICONS[sq.quest_name] || sq.icon
+      })),
+      bonus_assignments: bonusAssignments.map(ba => ({
+        assignment_id: ba.assignment_id,
+        myth_god: ba.myth_god,
+        display_name: ba.display_name,
+        max_points: ba.max_points
+      }))
+    });
+  } catch (err) {
+    console.error('Quest bonus tracker error:', err);
+    res.status(500).json({ error: 'Failed to fetch tracker data' });
+  }
+});
+
 // ====================
 // BUILDING REQUESTS (Hybrid System)
 // ====================
@@ -3364,29 +3642,48 @@ app.post('/api/teacher/mark-rite-complete', authenticateToken, (req, res) => {
 // Teacher: Reset all battle counts (for testing)
 app.post('/api/teacher/reset-battle-counts', authenticateToken, (req, res) => {
   try {
-    // battles_today is in arena_battle_stats, not students
-    run('UPDATE arena_battle_stats SET battles_today = 0, last_battle_date = NULL');
-    const count = query('SELECT COUNT(*) as c FROM arena_battle_stats')[0].c;
-    console.log(`🔄 Reset battle counts for ${count} students`);
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Count battles that would count toward daily limit
+    const countedBattles = query(`
+      SELECT COUNT(*) as count FROM arena_battles 
+      WHERE DATE(started_at) = ? AND status IN ('in_progress', 'completed')
+    `, [today]);
+    const battleCount = countedBattles[0] ? countedBattles[0].count : 0;
+    
+    // Backdate today's battles - BOTH started_at AND created_at
+    // (created_at is used to filter available opponents)
+    run(`
+      UPDATE arena_battles 
+      SET started_at = datetime(started_at, '-1 day'),
+          created_at = datetime(created_at, '-1 day')
+      WHERE DATE(started_at) = ? OR DATE(created_at) = ?
+    `, [today, today]);
+    
+    // Also reset the stats table
+    run('UPDATE arena_battle_stats SET battles_today = 0, last_battle_date = NULL, prometheus_used_date = NULL');
+    
     saveDatabase();
-    res.json({ success: true, message: `Reset battle counts for ${count} students` });
+    
+    console.log(`🔄 Reset battle counts: ${battleCount} battles backdated`);
+    res.json({ success: true, message: `Reset complete! ${battleCount} battles backdated. Everyone can battle again!` });
   } catch (err) {
     console.error('Reset battle counts error:', err);
-    res.status(500).json({ error: 'Failed to reset battle counts' });
+    res.status(500).json({ error: 'Failed to reset: ' + err.message });
   }
 });
 
 // Teacher: Cleanup stuck battles
 app.post('/api/teacher/cleanup-battles', authenticateToken, (req, res) => {
   try {
-    // Cancel all pending and accepted battles (stuck in god selection)
-    const stuck = query("SELECT * FROM arena_battles WHERE status IN ('pending', 'accepted')");
+    // Cancel all pending, accepted, AND in_progress battles (for testing)
+    const stuck = query("SELECT * FROM arena_battles WHERE status IN ('pending', 'accepted', 'in_progress')");
     
-    run("UPDATE arena_battles SET status = 'cancelled' WHERE status IN ('pending', 'accepted')");
+    run("UPDATE arena_battles SET status = 'cancelled' WHERE status IN ('pending', 'accepted', 'in_progress')");
     
-    console.log(`🧹 Cleaned up ${stuck.length} stuck battles`);
+    console.log(`🧹 Cleaned up ${stuck.length} stuck battles (including in_progress)`);
     saveDatabase();
-    res.json({ success: true, message: `Cleaned up ${stuck.length} stuck/pending battles` });
+    res.json({ success: true, message: `Cleaned up ${stuck.length} stuck/pending/in-progress battles` });
   } catch (err) {
     console.error('Cleanup battles error:', err);
     res.status(500).json({ error: 'Failed to cleanup battles' });
@@ -4384,9 +4681,89 @@ const BATTLE_TIMING = {
   SUDDEN_DEATH_DEPLOY: 12000  // Sudden death god selection
 };
 
+/*
+ * ===============================================================================
+ * GOD POWERS CONFIGURATION - EXTENSIBILITY GUIDE
+ * ===============================================================================
+ * 
+ * HOW TO ADD A NEW GOD:
+ * 
+ * 1. SERVER-SIDE (server.js):
+ *    a) Add god to GOD_POWERS config below with all required fields
+ *    b) Add god name to validGods array in /api/pantheon/unlock endpoint (~line 1367)
+ *    c) Add god unlock threshold in the godList array (~line 1269 in database.js)
+ *    
+ * 2. CLIENT-SIDE (student.html):
+ *    a) Add to GOD_CONFIG object (~line 2718):
+ *       godname: { emoji: '🎯', glowClass: 'glow-color', color: '#hexcode', flashId: 'screen-flash-color', name: 'GodName' }
+ *    b) Add CSS class for .glow-color if new color needed (~line 200)
+ *    c) Add to defensiveGods array if defensive (~line 6665, 7346)
+ *    d) If has visual effect, add to applyOffensiveEffect() function (~line 7700)
+ *    e) If has passive ability, add to applyDefensivePassive() function (~line 7800)
+ *    f) Add audio file to /audio/ folder and register in battleSounds (~line 7612)
+ *    
+ * 3. ASSETS:
+ *    a) Add SVG icon: godname.svg in root directory
+ *    b) Add audio file: /audio/godname.wav or .mp3
+ *    
+ * 4. DATABASE (database.js):
+ *    a) Add unlock threshold to godList array (~line 1265):
+ *       { name: 'godname', emoji: '🎯', threshold: 20, maxScore: 25, quizMax: 5, notesMax: 20 }
+ *    
+ * 5. PANTHEON UI (student.html):
+ *    a) Add HTML element in pantheon section (~line 1946):
+ *       <div class="pantheon-god-wrapper locked glow-color" id="pantheon-godname-wrapper">...</div>
+ * 
+ * ===============================================================================
+ * GOD POWER FIELD REFERENCE:
+ * ===============================================================================
+ * 
+ * REQUIRED FIELDS:
+ * - type: 'offensive' | 'defensive' | 'special'
+ *     offensive = attacks opponent with visual/audio effects
+ *     defensive = blocks specific offensive + has passive ability
+ *     special = unique mechanics (like Prometheus)
+ * 
+ * - name: string - Display name of the power (e.g., "Lightning Strike")
+ * - description: string - Short description for tooltips
+ * - emoji: string - Emoji displayed in UI
+ * 
+ * OFFENSIVE GOD FIELDS:
+ * - baseEffect: number - Duration in seconds (or other unit)
+ * - bonusEffect: number - Enhanced effect when bonus task completed
+ * - counteredBy: string - Name of defensive god that blocks this (lowercase)
+ * 
+ * DEFENSIVE GOD FIELDS:
+ * - blocks: string - Name of offensive god this blocks (lowercase)
+ * - passive: string - Description of passive ability
+ * - passiveEffect: number - Base passive value
+ * - bonusPassiveEffect: number - Enhanced passive when bonus completed
+ * 
+ * SPECIAL GOD FIELDS:
+ * - oncePerDay: boolean - If true, can only be used once per day
+ * - counteredBy: null - Cannot be blocked
+ * 
+ * ===============================================================================
+ * OFFENSIVE/DEFENSIVE PAIRING GUIDE:
+ * ===============================================================================
+ * Current pairings (offensive → defensive counter):
+ *   Zeus (lightning) → Hera (queen's shield)
+ *   Poseidon (tidal wave) → Athena (wisdom)
+ *   Hades (darkness) → Apollo (light)
+ *   Hephaestus (forge fire) → Artemis (hunter's focus)
+ *   Ares (war cry) → Aphrodite (charm)
+ *   Hermes (speed steal) → Demeter (harvest shield)
+ * 
+ * When adding new gods, maintain this pairing structure for game balance.
+ * ===============================================================================
+ */
+
 // GOD POWERS CONFIGURATION
 const GOD_POWERS = {
-  // OFFENSIVE GODS
+  // ==================== OFFENSIVE GODS ====================
+  // Offensive gods attack the opponent with visual/audio effects
+  // They are countered by specific defensive gods
+  
   zeus: {
     type: 'offensive',
     name: 'Lightning Strike',
@@ -4412,7 +4789,7 @@ const GOD_POWERS = {
     baseEffect: 2,
     bonusEffect: 3,
     counteredBy: 'aphrodite',
-    emoji: '⚔️'
+    emoji: '⚔️'
   },
   hades: {
     type: 'offensive',
@@ -4441,7 +4818,10 @@ const GOD_POWERS = {
     counteredBy: 'demeter',
     emoji: '🪽'
   },
-  // SPECIAL GOD
+  
+  // ==================== SPECIAL GODS ====================
+  // Special gods have unique mechanics that don't fit offensive/defensive pattern
+  
   prometheus: {
     type: 'special',
     name: 'Gift of Fire',
@@ -4452,7 +4832,11 @@ const GOD_POWERS = {
     emoji: '🔥',
     oncePerDay: true
   },
-  // DEFENSIVE GODS
+  
+  // ==================== DEFENSIVE GODS ====================
+  // Defensive gods block specific offensive attacks AND have passive abilities
+  // Passive abilities activate even if no opponent attack to block
+  
   hera: {
     type: 'defensive',
     name: 'Queen\'s Shield',
@@ -4481,7 +4865,7 @@ const GOD_POWERS = {
     passive: 'Correct answer glows for 1 sec',
     passiveEffect: 1,
     bonusPassiveEffect: 1.5,
-    emoji: '☀️'
+    emoji: '☀️'
   },
   artemis: {
     type: 'defensive',
@@ -4498,9 +4882,9 @@ const GOD_POWERS = {
     name: 'Charm',
     description: 'Blocks Ares war cry',
     blocks: 'ares',
-    passive: 'If wrong, 3 sec to retry (if opponent hasn\'t won)',
-    passiveEffect: 3,
-    bonusPassiveEffect: 4.5,
+    passive: 'If wrong, 4 sec to pick again',
+    passiveEffect: 4, // seconds to retry
+    bonusPassiveEffect: 5,
     emoji: '💕'
   },
   demeter: {
@@ -4542,6 +4926,34 @@ function prometheusUsedToday(student_id) {
   const today = new Date().toISOString().split('T')[0];
   const stats = query('SELECT prometheus_used_date FROM arena_battle_stats WHERE student_id = ?', [student_id])[0];
   return stats && stats.prometheus_used_date === today;
+}
+
+// Fisher-Yates shuffle for random question selection
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Get a random question for a battle, excluding already-used question IDs
+function getRandomQuestion(excludeIds = []) {
+  const allQuestions = query('SELECT question_id FROM battle_questions WHERE is_active = 1');
+  const availableQuestions = allQuestions.filter(q => !excludeIds.includes(q.question_id));
+  
+  if (availableQuestions.length === 0) {
+    // If all questions used, reset and pick from all
+    console.log('🔄 All questions used, resetting pool');
+    const shuffled = shuffleArray(allQuestions);
+    return shuffled[0] || null;
+  }
+  
+  const shuffled = shuffleArray(availableQuestions);
+  const selected = shuffled[0];
+  console.log(`🎲 Selected question ${selected?.question_id} from ${availableQuestions.length} available (excluded: ${excludeIds.length})`);
+  return selected;
 }
 
 // Helper function to count total battles today (as challenger OR defender)
@@ -4739,6 +5151,9 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
         };
       });
     
+    const battlesToday = countBattlesToday(student_id);
+    const battlesRemaining = MAX_BATTLES_PER_DAY - battlesToday;
+    
     res.json({
       arena_unlocked: true,
       arena_enabled: true,
@@ -4749,7 +5164,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
         current_streak: stats.current_streak || 0,
         best_streak: stats.best_streak || 0
       },
-      battles_today: countBattlesToday(student_id),
+      battles_today: battlesToday,
+      battles_remaining: battlesRemaining,
       max_battles_per_day: MAX_BATTLES_PER_DAY,
       pending_challenges: pendingChallenges,
       active_battle: activeBattle,
@@ -4916,9 +5332,8 @@ app.post('/api/arena/select-gods', authenticateToken, (req, res) => {
     
     if (updated.challenger_gods_ready === 1 && updated.defender_gods_ready === 1) {
       // BOTH ready - start battle with deploy phase
-      // Get all available questions and pick one randomly (more reliable than SQLite RANDOM())
-      const allQuestions = query('SELECT question_id FROM battle_questions WHERE is_active = 1');
-      const question = allQuestions.length > 0 ? allQuestions[Math.floor(Math.random() * allQuestions.length)] : null;
+      // Get a random question for round 1
+      const question = getRandomQuestion([]);
       
       if (question) {
         // Set synchronized start time - 1 second from now for both players
@@ -4988,6 +5403,19 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           currentRound.question_starts_at = questionStartsAt;
           currentRound.phase_ends_at = newPhaseEnds;
           console.log(`⏱️ Deploy timeout - Question synced: starts at ${questionStartsAt}`);
+        } else if (currentRound.phase === 'sudden_death_intro') {
+          // Sudden death intro timeout - force transition to question phase
+          console.log(`⚡ Sudden Death intro timeout - forcing transition to question phase`);
+          const questionStartsAt = new Date(Date.now() + 500).toISOString();
+          const newPhaseEnds = new Date(Date.now() + 500 + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'question', 
+               question_starts_at = ?, phase_ends_at = ?, question_display_time = ?
+               WHERE round_id = ?`, 
+            [questionStartsAt, newPhaseEnds, questionStartsAt, currentRound.round_id]);
+          currentRound.phase = 'question';
+          currentRound.question_starts_at = questionStartsAt;
+          currentRound.phase_ends_at = newPhaseEnds;
+          currentRound.question_display_time = questionStartsAt;
         } else if (currentRound.phase === 'question') {
           // Time's up - auto-submit wrong answers for anyone who hasn't answered
           if (!currentRound.challenger_answer) {
@@ -5004,40 +5432,36 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           
           // Check if battle should continue (less than 5 rounds or tied at 5)
           if (nextRoundNum <= 5 || (battle.challenger_score === battle.defender_score)) {
-            // Get all unused questions and pick one randomly
+            // Get unused question IDs for this battle
             const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
             const usedIds = usedQuestions.map(q => q.question_id);
-            const availableQuestions = query('SELECT question_id FROM battle_questions WHERE is_active = 1')
-              .filter(q => !usedIds.includes(q.question_id));
-            const nextQ = availableQuestions.length > 0 ? availableQuestions[Math.floor(Math.random() * availableQuestions.length)] : null;
+            
+            // Get a random question excluding already-used ones
+            const nextQ = getRandomQuestion(usedIds);
             
             if (nextQ) {
               const isSuddenDeath = nextRoundNum > 5;
-              const newPhase = isSuddenDeath ? 'question' : 'deploy';
-              const phaseDuration = isSuddenDeath ? BATTLE_TIMING.QUESTION_PHASE : BATTLE_TIMING.DEPLOY_PHASE;
               
               // Set a synchronized start time - 1 second from now
-              // This ensures both clients wait until this moment before showing the new round
               const roundStartsAt = new Date(Date.now() + 1000).toISOString();
-              const newPhaseEnds = new Date(Date.now() + 1000 + phaseDuration).toISOString();
-              
-              console.log(`⏱️ Round ${nextRoundNum} created - question_id: ${nextQ.question_id}`);
               
               run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
               
-              // For sudden death, also set question_starts_at
+              // For sudden death, use sudden_death_intro phase
               if (isSuddenDeath) {
-                const questionStartsAt = new Date(Date.now() + 1000 + BATTLE_TIMING.SYNC_DELAY).toISOString();
-                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, question_starts_at, started_at) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                  [battle_id, nextRoundNum, nextQ.question_id, newPhase, newPhaseEnds, questionStartsAt, roundStartsAt]);
+                const phaseEndsAt = new Date(Date.now() + 30000).toISOString(); // 30 sec timeout
+                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
+                     challenger_question_ready, defender_question_ready, started_at) 
+                     VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, ?)`,
+                  [battle_id, nextRoundNum, nextQ.question_id, phaseEndsAt, roundStartsAt]);
+                console.log(`⚡ SUDDEN DEATH Round ${nextRoundNum} created - phase: sudden_death_intro`);
               } else {
+                const newPhaseEnds = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
                 run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, started_at) 
-                     VALUES (?, ?, ?, ?, ?, ?)`,
-                  [battle_id, nextRoundNum, nextQ.question_id, newPhase, newPhaseEnds, roundStartsAt]);
+                     VALUES (?, ?, ?, 'deploy', ?, ?)`,
+                  [battle_id, nextRoundNum, nextQ.question_id, newPhaseEnds, roundStartsAt]);
+                console.log(`⏱️ Round ${nextRoundNum} created - starts at ${roundStartsAt}`);
               }
-              
-              console.log(`⏱️ Round ${nextRoundNum} created - starts at ${roundStartsAt}`);
               
               // Re-query to get the new round
               battle.current_round = nextRoundNum;
@@ -5072,9 +5496,30 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         }
       }
       
+      // PROMETHEUS: During deploy phase, if this player deployed Prometheus, send question text only (no answers)
+      if (currentRound.phase === 'deploy') {
+        const myDeployed = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
+        if (myDeployed === 'prometheus') {
+          const q = query('SELECT * FROM battle_questions WHERE question_id = ?', [currentRound.question_id])[0];
+          if (q) {
+            question = {
+              question_id: q.question_id,
+              question_text: q.question_text,
+              god_associated: q.god_associated,
+              prometheus_preview: true  // Flag so client knows this is a preview only
+              // NO shuffled_answers - Prometheus only shows the question, not the choices
+            };
+          }
+        }
+      }
+      
       // Check if I've deployed a god this round
       const myDeployReady = isChallenger ? currentRound.challenger_deploy_ready : currentRound.defender_deploy_ready;
       const opponentDeployReady = isChallenger ? currentRound.defender_deploy_ready : currentRound.challenger_deploy_ready;
+      
+      const isSuddenDeath = currentRound.round_number > 5;
+      const mySDReady = isChallenger ? currentRound.challenger_question_ready : currentRound.defender_question_ready;
+      const oppSDReady = isChallenger ? currentRound.defender_question_ready : currentRound.challenger_question_ready;
       
       roundData = {
         round_number: currentRound.round_number,
@@ -5093,7 +5538,11 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         opponent_god_deployed: isChallenger ? currentRound.defender_god_deployed : currentRound.challenger_god_deployed,
         my_deploy_ready: myDeployReady === 1,
         opponent_deploy_ready: opponentDeployReady === 1,
-        both_deployed: (currentRound.challenger_deploy_ready === 1 && currentRound.defender_deploy_ready === 1)
+        both_deployed: (currentRound.challenger_deploy_ready === 1 && currentRound.defender_deploy_ready === 1),
+        // Sudden death fields
+        is_sudden_death: isSuddenDeath,
+        my_sd_ready: mySDReady === 1,
+        opponent_sd_ready: oppSDReady === 1
       };
     }
     
@@ -5297,6 +5746,62 @@ app.post('/api/arena/question-ready', authenticateToken, (req, res) => {
   }
 });
 
+// Sudden Death Ready - called when player acknowledges the sudden death intro screen
+app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { battle_id } = req.body;
+    
+    const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battle_id])[0];
+    if (!battle) {
+      return res.status(404).json({ error: 'Battle not found' });
+    }
+    
+    const isChallenger = battle.challenger_id === student_id;
+    const currentRound = query('SELECT * FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
+      [battle_id, battle.current_round])[0];
+    
+    if (!currentRound || currentRound.phase !== 'sudden_death_intro') {
+      // Phase already changed - return current state
+      return res.json({ success: true, phase_changed: true, current_phase: currentRound?.phase });
+    }
+    
+    // Mark this player as ready using the question_ready columns
+    const readyCol = isChallenger ? 'challenger_question_ready' : 'defender_question_ready';
+    run(`UPDATE arena_battle_rounds SET ${readyCol} = 1 WHERE round_id = ?`, [currentRound.round_id]);
+    console.log(`⚡ Sudden Death - ${isChallenger ? 'Challenger' : 'Defender'} clicked READY`);
+    
+    // Check if BOTH are now ready
+    const updatedRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
+    
+    if (updatedRound.challenger_question_ready === 1 && updatedRound.defender_question_ready === 1) {
+      // BOTH ready - transition to question phase
+      // But DON'T set question_display_time yet - require both clients to call /question-ready
+      const questionStartsAt = new Date(Date.now() + 500).toISOString();
+      const phaseEndsAt = new Date(Date.now() + 500 + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+      
+      // Reset the question_ready flags so they can be used for question sync
+      run(`UPDATE arena_battle_rounds SET phase = 'question', 
+           question_starts_at = ?, phase_ends_at = ?,
+           challenger_question_ready = 0, defender_question_ready = 0
+           WHERE round_id = ?`, 
+        [questionStartsAt, phaseEndsAt, currentRound.round_id]);
+      
+      console.log(`⚡ SUDDEN DEATH - BOTH READY! Transitioning to question phase (awaiting /question-ready sync)`);
+      saveDatabase();
+      return res.json({ success: true, both_ready: true, phase: 'question', needs_question_sync: true });
+    }
+    
+    // Waiting for other player
+    saveDatabase();
+    res.json({ success: true, waiting_for_opponent: true });
+    
+  } catch (err) {
+    console.error('Sudden death ready error:', err);
+    res.status(500).json({ error: 'Failed to signal ready' });
+  }
+});
+
 // Submit answer
 app.post('/api/arena/answer', authenticateToken, (req, res) => {
   try {
@@ -5324,15 +5829,26 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
     
     // Check phase - must be in question phase to answer
     if (currentRound.phase !== 'question') {
-      console.log(`⚠️ Tried to answer in wrong phase: ${currentRound.phase}`);
+      console.log(`⚠ï¸ Tried to answer in wrong phase: ${currentRound.phase}`);
       return res.status(400).json({ error: 'Not in question phase' });
     }
     
     // Check if already answered
     const existingAnswer = isChallenger ? currentRound.challenger_answer : currentRound.defender_answer;
     if (existingAnswer) {
-      console.log(`⚠️ Already answered: ${existingAnswer}`);
-      return res.status(400).json({ error: 'Already answered this round' });
+      // APHRODITE RETRY: Allow overwriting a wrong answer if player has Aphrodite deployed and not blocked
+      const myGodForRetry = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
+      const myGodBlockedForRetry = isChallenger ? currentRound.challenger_god_blocked : currentRound.defender_god_blocked;
+      
+      if (existingAnswer === 'wrong' && myGodForRetry === 'aphrodite' && !myGodBlockedForRetry) {
+        console.log(`💕 Aphrodite retry allowed for student ${student_id}`);
+        // Reset the answer so it can be re-submitted below
+        const answerColRetry = isChallenger ? 'challenger_answer' : 'defender_answer';
+        run(`UPDATE arena_battle_rounds SET ${answerColRetry} = NULL WHERE round_id = ?`, [currentRound.round_id]);
+      } else {
+        console.log(`⚠️ Already answered: ${existingAnswer}`);
+        return res.status(400).json({ error: 'Already answered this round' });
+      }
     }
     
     // Get question and use seeded shuffle to match battle state
@@ -5454,7 +5970,7 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
           const challengerWon = winner === battle.challenger_id;
           const stakes = battle.point_stakes || 0;
           
-          console.log(`⚔️ BATTLE COMPLETE - Winner: ${winner}, Stakes: ${stakes}, ChallengerWon: ${challengerWon}`);
+          console.log(`⚔️ BATTLE COMPLETE - Winner: ${winner}, Stakes: ${stakes}, ChallengerWon: ${challengerWon}`);
           
           if (challengerWon) {
             // Challenger wins: +full stakes, defender loses half
@@ -5502,23 +6018,23 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
         // Tied after 5 rounds - go to sudden death
         const nextRound = battle.current_round + 1;
         
-        // Get unused questions and pick randomly
+        // Get unused questions for this battle
         const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
         const usedIds = usedQuestions.map(q => q.question_id);
-        const availableQuestions = query('SELECT question_id FROM battle_questions WHERE is_active = 1')
-          .filter(q => !usedIds.includes(q.question_id));
-        const nextQ = availableQuestions.length > 0 ? availableQuestions[Math.floor(Math.random() * availableQuestions.length)] : null;
+        
+        // Get a random question excluding already-used ones
+        const nextQ = getRandomQuestion(usedIds);
         
         if (nextQ) {
-          // Sudden death - skip deploy phase, go straight to question
-          // Add 3 second transition for the "SUDDEN DEATH" intro screen
-          const questionStartsAt = new Date(Date.now() + 3000).toISOString();
-          const phaseEndsAt = new Date(Date.now() + 3000 + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          // Sudden death - use 'sudden_death_intro' phase for dramatic screen
+          // Phase stays until both players click Ready (max 30 seconds timeout)
+          const phaseEndsAt = new Date(Date.now() + 30000).toISOString(); // 30 sec timeout
           run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRound, battle_id]);
-          run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, question_starts_at, started_at) 
-               VALUES (?, ?, ?, 'question', ?, ?, CURRENT_TIMESTAMP)`,
-            [battle_id, nextRound, nextQ.question_id, phaseEndsAt, questionStartsAt]);
-          console.log(`⏱️ SUDDEN DEATH Round ${nextRound} - question_id: ${nextQ.question_id}`);
+          run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
+               challenger_question_ready, defender_question_ready, started_at) 
+               VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, CURRENT_TIMESTAMP)`,
+            [battle_id, nextRound, nextQ.question_id, phaseEndsAt]);
+          console.log(`⚡ SUDDEN DEATH Round ${nextRound} created - phase: sudden_death_intro, question_id: ${nextQ.question_id}`);
         }
         saveDatabase();
       } else {
