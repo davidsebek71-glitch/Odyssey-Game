@@ -2488,7 +2488,7 @@
                 </div>
                 <div class="form-group">
                     <label>Points Earned</label>
-                    <input type="number" id="submit-points" min="1" max="100" placeholder="Enter points" required>
+                    <input type="number" id="submit-points" min="1" max="100" placeholder="Enter points (max 100)" required oninput="if(this.value > 100) this.value = 100; if(this.value.length > 3) this.value = this.value.slice(0,3);">
                 </div>
                 <div class="form-group">
                     <label>Description</label>
