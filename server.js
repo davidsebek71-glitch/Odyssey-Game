@@ -1105,6 +1105,14 @@ app.post('/api/student/submit-points', authenticateToken, (req, res) => {
     const { points_claimed, max_points, category, myth_god, section, description } = req.body;
     const student_id = req.user.id;
     
+    // Validate points - reject anything over 100
+    if (!points_claimed || points_claimed < 1) {
+      return res.status(400).json({ error: 'Points must be at least 1' });
+    }
+    if (points_claimed > 100) {
+      return res.status(400).json({ error: 'Maximum submission is 100 points. Contact your teacher if you need to submit more.' });
+    }
+    
     // Get student's alliance
     const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
     
