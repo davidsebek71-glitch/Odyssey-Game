@@ -4498,6 +4498,80 @@ app.post('/api/teacher/grant-side-quest-reward', authenticateToken, (req, res) =
   }
 });
 
+// Teacher: Quest & Bonus Tracker - shows completion grid for side quests and bonus assignments
+app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
+  try {
+    const { period } = req.query;
+    
+    // Get students, optionally filtered by period
+    let studentsQuery = `
+      SELECT s.student_id, s.name, s.class_period, s.alliance_id
+      FROM students s
+      ORDER BY s.class_period, s.name
+    `;
+    let students = query(studentsQuery);
+    
+    if (period && period !== 'all') {
+      students = students.filter(s => s.class_period === period);
+    }
+    
+    // Get all side quests
+    const sideQuests = query('SELECT * FROM side_quests_ref ORDER BY quest_id');
+    
+    // Get all bonus assignments
+    const bonusAssignments = query(`
+      SELECT * FROM assignments_ref 
+      WHERE section = 'bonus' 
+      ORDER BY assignment_id
+    `);
+    
+    // Get all approved side quest completions
+    const allSideQuestCompletions = query(`
+      SELECT student_id, quest_id FROM side_quest_completions WHERE status = 'approved'
+    `);
+    
+    // Build a lookup: { student_id: { quest_id: true } }
+    const sqLookup = {};
+    allSideQuestCompletions.forEach(c => {
+      if (!sqLookup[c.student_id]) sqLookup[c.student_id] = {};
+      sqLookup[c.student_id][c.quest_id] = true;
+    });
+    
+    // Get all bonus grade records
+    const allBonusRecords = query(`
+      SELECT gr.student_id, gr.assignment_id, gr.points_earned
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE ar.section = 'bonus' AND gr.points_earned > 0
+    `);
+    
+    // Build a lookup: { student_id: { assignment_id: true } }
+    const bonusLookup = {};
+    allBonusRecords.forEach(r => {
+      if (!bonusLookup[r.student_id]) bonusLookup[r.student_id] = {};
+      bonusLookup[r.student_id][r.assignment_id] = true;
+    });
+    
+    // Build student response objects
+    const studentsWithStatus = students.map(s => ({
+      student_id: s.student_id,
+      name: s.name,
+      class_period: s.class_period || 'Unassigned',
+      side_quests: sqLookup[s.student_id] || {},
+      bonuses: bonusLookup[s.student_id] || {}
+    }));
+    
+    res.json({
+      students: studentsWithStatus,
+      side_quests: sideQuests,
+      bonus_assignments: bonusAssignments
+    });
+  } catch (err) {
+    console.error('Quest bonus tracker error:', err);
+    res.status(500).json({ error: 'Failed to load quest bonus tracker' });
+  }
+});
+
 // ====================
 // BATTLE ARENA SYSTEM
 // ====================
