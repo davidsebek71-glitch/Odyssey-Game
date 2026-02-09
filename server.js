@@ -515,6 +515,46 @@ app.post('/api/teacher/deduct-points', authenticateToken, (req, res) => {
   }
 });
 
+// Set Points (override) - for fixing corrupted point values
+app.post('/api/teacher/set-points', authenticateToken, (req, res) => {
+  try {
+    const { alliance_id, new_total, reason } = req.body;
+    const teacher_id = req.user.id;
+    
+    if (new_total === undefined || new_total === null) {
+      return res.status(400).json({ error: 'new_total is required' });
+    }
+    
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) {
+      return res.status(404).json({ error: 'Alliance not found' });
+    }
+    
+    const oldTotal = alliance.total_points;
+    
+    // Directly set the points
+    run('UPDATE alliances SET total_points = ? WHERE alliance_id = ?', 
+        [Math.floor(new_total), alliance_id]);
+    
+    // Log the correction
+    run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
+         VALUES (?, ?, ?, ?, ?)`, 
+        [alliance_id, Math.floor(new_total) - oldTotal, 'correction', 
+         reason || `Points reset from ${oldTotal} to ${new_total}`, teacher_id]);
+    
+    saveDatabase();
+    
+    const updated = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    
+    console.log(`🔧 Points corrected for ${updated.alliance_name}: ${oldTotal} → ${new_total}`);
+    
+    res.json({ success: true, old_total: oldTotal, new_total: updated.total_points, alliance: updated });
+  } catch (err) {
+    console.error('Set points error:', err);
+    res.status(500).json({ error: 'Failed to set points' });
+  }
+});
+
 // Get Recent Transactions
 app.get('/api/teacher/transactions', authenticateToken, (req, res) => {
   try {
