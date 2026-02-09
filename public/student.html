@@ -2472,7 +2472,7 @@
                 </div>
                 <div class="form-group" id="myth-group">
                     <label>Myth / God</label>
-                    <select id="submit-myth" required>
+                    <select id="submit-myth">
                         <option value="">Select a myth...</option>
                     </select>
                 </div>
@@ -5437,6 +5437,8 @@
                 // Hide myth for bonus - they should use the portal
                 mythGroup.style.display = 'none';
                 maxPointsGroup.style.display = 'none';
+                mythSelect.removeAttribute('required');
+                mythSelect.value = '';
                 alert('For bonus assignments, please use the "Bonus Options" button on your dashboard!');
                 return;
             }
@@ -5445,12 +5447,15 @@
                 // Rite of Passage is special - no myth needed, fixed at 100 points
                 mythGroup.style.display = 'none';
                 maxPointsGroup.style.display = 'none'; // Auto-calculated to 100
+                mythSelect.removeAttribute('required');
+                mythSelect.value = '';
                 return;
             }
             
             if (trackedCategories.includes(category)) {
                 mythGroup.style.display = 'block';
                 maxPointsGroup.style.display = 'none'; // Auto-calculated
+                mythSelect.setAttribute('required', 'required');
                 
                 // Populate myth dropdown directly with all options for this category
                 populateMythDropdown(category);
@@ -5458,6 +5463,8 @@
                 // Other categories (membean, reading, citizenship) don't need tracking
                 mythGroup.style.display = 'none';
                 maxPointsGroup.style.display = 'none';
+                mythSelect.removeAttribute('required');
+                mythSelect.value = '';
             }
         }
 
