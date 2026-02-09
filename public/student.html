@@ -154,38 +154,46 @@
         /* Ares - Screen Shake */
         @keyframes aresShake {
             0%, 100% { transform: translateX(0) translateY(0); }
-            5% { transform: translateX(-10px) translateY(5px); }
-            10% { transform: translateX(10px) translateY(-5px); }
-            15% { transform: translateX(-10px) translateY(5px); }
-            20% { transform: translateX(10px) translateY(-5px); }
-            25% { transform: translateX(-8px) translateY(4px); }
-            30% { transform: translateX(8px) translateY(-4px); }
-            35% { transform: translateX(-8px) translateY(4px); }
-            40% { transform: translateX(8px) translateY(-4px); }
-            45% { transform: translateX(-6px) translateY(3px); }
-            50% { transform: translateX(6px) translateY(-3px); }
-            55% { transform: translateX(-6px) translateY(3px); }
-            60% { transform: translateX(6px) translateY(-3px); }
-            65% { transform: translateX(-4px) translateY(2px); }
-            70% { transform: translateX(4px) translateY(-2px); }
-            75% { transform: translateX(-4px) translateY(2px); }
-            80% { transform: translateX(4px) translateY(-2px); }
-            85% { transform: translateX(-2px) translateY(1px); }
-            90% { transform: translateX(2px) translateY(-1px); }
-            95% { transform: translateX(-1px) translateY(0); }
+            5% { transform: translateX(-15px) translateY(8px); }
+            10% { transform: translateX(15px) translateY(-8px); }
+            15% { transform: translateX(-15px) translateY(8px); }
+            20% { transform: translateX(15px) translateY(-8px); }
+            25% { transform: translateX(-12px) translateY(6px); }
+            30% { transform: translateX(12px) translateY(-6px); }
+            35% { transform: translateX(-12px) translateY(6px); }
+            40% { transform: translateX(12px) translateY(-6px); }
+            45% { transform: translateX(-10px) translateY(5px); }
+            50% { transform: translateX(10px) translateY(-5px); }
+            55% { transform: translateX(-10px) translateY(5px); }
+            60% { transform: translateX(10px) translateY(-5px); }
+            65% { transform: translateX(-8px) translateY(4px); }
+            70% { transform: translateX(8px) translateY(-4px); }
+            75% { transform: translateX(-6px) translateY(3px); }
+            80% { transform: translateX(6px) translateY(-3px); }
+            85% { transform: translateX(-4px) translateY(2px); }
+            90% { transform: translateX(4px) translateY(-2px); }
+            95% { transform: translateX(-2px) translateY(1px); }
         }
         
         .ares-effect {
             animation: aresShake 2s ease-in-out;
         }
         
+        /* Ares - Red Haze of War (translucent red filter, NOT darkness) */
+        @keyframes aresRedHaze {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
         .ares-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle, rgba(200, 0, 0, 0.2) 0%, rgba(100, 0, 0, 0.3) 100%);
+            background: rgba(220, 20, 20, 0.25);
             pointer-events: none;
             z-index: 9998;
-            animation: fadeInOut 2s ease-in-out forwards;
+            animation: aresRedHaze 2s ease-in-out forwards;
         }
         
         /* Hades - Darkness Effect */
@@ -2695,6 +2703,9 @@
         let timeRemaining = 15;
         let questionActualStartTime = null; // Tracks when question actually started for accurate time_ms calculation
         let arenaCountdownInterval = null;
+        let suddenDeathIntroShown = false; // Tracks if we've shown the sudden death intro for current round
+        let suddenDeathRoundShown = 0; // Which sudden death round we showed intro for
+        let aphroditeRetryActive = false; // Blocks UI refresh during Aphrodite retry window
         
         // God configuration - MUST be declared before loadPantheon is called
         const GOD_CONFIG = {
@@ -2832,7 +2843,9 @@
 
             // Update stats
             if (student.alliance_name) {
-                document.getElementById('alliance-name-stat').textContent = student.alliance_name;
+                const rewardIcons = student.side_quest_reward_icons || '';
+                document.getElementById('alliance-name-stat').innerHTML = student.alliance_name + 
+                    (rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : '');
                 document.getElementById('points-stat').textContent = student.alliance_points || 0;
                 
                 const rank = leaderboard.findIndex(a => a.alliance_id === student.alliance_id) + 1;
@@ -2856,10 +2869,11 @@
             // Render alliance section
             const allianceContent = document.getElementById('alliance-content');
             if (student.alliance_id) {
+                const allianceRewardIcons = student.side_quest_reward_icons || '';
                 allianceContent.innerHTML = `
                     <div style="text-align: center; margin-bottom: 20px;">
                         <div style="font-size: 24px; font-weight: 700; color: #ffd700; margin-bottom: 5px;">
-                            ${student.alliance_name}
+                            ${student.alliance_name} ${allianceRewardIcons ? `<span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${allianceRewardIcons}</span>` : ''}
                         </div>
                         <div style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">
                             ${student.civilization_name || 'Unnamed Civilization'}
@@ -2902,22 +2916,15 @@
                 // Show top 8 alliances
                 const top8 = leaderboard.slice(0, 8);
                 leaderboardContent.innerHTML = top8.map((alliance, index) => {
-                    // Build tech icons string
-                    let techIcons = '';
-                    if (alliance.technologies && alliance.technologies.length > 0) {
-                        alliance.technologies.forEach(tech => {
-                            if (tech === 'Pickaxe') techIcons += '🪓';
-                            if (tech === 'Handaxe') techIcons += '🪓';
-                            if (tech === 'Granary') techIcons += '🌾';
-                        });
-                    }
+                    // Use the pre-computed side quest reward icons from server
+                    const rewardIcons = alliance.side_quest_reward_icons || '';
                     return `
                     <div class="leaderboard-row ${alliance.alliance_id === student.alliance_id ? 'current' : ''}" 
                          style="cursor: pointer;" 
                          onclick="viewAllianceMapsById(${alliance.alliance_id}, '${alliance.alliance_name.replace(/'/g, "\\'")}')">
                         <div class="rank rank-${index + 1}">#${index + 1}</div>
                         <div style="font-weight: 600; flex: 1;">
-                            ${alliance.alliance_name}${techIcons ? ' ' + techIcons : ''}
+                            ${alliance.alliance_name}${rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                             ${alliance.alliance_id === student.alliance_id ? ' (You)' : ''}
                         </div>
                         <div class="points">${alliance.total_points}</div>
@@ -4038,7 +4045,7 @@
                                 <span class="icon">${b.icon.startsWith('/') ? `<img src="${b.icon}" alt="${b.building_name}" style="width:32px;height:32px;object-fit:contain;">` : b.icon}</span>
                                 <div>
                                     <div class="name">${b.building_name}</div>
-                                    <div class="count">×${b.count} to place</div>
+                                    <div class="count">Ã—${b.count} to place</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -5250,6 +5257,15 @@
             
             grid.innerHTML = data.quests.map(quest => {
                 const icon = GOD_ICONS[quest.god_associated] || '🏛️';
+                
+                // Correct side quest icons (override any incorrect database values)
+                const SIDE_QUEST_ICONS = {
+                    'The Ring of Many': '🔨',
+                    'Panacea\'s Remedy': '🏹',
+                    'The Three Seeds': '🌾'
+                };
+                const questIcon = SIDE_QUEST_ICONS[quest.quest_name] || quest.icon || icon;
+                
                 let statusBadge = '';
                 let cardStyle = '';
                 let buttonHtml = '';
@@ -5289,7 +5305,7 @@
                 return `
                     <div style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 15px; ${cardStyle}">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                            <div style="font-size: 36px;">${quest.icon || icon}</div>
+                            <div style="font-size: 36px;">${questIcon}</div>
                             <div style="text-align: right;">
                                 ${statusBadge}
                             </div>
@@ -5724,7 +5740,7 @@
                 } catch (e) {}
             }, 500);
             
-            // After animation completes (4 pulses × 0.5s = 2s, plus message time)
+            // After animation completes (4 pulses Ã— 0.5s = 2s, plus message time)
             setTimeout(() => {
                 godEl.classList.remove('bonus-pulsing');
                 godEl.classList.add('bonus-complete');
@@ -6729,7 +6745,7 @@
         function getGodEmoji(godName) {
             const emojis = {
                 zeus: '⚡', poseidon: '🔱', hera: '🦚', athena: '🦉',
-                apollo: '☀️', artemis: '🏹', aphrodite: '💕', ares: '🗡️',
+                apollo: '☀️', artemis: '🏹', aphrodite: '💕', ares: '⚔️',
                 hephaestus: '🔨', hermes: '🪽', demeter: '🌾', prometheus: '🔥', hades: '💀'
             };
             return emojis[godName] || '⭐';
@@ -6896,12 +6912,30 @@
             // Load battle state
             loadBattleState();
             
-            // Start polling - reduced frequency to prevent memory issues
+            // Start adaptive polling - rate adjusts based on phase
             if (battlePollInterval) clearInterval(battlePollInterval);
+            currentBattlePollRate = 2000;
             battlePollInterval = setInterval(loadBattleState, 2000);
         }
         
+        // Adaptive polling: fast during transitions, slow during idle
+        let currentBattlePollRate = 2000;
+        function setBattlePollRate(ms) {
+            if (ms === currentBattlePollRate) return;
+            currentBattlePollRate = ms;
+            if (battlePollInterval) {
+                clearInterval(battlePollInterval);
+                battlePollInterval = setInterval(loadBattleState, ms);
+            }
+        }
+        
         async function loadBattleState() {
+            // Skip UI refresh during Aphrodite retry window
+            if (aphroditeRetryActive) {
+                console.log('💕 Skipping loadBattleState - Aphrodite retry active');
+                return;
+            }
+            
             try {
                 const response = await fetch(`${API_URL}/arena/battle/${currentBattleId}`, { headers });
                 const data = await response.json();
@@ -6909,6 +6943,19 @@
                 if (data.error) {
                     document.getElementById('battle-content').innerHTML = `<div style="color: #ff6b6b; text-align: center;">${data.error}</div>`;
                     return;
+                }
+                
+                // Adaptive polling rate based on current phase
+                const phase = data.round_data?.phase;
+                if (phase === 'results' || phase === 'deploy') {
+                    // Fast polling during transitions - catch next phase quickly
+                    setBattlePollRate(500);
+                } else if (data.status === 'completed') {
+                    // Battle over - slow polling
+                    setBattlePollRate(5000);
+                } else {
+                    // Question phase / idle - normal rate
+                    setBattlePollRate(2000);
                 }
                 
                 renderBattle(data);
@@ -7065,12 +7112,29 @@
                 
                 if (myDeployReady) {
                     // Already deployed, waiting for opponent
+                    // Check if Prometheus preview is available
+                    let prometheusPreview = '';
+                    if (data.question && data.question.prometheus_preview) {
+                        prometheusPreview = `
+                            <div style="margin-top: 20px; background: rgba(139,0,0,0.3); border: 2px solid #8b0000; border-radius: 12px; padding: 20px; text-align: left;">
+                                <div style="text-align: center; margin-bottom: 12px;">
+                                    <span style="font-size: 28px;">🔥</span>
+                                    <span style="color: #ff6b6b; font-size: 18px; font-weight: bold;"> Prometheus — Gift of Fire!</span>
+                                </div>
+                                <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">UPCOMING QUESTION:</p>
+                                <p style="color: #ffd700; font-size: 20px; line-height: 1.5;">${data.question.question_text}</p>
+                                <p style="color: rgba(255,255,255,0.4); font-size: 13px; margin-top: 12px; text-align: center;">📖 Read carefully — answers will appear when the round begins!</p>
+                            </div>
+                        `;
+                    }
+                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
                             <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
                             <h3 style="color: #ffd700;">Waiting for opponent to choose their god...</h3>
                             <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed || 'No Power'}</p>
+                            ${prometheusPreview}
                         </div>
                     `;
                 } else {
@@ -7267,12 +7331,31 @@
                 const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                 const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
                 
+                // Check if I have Demeter (enemy effects last 50% shorter)
+                const iHaveDemeter = roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'demeter' && !myBlocked;
+                
                 // If opponent used an offensive god and it wasn't blocked, apply the effect to us
                 if (roundData.opponent_god_deployed && !oppBlocked) {
                     const oppGod = roundData.opponent_god_deployed.toLowerCase();
                     const offensiveGods = ['zeus', 'poseidon', 'ares', 'hades', 'hephaestus', 'hermes'];
                     if (offensiveGods.includes(oppGod)) {
-                        applyGodPowerEffect(oppGod, false);
+                        applyGodPowerEffect(oppGod, false, iHaveDemeter);
+                    }
+                }
+                
+                // If opponent used Hera (defensive) and it wasn't blocked, apply click delay to US
+                if (roundData.opponent_god_deployed && !oppBlocked) {
+                    const oppGod = roundData.opponent_god_deployed.toLowerCase();
+                    if (oppGod === 'hera') {
+                        // Hera's passive: opponent gets 1 second click delay
+                        const heraDelay = iHaveDemeter ? 500 : 1000;
+                        const heraOverlay = document.createElement('div');
+                        heraOverlay.id = 'hera-passive-overlay';
+                        heraOverlay.className = 'hermes-overlay';
+                        heraOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:all;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(147,112,219,0.3);';
+                        heraOverlay.innerHTML = '<span style="font-size:48px;color:white;text-shadow:0 0 20px rgba(0,0,0,0.8);">🦚 SLOWED!</span>';
+                        document.body.appendChild(heraOverlay);
+                        setTimeout(() => heraOverlay.remove(), heraDelay);
                     }
                 }
                 
@@ -7284,6 +7367,9 @@
                         applyDefensivePassive(myGod, content, data.question);
                     }
                 }
+                
+                // Track Aphrodite state for retry on wrong answer
+                activeAphrodite = (roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'aphrodite' && !myBlocked);
                 
                 return;
             }
@@ -7321,56 +7407,121 @@
                 return;
             }
             
-            // SUDDEN DEATH - show intro then question
-            if (isSuddenDeath && data.question && !data.my_answer) {
-                const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
+            // SUDDEN DEATH INTRO PHASE - Show dramatic screen with Ready button
+            if (phase === 'sudden_death_intro') {
+                if (battleTimer) clearInterval(battleTimer);
+                
+                // Play dramatic sound (only once)
+                if (suddenDeathRoundShown !== data.current_round) {
+                    suddenDeathRoundShown = data.current_round;
+                    playBattleSound('roundStart', 0.8);
+                }
+                
+                // Check if we've already clicked ready
+                const myReady = roundData.my_sd_ready;
+                const oppReady = roundData.opponent_sd_ready;
+                
+                content.innerHTML = `
+                    ${scoreboardHTML}
+                    <div style="background: #000; border-radius: 15px; padding: 30px; text-align: center;">
+                        <h1 style="
+                            color: #a855f7; 
+                            font-size: 64px; 
+                            font-weight: 900;
+                            letter-spacing: 8px;
+                            text-transform: uppercase;
+                            text-shadow: 
+                                0 0 20px rgba(168, 85, 247, 0.8),
+                                0 0 40px rgba(168, 85, 247, 0.6),
+                                0 0 60px rgba(168, 85, 247, 0.4),
+                                0 4px 0 #581c87;
+                            margin-bottom: 30px;
+                            font-family: 'Impact', 'Arial Black', sans-serif;
+                        ">
+                            SUDDEN DEATH
+                        </h1>
+                        
+                        <div style="color: #ffd700; font-size: 28px; margin-bottom: 35px; line-height: 1.8;">
+                            <p style="margin: 15px 0;">🚫 No gods allowed in Sudden Death</p>
+                            <p style="margin: 15px 0;">🏆 First correct answer wins</p>
+                            <p style="margin: 15px 0;">⚡ Prepare to battle</p>
+                        </div>
+                        
+                        ${myReady ? `
+                            <div style="background: rgba(34,197,94,0.2); border: 2px solid #22c55e; border-radius: 12px; padding: 20px; margin-top: 20px;">
+                                <p style="color: #22c55e; font-size: 22px; margin: 0;">
+                                    ✓ You are READY!
+                                </p>
+                                <p style="color: rgba(255,255,255,0.7); font-size: 18px; margin-top: 10px;">
+                                    ${oppReady ? 'Starting...' : 'Waiting for opponent...'}
+                                </p>
+                            </div>
+                        ` : `
+                            <button onclick="signalSuddenDeathReady()" style="
+                                background: #000;
+                                color: #ffd700;
+                                font-size: 32px;
+                                font-weight: bold;
+                                padding: 20px 60px;
+                                border: 3px solid #ffd700;
+                                border-radius: 15px;
+                                cursor: pointer;
+                                margin-top: 20px;
+                                animation: sdPulse 1.5s ease-in-out infinite;
+                                box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+                                text-transform: uppercase;
+                                letter-spacing: 4px;
+                            ">
+                                ⚔️ READY ⚔️
+                            </button>
+                        `}
+                    </div>
+                    <style>
+                        @keyframes sdPulse {
+                            0%, 100% { 
+                                box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+                                transform: scale(1);
+                            }
+                            50% { 
+                                box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
+                                transform: scale(1.05);
+                            }
+                        }
+                    </style>
+                `;
+                return;
+            }
+            
+            // SUDDEN DEATH QUESTION PHASE - show question (no gods)
+            if (isSuddenDeath && phase === 'question' && data.question && !data.my_answer) {
                 currentQuestion = data.question;
                 
-                // Check if question has been displayed yet (both players ready)
+                // Check if question has been synced yet (both players called /question-ready)
                 const questionDisplayTime = roundData.question_display_time;
                 
-                // Show Sudden Death intro while waiting for sync
-                if (questionChanged && !questionDisplayTime) {
-                    if (battleTimer) clearInterval(battleTimer);
-                    
-                    // Play dramatic sound
-                    playBattleSound('roundStart', 0.8);
+                // If not synced yet, signal ready and show waiting state
+                if (!questionDisplayTime) {
+                    // Signal that we're ready for the question
+                    signalQuestionReady();
                     
                     content.innerHTML = `
                         ${scoreboardHTML}
-                        <div style="text-align: center; padding: 30px;">
-                            <div style="font-size: 80px; margin-bottom: 15px;">⚔️</div>
-                            <h2 style="color: #ff6b6b; font-size: 36px; text-shadow: 0 0 20px rgba(255,107,107,0.5); margin-bottom: 15px;">
-                                ⚡ SUDDEN DEATH! ⚡
-                            </h2>
-                            <p style="color: #ffd700; font-size: 22px; margin-bottom: 10px;">
-                                Scores are TIED!
-                            </p>
-                            <p style="color: white; font-size: 18px; margin-bottom: 20px;">
-                                First to answer correctly WINS the battle!
-                            </p>
-                            <div style="background: rgba(255,107,107,0.2); border: 2px solid #ff6b6b; padding: 15px; border-radius: 10px; display: inline-block;">
-                                <p style="color: #ff6b6b; font-size: 16px; margin: 0;">
-                                    🚫 No God Powers Allowed 🚫
-                                </p>
-                            </div>
-                            <p style="color: rgba(255,255,255,0.6); font-size: 16px; margin-top: 20px;">
-                                Waiting for opponent...
-                            </p>
+                        <div style="text-align: center; padding: 40px;">
+                            <div style="font-size: 60px; margin-bottom: 15px; animation: pulse 1s infinite;">⚡</div>
+                            <h3 style="color: #a855f7; margin-bottom: 15px; font-size: 28px;">SUDDEN DEATH</h3>
+                            <p style="color: rgba(255,255,255,0.7); font-size: 18px;">Syncing with opponent...</p>
                         </div>
                     `;
-                    
-                    console.log('📡 Sudden Death - signaling ready for question...');
-                    signalQuestionReady();
                     return;
                 }
                 
+                // Question is synced - both players see it at the same time
                 if (!battleTimer) {
                     timeRemaining = roundData.phase_time_remaining || 20;
                     
                     // Record the actual start time for accurate answer time calculation
                     questionActualStartTime = Date.now();
-                    console.log(`📝 Sudden Death question displayed at ${questionActualStartTime}`);
+                    console.log(`📝 Sudden Death question synced and displayed at ${questionActualStartTime}`);
                     
                     battleTimer = setInterval(() => {
                         timeRemaining--;
@@ -7386,8 +7537,8 @@
                 
                 content.innerHTML = `
                     ${scoreboardHTML}
-                    <div style="background: rgba(239,68,68,0.2); padding: 12px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-                        <span style="color: #ff6b6b; font-weight: bold; font-size: 20px;">⚡ SUDDEN DEATH - No God Powers!</span>
+                    <div style="background: rgba(168,85,247,0.2); padding: 12px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
+                        <span style="color: #a855f7; font-weight: bold; font-size: 20px;">⚡ SUDDEN DEATH - First Correct Answer Wins!</span>
                     </div>
                     <div style="text-align: center; margin-bottom: 20px;">
                         <span style="font-size: 56px; font-weight: bold; color: ${timeRemaining <= 5 ? '#ff6b6b' : '#ffd700'};" id="battle-timer">${timeRemaining}</span>
@@ -7441,9 +7592,9 @@
                         alert(data.error);
                     }
                 } else if (data.both_ready) {
-                    // BOTH players deployed - refresh to see question phase and start sync
-                    console.log('⏱️ Both deployed! Refreshing to start question sync...');
-                    loadBattleState();
+                    // BOTH players deployed - go directly to question sync (skip loadBattleState roundtrip)
+                    console.log('⏱️ Both deployed! Signaling question-ready directly...');
+                    signalQuestionReady();
                 } else {
                     loadBattleState(); // Refresh immediately
                 }
@@ -7467,18 +7618,50 @@
                     // Both players ready - show question NOW
                     console.log('✅ Both players ready! Showing question immediately');
                     questionActualStartTime = Date.now();
+                    setBattlePollRate(2000); // Back to normal rate for question phase
                     loadBattleState();
                 } else if (data.waiting_for_opponent) {
-                    // Still waiting - poll again in 100ms for faster response
-                    console.log('⏳ Waiting for opponent to be ready...');
-                    setTimeout(() => signalQuestionReady(), 100);
+                    // Still waiting - poll again in 250ms (fast but not excessive)
+                    setTimeout(() => signalQuestionReady(), 250);
                 } else {
                     // Error or not ready, try again
-                    setTimeout(() => loadBattleState(), 500);
+                    setTimeout(() => loadBattleState(), 300);
                 }
             } catch (err) {
                 console.error('Error signaling question ready:', err);
-                setTimeout(() => loadBattleState(), 500);
+                setTimeout(() => loadBattleState(), 300);
+            }
+        }
+        
+        // Signal ready for Sudden Death - called when player clicks READY button
+        async function signalSuddenDeathReady() {
+            try {
+                console.log('⚡ Signaling Sudden Death ready...');
+                const response = await fetch(`${API_URL}/arena/sudden-death-ready`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ battle_id: currentBattleId })
+                });
+                const data = await response.json();
+                
+                if (data.both_ready) {
+                    // Both players ready - transition to question phase
+                    // But need to sync via /question-ready like regular rounds
+                    console.log('⚡ Both players ready! Calling question-ready for sync...');
+                    setBattlePollRate(500); // Fast poll
+                    signalQuestionReady(); // This will sync both players
+                } else if (data.waiting_for_opponent) {
+                    // Marked as ready, waiting for opponent
+                    console.log('⚡ Waiting for opponent...');
+                    // Refresh to show "You are READY!" state
+                    loadBattleState();
+                } else if (data.phase_changed) {
+                    // Phase already changed, just reload
+                    loadBattleState();
+                }
+            } catch (err) {
+                console.error('Error signaling sudden death ready:', err);
+                loadBattleState();
             }
         }
         
@@ -7550,7 +7733,7 @@
         // ==================== GOD POWER VISUAL EFFECTS ====================
         let activeGodEffect = null;
         
-        function applyGodPowerEffect(godName, blocked) {
+        function applyGodPowerEffect(godName, blocked, demeterActive = false) {
             if (!godName) return;
             
             // Play blocked sound if power was blocked
@@ -7565,10 +7748,13 @@
             const battleContent = document.getElementById('battle-content');
             if (!battleContent) return;
             
-            console.log('Applying god power effect:', godName);
+            console.log('Applying god power effect:', godName, demeterActive ? '(Demeter: 50% shorter)' : '');
             
             // Play the god's sound effect
             playBattleSound(godName.toLowerCase());
+            
+            // Demeter passive: enemy effects last 50% shorter
+            const durationMult = demeterActive ? 0.5 : 1.0;
             
             switch(godName.toLowerCase()) {
                 case 'zeus':
@@ -7578,7 +7764,7 @@
                     zeusOverlay.className = 'zeus-effect';
                     zeusOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:9998;';
                     document.body.appendChild(zeusOverlay);
-                    setTimeout(() => zeusOverlay.remove(), 2000);
+                    setTimeout(() => zeusOverlay.remove(), 2000 * durationMult);
                     break;
                     
                 case 'poseidon':
@@ -7591,20 +7777,20 @@
                     setTimeout(() => {
                         battleContent.classList.remove('poseidon-effect');
                         poseidonOverlay.remove();
-                    }, 3000);
+                    }, 3000 * durationMult);
                     break;
                     
                 case 'ares':
-                    // Screen shake with red tint
-                    battleContent.classList.add('ares-effect');
+                    // War Cry - full screen shake with dark red overlay (like Hades but red)
+                    document.body.classList.add('ares-effect');
                     const aresOverlay = document.createElement('div');
                     aresOverlay.id = 'god-effect-overlay';
                     aresOverlay.className = 'ares-overlay';
                     document.body.appendChild(aresOverlay);
                     setTimeout(() => {
-                        battleContent.classList.remove('ares-effect');
+                        document.body.classList.remove('ares-effect');
                         aresOverlay.remove();
-                    }, 2000);
+                    }, 2000 * durationMult);
                     break;
                     
                 case 'hades':
@@ -7613,7 +7799,7 @@
                     hadesOverlay.id = 'god-effect-overlay';
                     hadesOverlay.className = 'hades-overlay';
                     document.body.appendChild(hadesOverlay);
-                    setTimeout(() => hadesOverlay.remove(), 2000);
+                    setTimeout(() => hadesOverlay.remove(), 2000 * durationMult);
                     break;
                     
                 case 'hephaestus':
@@ -7622,7 +7808,7 @@
                     fireOverlay.id = 'god-effect-overlay';
                     fireOverlay.className = 'hephaestus-overlay';
                     document.body.appendChild(fireOverlay);
-                    setTimeout(() => fireOverlay.remove(), 2000);
+                    setTimeout(() => fireOverlay.remove(), 2000 * durationMult);
                     break;
                     
                 case 'hermes':
@@ -7631,7 +7817,7 @@
                     hermesOverlay.id = 'god-effect-overlay';
                     hermesOverlay.className = 'hermes-overlay';
                     document.body.appendChild(hermesOverlay);
-                    setTimeout(() => hermesOverlay.remove(), 1000);
+                    setTimeout(() => hermesOverlay.remove(), 1000 * durationMult);
                     break;
             }
         }
@@ -7677,8 +7863,19 @@
                     break;
                     
                 case 'hera':
-                    // Opponent gets 1 sec delay - this affects the OTHER player
-                    // So we don't do anything here for the user who has Hera
+                    // Hera's passive affects the OPPONENT (click delay) - handled in the effects application section above
+                    // Show the user a confirmation that their Hera is working
+                    break;
+                    
+                case 'aphrodite':
+                    // Aphrodite passive: If wrong, get 3 sec to retry
+                    // The actual retry logic is in submitAnswer() - we just set the flag here
+                    // activeAphrodite is set in the effects application section
+                    break;
+                    
+                case 'demeter':
+                    // Demeter passive: Enemy effects last 50% shorter
+                    // The actual shortening is handled by passing demeterActive to applyGodPowerEffect
                     break;
             }
         }
@@ -7691,9 +7888,12 @@
             if (battleContent) {
                 battleContent.classList.remove('poseidon-effect', 'ares-effect', 'zeus-effect');
             }
+            // Also clear body-level effects (Ares full-screen shake)
+            document.body.classList.remove('ares-effect');
         }
         
         let answerSubmitting = false; // Prevent duplicate submissions
+        let activeAphrodite = false; // Track if Aphrodite retry is available
         
         async function submitAnswer(answerIndex) {
             // Prevent duplicate submissions
@@ -7702,6 +7902,14 @@
                 return;
             }
             answerSubmitting = true;
+            
+            // If this is an Aphrodite retry submission, clear the retry flag and banner
+            if (aphroditeRetryActive) {
+                console.log('💕 Aphrodite retry answer submitted');
+                aphroditeRetryActive = false;
+                const banner = document.getElementById('aphrodite-retry-banner');
+                if (banner) banner.remove();
+            }
             
             if (battleTimer) {
                 clearInterval(battleTimer);
@@ -7730,8 +7938,64 @@
                     // Play correct or wrong sound based on response
                     if (data.was_correct) {
                         playBattleSound('correct', 0.6);
+                        activeAphrodite = false; // No retry needed
+                        aphroditeRetryActive = false; // Ensure flag is clear
                     } else {
                         playBattleSound('wrong', 0.8);
+                        
+                        // APHRODITE RETRY: If wrong and Aphrodite is active, allow a 4-second retry
+                        if (activeAphrodite) {
+                            activeAphrodite = false; // Only one retry per round
+                            aphroditeRetryActive = true; // Block UI refresh during retry
+                            console.log('💕 Aphrodite retry activated! 4 seconds to pick again...');
+                            
+                            // Re-enable buttons with pink highlight for 4 seconds
+                            const battleContent = document.getElementById('battle-content');
+                            if (battleContent) {
+                                const buttons = battleContent.querySelectorAll('button[onclick^="submitAnswer"]');
+                                
+                                // Gray out the wrong answer - can't pick it again
+                                if (buttons[answerIndex]) {
+                                    buttons[answerIndex].style.background = 'rgba(100,100,100,0.4)';
+                                    buttons[answerIndex].style.borderColor = '#666';
+                                    buttons[answerIndex].style.color = '#888';
+                                    buttons[answerIndex].style.pointerEvents = 'none'; // Can't pick same wrong answer
+                                    buttons[answerIndex].textContent = '❌ ' + buttons[answerIndex].textContent;
+                                }
+                                
+                                // Show Aphrodite retry notification - bigger and more prominent
+                                const retryBanner = document.createElement('div');
+                                retryBanner.id = 'aphrodite-retry-banner';
+                                retryBanner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg, #ff69b4, #ff1493);color:white;padding:18px 36px;border-radius:15px;z-index:9999;font-size:24px;font-weight:bold;text-align:center;box-shadow:0 6px 30px rgba(255,105,180,0.7);animation:pulse 0.5s ease-in-out infinite;';
+                                retryBanner.innerHTML = '💕 APHRODITE\'S CHARM! 💕<br><span style="font-size:18px;">Pick a different answer!</span>';
+                                document.body.appendChild(retryBanner);
+                                
+                                // Add pink border glow to remaining buttons
+                                buttons.forEach((btn, idx) => {
+                                    if (idx !== answerIndex) {
+                                        btn.classList.add('aphrodite-retry');
+                                        btn.style.cursor = 'pointer';
+                                    }
+                                });
+                                
+                                // Allow submitting again
+                                answerSubmitting = false;
+                                
+                                // Remove retry after 4 seconds
+                                setTimeout(() => {
+                                    aphroditeRetryActive = false; // Allow UI refresh again
+                                    const banner = document.getElementById('aphrodite-retry-banner');
+                                    if (banner) banner.remove();
+                                    buttons.forEach(btn => btn.classList.remove('aphrodite-retry'));
+                                    // Reload state to continue battle
+                                    loadBattleState();
+                                }, 4000);
+                                
+                                return; // Don't reload battle state yet - let them retry
+                            }
+                        }
+                        // Not Aphrodite - clear the flag just in case
+                        aphroditeRetryActive = false;
                     }
                 }
                 
@@ -7758,6 +8022,10 @@
             godsSubmittedForBattle = null; // Reset so we can select gods for next battle
             answerSubmitting = false;
             questionActualStartTime = null; // Reset timing
+            suddenDeathIntroShown = false; // Reset sudden death tracking
+            suddenDeathRoundShown = 0;
+            aphroditeRetryActive = false; // Reset Aphrodite retry flag
+            activeAphrodite = false;
             
             // Clear any god effects
             clearGodPowerEffects();
@@ -7765,6 +8033,9 @@
             // Remove any lingering banners and overlays
             const activeBanner = document.getElementById('active-battle-banner');
             if (activeBanner) activeBanner.remove();
+            
+            const aphroditeBanner = document.getElementById('aphrodite-retry-banner');
+            if (aphroditeBanner) aphroditeBanner.remove();
             
             const waitingOverlay = document.getElementById('waiting-overlay');
             if (waitingOverlay) waitingOverlay.remove();

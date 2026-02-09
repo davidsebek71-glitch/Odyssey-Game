@@ -847,6 +847,11 @@
                 <div class="title">Grade Overview</div>
                 <div class="description">View all student grades</div>
             </div>
+            <div class="action-card" onclick="openQuestBonusTrackerModal()" style="background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(139,92,246,0.2)); border-color: rgba(168,85,247,0.4);">
+                <div class="icon">📋</div>
+                <div class="title">Quest & Bonus Tracker</div>
+                <div class="description">Track side quests & bonuses</div>
+            </div>
             <div class="action-card" onclick="openStudentManagementModal()" style="background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.2)); border-color: rgba(59,130,246,0.4);">
                 <div class="icon">👥</div>
                 <div class="title">Manage Students</div>
@@ -973,45 +978,83 @@
     
     <!-- God Assignments Modal -->
     <div id="god-assignments-modal" class="modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-title">⚡ Grant God Assignments</div>
-            <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px; font-size: 14px;">
-                Grant completed god assignments to alliances to unlock buildings for purchase.
-            </p>
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-title">⚡ Grant God Assignments & Side Quest Rewards</div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                <div>
-                    <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Alliance</label>
-                    <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadAllianceAssignments()">
-                        <option value="">Choose alliance...</option>
-                    </select>
+            <!-- GOD BONUSES SECTION -->
+            <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                <h3 style="color: #ffd700; margin-bottom: 10px; font-size: 16px;">🏛️ God Bonus Assignments (Building Unlocks)</h3>
+                <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 13px;">
+                    Grant god bonus assignments to unlock specific buildings for purchase.
+                </p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Alliance</label>
+                        <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadAllianceAssignments()">
+                            <option value="">Choose alliance...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select God</label>
+                        <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
+                            <option value="">Choose god...</option>
+                            <option value="Athena">🦉 Athena (Library)</option>
+                            <option value="Ares">⚔️ Ares (Wooden Wall)</option>
+                            <option value="Poseidon">🔱 Poseidon (Dock)</option>
+                        </select>
+                    </div>
                 </div>
-                <div>
-                    <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select God</label>
-                    <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
-                        <option value="">Choose god...</option>
-                        <option value="Athena">Athena (Library)</option>
-                        <option value="Ares">Ares (Wooden Wall)</option>
-                        <option value="Poseidon">Poseidon (Dock)</option>
-                        <option value="Demeter">Demeter (Granary)</option>
-                    </select>
+                
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <button class="btn-fate" onclick="grantGodAssignment()" style="padding: 10px 25px;">
+                        ✨ Grant God Bonus
+                    </button>
+                </div>
+                
+                <div id="current-assignments" style="color: rgba(255,255,255,0.6); font-size: 13px; padding-top: 10px; border-top: 1px solid rgba(255,215,0,0.2);">
+                    Select an alliance to view current assignments
                 </div>
             </div>
             
-            <div style="text-align: center; margin-bottom: 20px;">
-                <button class="btn-fate" onclick="grantGodAssignment()" style="padding: 12px 30px;">
-                    ✨ Grant Assignment
-                </button>
-            </div>
-            
-            <div style="border-top: 1px solid rgba(255,215,0,0.2); padding-top: 15px;">
-                <div style="font-weight: 600; color: #ffd700; margin-bottom: 10px;">Current Assignments for Selected Alliance:</div>
-                <div id="current-assignments" style="color: rgba(255,255,255,0.7); font-size: 14px;">
-                    Select an alliance to view assignments
+            <!-- SIDE QUEST REWARDS SECTION -->
+            <div style="background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                <h3 style="color: #a855f7; margin-bottom: 10px; font-size: 16px;">🗺️ Side Quest Rewards</h3>
+                <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 13px;">
+                    Grant side quest rewards when <strong>ALL</strong> alliance members have completed and been approved.
+                    Eligible alliances appear automatically.
+                </p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Side Quest</label>
+                        <select id="side-quest-select" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; color: white;" onchange="loadEligibleAlliances()">
+                            <option value="">Choose side quest...</option>
+                            <option value="1">🔨 Ring of Many (-10% building costs)</option>
+                            <option value="2">🏹 Panacea's Remedy (+5% point bonus)</option>
+                            <option value="3">🌾 Three Seeds (Granary unlock)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Eligible Alliances</label>
+                        <select id="eligible-alliance-select" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; color: white;">
+                            <option value="">Select a side quest first...</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="eligible-alliances-info" style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 15px;">
+                    Select a side quest to see which alliances are eligible.
+                </div>
+                
+                <div style="text-align: center;">
+                    <button class="btn-fate" onclick="grantSideQuestReward()" style="padding: 10px 25px; background: linear-gradient(135deg, #a855f7, #7c3aed);">
+                        🎁 Grant Side Quest Reward
+                    </button>
                 </div>
             </div>
             
-            <div style="margin-top: 20px; text-align: center;">
+            <div style="text-align: center;">
                 <button class="btn-fate" onclick="closeGodAssignmentsModal()" style="background: rgba(255,255,255,0.2);">Close</button>
             </div>
         </div>
@@ -1130,6 +1173,32 @@
                 All students listed alphabetically by class period. <strong>Click a student's name</strong> to view and manage their submissions.
             </div>
             <div id="grade-overview-content" style="max-height: 70vh; overflow-y: auto;">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- QUEST & BONUS TRACKER MODAL -->
+    <div id="quest-bonus-tracker-modal" class="modal">
+        <div class="modal-content" style="max-width: 1300px; max-height: 90vh;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
+                📋 Quest & Bonus Tracker
+                <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">✕</button>
+            </div>
+            <div style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8);">
+                <strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea's Remedy | 🌾 Three Seeds<br>
+                <strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)
+            </div>
+            <div style="margin-bottom: 10px;">
+                <select id="tracker-period-select" onchange="loadQuestBonusTracker()" style="padding: 10px 14px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 6px; color: white; font-size: 15px;">
+                    <option value="all">All Periods</option>
+                    <option value="1st">1st Period</option>
+                    <option value="2nd">2nd Period</option>
+                    <option value="3rd">3rd Period</option>
+                    <option value="4th">4th Period</option>
+                </select>
+            </div>
+            <div id="quest-bonus-tracker-content" style="max-height: 65vh; overflow: auto;">
                 Loading...
             </div>
         </div>
@@ -1974,11 +2043,12 @@
                                 <div class="period-header">📚 ${period} Period</div>`;
                             
                             periodAlliances.slice(0, 2).forEach((alliance, index) => {
+                                const rewardIcons = alliance.side_quest_reward_icons || '';
                                 html += `
                                     <div class="leaderboard-row" style="margin-bottom: 8px;">
                                         <div class="rank rank-${index + 1}" style="min-width: 40px;">#${index + 1}</div>
                                         <div class="alliance-name" style="flex: 1;">
-                                            ${alliance.alliance_name}
+                                            ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                             <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
                                                 ${alliance.member_names?.join(', ') || 'No members'}
                                             </div>
@@ -2008,11 +2078,13 @@
                     
                     content.innerHTML = `
                         <div class="period-header">📚 ${currentLeaderboardPeriod} Period - Full Rankings</div>
-                        ${periodAlliances.map((alliance, index) => `
+                        ${periodAlliances.map((alliance, index) => {
+                            const rewardIcons = alliance.side_quest_reward_icons || '';
+                            return `
                             <div class="leaderboard-row" style="margin-bottom: 8px;">
                                 <div class="rank rank-${index + 1}" style="min-width: 40px;">#${index + 1}</div>
                                 <div class="alliance-name" style="flex: 1;">
-                                    ${alliance.alliance_name}
+                                    ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                     <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
                                         ${alliance.member_names?.join(', ') || 'No members'}
                                     </div>
@@ -2022,7 +2094,7 @@
                                     ${alliance.buildings_owned?.length || 0} buildings
                                 </div>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     `;
                 }
             } catch (err) {
@@ -2210,6 +2282,175 @@
                 }
             } catch (err) {
                 alert('Failed to revoke assignment: ' + err.message);
+            }
+        }
+        
+        // ==================
+        // SIDE QUEST REWARDS
+        // ==================
+        
+        async function loadEligibleAlliances() {
+            const questId = document.getElementById('side-quest-select').value;
+            const select = document.getElementById('eligible-alliance-select');
+            const infoDiv = document.getElementById('eligible-alliances-info');
+            
+            if (!questId) {
+                select.innerHTML = '<option value="">Select a side quest first...</option>';
+                infoDiv.innerHTML = 'Select a side quest to see which alliances are eligible.';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/eligible-alliances-for-quest?quest_id=${questId}`, { headers });
+                const data = await response.json();
+                
+                if (data.eligible_alliances.length === 0) {
+                    select.innerHTML = '<option value="">No eligible alliances yet</option>';
+                    infoDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ No alliances have ALL members approved for ${data.quest.quest_name} yet.</span>`;
+                } else {
+                    select.innerHTML = '<option value="">Choose eligible alliance...</option>' +
+                        data.eligible_alliances.map(a => 
+                            `<option value="${a.alliance_id}">${a.alliance_name} [${a.class_period || 'No period'}] (${a.approved_count}/${a.member_count} approved)</option>`
+                        ).join('');
+                    infoDiv.innerHTML = `<span style="color: #22c55e;">✅ ${data.eligible_alliances.length} alliance(s) ready for ${data.quest.quest_name} reward!</span>`;
+                }
+            } catch (err) {
+                console.error('Failed to load eligible alliances:', err);
+                select.innerHTML = '<option value="">Error loading...</option>';
+                infoDiv.innerHTML = '<span style="color: #ef4444;">Failed to load eligible alliances</span>';
+            }
+        }
+        
+        async function grantSideQuestReward() {
+            const questId = document.getElementById('side-quest-select').value;
+            const allianceId = document.getElementById('eligible-alliance-select').value;
+            
+            if (!questId || !allianceId) {
+                alert('Please select both a side quest and an eligible alliance');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/grant-side-quest-reward`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ quest_id: questId, alliance_id: allianceId })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✅ ${result.message}\n\nReward: ${result.reward_description}`);
+                    loadEligibleAlliances(); // Refresh to remove granted alliance
+                    loadLeaderboard(); // Refresh to show emoji
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to grant reward: ' + err.message);
+            }
+        }
+        
+        // ==================
+        // QUEST & BONUS TRACKER
+        // ==================
+        
+        async function openQuestBonusTrackerModal() {
+            document.getElementById('quest-bonus-tracker-modal').classList.add('show');
+            loadQuestBonusTracker();
+        }
+        
+        function closeQuestBonusTrackerModal() {
+            document.getElementById('quest-bonus-tracker-modal').classList.remove('show');
+        }
+        
+        async function loadQuestBonusTracker() {
+            const period = document.getElementById('tracker-period-select').value;
+            const content = document.getElementById('quest-bonus-tracker-content');
+            content.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/quest-bonus-tracker?period=${period}`, { headers });
+                const data = await response.json();
+                
+                if (data.students.length === 0) {
+                    content.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5);">No students found</div>';
+                    return;
+                }
+                
+                // Build header row
+                let headerHtml = '<th style="position: sticky; left: 0; background: #1e1b4b; z-index: 2; min-width: 160px;">Student</th>';
+                
+                // Side Quest columns
+                data.side_quests.forEach(sq => {
+                    headerHtml += `<th style="min-width: 55px; text-align: center; font-size: 18px;" title="${sq.quest_name}">${sq.icon}</th>`;
+                });
+                
+                // Bonus columns
+                data.bonus_assignments.forEach(ba => {
+                    const godEmojis = {
+                        'Zeus': '⚡', 'Prometheus': '🔥', 'Hera': '🦚', 'Athena': '🦉',
+                        'Ares': '⚔️', 'Poseidon': '🔱', 'Hades': '💀', 'Demeter': '🌾',
+                        'Hermes': '🪽', 'Hephaestus': '🔨', 'Aphrodite': '💕'
+                    };
+                    const emoji = godEmojis[ba.myth_god] || '⭐';
+                    headerHtml += `<th style="min-width: 65px; text-align: center;" title="${ba.display_name}"><span style="font-size: 18px;">${emoji}</span><br><span style="font-size: 11px; font-weight: normal;">${ba.myth_god.substring(0, 4)}</span></th>`;
+                });
+                
+                // Build student rows
+                let rowsHtml = '';
+                let currentPeriod = '';
+                
+                data.students.forEach(student => {
+                    // Add period separator
+                    if (student.class_period !== currentPeriod) {
+                        currentPeriod = student.class_period;
+                        rowsHtml += `<tr><td colspan="${3 + data.side_quests.length + data.bonus_assignments.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${currentPeriod || 'No Period'}</td></tr>`;
+                    }
+                    
+                    rowsHtml += `<tr>`;
+                    rowsHtml += `<td style="position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap;">${student.name}</td>`;
+                    
+                    // Side Quest status
+                    data.side_quests.forEach(sq => {
+                        const completed = student.side_quests[sq.quest_id];
+                        rowsHtml += `<td style="text-align: center;">${completed ? '<span style="color: #22c55e; font-size: 18px;">✓</span>' : ''}</td>`;
+                    });
+                    
+                    // Bonus status
+                    data.bonus_assignments.forEach(ba => {
+                        const completed = student.bonuses[ba.assignment_id];
+                        rowsHtml += `<td style="text-align: center;">${completed ? '<span style="color: #22c55e; font-size: 18px;">✓</span>' : ''}</td>`;
+                    });
+                    
+                    rowsHtml += `</tr>`;
+                });
+                
+                content.innerHTML = `
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="background: rgba(255,215,0,0.1);">
+                                ${headerHtml}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                    <style>
+                        #quest-bonus-tracker-content table th,
+                        #quest-bonus-tracker-content table td {
+                            padding: 10px 8px;
+                            border: 1px solid rgba(255,255,255,0.1);
+                        }
+                        #quest-bonus-tracker-content table tr:hover td {
+                            background: rgba(255,255,255,0.05);
+                        }
+                    </style>
+                `;
+            } catch (err) {
+                console.error('Failed to load tracker:', err);
+                content.innerHTML = '<div style="color: #ef4444; text-align: center;">Failed to load tracker data</div>';
             }
         }
 
@@ -2681,7 +2922,7 @@
                     requestAnimationFrame(animate);
                 } else {
                     // Spinning complete!
-                    // Normalize rotation to 0-2π range to prevent accumulation
+                    // Normalize rotation to 0-2Ï€ range to prevent accumulation
                     currentRotation = currentRotation % (2 * Math.PI);
                     
                     spinning = false;
@@ -3835,10 +4076,10 @@
                                     🔄 Reset All Battle Counts (0/3)
                                 </button>
                                 <button onclick="cleanupStuckBattles()" style="padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; background: rgba(239,68,68,0.2); border: 2px solid #ef4444; color: #ef4444;">
-                                    🧹 Cleanup Stuck Battles
+                                    🧹 Cancel All Battles
                                 </button>
                             </div>
-                            <p style="text-align: center; margin-top: 10px; color: rgba(255,255,255,0.4); font-size: 12px;">Reset counts = daily limit. Cleanup = cancel stuck/pending battles.</p>
+                            <p style="text-align: center; margin-top: 10px; color: rgba(255,255,255,0.4); font-size: 12px;">Reset counts = daily limit. Cancel = stop all pending/in-progress battles.</p>
                         </div>
                     </div>
                 `;
@@ -3908,17 +4149,20 @@
                 });
                 const data = await response.json();
                 if (data.error) {
-                    alert(data.error);
-                } else {
+                    alert('Error: ' + data.error);
+                } else if (data.message) {
                     alert('✅ ' + data.message);
+                } else {
+                    alert('✅ Reset complete!');
                 }
             } catch (err) {
-                alert('Failed to reset battle counts');
+                console.error('Reset battle counts error:', err);
+                alert('Failed to reset battle counts: ' + err.message);
             }
         }
         
         async function cleanupStuckBattles() {
-            if (!confirm('Cancel all pending and stuck battles? This will free students who are stuck in god selection.')) {
+            if (!confirm('Cancel ALL pending and in-progress battles? This will end any active battles and free all students.')) {
                 return;
             }
             try {
