@@ -4377,6 +4377,127 @@ app.get('/api/alliance/technologies/:alliance_id', authenticateToken, (req, res)
   }
 });
 
+// Teacher: Get eligible alliances for a side quest reward
+app.get('/api/teacher/eligible-alliances-for-quest', authenticateToken, (req, res) => {
+  try {
+    const { quest_id } = req.query;
+    
+    if (!quest_id) {
+      return res.status(400).json({ error: 'quest_id required' });
+    }
+    
+    // Get the quest info
+    const quest = query('SELECT * FROM side_quests_ref WHERE quest_id = ?', [quest_id])[0];
+    if (!quest) {
+      return res.status(404).json({ error: 'Quest not found' });
+    }
+    
+    // Get all active alliances
+    const alliances = query(`
+      SELECT a.alliance_id, a.alliance_name, a.class_period,
+             COUNT(s.student_id) as member_count
+      FROM alliances a
+      JOIN students s ON a.alliance_id = s.alliance_id
+      WHERE a.is_disbanded = 0
+      GROUP BY a.alliance_id
+    `);
+    
+    // For each alliance, check how many members have approved completions for this quest
+    const eligibleAlliances = [];
+    
+    for (const alliance of alliances) {
+      const approvedCount = query(`
+        SELECT COUNT(*) as count FROM side_quest_completions
+        WHERE quest_id = ? AND alliance_id = ? AND status = 'approved'
+      `, [quest_id, alliance.alliance_id])[0].count;
+      
+      // Check if this alliance already has the reward
+      const alreadyHasReward = query(
+        'SELECT * FROM alliance_technologies WHERE alliance_id = ? AND tech_name = ?',
+        [alliance.alliance_id, quest.reward_name]
+      ).length > 0;
+      
+      // Eligible if ALL members approved and reward not yet granted
+      if (approvedCount >= alliance.member_count && !alreadyHasReward) {
+        eligibleAlliances.push({
+          alliance_id: alliance.alliance_id,
+          alliance_name: alliance.alliance_name,
+          class_period: alliance.class_period,
+          member_count: alliance.member_count,
+          approved_count: approvedCount
+        });
+      }
+    }
+    
+    res.json({ quest, eligible_alliances: eligibleAlliances });
+  } catch (err) {
+    console.error('Get eligible alliances error:', err);
+    res.status(500).json({ error: 'Failed to fetch eligible alliances' });
+  }
+});
+
+// Teacher: Grant side quest reward to an alliance
+app.post('/api/teacher/grant-side-quest-reward', authenticateToken, (req, res) => {
+  try {
+    const { quest_id, alliance_id } = req.body;
+    const teacher_id = req.user.id;
+    
+    if (!quest_id || !alliance_id) {
+      return res.status(400).json({ error: 'quest_id and alliance_id required' });
+    }
+    
+    // Get quest info
+    const quest = query('SELECT * FROM side_quests_ref WHERE quest_id = ?', [quest_id])[0];
+    if (!quest) {
+      return res.status(404).json({ error: 'Quest not found' });
+    }
+    
+    // Verify alliance exists
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) {
+      return res.status(404).json({ error: 'Alliance not found' });
+    }
+    
+    // Check if reward already granted
+    const existingTech = query(
+      'SELECT * FROM alliance_technologies WHERE alliance_id = ? AND tech_name = ?',
+      [alliance_id, quest.reward_name]
+    );
+    if (existingTech.length > 0) {
+      return res.status(400).json({ error: `${alliance.alliance_name} already has ${quest.reward_name}` });
+    }
+    
+    // Verify all members have approved completions
+    const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [alliance_id])[0].count;
+    const approvedCount = query(
+      'SELECT COUNT(*) as count FROM side_quest_completions WHERE quest_id = ? AND alliance_id = ? AND status = ?',
+      [quest_id, alliance_id, 'approved']
+    )[0].count;
+    
+    if (approvedCount < memberCount) {
+      return res.status(400).json({ error: `Only ${approvedCount}/${memberCount} members approved. All members must complete the quest.` });
+    }
+    
+    // Grant the technology reward
+    run(`INSERT INTO alliance_technologies (alliance_id, tech_name, source_quest_id) VALUES (?, ?, ?)`,
+        [alliance_id, quest.reward_name, quest_id]);
+    
+    saveDatabase();
+    
+    console.log(`🏆 Granted ${quest.reward_name} to ${alliance.alliance_name} for completing ${quest.quest_name}`);
+    
+    res.json({
+      success: true,
+      message: `${quest.reward_name} granted to ${alliance.alliance_name}!`,
+      reward_name: quest.reward_name,
+      reward_description: quest.reward_description || quest.reward_name
+    });
+  } catch (err) {
+    console.error('Grant side quest reward error:', err);
+    res.status(500).json({ error: 'Failed to grant side quest reward' });
+  }
+});
+
 // ====================
 // BATTLE ARENA SYSTEM
 // ====================
