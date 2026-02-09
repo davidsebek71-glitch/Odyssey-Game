@@ -3196,6 +3196,11 @@
                 
                 const result = await response.json();
                 
+                if (!response.ok || result.error) {
+                    alert('Battle error: ' + (result.error || 'Unknown error'));
+                    return;
+                }
+                
                 // Show battle modal
                 showBattleModal(selectedAllianceId, fate, result);
                 
