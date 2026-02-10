@@ -2891,6 +2891,79 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
   }
 });
 
+// Teacher: Get eligible alliances for a god bonus (all members must have 80%+ on that god's bonus assignment)
+app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req, res) => {
+  try {
+    const { god_name } = req.query;
+    
+    if (!god_name) {
+      return res.status(400).json({ error: 'god_name required' });
+    }
+    
+    // Find the bonus assignment for this god
+    const bonusAssignment = query(
+      "SELECT * FROM assignments_ref WHERE section = 'bonus' AND myth_god = ? AND age = 'Archaic'",
+      [god_name]
+    )[0];
+    
+    if (!bonusAssignment) {
+      return res.status(404).json({ error: `No bonus assignment found for ${god_name}` });
+    }
+    
+    const threshold = Math.ceil(bonusAssignment.max_points * 0.8);
+    
+    // Get all active alliances with member counts
+    const alliances = query(`
+      SELECT a.alliance_id, a.alliance_name, a.class_period,
+             COUNT(s.student_id) as member_count
+      FROM alliances a
+      JOIN students s ON a.alliance_id = s.alliance_id
+      WHERE a.is_disbanded = 0
+      GROUP BY a.alliance_id
+    `);
+    
+    const eligibleAlliances = [];
+    
+    for (const alliance of alliances) {
+      // Check if already granted
+      const alreadyGranted = query(
+        'SELECT * FROM god_assignments WHERE alliance_id = ? AND god_name = ?',
+        [alliance.alliance_id, god_name]
+      ).length > 0;
+      
+      if (alreadyGranted) continue;
+      
+      // Count members who scored 80%+ on this god's bonus
+      const qualifiedCount = query(`
+        SELECT COUNT(DISTINCT gr.student_id) as count
+        FROM grade_records gr
+        JOIN students s ON gr.student_id = s.student_id
+        WHERE s.alliance_id = ? AND gr.assignment_id = ? AND gr.points_earned >= ?
+      `, [alliance.alliance_id, bonusAssignment.assignment_id, threshold])[0].count;
+      
+      if (qualifiedCount >= alliance.member_count) {
+        eligibleAlliances.push({
+          alliance_id: alliance.alliance_id,
+          alliance_name: alliance.alliance_name,
+          class_period: alliance.class_period,
+          member_count: alliance.member_count,
+          qualified_count: qualifiedCount
+        });
+      }
+    }
+    
+    res.json({
+      god_name,
+      bonus_assignment: bonusAssignment.display_name,
+      threshold: `${threshold}/${bonusAssignment.max_points} (80%)`,
+      eligible_alliances: eligibleAlliances
+    });
+  } catch (err) {
+    console.error('Eligible alliances for god bonus error:', err);
+    res.status(500).json({ error: 'Failed to fetch eligible alliances' });
+  }
+});
+
 // Teacher: Grant god assignment completion to an alliance
 app.post('/api/teacher/grant-god-assignment', authenticateToken, (req, res) => {
   try {
@@ -2909,6 +2982,8 @@ app.post('/api/teacher/grant-god-assignment', authenticateToken, (req, res) => {
     
     run(`INSERT INTO god_assignments (alliance_id, god_name, completed_by_teacher_id) VALUES (?, ?, ?)`,
         [alliance_id, god_name, teacher_id]);
+    
+    saveDatabase();
     
     // Get alliance name for response
     const alliance = query('SELECT alliance_name FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
@@ -4621,19 +4696,20 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       sqLookup[c.student_id][c.quest_id] = true;
     });
     
-    // Get all bonus grade records
+    // Get all bonus grade records with 80% threshold check
     const allBonusRecords = query(`
-      SELECT gr.student_id, gr.assignment_id, gr.points_earned
+      SELECT gr.student_id, gr.assignment_id, gr.points_earned, ar.max_points
       FROM grade_records gr
       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
       WHERE ar.section = 'bonus' AND gr.points_earned > 0
     `);
     
-    // Build a lookup: { student_id: { assignment_id: true } }
+    // Build a lookup: { student_id: { assignment_id: true } } - only if 80%+ threshold met
     const bonusLookup = {};
     allBonusRecords.forEach(r => {
       if (!bonusLookup[r.student_id]) bonusLookup[r.student_id] = {};
-      bonusLookup[r.student_id][r.assignment_id] = true;
+      const threshold = Math.ceil(r.max_points * 0.8);
+      bonusLookup[r.student_id][r.assignment_id] = r.points_earned >= threshold;
     });
     
     // Build student response objects
@@ -4641,14 +4717,64 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       student_id: s.student_id,
       name: s.name,
       class_period: s.class_period || 'Unassigned',
+      alliance_id: s.alliance_id,
       side_quests: sqLookup[s.student_id] || {},
       bonuses: bonusLookup[s.student_id] || {}
     }));
     
+    // Build alliance-level god bonus tracking (for Athena, Ares, Poseidon building unlocks)
+    const buildingGods = ['Athena', 'Ares', 'Poseidon'];
+    const allianceGodStatus = {};
+    
+    // Get all alliances
+    const allAlliances = query(`
+      SELECT a.alliance_id, a.alliance_name, a.class_period
+      FROM alliances a WHERE a.is_disbanded = 0
+    `);
+    
+    // Get existing god assignments
+    const existingGodAssignments = query('SELECT * FROM god_assignments');
+    const godAssignmentLookup = {};
+    existingGodAssignments.forEach(ga => {
+      const key = `${ga.alliance_id}-${ga.god_name}`;
+      godAssignmentLookup[key] = true;
+    });
+    
+    for (const alliance of allAlliances) {
+      const members = studentsWithStatus.filter(s => s.alliance_id === alliance.alliance_id);
+      if (members.length === 0) continue;
+      
+      allianceGodStatus[alliance.alliance_id] = {
+        alliance_name: alliance.alliance_name,
+        class_period: alliance.class_period,
+        member_count: members.length,
+        gods: {}
+      };
+      
+      for (const god of buildingGods) {
+        const bonusAssignment = bonusAssignments.find(a => a.myth_god === god);
+        if (!bonusAssignment) continue;
+        
+        const qualifiedCount = members.filter(m => 
+          m.bonuses[bonusAssignment.assignment_id] === true
+        ).length;
+        
+        const isGranted = godAssignmentLookup[`${alliance.alliance_id}-${god}`] || false;
+        
+        allianceGodStatus[alliance.alliance_id].gods[god] = {
+          qualified: qualifiedCount,
+          total: members.length,
+          all_qualified: qualifiedCount >= members.length,
+          granted: isGranted
+        };
+      }
+    }
+    
     res.json({
       students: studentsWithStatus,
       side_quests: sideQuests,
-      bonus_assignments: bonusAssignments
+      bonus_assignments: bonusAssignments,
+      alliance_god_status: allianceGodStatus
     });
   } catch (err) {
     console.error('Quest bonus tracker error:', err);
