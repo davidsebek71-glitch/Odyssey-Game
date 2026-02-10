@@ -4391,6 +4391,17 @@ app.post('/api/teacher/approve-side-quest', authenticateToken, (req, res) => {
         run(`INSERT INTO alliance_technologies (alliance_id, tech_name, source_quest_id)
              VALUES (?, ?, ?)`,
             [completion.alliance_id, quest.reward_name, quest.quest_id]);
+        
+        // Also update the side_quest_rewards column for emoji display
+        const currentRewards = JSON.parse(
+          (query('SELECT side_quest_rewards FROM alliances WHERE alliance_id = ?', [completion.alliance_id])[0] || {}).side_quest_rewards || '[]'
+        );
+        if (!currentRewards.includes(parseInt(completion.quest_id))) {
+          currentRewards.push(parseInt(completion.quest_id));
+          run('UPDATE alliances SET side_quest_rewards = ? WHERE alliance_id = ?',
+              [JSON.stringify(currentRewards), completion.alliance_id]);
+        }
+        
         saveDatabase();
         rewardGranted = true;
         console.log('Reward granted:', quest.reward_name);
