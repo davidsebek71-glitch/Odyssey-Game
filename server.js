@@ -4368,7 +4368,7 @@ app.post('/api/teacher/approve-side-quest', authenticateToken, (req, res) => {
     // Save to persist
     saveDatabase();
     
-    // Check if ALL alliance members have now completed this quest
+    // Check if ALL alliance members have now completed this quest (info only - teacher must manually grant in God Assignments)
     const quest = query('SELECT * FROM side_quests_ref WHERE quest_id = ?', [completion.quest_id])[0];
     const allianceMembers = query('SELECT student_id FROM students WHERE alliance_id = ?', [completion.alliance_id]);
     const approvedCompletions = query(
@@ -4379,43 +4379,24 @@ app.post('/api/teacher/approve-side-quest', authenticateToken, (req, res) => {
     
     console.log(`Alliance members: ${allianceMembers.length}, Approved completions: ${approvedCompletions.length}`);
     
-    let rewardGranted = false;
-    if (approvedCompletions.length === allianceMembers.length) {
-      // All members completed! Grant the reward
-      const existingTech = query(
-        'SELECT * FROM alliance_technologies WHERE alliance_id = ? AND tech_name = ?',
-        [completion.alliance_id, quest.reward_name]
-      );
-      
-      if (existingTech.length === 0) {
-        run(`INSERT INTO alliance_technologies (alliance_id, tech_name, source_quest_id)
-             VALUES (?, ?, ?)`,
-            [completion.alliance_id, quest.reward_name, quest.quest_id]);
-        
-        // Also update the side_quest_rewards column for emoji display
-        const currentRewards = JSON.parse(
-          (query('SELECT side_quest_rewards FROM alliances WHERE alliance_id = ?', [completion.alliance_id])[0] || {}).side_quest_rewards || '[]'
-        );
-        if (!currentRewards.includes(parseInt(completion.quest_id))) {
-          currentRewards.push(parseInt(completion.quest_id));
-          run('UPDATE alliances SET side_quest_rewards = ? WHERE alliance_id = ?',
-              [JSON.stringify(currentRewards), completion.alliance_id]);
-        }
-        
-        saveDatabase();
-        rewardGranted = true;
-        console.log('Reward granted:', quest.reward_name);
-      }
-    }
+    const allComplete = approvedCompletions.length === allianceMembers.length;
     
     const student = query('SELECT name FROM students WHERE student_id = ?', [completion.student_id])[0];
     const alliance = query('SELECT alliance_name FROM alliances WHERE alliance_id = ?', [completion.alliance_id])[0];
     
+    let message = `Approved ${student.name}'s completion of ${quest.quest_name}`;
+    if (allComplete) {
+      message += ` — ALL members of ${alliance.alliance_name} are now approved! Go to Grant God Assignments to grant the reward.`;
+    } else {
+      message += ` (${approvedCompletions.length}/${allianceMembers.length} members approved)`;
+    }
+    
     res.json({ 
       success: true, 
-      message: `Approved ${student.name}'s completion of ${quest.quest_name}`,
-      reward_granted: rewardGranted,
-      reward_name: rewardGranted ? quest.reward_name : null
+      message,
+      all_members_complete: allComplete,
+      approved_count: approvedCompletions.length,
+      member_count: allianceMembers.length
     });
   } catch (err) {
     console.error('Approve side quest error:', err);
