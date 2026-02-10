@@ -592,10 +592,17 @@ function runMigrations() {
       db.run('ALTER TABLE alliances ADD COLUMN underdog_blessing INTEGER DEFAULT 0');
     }
     
+    // Add side_quest_rewards tracking column
     if (!colNames.includes('side_quest_rewards')) {
       console.log('  Adding side_quest_rewards column to alliances...');
       db.run("ALTER TABLE alliances ADD COLUMN side_quest_rewards TEXT DEFAULT '[]'");
     }
+    
+    // Fix side quest emojis in existing databases
+    try {
+      db.run("UPDATE side_quests_ref SET icon = '🔨' WHERE quest_name = 'The Ring of Many' AND icon != '🔨'");
+      db.run("UPDATE side_quests_ref SET icon = '🏹' WHERE quest_name = 'Panacea''s Remedy' AND icon != '🏹'");
+    } catch(e) { /* table may not exist yet */ }
     
     // Check and add pantheon unlock columns to student_achievement_progress
     const achieveCols = db.exec("PRAGMA table_info(student_achievement_progress)");
@@ -842,10 +849,6 @@ function seedReferenceData() {
       });
       console.log('✅ Side quests seeded');
     }
-    
-    // Fix side quest icons for existing databases (emoji update)
-    db.run("UPDATE side_quests_ref SET icon = '🔨' WHERE quest_name = 'The Ring of Many' AND icon != '🔨'");
-    db.run("UPDATE side_quests_ref SET icon = '🏹' WHERE quest_name = 'Panacea''s Remedy' AND icon != '🏹'");
 
     // Seed Fates (20 Archaic Age fates) - MUST be in order 1-20 so fate_id = fate_number
     console.log('🎲 Seeding fates...');

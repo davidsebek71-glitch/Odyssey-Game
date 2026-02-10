@@ -382,6 +382,7 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
         a.current_age,
         a.buildings_owned,
         a.underdog_blessing,
+        a.side_quest_rewards,
         COUNT(s.student_id) as member_count
       FROM alliances a
       LEFT JOIN students s ON a.alliance_id = s.alliance_id
@@ -400,6 +401,15 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
       `, [alliance.alliance_id]);
       
       alliance.member_names = members.map(m => m.name);
+      
+      // Parse side quest rewards and convert to emoji icons
+      const rewards = JSON.parse(alliance.side_quest_rewards || '[]');
+      alliance.side_quest_reward_icons = rewards.map(questId => {
+        if (questId === 1) return '🔨';
+        if (questId === 2) return '🏹';
+        if (questId === 3) return '🌾';
+        return '';
+      }).join('');
     });
     
     res.json(alliances);
@@ -1024,7 +1034,8 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         a.total_points as alliance_points,
         a.current_age,
         a.buildings_owned,
-        a.reverse_cards
+        a.reverse_cards,
+        a.side_quest_rewards
       FROM students s
       LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
       WHERE s.student_id = ?
@@ -1033,6 +1044,15 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
     if (!student) {
       return res.status(404).json({ error: 'Student not found' });
     }
+    
+    // Parse side quest rewards for display
+    const rewards = JSON.parse(student.side_quest_rewards || '[]');
+    student.side_quest_reward_icons = rewards.map(questId => {
+      if (questId === 1) return '🔨';
+      if (questId === 2) return '🏹';
+      if (questId === 3) return '🌾';
+      return '';
+    }).join('');
     
     // Parse JSON fields
     student.technologies_unlocked = JSON.parse(student.technologies_unlocked || '[]');
@@ -1059,18 +1079,30 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         alliance_id,
         alliance_name,
         total_points,
-        current_age
+        current_age,
+        side_quest_rewards
       FROM alliances
+      WHERE is_disbanded = 0
       ORDER BY total_points DESC
     `);
     
-    // Add technologies to each alliance
+    // Add technologies and side quest icons to each alliance
     const leaderboardWithTechs = leaderboard.map(alliance => {
       const techs = query(
         'SELECT tech_name FROM alliance_technologies WHERE alliance_id = ?',
         [alliance.alliance_id]
       ).map(t => t.tech_name);
-      return { ...alliance, technologies: techs };
+      
+      // Parse side quest rewards and convert to emoji string
+      const rewards = JSON.parse(alliance.side_quest_rewards || '[]');
+      const rewardIcons = rewards.map(questId => {
+        if (questId === 1) return '🔨';
+        if (questId === 2) return '🏹';
+        if (questId === 3) return '🌾';
+        return '';
+      }).join('');
+      
+      return { ...alliance, technologies: techs, side_quest_reward_icons: rewardIcons };
     });
     
     res.json({
@@ -4529,6 +4561,18 @@ app.post('/api/teacher/grant-side-quest-reward', authenticateToken, (req, res) =
     // Grant the technology reward
     run(`INSERT INTO alliance_technologies (alliance_id, tech_name, source_quest_id) VALUES (?, ?, ?)`,
         [alliance_id, quest.reward_name, quest_id]);
+    
+    // Track the reward on the alliance for emoji display
+    const currentRewards = JSON.parse(alliance.side_quest_rewards || '[]');
+    if (!currentRewards.includes(parseInt(quest_id))) {
+      currentRewards.push(parseInt(quest_id));
+      run('UPDATE alliances SET side_quest_rewards = ? WHERE alliance_id = ?',
+          [JSON.stringify(currentRewards), alliance_id]);
+    }
+    
+    // Get the emoji for the reward
+    const rewardEmojis = { 1: '🔨', 2: '🏹', 3: '🌾' };
+    const emoji = rewardEmojis[parseInt(quest_id)] || '⭐';
     
     saveDatabase();
     
