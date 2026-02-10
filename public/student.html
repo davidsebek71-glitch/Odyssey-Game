@@ -2904,9 +2904,6 @@
                 // Show top 8 alliances
                 const top8 = leaderboard.slice(0, 8);
                 leaderboardContent.innerHTML = top8.map((alliance, index) => {
-                    // Build tech icons string
-                    let techIcons = '';
-                    if (alliance.technologies && alliance.technologies.length > 0) {
                     // Use side quest reward icons from server
                     const rewardIcons = alliance.side_quest_reward_icons || '';
                     return `
