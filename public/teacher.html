@@ -1184,16 +1184,16 @@
 
     <!-- QUEST & BONUS TRACKER MODAL -->
     <div id="quest-bonus-tracker-modal" class="modal">
-        <div class="modal-content" style="max-width: 1300px; max-height: 90vh;">
-            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-content" style="max-width: 1300px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 📋 Quest & Bonus Tracker
                 <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">✕</button>
             </div>
-            <div style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8);">
+            <div style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8); flex-shrink: 0;">
                 <strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea's Remedy | 🌾 Three Seeds<br>
                 <strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)
             </div>
-            <div style="margin-bottom: 10px;">
+            <div style="margin-bottom: 10px; flex-shrink: 0;">
                 <select id="tracker-period-select" onchange="loadQuestBonusTracker()" style="padding: 10px 14px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 6px; color: white; font-size: 15px;">
                     <option value="all">All Periods</option>
                     <option value="1st">1st Period</option>
@@ -1202,7 +1202,7 @@
                     <option value="4th">4th Period</option>
                 </select>
             </div>
-            <div id="quest-bonus-tracker-content" style="max-height: 65vh; overflow: auto;">
+            <div id="quest-bonus-tracker-content" style="flex: 1; overflow: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
