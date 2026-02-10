@@ -2804,8 +2804,8 @@
                     const dashResponse = await fetch(`${API_URL}/student/dashboard`, { headers });
                     const dashData = await dashResponse.json();
                     
-                    if (dashData.student && dashData.student.alliance_points !== lastKnownPoints) {
-                        lastKnownPoints = dashData.student.alliance_points;
+                    if (dashData.student && (dashData.student.alliance_display_points || dashData.student.alliance_points) !== lastKnownPoints) {
+                        lastKnownPoints = dashData.student.alliance_display_points || dashData.student.alliance_points;
                         // Update points display without full reload
                         const pointsEl = document.getElementById('points-stat');
                         if (pointsEl) pointsEl.textContent = dashData.student.alliance_points || 0;
@@ -2855,7 +2855,7 @@
                 const rewardIcons = student.side_quest_reward_icons || '';
                 const iconSpan = rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : '';
                 document.getElementById('alliance-name-stat').innerHTML = student.alliance_name + iconSpan;
-                document.getElementById('points-stat').textContent = student.alliance_points || 0;
+                document.getElementById('points-stat').textContent = student.alliance_display_points || student.alliance_points || 0;
                 
                 const rank = leaderboard.findIndex(a => a.alliance_id === student.alliance_id) + 1;
                 document.getElementById('rank-stat').textContent = rank > 0 ? `#${rank}` : '--';
@@ -2896,9 +2896,16 @@
                     ` : ''}
                     <div style="margin-top: 20px;">
                         <div style="font-weight: 600; margin-bottom: 12px; color: #c9a0dc; font-size: 14px;">
-                            Members (${members.length})
+                            Members (${members.filter(m => !m.is_ghost).length}${members.some(m => m.is_ghost) ? ' + ' + members.filter(m => m.is_ghost).length + ' 👻' : ''})
                         </div>
-                        ${members.map(m => `
+                        ${members.map(m => m.is_ghost ? `
+                            <div class="member" style="opacity: 0.6; border-left: 3px solid #8b5cf6; padding-left: 10px;">
+                                <div class="member-name" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>👻 ${m.name} <span style="font-size: 11px; color: #a78bfa;">(Spirit Ally: +${m.ghost_points} pts)</span></span>
+                                    <button onclick="kickGhost(${m.student_id})" style="background: rgba(220,38,38,0.3); border: none; color: #fca5a5; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button>
+                                </div>
+                            </div>
+                        ` : `
                             <div class="member">
                                 <div class="member-name">
                                     ${m.name} ${m.student_id === student.student_id ? '(You)' : ''}
@@ -2935,7 +2942,7 @@
                             ${alliance.alliance_name}${rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                             ${alliance.alliance_id === student.alliance_id ? ' (You)' : ''}
                         </div>
-                        <div class="points">${alliance.total_points}</div>
+                        <div class="points">${alliance.display_points || alliance.total_points}</div>
                         <div style="margin-left: 10px; opacity: 0.5;">🗺️</div>
                     </div>
                 `}).join('');
@@ -3510,7 +3517,7 @@
                     select.innerHTML = '<option value="">No students available</option>';
                 } else {
                     select.innerHTML = '<option value="">Select a student...</option>' +
-                        students.map(s => `<option value="${s.student_id}">${s.name}</option>`).join('');
+                        students.map(s => `<option value="${s.student_id}">${s.is_ghost ? '👻 ' : ''}${s.name}${s.is_ghost ? ' (Spirit Ally)' : ''}</option>`).join('');
                 }
             } catch (err) {
                 console.error('Failed to load students:', err);
@@ -3520,6 +3527,26 @@
         function closeInviteModal() {
             document.getElementById('invite-modal').classList.remove('show');
             document.getElementById('invite-form').reset();
+        }
+
+        async function kickGhost(ghostStudentId) {
+            if (!confirm('Remove this Spirit Ally from your alliance?')) return;
+            try {
+                const response = await fetch(`${API_URL}/alliance/kick-ghost`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ ghost_student_id: ghostStudentId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('✅ ' + result.message);
+                    loadDashboard();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to remove ghost: ' + err.message);
+            }
         }
 
         document.getElementById('invite-form').addEventListener('submit', async (e) => {

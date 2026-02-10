@@ -604,6 +604,39 @@ function runMigrations() {
       db.run("UPDATE side_quests_ref SET icon = '🏹' WHERE quest_name = 'Panacea''s Remedy' AND icon != '🏹'");
     } catch(e) { /* table may not exist yet */ }
     
+    // Add is_ghost column to students table
+    const studentCols = db.exec("PRAGMA table_info(students)");
+    const studentColNames = studentCols[0] ? studentCols[0].values.map(c => c[1]) : [];
+    
+    if (!studentColNames.includes('is_ghost')) {
+      console.log('  Adding is_ghost column to students...');
+      db.run("ALTER TABLE students ADD COLUMN is_ghost INTEGER DEFAULT 0");
+      
+      // Seed ghost students (5 boys, 5 girls with mythological names)
+      const ghostStudents = [
+        { name: 'Achilles Shadow', email: 'ghost_achilles@odyssey.ghost' },
+        { name: 'Orpheus Shade', email: 'ghost_orpheus@odyssey.ghost' },
+        { name: 'Theseus Echo', email: 'ghost_theseus@odyssey.ghost' },
+        { name: 'Perseus Phantom', email: 'ghost_perseus@odyssey.ghost' },
+        { name: 'Ajax Specter', email: 'ghost_ajax@odyssey.ghost' },
+        { name: 'Circe Whisper', email: 'ghost_circe@odyssey.ghost' },
+        { name: 'Daphne Mist', email: 'ghost_daphne@odyssey.ghost' },
+        { name: 'Selene Wraith', email: 'ghost_selene@odyssey.ghost' },
+        { name: 'Calypso Shade', email: 'ghost_calypso@odyssey.ghost' },
+        { name: 'Atalanta Spirit', email: 'ghost_atalanta@odyssey.ghost' }
+      ];
+      
+      for (const ghost of ghostStudents) {
+        try {
+          db.run(
+            "INSERT INTO students (name, email, password_hash, class_period, is_ghost) VALUES (?, ?, 'GHOST_NO_LOGIN', NULL, 1)",
+            [ghost.name, ghost.email]
+          );
+        } catch(e) { /* ghost already exists */ }
+      }
+      console.log('👻 Ghost students seeded (10 mythological spirits)');
+    }
+    
     // Check and add pantheon unlock columns to student_achievement_progress
     const achieveCols = db.exec("PRAGMA table_info(student_achievement_progress)");
     const achieveColNames = achieveCols[0] ? achieveCols[0].values.map(c => c[1]) : [];

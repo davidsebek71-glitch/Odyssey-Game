@@ -333,6 +333,12 @@ app.post('/api/auth/student/login', async (req, res) => {
     }
     
     const student = students[0];
+    
+    // Block ghost students from logging in
+    if (student.is_ghost) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
     const validPassword = await bcrypt.compare(password, student.password_hash);
     
     if (!validPassword) {
@@ -395,12 +401,25 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
     alliances.forEach(alliance => {
       alliance.buildings_owned = JSON.parse(alliance.buildings_owned || '[]');
       
-      // Get member names for this alliance
-      const members = query(`
-        SELECT name FROM students WHERE alliance_id = ? ORDER BY name
+      // Get real member names
+      const realMembers = query(`
+        SELECT name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) ORDER BY name
       `, [alliance.alliance_id]);
       
-      alliance.member_names = members.map(m => m.name);
+      // Get ghost member names
+      const ghostMembers = query(`
+        SELECT name FROM students WHERE alliance_id = ? AND is_ghost = 1 ORDER BY name
+      `, [alliance.alliance_id]);
+      
+      alliance.member_names = realMembers.map(m => m.name);
+      alliance.ghost_names = ghostMembers.map(m => m.name);
+      alliance.real_member_count = realMembers.length;
+      alliance.ghost_count = ghostMembers.length;
+      
+      // Calculate ghost bonus points
+      const ghostPointsEach = realMembers.length > 0 ? Math.round(alliance.total_points / realMembers.length) : 0;
+      alliance.ghost_bonus = ghostPointsEach * ghostMembers.length;
+      alliance.display_points = alliance.total_points + alliance.ghost_bonus;
       
       // Parse side quest rewards and convert to emoji icons
       const rewards = JSON.parse(alliance.side_quest_rewards || '[]');
@@ -1061,16 +1080,39 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
     
     // Get alliance members
     let members = [];
+    let ghostMembers = [];
     if (student.alliance_id) {
       members = query(`
-        SELECT student_id, name, technologies_unlocked
+        SELECT student_id, name, technologies_unlocked, is_ghost
         FROM students
-        WHERE alliance_id = ?
+        WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)
       `, [student.alliance_id]);
       
       members.forEach(m => {
         m.technologies_unlocked = JSON.parse(m.technologies_unlocked || '[]');
+        m.is_ghost = 0;
       });
+      
+      // Get ghost members in this alliance
+      ghostMembers = query(`
+        SELECT student_id, name, is_ghost
+        FROM students
+        WHERE alliance_id = ? AND is_ghost = 1
+      `, [student.alliance_id]);
+      
+      // Calculate ghost points: alliance total_points / living member count
+      const livingCount = members.length;
+      const ghostPointsEach = livingCount > 0 ? Math.round(student.alliance_points / livingCount) : 0;
+      
+      ghostMembers.forEach(g => {
+        g.technologies_unlocked = [];
+        g.is_ghost = 1;
+        g.ghost_points = ghostPointsEach;
+      });
+      
+      // Add ghost bonus to display total
+      student.ghost_bonus_points = ghostPointsEach * ghostMembers.length;
+      student.alliance_display_points = student.alliance_points + student.ghost_bonus_points;
     }
     
     // Get leaderboard
@@ -1102,12 +1144,30 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         return '';
       }).join('');
       
-      return { ...alliance, technologies: techs, side_quest_reward_icons: rewardIcons };
+      // Calculate ghost bonus points
+      const livingCount = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+        [alliance.alliance_id]
+      )[0].count;
+      const ghostCount = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND is_ghost = 1',
+        [alliance.alliance_id]
+      )[0].count;
+      const ghostPointsEach = livingCount > 0 ? Math.round(alliance.total_points / livingCount) : 0;
+      const ghostBonus = ghostPointsEach * ghostCount;
+      
+      return { 
+        ...alliance, 
+        technologies: techs, 
+        side_quest_reward_icons: rewardIcons,
+        display_points: alliance.total_points + ghostBonus,
+        ghost_bonus: ghostBonus
+      };
     });
     
     res.json({
       student,
-      members,
+      members: [...members, ...ghostMembers],
       leaderboard: leaderboardWithTechs
     });
   } catch (err) {
@@ -2384,26 +2444,55 @@ app.post('/api/alliance/invite', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'You must be in an alliance to send invitations' });
     }
     
-    // Check alliance member count (can only invite if < 4 members)
-    const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [inviter.alliance_id])[0].count;
-    if (memberCount >= 4) {
-      return res.status(400).json({ error: 'Your alliance is full (4 members maximum)' });
-    }
-    
     // Check if invited student exists and get their info
-    const invited = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [invited_student_id])[0];
+    const invited = query('SELECT student_id, alliance_id, class_period, is_ghost FROM students WHERE student_id = ?', [invited_student_id])[0];
     
     if (!invited) {
       return res.status(404).json({ error: 'Student not found' });
     }
     
+    if (invited.alliance_id) {
+      return res.status(400).json({ error: 'This student is already in an alliance' });
+    }
+    
+    // Count real and ghost members
+    const realMemberCount = query(
+      'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+      [inviter.alliance_id]
+    )[0].count;
+    
+    const ghostMemberCount = query(
+      'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND is_ghost = 1',
+      [inviter.alliance_id]
+    )[0].count;
+    
+    const totalMembers = realMemberCount + ghostMemberCount;
+    
+    if (totalMembers >= 4) {
+      return res.status(400).json({ error: 'Your alliance is full (4 members maximum)' });
+    }
+    
+    if (invited.is_ghost) {
+      // Ghost-specific checks
+      if (realMemberCount >= 4) {
+        return res.status(400).json({ error: 'Your alliance already has 4+ real members' });
+      }
+      if (ghostMemberCount >= 2) {
+        return res.status(400).json({ error: 'Your alliance already has 2 ghost members (max 2)' });
+      }
+      
+      // Auto-accept: directly assign ghost to alliance
+      run('UPDATE students SET alliance_id = ? WHERE student_id = ?', [inviter.alliance_id, invited.student_id]);
+      saveDatabase();
+      
+      const ghostName = query('SELECT name FROM students WHERE student_id = ?', [invited.student_id])[0].name;
+      return res.json({ success: true, message: `👻 ${ghostName} has joined your alliance!` });
+    }
+    
+    // Regular student invite flow
     // Must be same class period
     if (invited.class_period !== inviter.class_period) {
       return res.status(400).json({ error: 'Can only invite students from your class period' });
-    }
-    
-    if (invited.alliance_id) {
-      return res.status(400).json({ error: 'This student is already in an alliance' });
     }
     
     // Check if invitation already exists
@@ -2425,6 +2514,38 @@ app.post('/api/alliance/invite', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Send invitation error:', err);
     res.status(500).json({ error: 'Failed to send invitation' });
+  }
+});
+
+// Kick ghost from alliance
+app.post('/api/alliance/kick-ghost', authenticateToken, (req, res) => {
+  try {
+    const { ghost_student_id } = req.body;
+    const student_id = req.user.id;
+    
+    // Get requester's alliance
+    const requester = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!requester || !requester.alliance_id) {
+      return res.status(400).json({ error: 'You must be in an alliance' });
+    }
+    
+    // Verify the target is a ghost in the same alliance
+    const ghost = query('SELECT student_id, name, alliance_id, is_ghost FROM students WHERE student_id = ?', [ghost_student_id])[0];
+    if (!ghost || !ghost.is_ghost) {
+      return res.status(400).json({ error: 'Not a ghost student' });
+    }
+    if (ghost.alliance_id !== requester.alliance_id) {
+      return res.status(400).json({ error: 'This ghost is not in your alliance' });
+    }
+    
+    // Remove ghost from alliance
+    run('UPDATE students SET alliance_id = NULL WHERE student_id = ?', [ghost_student_id]);
+    saveDatabase();
+    
+    res.json({ success: true, message: `👻 ${ghost.name} has been removed from your alliance.` });
+  } catch (err) {
+    console.error('Kick ghost error:', err);
+    res.status(500).json({ error: 'Failed to remove ghost' });
   }
 });
 
@@ -2502,6 +2623,19 @@ app.post('/api/alliance/respond-invitation', authenticateToken, (req, res) => {
            WHERE invited_student_id = ? AND status = 'pending' AND invitation_id != ?`,
           [student_id, invitation_id]);
       
+      // Auto-remove ghosts if alliance now has 4+ real members
+      const realCount = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+        [invitation.alliance_id]
+      )[0].count;
+      
+      if (realCount >= 4) {
+        run('UPDATE students SET alliance_id = NULL WHERE alliance_id = ? AND is_ghost = 1', [invitation.alliance_id]);
+        console.log(`👻 Auto-removed ghosts from alliance ${invitation.alliance_id} (now has ${realCount} real members)`);
+      }
+      
+      saveDatabase();
+      
       res.json({ success: true, message: 'You joined the alliance!' });
     } else {
       // Decline invitation
@@ -2518,25 +2652,49 @@ app.post('/api/alliance/respond-invitation', authenticateToken, (req, res) => {
   }
 });
 
-// Get students available to invite (same class period, not in any alliance)
+// Get students available to invite (same class period, not in any alliance) + ghost students
 app.get('/api/alliance/available-students', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
     
-    // Get current student's class period
-    const currentStudent = query('SELECT class_period FROM students WHERE student_id = ?', [student_id])[0];
+    // Get current student's class period and alliance
+    const currentStudent = query('SELECT class_period, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
     
-    // Get students without an alliance, same class period, excluding the current student
-    const students = query(`
-      SELECT student_id, name, class_period 
+    // Get real students without an alliance, same class period
+    const realStudents = query(`
+      SELECT student_id, name, class_period, 0 as is_ghost 
       FROM students 
       WHERE alliance_id IS NULL 
         AND student_id != ?
         AND class_period = ?
+        AND (is_ghost = 0 OR is_ghost IS NULL)
       ORDER BY name
     `, [student_id, currentStudent.class_period]);
     
-    res.json(students);
+    // Check if this alliance can invite ghosts (fewer than 4 real members, max 2 ghosts)
+    let ghostStudents = [];
+    if (currentStudent.alliance_id) {
+      const realMemberCount = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+        [currentStudent.alliance_id]
+      )[0].count;
+      
+      const ghostMemberCount = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND is_ghost = 1',
+        [currentStudent.alliance_id]
+      )[0].count;
+      
+      if (realMemberCount < 4 && ghostMemberCount < 2) {
+        ghostStudents = query(`
+          SELECT student_id, name, NULL as class_period, 1 as is_ghost
+          FROM students
+          WHERE is_ghost = 1 AND alliance_id IS NULL
+          ORDER BY name
+        `);
+      }
+    }
+    
+    res.json([...realStudents, ...ghostStudents]);
   } catch (err) {
     console.error('Get available students error:', err);
     res.status(500).json({ error: 'Failed to fetch students' });
@@ -2912,12 +3070,12 @@ app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req
     
     const threshold = Math.ceil(bonusAssignment.max_points * 0.8);
     
-    // Get all active alliances with member counts
+    // Get all active alliances with member counts (only real members, not ghosts)
     const alliances = query(`
       SELECT a.alliance_id, a.alliance_name, a.class_period,
              COUNT(s.student_id) as member_count
       FROM alliances a
-      JOIN students s ON a.alliance_id = s.alliance_id
+      JOIN students s ON a.alliance_id = s.alliance_id AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
       WHERE a.is_disbanded = 0
       GROUP BY a.alliance_id
     `);
@@ -4445,7 +4603,7 @@ app.post('/api/teacher/approve-side-quest', authenticateToken, (req, res) => {
     
     // Check if ALL alliance members have now completed this quest (info only - teacher must manually grant in God Assignments)
     const quest = query('SELECT * FROM side_quests_ref WHERE quest_id = ?', [completion.quest_id])[0];
-    const allianceMembers = query('SELECT student_id FROM students WHERE alliance_id = ?', [completion.alliance_id]);
+    const allianceMembers = query('SELECT student_id FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [completion.alliance_id]);
     const approvedCompletions = query(
       `SELECT * FROM side_quest_completions 
        WHERE quest_id = ? AND alliance_id = ? AND status = 'approved'`,
@@ -4539,12 +4697,12 @@ app.get('/api/teacher/eligible-alliances-for-quest', authenticateToken, (req, re
       return res.status(404).json({ error: 'Quest not found' });
     }
     
-    // Get all active alliances
+    // Get all active alliances (only count real members, not ghosts)
     const alliances = query(`
       SELECT a.alliance_id, a.alliance_name, a.class_period,
              COUNT(s.student_id) as member_count
       FROM alliances a
-      JOIN students s ON a.alliance_id = s.alliance_id
+      JOIN students s ON a.alliance_id = s.alliance_id AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
       WHERE a.is_disbanded = 0
       GROUP BY a.alliance_id
     `);
@@ -4662,10 +4820,11 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
   try {
     const { period } = req.query;
     
-    // Get students, optionally filtered by period
+    // Get students, optionally filtered by period (exclude ghosts)
     let studentsQuery = `
       SELECT s.student_id, s.name, s.class_period, s.alliance_id
       FROM students s
+      WHERE (s.is_ghost = 0 OR s.is_ghost IS NULL)
       ORDER BY s.class_period, s.name
     `;
     let students = query(studentsQuery);
