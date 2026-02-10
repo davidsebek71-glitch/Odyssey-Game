@@ -431,6 +431,12 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
       }).join('');
     });
     
+    // Re-sort by class_period then display_points (includes ghost bonus)
+    alliances.sort((a, b) => {
+      if (a.class_period !== b.class_period) return (a.class_period || '').localeCompare(b.class_period || '');
+      return b.display_points - a.display_points;
+    });
+    
     res.json(alliances);
   } catch (err) {
     console.error('Leaderboard error:', err);
@@ -1164,6 +1170,9 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         ghost_bonus: ghostBonus
       };
     });
+    
+    // Sort by display_points (includes ghost bonus) so rankings update correctly
+    leaderboardWithTechs.sort((a, b) => b.display_points - a.display_points);
     
     res.json({
       student,
@@ -3427,7 +3436,7 @@ function ensureAgeGate(class_period) {
 // Helper: Calculate age readiness for an alliance
 function calculateAgeReadiness(alliance) {
   const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
-  const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [alliance.alliance_id])[0].count;
+  const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [alliance.alliance_id])[0].count;
   
   // Required buildings for Classical Age (6 buildings - includes Wooden Wall)
   const requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall'];
@@ -4772,8 +4781,8 @@ app.post('/api/teacher/grant-side-quest-reward', authenticateToken, (req, res) =
       return res.status(400).json({ error: `${alliance.alliance_name} already has ${quest.reward_name}` });
     }
     
-    // Verify all members have approved completions
-    const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [alliance_id])[0].count;
+    // Verify all LIVING members have approved completions (exclude ghosts)
+    const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [alliance_id])[0].count;
     const approvedCount = query(
       'SELECT COUNT(*) as count FROM side_quest_completions WHERE quest_id = ? AND alliance_id = ? AND status = ?',
       [quest_id, alliance_id, 'approved']
