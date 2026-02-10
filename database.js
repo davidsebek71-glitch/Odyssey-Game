@@ -637,6 +637,23 @@ function runMigrations() {
       console.log('👻 Ghost students seeded (10 mythological spirits)');
     }
     
+    // Seed 3 additional ghost students (added later)
+    const extraGhosts = [
+      { name: 'Icarus Ember', email: 'ghost_icarus@odyssey.ghost' },
+      { name: 'Triton Depths', email: 'ghost_triton@odyssey.ghost' },
+      { name: 'Psyche Veil', email: 'ghost_psyche@odyssey.ghost' }
+    ];
+    
+    for (const ghost of extraGhosts) {
+      try {
+        db.run(
+          "INSERT INTO students (name, email, password_hash, class_period, is_ghost) VALUES (?, ?, 'GHOST_NO_LOGIN', NULL, 1)",
+          [ghost.name, ghost.email]
+        );
+        console.log(`👻 Added ghost: ${ghost.name}`);
+      } catch(e) { /* ghost already exists */ }
+    }
+    
     // Check and add pantheon unlock columns to student_achievement_progress
     const achieveCols = db.exec("PRAGMA table_info(student_achievement_progress)");
     const achieveColNames = achieveCols[0] ? achieveCols[0].values.map(c => c[1]) : [];
