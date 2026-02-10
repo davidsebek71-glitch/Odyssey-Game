@@ -2410,22 +2410,30 @@
                     <div id="buildings-activations-content">Loading...</div>
                 </div>
 
-                <!-- My Contributions (Phase 2) -->
-                <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">📊 My Contributions</div>
-                    <div id="contributions-content" class="loading">Loading...</div>
-                </div>
-
-                <!-- My Grades (V42) -->
+                <!-- My Grades -->
                 <div class="card" style="margin-bottom: 20px;">
                     <div class="card-title">📊 My Archaic Age Grades</div>
                     <div id="grades-content" class="loading">Loading...</div>
                 </div>
 
-                <!-- My Submissions -->
+                <!-- My Contributions (Collapsible) -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-title" style="cursor: pointer; user-select: none;" onclick="toggleSection('contributions-section', this)">
+                        📊 My Contributions <span style="float: right; font-size: 14px; color: rgba(255,255,255,0.5);">▼</span>
+                    </div>
+                    <div id="contributions-section">
+                        <div id="contributions-content" class="loading">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- My Point Submissions (Collapsible) -->
                 <div class="card">
-                    <div class="card-title">📝 My Point Submissions</div>
-                    <div id="submissions-content" class="loading">Loading...</div>
+                    <div class="card-title" style="cursor: pointer; user-select: none;" onclick="toggleSection('submissions-section', this)">
+                        📝 My Point Submissions <span style="float: right; font-size: 14px; color: rgba(255,255,255,0.5);">▼</span>
+                    </div>
+                    <div id="submissions-section">
+                        <div id="submissions-content" class="loading">Loading...</div>
+                    </div>
                 </div>
             </div>
 
@@ -2826,6 +2834,18 @@
                 startChallengePolling();
             }
         });
+
+        function toggleSection(sectionId, titleEl) {
+            const section = document.getElementById(sectionId);
+            const arrow = titleEl.querySelector('span');
+            if (section.style.display === 'none') {
+                section.style.display = '';
+                arrow.textContent = '▼';
+            } else {
+                section.style.display = 'none';
+                arrow.textContent = '▶';
+            }
+        }
 
         function renderDashboard() {
             const { student, members, leaderboard } = dashboardData;
@@ -4916,7 +4936,7 @@
                         ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
                     </div>
 
-                    <!-- Dramatic Bonus Button -->
+                    <!-- Bonus Portal Button -->
                     <button onclick="openBonusPortal()" style="
                         background: linear-gradient(135deg, #f59e0b, #d97706, #b45309);
                         border: 2px solid #fbbf24;
