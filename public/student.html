@@ -6348,11 +6348,13 @@
                       data.available_opponents?.length === 0 ? '<p style="color:rgba(255,255,255,0.5);text-align:center;font-size:18px;">No opponents available right now.</p>' : `
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                             ${data.available_opponents.map(opp => {
-                                const oppAtLimit = opp.battles_today >= data.max_battles_per_day;
+                                const oppBadgeLimit = (oppBadges[opp.student_id] || []).length >= 7 ? 6 : (oppBadges[opp.student_id] || []).length >= 4 ? 5 : (oppBadges[opp.student_id] || []).length >= 2 ? 4 : 3;
+                                const oppAtLimit = opp.battles_today >= oppBadgeLimit;
                                 const oppBadgeKeys = oppBadges[opp.student_id] || [];
-                                const oppBadgeIcons = oppBadgeKeys.map(k => 
-                                    `<img src="/badges/${k}.png" style="width: 18px; height: 18px; object-fit: contain; vertical-align: middle;" onerror="this.outerHTML='${badgeDefs[k] ? badgeDefs[k].icon : ''}';">`
-                                ).join('');
+                                const oppBadgeIcons = oppBadgeKeys.map(k => {
+                                    const def = badgeDefs[k];
+                                    return def ? `<img src="/badges/${k}.png" style="width: 18px; height: 18px; object-fit: contain;" onerror="this.style.display='none'">` : '';
+                                }).join('');
                                 return `
                                 <div ${oppAtLimit ? '' : `onclick="sendChallenge(${opp.student_id}, '${opp.name.replace(/'/g, "\\'")}')"`} 
                                      style="

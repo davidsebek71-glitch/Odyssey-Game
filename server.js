@@ -5175,6 +5175,7 @@ function getDailyBattleLimit(studentId) {
 
 // Check and award badges after a battle completes
 function checkAndAwardBadges(studentId, battleId) {
+  try {
   const stats = query('SELECT * FROM arena_battle_stats WHERE student_id = ?', [studentId])[0];
   if (!stats) return;
   
@@ -5324,6 +5325,9 @@ function checkAndAwardBadges(studentId, battleId) {
     )
   `, [studentId, studentId])[0];
   if (uniqueOpponents && uniqueOpponents.cnt >= 5) award('hydra_slayer');
+  } catch (err) {
+    console.error(`Badge check error for student ${studentId}, battle ${battleId}: ${err.message}`);
+  }
 }
 
 // Retroactive badge migration - run once on startup if badges table is empty
@@ -5348,22 +5352,30 @@ function retroactivelyAwardBadges() {
     let index = 0;
     
     function processBatch() {
-      const end = Math.min(index + BATCH_SIZE, completedBattles.length);
-      for (let i = index; i < end; i++) {
-        const b = completedBattles[i];
-        if (b.challenger_id) checkAndAwardBadges(b.challenger_id, b.battle_id);
-        if (b.defender_id) checkAndAwardBadges(b.defender_id, b.battle_id);
-      }
-      index = end;
+      try {
+        const end = Math.min(index + BATCH_SIZE, completedBattles.length);
+        for (let i = index; i < end; i++) {
+          const b = completedBattles[i];
+          try {
+            if (b.challenger_id) checkAndAwardBadges(b.challenger_id, b.battle_id);
+            if (b.defender_id) checkAndAwardBadges(b.defender_id, b.battle_id);
+          } catch (badgeErr) {
+            console.log(`  Badge check error for battle ${b.battle_id}: ${badgeErr.message}`);
+          }
+        }
+        index = end;
       
-      if (index < completedBattles.length) {
-        // Yield to event loop, then continue
-        setTimeout(processBatch, 50);
-      } else {
-        // Done - mark all as seen and save
-        run('UPDATE arena_badges SET celebration_seen = 1');
-        saveDatabase();
-        console.log('🏅 Retroactive badge awards complete');
+        if (index < completedBattles.length) {
+          // Yield to event loop, then continue
+          setTimeout(processBatch, 50);
+        } else {
+          // Done - mark all as seen and save
+          run('UPDATE arena_badges SET celebration_seen = 1');
+          saveDatabase();
+          console.log('🏅 Retroactive badge awards complete');
+        }
+      } catch (batchErr) {
+        console.log(`  Batch processing error: ${batchErr.message}`);
       }
     }
     
