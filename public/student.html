@@ -2773,7 +2773,8 @@
             }
         }
         
-        // Background polling for real-time updates (god unlocks, points, etc.)
+        // Background polling for real-time updates (pantheon unlocks/bonuses ONLY)
+        // Dashboard data is handled by the managed dashboardRefreshInterval
         function startBackgroundPolling() {
             // IMPORTANT: Clear any existing interval first to prevent stacking
             if (pollingInterval) {
@@ -2781,7 +2782,7 @@
                 pollingInterval = null;
             }
             
-            // Poll every 10 seconds for updates
+            // Poll every 15 seconds for pantheon updates only
             pollingInterval = setInterval(async () => {
                 try {
                     // Check for new god unlocks
@@ -2800,21 +2801,10 @@
                         showBonusButton();
                     }
                     
-                    // Check for point changes (refresh dashboard if points changed)
-                    const dashResponse = await fetch(`${API_URL}/student/dashboard`, { headers });
-                    const dashData = await dashResponse.json();
-                    
-                    if (dashData.student && (dashData.student.alliance_display_points || dashData.student.alliance_points) !== lastKnownPoints) {
-                        lastKnownPoints = dashData.student.alliance_display_points || dashData.student.alliance_points;
-                        // Update points display without full reload
-                        const pointsEl = document.getElementById('points-stat');
-                        if (pointsEl) pointsEl.textContent = dashData.student.alliance_points || 0;
-                    }
-                    
                 } catch (err) {
                     // Silently fail - polling errors shouldn't disrupt the UI
                 }
-            }, 10000); // Every 10 seconds
+            }, 15000); // Every 15 seconds (was 10)
         }
         
         // Stop polling when page is hidden (saves resources)
@@ -2828,10 +2818,12 @@
                     clearInterval(challengePollingInterval);
                     challengePollingInterval = null;
                 }
+                stopDashboardRefresh();
             } else {
                 // Restart polling when page becomes visible
                 startBackgroundPolling();
                 startChallengePolling();
+                startDashboardRefresh();
             }
         });
 
@@ -4831,16 +4823,42 @@
             }
         }
 
-        // Auto-refresh every 10 seconds (checks for invitations frequently)
-        setInterval(() => {
-            loadDashboard();
-            loadInvitations();
-            loadSubmissions();
-            loadContributions();
-            loadAchievements();
-            loadAgeProgress();
-            loadGrades();
-        }, 10000);
+        // Managed dashboard refresh - overlap-protected, stoppable, pauses during arena
+        let dashboardRefreshInterval = null;
+        let dashboardRefreshInProgress = false;
+        
+        function startDashboardRefresh() {
+            if (dashboardRefreshInterval) clearInterval(dashboardRefreshInterval);
+            dashboardRefreshInterval = setInterval(async () => {
+                if (dashboardRefreshInProgress) return; // Skip if previous batch still running
+                dashboardRefreshInProgress = true;
+                try {
+                    await Promise.all([
+                        loadDashboard(),
+                        loadInvitations(),
+                        loadSubmissions(),
+                        loadContributions(),
+                        loadAchievements(),
+                        loadAgeProgress(),
+                        loadGrades()
+                    ]);
+                } catch (err) {
+                    // Silent fail - polling errors shouldn't disrupt UI
+                }
+                dashboardRefreshInProgress = false;
+            }, 15000); // 15 seconds instead of 10
+        }
+        
+        function stopDashboardRefresh() {
+            if (dashboardRefreshInterval) {
+                clearInterval(dashboardRefreshInterval);
+                dashboardRefreshInterval = null;
+            }
+            dashboardRefreshInProgress = false;
+        }
+        
+        // Start on page load
+        startDashboardRefresh();
 
         // ====================
         // GRADE TRACKING SYSTEM (V42)
@@ -5966,6 +5984,9 @@
         // ====================
         
         async function openArena() {
+            // Pause dashboard refresh while arena is open (reduce API load)
+            stopDashboardRefresh();
+            
             // Create modal if doesn't exist
             if (!document.getElementById('arena-modal')) {
                 const modal = document.createElement('div');
@@ -6005,6 +6026,9 @@
                 arenaCountdownInterval = null;
             }
             document.getElementById('arena-modal').style.display = 'none';
+            
+            // Resume dashboard refresh now that arena is closed
+            startDashboardRefresh();
         }
         
         async function loadArenaStatus() {
@@ -6951,6 +6975,11 @@
         }
         
         async function loadBattleState() {
+            // Guard against null battle ID (prevents requests to /arena/battle/null)
+            if (!currentBattleId) {
+                if (battlePollInterval) { clearInterval(battlePollInterval); battlePollInterval = null; }
+                return;
+            }
             try {
                 const response = await fetch(`${API_URL}/arena/battle/${currentBattleId}`, { headers });
                 const data = await response.json();
@@ -7503,7 +7532,20 @@
         }
         
         // Signal to server that client is ready for question display
+        let questionReadyRetries = 0;
+        const MAX_QUESTION_READY_RETRIES = 60; // 60 retries × 500ms = 30 second max wait
+        
         async function signalQuestionReady() {
+            if (!currentBattleId) return; // Guard against null battle
+            
+            if (questionReadyRetries >= MAX_QUESTION_READY_RETRIES) {
+                console.log('⚠️ Opponent not ready after 30 seconds, falling back to polling');
+                questionReadyRetries = 0;
+                loadBattleState();
+                return;
+            }
+            questionReadyRetries++;
+            
             try {
                 const response = await fetch(`${API_URL}/arena/question-ready`, {
                     method: 'POST',
@@ -7515,18 +7557,21 @@
                 if (data.show_question) {
                     // Both players ready - show question NOW
                     console.log('✅ Both players ready! Showing question immediately');
+                    questionReadyRetries = 0;
                     questionActualStartTime = Date.now();
                     loadBattleState();
                 } else if (data.waiting_for_opponent) {
-                    // Still waiting - poll again in 100ms for faster response
+                    // Still waiting - poll again in 500ms (was 100ms - reduced to prevent server hammering)
                     console.log('⏳ Waiting for opponent to be ready...');
-                    setTimeout(() => signalQuestionReady(), 100);
+                    setTimeout(() => signalQuestionReady(), 500);
                 } else {
                     // Error or not ready, try again
+                    questionReadyRetries = 0;
                     setTimeout(() => loadBattleState(), 500);
                 }
             } catch (err) {
                 console.error('Error signaling question ready:', err);
+                questionReadyRetries = 0;
                 setTimeout(() => loadBattleState(), 500);
             }
         }
@@ -7807,6 +7852,7 @@
             godsSubmittedForBattle = null; // Reset so we can select gods for next battle
             answerSubmitting = false;
             questionActualStartTime = null; // Reset timing
+            questionReadyRetries = 0; // Reset question ready retry counter
             
             // Clear any god effects
             clearGodPowerEffects();
