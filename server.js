@@ -5327,6 +5327,7 @@ function checkAndAwardBadges(studentId, battleId) {
 }
 
 // Retroactive badge migration - run once on startup if badges table is empty
+// Processes in batches to avoid blocking the event loop
 function retroactivelyAwardBadges() {
   try {
     const badgeCount = query('SELECT COUNT(*) as count FROM arena_badges')[0];
@@ -5341,15 +5342,32 @@ function retroactivelyAwardBadges() {
       return;
     }
     
-    console.log(`🏅 Running retroactive badge awards for ${completedBattles.length} battles...`);
-    for (const b of completedBattles) {
-      if (b.challenger_id) checkAndAwardBadges(b.challenger_id, b.battle_id);
-      if (b.defender_id) checkAndAwardBadges(b.defender_id, b.battle_id);
+    console.log(`🏅 Running retroactive badge awards for ${completedBattles.length} battles (batched)...`);
+    
+    const BATCH_SIZE = 10;
+    let index = 0;
+    
+    function processBatch() {
+      const end = Math.min(index + BATCH_SIZE, completedBattles.length);
+      for (let i = index; i < end; i++) {
+        const b = completedBattles[i];
+        if (b.challenger_id) checkAndAwardBadges(b.challenger_id, b.battle_id);
+        if (b.defender_id) checkAndAwardBadges(b.defender_id, b.battle_id);
+      }
+      index = end;
+      
+      if (index < completedBattles.length) {
+        // Yield to event loop, then continue
+        setTimeout(processBatch, 50);
+      } else {
+        // Done - mark all as seen and save
+        run('UPDATE arena_badges SET celebration_seen = 1');
+        saveDatabase();
+        console.log('🏅 Retroactive badge awards complete');
+      }
     }
-    // Mark all retroactive badges as celebration_seen
-    run('UPDATE arena_badges SET celebration_seen = 1');
-    saveDatabase();
-    console.log('🏅 Retroactive badge awards complete');
+    
+    processBatch();
   } catch (err) {
     console.log('Retroactive badge migration note:', err.message);
   }
@@ -5539,8 +5557,11 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
     const myBadges = query('SELECT badge_key, celebration_seen FROM arena_badges WHERE student_id = ?', [student_id]);
     const dailyBattleLimit = getDailyBattleLimit(student_id);
     
-    // Get announcements from last 12 hours, clean up old ones
-    run("DELETE FROM arena_announcements WHERE created_at < datetime('now', '-12 hours')");
+    // Get announcements from last 12 hours (cleanup once per minute max, not every request)
+    if (!global._lastAnnouncementCleanup || Date.now() - global._lastAnnouncementCleanup > 60000) {
+      run("DELETE FROM arena_announcements WHERE created_at < datetime('now', '-12 hours')");
+      global._lastAnnouncementCleanup = Date.now();
+    }
     const announcements = query(`
       SELECT aa.badge_key, aa.created_at, s.name as student_name 
       FROM arena_announcements aa
@@ -5549,12 +5570,20 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       ORDER BY aa.created_at DESC LIMIT 10
     `, [student.class_period]);
     
-    // Get badge counts for each opponent (for per-member badge display)
+    // Get badge keys for all opponents in ONE query (not N+1)
+    const opponentIds = opponents.map(o => o.student_id);
     const opponentBadges = {};
-    opponents.forEach(opp => {
-      const badges = query('SELECT badge_key FROM arena_badges WHERE student_id = ?', [opp.student_id]);
-      opponentBadges[opp.student_id] = badges.map(b => b.badge_key);
-    });
+    if (opponentIds.length > 0) {
+      const placeholders = opponentIds.map(() => '?').join(',');
+      const allOppBadges = query(
+        `SELECT student_id, badge_key FROM arena_badges WHERE student_id IN (${placeholders})`,
+        opponentIds
+      );
+      allOppBadges.forEach(b => {
+        if (!opponentBadges[b.student_id]) opponentBadges[b.student_id] = [];
+        opponentBadges[b.student_id].push(b.badge_key);
+      });
+    }
     
     res.json({
       arena_unlocked: true,
@@ -5576,9 +5605,10 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       prometheus_used_today: prometheusUsed,
       // Badge system data
       my_badges: myBadges,
-      badge_definitions: ARENA_BADGES,
+      badge_definitions: ARENA_BADGES, // Client caches this - small payload
       opponent_badges: opponentBadges,
-      announcements: announcements
+      announcements: announcements,
+      daily_battle_limit: dailyBattleLimit
     });
   } catch (err) {
     console.error('Arena status error:', err);
@@ -6572,5 +6602,5 @@ app.listen(PORT, () => {
   setTimeout(cleanupStuckBattles, 1000);
   
   // Run retroactive badge awards (one-time, skips if badges already exist)
-  setTimeout(retroactivelyAwardBadges, 2000);
+  setTimeout(retroactivelyAwardBadges, 10000); // 10 second delay to let server stabilize first
 });
