@@ -3697,15 +3697,18 @@ app.post('/api/teacher/reset-battle-counts', authenticateToken, (req, res) => {
     
     // Find ALL of today's battles to backdate
     const allTodaysBattles = query(`
-      SELECT battle_id FROM arena_battles WHERE DATE(started_at) = ?
-    `, [today]);
+      SELECT battle_id FROM arena_battles WHERE DATE(started_at) = ? OR DATE(created_at) = ?
+    `, [today, today]);
     
     console.log(`🔄 Found ${allTodaysBattles.length} total battles today (${countedBattles.length} count toward limit)`);
     
     // Backdate ALL of today's battles regardless of status
+    // Must backdate BOTH started_at AND created_at because:
+    // - countBattlesToday() checks DATE(started_at) for daily limits
+    // - opponent filter checks DATE(created_at) to prevent rematches
     if (allTodaysBattles.length > 0) {
-      run(`UPDATE arena_battles SET started_at = datetime(started_at, '-1 day') WHERE DATE(started_at) = ?`, [today]);
-      console.log(`🔄 Backdated ${allTodaysBattles.length} battles`);
+      run(`UPDATE arena_battles SET started_at = datetime(started_at, '-1 day'), created_at = datetime(created_at, '-1 day') WHERE DATE(started_at) = ? OR DATE(created_at) = ?`, [today, today]);
+      console.log(`🔄 Backdated ${allTodaysBattles.length} battles (started_at + created_at)`);
     }
     
     // Reset stats and prometheus usage
