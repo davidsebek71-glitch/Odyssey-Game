@@ -5136,8 +5136,224 @@ function countBattlesToday(student_id) {
   return result ? result.count : 0;
 }
 
-// Maximum battles per student per day
-const MAX_BATTLES_PER_DAY = 3;
+// Maximum battles per student per day (absolute ceiling)
+const MAX_BATTLES_PER_DAY = 6;
+
+// ==================== BADGE SYSTEM ====================
+
+const ARENA_BADGES = {
+  // Tier 1 — Newcomer
+  first_blood:     { name: 'First Blood',      icon: '🗡️',  tier: 1, hidden: false, desc: 'Win your first battle' },
+  trial_by_fire:   { name: 'Trial by Fire',    icon: '🛡️',  tier: 1, hidden: false, desc: 'Fight 5 battles' },
+  athenas_favor:   { name: "Athena's Favor",   icon: '⚡',   tier: 1, hidden: false, desc: 'Answer all 5 correctly in one battle' },
+  // Tier 2 — Warrior
+  spartan_grit:    { name: 'Spartan Grit',     icon: '⚔️',  tier: 2, hidden: false, desc: 'Win 10 battles' },
+  on_fire:         { name: 'On Fire',          icon: '🔥',   tier: 2, hidden: false, desc: 'Win 3 in a row' },
+  tactician:       { name: 'Tactician',        icon: '🎯',   tier: 2, hidden: false, desc: 'Win using 3 different gods' },
+  comeback_kid:    { name: 'Comeback Kid',     icon: '💪',   tier: 2, hidden: false, desc: 'Win after being down 2+ rounds' },
+  shapeshifter:    { name: 'Shapeshifter',     icon: '🎭',   tier: 2, hidden: false, desc: 'Win 3 in a row with different primary god each battle' },
+  // Tier 3 — Elite
+  champion:        { name: 'Champion',         icon: '🏆',   tier: 3, hidden: false, desc: 'Win 25 battles' },
+  giant_slayer:    { name: 'Giant Slayer',     icon: '⭐',   tier: 3, hidden: false, desc: 'Beat an alliance ranked 3+ above yours' },
+  unstoppable:     { name: 'Unstoppable',      icon: '🌋',   tier: 3, hidden: false, desc: 'Win 5 in a row' },
+  legend:          { name: 'Legend',            icon: '👑',   tier: 3, hidden: false, desc: 'Win 50 battles' },
+  // Tier 4 — Hidden
+  thread_of_fate:  { name: 'Thread of Fate',   icon: '🪶',   tier: 4, hidden: true,  desc: 'Win by the narrowest margin' },
+  zeus_judgment:   { name: "Zeus's Judgment",   icon: '⚡',   tier: 4, hidden: true,  desc: 'Survive and win when the gods demand overtime' },
+  hydra_slayer:    { name: 'Hydra Slayer',     icon: '🐉',   tier: 4, hidden: true,  desc: 'Prove yourself against many different foes' },
+};
+
+// Calculate daily battle limit based on badge count
+function getDailyBattleLimit(studentId) {
+  const result = query('SELECT COUNT(*) as count FROM arena_badges WHERE student_id = ?', [studentId])[0];
+  const badgeCount = result ? result.count : 0;
+  if (badgeCount >= 7) return 6;
+  if (badgeCount >= 4) return 5;
+  if (badgeCount >= 2) return 4;
+  return 3;
+}
+
+// Check and award badges after a battle completes
+function checkAndAwardBadges(studentId, battleId) {
+  const stats = query('SELECT * FROM arena_battle_stats WHERE student_id = ?', [studentId])[0];
+  if (!stats) return;
+  
+  const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battleId])[0];
+  if (!battle) return;
+  
+  const isWinner = battle.winner_id === studentId;
+  const isChallenger = battle.challenger_id === studentId;
+  const earned = query('SELECT badge_key FROM arena_badges WHERE student_id = ?', [studentId]).map(b => b.badge_key);
+
+  function award(key) {
+    if (!earned.includes(key)) {
+      try {
+        run('INSERT INTO arena_badges (student_id, badge_key) VALUES (?, ?)', [studentId, key]);
+        earned.push(key); // Update local cache so we don't double-award in same call
+        console.log(`🏅 Badge awarded: ${key} to student ${studentId}`);
+        // Create announcement for Tier 3 and Hidden badges
+        const badge = ARENA_BADGES[key];
+        if (badge && (badge.tier >= 3 || badge.hidden)) {
+          run('INSERT INTO arena_announcements (student_id, badge_key) VALUES (?, ?)', [studentId, key]);
+        }
+      } catch (e) {
+        // UNIQUE constraint violation = already earned, ignore
+        console.log(`Badge ${key} already earned by ${studentId}`);
+      }
+    }
+  }
+
+  // === TIER 1 ===
+  if (stats.wins >= 1)           award('first_blood');
+  if (stats.total_battles >= 5)  award('trial_by_fire');
+
+  // Athena's Favor: all 5 answers correct in this battle (only check for winner)
+  if (isWinner) {
+    const answerCol = isChallenger ? 'challenger_answer' : 'defender_answer';
+    const rounds = query(
+      `SELECT ${answerCol} as my_answer FROM arena_battle_rounds WHERE battle_id = ? AND round_number <= 5`,
+      [battleId]
+    );
+    if (rounds.length >= 5 && rounds.every(r => r.my_answer === 'correct')) {
+      award('athenas_favor');
+    }
+  }
+
+  // === TIER 2 ===
+  if (stats.wins >= 10)          award('spartan_grit');
+  if (stats.current_streak >= 3) award('on_fire');
+
+  // Tactician: 3+ distinct gods across winning battles
+  if (isWinner) {
+    const godsAsChallenger = query(`
+      SELECT DISTINCT r.challenger_god_deployed as god FROM arena_battle_rounds r
+      JOIN arena_battles b ON r.battle_id = b.battle_id
+      WHERE b.winner_id = ? AND b.challenger_id = ? AND r.challenger_god_deployed IS NOT NULL
+    `, [studentId, studentId]).map(g => g.god);
+    const godsAsDefender = query(`
+      SELECT DISTINCT r.defender_god_deployed as god FROM arena_battle_rounds r
+      JOIN arena_battles b ON r.battle_id = b.battle_id
+      WHERE b.winner_id = ? AND b.defender_id = ? AND r.defender_god_deployed IS NOT NULL
+    `, [studentId, studentId]).map(g => g.god);
+    const uniqueGods = new Set([...godsAsChallenger, ...godsAsDefender]);
+    if (uniqueGods.size >= 3) award('tactician');
+  }
+
+  // Comeback Kid: won after being down 2+ rounds
+  if (isWinner) {
+    const rounds = query(
+      'SELECT round_winner_id FROM arena_battle_rounds WHERE battle_id = ? ORDER BY round_number',
+      [battleId]
+    );
+    let myScore = 0, oppScore = 0, wasDown2 = false;
+    for (const round of rounds) {
+      if (round.round_winner_id === studentId) myScore++;
+      else if (round.round_winner_id) oppScore++;
+      if (oppScore - myScore >= 2) wasDown2 = true;
+    }
+    if (wasDown2) award('comeback_kid');
+  }
+
+  // Shapeshifter: 3 consecutive wins, each with different primary god
+  if (isWinner && stats.current_streak >= 3) {
+    const recentWins = query(`
+      SELECT battle_id, challenger_id FROM arena_battles
+      WHERE winner_id = ? AND status = 'completed'
+      ORDER BY completed_at DESC LIMIT 3
+    `, [studentId]);
+    if (recentWins.length === 3) {
+      const primaryGods = recentWins.map(b => {
+        const wasChallenger = b.challenger_id === studentId;
+        const godCol = wasChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
+        const gods = query(
+          `SELECT ${godCol} as god, COUNT(*) as cnt FROM arena_battle_rounds
+           WHERE battle_id = ? AND ${godCol} IS NOT NULL GROUP BY ${godCol} ORDER BY cnt DESC LIMIT 1`,
+          [b.battle_id]
+        );
+        return gods.length > 0 ? gods[0].god : null;
+      });
+      if (primaryGods[0] && primaryGods[1] && primaryGods[2] &&
+          primaryGods[0] !== primaryGods[1] && primaryGods[1] !== primaryGods[2] &&
+          primaryGods[0] !== primaryGods[2]) {
+        award('shapeshifter');
+      }
+    }
+  }
+
+  // === TIER 3 ===
+  if (stats.wins >= 25)           award('champion');
+  if (stats.current_streak >= 5)  award('unstoppable');
+  if (stats.wins >= 50)           award('legend');
+
+  // Giant Slayer: beat alliance ranked 3+ above
+  if (isWinner) {
+    const winnerAllianceId = isChallenger ? battle.challenger_alliance_id : battle.defender_alliance_id;
+    const loserAllianceId = isChallenger ? battle.defender_alliance_id : battle.challenger_alliance_id;
+    const rankings = query('SELECT alliance_id FROM alliances WHERE is_disbanded = 0 ORDER BY total_points DESC');
+    const winnerRank = rankings.findIndex(a => a.alliance_id === winnerAllianceId) + 1;
+    const loserRank = rankings.findIndex(a => a.alliance_id === loserAllianceId) + 1;
+    if (winnerRank > 0 && loserRank > 0 && winnerRank - loserRank >= 3) {
+      award('giant_slayer');
+    }
+  }
+
+  // === TIER 4 (HIDDEN) ===
+
+  // Thread of Fate: won 3-2
+  if (isWinner) {
+    const cScore = battle.challenger_score;
+    const dScore = battle.defender_score;
+    if ((cScore === 3 && dScore === 2) || (cScore === 2 && dScore === 3)) {
+      award('thread_of_fate');
+    }
+  }
+
+  // Zeus's Judgment: won in sudden death (round 6+)
+  if (isWinner && battle.current_round > 5) {
+    award('zeus_judgment');
+  }
+
+  // Hydra Slayer: fought 5 unique opponents
+  const uniqueOpponents = query(`
+    SELECT COUNT(DISTINCT opponent) as cnt FROM (
+      SELECT defender_id as opponent FROM arena_battles
+        WHERE challenger_id = ? AND status = 'completed'
+      UNION
+      SELECT challenger_id as opponent FROM arena_battles
+        WHERE defender_id = ? AND status = 'completed'
+    )
+  `, [studentId, studentId])[0];
+  if (uniqueOpponents && uniqueOpponents.cnt >= 5) award('hydra_slayer');
+}
+
+// Retroactive badge migration - run once on startup if badges table is empty
+function retroactivelyAwardBadges() {
+  try {
+    const badgeCount = query('SELECT COUNT(*) as count FROM arena_badges')[0];
+    if (badgeCount && badgeCount.count > 0) {
+      console.log('🏅 Badges already exist, skipping retroactive migration');
+      return;
+    }
+    
+    const completedBattles = query("SELECT battle_id, challenger_id, defender_id FROM arena_battles WHERE status = 'completed' ORDER BY completed_at ASC");
+    if (completedBattles.length === 0) {
+      console.log('🏅 No completed battles, skipping retroactive migration');
+      return;
+    }
+    
+    console.log(`🏅 Running retroactive badge awards for ${completedBattles.length} battles...`);
+    for (const b of completedBattles) {
+      if (b.challenger_id) checkAndAwardBadges(b.challenger_id, b.battle_id);
+      if (b.defender_id) checkAndAwardBadges(b.defender_id, b.battle_id);
+    }
+    // Mark all retroactive badges as celebration_seen
+    run('UPDATE arena_badges SET celebration_seen = 1');
+    saveDatabase();
+    console.log('🏅 Retroactive badge awards complete');
+  } catch (err) {
+    console.log('Retroactive badge migration note:', err.message);
+  }
+}
 
 // Get arena status - shows requirements clearly if not met
 app.get('/api/arena/status', authenticateToken, (req, res) => {
@@ -5319,6 +5535,27 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
         };
       });
     
+    // Get badge data for this student
+    const myBadges = query('SELECT badge_key, celebration_seen FROM arena_badges WHERE student_id = ?', [student_id]);
+    const dailyBattleLimit = getDailyBattleLimit(student_id);
+    
+    // Get announcements from last 12 hours, clean up old ones
+    run("DELETE FROM arena_announcements WHERE created_at < datetime('now', '-12 hours')");
+    const announcements = query(`
+      SELECT aa.badge_key, aa.created_at, s.name as student_name 
+      FROM arena_announcements aa
+      JOIN students s ON aa.student_id = s.student_id
+      WHERE s.class_period = ?
+      ORDER BY aa.created_at DESC LIMIT 10
+    `, [student.class_period]);
+    
+    // Get badge counts for each opponent (for per-member badge display)
+    const opponentBadges = {};
+    opponents.forEach(opp => {
+      const badges = query('SELECT badge_key FROM arena_badges WHERE student_id = ?', [opp.student_id]);
+      opponentBadges[opp.student_id] = badges.map(b => b.badge_key);
+    });
+    
     res.json({
       arena_unlocked: true,
       arena_enabled: true,
@@ -5330,13 +5567,18 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
         best_streak: stats.best_streak || 0
       },
       battles_today: countBattlesToday(student_id),
-      max_battles_per_day: MAX_BATTLES_PER_DAY,
+      max_battles_per_day: dailyBattleLimit,
       pending_challenges: pendingChallenges,
       active_battle: activeBattle,
       available_opponents: opponents,
       unlocked_gods: unlockedGods,
-      god_powers: GOD_POWERS, // Send full powers config for info modal
-      prometheus_used_today: prometheusUsed
+      god_powers: GOD_POWERS,
+      prometheus_used_today: prometheusUsed,
+      // Badge system data
+      my_badges: myBadges,
+      badge_definitions: ARENA_BADGES,
+      opponent_badges: opponentBadges,
+      announcements: announcements
     });
   } catch (err) {
     console.error('Arena status error:', err);
@@ -5356,13 +5598,15 @@ app.post('/api/arena/challenge', authenticateToken, (req, res) => {
     
     // Check challenger's daily battle limit
     const challengerBattlesToday = countBattlesToday(challenger_id);
-    if (challengerBattlesToday >= MAX_BATTLES_PER_DAY) {
-      return res.status(400).json({ error: `You have reached your daily limit of ${MAX_BATTLES_PER_DAY} battles.` });
+    const challengerLimit = getDailyBattleLimit(challenger_id);
+    if (challengerBattlesToday >= challengerLimit) {
+      return res.status(400).json({ error: `You have reached your daily limit of ${challengerLimit} battles.` });
     }
     
     // Check defender's daily battle limit
     const defenderBattlesToday = countBattlesToday(defender_id);
-    if (defenderBattlesToday >= MAX_BATTLES_PER_DAY) {
+    const defenderLimit = getDailyBattleLimit(defender_id);
+    if (defenderBattlesToday >= defenderLimit) {
       return res.status(400).json({ error: 'This player has reached their daily battle limit.' });
     }
     
@@ -5408,13 +5652,15 @@ app.post('/api/arena/respond', authenticateToken, (req, res) => {
     
     // Check defender's daily battle limit before accepting
     const defenderBattlesToday = countBattlesToday(defender_id);
-    if (defenderBattlesToday >= MAX_BATTLES_PER_DAY) {
-      return res.status(400).json({ error: `You have reached your daily limit of ${MAX_BATTLES_PER_DAY} battles. Challenge auto-declined.` });
+    const defenderLimit = getDailyBattleLimit(defender_id);
+    if (defenderBattlesToday >= defenderLimit) {
+      return res.status(400).json({ error: `You have reached your daily limit of ${defenderLimit} battles. Challenge auto-declined.` });
     }
     
     // Also re-check challenger's limit (they might have battled since sending)
     const challengerBattlesToday = countBattlesToday(battle.challenger_id);
-    if (challengerBattlesToday >= MAX_BATTLES_PER_DAY) {
+    const challengerLimit = getDailyBattleLimit(battle.challenger_id);
+    if (challengerBattlesToday >= challengerLimit) {
       run("UPDATE arena_battles SET status = 'expired' WHERE battle_id = ?", [battle_id]);
       return res.status(400).json({ error: 'The challenger has reached their daily battle limit. Challenge expired.' });
     }
@@ -6078,6 +6324,15 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
         });
         
         saveDatabase();
+        
+        // Check and award badges for both players
+        try {
+          checkAndAwardBadges(battle.challenger_id, battle_id);
+          checkAndAwardBadges(battle.defender_id, battle_id);
+          saveDatabase();
+        } catch (badgeErr) {
+          console.error('Badge check error (non-fatal):', badgeErr.message);
+        }
       } else if (battle.current_round >= 5 && newChallengerScore === newDefenderScore) {
         // Tied after 5 rounds - go to sudden death
         const nextRound = battle.current_round + 1;
@@ -6271,6 +6526,27 @@ app.get('/api/arena/god-powers', authenticateToken, (req, res) => {
   }
 });
 
+// Mark badge celebration as seen
+app.post('/api/arena/badge-celebration-seen', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { badge_key } = req.body;
+    
+    if (!badge_key || !ARENA_BADGES[badge_key]) {
+      return res.status(400).json({ error: 'Invalid badge key' });
+    }
+    
+    run('UPDATE arena_badges SET celebration_seen = 1 WHERE student_id = ? AND badge_key = ?',
+      [student_id, badge_key]);
+    saveDatabase();
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Badge celebration seen error:', err);
+    res.status(500).json({ error: 'Failed to update badge' });
+  }
+});
+
 // ====================
 // HEALTH CHECK
 // ====================
@@ -6294,4 +6570,7 @@ app.listen(PORT, () => {
   
   // Run cleanup after server starts (database is ready)
   setTimeout(cleanupStuckBattles, 1000);
+  
+  // Run retroactive badge awards (one-time, skips if badges already exist)
+  setTimeout(retroactivelyAwardBadges, 2000);
 });

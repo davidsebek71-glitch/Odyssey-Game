@@ -12,6 +12,24 @@
             box-sizing: border-box;
         }
 
+        @keyframes badgePulse {
+            0%, 100% { box-shadow: 0 0 12px rgba(255, 215, 0, 0.3); }
+            50% { box-shadow: 0 0 24px rgba(255, 215, 0, 0.6); }
+        }
+        @keyframes badgeShatter {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5) rotate(15deg); opacity: 0.5; }
+            100% { transform: scale(0) rotate(45deg); opacity: 0; }
+        }
+        @keyframes badgeNameReveal {
+            from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes bannerSlideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         @keyframes bonusPulse {
             0%, 100% { box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255,255,255,0.2); }
             50% { box-shadow: 0 4px 25px rgba(245, 158, 11, 0.7), inset 0 1px 0 rgba(255,255,255,0.2); }
@@ -6025,6 +6043,10 @@
                 clearInterval(arenaCountdownInterval);
                 arenaCountdownInterval = null;
             }
+            if (announcementTimeout) {
+                clearTimeout(announcementTimeout);
+                announcementTimeout = null;
+            }
             document.getElementById('arena-modal').style.display = 'none';
             
             // Resume dashboard refresh now that arena is closed
@@ -6120,8 +6142,101 @@
                     </div>
                 ` : '';
                 
+                // Build badge data
+                const myBadgeKeys = (data.my_badges || []).map(b => b.badge_key);
+                const uncelebrated = (data.my_badges || []).filter(b => !b.celebration_seen).map(b => b.badge_key);
+                const badgeDefs = data.badge_definitions || {};
+                window._lastBadgeDefs = badgeDefs; // Store for celebration function
+                const badgeCount = myBadgeKeys.length;
+                
+                // Determine current daily limit tier
+                let currentTierBadges = 0;
+                let currentTierBattles = 3;
+                let nextTierBadges = 2;
+                let nextTierBattles = 4;
+                if (badgeCount >= 7) { currentTierBadges = 7; currentTierBattles = 6; nextTierBadges = null; nextTierBattles = null; }
+                else if (badgeCount >= 4) { currentTierBadges = 4; currentTierBattles = 5; nextTierBadges = 7; nextTierBattles = 6; }
+                else if (badgeCount >= 2) { currentTierBadges = 2; currentTierBattles = 4; nextTierBadges = 4; nextTierBattles = 5; }
+                
+                // Build tier badge HTML
+                function badgeSlotHTML(key) {
+                    const def = badgeDefs[key];
+                    if (!def) return '';
+                    const earned = myBadgeKeys.includes(key);
+                    const needsCelebration = uncelebrated.includes(key);
+                    const isHidden = def.hidden;
+                    
+                    if (needsCelebration) {
+                        // Pulsing unlock button
+                        return `<div class="badge-celebration-slot" data-badge-key="${key}" onclick="celebrateBadge('${key}')" style="
+                            width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(255,215,0,0.15); border: 2px solid #ffd700; cursor: pointer; position: relative;
+                            animation: badgePulse 1s ease-in-out infinite; box-shadow: 0 0 20px rgba(255,215,0,0.4);">
+                            <span style="font-size: 11px; font-weight: bold; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px;">UNLOCK</span>
+                        </div>`;
+                    } else if (earned) {
+                        // Earned badge with image (fallback to emoji)
+                        return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); box-shadow: 0 0 12px rgba(255,215,0,0.15);
+                            cursor: pointer; position: relative;" title="${def.name}: ${def.desc}">
+                            <img src="/badges/${key}.png" style="width: 36px; height: 36px; object-fit: contain;" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <span style="display: none; font-size: 24px; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));">${def.icon}</span>
+                        </div>`;
+                    } else if (isHidden) {
+                        // Hidden unearned
+                        return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(128,0,255,0.05); border: 1px solid rgba(128,0,255,0.15); cursor: help;" title="??? - Keep battling to discover...">
+                            <span style="font-size: 20px; color: rgba(128,0,255,0.4);">❓</span>
+                        </div>`;
+                    } else {
+                        // Locked visible
+                        return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); cursor: help;" title="${def.name}: ${def.desc}">
+                            <img src="/badges/${key}.png" style="width: 36px; height: 36px; object-fit: contain; filter: grayscale(1) opacity(0.25);"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <span style="display: none; font-size: 24px; filter: grayscale(1) opacity(0.25);">${def.icon}</span>
+                        </div>`;
+                    }
+                }
+                
+                // Build progression tier HTML
+                function progressionTier(badges, battles, isCurrent, isNext, isPast) {
+                    if (isCurrent) {
+                        return `<div style="flex:1; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.4); border-radius: 8px; padding: 8px 4px; text-align: center; box-shadow: 0 0 12px rgba(6,182,212,0.15);">
+                            <div style="font-size: 10px; color: #06b6d4;">${badges}${badges > 0 ? ' badges ✓' : ' badges'}</div>
+                            <div style="font-size: 22px; color: #22d3ee; font-weight: bold; margin: 2px 0;">${battles}</div>
+                            <div style="font-size: 9px; color: rgba(6,182,212,0.7);">battles/day</div>
+                            <div style="font-size: 8px; color: #06b6d4; margin-top: 2px; font-weight: 600;">◆ YOU</div>
+                        </div>`;
+                    } else if (isNext) {
+                        return `<div style="flex:1; background: rgba(255,215,0,0.05); border: 1px dashed rgba(255,215,0,0.3); border-radius: 8px; padding: 8px 4px; text-align: center;">
+                            <div style="font-size: 10px; color: #ffd700;">${badges} badges</div>
+                            <div style="font-size: 22px; color: #ffd700; font-weight: bold; margin: 2px 0;">${battles}</div>
+                            <div style="font-size: 9px; color: rgba(255,215,0,0.5);">battles/day</div>
+                            <div style="font-size: 8px; color: rgba(255,215,0,0.6); margin-top: 2px;">${badges - badgeCount} more!</div>
+                        </div>`;
+                    } else {
+                        return `<div style="flex:1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 4px; text-align: center; opacity: ${isPast ? '0.4' : '0.3'};">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.4);">${badges} badges</div>
+                            <div style="font-size: 22px; color: rgba(255,255,255,0.4); font-weight: bold; margin: 2px 0;">${battles}</div>
+                            <div style="font-size: 9px; color: rgba(255,255,255,0.3);">battles/day</div>
+                        </div>`;
+                    }
+                }
+                
+                // Announcement banner HTML
+                const announcementData = data.announcements || [];
+                const announcementHTML = announcementData.length > 0 ? `
+                    <div id="arena-announcements" style="margin-bottom: 12px;"></div>
+                ` : '';
+                
+                // Build opponent badges lookup
+                const oppBadges = data.opponent_badges || {};
+                
                 content.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 25px;">
+                    ${announcementHTML}
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; text-align: center;">
                             <div style="font-size: 34px; color: #ffd700; font-weight: bold;">${stats.wins}</div>
                             <div style="color: rgba(255,255,255,0.6); font-size: 14px;">Wins</div>
@@ -6143,6 +6258,72 @@
                             <div style="color: rgba(255,255,255,0.6); font-size: 14px;">Today</div>
                         </div>
                     </div>
+                    
+                    <!-- Badge Wall -->
+                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,215,0,0.15); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                            <div style="font-size: 14px; color: #ffd700; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">⚔️ Battle Badges</div>
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.4);"><span style="color: #ffd700; font-weight: 600;">${badgeCount}</span> / 15 earned</div>
+                        </div>
+                        
+                        <!-- Tier 1 - Newcomer -->
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Newcomer</div>
+                            <div style="display: flex; gap: 8px;">
+                                ${badgeSlotHTML('first_blood')}
+                                ${badgeSlotHTML('trial_by_fire')}
+                                ${badgeSlotHTML('athenas_favor')}
+                            </div>
+                        </div>
+                        
+                        <!-- Tier 2 - Warrior -->
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Warrior</div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                ${badgeSlotHTML('spartan_grit')}
+                                ${badgeSlotHTML('on_fire')}
+                                ${badgeSlotHTML('tactician')}
+                                ${badgeSlotHTML('comeback_kid')}
+                                ${badgeSlotHTML('shapeshifter')}
+                            </div>
+                        </div>
+                        
+                        <!-- Tier 3 - Elite -->
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Elite</div>
+                            <div style="display: flex; gap: 8px;">
+                                ${badgeSlotHTML('champion')}
+                                ${badgeSlotHTML('giant_slayer')}
+                                ${badgeSlotHTML('unstoppable')}
+                                ${badgeSlotHTML('legend')}
+                            </div>
+                        </div>
+                        
+                        <!-- Tier 4 - Hidden -->
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">? ? ?</div>
+                            <div style="display: flex; gap: 8px;">
+                                ${badgeSlotHTML('thread_of_fate')}
+                                ${badgeSlotHTML('zeus_judgment')}
+                                ${badgeSlotHTML('hydra_slayer')}
+                            </div>
+                        </div>
+                        
+                        <!-- Badge Rewards Progression -->
+                        <div style="padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">🎁 More Badges = More Daily Battles</div>
+                            <div style="display: flex; gap: 6px; align-items: stretch;">
+                                ${progressionTier(0, 3, currentTierBattles===3, false, badgeCount>=2)}
+                                <div style="display:flex;align-items:center;color:rgba(255,255,255,0.15);font-size:14px;">→</div>
+                                ${progressionTier(2, 4, currentTierBattles===4, nextTierBattles===4, badgeCount>=4)}
+                                <div style="display:flex;align-items:center;color:rgba(255,255,255,0.15);font-size:14px;">→</div>
+                                ${progressionTier(4, 5, currentTierBattles===5, nextTierBattles===5, badgeCount>=7)}
+                                <div style="display:flex;align-items:center;color:rgba(255,215,0,0.3);font-size:14px;">→</div>
+                                ${progressionTier(7, 6, currentTierBattles===6, nextTierBattles===6, false)}
+                            </div>
+                        </div>
+                    </div>
+                    
                     ${data.battles_today >= data.max_battles_per_day ? `
                         <div style="background: rgba(107,114,128,0.3); border: 1px solid #6b7280; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: center;">
                             <p style="color: #9ca3af; margin: 0;">⏰ You've reached your daily battle limit. Come back tomorrow!</p>
@@ -6166,6 +6347,8 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                             ${data.available_opponents.map(opp => {
                                 const oppAtLimit = opp.battles_today >= data.max_battles_per_day;
+                                const oppBadgeKeys = oppBadges[opp.student_id] || [];
+                                const oppBadgeIcons = oppBadgeKeys.map(k => badgeDefs[k] ? badgeDefs[k].icon : '').join('');
                                 return `
                                 <div ${oppAtLimit ? '' : `onclick="sendChallenge(${opp.student_id}, '${opp.name.replace(/'/g, "\\'")}')"`} 
                                      style="
@@ -6199,6 +6382,7 @@
                                     ">
                                         <div style="font-weight: bold; color: ${oppAtLimit ? '#9ca3af' : '#ffd700'}; font-size: 18px; margin-bottom: 4px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">${opp.name}</div>
                                         <div style="color: rgba(255,255,255,0.8); font-size: 14px;">${opp.alliance_name}</div>
+                                        ${oppBadgeIcons ? `<div style="margin-top: 4px; font-size: 14px; letter-spacing: 1px;">${oppBadgeIcons}</div>` : ''}
                                     </div>
                                     <!-- Click hint -->
                                     <div style="position: absolute; bottom: 10px; font-size: 12px; color: rgba(255,255,255,0.5);">${oppAtLimit ? 'At daily limit' : 'Click to Challenge'}</div>
@@ -6208,6 +6392,11 @@
                     `}
                 `;
                 
+                // Start announcement cycling
+                if (announcementData.length > 0) {
+                    cycleAnnouncements(announcementData);
+                }
+                
                 // Start countdown timer if shown
                 if (data.battles_today >= data.max_battles_per_day) {
                     startArenaCountdown();
@@ -6216,6 +6405,146 @@
                 console.error('Arena error:', err);
                 content.innerHTML = `<div style="text-align:center;padding:40px;color:#ff6b6b;">Error loading arena. Please try again.</div>`;
             }
+        }
+        
+        // ==================== BADGE CELEBRATION ====================
+        
+        async function celebrateBadge(badgeKey) {
+            const slot = document.querySelector(`[data-badge-key="${badgeKey}"]`);
+            if (!slot) return;
+            
+            // Get badge definition from the slot's context
+            const badgeDefs = window._lastBadgeDefs || {};
+            const def = badgeDefs[badgeKey];
+            if (!def) return;
+            
+            const isHidden = def.hidden;
+            
+            // Play unlock sound
+            try {
+                const audio = new Audio('/audio/badge_unlock.mp3');
+                audio.volume = 0.7;
+                audio.play();
+            } catch(e) { /* silent fail */ }
+            
+            if (isHidden) {
+                // Hidden badge: shatter the ❓, then reveal
+                slot.innerHTML = '<span style="font-size: 24px; animation: badgeShatter 0.6s ease-out forwards;">❓</span>';
+                await new Promise(r => setTimeout(r, 600));
+            }
+            
+            // Flash the badge icon 3 times
+            for (let i = 0; i < 3; i++) {
+                slot.style.opacity = '0.2';
+                slot.innerHTML = `<img src="/badges/${badgeKey}.png" style="width: 36px; height: 36px; object-fit: contain;" 
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <span style="display: none; font-size: 24px;">${def.icon}</span>`;
+                await new Promise(r => setTimeout(r, 200));
+                slot.style.opacity = '1';
+                await new Promise(r => setTimeout(r, 200));
+            }
+            
+            // Final state: earned badge with glow
+            slot.style.animation = 'none';
+            slot.style.background = 'rgba(255,215,0,0.1)';
+            slot.style.border = '1px solid rgba(255,215,0,0.3)';
+            slot.style.boxShadow = '0 0 20px rgba(255,215,0,0.3)';
+            slot.style.cursor = 'pointer';
+            slot.removeAttribute('data-badge-key');
+            slot.removeAttribute('onclick');
+            slot.className = '';
+            slot.title = `${def.name}: ${def.desc}`;
+            slot.innerHTML = `
+                <img src="/badges/${badgeKey}.png" style="width: 36px; height: 36px; object-fit: contain; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <span style="display: none; font-size: 24px; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));">${def.icon}</span>
+                <div style="position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+                     background: rgba(0,0,0,0.9); border: 1px solid rgba(255,215,0,0.3); border-radius: 6px; padding: 4px 10px; z-index: 10;
+                     animation: badgeNameReveal 0.5s ease-out;">
+                    <div style="font-size: 11px; color: #ffd700; font-weight: bold;">${def.name}</div>
+                </div>
+            `;
+            
+            // Fade out the name after 3 seconds
+            setTimeout(() => {
+                const nameDiv = slot.querySelector('div');
+                if (nameDiv) nameDiv.style.opacity = '0';
+            }, 3000);
+            
+            // Mark celebration as seen on server
+            try {
+                await fetch(`${API_URL}/arena/badge-celebration-seen`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ badge_key: badgeKey })
+                });
+            } catch(e) { /* silent fail */ }
+        }
+        
+        // ==================== ANNOUNCEMENT CYCLING ====================
+        
+        let announcementTimeout = null;
+        
+        function cycleAnnouncements(announcements) {
+            if (announcementTimeout) clearTimeout(announcementTimeout);
+            const container = document.getElementById('arena-announcements');
+            if (!container || announcements.length === 0) return;
+            
+            // Store badge defs for celebration use
+            window._lastBadgeDefs = window._lastBadgeDefs || {};
+            
+            let index = 0;
+            
+            function showNext() {
+                if (index >= announcements.length) {
+                    // Done cycling, fade out container
+                    container.style.transition = 'opacity 0.5s';
+                    container.style.opacity = '0';
+                    setTimeout(() => { container.innerHTML = ''; }, 500);
+                    return;
+                }
+                
+                const a = announcements[index];
+                const badgeDef = (window._lastBadgeDefs || {})[a.badge_key] || {};
+                const timeAgo = getTimeAgo(a.created_at);
+                
+                container.innerHTML = `
+                    <div style="
+                        background: linear-gradient(90deg, rgba(255,215,0,0.12), rgba(255,215,0,0.04), rgba(255,215,0,0.12));
+                        border: 1px solid rgba(255,215,0,0.2); border-radius: 10px;
+                        padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+                        animation: bannerSlideIn 0.4s ease-out;">
+                        <span style="font-size: 20px; filter: drop-shadow(0 0 6px rgba(255,215,0,0.5));">${badgeDef.icon || '🏅'}</span>
+                        <span style="font-size: 13px; color: #ffd700;">
+                            <strong style="color: #fff;">${a.student_name}</strong> earned <strong>${badgeDef.icon || ''} ${badgeDef.name || a.badge_key}</strong>
+                        </span>
+                        <span style="margin-left: auto; font-size: 11px; color: rgba(255,215,0,0.4);">${timeAgo}</span>
+                    </div>
+                `;
+                
+                index++;
+                announcementTimeout = setTimeout(() => {
+                    // Fade out
+                    const banner = container.querySelector('div');
+                    if (banner) {
+                        banner.style.transition = 'opacity 0.4s';
+                        banner.style.opacity = '0';
+                    }
+                    setTimeout(showNext, 500);
+                }, 5000); // Show each for 5 seconds
+            }
+            
+            showNext();
+        }
+        
+        function getTimeAgo(dateStr) {
+            const now = new Date();
+            const then = new Date(dateStr);
+            const diffMin = Math.floor((now - then) / 60000);
+            if (diffMin < 1) return 'just now';
+            if (diffMin < 60) return diffMin + ' min ago';
+            const diffHr = Math.floor(diffMin / 60);
+            return diffHr + 'h ago';
         }
         
         // Live countdown timer for arena

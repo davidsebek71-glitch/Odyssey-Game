@@ -776,6 +776,37 @@ function runMigrations() {
   } catch (err) {
     console.log('Battle Arena migration note:', err.message);
   }
+  
+  // ==================== BADGE SYSTEM TABLES ====================
+  try {
+    console.log('🏅 Running Badge System migrations...');
+    
+    // Create arena_badges table
+    db.run(`CREATE TABLE IF NOT EXISTS arena_badges (
+      badge_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      badge_key TEXT NOT NULL,
+      earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      celebration_seen INTEGER DEFAULT 0,
+      FOREIGN KEY (student_id) REFERENCES students(student_id),
+      UNIQUE(student_id, badge_key)
+    )`);
+    console.log('  ✅ arena_badges table ready');
+    
+    // Create arena_announcements table
+    db.run(`CREATE TABLE IF NOT EXISTS arena_announcements (
+      announcement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      badge_key TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(student_id)
+    )`);
+    console.log('  ✅ arena_announcements table ready');
+    
+    console.log('✅ Badge System migrations complete');
+  } catch (err) {
+    console.log('Badge System migration note:', err.message);
+  }
 }
 
 function seedReferenceData() {
