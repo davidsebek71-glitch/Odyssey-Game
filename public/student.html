@@ -6341,6 +6341,11 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                             ${data.available_opponents.map(opp => {
                                 const oppAtLimit = opp.battles_today >= data.max_battles_per_day;
+                                const oppEarnedBadges = (oppBadges[opp.student_id] || []);
+                                const oppBadgeHTML = oppEarnedBadges.length > 0 ? 
+                                    `<div style="margin-top: 4px; display: flex; gap: 2px; justify-content: center; flex-wrap: wrap;">${
+                                        oppEarnedBadges.map(k => `<img src="/badges/${k}.png" style="width: 18px; height: 18px; object-fit: contain;" onerror="this.style.display='none'">`).join('')
+                                    }</div>` : '';
                                 return `
                                 <div ${oppAtLimit ? '' : `onclick="sendChallenge(${opp.student_id}, '${opp.name.replace(/'/g, "\\'")}')"`} 
                                      style="
@@ -6374,6 +6379,7 @@
                                     ">
                                         <div style="font-weight: bold; color: ${oppAtLimit ? '#9ca3af' : '#ffd700'}; font-size: 18px; margin-bottom: 4px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">${opp.name}</div>
                                         <div style="color: rgba(255,255,255,0.8); font-size: 14px;">${opp.alliance_name}</div>
+                                        ${oppBadgeHTML}
                                     </div>
                                     <!-- Click hint -->
                                     <div style="position: absolute; bottom: 10px; font-size: 12px; color: rgba(255,255,255,0.5);">${oppAtLimit ? 'At daily limit' : 'Click to Challenge'}</div>
@@ -7295,6 +7301,11 @@
         }
         
         async function loadBattleState() {
+            // Skip UI refresh during Aphrodite retry window
+            if (aphroditeRetryActive) {
+                console.log('💕 Skipping loadBattleState - Aphrodite retry active');
+                return;
+            }
             // Guard against null battle ID (prevents requests to /arena/battle/null)
             if (!currentBattleId) {
                 if (battlePollInterval) { clearInterval(battlePollInterval); battlePollInterval = null; }
@@ -7478,7 +7489,21 @@
                         availableGods.map(g => {
                             const godName = typeof g === 'string' ? g : g.name;
                             const godImg = godName === 'prometheus' ? 'prometheus.png' : `${godName}.svg`;
-                            return `
+                            const apolloLocked = godName === 'apollo' && data.apollo_used_by_me;
+                            return apolloLocked ? `
+                                <div style="
+                                    background: rgba(100,100,100,0.15);
+                                    border: 2px solid rgba(100,100,100,0.3);
+                                    border-radius: 10px;
+                                    padding: 10px;
+                                    text-align: center;
+                                    opacity: 0.4;
+                                ">
+                                    <img src="${godImg}" style="width: 40px; height: 40px; filter: grayscale(1);">
+                                    <div style="color: #999; font-size: 11px; margin-top: 5px;">Apollo</div>
+                                    <div style="color: #ff6b6b; font-size: 9px;">Used this battle</div>
+                                </div>
+                            ` : `
                                 <button onclick="deployGod('${godName}')" style="
                                     background: rgba(255,255,255,0.1);
                                     border: 2px solid rgba(255,255,255,0.3);
@@ -7515,6 +7540,59 @@
                         </div>
                     `;
                 }
+                return;
+            }
+            
+            // SUDDEN DEATH INTRO PHASE
+            if (phase === 'sudden_death_intro') {
+                content.innerHTML = `
+                    ${scoreboardHTML}
+                    <div style="
+                        background: #000;
+                        padding: 40px 20px;
+                        text-align: center;
+                        border-radius: 15px;
+                        border: 3px solid #9333ea;
+                        box-shadow: 0 0 30px rgba(147, 51, 234, 0.5);
+                        margin-top: 20px;
+                    ">
+                        <h1 style="
+                            color: #9333ea;
+                            font-size: 42px;
+                            font-weight: bold;
+                            text-shadow: 0 0 20px rgba(147, 51, 234, 0.8), 0 0 40px rgba(147, 51, 234, 0.4);
+                            letter-spacing: 4px;
+                            margin-bottom: 25px;
+                        ">⚡ SUDDEN DEATH ⚡</h1>
+                        
+                        <div style="color: #ffd700; font-size: 16px; margin-bottom: 25px; line-height: 2;">
+                            <p style="margin: 8px 0;">🚫 No gods allowed in Sudden Death</p>
+                            <p style="margin: 8px 0;">🏆 First correct answer wins</p>
+                            <p style="margin: 8px 0;">⚡ Prepare to battle</p>
+                        </div>
+                        
+                        ${roundData.my_sd_ready ? `
+                            <div style="color: #4ade80; font-size: 20px; font-weight: bold;">
+                                ✓ You are READY!
+                                <div style="font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 10px;">
+                                    ${roundData.opponent_sd_ready ? 'Opponent is ready too! Starting...' : 'Waiting for opponent...'}
+                                </div>
+                            </div>
+                        ` : `
+                            <button onclick="signalSuddenDeathReady()" style="
+                                background: #ffd700;
+                                color: #000;
+                                border: none;
+                                padding: 15px 40px;
+                                font-size: 20px;
+                                font-weight: bold;
+                                border-radius: 10px;
+                                cursor: pointer;
+                                animation: badgePulse 1.5s infinite;
+                            ">⚡ READY ⚡</button>
+                        `}
+                    </div>
+                `;
                 return;
             }
             
@@ -7665,12 +7743,22 @@
                 const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                 const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
                 
+                // B1: If OPPONENT has Hera deployed (not blocked), apply click delay to US
+                if (roundData.opponent_god_deployed && !oppBlocked) {
+                    const oppGod = roundData.opponent_god_deployed.toLowerCase();
+                    if (oppGod === 'hera') {
+                        applyHeraDelay();
+                    }
+                }
+                
                 // If opponent used an offensive god and it wasn't blocked, apply the effect to us
+                // B2: Check if we have Demeter to reduce incoming effect duration
+                const hasDemeter = roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'demeter' && !myBlocked;
                 if (roundData.opponent_god_deployed && !oppBlocked) {
                     const oppGod = roundData.opponent_god_deployed.toLowerCase();
                     const offensiveGods = ['zeus', 'poseidon', 'ares', 'hades', 'hephaestus', 'hermes'];
                     if (offensiveGods.includes(oppGod)) {
-                        applyGodPowerEffect(oppGod, false);
+                        applyGodPowerEffect(oppGod, false, hasDemeter);
                     }
                 }
                 
@@ -7681,6 +7769,10 @@
                     if (defensiveGods.includes(myGod)) {
                         applyDefensivePassive(myGod, content, data.question);
                     }
+                    // B3: Track if Aphrodite is available for retry this round
+                    activeAphrodite = (myGod === 'aphrodite');
+                } else {
+                    activeAphrodite = false;
                 }
                 
                 return;
@@ -7839,7 +7931,11 @@
                         alert(data.error);
                     }
                 } else if (data.both_ready) {
-                    // BOTH players deployed - refresh to see question phase and start sync
+                    // BOTH players deployed - check for Prometheus preview
+                    if (data.prometheus_preview) {
+                        showPrometheusPreview(data.prometheus_preview, data.prometheus_preview_duration);
+                    }
+                    // Refresh to see question phase and start sync
                     console.log('⏱️ Both deployed! Refreshing to start question sync...');
                     loadBattleState();
                 } else {
@@ -7849,6 +7945,60 @@
                 console.error('Error deploying god:', err);
                 loadBattleState(); // Try to refresh anyway
             }
+        }
+        
+        // Prometheus question preview overlay
+        function showPrometheusPreview(questionText, duration) {
+            const overlay = document.createElement('div');
+            overlay.id = 'prometheus-preview';
+            overlay.innerHTML = `
+                <div style="
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(255, 100, 0, 0.15);
+                    display: flex; align-items: center; justify-content: center;
+                    z-index: 10000;
+                ">
+                    <div style="
+                        background: rgba(0,0,0,0.95);
+                        padding: 30px;
+                        border-radius: 15px;
+                        border: 3px solid #ff6b00;
+                        max-width: 80%;
+                        text-align: center;
+                        box-shadow: 0 0 40px rgba(255, 107, 0, 0.4);
+                    ">
+                        <div style="color: #ff6b00; font-size: 24px; margin-bottom: 20px;">
+                            🔥 PROMETHEUS' GIFT 🔥
+                        </div>
+                        <div style="color: white; font-size: 18px; line-height: 1.6;">
+                            ${questionText}
+                        </div>
+                        <div style="color: rgba(255,255,255,0.5); margin-top: 20px; font-size: 14px;">
+                            Question preview — ${Math.round(duration / 1000)} seconds
+                        </div>
+                        <div id="prometheus-timer" style="
+                            margin-top: 12px; height: 4px; background: rgba(255,107,0,0.3);
+                            border-radius: 2px; overflow: hidden;
+                        ">
+                            <div style="height: 100%; background: #ff6b00; width: 100%; transition: width ${duration}ms linear;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            
+            // Start the timer bar animation
+            requestAnimationFrame(() => {
+                const bar = overlay.querySelector('#prometheus-timer div');
+                if (bar) bar.style.width = '0%';
+            });
+            
+            // Play prometheus sound
+            playBattleSound('prometheus', 0.6);
+            
+            setTimeout(() => {
+                if (overlay.parentNode) overlay.remove();
+            }, duration);
         }
         
         // Signal to server that client is ready for question display
@@ -7893,6 +8043,25 @@
                 console.error('Error signaling question ready:', err);
                 questionReadyRetries = 0;
                 setTimeout(() => loadBattleState(), 500);
+            }
+        }
+        
+        // Signal sudden death ready
+        async function signalSuddenDeathReady() {
+            if (!currentBattleId) return;
+            try {
+                const response = await fetch(`${API_URL}/arena/sudden-death-ready`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ battle_id: currentBattleId })
+                });
+                const data = await response.json();
+                if (data.error) {
+                    console.error('Sudden death ready error:', data.error);
+                }
+                // UI will update on next poll cycle
+            } catch (err) {
+                console.error('Failed to signal sudden death ready:', err);
             }
         }
         
@@ -7964,7 +8133,23 @@
         // ==================== GOD POWER VISUAL EFFECTS ====================
         let activeGodEffect = null;
         
-        function applyGodPowerEffect(godName, blocked) {
+        // B1: Hera passive - blocks opponent clicks for 1 second
+        function applyHeraDelay() {
+            console.log('🦚 Hera passive: Opponent has Hera - blocking our clicks for 1s');
+            const heraOverlay = document.createElement('div');
+            heraOverlay.id = 'hera-delay-overlay';
+            heraOverlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 200, 100, 0.08);
+                z-index: 9999; pointer-events: all; cursor: not-allowed;
+            `;
+            document.body.appendChild(heraOverlay);
+            setTimeout(() => {
+                if (heraOverlay.parentNode) heraOverlay.remove();
+            }, 1000);
+        }
+        
+        function applyGodPowerEffect(godName, blocked, hasDemeter) {
             if (!godName) return;
             
             // Play blocked sound if power was blocked
@@ -7984,6 +8169,12 @@
             // Play the god's sound effect
             playBattleSound(godName.toLowerCase());
             
+            // B2: Demeter passive - reduce effect duration by 50%
+            const demeterMultiplier = hasDemeter ? 0.5 : 1.0;
+            if (hasDemeter) {
+                console.log('🌾 Demeter passive: Reducing incoming effect duration by 50%');
+            }
+            
             switch(godName.toLowerCase()) {
                 case 'zeus':
                     // Lightning flash - white screen flashes
@@ -7992,7 +8183,7 @@
                     zeusOverlay.className = 'zeus-effect';
                     zeusOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:9998;';
                     document.body.appendChild(zeusOverlay);
-                    setTimeout(() => zeusOverlay.remove(), 2000);
+                    setTimeout(() => zeusOverlay.remove(), 2000 * demeterMultiplier);
                     break;
                     
                 case 'poseidon':
@@ -8005,7 +8196,7 @@
                     setTimeout(() => {
                         battleContent.classList.remove('poseidon-effect');
                         poseidonOverlay.remove();
-                    }, 3000);
+                    }, 3000 * demeterMultiplier);
                     break;
                     
                 case 'ares':
@@ -8018,7 +8209,7 @@
                     setTimeout(() => {
                         battleContent.classList.remove('ares-effect');
                         aresOverlay.remove();
-                    }, 2000);
+                    }, 2000 * demeterMultiplier);
                     break;
                     
                 case 'hades':
@@ -8027,7 +8218,7 @@
                     hadesOverlay.id = 'god-effect-overlay';
                     hadesOverlay.className = 'hades-overlay';
                     document.body.appendChild(hadesOverlay);
-                    setTimeout(() => hadesOverlay.remove(), 2000);
+                    setTimeout(() => hadesOverlay.remove(), 2000 * demeterMultiplier);
                     break;
                     
                 case 'hephaestus':
@@ -8036,7 +8227,7 @@
                     fireOverlay.id = 'god-effect-overlay';
                     fireOverlay.className = 'hephaestus-overlay';
                     document.body.appendChild(fireOverlay);
-                    setTimeout(() => fireOverlay.remove(), 2000);
+                    setTimeout(() => fireOverlay.remove(), 2000 * demeterMultiplier);
                     break;
                     
                 case 'hermes':
@@ -8045,7 +8236,7 @@
                     hermesOverlay.id = 'god-effect-overlay';
                     hermesOverlay.className = 'hermes-overlay';
                     document.body.appendChild(hermesOverlay);
-                    setTimeout(() => hermesOverlay.remove(), 1000);
+                    setTimeout(() => hermesOverlay.remove(), 1000 * demeterMultiplier);
                     break;
             }
         }
@@ -8108,13 +8299,24 @@
         }
         
         let answerSubmitting = false; // Prevent duplicate submissions
+        let aphroditeRetryActive = false; // Blocks loadBattleState during Aphrodite retry window
+        let activeAphrodite = false; // Track if Aphrodite retry is available this round
         
         async function submitAnswer(answerIndex) {
-            // Prevent duplicate submissions
-            if (answerSubmitting) {
+            // Prevent duplicate submissions (but allow Aphrodite retry)
+            if (answerSubmitting && !aphroditeRetryActive) {
                 console.log('Answer already submitting, ignoring');
                 return;
             }
+            
+            // If this is an Aphrodite retry submission, clear the retry state first
+            if (aphroditeRetryActive) {
+                console.log('💕 Aphrodite retry answer submitted');
+                aphroditeRetryActive = false;
+                const banner = document.getElementById('aphrodite-retry-banner');
+                if (banner) banner.remove();
+            }
+            
             answerSubmitting = true;
             
             if (battleTimer) {
@@ -8144,8 +8346,34 @@
                     // Play correct or wrong sound based on response
                     if (data.was_correct) {
                         playBattleSound('correct', 0.6);
+                        // B4: Show Artemis alliance bonus notification
+                        if (data.artemis_alliance_bonus) {
+                            showArtemisBonus();
+                        }
                     } else {
                         playBattleSound('wrong', 0.8);
+                        
+                        // B3: Check for Aphrodite retry
+                        if (data.aphrodite_retry_available) {
+                            console.log('💕 Aphrodite retry activated!');
+                            aphroditeRetryActive = true;
+                            answerSubmitting = false; // Allow next submission
+                            showAphroditeRetryBanner(answerIndex);
+                            
+                            // Auto-expire after 4 seconds
+                            setTimeout(() => {
+                                if (aphroditeRetryActive) {
+                                    console.log('💕 Aphrodite retry timed out');
+                                    aphroditeRetryActive = false;
+                                    activeAphrodite = false;
+                                    const retryBanner = document.getElementById('aphrodite-retry-banner');
+                                    if (retryBanner) retryBanner.remove();
+                                    loadBattleState(); // Resume normal flow
+                                }
+                            }, 4000);
+                            
+                            return; // Don't call loadBattleState yet
+                        }
                     }
                 }
                 
@@ -8157,6 +8385,61 @@
                 // Reset after a short delay to allow state to update
                 setTimeout(() => { answerSubmitting = false; }, 500);
             }
+        }
+        
+        // B3: Aphrodite retry UI
+        function showAphroditeRetryBanner(wrongAnswerIndex) {
+            const banner = document.createElement('div');
+            banner.id = 'aphrodite-retry-banner';
+            banner.innerHTML = `
+                <div style="
+                    position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+                    background: linear-gradient(135deg, #ff69b4, #ff1493);
+                    color: white; padding: 20px 40px; border-radius: 15px;
+                    font-size: 20px; font-weight: bold; z-index: 10000;
+                    text-align: center; box-shadow: 0 0 30px rgba(255, 105, 180, 0.5);
+                    animation: badgePulse 1s ease-in-out infinite;
+                ">
+                    💕 APHRODITE'S CHARM! 💕<br>
+                    <span style="font-size: 16px; font-weight: normal;">Pick a different answer!</span>
+                </div>
+            `;
+            document.body.appendChild(banner);
+            
+            // Gray out the wrong answer and add pink glow to remaining
+            const buttons = document.querySelectorAll('#battle-content button[onclick^="submitAnswer"]');
+            buttons.forEach((btn, idx) => {
+                if (idx === wrongAnswerIndex) {
+                    btn.style.background = '#444';
+                    btn.style.color = '#666';
+                    btn.style.borderColor = '#555';
+                    btn.innerHTML = '❌ ' + btn.innerHTML;
+                    btn.disabled = true;
+                    btn.style.cursor = 'not-allowed';
+                } else if (!btn.disabled) {
+                    btn.style.boxShadow = '0 0 15px rgba(255, 105, 180, 0.7)';
+                    btn.style.borderColor = '#ff69b4';
+                }
+            });
+        }
+        
+        // B4: Artemis alliance bonus notification
+        function showArtemisBonus() {
+            const notif = document.createElement('div');
+            notif.style.cssText = `
+                position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+                background: rgba(34, 197, 94, 0.9); color: white;
+                padding: 12px 24px; border-radius: 10px; font-size: 18px; font-weight: bold;
+                z-index: 10000; text-align: center;
+                box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+            `;
+            notif.textContent = '🏹 +1 Alliance Point!';
+            document.body.appendChild(notif);
+            setTimeout(() => {
+                notif.style.transition = 'opacity 0.5s';
+                notif.style.opacity = '0';
+                setTimeout(() => notif.remove(), 500);
+            }, 2000);
         }
         
         function closeBattle() {
@@ -8171,6 +8454,8 @@
             godSelectionShown = false;
             godsSubmittedForBattle = null; // Reset so we can select gods for next battle
             answerSubmitting = false;
+            aphroditeRetryActive = false; // Reset Aphrodite retry
+            activeAphrodite = false; // Reset Aphrodite availability
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
@@ -8183,6 +8468,15 @@
             
             const waitingOverlay = document.getElementById('waiting-overlay');
             if (waitingOverlay) waitingOverlay.remove();
+            
+            const prometheusPreview = document.getElementById('prometheus-preview');
+            if (prometheusPreview) prometheusPreview.remove();
+            
+            const aphroditeBanner = document.getElementById('aphrodite-retry-banner');
+            if (aphroditeBanner) aphroditeBanner.remove();
+            
+            const heraOverlay = document.getElementById('hera-delay-overlay');
+            if (heraOverlay) heraOverlay.remove();
             
             const godModal = document.getElementById('god-selection-modal');
             if (godModal) godModal.remove();

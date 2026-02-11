@@ -3686,15 +3686,40 @@ app.post('/api/teacher/mark-rite-complete', authenticateToken, (req, res) => {
 // Teacher: Reset all battle counts (for testing)
 app.post('/api/teacher/reset-battle-counts', authenticateToken, (req, res) => {
   try {
-    // battles_today is in arena_battle_stats, not students
-    run('UPDATE arena_battle_stats SET battles_today = 0, last_battle_date = NULL');
-    const count = query('SELECT COUNT(*) as c FROM arena_battle_stats')[0].c;
-    console.log(`🔄 Reset battle counts for ${count} students`);
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`🔄 Reset battle counts requested. Today = ${today}`);
+    
+    // Find battles that count toward daily limits
+    const countedBattles = query(`
+      SELECT battle_id, status FROM arena_battles 
+      WHERE DATE(started_at) = ? AND status IN ('in_progress', 'completed')
+    `, [today]);
+    
+    // Find ALL of today's battles to backdate
+    const allTodaysBattles = query(`
+      SELECT battle_id FROM arena_battles WHERE DATE(started_at) = ?
+    `, [today]);
+    
+    console.log(`🔄 Found ${allTodaysBattles.length} total battles today (${countedBattles.length} count toward limit)`);
+    
+    // Backdate ALL of today's battles regardless of status
+    if (allTodaysBattles.length > 0) {
+      run(`UPDATE arena_battles SET started_at = datetime(started_at, '-1 day') WHERE DATE(started_at) = ?`, [today]);
+      console.log(`🔄 Backdated ${allTodaysBattles.length} battles`);
+    }
+    
+    // Reset stats and prometheus usage
+    run('UPDATE arena_battle_stats SET battles_today = 0, last_battle_date = NULL, prometheus_used_date = NULL');
+    console.log('🔄 Reset arena_battle_stats and prometheus usage');
+    
     saveDatabase();
-    res.json({ success: true, message: `Reset battle counts for ${count} students` });
+    
+    const message = `Reset complete! ${countedBattles.length} counted battles backdated. Everyone can battle again!`;
+    console.log(`🔄 ${message}`);
+    res.json({ success: true, message });
   } catch (err) {
     console.error('Reset battle counts error:', err);
-    res.status(500).json({ error: 'Failed to reset battle counts' });
+    res.status(500).json({ error: 'Failed to reset battle counts: ' + err.message });
   }
 });
 
@@ -4961,8 +4986,34 @@ const BATTLE_TIMING = {
   RESULTS_PHASE: 5000,    // Results display phase: 5 seconds
   ANSWER_FEEDBACK: 3000,  // Time to show correct/wrong after answering: 3 seconds
   SYNC_DELAY: 2000,       // Delay after both ready before showing question/results: 2 seconds
-  SUDDEN_DEATH_DEPLOY: 12000  // Sudden death god selection
+  SUDDEN_DEATH_DEPLOY: 12000,  // Sudden death god selection
+  SUDDEN_DEATH_INTRO: 30000    // Sudden death intro screen timeout: 30 seconds
 };
+
+// Get a random question, excluding already-used IDs (Fisher-Yates shuffle)
+function getRandomQuestion(excludeIds = []) {
+  let questions;
+  if (excludeIds.length > 0) {
+    const placeholders = excludeIds.map(() => '?').join(',');
+    questions = query(`SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders})`, excludeIds);
+  } else {
+    questions = query('SELECT * FROM battle_questions WHERE is_active = 1');
+  }
+  
+  if (questions.length === 0) {
+    // All questions used - reset and pick any
+    questions = query('SELECT * FROM battle_questions WHERE is_active = 1');
+    if (questions.length === 0) return null;
+  }
+  
+  // Fisher-Yates shuffle
+  for (let i = questions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+  }
+  
+  return questions[0];
+}
 
 // GOD POWERS CONFIGURATION
 const GOD_POWERS = {
@@ -5078,9 +5129,9 @@ const GOD_POWERS = {
     name: 'Charm',
     description: 'Blocks Ares war cry',
     blocks: 'ares',
-    passive: 'If wrong, 3 sec to retry (if opponent hasn\'t won)',
-    passiveEffect: 3,
-    bonusPassiveEffect: 4.5,
+    passive: 'If wrong, 4 sec to retry with different answer',
+    passiveEffect: 4,
+    bonusPassiveEffect: 5,
     emoji: '💕'
   },
   demeter: {
@@ -5868,6 +5919,16 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           currentRound.question_starts_at = questionStartsAt;
           currentRound.phase_ends_at = newPhaseEnds;
           console.log(`⏱️ Deploy timeout - Question synced: starts at ${questionStartsAt}`);
+        } else if (currentRound.phase === 'sudden_death_intro') {
+          // Sudden death intro timeout (30s) - auto-transition to question
+          const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
+          const newPhaseEnds = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'question', question_display_time = ?, phase_ends_at = ? WHERE round_id = ?`,
+            [questionDisplayTime, newPhaseEnds, currentRound.round_id]);
+          currentRound.phase = 'question';
+          currentRound.question_display_time = questionDisplayTime;
+          currentRound.phase_ends_at = newPhaseEnds;
+          console.log(`⚡ Sudden death intro timeout - auto-transitioning to question`);
         } else if (currentRound.phase === 'question') {
           // Time's up - auto-submit wrong answers for anyone who hasn't answered
           if (!currentRound.challenger_answer) {
@@ -5884,40 +5945,33 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           
           // Check if battle should continue (less than 5 rounds or tied at 5)
           if (nextRoundNum <= 5 || (battle.challenger_score === battle.defender_score)) {
-            // Get all unused questions and pick one randomly
+            // Get unused questions using Fisher-Yates helper
             const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
             const usedIds = usedQuestions.map(q => q.question_id);
-            const availableQuestions = query('SELECT question_id FROM battle_questions WHERE is_active = 1')
-              .filter(q => !usedIds.includes(q.question_id));
-            const nextQ = availableQuestions.length > 0 ? availableQuestions[Math.floor(Math.random() * availableQuestions.length)] : null;
+            const nextQ = getRandomQuestion(usedIds);
             
             if (nextQ) {
               const isSuddenDeath = nextRoundNum > 5;
-              const newPhase = isSuddenDeath ? 'question' : 'deploy';
-              const phaseDuration = isSuddenDeath ? BATTLE_TIMING.QUESTION_PHASE : BATTLE_TIMING.DEPLOY_PHASE;
               
-              // Set a synchronized start time - 1 second from now
-              // This ensures both clients wait until this moment before showing the new round
-              const roundStartsAt = new Date(Date.now() + 1000).toISOString();
-              const newPhaseEnds = new Date(Date.now() + 1000 + phaseDuration).toISOString();
-              
-              console.log(`⏱️ Round ${nextRoundNum} created - question_id: ${nextQ.question_id}`);
-              
-              run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
-              
-              // For sudden death, also set question_starts_at
               if (isSuddenDeath) {
-                const questionStartsAt = new Date(Date.now() + 1000 + BATTLE_TIMING.SYNC_DELAY).toISOString();
-                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, question_starts_at, started_at) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                  [battle_id, nextRoundNum, nextQ.question_id, newPhase, newPhaseEnds, questionStartsAt, roundStartsAt]);
+                // Sudden death rounds go through sudden_death_intro phase first
+                const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
+                run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
+                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
+                     challenger_question_ready, defender_question_ready, started_at) 
+                     VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, CURRENT_TIMESTAMP)`,
+                  [battle_id, nextRoundNum, nextQ.question_id, phaseEndsAt]);
+                console.log(`⚡ SUDDEN DEATH Round ${nextRoundNum} created - phase: sudden_death_intro`);
               } else {
+                // Normal round - deploy phase
+                const roundStartsAt = new Date(Date.now() + 1000).toISOString();
+                const newPhaseEnds = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
+                run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
                 run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, started_at) 
-                     VALUES (?, ?, ?, ?, ?, ?)`,
-                  [battle_id, nextRoundNum, nextQ.question_id, newPhase, newPhaseEnds, roundStartsAt]);
+                     VALUES (?, ?, ?, 'deploy', ?, ?)`,
+                  [battle_id, nextRoundNum, nextQ.question_id, newPhaseEnds, roundStartsAt]);
+                console.log(`⏱️ Round ${nextRoundNum} created - starts at ${roundStartsAt}`);
               }
-              
-              console.log(`⏱️ Round ${nextRoundNum} created - starts at ${roundStartsAt}`);
               
               // Re-query to get the new round
               battle.current_round = nextRoundNum;
@@ -5973,7 +6027,10 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         opponent_god_deployed: isChallenger ? currentRound.defender_god_deployed : currentRound.challenger_god_deployed,
         my_deploy_ready: myDeployReady === 1,
         opponent_deploy_ready: opponentDeployReady === 1,
-        both_deployed: (currentRound.challenger_deploy_ready === 1 && currentRound.defender_deploy_ready === 1)
+        both_deployed: (currentRound.challenger_deploy_ready === 1 && currentRound.defender_deploy_ready === 1),
+        // Sudden death ready states
+        my_sd_ready: isChallenger ? currentRound.challenger_question_ready === 1 : currentRound.defender_question_ready === 1,
+        opponent_sd_ready: isChallenger ? currentRound.defender_question_ready === 1 : currentRound.challenger_question_ready === 1
       };
     }
     
@@ -5984,6 +6041,14 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       const godName = typeof g === 'string' ? g : g.name;
       return !myCooldowns[godName] || myCooldowns[godName] <= 0;
     });
+    
+    // A5: Check if this player already used Apollo in a previous round
+    const myDeployCol = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
+    const apolloUsedByMe = query(
+      `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+       WHERE battle_id = ? AND ${myDeployCol} = 'apollo'`,
+      [battle_id]
+    )[0];
     
     res.json({
       battle_id: battle.battle_id,
@@ -6004,7 +6069,8 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       // God info (minimal - god_powers already loaded from arena/status)
       my_gods: myGods,
       my_cooldowns: myCooldowns,
-      available_gods: availableGods
+      available_gods: availableGods,
+      apollo_used_by_me: apolloUsedByMe && apolloUsedByMe.cnt > 0
     });
   } catch (err) {
     console.error('Get battle error:', err);
@@ -6049,6 +6115,19 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
       const godNames = myGods.map(g => typeof g === 'string' ? g : g.name);
       if (!godNames.includes(god_name)) {
         return res.status(400).json({ error: 'You did not select this god for battle' });
+      }
+      
+      // A5: Apollo once-per-battle limit
+      if (god_name === 'apollo') {
+        const myDeployCol = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
+        const apolloUsed = query(
+          `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+           WHERE battle_id = ? AND ${myDeployCol} = 'apollo' AND round_number < ?`,
+          [battle_id, battle.current_round]
+        )[0];
+        if (apolloUsed && apolloUsed.cnt > 0) {
+          return res.status(400).json({ error: 'Apollo can only be used once per battle' });
+        }
       }
       
       // Check cooldown
@@ -6098,12 +6177,42 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
       
       console.log(`⏱️ BOTH DEPLOYED! Waiting for clients to sync via /question-ready`);
       
+      // A4: Check if this player deployed Prometheus and it wasn't blocked
+      let prometheusPreview = null;
+      let prometheusPreviewDuration = null;
+      const myDeployed = isChallenger ? updatedRound.challenger_god_deployed : updatedRound.defender_god_deployed;
+      const myBlocked = isChallenger ? updatedRound.challenger_god_blocked : updatedRound.defender_god_blocked;
+      
+      if (myDeployed === 'prometheus' && !myBlocked) {
+        const today = new Date().toISOString().split('T')[0];
+        if (!prometheusUsedToday(student_id)) {
+          // Mark Prometheus as used today
+          run('UPDATE arena_battle_stats SET prometheus_used_date = ? WHERE student_id = ?', [today, student_id]);
+          
+          // Get question text for preview
+          const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', 
+            [currentRound.question_id])[0];
+          if (previewQ) {
+            // Check for bonus (50% building)
+            const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
+            const promData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
+            const hasBonus = promData && typeof promData === 'object' && promData.hasBonus;
+            
+            prometheusPreview = previewQ.question_text;
+            prometheusPreviewDuration = (hasBonus ? GOD_POWERS.prometheus.bonusEffect : GOD_POWERS.prometheus.baseEffect) * 1000;
+            console.log(`🔥 Prometheus preview for student ${student_id}: ${prometheusPreviewDuration}ms`);
+          }
+        }
+      }
+      
       saveDatabase();
       
       // Tell this player to refresh - they'll see question phase and call /question-ready
       return res.json({ 
         success: true, 
-        both_ready: true
+        both_ready: true,
+        prometheus_preview: prometheusPreview,
+        prometheus_preview_duration: prometheusPreviewDuration
       });
     }
     
@@ -6177,6 +6286,61 @@ app.post('/api/arena/question-ready', authenticateToken, (req, res) => {
   }
 });
 
+// Sudden Death Ready - both players must click Ready before question appears
+app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { battle_id } = req.body;
+    
+    const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battle_id])[0];
+    if (!battle) {
+      return res.status(404).json({ error: 'Battle not found' });
+    }
+    
+    const isChallenger = battle.challenger_id === student_id;
+    const isDefender = battle.defender_id === student_id;
+    
+    if (!isChallenger && !isDefender) {
+      return res.status(403).json({ error: 'You are not part of this battle' });
+    }
+    
+    const currentRound = query('SELECT * FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
+      [battle_id, battle.current_round])[0];
+    
+    if (!currentRound || currentRound.phase !== 'sudden_death_intro') {
+      return res.status(400).json({ error: 'Not in sudden death intro phase' });
+    }
+    
+    // Mark this player as ready
+    const readyCol = isChallenger ? 'challenger_question_ready' : 'defender_question_ready';
+    run(`UPDATE arena_battle_rounds SET ${readyCol} = 1 WHERE round_id = ?`, [currentRound.round_id]);
+    
+    // Check if both ready
+    const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
+    
+    if (updated.challenger_question_ready === 1 && updated.defender_question_ready === 1) {
+      // Both ready - transition to question phase with 2-second sync delay
+      const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
+      const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+      
+      run(`UPDATE arena_battle_rounds 
+           SET phase = 'question', question_display_time = ?, phase_ends_at = ?
+           WHERE round_id = ?`,
+        [questionDisplayTime, phaseEndsAt, currentRound.round_id]);
+      
+      console.log(`⚡ SUDDEN DEATH - Both ready! Question reveals at ${questionDisplayTime}`);
+      saveDatabase();
+      return res.json({ success: true, both_ready: true });
+    }
+    
+    saveDatabase();
+    res.json({ success: true, both_ready: false });
+  } catch (err) {
+    console.error('Sudden death ready error:', err);
+    res.status(500).json({ error: 'Failed to mark ready' });
+  }
+});
+
 // Submit answer
 app.post('/api/arena/answer', authenticateToken, (req, res) => {
   try {
@@ -6211,8 +6375,19 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
     // Check if already answered
     const existingAnswer = isChallenger ? currentRound.challenger_answer : currentRound.defender_answer;
     if (existingAnswer) {
-      console.log(`⚠️ Already answered: ${existingAnswer}`);
-      return res.status(400).json({ error: 'Already answered this round' });
+      // Allow Aphrodite retry: if first answer was wrong and player has Aphrodite deployed (not blocked)
+      const myGodForRetry = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
+      const myGodBlockedForRetry = isChallenger ? currentRound.challenger_god_blocked : currentRound.defender_god_blocked;
+      const myTimeMs = isChallenger ? currentRound.challenger_time_ms : currentRound.defender_time_ms;
+      
+      if (existingAnswer === 'wrong' && myGodForRetry === 'aphrodite' && !myGodBlockedForRetry && !currentRound.completed_at) {
+        // Aphrodite retry allowed - round hasn't been scored yet
+        console.log(`💕 Aphrodite retry attempt - first answer was wrong, round not yet scored, retrying`);
+        // Allow - fall through to process the new answer
+      } else {
+        console.log(`⚠️ Already answered: ${existingAnswer}`);
+        return res.status(400).json({ error: 'Already answered this round' });
+      }
     }
     
     // Get question and use seeded shuffle to match battle state
@@ -6238,17 +6413,20 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
     
     const isCorrect = answer_index >= 0 && answer_index < 4 && answers[answer_index]?.isCorrect;
     
-    // Check for Artemis bonus (answered correctly in first 5 seconds)
+    // Check for Artemis bonus (answered correctly in first 5 seconds = +1 alliance point)
     let artemisBonus = 0;
+    let artemisAllianceBonus = 0;
     const myGod = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
     const myGodBlocked = isChallenger ? currentRound.challenger_god_blocked : currentRound.defender_god_blocked;
     
     if (myGod === 'artemis' && !myGodBlocked && isCorrect && time_ms <= 5000) {
-      // Check if has bonus
-      const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
-      const artemisData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'artemis');
-      const hasBonus = artemisData && typeof artemisData === 'object' && artemisData.hasBonus;
-      artemisBonus = hasBonus ? 0.75 : 0.5;
+      // Award +1 alliance point for fast correct answer
+      artemisAllianceBonus = 1;
+      const myAllianceId = isChallenger ? battle.challenger_alliance_id : battle.defender_alliance_id;
+      if (myAllianceId) {
+        run('UPDATE alliances SET total_points = total_points + 1 WHERE alliance_id = ?', [myAllianceId]);
+        console.log(`🏹 Artemis bonus: +1 alliance point to alliance ${myAllianceId} for fast correct answer (${time_ms}ms)`);
+      }
     }
     
     const answerCol = isChallenger ? 'challenger_answer' : 'defender_answer';
@@ -6391,23 +6569,20 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
         // Tied after 5 rounds - go to sudden death
         const nextRound = battle.current_round + 1;
         
-        // Get unused questions and pick randomly
+        // Get unused questions using Fisher-Yates helper
         const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
         const usedIds = usedQuestions.map(q => q.question_id);
-        const availableQuestions = query('SELECT question_id FROM battle_questions WHERE is_active = 1')
-          .filter(q => !usedIds.includes(q.question_id));
-        const nextQ = availableQuestions.length > 0 ? availableQuestions[Math.floor(Math.random() * availableQuestions.length)] : null;
+        const nextQ = getRandomQuestion(usedIds);
         
         if (nextQ) {
-          // Sudden death - skip deploy phase, go straight to question
-          // Add 3 second transition for the "SUDDEN DEATH" intro screen
-          const questionStartsAt = new Date(Date.now() + 3000).toISOString();
-          const phaseEndsAt = new Date(Date.now() + 3000 + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          // Sudden death intro - both players must click Ready before question appears
+          const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
           run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRound, battle_id]);
-          run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, question_starts_at, started_at) 
-               VALUES (?, ?, ?, 'question', ?, ?, CURRENT_TIMESTAMP)`,
-            [battle_id, nextRound, nextQ.question_id, phaseEndsAt, questionStartsAt]);
-          console.log(`⏱️ SUDDEN DEATH Round ${nextRound} - question_id: ${nextQ.question_id}`);
+          run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
+               challenger_question_ready, defender_question_ready, started_at) 
+               VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, CURRENT_TIMESTAMP)`,
+            [battle_id, nextRound, nextQ.question_id, phaseEndsAt]);
+          console.log(`⚡ SUDDEN DEATH Round ${nextRound} created - phase: sudden_death_intro`);
         }
         saveDatabase();
       } else {
@@ -6427,7 +6602,19 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
     }
     
     saveDatabase();
-    res.json({ success: true, was_correct: isCorrect, artemis_bonus: artemisBonus });
+    
+    // Check if Aphrodite retry is available (wrong answer + Aphrodite deployed + not blocked)
+    const myGodDeployed = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
+    const myGodWasBlocked = isChallenger ? currentRound.challenger_god_blocked : currentRound.defender_god_blocked;
+    const aphroditeRetryAvailable = !isCorrect && myGodDeployed === 'aphrodite' && !myGodWasBlocked && !existingAnswer;
+    
+    res.json({ 
+      success: true, 
+      was_correct: isCorrect, 
+      artemis_bonus: artemisBonus,
+      artemis_alliance_bonus: artemisAllianceBonus,
+      aphrodite_retry_available: aphroditeRetryAvailable
+    });
   } catch (err) {
     console.error('Submit answer error:', err);
     res.status(500).json({ error: 'Failed to submit answer' });
