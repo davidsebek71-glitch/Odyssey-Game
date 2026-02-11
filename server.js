@@ -5165,12 +5165,16 @@ const ARENA_BADGES = {
 
 // Calculate daily battle limit based on badge count
 function getDailyBattleLimit(studentId) {
-  const result = query('SELECT COUNT(*) as count FROM arena_badges WHERE student_id = ?', [studentId])[0];
-  const badgeCount = result ? result.count : 0;
-  if (badgeCount >= 7) return 6;
-  if (badgeCount >= 4) return 5;
-  if (badgeCount >= 2) return 4;
-  return 3;
+  try {
+    const result = query('SELECT COUNT(*) as count FROM arena_badges WHERE student_id = ?', [studentId])[0];
+    const badgeCount = result ? result.count : 0;
+    if (badgeCount >= 7) return 6;
+    if (badgeCount >= 4) return 5;
+    if (badgeCount >= 2) return 4;
+    return 3;
+  } catch (e) {
+    return 3; // Default if badge table not ready
+  }
 }
 
 // Check and award badges after a battle completes
@@ -5565,36 +5569,44 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
         };
       });
     
-    // Get badge data for this student
-    const myBadges = query('SELECT badge_key, celebration_seen FROM arena_badges WHERE student_id = ?', [student_id]);
-    const dailyBattleLimit = getDailyBattleLimit(student_id);
-    
-    // Get announcements from last 12 hours (cleanup once per minute max, not every request)
-    if (!global._lastAnnouncementCleanup || Date.now() - global._lastAnnouncementCleanup > 60000) {
-      run("DELETE FROM arena_announcements WHERE created_at < datetime('now', '-12 hours')");
-      global._lastAnnouncementCleanup = Date.now();
-    }
-    const announcements = query(`
-      SELECT aa.badge_key, aa.created_at, s.name as student_name 
-      FROM arena_announcements aa
-      JOIN students s ON aa.student_id = s.student_id
-      WHERE s.class_period = ?
-      ORDER BY aa.created_at DESC LIMIT 10
-    `, [student.class_period]);
-    
-    // Get badge keys for all opponents in ONE query (not N+1)
-    const opponentIds = opponents.map(o => o.student_id);
+    // Get badge data (wrapped in try/catch - gracefully degrades if badge tables not ready)
+    let myBadges = [];
+    let dailyBattleLimit = 3;
+    let announcements = [];
     const opponentBadges = {};
-    if (opponentIds.length > 0) {
-      const placeholders = opponentIds.map(() => '?').join(',');
-      const allOppBadges = query(
-        `SELECT student_id, badge_key FROM arena_badges WHERE student_id IN (${placeholders})`,
-        opponentIds
-      );
-      allOppBadges.forEach(b => {
-        if (!opponentBadges[b.student_id]) opponentBadges[b.student_id] = [];
-        opponentBadges[b.student_id].push(b.badge_key);
-      });
+    
+    try {
+      myBadges = query('SELECT badge_key, celebration_seen FROM arena_badges WHERE student_id = ?', [student_id]);
+      dailyBattleLimit = getDailyBattleLimit(student_id);
+      
+      // Get announcements from last 12 hours (cleanup once per minute max)
+      if (!global._lastAnnouncementCleanup || Date.now() - global._lastAnnouncementCleanup > 60000) {
+        run("DELETE FROM arena_announcements WHERE created_at < datetime('now', '-12 hours')");
+        global._lastAnnouncementCleanup = Date.now();
+      }
+      announcements = query(`
+        SELECT aa.badge_key, aa.created_at, s.name as student_name 
+        FROM arena_announcements aa
+        JOIN students s ON aa.student_id = s.student_id
+        WHERE s.class_period = ?
+        ORDER BY aa.created_at DESC LIMIT 10
+      `, [student.class_period]);
+      
+      // Get badge keys for all opponents in ONE query
+      const opponentIds = opponents.map(o => o.student_id);
+      if (opponentIds.length > 0) {
+        const placeholders = opponentIds.map(() => '?').join(',');
+        const allOppBadges = query(
+          `SELECT student_id, badge_key FROM arena_badges WHERE student_id IN (${placeholders})`,
+          opponentIds
+        );
+        allOppBadges.forEach(b => {
+          if (!opponentBadges[b.student_id]) opponentBadges[b.student_id] = [];
+          opponentBadges[b.student_id].push(b.badge_key);
+        });
+      }
+    } catch (badgeErr) {
+      console.log('Badge data fetch error (non-fatal):', badgeErr.message);
     }
     
     res.json({
@@ -6614,5 +6626,7 @@ app.listen(PORT, () => {
   setTimeout(cleanupStuckBattles, 1000);
   
   // Run retroactive badge awards (one-time, skips if badges already exist)
-  setTimeout(retroactivelyAwardBadges, 10000); // 10 second delay to let server stabilize first
+  // Retroactive badge awards - DISABLED for now, will run manually
+  // setTimeout(retroactivelyAwardBadges, 10000);
+  console.log('🏅 Retroactive badge migration disabled - badges will be earned going forward');
 });

@@ -6167,7 +6167,6 @@
                     const isHidden = def.hidden;
                     
                     if (needsCelebration) {
-                        // Pulsing unlock button
                         return `<div class="badge-celebration-slot" data-badge-key="${key}" onclick="celebrateBadge('${key}')" style="
                             width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
                             background: rgba(255,215,0,0.15); border: 2px solid #ffd700; cursor: pointer; position: relative;
@@ -6175,29 +6174,22 @@
                             <span style="font-size: 11px; font-weight: bold; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px;">UNLOCK</span>
                         </div>`;
                     } else if (earned) {
-                        // Earned badge with image (fallback to emoji)
                         return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
                             background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); box-shadow: 0 0 12px rgba(255,215,0,0.15);
                             cursor: pointer; position: relative;" title="${def.name}: ${def.desc}">
                             <img src="/badges/${key}.png" style="width: 40px; height: 40px; object-fit: contain;" 
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                            <span style="display: none; font-size: 24px; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));">${def.icon}</span>
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <span style="display: none; font-size: 24px; align-items: center; justify-content: center; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));">${def.icon}</span>
                         </div>`;
                     } else if (isHidden) {
-                        // Hidden unearned - use badge_hidden.png image
                         return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
                             background: rgba(128,0,255,0.05); border: 1px solid rgba(128,0,255,0.15); cursor: help;" title="??? - Keep battling to discover...">
-                            <img src="/badges/badge_hidden.png" style="width: 36px; height: 36px; object-fit: contain; opacity: 0.6;"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                            <span style="display: none; font-size: 20px; color: rgba(128,0,255,0.4);">❓</span>
+                            <span style="font-size: 22px; opacity: 0.4;">❓</span>
                         </div>`;
                     } else {
-                        // Locked visible - use the ACTUAL badge image with grayscale + low opacity (no badge_locked.png)
                         return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
                             background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); cursor: help;" title="${def.name}: ${def.desc}">
-                            <img src="/badges/${key}.png" style="width: 40px; height: 40px; object-fit: contain; filter: grayscale(1) brightness(0.4) opacity(0.35);"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                            <span style="display: none; font-size: 24px; filter: grayscale(1) opacity(0.25);">${def.icon}</span>
+                            <span style="font-size: 24px; filter: grayscale(1) opacity(0.2);">${def.icon}</span>
                         </div>`;
                     }
                 }
@@ -6348,13 +6340,7 @@
                       data.available_opponents?.length === 0 ? '<p style="color:rgba(255,255,255,0.5);text-align:center;font-size:18px;">No opponents available right now.</p>' : `
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                             ${data.available_opponents.map(opp => {
-                                const oppBadgeLimit = (oppBadges[opp.student_id] || []).length >= 7 ? 6 : (oppBadges[opp.student_id] || []).length >= 4 ? 5 : (oppBadges[opp.student_id] || []).length >= 2 ? 4 : 3;
-                                const oppAtLimit = opp.battles_today >= oppBadgeLimit;
-                                const oppBadgeKeys = oppBadges[opp.student_id] || [];
-                                const oppBadgeIcons = oppBadgeKeys.map(k => {
-                                    const def = badgeDefs[k];
-                                    return def ? `<img src="/badges/${k}.png" style="width: 18px; height: 18px; object-fit: contain;" onerror="this.style.display='none'">` : '';
-                                }).join('');
+                                const oppAtLimit = opp.battles_today >= data.max_battles_per_day;
                                 return `
                                 <div ${oppAtLimit ? '' : `onclick="sendChallenge(${opp.student_id}, '${opp.name.replace(/'/g, "\\'")}')"`} 
                                      style="
@@ -6388,7 +6374,6 @@
                                     ">
                                         <div style="font-weight: bold; color: ${oppAtLimit ? '#9ca3af' : '#ffd700'}; font-size: 18px; margin-bottom: 4px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">${opp.name}</div>
                                         <div style="color: rgba(255,255,255,0.8); font-size: 14px;">${opp.alliance_name}</div>
-                                        ${oppBadgeIcons ? `<div style="margin-top: 4px; display: flex; gap: 3px; justify-content: center; align-items: center; flex-wrap: wrap;">${oppBadgeIcons}</div>` : ''}
                                     </div>
                                     <!-- Click hint -->
                                     <div style="position: absolute; bottom: 10px; font-size: 12px; color: rgba(255,255,255,0.5);">${oppAtLimit ? 'At daily limit' : 'Click to Challenge'}</div>
