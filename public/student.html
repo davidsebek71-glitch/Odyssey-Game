@@ -6161,11 +6161,11 @@
                 // Determine current daily limit tier
                 let currentTierBadges = 0;
                 let currentTierBattles = 3;
-                let nextTierBadges = 2;
+                let nextTierBadges = 3;
                 let nextTierBattles = 4;
-                if (badgeCount >= 7) { currentTierBadges = 7; currentTierBattles = 6; nextTierBadges = null; nextTierBattles = null; }
-                else if (badgeCount >= 4) { currentTierBadges = 4; currentTierBattles = 5; nextTierBadges = 7; nextTierBattles = 6; }
-                else if (badgeCount >= 2) { currentTierBadges = 2; currentTierBattles = 4; nextTierBadges = 4; nextTierBattles = 5; }
+                if (badgeCount >= 11) { currentTierBadges = 11; currentTierBattles = 6; nextTierBadges = null; nextTierBattles = null; }
+                else if (badgeCount >= 7) { currentTierBadges = 7; currentTierBattles = 5; nextTierBadges = 11; nextTierBattles = 6; }
+                else if (badgeCount >= 3) { currentTierBadges = 3; currentTierBattles = 4; nextTierBadges = 7; nextTierBattles = 5; }
                 
                 // Build tier badge HTML
                 function badgeSlotHTML(key) {
@@ -6316,13 +6316,13 @@
                         <div style="padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
                             <div style="font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">🎁 More Badges = More Daily Battles</div>
                             <div style="display: flex; gap: 6px; align-items: stretch;">
-                                ${progressionTier(0, 3, currentTierBattles===3, false, badgeCount>=2)}
+                                ${progressionTier(0, 3, currentTierBattles===3, false, badgeCount>=3)}
                                 <div style="display:flex;align-items:center;color:rgba(255,255,255,0.15);font-size:14px;">→</div>
-                                ${progressionTier(2, 4, currentTierBattles===4, nextTierBattles===4, badgeCount>=4)}
+                                ${progressionTier(3, 4, currentTierBattles===4, nextTierBattles===4, badgeCount>=7)}
                                 <div style="display:flex;align-items:center;color:rgba(255,255,255,0.15);font-size:14px;">→</div>
-                                ${progressionTier(4, 5, currentTierBattles===5, nextTierBattles===5, badgeCount>=7)}
+                                ${progressionTier(7, 5, currentTierBattles===5, nextTierBattles===5, badgeCount>=11)}
                                 <div style="display:flex;align-items:center;color:rgba(255,215,0,0.3);font-size:14px;">→</div>
-                                ${progressionTier(7, 6, currentTierBattles===6, nextTierBattles===6, false)}
+                                ${progressionTier(11, 6, currentTierBattles===6, nextTierBattles===6, false)}
                             </div>
                         </div>
                     </div>

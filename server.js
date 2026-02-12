@@ -5193,9 +5193,9 @@ function getDailyBattleLimit(studentId) {
   try {
     const result = query('SELECT COUNT(*) as count FROM arena_badges WHERE student_id = ?', [studentId])[0];
     const badgeCount = result ? result.count : 0;
-    if (badgeCount >= 7) return 6;
-    if (badgeCount >= 4) return 5;
-    if (badgeCount >= 2) return 4;
+    if (badgeCount >= 11) return 6;
+    if (badgeCount >= 7) return 5;
+    if (badgeCount >= 3) return 4;
     return 3;
   } catch (e) {
     return 3; // Default if badge table not ready
