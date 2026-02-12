@@ -172,38 +172,48 @@
         /* Ares - Screen Shake */
         @keyframes aresShake {
             0%, 100% { transform: translateX(0) translateY(0); }
-            5% { transform: translateX(-10px) translateY(5px); }
-            10% { transform: translateX(10px) translateY(-5px); }
-            15% { transform: translateX(-10px) translateY(5px); }
-            20% { transform: translateX(10px) translateY(-5px); }
-            25% { transform: translateX(-8px) translateY(4px); }
-            30% { transform: translateX(8px) translateY(-4px); }
-            35% { transform: translateX(-8px) translateY(4px); }
-            40% { transform: translateX(8px) translateY(-4px); }
-            45% { transform: translateX(-6px) translateY(3px); }
-            50% { transform: translateX(6px) translateY(-3px); }
-            55% { transform: translateX(-6px) translateY(3px); }
-            60% { transform: translateX(6px) translateY(-3px); }
-            65% { transform: translateX(-4px) translateY(2px); }
-            70% { transform: translateX(4px) translateY(-2px); }
-            75% { transform: translateX(-4px) translateY(2px); }
-            80% { transform: translateX(4px) translateY(-2px); }
-            85% { transform: translateX(-2px) translateY(1px); }
-            90% { transform: translateX(2px) translateY(-1px); }
-            95% { transform: translateX(-1px) translateY(0); }
+            5% { transform: translateX(-15px) translateY(8px); }
+            10% { transform: translateX(15px) translateY(-8px); }
+            15% { transform: translateX(-15px) translateY(8px); }
+            20% { transform: translateX(15px) translateY(-8px); }
+            25% { transform: translateX(-12px) translateY(6px); }
+            30% { transform: translateX(12px) translateY(-6px); }
+            35% { transform: translateX(-12px) translateY(6px); }
+            40% { transform: translateX(12px) translateY(-6px); }
+            45% { transform: translateX(-10px) translateY(5px); }
+            50% { transform: translateX(10px) translateY(-5px); }
+            55% { transform: translateX(-10px) translateY(5px); }
+            60% { transform: translateX(10px) translateY(-5px); }
+            65% { transform: translateX(-8px) translateY(4px); }
+            70% { transform: translateX(8px) translateY(-4px); }
+            75% { transform: translateX(-6px) translateY(3px); }
+            80% { transform: translateX(6px) translateY(-3px); }
+            85% { transform: translateX(-4px) translateY(2px); }
+            90% { transform: translateX(4px) translateY(-2px); }
+            95% { transform: translateX(-2px) translateY(1px); }
         }
         
         .ares-effect {
-            animation: aresShake 2s ease-in-out;
+            animation: aresShake 3s ease-in-out;
         }
         
         .ares-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle, rgba(200, 0, 0, 0.2) 0%, rgba(100, 0, 0, 0.3) 100%);
+            background: radial-gradient(circle, rgba(220, 0, 0, 0.35) 0%, rgba(120, 0, 0, 0.45) 100%);
             pointer-events: none;
             z-index: 9998;
-            animation: fadeInOut 2s ease-in-out forwards;
+            animation: aresPulse 3s ease-in-out forwards;
+        }
+        
+        @keyframes aresPulse {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            30% { opacity: 0.7; }
+            50% { opacity: 1; }
+            70% { opacity: 0.7; }
+            85% { opacity: 1; }
+            100% { opacity: 0; }
         }
         
         /* Hades - Darkness Effect */
@@ -8105,17 +8115,22 @@
                 });
                 const data = await response.json();
                 
-                // Whether show_question or waiting, just let normal polling handle the transition
-                // The polling loop will detect question_display_time and show the question
-                // when the server-set display time is reached
                 if (data.show_question) {
-                    console.log('✅ Both players ready! Display time set - waiting for sync...');
+                    console.log('✅ Both players ready! Display time set - polling will show question');
+                    // Don't call loadBattleState - let normal polling detect question_display_time
                 } else if (data.waiting_for_opponent) {
                     console.log('⏳ Waiting for opponent to be ready...');
+                    // Retry in 500ms - opponent hasn't signaled yet
+                    setTimeout(() => signalQuestionReady(), 500);
+                } else if (data.not_ready) {
+                    // Server not in question phase yet - retry shortly
+                    console.log('⏳ Server not ready for question signal yet...');
+                    setTimeout(() => signalQuestionReady(), 500);
                 }
-                // Normal polling will pick up the state change
             } catch (err) {
                 console.error('Error signaling question ready:', err);
+                // Retry on error
+                setTimeout(() => signalQuestionReady(), 1000);
             }
         }
         
@@ -8273,7 +8288,7 @@
                     break;
                     
                 case 'ares':
-                    // Screen shake with red tint
+                    // Screen shake with red tint - 3 seconds
                     battleContent.classList.add('ares-effect');
                     const aresOverlay = document.createElement('div');
                     aresOverlay.id = 'god-effect-overlay';
@@ -8282,7 +8297,7 @@
                     setTimeout(() => {
                         battleContent.classList.remove('ares-effect');
                         aresOverlay.remove();
-                    }, 2000 * demeterMultiplier);
+                    }, 3000 * demeterMultiplier);
                     break;
                     
                 case 'hades':

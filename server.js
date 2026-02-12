@@ -5913,15 +5913,19 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       // Auto-advance phase if time expired
       if (phaseEndsAt && now > phaseEndsAt) {
         if (currentRound.phase === 'deploy') {
-          // Move to question phase with synchronized start time
-          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.TRANSITION_DELAY).toISOString();
-          const newPhaseEnds = new Date(Date.now() + BATTLE_TIMING.TRANSITION_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-          run("UPDATE arena_battle_rounds SET phase = 'question', question_starts_at = ?, phase_ends_at = ? WHERE round_id = ?", 
-            [questionStartsAt, newPhaseEnds, currentRound.round_id]);
+          // Deploy timeout - move to question phase with sync delay
+          // Set question_display_time so the sync gate works correctly
+          const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
+          const newPhaseEnds = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run("UPDATE arena_battle_rounds SET phase = 'question', question_display_time = ?, phase_ends_at = ? WHERE round_id = ?", 
+            [questionDisplayTime, newPhaseEnds, currentRound.round_id]);
+          // Also mark both as question-ready since they had their chance during deploy
+          run("UPDATE arena_battle_rounds SET challenger_question_ready = 1, defender_question_ready = 1 WHERE round_id = ?",
+            [currentRound.round_id]);
           currentRound.phase = 'question';
-          currentRound.question_starts_at = questionStartsAt;
+          currentRound.question_display_time = questionDisplayTime;
           currentRound.phase_ends_at = newPhaseEnds;
-          console.log(`⏱️ Deploy timeout - Question synced: starts at ${questionStartsAt}`);
+          console.log(`⏱️ Deploy timeout - Question display at ${questionDisplayTime}`);
         } else if (currentRound.phase === 'sudden_death_intro') {
           // Sudden death intro timeout (30s) - auto-transition to question
           const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
