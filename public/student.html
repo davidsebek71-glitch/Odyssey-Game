@@ -2498,7 +2498,6 @@
                         <option value="quiz">Quiz</option>
                         <option value="comp_conn">Reading Notes / Comp Conn</option>
                         <option value="mural">Mural/Comic (Pixton)</option>
-                        <option value="video">Video (WeVideo)</option>
                         <option value="rite_of_passage">Rite of Passage Essay</option>
                         <option value="bonus">Bonus / Extra Credit</option>
                         <option value="membean">Membean</option>
@@ -3014,7 +3013,7 @@
                     'Aphrodite': '#ff69b4', 'Poseidon': '#00bfff', 'Artemis': '#7caa98',
                     'Demeter': '#daa520', 'Hermes': '#cc5500', 'Hephaestus': '#cd5c5c',
                     'Apollo and Artemis': '#22c55e', 'Nine Muses': '#ff9933',
-                    'Pixton Retelling': '#ffffff', 'WeVideo Movie': '#ffffff', 'Exit Ticket': '#ffffff'
+                    'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff'
                 };
                 
                 const getAssignmentDisplay = (s) => {
@@ -3022,7 +3021,6 @@
                     const assignmentType = s.category === 'comp_conn' ? 'Reading Notes' : 
                                            s.category === 'quiz' ? 'Quiz' :
                                            s.category === 'mural' ? 'Mural' :
-                                           s.category === 'video' ? 'Video' :
                                            s.category === 'bonus' ? 'Bonus' :
                                            s.category === 'rite_of_passage' ? 'Rite of Passage' :
                                            s.category;
@@ -3184,8 +3182,7 @@
                 
                 content.innerHTML = renderAchievement(achievements.coeus, '📚') +
                     renderAchievement(achievements.metis, '📝') +
-                    renderAchievement(achievements.apollo, '🎨') +
-                    renderAchievement(achievements.delphi, '🎬');
+                    renderAchievement(achievements.apollo, '🎨');
                     
             } catch (err) {
                 console.error('Failed to load achievements:', err);
@@ -3202,7 +3199,7 @@
             let progressText = '';
             
             if (progress.needed) {
-                // Count-based (murals, videos)
+                // Count-based (murals)
                 progressPercent = Math.min(100, (progress.count / progress.needed) * 100);
                 progressText = `${progress.count}/${progress.needed}`;
             } else if (progress.threshold) {
@@ -3403,7 +3400,7 @@
                                 'Aphrodite': '#ff69b4', 'Poseidon': '#00bfff', 'Artemis': '#7caa98',
                                 'Demeter': '#daa520', 'Hermes': '#cc5500', 'Hephaestus': '#cd5c5c',
                                 'Apollo and Artemis': '#22c55e', 'Nine Muses': '#ff9933',
-                                'Pixton': '#ffffff', 'WeVideo': '#ffffff', 'Exit Ticket': '#ffffff'
+                                'Pixton': '#ffffff', 'Exit Ticket': '#ffffff'
                             };
                             
                             // Get color based on reason content
@@ -4916,7 +4913,7 @@
                 'Aphrodite': '#ff69b4', 'Poseidon': '#00bfff', 'Artemis': '#7caa98',
                 'Demeter': '#daa520', 'Hermes': '#cc5500', 'Hephaestus': '#cd5c5c',
                 'Apollo and Artemis': '#22c55e', 'Nine Muses': '#ff9933',
-                'Pixton Retelling': '#ffffff', 'WeVideo Movie': '#ffffff', 'Exit Ticket': '#ffffff'
+                'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff'
             };
             
             const getGodColor = (displayName) => {
@@ -5476,9 +5473,6 @@
             ],
             mural: [
                 { myth: 'Pixton Retelling', section: 'section_1' }
-            ],
-            video: [
-                { myth: 'WeVideo Movie', section: 'section_2' }
             ]
         };
         
@@ -5526,7 +5520,7 @@
             const mythSelect = document.getElementById('submit-myth');
             
             // Categories that need myth tracking
-            const trackedCategories = ['quiz', 'comp_conn', 'mural', 'video'];
+            const trackedCategories = ['quiz', 'comp_conn', 'mural'];
             
             if (category === 'bonus') {
                 // Hide myth for bonus - they should use the portal
@@ -5584,8 +5578,7 @@
                 'Hephaestus': '#cd5c5c',
                 'Nine Muses': '#ff9933',
                 'Exit Ticket': '#ffffff',
-                'Pixton Retelling': '#ffffff',
-                'WeVideo Movie': '#ffffff'
+                'Pixton Retelling': '#ffffff'
             };
             
             const options = MYTH_OPTIONS[category];

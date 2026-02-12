@@ -127,20 +127,6 @@ function updateAchievementProgress(student_id, category, points_earned, max_poin
            WHERE student_id = ?`, [student_id]);
       console.log(`🏆 Student ${student_id} unlocked Apollo's Blessing!`);
     }
-  } else if (category === 'video') {
-    // Update video count
-    const newVideoCount = progress.video_count + 1;
-    
-    run(`UPDATE student_achievement_progress SET video_count = ? WHERE student_id = ?`,
-        [newVideoCount, student_id]);
-    
-    // Check for Delphi unlock (3+ videos)
-    if (newVideoCount >= 3 && !progress.delphi_unlocked) {
-      run(`UPDATE student_achievement_progress 
-           SET delphi_unlocked = 1, delphi_unlocked_at = CURRENT_TIMESTAMP
-           WHERE student_id = ?`, [student_id]);
-      console.log(`🏆 Student ${student_id} unlocked Oracle of Delphi!`);
-    }
   }
 }
 
@@ -195,7 +181,7 @@ function updateAchievementProgressForResubmission(student_id, category, points_d
       }
     }
   }
-  // Note: Murals and videos don't typically have resubmissions that change points
+  // Note: Murals don't typically have resubmissions that change points
 }
 
 // Get achievement bonus multiplier for a category
@@ -211,8 +197,6 @@ function getAchievementBonus(student_id, category) {
     bonus = 0.15; // +15% for comp conns
   } else if (category === 'mural' && progress.apollo_unlocked) {
     bonus = 0.33; // +33% for murals
-  } else if (category === 'video' && progress.delphi_unlocked) {
-    bonus = 0.33; // +33% for videos
   }
   
   return bonus;
@@ -939,7 +923,6 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         const assignmentType = submission.category === 'comp_conn' ? 'Reading Notes' : 
                                submission.category === 'quiz' ? 'Quiz' :
                                submission.category === 'mural' ? 'Mural' :
-                               submission.category === 'video' ? 'Video' :
                                submission.category;
         const assignmentName = godName ? `${godName} ${assignmentType}` : assignmentType;
         
@@ -1331,19 +1314,6 @@ app.get('/api/student/achievements', authenticateToken, (req, res) => {
           count: progress.mural_count,
           needed: 5
         }
-      },
-      // Oracle of Delphi (Video mastery)
-      delphi: {
-        name: 'Oracle of Delphi',
-        description: "Apollo's oracle speaks through visual storytelling",
-        requirement: 'Create 3 videos',
-        effect: '+33% on future video points',
-        unlocked: progress.delphi_unlocked === 1,
-        unlocked_at: progress.delphi_unlocked_at,
-        progress: {
-          count: progress.video_count,
-          needed: 3
-        }
       }
     });
   } catch (err) {
@@ -1615,9 +1585,9 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
     
-    // Get all assignments
+    // Get all assignments (exclude video - WeVideo removed)
     const allAssignments = query(`
-      SELECT * FROM assignments_ref WHERE age = 'Archaic'
+      SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'
     `);
     
     // Get student's completed assignments
@@ -1771,9 +1741,9 @@ app.get('/api/teacher/student-grades/:student_id', authenticateToken, (req, res)
       return res.status(404).json({ error: 'Student not found' });
     }
     
-    // Get all assignments
+    // Get all assignments (exclude video - WeVideo removed)
     const allAssignments = query(`
-      SELECT * FROM assignments_ref WHERE age = 'Archaic'
+      SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'
     `);
     
     // Get student's completed assignments
@@ -1838,8 +1808,8 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
       ORDER BY class_period, name
     `);
     
-    // Get all assignments for calculating max points
-    const allAssignments = query(`SELECT * FROM assignments_ref WHERE age = 'Archaic'`);
+    // Get all assignments for calculating max points (exclude video - WeVideo removed)
+    const allAssignments = query(`SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'`);
     const section1Max = allAssignments.filter(a => a.section === 'section_1').reduce((sum, a) => sum + a.max_points, 0);
     const section2Max = allAssignments.filter(a => a.section === 'section_2').reduce((sum, a) => sum + a.max_points, 0);
     const bonusMax = allAssignments.filter(a => a.section === 'bonus').reduce((sum, a) => sum + a.max_points, 0);
