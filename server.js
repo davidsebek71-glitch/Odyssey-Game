@@ -6322,9 +6322,10 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
     const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
     
     if (updated.challenger_question_ready === 1 && updated.defender_question_ready === 1) {
-      // Both ready - transition to question phase with 2-second sync delay
-      const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
-      const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+      // Both ready - transition to question phase with 3-second sync delay
+      // Extra second helps account for polling interval differences between clients
+      const questionDisplayTime = new Date(Date.now() + 3000).toISOString();
+      const phaseEndsAt = new Date(Date.now() + 3000 + BATTLE_TIMING.QUESTION_PHASE).toISOString();
       
       run(`UPDATE arena_battle_rounds 
            SET phase = 'question', question_display_time = ?, phase_ends_at = ?
@@ -6343,6 +6344,159 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
     res.status(500).json({ error: 'Failed to mark ready' });
   }
 });
+
+// Score a completed round - extracted for Aphrodite retry delayed scoring
+function scoreRound(battle_id, round_id) {
+  try {
+    const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [round_id])[0];
+    if (!updated || updated.completed_at) {
+      console.log(`⚠️ scoreRound: round ${round_id} already scored or not found`);
+      return;
+    }
+    
+    const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battle_id])[0];
+    if (!battle) {
+      console.log(`⚠️ scoreRound: battle ${battle_id} not found`);
+      return;
+    }
+    
+    console.log(`✅ Both answered - processing round results...`);
+    
+    // Determine round winner
+    let roundWinner = null;
+    let challengerScore = 0;
+    let defenderScore = 0;
+    
+    // Base scoring: correct answer = 1 point
+    if (updated.challenger_answer === 'correct') challengerScore = 1;
+    if (updated.defender_answer === 'correct') defenderScore = 1;
+    
+    // Add Artemis bonuses
+    challengerScore += (updated.artemis_bonus_challenger || 0);
+    defenderScore += (updated.artemis_bonus_defender || 0);
+    
+    // Determine winner (if both correct, faster wins; if scores differ, higher wins)
+    if (updated.challenger_answer === 'correct' && updated.defender_answer !== 'correct') {
+      roundWinner = battle.challenger_id;
+    } else if (updated.defender_answer === 'correct' && updated.challenger_answer !== 'correct') {
+      roundWinner = battle.defender_id;
+    } else if (updated.challenger_answer === 'correct' && updated.defender_answer === 'correct') {
+      if (challengerScore > defenderScore) {
+        roundWinner = battle.challenger_id;
+      } else if (defenderScore > challengerScore) {
+        roundWinner = battle.defender_id;
+      } else {
+        roundWinner = updated.challenger_time_ms < updated.defender_time_ms ? battle.challenger_id : battle.defender_id;
+      }
+    }
+    
+    run('UPDATE arena_battle_rounds SET round_winner_id = ?, completed_at = CURRENT_TIMESTAMP WHERE round_id = ?',
+      [roundWinner, round_id]);
+    
+    // Update battle scores
+    let newChallengerScore = battle.challenger_score || 0;
+    let newDefenderScore = battle.defender_score || 0;
+    if (roundWinner === battle.challenger_id) newChallengerScore++;
+    if (roundWinner === battle.defender_id) newDefenderScore++;
+    
+    run('UPDATE arena_battles SET challenger_score = ?, defender_score = ? WHERE battle_id = ?',
+      [newChallengerScore, newDefenderScore, battle_id]);
+    
+    // Decrement cooldowns for next round
+    const challengerCooldowns = JSON.parse(battle.challenger_god_cooldowns || '{}');
+    const defenderCooldowns = JSON.parse(battle.defender_god_cooldowns || '{}');
+    Object.keys(challengerCooldowns).forEach(g => { if (challengerCooldowns[g] > 0) challengerCooldowns[g]--; });
+    Object.keys(defenderCooldowns).forEach(g => { if (defenderCooldowns[g] > 0) defenderCooldowns[g]--; });
+    run('UPDATE arena_battles SET challenger_god_cooldowns = ?, defender_god_cooldowns = ? WHERE battle_id = ?',
+      [JSON.stringify(challengerCooldowns), JSON.stringify(defenderCooldowns), battle_id]);
+    
+    // Check for battle end
+    const isSuddenDeath = battle.current_round > 5;
+    const regularBattleOver = (newChallengerScore >= 3 || newDefenderScore >= 3) || 
+                              (battle.current_round >= 5 && newChallengerScore !== newDefenderScore);
+    const suddenDeathOver = isSuddenDeath && roundWinner !== null;
+    
+    if (regularBattleOver || suddenDeathOver) {
+      const winner = newChallengerScore > newDefenderScore ? battle.challenger_id : 
+                     newDefenderScore > newChallengerScore ? battle.defender_id : null;
+      
+      run("UPDATE arena_battles SET status = 'completed', winner_id = ?, completed_at = CURRENT_TIMESTAMP WHERE battle_id = ?",
+        [winner, battle_id]);
+      
+      if (winner) {
+        const challengerWon = winner === battle.challenger_id;
+        const stakes = battle.point_stakes || 0;
+        
+        console.log(`⚔️ BATTLE COMPLETE - Winner: ${winner}, Stakes: ${stakes}, ChallengerWon: ${challengerWon}`);
+        
+        if (challengerWon) {
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
+            [stakes, battle.challenger_alliance_id]);
+          run('UPDATE alliances SET total_points = MAX(0, total_points - ?) WHERE alliance_id = ?', 
+            [Math.floor(stakes / 2), battle.defender_alliance_id]);
+        } else {
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
+            [stakes, battle.defender_alliance_id]);
+          run('UPDATE alliances SET total_points = MAX(0, total_points - ?) WHERE alliance_id = ?', 
+            [stakes, battle.challenger_alliance_id]);
+        }
+      }
+      
+      // Update battle stats
+      const today = new Date().toISOString().split('T')[0];
+      [battle.challenger_id, battle.defender_id].forEach(pid => {
+        const isWinner = pid === winner;
+        const isTie = winner === null;
+        run(`UPDATE arena_battle_stats SET 
+          total_battles = total_battles + 1,
+          wins = wins + ?,
+          losses = losses + ?,
+          current_streak = CASE WHEN ? = 1 THEN current_streak + 1 ELSE 0 END,
+          best_streak = CASE WHEN ? = 1 AND current_streak + 1 > best_streak THEN current_streak + 1 ELSE best_streak END,
+          battles_today = CASE WHEN last_battle_date = ? THEN battles_today + 1 ELSE 1 END,
+          last_battle_date = ?
+          WHERE student_id = ?`,
+          [isWinner ? 1 : 0, (isTie || isWinner) ? 0 : 1, isWinner ? 1 : 0, isWinner ? 1 : 0, today, today, pid]);
+      });
+      
+      saveDatabase();
+      
+      // Check and award badges
+      try {
+        checkAndAwardBadges(battle.challenger_id, battle_id);
+        checkAndAwardBadges(battle.defender_id, battle_id);
+        saveDatabase();
+      } catch (badgeErr) {
+        console.error('Badge check error (non-fatal):', badgeErr.message);
+      }
+    } else if (battle.current_round >= 5 && newChallengerScore === newDefenderScore) {
+      // Tied after 5 rounds - sudden death
+      const nextRound = battle.current_round + 1;
+      const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
+      const usedIds = usedQuestions.map(q => q.question_id);
+      const nextQ = getRandomQuestion(usedIds);
+      
+      if (nextQ) {
+        const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
+        run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRound, battle_id]);
+        run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
+             challenger_question_ready, defender_question_ready, started_at) 
+             VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, CURRENT_TIMESTAMP)`,
+          [battle_id, nextRound, nextQ.question_id, phaseEndsAt]);
+        console.log(`⚡ SUDDEN DEATH Round ${nextRound} created - phase: sudden_death_intro`);
+      }
+      saveDatabase();
+    } else {
+      // Results phase
+      const resultsEndsAt = new Date(Date.now() + BATTLE_TIMING.ANSWER_FEEDBACK + BATTLE_TIMING.RESULTS_PHASE).toISOString();
+      run("UPDATE arena_battle_rounds SET phase = 'results', phase_ends_at = ? WHERE round_id = ?",
+        [resultsEndsAt, round_id]);
+      saveDatabase();
+    }
+  } catch (err) {
+    console.error('scoreRound error:', err);
+  }
+}
 
 // Submit answer
 app.post('/api/arena/answer', authenticateToken, (req, res) => {
@@ -6445,162 +6599,37 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
     console.log(`📝 Answer submitted - Round ${currentRound.round_number}, Challenger: ${updated.challenger_answer}, Defender: ${updated.defender_answer}`);
     
     if (updated.challenger_answer && updated.defender_answer) {
-      console.log(`✅ Both answered - processing round results...`);
-      // Determine round winner
-      let roundWinner = null;
-      let challengerScore = 0;
-      let defenderScore = 0;
+      // Check if either player has Aphrodite active with a wrong answer - delay scoring for retry
+      const challengerGod = updated.challenger_god_deployed;
+      const defenderGod = updated.defender_god_deployed;
+      const challengerBlocked = updated.challenger_god_blocked;
+      const defenderBlocked = updated.defender_god_blocked;
       
-      // Base scoring: correct answer = 1 point
-      if (updated.challenger_answer === 'correct') challengerScore = 1;
-      if (updated.defender_answer === 'correct') defenderScore = 1;
+      const challengerNeedsRetry = updated.challenger_answer === 'wrong' && challengerGod === 'aphrodite' && !challengerBlocked && !updated.completed_at;
+      const defenderNeedsRetry = updated.defender_answer === 'wrong' && defenderGod === 'aphrodite' && !defenderBlocked && !updated.completed_at;
       
-      // Add Artemis bonuses
-      challengerScore += (updated.artemis_bonus_challenger || 0);
-      defenderScore += (updated.artemis_bonus_defender || 0);
-      
-      // Determine winner (if both correct, faster wins; if scores differ, higher wins)
-      if (updated.challenger_answer === 'correct' && updated.defender_answer !== 'correct') {
-        roundWinner = battle.challenger_id;
-      } else if (updated.defender_answer === 'correct' && updated.challenger_answer !== 'correct') {
-        roundWinner = battle.defender_id;
-      } else if (updated.challenger_answer === 'correct' && updated.defender_answer === 'correct') {
-        // Both correct - check Artemis bonus first, then time
-        if (challengerScore > defenderScore) {
-          roundWinner = battle.challenger_id;
-        } else if (defenderScore > challengerScore) {
-          roundWinner = battle.defender_id;
-        } else {
-          // Same score - fastest wins
-          roundWinner = updated.challenger_time_ms < updated.defender_time_ms ? battle.challenger_id : battle.defender_id;
-        }
-      }
-      // If both wrong, no winner (roundWinner stays null)
-      
-      run('UPDATE arena_battle_rounds SET round_winner_id = ?, completed_at = CURRENT_TIMESTAMP WHERE round_id = ?',
-        [roundWinner, currentRound.round_id]);
-      
-      // Update battle scores
-      let newChallengerScore = battle.challenger_score || 0;
-      let newDefenderScore = battle.defender_score || 0;
-      if (roundWinner === battle.challenger_id) newChallengerScore++;
-      if (roundWinner === battle.defender_id) newDefenderScore++;
-      
-      run('UPDATE arena_battles SET challenger_score = ?, defender_score = ? WHERE battle_id = ?',
-        [newChallengerScore, newDefenderScore, battle_id]);
-      
-      // Decrement cooldowns for next round
-      const challengerCooldowns = JSON.parse(battle.challenger_god_cooldowns || '{}');
-      const defenderCooldowns = JSON.parse(battle.defender_god_cooldowns || '{}');
-      Object.keys(challengerCooldowns).forEach(g => { if (challengerCooldowns[g] > 0) challengerCooldowns[g]--; });
-      Object.keys(defenderCooldowns).forEach(g => { if (defenderCooldowns[g] > 0) defenderCooldowns[g]--; });
-      run('UPDATE arena_battles SET challenger_god_cooldowns = ?, defender_god_cooldowns = ? WHERE battle_id = ?',
-        [JSON.stringify(challengerCooldowns), JSON.stringify(defenderCooldowns), battle_id]);
-      
-      // Check for battle end (first to 3, or after 5 rounds check for tie)
-      const isSuddenDeath = battle.current_round > 5; // Rounds 6+ are sudden death
-      const regularBattleOver = (newChallengerScore >= 3 || newDefenderScore >= 3) || 
-                                (battle.current_round >= 5 && newChallengerScore !== newDefenderScore);
-      const suddenDeathOver = isSuddenDeath && roundWinner !== null;
-      
-      if (regularBattleOver || suddenDeathOver) {
-        const winner = newChallengerScore > newDefenderScore ? battle.challenger_id : 
-                       newDefenderScore > newChallengerScore ? battle.defender_id : null;
-        
-        run("UPDATE arena_battles SET status = 'completed', winner_id = ?, completed_at = CURRENT_TIMESTAMP WHERE battle_id = ?",
-          [winner, battle_id]);
-        
-        // Transfer points based on who won
-        if (winner) {
-          const challengerWon = winner === battle.challenger_id;
-          const stakes = battle.point_stakes || 0;
-          
-          console.log(`⚔️ BATTLE COMPLETE - Winner: ${winner}, Stakes: ${stakes}, ChallengerWon: ${challengerWon}`);
-          
-          if (challengerWon) {
-            // Challenger wins: +full stakes, defender loses half
-            console.log(`   Challenger alliance ${battle.challenger_alliance_id} gets +${stakes}`);
-            console.log(`   Defender alliance ${battle.defender_alliance_id} loses -${Math.floor(stakes / 2)}`);
-            run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-              [stakes, battle.challenger_alliance_id]);
-            run('UPDATE alliances SET total_points = MAX(0, total_points - ?) WHERE alliance_id = ?', 
-              [Math.floor(stakes / 2), battle.defender_alliance_id]);
-          } else {
-            // Defender wins: +full stakes, challenger loses full stakes
-            console.log(`   Defender alliance ${battle.defender_alliance_id} gets +${stakes}`);
-            console.log(`   Challenger alliance ${battle.challenger_alliance_id} loses -${stakes}`);
-            run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-              [stakes, battle.defender_alliance_id]);
-            run('UPDATE alliances SET total_points = MAX(0, total_points - ?) WHERE alliance_id = ?', 
-              [stakes, battle.challenger_alliance_id]);
+      if (challengerNeedsRetry || defenderNeedsRetry) {
+        console.log(`💕 Aphrodite retry window active - delaying round scoring for 4.5 seconds`);
+        // Don't score yet - the Aphrodite player may retry
+        // Schedule a delayed scoring check in case they don't retry
+        const roundId = currentRound.round_id;
+        const battleId = battle_id;
+        setTimeout(() => {
+          try {
+            const roundCheck = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [roundId])[0];
+            if (roundCheck && !roundCheck.completed_at && roundCheck.challenger_answer && roundCheck.defender_answer) {
+              console.log(`💕 Aphrodite retry window expired - scoring round now`);
+              scoreRound(battleId, roundId);
+            }
+          } catch (err) {
+            console.error('Aphrodite delayed scoring error:', err);
           }
-          
-          // Verify the update
-          const challAlliance = query('SELECT alliance_name, total_points FROM alliances WHERE alliance_id = ?', [battle.challenger_alliance_id])[0];
-          const defAlliance = query('SELECT alliance_name, total_points FROM alliances WHERE alliance_id = ?', [battle.defender_alliance_id])[0];
-          console.log(`   After update: ${challAlliance?.alliance_name}=${challAlliance?.total_points}, ${defAlliance?.alliance_name}=${defAlliance?.total_points}`);
-        }
-        
-        // Update battle stats
-        const today = new Date().toISOString().split('T')[0];
-        [battle.challenger_id, battle.defender_id].forEach(pid => {
-          const isWinner = pid === winner;
-          const isTie = winner === null;
-          run(`UPDATE arena_battle_stats SET 
-            total_battles = total_battles + 1,
-            wins = wins + ?,
-            losses = losses + ?,
-            current_streak = CASE WHEN ? = 1 THEN current_streak + 1 ELSE 0 END,
-            best_streak = CASE WHEN ? = 1 AND current_streak + 1 > best_streak THEN current_streak + 1 ELSE best_streak END,
-            battles_today = CASE WHEN last_battle_date = ? THEN battles_today + 1 ELSE 1 END,
-            last_battle_date = ?
-            WHERE student_id = ?`,
-            [isWinner ? 1 : 0, (isTie || isWinner) ? 0 : 1, isWinner ? 1 : 0, isWinner ? 1 : 0, today, today, pid]);
-        });
+        }, 4500); // 4.5 seconds - slightly longer than client's 4 second retry window
         
         saveDatabase();
-        
-        // Check and award badges for both players
-        try {
-          checkAndAwardBadges(battle.challenger_id, battle_id);
-          checkAndAwardBadges(battle.defender_id, battle_id);
-          saveDatabase();
-        } catch (badgeErr) {
-          console.error('Badge check error (non-fatal):', badgeErr.message);
-        }
-      } else if (battle.current_round >= 5 && newChallengerScore === newDefenderScore) {
-        // Tied after 5 rounds - go to sudden death
-        const nextRound = battle.current_round + 1;
-        
-        // Get unused questions using Fisher-Yates helper
-        const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
-        const usedIds = usedQuestions.map(q => q.question_id);
-        const nextQ = getRandomQuestion(usedIds);
-        
-        if (nextQ) {
-          // Sudden death intro - both players must click Ready before question appears
-          const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
-          run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRound, battle_id]);
-          run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
-               challenger_question_ready, defender_question_ready, started_at) 
-               VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, CURRENT_TIMESTAMP)`,
-            [battle_id, nextRound, nextQ.question_id, phaseEndsAt]);
-          console.log(`⚡ SUDDEN DEATH Round ${nextRound} created - phase: sudden_death_intro`);
-        }
-        saveDatabase();
-      } else {
-        // Set results phase for current round
-        // Add ANSWER_FEEDBACK time (3s) + RESULTS_PHASE time (5s) = 8 seconds total
-        // This gives players time to see correct/wrong, hear sounds, then see round results
-        const resultsEndsAt = new Date(Date.now() + BATTLE_TIMING.ANSWER_FEEDBACK + BATTLE_TIMING.RESULTS_PHASE).toISOString();
-        run("UPDATE arena_battle_rounds SET phase = 'results', phase_ends_at = ? WHERE round_id = ?",
-          [resultsEndsAt, currentRound.round_id]);
-        
-        console.log(`⏱️ Answer feedback + Results phase: ${BATTLE_TIMING.ANSWER_FEEDBACK + BATTLE_TIMING.RESULTS_PHASE}ms`);
-        
-        // DON'T create next round yet - wait for results phase to end
-        // The next round will be created when the client polls and sees results phase has ended
-        saveDatabase();
+      } else if (!updated.completed_at) {
+        // Normal scoring - no Aphrodite retry pending
+        scoreRound(battle_id, currentRound.round_id);
       }
     }
     

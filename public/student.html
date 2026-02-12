@@ -7739,40 +7739,42 @@
                     </div>
                 `;
                 
-                // Apply god power visual effects
-                const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
-                const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
-                
-                // B1: If OPPONENT has Hera deployed (not blocked), apply click delay to US
-                if (roundData.opponent_god_deployed && !oppBlocked) {
-                    const oppGod = roundData.opponent_god_deployed.toLowerCase();
-                    if (oppGod === 'hera') {
-                        applyHeraDelay();
+                // Apply god power visual effects ONLY when question first appears
+                if (!battleTimer || questionChanged) {
+                    const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                    const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
+                    
+                    // B1: If OPPONENT has Hera deployed (not blocked), apply click delay to US
+                    if (roundData.opponent_god_deployed && !oppBlocked) {
+                        const oppGod = roundData.opponent_god_deployed.toLowerCase();
+                        if (oppGod === 'hera') {
+                            applyHeraDelay();
+                        }
                     }
-                }
-                
-                // If opponent used an offensive god and it wasn't blocked, apply the effect to us
-                // B2: Check if we have Demeter to reduce incoming effect duration
-                const hasDemeter = roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'demeter' && !myBlocked;
-                if (roundData.opponent_god_deployed && !oppBlocked) {
-                    const oppGod = roundData.opponent_god_deployed.toLowerCase();
-                    const offensiveGods = ['zeus', 'poseidon', 'ares', 'hades', 'hephaestus', 'hermes'];
-                    if (offensiveGods.includes(oppGod)) {
-                        applyGodPowerEffect(oppGod, false, hasDemeter);
+                    
+                    // If opponent used an offensive god and it wasn't blocked, apply the effect to us
+                    // B2: Check if we have Demeter to reduce incoming effect duration
+                    const hasDemeter = roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'demeter' && !myBlocked;
+                    if (roundData.opponent_god_deployed && !oppBlocked) {
+                        const oppGod = roundData.opponent_god_deployed.toLowerCase();
+                        const offensiveGods = ['zeus', 'poseidon', 'ares', 'hades', 'hephaestus', 'hermes'];
+                        if (offensiveGods.includes(oppGod)) {
+                            applyGodPowerEffect(oppGod, false, hasDemeter);
+                        }
                     }
-                }
-                
-                // If we used a defensive god and it wasn't blocked, apply passive effect
-                if (roundData.my_god_deployed && !myBlocked) {
-                    const myGod = roundData.my_god_deployed.toLowerCase();
-                    const defensiveGods = ['apollo', 'athena', 'hera', 'artemis', 'aphrodite', 'demeter'];
-                    if (defensiveGods.includes(myGod)) {
-                        applyDefensivePassive(myGod, content, data.question);
+                    
+                    // If we used a defensive god and it wasn't blocked, apply passive effect
+                    if (roundData.my_god_deployed && !myBlocked) {
+                        const myGod = roundData.my_god_deployed.toLowerCase();
+                        const defensiveGods = ['apollo', 'athena', 'hera', 'artemis', 'aphrodite', 'demeter'];
+                        if (defensiveGods.includes(myGod)) {
+                            applyDefensivePassive(myGod, content, data.question);
+                        }
+                        // B3: Track if Aphrodite is available for retry this round
+                        activeAphrodite = (myGod === 'aphrodite');
+                    } else {
+                        activeAphrodite = false;
                     }
-                    // B3: Track if Aphrodite is available for retry this round
-                    activeAphrodite = (myGod === 'aphrodite');
-                } else {
-                    activeAphrodite = false;
                 }
                 
                 return;
