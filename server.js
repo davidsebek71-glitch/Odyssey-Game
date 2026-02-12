@@ -4828,12 +4828,11 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
   try {
     const { period } = req.query;
     
-    // Get students, optionally filtered by period (exclude ghosts)
+    // Get students, optionally filtered by period (include ghosts with flag)
     let studentsQuery = `
-      SELECT s.student_id, s.name, s.class_period, s.alliance_id
+      SELECT s.student_id, s.name, s.class_period, s.alliance_id, s.is_ghost
       FROM students s
-      WHERE (s.is_ghost = 0 OR s.is_ghost IS NULL)
-      ORDER BY s.class_period, s.name
+      ORDER BY s.class_period, s.is_ghost, s.name
     `;
     let students = query(studentsQuery);
     
@@ -4885,6 +4884,7 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       name: s.name,
       class_period: s.class_period || 'Unassigned',
       alliance_id: s.alliance_id,
+      is_ghost: s.is_ghost ? 1 : 0,
       side_quests: sqLookup[s.student_id] || {},
       bonuses: bonusLookup[s.student_id] || {}
     }));
@@ -4908,7 +4908,7 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
     });
     
     for (const alliance of allAlliances) {
-      const members = studentsWithStatus.filter(s => s.alliance_id === alliance.alliance_id);
+      const members = studentsWithStatus.filter(s => s.alliance_id === alliance.alliance_id && !s.is_ghost);
       if (members.length === 0) continue;
       
       allianceGodStatus[alliance.alliance_id] = {

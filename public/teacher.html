@@ -2440,8 +2440,13 @@
                         rowsHtml += `<tr><td colspan="${3 + data.side_quests.length + data.bonus_assignments.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${currentPeriod || 'No Period'}</td></tr>`;
                     }
                     
+                    const isGhost = student.is_ghost;
+                    const nameStyle = isGhost 
+                        ? 'position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap; color: #ffffff; font-style: italic;'
+                        : 'position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap;';
+                    
                     rowsHtml += `<tr>`;
-                    rowsHtml += `<td style="position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap;">${student.name}</td>`;
+                    rowsHtml += `<td style="${nameStyle}">${isGhost ? '👻 ' : ''}${student.name}</td>`;
                     
                     // Side Quest status
                     data.side_quests.forEach(sq => {
@@ -2458,10 +2463,72 @@
                     rowsHtml += `</tr>`;
                 });
                 
+                // Build Alliance God Bonus Progress grid from same data
+                let godGridHtml = '';
+                if (data.alliance_god_status) {
+                    const gods = ['Athena', 'Ares', 'Poseidon'];
+                    const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
+                    const godBuildings = { 'Athena': 'Library', 'Ares': 'Wooden Wall', 'Poseidon': 'Dock' };
+                    
+                    let godHeaderHtml = '<th style="position: sticky; left: 0; background: #1e1b4b; z-index: 2; min-width: 160px;">Alliance</th><th style="min-width: 80px;">Period</th>';
+                    gods.forEach(god => {
+                        godHeaderHtml += `<th style="min-width: 100px; text-align: center;" title="${god} - ${godBuildings[god]}">${godEmojis[god]} ${god}</th>`;
+                    });
+                    
+                    let godRowsHtml = '';
+                    let godCurrentPeriod = '';
+                    const alliances = Object.values(data.alliance_god_status).sort((a, b) => (a.class_period || '').localeCompare(b.class_period || ''));
+                    
+                    alliances.forEach(alliance => {
+                        if (alliance.class_period !== godCurrentPeriod) {
+                            godCurrentPeriod = alliance.class_period;
+                            godRowsHtml += `<tr><td colspan="${2 + gods.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${godCurrentPeriod || 'No Period'}</td></tr>`;
+                        }
+                        
+                        godRowsHtml += '<tr>';
+                        godRowsHtml += `<td style="position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap; font-weight: 600;">${alliance.alliance_name}</td>`;
+                        godRowsHtml += `<td style="text-align: center;">${alliance.class_period || '-'}</td>`;
+                        
+                        gods.forEach(god => {
+                            const status = alliance.gods[god];
+                            if (!status) {
+                                godRowsHtml += '<td style="text-align: center;">-</td>';
+                            } else if (status.granted) {
+                                godRowsHtml += `<td style="text-align: center; background: rgba(34,197,94,0.15);"><span style="color: #22c55e; font-size: 16px;">✅</span><br><span style="font-size: 10px; color: #22c55e;">Granted</span></td>`;
+                            } else if (status.all_qualified) {
+                                godRowsHtml += `<td style="text-align: center; background: rgba(250,204,21,0.15);"><span style="color: #fbbf24; font-size: 16px;">⭐</span><br><span style="font-size: 10px; color: #fbbf24;">${status.qualified}/${status.total} Ready!</span></td>`;
+                            } else {
+                                godRowsHtml += `<td style="text-align: center;"><span style="font-size: 12px; color: rgba(255,255,255,0.4);">${status.qualified}/${status.total}</span></td>`;
+                            }
+                        });
+                        
+                        godRowsHtml += '</tr>';
+                    });
+                    
+                    godGridHtml = `
+                        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(255,215,0,0.3);">
+                            <h3 style="color: #ffd700; margin-bottom: 15px; font-size: 18px;">🏛️ Alliance God Bonus Progress (Building Unlocks)</h3>
+                            <div style="background: rgba(255,215,0,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: rgba(255,255,255,0.7);">
+                                ✅ = Granted &nbsp;|&nbsp; ⭐ = All members qualified (ready to grant) &nbsp;|&nbsp; X/Y = Members at 80%+ threshold
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <thead>
+                                    <tr style="background: rgba(255,215,0,0.1);">
+                                        ${godHeaderHtml}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${godRowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+                
                 content.innerHTML = `
                     <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                         <thead>
-                            <tr style="background: rgba(255,215,0,0.1);">
+                            <tr style="background: rgba(255,215,0,0.1); position: sticky; top: 0; z-index: 3;">
                                 ${headerHtml}
                             </tr>
                         </thead>
@@ -2469,6 +2536,7 @@
                             ${rowsHtml}
                         </tbody>
                     </table>
+                    ${godGridHtml}
                     <style>
                         #quest-bonus-tracker-content table th,
                         #quest-bonus-tracker-content table td {
@@ -2478,128 +2546,20 @@
                         #quest-bonus-tracker-content table tr:hover td {
                             background: rgba(255,255,255,0.05);
                         }
+                        #quest-bonus-tracker-content thead th {
+                            position: sticky;
+                            top: 0;
+                            background: #2d1b4e;
+                            z-index: 3;
+                        }
                     </style>
                 `;
-                
-                // Now load and append Alliance God Bonus Progress grid
-                await loadAllianceGodBonusGrid(period, content);
             } catch (err) {
                 console.error('Failed to load tracker:', err);
                 content.innerHTML = '<div style="color: #ef4444; text-align: center;">Failed to load tracker data</div>';
             }
         }
         
-        async function loadAllianceGodBonusGrid(period, container) {
-            try {
-                const gods = ['Athena', 'Ares', 'Poseidon'];
-                const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
-                const godBuildings = { 'Athena': 'Library', 'Ares': 'Wooden Wall', 'Poseidon': 'Dock' };
-                
-                // Fetch eligible alliances for each god + current assignments
-                const [athenaRes, aresRes, poseidonRes, assignmentsRes, leaderboardRes] = await Promise.all([
-                    fetch(`${API_URL}/teacher/eligible-alliances-for-god-bonus?god_name=Athena`, { headers }),
-                    fetch(`${API_URL}/teacher/eligible-alliances-for-god-bonus?god_name=Ares`, { headers }),
-                    fetch(`${API_URL}/teacher/eligible-alliances-for-god-bonus?god_name=Poseidon`, { headers }),
-                    fetch(`${API_URL}/teacher/god-assignments`, { headers }),
-                    fetch(`${API_URL}/teacher/leaderboard`, { headers })
-                ]);
-                
-                const [athenaData, aresData, poseidonData, assignments, alliances] = await Promise.all([
-                    athenaRes.json(), aresRes.json(), poseidonRes.json(), assignmentsRes.json(), leaderboardRes.json()
-                ]);
-                
-                // Filter alliances by period if not "All Periods"
-                let filteredAlliances = alliances.filter(a => !a.is_disbanded);
-                if (period !== 'All Periods') {
-                    filteredAlliances = filteredAlliances.filter(a => a.class_period === period);
-                }
-                
-                // Build status map
-                const eligibleMap = {};
-                const godDataMap = { 'Athena': athenaData, 'Ares': aresData, 'Poseidon': poseidonData };
-                
-                filteredAlliances.forEach(a => {
-                    eligibleMap[a.alliance_id] = {
-                        alliance_name: a.alliance_name,
-                        class_period: a.class_period,
-                        member_count: a.real_member_count || a.member_count || 0,
-                        gods: {}
-                    };
-                    
-                    gods.forEach(god => {
-                        const granted = assignments.some(as => as.alliance_id === a.alliance_id && as.god_name === god);
-                        const eligible = godDataMap[god].eligible_alliances?.find(ea => ea.alliance_id === a.alliance_id);
-                        
-                        eligibleMap[a.alliance_id].gods[god] = {
-                            granted: granted,
-                            all_qualified: !!eligible,
-                            qualified: eligible ? eligible.qualified_count : 0,
-                            total: eligibleMap[a.alliance_id].member_count
-                        };
-                    });
-                });
-                
-                // Build table
-                let headerHtml = '<th style="min-width: 160px;">Alliance</th><th style="min-width: 80px;">Period</th>';
-                gods.forEach(god => {
-                    headerHtml += `<th style="min-width: 100px; text-align: center;" title="${god} - ${godBuildings[god]}">${godEmojis[god]} ${god}</th>`;
-                });
-                
-                let rowsHtml = '';
-                let currentPeriod = '';
-                const sorted = Object.values(eligibleMap).sort((a, b) => (a.class_period || '').localeCompare(b.class_period || ''));
-                
-                sorted.forEach(alliance => {
-                    if (period === 'All Periods' && alliance.class_period !== currentPeriod) {
-                        currentPeriod = alliance.class_period;
-                        rowsHtml += `<tr><td colspan="${2 + gods.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${currentPeriod || 'No Period'}</td></tr>`;
-                    }
-                    
-                    rowsHtml += '<tr>';
-                    rowsHtml += `<td style="white-space: nowrap; font-weight: 600;">${alliance.alliance_name}</td>`;
-                    rowsHtml += `<td style="text-align: center;">${alliance.class_period || '-'}</td>`;
-                    
-                    gods.forEach(god => {
-                        const status = alliance.gods[god];
-                        if (!status) {
-                            rowsHtml += '<td style="text-align: center;">-</td>';
-                        } else if (status.granted) {
-                            rowsHtml += `<td style="text-align: center; background: rgba(34,197,94,0.15);"><span style="color: #22c55e; font-size: 16px;">✅</span><br><span style="font-size: 10px; color: #22c55e;">Granted</span></td>`;
-                        } else if (status.all_qualified) {
-                            rowsHtml += `<td style="text-align: center; background: rgba(250,204,21,0.15);"><span style="color: #fbbf24; font-size: 16px;">⭐</span><br><span style="font-size: 10px; color: #fbbf24;">${status.qualified}/${status.total} Ready!</span></td>`;
-                        } else {
-                            rowsHtml += `<td style="text-align: center;"><span style="font-size: 12px; color: rgba(255,255,255,0.4);">${status.qualified}/${status.total}</span></td>`;
-                        }
-                    });
-                    
-                    rowsHtml += '</tr>';
-                });
-                
-                container.innerHTML += `
-                    <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(255,215,0,0.3);">
-                        <h3 style="color: #ffd700; margin-bottom: 15px; font-size: 18px;">🏛️ Alliance God Bonus Progress (Building Unlocks)</h3>
-                        <div style="background: rgba(255,215,0,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: rgba(255,255,255,0.7);">
-                            ✅ = Granted &nbsp;|&nbsp; ⭐ = All members qualified (ready to grant) &nbsp;|&nbsp; X/Y = Members at 80%+ threshold
-                        </div>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                                <thead>
-                                    <tr style="background: rgba(255,215,0,0.1);">
-                                        ${headerHtml}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${rowsHtml}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-            } catch (err) {
-                console.error('Failed to load alliance god bonus grid:', err);
-            }
-        }
-
         async function loadTransactions() {
             try {
                 const response = await fetch(`${API_URL}/teacher/transactions?limit=10`, { headers });
