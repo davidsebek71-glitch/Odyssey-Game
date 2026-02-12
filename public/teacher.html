@@ -1225,7 +1225,7 @@
 
     <!-- STUDENT MANAGEMENT MODAL -->
     <div id="student-management-modal" class="modal">
-        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 👥 Student Management
                 <button onclick="closeStudentManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1233,7 +1233,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
                 📝 <strong>Manage your students:</strong> Change class periods or remove students who have left.
             </div>
-            <div id="student-management-content" style="max-height: 70vh; overflow-y: auto;">
+            <div id="student-management-content" style="flex: 1; overflow-y: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
