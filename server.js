@@ -6035,6 +6035,19 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         my_sd_ready: isChallenger ? currentRound.challenger_question_ready === 1 : currentRound.defender_question_ready === 1,
         opponent_sd_ready: isChallenger ? currentRound.defender_question_ready === 1 : currentRound.challenger_question_ready === 1
       };
+      
+      // A4: Include Prometheus preview in battle state if player deployed Prometheus
+      const myDeployedGod = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
+      const myGodBlocked = isChallenger ? currentRound.challenger_god_blocked : currentRound.defender_god_blocked;
+      if (myDeployedGod === 'prometheus' && !myGodBlocked && currentRound.phase === 'question') {
+        const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', [currentRound.question_id])[0];
+        if (previewQ) {
+          const promGodData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
+          const promHasBonus = promGodData && typeof promGodData === 'object' && promGodData.hasBonus;
+          roundData.prometheus_preview = previewQ.question_text;
+          roundData.prometheus_preview_duration = (promHasBonus ? GOD_POWERS.prometheus.bonusEffect : GOD_POWERS.prometheus.baseEffect) * 1000;
+        }
+      }
     }
     
     const myAnswer = currentRound ? (isChallenger ? currentRound.challenger_answer : currentRound.defender_answer) : null;
@@ -6255,12 +6268,13 @@ app.post('/api/arena/question-ready', authenticateToken, (req, res) => {
     const updatedRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
     
     if (updatedRound.challenger_question_ready === 1 && updatedRound.defender_question_ready === 1) {
-      // BOTH ready - set the official display time NOW
+      // BOTH ready - set display time 2 seconds in the future so both clients
+      // pick it up on their next poll cycle simultaneously
       if (!updatedRound.question_display_time) {
-        const displayTime = new Date().toISOString();
+        const displayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
         run('UPDATE arena_battle_rounds SET question_display_time = ? WHERE round_id = ?', 
           [displayTime, currentRound.round_id]);
-        console.log(`⏱️ BOTH CLIENTS READY! Question displayed at ${displayTime}`);
+        console.log(`⏱️ BOTH CLIENTS READY! Question will display at ${displayTime} (${BATTLE_TIMING.SYNC_DELAY}ms from now)`);
         saveDatabase();
         return res.json({ 
           success: true, 

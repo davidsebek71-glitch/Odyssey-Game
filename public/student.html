@@ -7639,10 +7639,14 @@
                 
                 // Track current question to detect changes
                 const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
+                if (questionChanged) {
+                    godEffectsAppliedThisRound = false; // Reset effects flag for new question
+                }
                 currentQuestion = data.question;
                 
                 // Check if question has been displayed yet (both players ready)
                 const questionDisplayTime = roundData.question_display_time;
+                const displayTimeReached = questionDisplayTime && new Date(questionDisplayTime).getTime() <= Date.now();
                 
                 // If question changed and not yet synced, signal ready and wait
                 if (questionChanged && !questionDisplayTime) {
@@ -7683,6 +7687,19 @@
                     // Signal to server that we're ready for the question
                     console.log('📡 Signaling ready for question...');
                     signalQuestionReady();
+                    return;
+                }
+                
+                // If display time exists but hasn't been reached, show brief "Get Ready" countdown
+                if (questionDisplayTime && !displayTimeReached) {
+                    content.innerHTML = `
+                        ${scoreboardHTML}
+                        <div style="text-align: center; padding: 40px;">
+                            <div style="font-size: 60px; margin-bottom: 15px;">⚔️</div>
+                            <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
+                            <p style="color: rgba(255,255,255,0.6);">Question appearing...</p>
+                        </div>
+                    `;
                     return;
                 }
                 
@@ -7739,10 +7756,16 @@
                     </div>
                 `;
                 
-                // Apply god power visual effects ONLY when question first appears
-                if (!battleTimer || questionChanged) {
+                // Apply god power visual effects ONLY ONCE when question first appears
+                if (!godEffectsAppliedThisRound) {
+                    godEffectsAppliedThisRound = true;
                     const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                     const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
+                    
+                    // A4: Prometheus preview from battle state
+                    if (roundData.prometheus_preview && !document.getElementById('prometheus-preview')) {
+                        showPrometheusPreview(roundData.prometheus_preview, roundData.prometheus_preview_duration);
+                    }
                     
                     // B1: If OPPONENT has Hera deployed (not blocked), apply click delay to US
                     if (roundData.opponent_god_deployed && !oppBlocked) {
@@ -8303,6 +8326,7 @@
         let answerSubmitting = false; // Prevent duplicate submissions
         let aphroditeRetryActive = false; // Blocks loadBattleState during Aphrodite retry window
         let activeAphrodite = false; // Track if Aphrodite retry is available this round
+        let godEffectsAppliedThisRound = false; // Prevent re-applying effects on every poll
         
         async function submitAnswer(answerIndex) {
             // Prevent duplicate submissions (but allow Aphrodite retry)
@@ -8458,6 +8482,7 @@
             answerSubmitting = false;
             aphroditeRetryActive = false; // Reset Aphrodite retry
             activeAphrodite = false; // Reset Aphrodite availability
+            godEffectsAppliedThisRound = false; // Reset effects flag
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
