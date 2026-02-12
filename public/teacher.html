@@ -978,7 +978,7 @@
     
     <!-- God Assignments Modal -->
     <div id="god-assignments-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; overflow-y: auto;">
             <div class="modal-title">⚡ Grant God Assignments & Side Quest Rewards</div>
             
             <!-- GOD BONUSES SECTION -->
@@ -1166,8 +1166,12 @@
     </div>
 
     <!-- GRADE OVERVIEW MODAL -->
+    <!-- GRADE OVERVIEW MODAL -->
+    <!-- MODAL SCROLL PATTERN: Use display:flex + flex-direction:column on modal-content,
+         and flex:1 + overflow:auto + min-height:0 on the scrollable content div.
+         This keeps content scrolling INSIDE the modal box. -->
     <div id="grade-overview-modal" class="modal">
-        <div class="modal-content" style="max-width: 1100px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 📊 Student Grade Overview
                 <button onclick="closeGradeOverviewModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1175,7 +1179,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
                 All students listed alphabetically by class period. <strong>Click a student's name</strong> to view and manage their submissions.
             </div>
-            <div id="grade-overview-content" style="max-height: 70vh; overflow-y: auto;">
+            <div id="grade-overview-content" style="flex: 1; overflow-y: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
@@ -1209,7 +1213,7 @@
 
     <!-- STUDENT SUBMISSIONS MODAL -->
     <div id="student-submissions-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 <span id="student-submissions-title">📋 Student Submissions</span>
                 <button onclick="closeStudentSubmissionsModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1217,7 +1221,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
                 ⚠️ <strong>Warning:</strong> Deleting a submission removes points from the student's grade. Any purchases/upgrades already made will remain.
             </div>
-            <div id="student-submissions-content" style="max-height: 60vh; overflow-y: auto;">
+            <div id="student-submissions-content" style="flex: 1; overflow-y: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
