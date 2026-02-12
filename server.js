@@ -4828,11 +4828,12 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
   try {
     const { period } = req.query;
     
-    // Get students, optionally filtered by period (include ghosts with flag)
+    // Get students, optionally filtered by period (exclude ghosts from student grid)
     let studentsQuery = `
       SELECT s.student_id, s.name, s.class_period, s.alliance_id, s.is_ghost
       FROM students s
-      ORDER BY s.class_period, s.is_ghost, s.name
+      WHERE (s.is_ghost = 0 OR s.is_ghost IS NULL)
+      ORDER BY s.class_period, s.name
     `;
     let students = query(studentsQuery);
     

@@ -1183,7 +1183,7 @@
 
     <!-- QUEST & BONUS TRACKER MODAL -->
     <div id="quest-bonus-tracker-modal" class="modal">
-        <div class="modal-content" style="max-width: 1300px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 1300px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 📋 Quest & Bonus Tracker
                 <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">✕</button>
@@ -1201,7 +1201,7 @@
                     <option value="4th">4th Period</option>
                 </select>
             </div>
-            <div id="quest-bonus-tracker-content" style="max-height: 65vh; overflow: auto;">
+            <div id="quest-bonus-tracker-content" style="flex: 1; overflow: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
@@ -2053,7 +2053,7 @@
                                         <div class="alliance-name" style="flex: 1;">
                                             ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                             <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
-                                                ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '👻 ' + n).join(', ') : ''}
+                                                ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
                                             </div>
                                         </div>
                                         <div class="points" style="min-width: 60px; text-align: right;">${alliance.display_points || alliance.total_points} pts</div>
@@ -2089,7 +2089,7 @@
                                 <div class="alliance-name" style="flex: 1;">
                                     ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                     <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
-                                        ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '👻 ' + n).join(', ') : ''}
+                                        ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
                                     </div>
                                 </div>
                                 <div class="points" style="min-width: 80px; text-align: right;">${alliance.display_points || alliance.total_points} pts</div>
@@ -2143,7 +2143,7 @@
                                     ⚡ ${alliance.display_points || alliance.total_points} pts
                                 </div>
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px;">
-                                    Members: ${alliance.member_names || 'None'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '👻 ' + n).join(', ') : ''}
+                                    Members: ${alliance.member_names || 'None'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
                                 </div>
                             </div>
                             <button class="btn-disband" onclick="disbandAlliance(${alliance.alliance_id}, '${alliance.alliance_name.replace(/'/g, "\\'")}')">
