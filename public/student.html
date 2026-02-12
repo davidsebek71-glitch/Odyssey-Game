@@ -7641,28 +7641,27 @@
                 const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
                 if (questionChanged) {
                     godEffectsAppliedThisRound = false; // Reset effects flag for new question
+                    questionReadySignaled = false; // Reset ready signal for new question
                 }
                 currentQuestion = data.question;
                 
-                // Check if question has been displayed yet (both players ready)
+                // SYNC GATE: Both players must signal ready, then server sets a future display time
+                // Question only shows when display time is reached
                 const questionDisplayTime = roundData.question_display_time;
-                const displayTimeReached = questionDisplayTime && new Date(questionDisplayTime).getTime() <= Date.now();
+                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
-                // If question changed and not yet synced, signal ready and wait
-                if (questionChanged && !questionDisplayTime) {
-                    if (battleTimer) clearInterval(battleTimer);
+                // STEP 1: No display time yet - signal ready and wait
+                if (!questionDisplayTime) {
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
-                    // Play round start sound
-                    playBattleSound('roundStart', 0.6);
-                    
-                    // Build god deployment info
+                    // Build god deployment info for waiting screen
                     let godInfoHTML = '';
                     if (roundData.my_god_deployed || roundData.opponent_god_deployed) {
                         const myGod = roundData.my_god_deployed;
                         const oppGod = roundData.opponent_god_deployed;
                         const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                         const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
-                        
                         godInfoHTML = '<div style="margin-top: 20px; font-size: 16px;">';
                         if (myGod) {
                             godInfoHTML += `<p style="color: ${myBlocked ? '#ff6b6b' : '#22c55e'};">Your ${myGod}${myBlocked ? ' was BLOCKED!' : ' is active!'}</p>`;
@@ -7673,7 +7672,21 @@
                         godInfoHTML += '</div>';
                     }
                     
-                    // Show waiting screen
+                    // Show Prometheus preview during Get Ready screen (if available)
+                    let prometheusHTML = '';
+                    if (roundData.prometheus_preview && roundData.my_god_deployed && 
+                        roundData.my_god_deployed.toLowerCase() === 'prometheus') {
+                        const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                        if (!myBlocked) {
+                            prometheusHTML = `
+                                <div style="background: rgba(255, 100, 0, 0.15); border: 2px solid rgba(255, 100, 0, 0.4); border-radius: 12px; padding: 20px; margin-top: 20px;">
+                                    <p style="color: #ff6400; font-size: 14px; margin-bottom: 8px;">🔥 PROMETHEUS PREVIEW</p>
+                                    <p style="color: white; font-size: 20px; line-height: 1.5;">${roundData.prometheus_preview}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 40px;">
@@ -7681,91 +7694,116 @@
                             <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
                             <p style="color: rgba(255,255,255,0.6);">Waiting for opponent...</p>
                             ${godInfoHTML}
+                            ${prometheusHTML}
                         </div>
                     `;
                     
-                    // Signal to server that we're ready for the question
-                    console.log('📡 Signaling ready for question...');
-                    signalQuestionReady();
+                    // Signal ready (only once per question to avoid hammering, but retry after 3s if needed)
+                    if (!questionReadySignaled) {
+                        questionReadySignaled = true;
+                        playBattleSound('roundStart', 0.6);
+                        signalQuestionReady();
+                        // Reset flag after 3s in case signal failed - allows retry on next poll
+                        setTimeout(() => { questionReadySignaled = false; }, 3000);
+                    }
                     return;
                 }
                 
-                // If display time exists but hasn't been reached, show brief "Get Ready" countdown
-                if (questionDisplayTime && !displayTimeReached) {
+                // STEP 2: Display time exists but hasn't been reached yet - countdown
+                if (!displayTimeReached) {
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
+                    
+                    const secsLeft = Math.ceil((displayTimeMs - Date.now()) / 1000);
+                    
+                    // Show Prometheus preview during countdown too
+                    let prometheusHTML = '';
+                    if (roundData.prometheus_preview && roundData.my_god_deployed && 
+                        roundData.my_god_deployed.toLowerCase() === 'prometheus') {
+                        const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                        if (!myBlocked) {
+                            prometheusHTML = `
+                                <div style="background: rgba(255, 100, 0, 0.15); border: 2px solid rgba(255, 100, 0, 0.4); border-radius: 12px; padding: 20px; margin-top: 20px;">
+                                    <p style="color: #ff6400; font-size: 14px; margin-bottom: 8px;">🔥 PROMETHEUS PREVIEW</p>
+                                    <p style="color: white; font-size: 20px; line-height: 1.5;">${roundData.prometheus_preview}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 40px;">
                             <div style="font-size: 60px; margin-bottom: 15px;">⚔️</div>
                             <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
-                            <p style="color: rgba(255,255,255,0.6);">Question appearing...</p>
+                            <p style="color: rgba(255,255,255,0.6);">Question in ${secsLeft}...</p>
+                            ${prometheusHTML}
                         </div>
                     `;
                     return;
                 }
                 
-                // Start timer if we have display time and question changed
-                if (!battleTimer || questionChanged) {
-                    if (battleTimer) clearInterval(battleTimer);
-                    // Use server-provided time remaining for synchronization
-                    timeRemaining = Math.max(1, roundData.phase_time_remaining || 20);
+                // STEP 3: Display time reached - SHOW THE QUESTION
+                
+                // Only build question HTML ONCE - subsequent polls just update timer
+                // This prevents destroying DOM-based god effects (Poseidon wobble, Athena removal, Apollo glow, etc.)
+                if (!godEffectsAppliedThisRound) {
+                    godEffectsAppliedThisRound = true;
                     
-                    // Record the actual start time for accurate answer time calculation
+                    // Start timer
+                    if (battleTimer) clearInterval(battleTimer);
+                    timeRemaining = Math.max(1, roundData.phase_time_remaining || 20);
                     questionActualStartTime = Date.now();
                     console.log(`📝 Question displayed at ${questionActualStartTime}`);
                     
                     battleTimer = setInterval(() => {
                         timeRemaining--;
                         const timerEl = document.getElementById('battle-timer');
-                        if (timerEl) timerEl.textContent = timeRemaining;
+                        if (timerEl) {
+                            timerEl.textContent = timeRemaining;
+                            timerEl.style.color = timeRemaining <= 5 ? '#ff6b6b' : '#ffd700';
+                        }
                         if (timeRemaining <= 0) {
                             clearInterval(battleTimer);
                             battleTimer = null;
                             submitAnswer(-1);
                         }
                     }, 1000);
-                }
-                
-                content.innerHTML = `
-                    ${scoreboardHTML}
-                    ${effectsHTML}
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <span style="font-size: 56px; font-weight: bold; color: ${timeRemaining <= 5 ? '#ff6b6b' : '#ffd700'};" id="battle-timer">${timeRemaining}</span>
-                        <span style="color: rgba(255,255,255,0.5); font-size: 22px;"> seconds</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; margin-bottom: 25px;">
-                        <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 8px;">${data.question.god_associated}</p>
-                        <p style="color: white; font-size: 22px; line-height: 1.6;">${data.question.question_text}</p>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        ${data.question.shuffled_answers.map((ans, idx) => `
-                            <button onclick="submitAnswer(${idx})" style="
-                                background: rgba(255,255,255,0.1);
-                                border: 2px solid rgba(255,255,255,0.2);
-                                color: white;
-                                padding: 18px;
-                                border-radius: 12px;
-                                font-size: 20px;
-                                cursor: pointer;
-                                text-align: left;
-                                transition: all 0.2s ease;
-                            " onmouseover="this.style.borderColor='#6366f1'; this.style.background='rgba(99,102,241,0.2)';"
-                               onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.background='rgba(255,255,255,0.1)';">
-                                ${ans.text}
-                            </button>
-                        `).join('')}
-                    </div>
-                `;
-                
-                // Apply god power visual effects ONLY ONCE when question first appears
-                if (!godEffectsAppliedThisRound) {
-                    godEffectsAppliedThisRound = true;
+                    
+                    // Build the question HTML (ONCE)
+                    content.innerHTML = `
+                        ${scoreboardHTML}
+                        ${effectsHTML}
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <span style="font-size: 56px; font-weight: bold; color: ${timeRemaining <= 5 ? '#ff6b6b' : '#ffd700'};" id="battle-timer">${timeRemaining}</span>
+                            <span style="color: rgba(255,255,255,0.5); font-size: 22px;"> seconds</span>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; margin-bottom: 25px;">
+                            <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 8px;">${data.question.god_associated}</p>
+                            <p style="color: white; font-size: 22px; line-height: 1.6;">${data.question.question_text}</p>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            ${data.question.shuffled_answers.map((ans, idx) => `
+                                <button onclick="submitAnswer(${idx})" style="
+                                    background: rgba(255,255,255,0.1);
+                                    border: 2px solid rgba(255,255,255,0.2);
+                                    color: white;
+                                    padding: 18px;
+                                    border-radius: 12px;
+                                    font-size: 20px;
+                                    cursor: pointer;
+                                    text-align: left;
+                                    transition: all 0.2s ease;
+                                " onmouseover="this.style.borderColor='#6366f1'; this.style.background='rgba(99,102,241,0.2)';"
+                                   onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.background='rgba(255,255,255,0.1)';">
+                                    ${ans.text}
+                                </button>
+                            `).join('')}
+                        </div>
+                    `;
+                    
+                    // Apply god power visual effects
                     const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                     const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
-                    
-                    // A4: Prometheus preview from battle state
-                    if (roundData.prometheus_preview && !document.getElementById('prometheus-preview')) {
-                        showPrometheusPreview(roundData.prometheus_preview, roundData.prometheus_preview_duration);
-                    }
                     
                     // B1: If OPPONENT has Hera deployed (not blocked), apply click delay to US
                     if (roundData.opponent_god_deployed && !oppBlocked) {
@@ -7775,8 +7813,7 @@
                         }
                     }
                     
-                    // If opponent used an offensive god and it wasn't blocked, apply the effect to us
-                    // B2: Check if we have Demeter to reduce incoming effect duration
+                    // Offensive god effects with Demeter reduction
                     const hasDemeter = roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'demeter' && !myBlocked;
                     if (roundData.opponent_god_deployed && !oppBlocked) {
                         const oppGod = roundData.opponent_god_deployed.toLowerCase();
@@ -7786,19 +7823,21 @@
                         }
                     }
                     
-                    // If we used a defensive god and it wasn't blocked, apply passive effect
+                    // Defensive passives (Apollo glow, Athena remove answer, etc.)
                     if (roundData.my_god_deployed && !myBlocked) {
                         const myGod = roundData.my_god_deployed.toLowerCase();
                         const defensiveGods = ['apollo', 'athena', 'hera', 'artemis', 'aphrodite', 'demeter'];
                         if (defensiveGods.includes(myGod)) {
                             applyDefensivePassive(myGod, content, data.question);
                         }
-                        // B3: Track if Aphrodite is available for retry this round
                         activeAphrodite = (myGod === 'aphrodite');
                     } else {
                         activeAphrodite = false;
                     }
                 }
+                // On subsequent polls, DON'T rebuild HTML - just return
+                // Timer updates itself via setInterval, effects persist in DOM
+
                 
                 return;
             }
@@ -7839,17 +7878,24 @@
             // SUDDEN DEATH - show intro then question
             if (isSuddenDeath && data.question && !data.my_answer) {
                 const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
+                if (questionChanged) {
+                    questionReadySignaled = false;
+                }
                 currentQuestion = data.question;
                 
-                // Check if question has been displayed yet (both players ready)
+                // SYNC GATE: same pattern as normal rounds
                 const questionDisplayTime = roundData.question_display_time;
+                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
                 // Show Sudden Death intro while waiting for sync
-                if (questionChanged && !questionDisplayTime) {
-                    if (battleTimer) clearInterval(battleTimer);
+                if (!questionDisplayTime) {
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
-                    // Play dramatic sound
-                    playBattleSound('roundStart', 0.8);
+                    if (!questionReadySignaled) {
+                        questionReadySignaled = true;
+                        playBattleSound('roundStart', 0.8);
+                    }
                     
                     content.innerHTML = `
                         ${scoreboardHTML}
@@ -7875,10 +7921,31 @@
                         </div>
                     `;
                     
-                    console.log('📡 Sudden Death - signaling ready for question...');
+                    if (!questionReadySignaled) {
+                        // Already signaled above, but call endpoint
+                    }
                     signalQuestionReady();
                     return;
                 }
+                
+                // Display time exists but not reached - countdown
+                if (!displayTimeReached) {
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
+                    const secsLeft = Math.ceil((displayTimeMs - Date.now()) / 1000);
+                    content.innerHTML = `
+                        ${scoreboardHTML}
+                        <div style="text-align: center; padding: 30px;">
+                            <div style="font-size: 80px; margin-bottom: 15px;">⚔️</div>
+                            <h2 style="color: #ff6b6b; font-size: 36px; text-shadow: 0 0 20px rgba(255,107,107,0.5);">
+                                ⚡ SUDDEN DEATH! ⚡
+                            </h2>
+                            <p style="color: white; font-size: 22px;">Question in ${secsLeft}...</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Display time reached - show the question
                 
                 if (!battleTimer) {
                     timeRemaining = roundData.phase_time_remaining || 20;
@@ -7956,11 +8023,8 @@
                         alert(data.error);
                     }
                 } else if (data.both_ready) {
-                    // BOTH players deployed - check for Prometheus preview
-                    if (data.prometheus_preview) {
-                        showPrometheusPreview(data.prometheus_preview, data.prometheus_preview_duration);
-                    }
-                    // Refresh to see question phase and start sync
+                    // BOTH players deployed - refresh to enter question sync flow
+                    // Prometheus preview will show in the Get Ready screen
                     console.log('⏱️ Both deployed! Refreshing to start question sync...');
                     loadBattleState();
                 } else {
@@ -8031,15 +8095,7 @@
         const MAX_QUESTION_READY_RETRIES = 60; // 60 retries × 500ms = 30 second max wait
         
         async function signalQuestionReady() {
-            if (!currentBattleId) return; // Guard against null battle
-            
-            if (questionReadyRetries >= MAX_QUESTION_READY_RETRIES) {
-                console.log('⚠️ Opponent not ready after 30 seconds, falling back to polling');
-                questionReadyRetries = 0;
-                loadBattleState();
-                return;
-            }
-            questionReadyRetries++;
+            if (!currentBattleId) return;
             
             try {
                 const response = await fetch(`${API_URL}/arena/question-ready`, {
@@ -8049,25 +8105,17 @@
                 });
                 const data = await response.json();
                 
+                // Whether show_question or waiting, just let normal polling handle the transition
+                // The polling loop will detect question_display_time and show the question
+                // when the server-set display time is reached
                 if (data.show_question) {
-                    // Both players ready - show question NOW
-                    console.log('✅ Both players ready! Showing question immediately');
-                    questionReadyRetries = 0;
-                    questionActualStartTime = Date.now();
-                    loadBattleState();
+                    console.log('✅ Both players ready! Display time set - waiting for sync...');
                 } else if (data.waiting_for_opponent) {
-                    // Still waiting - poll again in 500ms (was 100ms - reduced to prevent server hammering)
                     console.log('⏳ Waiting for opponent to be ready...');
-                    setTimeout(() => signalQuestionReady(), 500);
-                } else {
-                    // Error or not ready, try again
-                    questionReadyRetries = 0;
-                    setTimeout(() => loadBattleState(), 500);
                 }
+                // Normal polling will pick up the state change
             } catch (err) {
                 console.error('Error signaling question ready:', err);
-                questionReadyRetries = 0;
-                setTimeout(() => loadBattleState(), 500);
             }
         }
         
@@ -8327,6 +8375,7 @@
         let aphroditeRetryActive = false; // Blocks loadBattleState during Aphrodite retry window
         let activeAphrodite = false; // Track if Aphrodite retry is available this round
         let godEffectsAppliedThisRound = false; // Prevent re-applying effects on every poll
+        let questionReadySignaled = false; // Track if we've signaled ready for current question
         
         async function submitAnswer(answerIndex) {
             // Prevent duplicate submissions (but allow Aphrodite retry)
@@ -8483,6 +8532,7 @@
             aphroditeRetryActive = false; // Reset Aphrodite retry
             activeAphrodite = false; // Reset Aphrodite availability
             godEffectsAppliedThisRound = false; // Reset effects flag
+            questionReadySignaled = false; // Reset ready signal
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
