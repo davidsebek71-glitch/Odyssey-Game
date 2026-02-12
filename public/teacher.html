@@ -2599,6 +2599,8 @@
                 console.error('Failed to load alliance god bonus grid:', err);
             }
         }
+
+        async function loadTransactions() {
             try {
                 const response = await fetch(`${API_URL}/teacher/transactions?limit=10`, { headers });
                 const transactions = await response.json();
