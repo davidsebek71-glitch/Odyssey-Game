@@ -2804,7 +2804,8 @@ app.get('/api/alliance/buildings/:alliance_id', authenticateToken, (req, res) =>
     ).map(a => a.god_name);
     
     // Also check grade_records for completed bonus assignments (any alliance member)
-    const allianceMembers = query('SELECT student_id, name FROM students WHERE alliance_id = ?', [alliance_id]);
+    // IMPORTANT: Only count real (non-ghost) members for qualification requirements
+    const allianceMembers = query('SELECT student_id, name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [alliance_id]);
     const memberIds = allianceMembers.map(m => m.student_id);
     const memberCount = allianceMembers.length;
     
@@ -4467,9 +4468,9 @@ app.get('/api/student/side-quests', authenticateToken, (req, res) => {
     const myCompletionMap = {};
     myCompletions.forEach(c => { myCompletionMap[c.quest_id] = c.status; });
     
-    // Get all alliance members
+    // Get all REAL alliance members (ghosts don't do side quests)
     const allianceMembers = query(
-      'SELECT student_id, name FROM students WHERE alliance_id = ?',
+      'SELECT student_id, name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
       [student.alliance_id]
     );
     const memberCount = allianceMembers.length;
