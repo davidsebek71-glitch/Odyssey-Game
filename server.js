@@ -5634,6 +5634,17 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       console.log('Badge data fetch error (non-fatal):', badgeErr.message);
     }
     
+    // Check if this player has an outgoing pending challenge
+    const outgoingChallenge = query(`
+      SELECT ab.battle_id, ab.defender_id, ab.point_stakes, ab.created_at,
+             s.name as defender_name, a.alliance_name as defender_alliance
+      FROM arena_battles ab
+      JOIN students s ON ab.defender_id = s.student_id
+      JOIN alliances a ON ab.defender_alliance_id = a.alliance_id
+      WHERE ab.challenger_id = ? AND ab.status = 'pending'
+      ORDER BY ab.created_at DESC LIMIT 1
+    `, [student_id])[0] || null;
+    
     res.json({
       arena_unlocked: true,
       arena_enabled: true,
@@ -5647,6 +5658,7 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       battles_today: countBattlesToday(student_id),
       max_battles_per_day: dailyBattleLimit,
       pending_challenges: pendingChallenges,
+      outgoing_challenge: outgoingChallenge,
       active_battle: activeBattle,
       available_opponents: opponents,
       unlocked_gods: unlockedGods,
@@ -5654,7 +5666,7 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       prometheus_used_today: prometheusUsed,
       // Badge system data
       my_badges: myBadges,
-      badge_definitions: ARENA_BADGES, // Client caches this - small payload
+      badge_definitions: ARENA_BADGES,
       opponent_badges: opponentBadges,
       announcements: announcements,
       daily_battle_limit: dailyBattleLimit
@@ -5673,6 +5685,39 @@ app.post('/api/arena/challenge', authenticateToken, (req, res) => {
     
     if (!point_stakes || point_stakes < 1 || point_stakes > 10) {
       return res.status(400).json({ error: 'Point stakes must be between 1 and 10' });
+    }
+    
+    // Block if challenger already has a pending outgoing challenge or active battle
+    const existingChallenge = query(
+      `SELECT battle_id, status FROM arena_battles 
+       WHERE challenger_id = ? AND status IN ('pending', 'accepted', 'in_progress')`,
+      [challenger_id]
+    )[0];
+    if (existingChallenge) {
+      if (existingChallenge.status === 'pending') {
+        return res.status(400).json({ error: 'You already have a pending challenge. Cancel it first or wait for a response.' });
+      }
+      return res.status(400).json({ error: 'You already have an active battle.' });
+    }
+    
+    // Block if challenger is a defender in an active battle
+    const existingAsDefender = query(
+      `SELECT battle_id FROM arena_battles 
+       WHERE defender_id = ? AND status IN ('accepted', 'in_progress')`,
+      [challenger_id]
+    )[0];
+    if (existingAsDefender) {
+      return res.status(400).json({ error: 'You already have an active battle.' });
+    }
+    
+    // Block if defender already has a pending challenge (incoming or outgoing) or active battle
+    const defenderBusy = query(
+      `SELECT battle_id FROM arena_battles 
+       WHERE (challenger_id = ? OR defender_id = ?) AND status IN ('pending', 'accepted', 'in_progress')`,
+      [defender_id, defender_id]
+    )[0];
+    if (defenderBusy) {
+      return res.status(400).json({ error: 'This player already has a pending challenge or active battle.' });
     }
     
     // Check challenger's daily battle limit
@@ -5749,6 +5794,31 @@ app.post('/api/arena/respond', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Respond error:', err);
     res.status(500).json({ error: 'Failed to respond' });
+  }
+});
+
+// Cancel a pending outgoing challenge
+app.post('/api/arena/cancel-challenge', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { battle_id } = req.body;
+    
+    const battle = query(
+      "SELECT * FROM arena_battles WHERE battle_id = ? AND challenger_id = ? AND status = 'pending'",
+      [battle_id, student_id]
+    )[0];
+    
+    if (!battle) {
+      return res.status(404).json({ error: 'Pending challenge not found' });
+    }
+    
+    run("UPDATE arena_battles SET status = 'cancelled' WHERE battle_id = ?", [battle_id]);
+    saveDatabase();
+    
+    res.json({ success: true, message: 'Challenge cancelled' });
+  } catch (err) {
+    console.error('Cancel challenge error:', err);
+    res.status(500).json({ error: 'Failed to cancel challenge' });
   }
 });
 
