@@ -403,14 +403,7 @@
                 
                 // For students: check if they've registered before
                 if (userType === 'student') {
-                    const hasRegistered = localStorage.getItem('studentHasRegistered');
-                    if (hasRegistered) {
-                        // Returning student - show login
-                        setLoginMode();
-                    } else {
-                        // New student - show register
-                        setRegisterMode();
-                    }
+                    setLoginMode();
                 } else {
                     // Teacher - default to login
                     setLoginMode();
@@ -434,7 +427,7 @@
             document.getElementById('name-group').classList.add('hidden');
             document.getElementById('period-group').classList.add('hidden');
             document.getElementById('submit-btn').textContent = 'Login';
-            document.getElementById('toggle-mode').textContent = 'Register here';
+            document.getElementById('toggle-mode').textContent = "Don't have an account? Register here";
         }
 
         function updateClassPeriodVisibility() {
