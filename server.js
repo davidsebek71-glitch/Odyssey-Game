@@ -5170,7 +5170,7 @@ const ARENA_BADGES = {
   // Tier 1 — Newcomer
   first_blood:     { name: 'First Blood',      icon: '🗡️',  tier: 1, hidden: false, desc: 'Win your first battle' },
   trial_by_fire:   { name: 'Trial by Fire',    icon: '🛡️',  tier: 1, hidden: false, desc: 'Fight 5 battles' },
-  athenas_favor:   { name: "Athena's Favor",   icon: '⚡',   tier: 1, hidden: false, desc: 'Answer all 5 correctly in one battle' },
+  athenas_favor:   { name: "Athena's Favor",   icon: '⚡',   tier: 1, hidden: false, desc: 'Answer a question correctly in under 3 seconds' },
   // Tier 2 — Warrior
   spartan_grit:    { name: 'Spartan Grit',     icon: '⚔️',  tier: 2, hidden: false, desc: 'Win 10 battles' },
   on_fire:         { name: 'On Fire',          icon: '🔥',   tier: 2, hidden: false, desc: 'Win 3 in a row' },
@@ -5237,14 +5237,16 @@ function checkAndAwardBadges(studentId, battleId) {
   if (stats.wins >= 1)           award('first_blood');
   if (stats.total_battles >= 5)  award('trial_by_fire');
 
-  // Athena's Favor: all 5 answers correct in this battle (only check for winner)
-  if (isWinner) {
+  // Athena's Favor: answer a question correctly in under 3 seconds
+  {
+    const timeCol = isChallenger ? 'challenger_time_ms' : 'defender_time_ms';
     const answerCol = isChallenger ? 'challenger_answer' : 'defender_answer';
-    const rounds = query(
-      `SELECT ${answerCol} as my_answer FROM arena_battle_rounds WHERE battle_id = ? AND round_number <= 5`,
+    const fastCorrect = query(
+      `SELECT round_id FROM arena_battle_rounds 
+       WHERE battle_id = ? AND ${answerCol} = 'correct' AND ${timeCol} < 3000`,
       [battleId]
     );
-    if (rounds.length >= 5 && rounds.every(r => r.my_answer === 'correct')) {
+    if (fastCorrect.length > 0) {
       award('athenas_favor');
     }
   }
