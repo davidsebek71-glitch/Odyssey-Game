@@ -7696,6 +7696,7 @@
                 if (questionChanged) {
                     godEffectsAppliedThisRound = false; // Reset effects flag for new question
                     questionReadySignaled = false; // Reset ready signal for new question
+                    questionReadyRetries = 0; // FIX 3: Reset retry counter for new question
                 }
                 currentQuestion = data.question;
                 
@@ -8151,6 +8152,14 @@
         async function signalQuestionReady() {
             if (!currentBattleId) return;
             
+            // FIX 3: Enforce retry limit (was defined but never checked — caused infinite request loops)
+            questionReadyRetries++;
+            if (questionReadyRetries > MAX_QUESTION_READY_RETRIES) {
+                console.log('⚠️ Question ready retry limit reached (' + MAX_QUESTION_READY_RETRIES + '), stopping retries. Normal polling will handle it.');
+                questionReadyRetries = 0;
+                return;
+            }
+            
             try {
                 const response = await fetch(`${API_URL}/arena/question-ready`, {
                     method: 'POST',
@@ -8161,19 +8170,16 @@
                 
                 if (data.show_question) {
                     console.log('✅ Both players ready! Display time set - polling will show question');
-                    // Don't call loadBattleState - let normal polling detect question_display_time
+                    questionReadyRetries = 0; // Reset on success
                 } else if (data.waiting_for_opponent) {
-                    console.log('⏳ Waiting for opponent to be ready...');
-                    // Retry in 500ms - opponent hasn't signaled yet
+                    console.log('⏳ Waiting for opponent to be ready... (retry ' + questionReadyRetries + '/' + MAX_QUESTION_READY_RETRIES + ')');
                     setTimeout(() => signalQuestionReady(), 500);
                 } else if (data.not_ready) {
-                    // Server not in question phase yet - retry shortly
-                    console.log('⏳ Server not ready for question signal yet...');
+                    console.log('⏳ Server not ready for question signal yet... (retry ' + questionReadyRetries + '/' + MAX_QUESTION_READY_RETRIES + ')');
                     setTimeout(() => signalQuestionReady(), 500);
                 }
             } catch (err) {
                 console.error('Error signaling question ready:', err);
-                // Retry on error
                 setTimeout(() => signalQuestionReady(), 1000);
             }
         }

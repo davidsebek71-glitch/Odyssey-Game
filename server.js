@@ -3701,13 +3701,17 @@ app.post('/api/teacher/reset-battle-counts', authenticateToken, (req, res) => {
 app.post('/api/teacher/cleanup-battles', authenticateToken, (req, res) => {
   try {
     // Cancel all pending and accepted battles (stuck in god selection)
-    const stuck = query("SELECT * FROM arena_battles WHERE status IN ('pending', 'accepted')");
-    
+    const stuckPending = query("SELECT * FROM arena_battles WHERE status IN ('pending', 'accepted')");
     run("UPDATE arena_battles SET status = 'cancelled' WHERE status IN ('pending', 'accepted')");
     
-    console.log(`🧹 Cleaned up ${stuck.length} stuck battles`);
+    // FIX 4: Also expire in_progress battles older than 5 minutes (previously missed — these are the stuck ones)
+    const stuckInProgress = query("SELECT * FROM arena_battles WHERE status = 'in_progress' AND datetime(COALESCE(started_at, created_at), '+5 minutes') < datetime('now')");
+    run("UPDATE arena_battles SET status = 'expired' WHERE status = 'in_progress' AND datetime(COALESCE(started_at, created_at), '+5 minutes') < datetime('now')");
+    
+    const totalCleaned = stuckPending.length + stuckInProgress.length;
+    console.log(`🧹 Cleaned up ${stuckPending.length} pending/accepted + ${stuckInProgress.length} stale in-progress battles`);
     saveDatabase();
-    res.json({ success: true, message: `Cleaned up ${stuck.length} stuck/pending battles` });
+    res.json({ success: true, message: `Cleaned up ${totalCleaned} stuck battles (${stuckPending.length} pending, ${stuckInProgress.length} stale in-progress)` });
   } catch (err) {
     console.error('Cleanup battles error:', err);
     res.status(500).json({ error: 'Failed to cleanup battles' });
@@ -5956,7 +5960,11 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       
       // Auto-advance phase if time expired
       if (phaseEndsAt && now > phaseEndsAt) {
-        if (currentRound.phase === 'deploy') {
+        // FIX 2a: Re-query round to prevent double transitions from concurrent polls
+        const freshRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
+        if (!freshRound || freshRound.phase !== currentRound.phase) {
+          console.log(`⚠️ Phase already transitioned (was ${currentRound.phase}, now ${freshRound?.phase}). Skipping double-transition.`);
+        } else if (currentRound.phase === 'deploy') {
           // Deploy timeout - move to question phase with sync delay
           // Set question_display_time so the sync gate works correctly
           const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
@@ -5990,12 +5998,24 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
             run("UPDATE arena_battle_rounds SET defender_answer = 'timeout', defender_time_ms = ? WHERE round_id = ?", 
               [BATTLE_TIMING.QUESTION_PHASE, currentRound.round_id]);
           }
+          // FIX 1: Score the round after filling timeout answers (previously missing — caused stuck battles)
+          const timeoutRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
+          if (timeoutRound && !timeoutRound.completed_at && timeoutRound.challenger_answer && timeoutRound.defender_answer) {
+            console.log(`⏱️ Question timeout - scoring round ${currentRound.round_number} now`);
+            scoreRound(battle_id, currentRound.round_id);
+          }
         } else if (currentRound.phase === 'results') {
           // Results phase ended - create next round
           const nextRoundNum = battle.current_round + 1;
           
-          // Check if battle should continue (less than 5 rounds or tied at 5)
-          if (nextRoundNum <= 5 || (battle.challenger_score === battle.defender_score)) {
+          // FIX 2b: Check if next round already exists (prevents duplicate from concurrent poll race condition)
+          const existingNextRound = query('SELECT round_id FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
+            [battle_id, nextRoundNum])[0];
+          if (existingNextRound) {
+            console.log(`⚠️ Round ${nextRoundNum} already exists (round_id: ${existingNextRound.round_id}), skipping duplicate creation`);
+            battle.current_round = nextRoundNum;
+            run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
+          } else if (nextRoundNum <= 5 || (battle.challenger_score === battle.defender_score)) {
             // Get unused questions using Fisher-Yates helper
             const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
             const usedIds = usedQuestions.map(q => q.question_id);
