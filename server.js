@@ -5556,7 +5556,7 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
           FROM arena_battles 
           WHERE (challenger_id = ? OR defender_id = ?)
             AND DATE(created_at) = ?
-            AND status NOT IN ('declined', 'expired')
+            AND status IN ('completed', 'in_progress')
         )
       ORDER BY a.alliance_name, s.name
     `, [student.class_period, student.alliance_id, student_id, student_id, student_id, today]);

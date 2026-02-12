@@ -2721,6 +2721,7 @@
         
         // Arena variables
         let challengePollingInterval = null;
+        let outgoingPollInterval = null; // Polls while waiting for challenge response
         let currentChallengeBanner = null;
         let selectedGods = [];
         let currentBattleId = null;
@@ -2844,6 +2845,10 @@
                 if (challengePollingInterval) {
                     clearInterval(challengePollingInterval);
                     challengePollingInterval = null;
+                }
+                if (outgoingPollInterval) {
+                    clearInterval(outgoingPollInterval);
+                    outgoingPollInterval = null;
                 }
                 stopDashboardRefresh();
             } else {
@@ -6057,6 +6062,11 @@
         }
         
         async function loadArenaStatus() {
+            // Clear outgoing challenge poll if running
+            if (outgoingPollInterval) {
+                clearInterval(outgoingPollInterval);
+                outgoingPollInterval = null;
+            }
             const content = document.getElementById('arena-content');
             try {
                 const response = await fetch(`${API_URL}/arena/status`, { headers });
@@ -6419,6 +6429,13 @@
                 // Start announcement cycling
                 if (announcementData.length > 0) {
                     cycleAnnouncements(announcementData);
+                }
+                
+                // Poll while waiting for outgoing challenge response
+                if (data.outgoing_challenge && !outgoingPollInterval) {
+                    outgoingPollInterval = setInterval(() => {
+                        loadArenaStatus();
+                    }, 3000);
                 }
                 
                 // Start countdown timer if shown
@@ -7304,6 +7321,10 @@
             if (challengePollingInterval) {
                 clearInterval(challengePollingInterval);
                 challengePollingInterval = null;
+            }
+            if (outgoingPollInterval) {
+                clearInterval(outgoingPollInterval);
+                outgoingPollInterval = null;
             }
             
             // Remove any banners/overlays
