@@ -7544,7 +7544,8 @@
                             const godName = typeof g === 'string' ? g : g.name;
                             const godImg = godName === 'prometheus' ? 'prometheus.png' : `${godName}.svg`;
                             const apolloLocked = godName === 'apollo' && data.apollo_used_by_me;
-                            return apolloLocked ? `
+                            const prometheusLocked = godName === 'prometheus' && data.prometheus_used_by_me; // FIX 8
+                            return (apolloLocked || prometheusLocked) ? `
                                 <div style="
                                     background: rgba(100,100,100,0.15);
                                     border: 2px solid rgba(100,100,100,0.3);
@@ -7554,7 +7555,7 @@
                                     opacity: 0.4;
                                 ">
                                     <img src="${godImg}" style="width: 40px; height: 40px; filter: grayscale(1);">
-                                    <div style="color: #999; font-size: 11px; margin-top: 5px;">Apollo</div>
+                                    <div style="color: #999; font-size: 11px; margin-top: 5px;">${godName.charAt(0).toUpperCase() + godName.slice(1)}</div>
                                     <div style="color: #ff6b6b; font-size: 9px;">Used this battle</div>
                                 </div>
                             ` : `
@@ -7670,7 +7671,9 @@
                 
                 // Show god effects notification if applicable
                 let effectsHTML = '';
-                if (roundData.my_god_deployed && !roundData.challenger_god_blocked && !roundData.defender_god_blocked) {
+                // FIX 6: Check if MY god is blocked (was checking both players — wrong logic)
+                const myBlockedForBanner = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                if (roundData.my_god_deployed && !myBlockedForBanner) {
                     effectsHTML = `<div style="background: rgba(34,197,94,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
                         <span style="color: #22c55e;">Your ${roundData.my_god_deployed} power is active!</span>
                     </div>`;
@@ -7753,13 +7756,13 @@
                         </div>
                     `;
                     
-                    // Signal ready (only once per question to avoid hammering, but retry after 3s if needed)
+                    // Signal ready (only once per question to avoid hammering)
                     if (!questionReadySignaled) {
                         questionReadySignaled = true;
                         playBattleSound('roundStart', 0.6);
                         signalQuestionReady();
-                        // Reset flag after 3s in case signal failed - allows retry on next poll
-                        setTimeout(() => { questionReadySignaled = false; }, 3000);
+                        // FIX 7: Removed 3-second reset timeout that caused parallel retry chains
+                        // Flag resets properly via questionChanged detection (line 7697) and closeBattle()
                     }
                     return;
                 }
@@ -7979,7 +7982,7 @@
                     if (!questionReadySignaled) {
                         // Already signaled above, but call endpoint
                     }
-                    signalQuestionReady();
+                    signalSuddenDeathReady(); // FIX 5: Was calling signalQuestionReady() which rejects sudden_death_intro phase
                     return;
                 }
                 

@@ -5859,15 +5859,8 @@ app.post('/api/arena/select-gods', authenticateToken, (req, res) => {
       }
     }
     
-    // Check Prometheus daily limit
-    if (selectedGods.includes('prometheus')) {
-      if (prometheusUsedToday(student_id)) {
-        return res.status(400).json({ error: 'You have already used Prometheus today. He can only be used once per day.' });
-      }
-      // Mark Prometheus as used for today
-      const today = new Date().toISOString().split('T')[0];
-      run('UPDATE arena_battle_stats SET prometheus_used_date = ? WHERE student_id = ?', [today, student_id]);
-    }
+    // Check Prometheus daily limit - REMOVED: now once-per-battle like Apollo (FIX 8)
+    // Prometheus selection is allowed — the once-per-battle limit is enforced at deploy time
     
     // Build god data with bonus status
     const godData = selectedGods.map(g => ({
@@ -6134,6 +6127,13 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       [battle_id]
     )[0];
     
+    // FIX 8: Check if this player already used Prometheus in a previous round
+    const prometheusUsedByMe = query(
+      `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+       WHERE battle_id = ? AND ${myDeployCol} = 'prometheus'`,
+      [battle_id]
+    )[0];
+    
     res.json({
       battle_id: battle.battle_id,
       status: battle.status,
@@ -6154,7 +6154,8 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       my_gods: myGods,
       my_cooldowns: myCooldowns,
       available_gods: availableGods,
-      apollo_used_by_me: apolloUsedByMe && apolloUsedByMe.cnt > 0
+      apollo_used_by_me: apolloUsedByMe && apolloUsedByMe.cnt > 0,
+      prometheus_used_by_me: prometheusUsedByMe && prometheusUsedByMe.cnt > 0
     });
   } catch (err) {
     console.error('Get battle error:', err);
@@ -6211,6 +6212,19 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
         )[0];
         if (apolloUsed && apolloUsed.cnt > 0) {
           return res.status(400).json({ error: 'Apollo can only be used once per battle' });
+        }
+      }
+      
+      // FIX 8: Prometheus once-per-battle limit (same pattern as Apollo)
+      if (god_name === 'prometheus') {
+        const myDeployCol = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
+        const prometheusUsed = query(
+          `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+           WHERE battle_id = ? AND ${myDeployCol} = 'prometheus' AND round_number < ?`,
+          [battle_id, battle.current_round]
+        )[0];
+        if (prometheusUsed && prometheusUsed.cnt > 0) {
+          return res.status(400).json({ error: 'Prometheus can only be used once per battle' });
         }
       }
       
