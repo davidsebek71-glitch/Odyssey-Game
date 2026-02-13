@@ -5147,7 +5147,8 @@ function hasGodUnlocked(student_id, godName) {
   }
 }
 
-// Helper function to check if Prometheus was used today
+// DEPRECATED by FIX 8/9: Prometheus is now once-per-battle, not once-per-day
+// This function is no longer called but kept for reference
 function prometheusUsedToday(student_id) {
   const today = new Date().toISOString().split('T')[0];
   const stats = query('SELECT prometheus_used_date FROM arena_battle_stats WHERE student_id = ?', [student_id])[0];
@@ -5577,7 +5578,7 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
     // Get unlocked gods with bonus status
     const progress = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [student_id])[0];
     const godList = ['zeus', 'poseidon', 'hera', 'athena', 'apollo', 'artemis', 'aphrodite', 'ares', 'hephaestus', 'hermes', 'demeter', 'prometheus', 'hades'];
-    const prometheusUsed = prometheusUsedToday(student_id);
+    // FIX 9: Removed prometheusUsedToday — Prometheus is now once-per-battle, not once-per-day
     
     const unlockedGods = godList.filter(g => progress && progress[`pantheon_${g}_unlocked`] === 1)
       .map(g => {
@@ -5594,8 +5595,6 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
           passive: godPower.passive || null,
           blocks: godPower.blocks || null,
           counteredBy: godPower.counteredBy || null,
-          // For Prometheus, check if used today
-          usedToday: g === 'prometheus' ? prometheusUsed : false,
           // Show effect values based on bonus status
           effectValue: hasBonus ? (godPower.bonusEffect || godPower.bonusPassiveEffect) : (godPower.baseEffect || godPower.passiveEffect)
         };
@@ -5670,7 +5669,7 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
       available_opponents: opponents,
       unlocked_gods: unlockedGods,
       god_powers: GOD_POWERS,
-      prometheus_used_today: prometheusUsed,
+      // FIX 9: Removed prometheus_used_today — now per-battle via prometheus_used_by_me in battle state
       // Badge system data
       my_badges: myBadges,
       badge_definitions: ARENA_BADGES,
@@ -6282,24 +6281,19 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
       const myBlocked = isChallenger ? updatedRound.challenger_god_blocked : updatedRound.defender_god_blocked;
       
       if (myDeployed === 'prometheus' && !myBlocked) {
-        const today = new Date().toISOString().split('T')[0];
-        if (!prometheusUsedToday(student_id)) {
-          // Mark Prometheus as used today
-          run('UPDATE arena_battle_stats SET prometheus_used_date = ? WHERE student_id = ?', [today, student_id]);
+        // FIX 9: Removed prometheusUsedToday() gate — now once-per-battle (deploy is already blocked by Fix 8)
+        // Get question text for preview
+        const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', 
+          [currentRound.question_id])[0];
+        if (previewQ) {
+          // Check for bonus (50% building)
+          const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
+          const promData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
+          const hasBonus = promData && typeof promData === 'object' && promData.hasBonus;
           
-          // Get question text for preview
-          const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', 
-            [currentRound.question_id])[0];
-          if (previewQ) {
-            // Check for bonus (50% building)
-            const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
-            const promData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
-            const hasBonus = promData && typeof promData === 'object' && promData.hasBonus;
-            
-            prometheusPreview = previewQ.question_text;
-            prometheusPreviewDuration = (hasBonus ? GOD_POWERS.prometheus.bonusEffect : GOD_POWERS.prometheus.baseEffect) * 1000;
-            console.log(`🔥 Prometheus preview for student ${student_id}: ${prometheusPreviewDuration}ms`);
-          }
+          prometheusPreview = previewQ.question_text;
+          prometheusPreviewDuration = (hasBonus ? GOD_POWERS.prometheus.bonusEffect : GOD_POWERS.prometheus.baseEffect) * 1000;
+          console.log(`🔥 Prometheus preview for student ${student_id}: ${prometheusPreviewDuration}ms`);
         }
       }
       
@@ -6705,7 +6699,7 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
       const defenderNeedsRetry = updated.defender_answer === 'wrong' && defenderGod === 'aphrodite' && !defenderBlocked && !updated.completed_at;
       
       if (challengerNeedsRetry || defenderNeedsRetry) {
-        console.log(`💕 Aphrodite retry window active - delaying round scoring for 4.5 seconds`);
+        console.log(`💕 Aphrodite retry window active - delaying round scoring for 6 seconds`);
         // Don't score yet - the Aphrodite player may retry
         // Schedule a delayed scoring check in case they don't retry
         const roundId = currentRound.round_id;
@@ -6720,7 +6714,7 @@ app.post('/api/arena/answer', authenticateToken, (req, res) => {
           } catch (err) {
             console.error('Aphrodite delayed scoring error:', err);
           }
-        }, 4500); // 4.5 seconds - slightly longer than client's 4 second retry window
+        }, 6000); // FIX 10: 6 seconds — gives comfortable margin over client's 4-second retry window
         
         saveDatabase();
       } else if (!updated.completed_at) {

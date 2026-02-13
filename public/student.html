@@ -6932,7 +6932,7 @@
             const data = await response.json();
             const unlockedGods = data.unlocked_gods || [];
             arenaGodPowers = data.god_powers || {};
-            const prometheusUsedToday = data.prometheus_used_today;
+            // FIX 9: Removed prometheusUsedToday — Prometheus is now per-battle, always selectable
             
             // Create modal
             const modal = document.createElement('div');
@@ -6964,31 +6964,28 @@
                     <div id="god-selection-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px;">
                         ${unlockedGods.length === 0 ? '<p style="color: rgba(255,255,255,0.5); text-align: center; grid-column: 1/-1;">No gods unlocked yet. You can still battle!</p>' : 
                           unlockedGods.map(god => {
-                            const isPrometheusUsed = god.name === 'prometheus' && prometheusUsedToday;
                             const godImg = god.name === 'prometheus' ? 'prometheus.png' : `${god.name}.svg`;
                             const typeIcon = god.type === 'offensive' ? '⚔️' : (god.type === 'defensive' ? '🛡️' : '🔥');
                             const typeColor = god.type === 'offensive' ? '#dc2626' : (god.type === 'defensive' ? '#22c55e' : '#f97316');
                             return `
                             <div id="god-select-${god.name}" 
-                                 onclick="${isPrometheusUsed ? '' : `toggleGodSelection('${god.name}')`}"
+                                 onclick="toggleGodSelection('${god.name}')"
                                  onmouseenter="showGodPreview('${god.name}')"
                                  onmouseleave="hideGodPreview()"
                                  style="
-                                    background: ${isPrometheusUsed ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.05)'};
-                                    border: 2px solid ${isPrometheusUsed ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.2)'};
+                                    background: rgba(255,255,255,0.05);
+                                    border: 2px solid rgba(255,255,255,0.2);
                                     border-radius: 10px;
                                     padding: 10px;
                                     text-align: center;
-                                    cursor: ${isPrometheusUsed ? 'not-allowed' : 'pointer'};
+                                    cursor: pointer;
                                     transition: all 0.2s ease;
-                                    opacity: ${isPrometheusUsed ? '0.5' : '1'};
                                     position: relative;
                                 ">
                                 ${god.hasBonus ? '<div style="position:absolute;top:3px;right:3px;font-size:10px;">⚡</div>' : ''}
                                 <img src="${godImg}" alt="${god.displayName}" style="width: 40px; height: 40px; object-fit: contain;">
                                 <div style="color: white; font-size: 10px; margin-top: 3px; font-weight: bold;">${god.displayName}</div>
                                 <div style="color: ${typeColor}; font-size: 9px;">${typeIcon}</div>
-                                ${isPrometheusUsed ? '<div style="color:#ff6b6b;font-size:8px;">Used today</div>' : ''}
                             </div>
                         `}).join('')}
                     </div>
