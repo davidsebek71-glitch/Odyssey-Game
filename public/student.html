@@ -2346,7 +2346,7 @@
         <!-- Quick Actions -->
         <div class="quick-actions">
             <button class="action-btn" onclick="openSubmitModal()">
-                <span class="icon">âž•</span>
+                <span class="icon">➕</span>
                 Submit Points
             </button>
             <button class="action-btn" onclick="openMapModal()" id="map-btn">
@@ -4898,7 +4898,7 @@
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section1.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
-                                            â—‹ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
+                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
                                         </div>
                                     `).join('')}
                                 </div>
@@ -4934,7 +4934,7 @@
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section2.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
-                                            â—‹ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
+                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
                                         </div>
                                     `).join('')}
                                 </div>
@@ -5049,7 +5049,7 @@
                     statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">⏳ PENDING REVIEW</span>`;
                     cardStyle = 'border-color: #fbbf24;';
                 } else {
-                    statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">â—‹ Not Started</span>`;
+                    statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">○ Not Started</span>`;
                     buttonHtml = `<button class="btn btn-primary" style="width: 100%; margin-top: 10px; padding: 8px;" onclick="viewBonusDetail(${a.assignment_id})">View Assignment</button>`;
                 }
                 
@@ -5307,11 +5307,11 @@
                     statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">⏳ PENDING APPROVAL</span>`;
                     cardStyle = 'border-color: #fbbf24;';
                 } else {
-                    statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">â—‹ Not Started</span>`;
+                    statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">○ Not Started</span>`;
                     // Escape apostrophes in quest name for onclick handler
                     const escapedQuestName = quest.quest_name.replace(/'/g, "\\'");
                     buttonHtml = `
-                        <a href="${quest.form_url}" target="_blank" class="btn btn-secondary" style="width: 48%; margin-top: 10px; padding: 8px; text-align: center; text-decoration: none; display: inline-block;">â–¶ Start Quest</a>
+                        <a href="${quest.form_url}" target="_blank" class="btn btn-secondary" style="width: 48%; margin-top: 10px; padding: 8px; text-align: center; text-decoration: none; display: inline-block;">▶ Start Quest</a>
                         <button class="btn btn-primary" style="width: 48%; margin-top: 10px; padding: 8px;" onclick="submitSideQuest(${quest.quest_id}, '${escapedQuestName}')">✓ I Completed It</button>
                     `;
                 }
@@ -6623,7 +6623,7 @@
                 html += `<div style="color: #22c55e; font-size: 12px; margin-top: 5px;">✨ Passive: ${god.passive}</div>`;
             }
             if (god.counteredBy) {
-                html += `<div style="color: #ff6b6b; font-size: 11px; margin-top: 3px;">â›" Blocked by: ${god.counteredBy.charAt(0).toUpperCase() + god.counteredBy.slice(1)}</div>`;
+                html += `<div style="color: #ff6b6b; font-size: 11px; margin-top: 3px;">⛓ Blocked by: ${god.counteredBy.charAt(0).toUpperCase() + god.counteredBy.slice(1)}</div>`;
             }
             if (god.blocks) {
                 html += `<div style="color: #22c55e; font-size: 11px; margin-top: 3px;">🛡️ Blocks: ${god.blocks.charAt(0).toUpperCase() + god.blocks.slice(1)}</div>`;
@@ -7222,7 +7222,7 @@
                     const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
                     if (myBlocked) {
                         effectsHTML = `<div style="background: rgba(239,68,68,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #ff6b6b;">â›" Your ${roundData.my_god_deployed} was BLOCKED by ${roundData.opponent_god_deployed}!</span>
+                            <span style="color: #ff6b6b;">⛓ Your ${roundData.my_god_deployed} was BLOCKED by ${roundData.opponent_god_deployed}!</span>
                         </div>`;
                     }
                     if (oppBlocked) {
