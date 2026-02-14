@@ -403,7 +403,14 @@
                 
                 // For students: check if they've registered before
                 if (userType === 'student') {
-                    setLoginMode();
+                    const hasRegistered = localStorage.getItem('studentHasRegistered');
+                    if (hasRegistered) {
+                        // Returning student - show login
+                        setLoginMode();
+                    } else {
+                        // New student - show register
+                        setRegisterMode();
+                    }
                 } else {
                     // Teacher - default to login
                     setLoginMode();
@@ -427,7 +434,7 @@
             document.getElementById('name-group').classList.add('hidden');
             document.getElementById('period-group').classList.add('hidden');
             document.getElementById('submit-btn').textContent = 'Login';
-            document.getElementById('toggle-mode').textContent = "Don't have an account? Register here";
+            document.getElementById('toggle-mode').textContent = 'Register here';
         }
 
         function updateClassPeriodVisibility() {
@@ -507,7 +514,7 @@
                 }
 
                 // Redirect to appropriate dashboard
-                window.location.href = userType === 'teacher' ? '/teacher.html' : '/student.html';
+                window.location.href = userType === 'teacher' ? '/teacher.html' : '/hub.html';
 
             } catch (err) {
                 showError(err.message);
@@ -529,7 +536,7 @@
         // Check if already logged in
         if (localStorage.getItem('token')) {
             const userType = localStorage.getItem('userType');
-            window.location.href = userType === 'teacher' ? '/teacher.html' : '/student.html';
+            window.location.href = userType === 'teacher' ? '/teacher.html' : '/hub.html';
         }
     </script>
 </body>
