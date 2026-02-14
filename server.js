@@ -3980,7 +3980,13 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
     // Roll the dice!
     const roll = Math.random();
     const success = roll < choice.success_chance;
-    const pointsChange = success ? choice.success_points : choice.failure_points;
+    let pointsChange = success ? choice.success_points : choice.failure_points;
+    
+    // Apply percentage-based floor for aggressive failures (Classical Age balancing)
+    // If aggressive failure is less than 10% of alliance total, use 10% instead
+    if (!success && choice.risk_level === 'aggressive') {
+      pointsChange = applyAggressivePenalty(pointsChange, alliance.total_points, choice.risk_level);
+    }
     
     // Fates do NOT get building bonuses - apply points directly
     run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
@@ -5890,9 +5896,8 @@ app.post('/api/arena/select-gods', authenticateToken, (req, res) => {
     
     if (updated.challenger_gods_ready === 1 && updated.defender_gods_ready === 1) {
       // BOTH ready - start battle with deploy phase
-      // Get all available questions and pick one randomly (more reliable than SQLite RANDOM())
-      const allQuestions = query('SELECT question_id FROM battle_questions WHERE is_active = 1');
-      const question = allQuestions.length > 0 ? allQuestions[Math.floor(Math.random() * allQuestions.length)] : null;
+      // Use adaptive question pool (Archaic + unlocked Classical myths)
+      const question = getAdaptiveBattleQuestion(updated.challenger_id, []);
       
       if (question) {
         // Set synchronized start time - 1 second from now for both players
@@ -6008,10 +6013,10 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
             battle.current_round = nextRoundNum;
             run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
           } else if (nextRoundNum <= 5 || (battle.challenger_score === battle.defender_score)) {
-            // Get unused questions using Fisher-Yates helper
+            // Get unused questions using adaptive pool (Archaic + unlocked Classical myths)
             const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
             const usedIds = usedQuestions.map(q => q.question_id);
-            const nextQ = getRandomQuestion(usedIds);
+            const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, usedIds);
             
             if (nextQ) {
               const isSuddenDeath = nextRoundNum > 5;
@@ -6564,7 +6569,7 @@ function scoreRound(battle_id, round_id) {
       const nextRound = battle.current_round + 1;
       const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
       const usedIds = usedQuestions.map(q => q.question_id);
-      const nextQ = getRandomQuestion(usedIds);
+      const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, usedIds);
       
       if (nextQ) {
         const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
@@ -6909,6 +6914,418 @@ app.post('/api/arena/badge-celebration-seen', authenticateToken, (req, res) => {
     res.status(500).json({ error: 'Failed to update badge' });
   }
 });
+
+// ====================
+// CLASSICAL AGE ENDPOINTS
+// ====================
+
+// --- Student: Get Classical Age status (used by hub.html) ---
+app.get('/api/student/classical-status', authenticateToken, (req, res) => {
+  try {
+    const student = query('SELECT * FROM students WHERE student_id = ?', [req.user.id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    const alliance = student.alliance_id ? 
+      query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0] : null;
+    
+    // Check if teacher opened Classical gate for this period
+    const ageGate = query('SELECT * FROM age_gates WHERE class_period = ?', [student.class_period])[0];
+    const gateOpen = ageGate ? ageGate.classical_unlocked === 1 : false;
+    
+    // Can access if: gate is open AND alliance is Classical or Heroic age
+    const allianceAge = alliance ? alliance.current_age : 'Archaic';
+    const canAccess = gateOpen && (allianceAge === 'Classical' || allianceAge === 'Heroic');
+    
+    res.json({
+      gateOpen,
+      allianceAge,
+      canAccess,
+      classicalEntered: student.classical_entered === 1
+    });
+  } catch (err) {
+    console.error('Classical status error:', err);
+    res.status(500).json({ error: 'Failed to get classical status' });
+  }
+});
+
+// --- Student: Enter Classical Age (first time cinematic trigger) ---
+app.post('/api/student/enter-classical', authenticateToken, (req, res) => {
+  try {
+    const student = query('SELECT * FROM students WHERE student_id = ?', [req.user.id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    if (student.classical_entered !== 1) {
+      run('UPDATE students SET classical_entered = 1 WHERE student_id = ?', [req.user.id]);
+      saveDatabase();
+    }
+    
+    res.json({ success: true, firstTime: student.classical_entered !== 1 });
+  } catch (err) {
+    console.error('Enter classical error:', err);
+    res.status(500).json({ error: 'Failed to enter classical' });
+  }
+});
+
+// --- Student: Get Myth Portals with progress ---
+app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
+  try {
+    const student = query('SELECT * FROM students WHERE student_id = ?', [req.user.id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
+    
+    // Get portal activation status for this student's alliance
+    const allianceId = student.alliance_id;
+    const portalStatuses = allianceId ? 
+      query('SELECT * FROM myth_portal_status WHERE alliance_id = ?', [allianceId]) : [];
+    
+    // Get student's virtue progress
+    const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [req.user.id]);
+    
+    // Build enriched portal data
+    const enrichedPortals = portals.map(portal => {
+      const status = portalStatuses.find(s => s.portal_id === portal.portal_id);
+      const activated = status ? status.activated : 0;
+      
+      // Check reading guide completion (comp_conn for this myth)
+      const hasReadingGuide = gradeRecords.some(g => 
+        g.assignment_type === 'comp_conn' && 
+        g.myth_god === portal.myth_name && 
+        g.age === 'Classical' &&
+        g.points_earned > 0
+      );
+      
+      // Check quiz passed (quiz for this myth, 80%+ = 8+ out of 10)
+      const quizGrade = gradeRecords.find(g => 
+        g.assignment_type === 'quiz' && 
+        g.myth_god === portal.myth_name && 
+        g.age === 'Classical'
+      );
+      const quizPassed = quizGrade ? (quizGrade.points_earned / quizGrade.max_points >= 0.8) : false;
+      
+      // Check creative work (any bonus, word_cloud, or wildcard for this myth)
+      const hasCreative = gradeRecords.some(g => 
+        (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && 
+        g.myth_god === portal.myth_name && 
+        g.age === 'Classical' &&
+        g.points_earned > 0
+      );
+      
+      // Virtue earned when: reading guide + quiz passed + at least 1 creative
+      const virtueEarned = hasReadingGuide && quizPassed && hasCreative ? 1 : 0;
+      
+      return {
+        ...portal,
+        activated,
+        has_reading_guide: hasReadingGuide ? 1 : 0,
+        quiz_passed: quizPassed ? 1 : 0,
+        has_creative: hasCreative ? 1 : 0,
+        virtue_earned: virtueEarned
+      };
+    });
+    
+    const virtuesEarned = enrichedPortals.filter(p => p.virtue_earned === 1).length;
+    
+    res.json({ portals: enrichedPortals, virtues_earned: virtuesEarned });
+  } catch (err) {
+    console.error('Myth portals error:', err);
+    res.status(500).json({ error: 'Failed to load myth portals' });
+  }
+});
+
+// --- Student: Get quiz questions for a myth portal ---
+app.get('/api/student/quiz/:portal_id', authenticateToken, (req, res) => {
+  try {
+    const portalId = parseInt(req.params.portal_id);
+    const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ? AND is_active = 1', [portalId]);
+    
+    if (questions.length === 0) {
+      return res.json({ questions: [], message: 'No quiz questions available for this myth yet. Quiz is submitted via Google Classroom.' });
+    }
+    
+    // Shuffle questions (Fisher-Yates)
+    for (let i = questions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [questions[i], questions[j]] = [questions[j], questions[i]];
+    }
+    
+    // Don't send correct answers to client
+    const safeQuestions = questions.map(q => ({
+      question_id: q.question_id,
+      question_text: q.question_text,
+      answers: shuffleArray([
+        { key: 'a', text: q.answer_a },
+        { key: 'b', text: q.answer_b },
+        { key: 'c', text: q.answer_c },
+        { key: 'd', text: q.answer_d }
+      ])
+    }));
+    
+    res.json({ questions: safeQuestions });
+  } catch (err) {
+    console.error('Quiz fetch error:', err);
+    res.status(500).json({ error: 'Failed to load quiz' });
+  }
+});
+
+// Helper: shuffle array
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// --- Student: Submit quiz answers ---
+app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
+  try {
+    const { portal_id, answers } = req.body;
+    if (!portal_id || !answers) return res.status(400).json({ error: 'Missing portal_id or answers' });
+    
+    const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ? AND is_active = 1', [portal_id]);
+    if (questions.length === 0) return res.status(400).json({ error: 'No questions for this portal' });
+    
+    // Grade the quiz
+    let correct = 0;
+    const results = questions.map(q => {
+      const studentAnswer = answers[q.question_id];
+      const isCorrect = studentAnswer === q.correct_answer;
+      if (isCorrect) correct++;
+      return { question_id: q.question_id, correct: isCorrect, correct_answer: q.correct_answer };
+    });
+    
+    const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
+    const passed = score >= 80;
+    
+    // Record the attempt
+    run(`INSERT INTO myth_quiz_attempts (student_id, portal_id, score, passed, answers_json, attempted_at)
+         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [req.user.id, portal_id, score, passed ? 1 : 0, JSON.stringify(answers)]);
+    
+    saveDatabase();
+    
+    res.json({ score, correct, total: questions.length, passed, results });
+  } catch (err) {
+    console.error('Submit quiz error:', err);
+    res.status(500).json({ error: 'Failed to submit quiz' });
+  }
+});
+
+// --- Student: Get quiz status for a portal ---
+app.get('/api/student/quiz-status', authenticateToken, (req, res) => {
+  try {
+    const attempts = query(
+      'SELECT portal_id, MAX(score) as best_score, MAX(passed) as ever_passed FROM myth_quiz_attempts WHERE student_id = ? GROUP BY portal_id',
+      [req.user.id]
+    );
+    res.json({ attempts });
+  } catch (err) {
+    console.error('Quiz status error:', err);
+    res.status(500).json({ error: 'Failed to get quiz status' });
+  }
+});
+
+// --- Student: Get virtue summary ---
+app.get('/api/student/virtues', authenticateToken, (req, res) => {
+  try {
+    // Reuse myth-portals logic to compute virtues
+    const student = query('SELECT * FROM students WHERE student_id = ?', [req.user.id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
+    const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [req.user.id]);
+    
+    const virtues = portals.map(portal => {
+      const hasReadingGuide = gradeRecords.some(g => g.assignment_type === 'comp_conn' && g.myth_god === portal.myth_name && g.age === 'Classical' && g.points_earned > 0);
+      const quizGrade = gradeRecords.find(g => g.assignment_type === 'quiz' && g.myth_god === portal.myth_name && g.age === 'Classical');
+      const quizPassed = quizGrade ? (quizGrade.points_earned / quizGrade.max_points >= 0.8) : false;
+      const hasCreative = gradeRecords.some(g => (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && g.myth_god === portal.myth_name && g.age === 'Classical' && g.points_earned > 0);
+      
+      return {
+        myth_name: portal.myth_name,
+        virtue_greek: portal.virtue_greek,
+        virtue_english: portal.virtue_english,
+        virtue_emoji: portal.virtue_emoji,
+        earned: hasReadingGuide && quizPassed && hasCreative
+      };
+    });
+    
+    res.json({ 
+      virtues, 
+      total_earned: virtues.filter(v => v.earned).length,
+      total_possible: 7
+    });
+  } catch (err) {
+    console.error('Virtues error:', err);
+    res.status(500).json({ error: 'Failed to get virtues' });
+  }
+});
+
+// --- Teacher: Unlock myth portal for an alliance ---
+app.post('/api/teacher/unlock-myth', authenticateToken, (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const { portal_id, alliance_id, activated } = req.body;
+    if (!portal_id || !alliance_id) return res.status(400).json({ error: 'Missing portal_id or alliance_id' });
+    
+    const existing = query('SELECT * FROM myth_portal_status WHERE portal_id = ? AND alliance_id = ?', [portal_id, alliance_id])[0];
+    
+    if (existing) {
+      run('UPDATE myth_portal_status SET activated = ?, activated_at = CURRENT_TIMESTAMP, activated_by = ? WHERE portal_id = ? AND alliance_id = ?',
+        [activated !== undefined ? activated : 1, req.user.id, portal_id, alliance_id]);
+    } else {
+      run('INSERT INTO myth_portal_status (portal_id, alliance_id, activated, activated_at, activated_by) VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)',
+        [portal_id, alliance_id, activated !== undefined ? activated : 1, req.user.id]);
+    }
+    
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Unlock myth error:', err);
+    res.status(500).json({ error: 'Failed to unlock myth' });
+  }
+});
+
+// --- Teacher: Get virtue progress for all students ---
+app.get('/api/teacher/virtue-progress', authenticateToken, (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const students = query('SELECT s.student_id, s.name, s.class_period, s.alliance_id, a.alliance_name FROM students s LEFT JOIN alliances a ON s.alliance_id = a.alliance_id ORDER BY s.class_period, s.name');
+    const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
+    const allGrades = query("SELECT * FROM grade_records WHERE age = 'Classical'");
+    
+    const progress = students.map(student => {
+      const studentGrades = allGrades.filter(g => g.student_id === student.student_id);
+      
+      const virtueStatus = portals.map(portal => {
+        const hasRG = studentGrades.some(g => g.assignment_type === 'comp_conn' && g.myth_god === portal.myth_name && g.points_earned > 0);
+        const quizG = studentGrades.find(g => g.assignment_type === 'quiz' && g.myth_god === portal.myth_name);
+        const qPassed = quizG ? (quizG.points_earned / quizG.max_points >= 0.8) : false;
+        const hasCr = studentGrades.some(g => (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && g.myth_god === portal.myth_name && g.points_earned > 0);
+        return { myth: portal.myth_name, earned: hasRG && qPassed && hasCr };
+      });
+      
+      return {
+        student_id: student.student_id,
+        name: student.name,
+        class_period: student.class_period,
+        alliance_name: student.alliance_name,
+        virtues: virtueStatus,
+        total_earned: virtueStatus.filter(v => v.earned).length
+      };
+    });
+    
+    res.json({ progress });
+  } catch (err) {
+    console.error('Virtue progress error:', err);
+    res.status(500).json({ error: 'Failed to get virtue progress' });
+  }
+});
+
+// --- Teacher: Get myth portal statuses for all alliances ---
+app.get('/api/teacher/myth-portals', authenticateToken, (req, res) => {
+  try {
+    if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
+    const statuses = query('SELECT mps.*, a.alliance_name, a.class_period FROM myth_portal_status mps JOIN alliances a ON mps.alliance_id = a.alliance_id');
+    const alliances = query('SELECT alliance_id, alliance_name, class_period FROM alliances ORDER BY class_period, alliance_name');
+    
+    res.json({ portals, statuses, alliances });
+  } catch (err) {
+    console.error('Teacher myth portals error:', err);
+    res.status(500).json({ error: 'Failed to get myth portals' });
+  }
+});
+
+// ====================
+// ADAPTIVE BATTLE QUESTION POOL
+// ====================
+
+// Override the getRandomQuestion function to support adaptive Classical pool
+// The original function is defined earlier in this file — we enhance it here
+// by wrapping the battle endpoint's question selection
+
+// Store reference to check if student has unlocked Classical myths
+function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
+  // Get the student's alliance to check which myths are unlocked
+  const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [studentId])[0];
+  if (!student || !student.alliance_id) {
+    // Fallback to all Archaic questions
+    return getRandomQuestion(excludeIds);
+  }
+  
+  // Check which Classical myths are unlocked for this alliance
+  const unlockedPortals = query(
+    'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.alliance_id = ? AND mps.activated = 1',
+    [student.alliance_id]
+  );
+  const unlockedMyths = unlockedPortals.map(p => p.myth_name);
+  
+  // Build question pool: all Archaic + Classical questions for unlocked myths
+  let questions;
+  if (excludeIds.length > 0) {
+    const placeholders = excludeIds.map(() => '?').join(',');
+    if (unlockedMyths.length > 0) {
+      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
+      questions = query(
+        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
+        [...excludeIds, ...unlockedMyths]
+      );
+    } else {
+      questions = query(
+        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL)`,
+        excludeIds
+      );
+    }
+  } else {
+    if (unlockedMyths.length > 0) {
+      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
+      questions = query(
+        `SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
+        unlockedMyths
+      );
+    } else {
+      questions = query("SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL)");
+    }
+  }
+  
+  if (questions.length === 0) {
+    // Fallback — get any active question
+    questions = query('SELECT * FROM battle_questions WHERE is_active = 1');
+    if (questions.length === 0) return null;
+  }
+  
+  // Fisher-Yates shuffle
+  for (let i = questions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+  }
+  
+  return questions[0];
+}
+
+// ====================
+// PERCENTAGE-BASED AGGRESSIVE FATE PENALTY
+// ====================
+
+// Helper: Apply percentage-based floor for aggressive fate failures
+// If the flat failure points are less than 10% of alliance total, use 10% instead
+function applyAggressivePenalty(failurePoints, allianceTotalPoints, riskLevel) {
+  if (riskLevel !== 'aggressive') return failurePoints;
+  
+  const percentFloor = Math.round(allianceTotalPoints * 0.10);
+  // failurePoints is negative, so we compare absolute values
+  const absFailure = Math.abs(failurePoints);
+  if (absFailure < percentFloor) {
+    return -percentFloor; // Return negative value
+  }
+  return failurePoints;
+}
 
 // ====================
 // HEALTH CHECK

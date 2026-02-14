@@ -550,6 +550,71 @@ async function initDatabase() {
     )
   `);
 
+  // ==================== CLASSICAL AGE TABLES ====================
+  
+  // Myth portal definitions (7 myths)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS myth_portals (
+      portal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      myth_name TEXT NOT NULL,
+      myth_number INTEGER NOT NULL,
+      display_name TEXT,
+      icon_placeholder TEXT,
+      icon_url TEXT,
+      glow_color TEXT,
+      description TEXT,
+      virtue_greek TEXT,
+      virtue_english TEXT,
+      virtue_description TEXT,
+      virtue_emoji TEXT
+    )
+  `);
+
+  // Teacher activation of myth portals per class period
+  db.run(`
+    CREATE TABLE IF NOT EXISTS myth_portal_status (
+      status_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      portal_id INTEGER NOT NULL,
+      class_period TEXT NOT NULL,
+      activated INTEGER DEFAULT 0,
+      activated_at DATETIME,
+      activated_by INTEGER,
+      FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id),
+      UNIQUE(portal_id, class_period)
+    )
+  `);
+
+  // In-game quiz questions per myth (80% threshold to unlock assignments)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS myth_quiz_questions (
+      question_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      portal_id INTEGER NOT NULL,
+      question_text TEXT NOT NULL,
+      option_a TEXT NOT NULL,
+      option_b TEXT NOT NULL,
+      option_c TEXT NOT NULL,
+      option_d TEXT NOT NULL,
+      correct_answer TEXT NOT NULL,
+      FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id)
+    )
+  `);
+
+  // Student quiz attempt tracking
+  db.run(`
+    CREATE TABLE IF NOT EXISTS myth_quiz_attempts (
+      attempt_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      portal_id INTEGER NOT NULL,
+      score INTEGER NOT NULL,
+      total_questions INTEGER NOT NULL,
+      percentage REAL NOT NULL,
+      passed INTEGER DEFAULT 0,
+      attempted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(student_id),
+      FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id)
+    )
+  `);
+
   // Run migrations for existing databases
   runMigrations();
   
@@ -592,66 +657,9 @@ function runMigrations() {
       db.run('ALTER TABLE alliances ADD COLUMN underdog_blessing INTEGER DEFAULT 0');
     }
     
-    // Add side_quest_rewards tracking column
     if (!colNames.includes('side_quest_rewards')) {
       console.log('  Adding side_quest_rewards column to alliances...');
       db.run("ALTER TABLE alliances ADD COLUMN side_quest_rewards TEXT DEFAULT '[]'");
-    }
-    
-    // Fix side quest emojis in existing databases
-    try {
-      db.run("UPDATE side_quests_ref SET icon = '🔨' WHERE quest_name = 'The Ring of Many' AND icon != '🔨'");
-      db.run("UPDATE side_quests_ref SET icon = '🏹' WHERE quest_name = 'Panacea''s Remedy' AND icon != '🏹'");
-    } catch(e) { /* table may not exist yet */ }
-    
-    // Add is_ghost column to students table
-    const studentCols = db.exec("PRAGMA table_info(students)");
-    const studentColNames = studentCols[0] ? studentCols[0].values.map(c => c[1]) : [];
-    
-    if (!studentColNames.includes('is_ghost')) {
-      console.log('  Adding is_ghost column to students...');
-      db.run("ALTER TABLE students ADD COLUMN is_ghost INTEGER DEFAULT 0");
-      
-      // Seed ghost students (5 boys, 5 girls with mythological names)
-      const ghostStudents = [
-        { name: 'Achilles Shadow', email: 'ghost_achilles@odyssey.ghost' },
-        { name: 'Orpheus Shade', email: 'ghost_orpheus@odyssey.ghost' },
-        { name: 'Theseus Echo', email: 'ghost_theseus@odyssey.ghost' },
-        { name: 'Perseus Phantom', email: 'ghost_perseus@odyssey.ghost' },
-        { name: 'Ajax Specter', email: 'ghost_ajax@odyssey.ghost' },
-        { name: 'Circe Whisper', email: 'ghost_circe@odyssey.ghost' },
-        { name: 'Daphne Mist', email: 'ghost_daphne@odyssey.ghost' },
-        { name: 'Selene Wraith', email: 'ghost_selene@odyssey.ghost' },
-        { name: 'Calypso Shade', email: 'ghost_calypso@odyssey.ghost' },
-        { name: 'Atalanta Spirit', email: 'ghost_atalanta@odyssey.ghost' }
-      ];
-      
-      for (const ghost of ghostStudents) {
-        try {
-          db.run(
-            "INSERT INTO students (name, email, password_hash, class_period, is_ghost) VALUES (?, ?, 'GHOST_NO_LOGIN', NULL, 1)",
-            [ghost.name, ghost.email]
-          );
-        } catch(e) { /* ghost already exists */ }
-      }
-      console.log('👻 Ghost students seeded (10 mythological spirits)');
-    }
-    
-    // Seed 3 additional ghost students (added later)
-    const extraGhosts = [
-      { name: 'Icarus Ember', email: 'ghost_icarus@odyssey.ghost' },
-      { name: 'Triton Depths', email: 'ghost_triton@odyssey.ghost' },
-      { name: 'Psyche Veil', email: 'ghost_psyche@odyssey.ghost' }
-    ];
-    
-    for (const ghost of extraGhosts) {
-      try {
-        db.run(
-          "INSERT INTO students (name, email, password_hash, class_period, is_ghost) VALUES (?, ?, 'GHOST_NO_LOGIN', NULL, 1)",
-          [ghost.name, ghost.email]
-        );
-        console.log(`👻 Added ghost: ${ghost.name}`);
-      } catch(e) { /* ghost already exists */ }
     }
     
     // Check and add pantheon unlock columns to student_achievement_progress
@@ -776,36 +784,86 @@ function runMigrations() {
   } catch (err) {
     console.log('Battle Arena migration note:', err.message);
   }
-  
-  // ==================== BADGE SYSTEM TABLES ====================
+
+  // Classical Age migrations
   try {
-    console.log('🏅 Running Badge System migrations...');
+    // Add classical columns to alliances
+    const allianceCols = db.exec("PRAGMA table_info(alliances)");
+    const allianceColNames = allianceCols[0] ? allianceCols[0].values.map(c => c[1]) : [];
     
-    // Create arena_badges table
-    db.run(`CREATE TABLE IF NOT EXISTS arena_badges (
-      badge_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      badge_key TEXT NOT NULL,
-      earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      celebration_seen INTEGER DEFAULT 0,
-      FOREIGN KEY (student_id) REFERENCES students(student_id),
-      UNIQUE(student_id, badge_key)
-    )`);
-    console.log('  ✅ arena_badges table ready');
+    if (!allianceColNames.includes('prometheus_cards')) {
+      console.log('  Adding prometheus_cards column to alliances...');
+      db.run('ALTER TABLE alliances ADD COLUMN prometheus_cards INTEGER DEFAULT 0');
+    }
     
-    // Create arena_announcements table
-    db.run(`CREATE TABLE IF NOT EXISTS arena_announcements (
-      announcement_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      badge_key TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )`);
-    console.log('  ✅ arena_announcements table ready');
+    // Add classical_entered to students
+    const studentCols = db.exec("PRAGMA table_info(students)");
+    const studentColNames = studentCols[0] ? studentCols[0].values.map(c => c[1]) : [];
     
-    console.log('✅ Badge System migrations complete');
+    if (!studentColNames.includes('classical_entered')) {
+      console.log('  Adding classical_entered column to students...');
+      db.run('ALTER TABLE students ADD COLUMN classical_entered INTEGER DEFAULT 0');
+    }
+    
+    console.log('✅ Classical Age migrations complete');
   } catch (err) {
-    console.log('Badge System migration note:', err.message);
+    console.log('Classical Age migration note:', err.message);
+  }
+
+  // Battle questions age/myth columns for adaptive Classical question pool
+  try {
+    const bqCols = db.exec("PRAGMA table_info(battle_questions)");
+    const bqColNames = bqCols[0] ? bqCols[0].values.map(c => c[1]) : [];
+    
+    if (!bqColNames.includes('age')) {
+      console.log('  Adding age column to battle_questions...');
+      db.run("ALTER TABLE battle_questions ADD COLUMN age TEXT DEFAULT 'Archaic'");
+    }
+    if (!bqColNames.includes('myth_name')) {
+      console.log('  Adding myth_name column to battle_questions...');
+      db.run("ALTER TABLE battle_questions ADD COLUMN myth_name TEXT DEFAULT NULL");
+    }
+    console.log('✅ Battle questions adaptive pool columns ready');
+  } catch (err) {
+    console.log('Battle questions migration note:', err.message);
+  }
+  
+  // Side quest age column migration
+  try {
+    const sqCols = db.exec("PRAGMA table_info(side_quests_ref)");
+    const sqColNames = sqCols[0] ? sqCols[0].values.map(c => c[1]) : [];
+    
+    if (!sqColNames.includes('age')) {
+      console.log('  Adding age column to side_quests_ref...');
+      db.run("ALTER TABLE side_quests_ref ADD COLUMN age TEXT DEFAULT 'Archaic'");
+      // Tag existing quests as Archaic
+      db.run("UPDATE side_quests_ref SET age = 'Archaic' WHERE age IS NULL");
+    }
+    
+    // Seed Hearth of Hestia if not exists
+    const hestiaCheck = db.exec("SELECT COUNT(*) FROM side_quests_ref WHERE quest_name = 'Hearth of Hestia'");
+    const hestiaExists = hestiaCheck[0] && hestiaCheck[0].values[0][0] > 0;
+    if (!hestiaExists) {
+      console.log('  Seeding Hearth of Hestia side quest...');
+      db.run(`INSERT INTO side_quests_ref (quest_name, god_associated, description, reward_type, reward_name, reward_description, form_url, icon, age) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['Hearth of Hestia', 'Hestia', 'Hestia, goddess of the hearth, has let her sacred flame grow dim. Without it, your city-state has no center — no warmth, no unity, no home. Journey to rekindle the flame and prove your alliance is worthy of her blessing.', 'technology', 'Sacred Flame', '+8% alliance point bonus (always active)', 'https://forms.gle/Sbz9rVbHXRJExtPd6', '🔥', 'Classical']
+      );
+      console.log('✅ Hearth of Hestia seeded');
+    }
+    
+    // Seed Sacred Flame technology if not exists
+    const sacredFlameCheck = db.exec("SELECT COUNT(*) FROM technologies_ref WHERE tech_name = 'Sacred Flame'");
+    const sacredFlameExists = sacredFlameCheck[0] && sacredFlameCheck[0].values[0][0] > 0;
+    if (!sacredFlameExists) {
+      db.run(`INSERT INTO technologies_ref (tech_name, bonus_type, bonus_value, specific_assignment_type, cost_description, god_associated, age_available, description) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['Sacred Flame', 'earning_multiplier', 0.08, null, 'Complete Hestia side quest', 'Hestia', 'Classical', 'Hestia\'s sacred flame warms your city-state. +8% alliance point bonus.']
+      );
+      console.log('✅ Sacred Flame technology seeded');
+    }
+  } catch (err) {
+    console.log('Side quest migration note:', err.message);
   }
 }
 
@@ -930,6 +988,10 @@ function seedReferenceData() {
       });
       console.log('✅ Side quests seeded');
     }
+    
+    // Fix side quest icons for existing databases (emoji update)
+    db.run("UPDATE side_quests_ref SET icon = '🔨' WHERE quest_name = 'The Ring of Many' AND icon != '🔨'");
+    db.run("UPDATE side_quests_ref SET icon = '🏹' WHERE quest_name = 'Panacea''s Remedy' AND icon != '🏹'");
 
     // Seed Fates (20 Archaic Age fates) - MUST be in order 1-20 so fate_id = fate_number
     console.log('🎲 Seeding fates...');
@@ -1207,7 +1269,98 @@ function seedReferenceData() {
         JSON.stringify([
           {label: "Percy Jackson's Greek Gods (Book)", url: "https://anyflip.com/sbybe/wnap/basic"},
           {label: "Audio Version - Video 87", url: "https://youtu.be/KS86wCZ99Go?si=4-nuFnmqE8cMigQd"}
-        ]), 1, 'Archaic']
+        ]), 1, 'Archaic'],
+      
+      // ==================== CLASSICAL AGE ASSIGNMENTS ====================
+      // Reading Notes (Comp Conns) - Classical Age
+      ['classical', 'comp_conn', 'Pandora', 'Pandora Reading Guide', 12, 'Reading guide on the myth of Pandora', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
+      
+      // Quizzes - Classical Age
+      ['classical', 'quiz', 'Pandora', 'Pandora Quiz', 10, 'Quiz on Pandora', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Phaethon', 'Phaethon Quiz', 10, 'Quiz on Phaethon', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Orpheus', 'Orpheus Quiz', 10, 'Quiz on Orpheus and Eurydice', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Echo and Narcissus', 'Echo and Narcissus Quiz', 10, 'Quiz on Echo and Narcissus', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 10, 'Quiz on Icarus and Daedalus', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Eros and Psyche', 'Eros and Psyche Quiz', 10, 'Quiz on Eros and Psyche', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
+      
+      // ==================== CLASSICAL AGE CREATIVE PORTFOLIO ====================
+      // No Pixtons. No WeVideos. Classical Age emphasizes original creative work.
+      
+      // Word Clouds (12 pts each)
+      ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Pandora myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
+      
+      // ==================== CLASSICAL AGE BONUSES ====================
+      ['bonus', 'bonus', 'Pandora', 'Pandora Retelling', 20,
+        'Use one of the paintings in the provided link that you find the most expressive and make a retelling of Pandora\'s myth that matches the tone and idea of the painting. Write your story based on the painting you choose.',
+        JSON.stringify([
+          {label: "Pandora Paintings (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Pandora (Box)', 'Pandora\'s Box 2026', 50,
+        'Create a new box that will release emotion into the world. Follow the directions to earn credit for your Pandora\'s Box 2026. This is a major creative project worth 50 points.',
+        JSON.stringify([
+          {label: "Pandora's Box Directions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Phaethon', 'Phaethon\'s Caution', 15,
+        'A cautionary poem tells a story with dire consequences in order to show readers what to avoid. Write a cautionary poem about Phaethon\'s ride across the sky in his father\'s sun chariot. Your poem should warn readers about the dangers of hubris and ignoring wise counsel.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Orpheus', 'Orpheus New Ending', 20,
+        'Have you ever wished that you could undo something that you had done? Would you do it differently if you had another opportunity to try again? Give Orpheus a second chance by changing the outcome of his tragic trip through Tartarus. Write a new ending for Orpheus and Eurydice.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Icarus', 'I, Icarus', 20,
+        'Pass the challenge of I, Icarus and create a new myth for your land. Use the story of Icarus and Daedalus as inspiration to craft an original myth about innovation, ambition, and the limits of human achievement.',
+        JSON.stringify([
+          {label: "I, Icarus Challenge (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Character Study', 15,
+        'Using a chart, list 10 Greek gods, goddesses or other characters you learned about in your readings and generalize, or draw a conclusion, about the qualities of each. Choose three words to describe each character and use details from the text to support your thinking.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Constellations', 'Constellation Story', 20,
+        'Using the questions at the bottom of your note taking sheet you will write the story of your constellation. Create an original myth explaining how a constellation came to be in the night sky.',
+        JSON.stringify([
+          {label: "Note Taking Sheet (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Echo and Narcissus', 'Echo and Narcissus Metamorphosis', 15,
+        'Greek myths, like Athena and Arachne, often feature a mortal who is transformed into a nonhuman creature because of pride. Into what would you turn a person who is spiteful? lazy? loud? Read the directions so that you understand how to present your ideas and make it clear what you are showing.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Morals', 'Morals', 5,
+        '"Arachne" has a clear moral, best summed up in Athena\'s final statement to Arachne: "...it is not wise to strive with [gods/goddesses]." Look at the myths about Persephone trapped in the Underworld and Narcissus and Echo and write a moral that best states the themes of these two tales. Explain how the story creates this moral.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      // ==================== WILD CARD BONUS (Student-Created) ====================
+      ['bonus', 'wildcard', 'Wild Card', 'Wild Card Bonus', 0,
+        'Create your own bonus assignment! Describe what you want to do, suggest how many points it should be worth, and submit for teacher approval. This is your chance to show creativity and deeper understanding in your own way. Points are flexible — Mr. Sebek will set the final value based on the quality and scope of your work.',
+        null, 1, 'Classical']
     ];
     
     assignments.forEach(a => {
@@ -1304,6 +1457,353 @@ function seedReferenceData() {
   }
 
   console.log('✅ Reference data seeded successfully');
+
+  // ==================== CLASSICAL AGE SEED DATA ====================
+  // This runs as a migration — safe for existing live databases
+  seedClassicalData();
+}
+
+function seedClassicalData() {
+  console.log('🏛️ Checking Classical Age data...');
+  
+  // === CLASSICAL BUILDINGS ===
+  try {
+    const classicalBuildingsCheck = db.exec("SELECT COUNT(*) FROM buildings_ref WHERE age_available = 'Classical'");
+    const classicalBuildingsExist = classicalBuildingsCheck[0] && classicalBuildingsCheck[0].values[0][0] > 0;
+    
+    if (!classicalBuildingsExist) {
+      console.log('🏗️ Seeding Classical buildings...');
+      // Need to get the building IDs for prerequisites
+      // Town Center = 1, Library = 2, House = 3, Wooden Wall = 4, Stone Wall = 5, Dock = 6
+      const classicalBuildings = [
+        // Transport Ship: 220 pts, requires Dock (6), Poseidon themed
+        ['Transport Ship', 220, 6, 'Poseidon', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Ocean-going vessel for trade and exploration. Requires Dock. Enables Classical trade routes.'],
+        // Armory: 300 pts, requires Library (2), Hephaestus themed, +150 battle bonus
+        ['Armory', 300, 2, 'Hephaestus', 0, 1, 'Classical', 150, 0, 0, 0, 1, 0, 'Weapons and armor forge. +150 battle bonus. Always active. Requires Library.'],
+        // Theater: 120 pts, requires Library (2), Apollo themed, +8% points
+        ['Theater', 120, 2, 'Apollo', 0, 1, 'Classical', 0, 0.08, 48, 72, 0, 0, 'Cultural center for drama and music. +8% point bonus when active. Requires Library.'],
+        // Agora: 80 pts, requires Town Center (1), Hermes themed
+        ['Agora', 80, 1, 'Hermes', 0, 1, 'Classical', 0, 0.05, 48, 48, 0, 0, 'Marketplace and civic center. +5% point bonus when active. Requires Town Center.'],
+        // Oracle: 150 pts, requires Stone Wall (5), Apollo themed
+        ['Oracle', 150, 5, 'Apollo', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Sacred prophecy site. Grants 1 free fate re-spin per week. Requires Stone Wall.']
+      ];
+
+      classicalBuildings.forEach(b => {
+        db.run(`INSERT INTO buildings_ref (building_name, cost_points, prerequisite_building_id, god_associated, requires_god_assignment, max_per_alliance, age_available, battle_bonus, point_bonus, active_duration_hours, cooldown_hours, always_active, required_for_age, description) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, b);
+      });
+      console.log('✅ Classical buildings seeded (5 buildings)');
+    }
+  } catch (err) {
+    console.log('Classical buildings seed note:', err.message);
+  }
+
+  // === MYTH PORTALS ===
+  try {
+    // Migrate myth_portals: add virtue columns if they don't exist
+    try {
+      db.exec("SELECT virtue_english FROM myth_portals LIMIT 0");
+    } catch (e) {
+      console.log('📜 Adding virtue columns to myth_portals...');
+      try { db.run("ALTER TABLE myth_portals ADD COLUMN virtue_greek TEXT"); } catch(e2) {}
+      try { db.run("ALTER TABLE myth_portals ADD COLUMN virtue_english TEXT"); } catch(e2) {}
+      try { db.run("ALTER TABLE myth_portals ADD COLUMN virtue_description TEXT"); } catch(e2) {}
+      try { db.run("ALTER TABLE myth_portals ADD COLUMN virtue_emoji TEXT"); } catch(e2) {}
+      console.log('✅ Virtue columns added to myth_portals');
+      // Force re-seed since old data won't have virtue info
+      db.run('DELETE FROM myth_portals');
+      console.log('📜 Cleared old portals for re-seed with virtue data');
+    }
+
+    const portalsCheck = db.exec('SELECT COUNT(*) FROM myth_portals');
+    const portalsExist = portalsCheck[0] && portalsCheck[0].values[0][0] > 0;
+    
+    // Check if virtue columns exist and have data
+    let needsReseed = !portalsExist;
+    if (portalsExist) {
+      try {
+        const virtueCheck = db.exec("SELECT virtue_english FROM myth_portals LIMIT 1");
+        if (!virtueCheck[0] || !virtueCheck[0].values[0][0]) needsReseed = true;
+      } catch (e) {
+        // Column doesn't exist yet — need to re-seed
+        needsReseed = true;
+      }
+    }
+    
+    if (needsReseed) {
+      // Clear old data if it exists without virtue columns
+      if (portalsExist) {
+        console.log('📜 Myth portals missing virtue data — re-seeding...');
+        db.run('DELETE FROM myth_portals');
+      }
+      console.log('📜 Seeding myth portals...');
+      const mythPortals = [
+        [1, 'Pandora', "Pandora's Box", '🏺', '/images/classical/myths/Pandora.png', '#FFD700', 'The story of the first woman and the jar that unleashed suffering upon the world — yet Hope remained.', 'Σωφροσύνη', 'Temperance', 'She opened the jar on impulse — temperance is the restraint she lacked.', '🏺'],
+        [2, 'Phaethon', "Phaethon's Chariot", '☀️', '/images/classical/myths/Phaethon.png', '#FF8C00', 'The tale of the boy who drove the sun chariot across the sky — and the catastrophe that followed.', 'Ταπεινοφροσύνη', 'Humility', 'He demanded the sun chariot beyond his ability — humility is knowing your limits.', '☀️'],
+        [3, 'Orpheus & Eurydice', 'Orpheus & Eurydice', '🎵', '/images/classical/myths/Orpheus.png', '#8B5CF6', 'The greatest musician who descended into the Underworld to bring back his beloved — if only he could resist looking back.', 'Καρτερία', 'Resolve', 'He looked back and lost everything — resolve is the strength to trust the path.', '🎵'],
+        [4, 'Echo & Narcissus', 'Echo & Narcissus', '🪞', '/images/classical/myths/Narcissus.png', '#EC4899', 'The nymph cursed to repeat others\' words and the beautiful youth who fell in love with his own reflection.', 'Γνῶθι Σαυτόν', 'Self-Knowledge', '"Know Thyself" — inscribed at Delphi. Narcissus was destroyed by not truly knowing himself.', '🪞'],
+        [5, 'Icarus & Daedalus', 'Icarus & Daedalus', '🪶', '/images/classical/myths/Icarus.png', '#3B82F6', 'The master craftsman and his son who escaped the labyrinth on wings of wax — but flew too close to the sun.', 'Φρόνησις', 'Prudence', 'He ignored his father\'s wisdom — prudence is wisdom in the face of freedom.', '🪶'],
+        [6, 'Eros & Psyche', 'Eros & Psyche', '💘', '/images/classical/myths/Psyche.png', '#EF4444', 'The mortal woman so beautiful she rivaled Aphrodite, and the god of love who fell for her.', 'Πίστις', 'Faith', 'She endured impossible trials — faith is trust through the darkness.', '🦋'],
+        [7, 'Constellations', 'Callisto, Orion & Andromeda', '⭐', '/images/classical/myths/Orion.png', '#C0C0C0', 'The myths behind the stars — hunters, bears, and princesses placed in the heavens by the gods.', 'Κλέος', 'Glory', 'Heroes immortalized in the stars — glory that outlasts death, the ultimate Greek value.', '⭐']
+      ];
+
+      mythPortals.forEach(p => {
+        db.run(`INSERT INTO myth_portals (myth_number, myth_name, display_name, icon_placeholder, icon_url, glow_color, description, virtue_greek, virtue_english, virtue_description, virtue_emoji)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, p);
+      });
+      console.log('✅ Myth portals seeded (7 portals)');
+    }
+  } catch (err) {
+    console.log('Myth portals seed note:', err.message);
+  }
+
+  // === CLASSICAL FATES (24 fates, numbered 21-44 to avoid conflicts with Archaic 1-20) ===
+  try {
+    const classicalFatesCheck = db.exec("SELECT COUNT(*) FROM fates_ref WHERE age_available = 'Classical'");
+    const classicalFatesCount = classicalFatesCheck[0] ? classicalFatesCheck[0].values[0][0] : 0;
+    
+    if (classicalFatesCount !== 24) {
+      if (classicalFatesCount > 0) {
+        console.log(`⚠️ Found ${classicalFatesCount} Classical fates (expected 24), re-seeding...`);
+        db.run("DELETE FROM fates_ref WHERE age_available = 'Classical'");
+        db.run("DELETE FROM fate_choices WHERE fate_id NOT IN (SELECT fate_id FROM fates_ref)");
+      }
+      console.log('🎲 Seeding Classical fates...');
+      
+      const classicalFates = [
+        // Fate 21: Artemis Forest Fires (STEAL-CHOICE NEGATIVE — give pts to each)
+        [21, "Artemis Forest Fires", 'steal_choice', "Forest fires in your land have angered Artemis. She is enraged and crushes your economy. You give points to each country.", 'Artemis', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 22: Poseidon Fishing Storms (CHOICE NEGATIVE)
+        [22, "Poseidon Fishing Storms", 'choice', "Your fishing boats have been very productive. So productive that Poseidon is getting upset with the amount of fish taken from the sea. Frequent storms damage your boats.", 'Poseidon', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 23: Athena/Arachne Disorder (CHOICE NEGATIVE)
+        [23, "Athena/Arachne Disorder", 'choice', "Your people are angry with Athena for her treatment of Arachne. The split between supporters and protesters is causing disorder.", 'Athena', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 24: Ares Wild Boar Battle (BATTLE — 95% threat, ±40)
+        [24, "Ares Wild Boar Battle", 'battle', "Ares sends wild boars to attack your village! Their tusks could do up to 60 points of damage. The boar's power is 95% of your country's total points.", 'Ares', null, null, 0, 0, null, 1, 0.95, 60, -60, "Wild boars with razor tusks charge through your village!", 'Classical'],
+        // Fate 25: Hephaestus Ichor Discovery (CHOICE POSITIVE)
+        [25, "Hephaestus Ichor Discovery", 'choice', "The lava from Hephaestus's forge has created a new scientific element, Ichor. It is an excellent new source of power.", 'Hephaestus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 26: Demeter's Depression (CHOICE NEGATIVE)
+        [26, "Demeter's Depression", 'choice', "Persephone has disappeared, Demeter is depressed. Crops are failing across the land.", 'Demeter', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 27: Kobalos Attack (BATTLE — 95% threat, Armory +10%)
+        [27, "Kobalos Attack", 'battle', "Dionysus has been checking on his grapes. The mischievous Kobalos are running free through your village! They have 95% of your power. If you have an armory you get a bonus.", 'Dionysus', null, null, 0, 0, null, 1, 0.95, 52, -52, "Mischievous Kobalos steal everything in sight!", 'Classical'],
+        // Fate 28: Constellation Blessing (STEAL-CHOICE POSITIVE — steal from each)
+        [28, "Constellation Blessing", 'steal_choice', "Your land is favored by the gods and you have been granted a constellation in the sky! You gain points from each country.", 'Zeus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 29: Countdown Your Fate (SPECIAL — teacher input)
+        [29, "Countdown Your Fate", 'special', "The fates have decreed a game of wit and strategy! The citizen that wins shall gain the points.", 'The Moirai', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 30: Power of Prometheus (SPECIAL — stored card)
+        [30, "Power of Prometheus", 'special', "Prometheus stole fire from the gods — you now have the power to steal a fate from another country! Save this card.", 'Prometheus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 31: Hera Marriage Laws (CHOICE POSITIVE)
+        [31, "Hera Marriage Laws", 'choice', "New laws make it easier for people to get married and give equal rights. Hera is ecstatic with your land!", 'Hera', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 32: Reverse Card (SPECIAL — stored card)
+        [32, "Reverse Card", 'special', "Reverse the points of any fate played against you! Turn the negative points into positive points.", 'The Moirai', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 33: Hermes on Strike (CHOICE NEGATIVE)
+        [33, "Hermes on Strike", 'choice', "Hermes is on strike! Angered by Hades, he will no longer conduct souls to the Underworld. Spirits roam your cities.", 'Hermes', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 34: Giant Echion (BATTLE — 95% threat, -40 on loss, Armory bonus)
+        [34, "Giant Echion", 'battle', "The giant Echion has found his way to your island! Using his great strength, he threatens your fishing fleet. His power is 95% of yours.", 'Prometheus', null, null, 0, 0, null, 1, 0.95, 60, -60, "Giant Echion towers over your village!", 'Classical'],
+        // Fate 35: Dionysus Drought (STEAL-CHOICE NEGATIVE — lose to each)
+        [35, "Dionysus Drought", 'steal_choice', "A severe drought has killed off many grape vines. Dionysus is upset. You lose points to each country.", 'Dionysus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 36: Cerastes Vipers (BATTLE — 95% threat, ±35)
+        [36, "Cerastes Vipers", 'battle', "Cerastes, horned vipers, are causing chaos in your village! Many villagers have been bitten. Their attack is 95% of your power.", 'Ares', null, null, 0, 0, null, 1, 0.95, 52, -52, "Horned vipers slither through your streets!", 'Classical'],
+        // Fate 37: Hestia's Blessing (CHOICE POSITIVE)
+        [37, "Hestia's Blessing", 'choice', "Hestia has favored your land because it is so peaceful and welcoming. As the Goddess of the Hearth, she appreciates your balanced environment.", 'Hestia', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 38: River Nymphs (CHOICE NEGATIVE)
+        [38, "River Nymphs", 'choice', "River nymphs are causing chaos along your waterways. Boats are unable to move due to the nymphs playing rough with sailors.", 'Poseidon', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 39: Athena's Olive Tree (CHOICE POSITIVE)
+        [39, "Athena's Olive Tree", 'choice', "Athena has blessed your land with a sacred olive tree. Its fruit brings prosperity and its oil is prized across all of Greece.", 'Athena', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 40: Dionysus Party Chaos (CHOICE NEGATIVE)
+        [40, "Dionysus Party Chaos", 'choice', "Dionysus has caused chaos within your land with all of the partying. Large parties are disrupting your cities.", 'Dionysus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 41: Swamp Reptile (SPECIAL — teacher input, like Countdown)
+        [41, "Swamp Reptile", 'special', "A massive reptile emerges from the swamps near your village! The fates decree a challenge to drive it away.", 'The Moirai', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 42: Phaethon's Chariot (CHOICE — high swing +/-) 
+        [42, "Phaethon's Chariot", 'choice', "Phaethon has lost control of the sun chariot and it races across your sky! The heat scorches your crops but the light reveals hidden treasures.", 'Apollo', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 43: Orpheus's Lament (CHOICE NEGATIVE)
+        [43, "Orpheus's Lament", 'choice', "The grief of Orpheus echoes through your land. His music is so sorrowful that your workers stop to weep, halting all productivity.", 'Apollo', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
+        // Fate 44: Pandora's Echo (STEAL-CHOICE POSITIVE — steal from each)
+        [44, "Pandora's Echo", 'steal_choice', "A fragment of Pandora's box washes ashore. Inside, a wisp of Hope remains. You may share it with others or try to keep it all.", 'Athena', null, null, 0, 0, null, 0, null, null, null, null, 'Classical']
+      ];
+
+      classicalFates.forEach(f => {
+        db.run(`INSERT INTO fates_ref (fate_number, fate_name, fate_type, description, god_associated, icon_url, point_effect, steals_from_others, gives_to_others, transfer_amount, is_battle, battle_threat_percent, battle_win_points, battle_lose_points, battle_description, age_available) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, f);
+      });
+      console.log('✅ Classical fates seeded (24 fates)');
+
+      // === CLASSICAL FATE CHOICES (3 tiers per fate) ===
+      console.log('🎲 Seeding Classical fate choices...');
+      
+      // Get the fate_ids for Classical fates (they may not be 21-44 if auto-increment differs)
+      const classicalFateIds = {};
+      const fateRows = db.exec("SELECT fate_id, fate_number FROM fates_ref WHERE age_available = 'Classical'");
+      if (fateRows[0]) {
+        fateRows[0].values.forEach(row => {
+          classicalFateIds[row[1]] = row[0]; // fate_number -> fate_id
+        });
+      }
+
+      const classicalChoices = [
+        // === STEAL-CHOICE FATES (special handling — amounts per alliance) ===
+        
+        // Fate 21: Artemis Forest Fires (negative steal — give pts to each)
+        [classicalFateIds[21], 'conservative', "Offer tribute to calm Artemis — limit the fire damage", 0.85, -4, -10],
+        [classicalFateIds[21], 'moderate', "Rally firefighting crews — might turn the tide", 0.55, 2, -15],
+        [classicalFateIds[21], 'aggressive', "Harness the flames to forge new weapons!", 0.30, 10, -25],
+        
+        // Fate 28: Constellation Blessing (positive steal — steal from each)
+        [classicalFateIds[28], 'conservative', "Accept the stars' modest gift", 0.85, 10, 4],
+        [classicalFateIds[28], 'moderate', "Claim a greater constellation for your people", 0.55, 15, 0],
+        [classicalFateIds[28], 'aggressive', "Demand the grandest constellation in the heavens!", 0.30, 20, -15],
+        
+        // Fate 35: Dionysus Drought (negative steal — lose to each)
+        [classicalFateIds[35], 'conservative', "Ration remaining wine and pray for rain", 0.85, -4, -10],
+        [classicalFateIds[35], 'moderate', "Send scouts to find hidden springs", 0.55, 2, -15],
+        [classicalFateIds[35], 'aggressive', "Steal wine reserves from neighboring lands!", 0.30, 10, -25],
+        
+        // Fate 44: Pandora's Echo (positive steal — steal from each)
+        [classicalFateIds[44], 'conservative', "Carefully share Hope with your closest allies", 0.85, 10, 4],
+        [classicalFateIds[44], 'moderate', "Use Hope to inspire your people to greatness", 0.55, 15, 0],
+        [classicalFateIds[44], 'aggressive', "Open the fragment fully and release all of Hope!", 0.30, 20, -15],
+
+        // === STANDARD CHOICE FATES ===
+        
+        // Fate 22: Poseidon Fishing Storms (-15 base)
+        [classicalFateIds[22], 'conservative', "Dock your boats and wait out the storms", 0.85, -8, -20],
+        [classicalFateIds[22], 'moderate', "Send scouts to negotiate with Poseidon", 0.55, 3, -26],
+        [classicalFateIds[22], 'aggressive', "Sail into the storm to prove your worth!", 0.30, 20, -35],
+        
+        // Fate 23: Athena/Arachne Disorder (-25 base)
+        [classicalFateIds[23], 'conservative', "Call for unity and peaceful dialogue", 0.85, -12, -28],
+        [classicalFateIds[23], 'moderate', "Host a weaving contest to honor both sides", 0.55, 0, -35],
+        [classicalFateIds[23], 'aggressive', "Side with Arachne against Athena!", 0.30, 25, -45],
+        
+        // Fate 25: Hephaestus Ichor Discovery (+20 base)
+        [classicalFateIds[25], 'conservative', "Carefully study the new element", 0.85, 15, -5],
+        [classicalFateIds[25], 'moderate', "Build a laboratory to harness Ichor's power", 0.55, 28, -12],
+        [classicalFateIds[25], 'aggressive', "Attempt to forge divine weapons with Ichor!", 0.30, 50, -25],
+        
+        // Fate 26: Demeter's Depression (-20 base)
+        [classicalFateIds[26], 'conservative', "Plant emergency crops and pray for Persephone's return", 0.85, -10, -24],
+        [classicalFateIds[26], 'moderate', "Send search parties to find Persephone", 0.55, 0, -30],
+        [classicalFateIds[26], 'aggressive', "Storm the Underworld gates to retrieve Persephone!", 0.30, 22, -40],
+        
+        // Fate 31: Hera Marriage Laws (+25 base)
+        [classicalFateIds[31], 'conservative', "Accept Hera's blessing with gratitude", 0.85, 18, -5],
+        [classicalFateIds[31], 'moderate', "Declare a grand wedding festival in Hera's honor", 0.55, 32, -12],
+        [classicalFateIds[31], 'aggressive', "Claim your marriages are blessed by ALL the gods!", 0.30, 55, -28],
+        
+        // Fate 33: Hermes on Strike (-15 base)
+        [classicalFateIds[33], 'conservative', "Hire mortal guides for lost spirits", 0.85, -8, -18],
+        [classicalFateIds[33], 'moderate', "Negotiate Hermes's return to duty", 0.55, 5, -24],
+        [classicalFateIds[33], 'aggressive', "Build your own path to the Underworld!", 0.30, 22, -35],
+        
+        // Fate 37: Hestia's Blessing (+25 base)
+        [classicalFateIds[37], 'conservative', "Welcome Hestia's warmth into your homes", 0.85, 18, -5],
+        [classicalFateIds[37], 'moderate', "Build a grand hearth temple in her honor", 0.55, 32, -12],
+        [classicalFateIds[37], 'aggressive', "Declare your hearth the center of ALL Greece!", 0.30, 55, -28],
+        
+        // Fate 38: River Nymphs (-20 base)
+        [classicalFateIds[38], 'conservative', "Offer flowers and songs to calm the nymphs", 0.85, -10, -24],
+        [classicalFateIds[38], 'moderate', "Send diplomats to negotiate river passage", 0.55, 2, -28],
+        [classicalFateIds[38], 'aggressive', "Challenge the nymphs to a swimming race!", 0.30, 22, -38],
+        
+        // Fate 39: Athena's Olive Tree (+20 base)
+        [classicalFateIds[39], 'conservative', "Harvest the olives and share with your people", 0.85, 15, -5],
+        [classicalFateIds[39], 'moderate', "Trade olive oil to neighboring villages for profit", 0.55, 28, -12],
+        [classicalFateIds[39], 'aggressive', "Claim the tree grants you divine wisdom over all!", 0.30, 50, -25],
+        
+        // Fate 40: Dionysus Party Chaos (-20 base)
+        [classicalFateIds[40], 'conservative', "Establish curfews and restore order", 0.85, -10, -24],
+        [classicalFateIds[40], 'moderate', "Channel the chaos into organized festivals", 0.55, 2, -28],
+        [classicalFateIds[40], 'aggressive', "Join the party and try to impress Dionysus!", 0.30, 22, -38],
+        
+        // Fate 42: Phaethon's Chariot (high swing)
+        [classicalFateIds[42], 'conservative', "Take shelter from the sun's heat", 0.85, 15, -5],
+        [classicalFateIds[42], 'moderate', "Search for treasures revealed by the light", 0.55, 30, -15],
+        [classicalFateIds[42], 'aggressive', "Try to catch the chariot reins yourself!", 0.30, 50, -30],
+        
+        // Fate 43: Orpheus's Lament (negative)
+        [classicalFateIds[43], 'conservative', "Play cheerful music to counter the grief", 0.85, -8, -18],
+        [classicalFateIds[43], 'moderate', "Challenge Orpheus to a musical contest", 0.55, 5, -22],
+        [classicalFateIds[43], 'aggressive', "Journey to the Underworld to reunite Orpheus with Eurydice!", 0.30, 20, -35],
+
+        // === SPECIAL FATES (placeholder choices — handled by special mechanics) ===
+        
+        // Fate 24: Ares Wild Boar Battle
+        [classicalFateIds[24], 'conservative', "Battle — handled by battle system", 0.85, 0, 0],
+        [classicalFateIds[24], 'moderate', "Battle — handled by battle system", 0.55, 0, 0],
+        [classicalFateIds[24], 'aggressive', "Battle — handled by battle system", 0.30, 0, 0],
+        
+        // Fate 27: Kobalos Attack
+        [classicalFateIds[27], 'conservative', "Battle — handled by battle system", 0.85, 0, 0],
+        [classicalFateIds[27], 'moderate', "Battle — handled by battle system", 0.55, 0, 0],
+        [classicalFateIds[27], 'aggressive', "Battle — handled by battle system", 0.30, 0, 0],
+        
+        // Fate 29: Countdown Your Fate
+        [classicalFateIds[29], 'conservative', "Countdown — handled by teacher input", 0.85, 0, 0],
+        [classicalFateIds[29], 'moderate', "Countdown — handled by teacher input", 0.55, 0, 0],
+        [classicalFateIds[29], 'aggressive', "Countdown — handled by teacher input", 0.30, 0, 0],
+        
+        // Fate 30: Power of Prometheus (stored card)
+        [classicalFateIds[30], 'conservative', "Prometheus Card — goes to inventory", 0.85, 0, 0],
+        [classicalFateIds[30], 'moderate', "Prometheus Card — goes to inventory", 0.55, 0, 0],
+        [classicalFateIds[30], 'aggressive', "Prometheus Card — goes to inventory", 0.30, 0, 0],
+        
+        // Fate 32: Reverse Card (stored card)
+        [classicalFateIds[32], 'conservative', "Reverse Card — goes to inventory", 0.85, 0, 0],
+        [classicalFateIds[32], 'moderate', "Reverse Card — goes to inventory", 0.55, 0, 0],
+        [classicalFateIds[32], 'aggressive', "Reverse Card — goes to inventory", 0.30, 0, 0],
+        
+        // Fate 34: Giant Echion
+        [classicalFateIds[34], 'conservative', "Battle — handled by battle system", 0.85, 0, 0],
+        [classicalFateIds[34], 'moderate', "Battle — handled by battle system", 0.55, 0, 0],
+        [classicalFateIds[34], 'aggressive', "Battle — handled by battle system", 0.30, 0, 0],
+        
+        // Fate 36: Cerastes Vipers
+        [classicalFateIds[36], 'conservative', "Battle — handled by battle system", 0.85, 0, 0],
+        [classicalFateIds[36], 'moderate', "Battle — handled by battle system", 0.55, 0, 0],
+        [classicalFateIds[36], 'aggressive', "Battle — handled by battle system", 0.30, 0, 0],
+        
+        // Fate 41: Swamp Reptile
+        [classicalFateIds[41], 'conservative', "Swamp challenge — handled by teacher input", 0.85, 0, 0],
+        [classicalFateIds[41], 'moderate', "Swamp challenge — handled by teacher input", 0.55, 0, 0],
+        [classicalFateIds[41], 'aggressive', "Swamp challenge — handled by teacher input", 0.30, 0, 0]
+      ];
+
+      classicalChoices.forEach(choice => {
+        // Apply 50% increase to all non-zero point values (Classical Age has bigger point totals)
+        let [fateId, riskLevel, desc, successChance, successPts, failurePts] = choice;
+        if (successPts !== 0) successPts = Math.round(successPts * 1.5);
+        if (failurePts !== 0) failurePts = Math.round(failurePts * 1.5);
+        db.run(`INSERT INTO fate_choices (fate_id, risk_level, description, success_chance, success_points, failure_points)
+                VALUES (?, ?, ?, ?, ?, ?)`, [fateId, riskLevel, desc, successChance, successPts, failurePts]);
+      });
+      // NOTE: Aggressive failure also uses percentage-based penalty at runtime in server.js
+      // If aggressive failure_points result is less than 10% of alliance total_points, 
+      // the server uses 10% of total_points instead. This ensures aggressive choices 
+      // always sting, even for wealthy alliances.
+      console.log('✅ Classical fate choices seeded (72 choices, all points +50%)');
+      
+      // Force save and verify
+      saveDatabaseNow();
+      const verifyCount = db.exec("SELECT COUNT(*) FROM fates_ref WHERE age_available = 'Classical'");
+      console.log('🔍 Verification - Classical fates in DB:', verifyCount[0] ? verifyCount[0].values[0][0] : 'QUERY FAILED');
+    }
+  } catch (err) {
+    console.error('❌ Classical fates seed ERROR:', err.message);
+    console.error('❌ Full error:', err.stack || err);
+  }
+
+  // Double-check: verify total fates counts
+  try {
+    const allFatesCheck = db.exec("SELECT age_available, COUNT(*) as cnt FROM fates_ref GROUP BY age_available");
+    if (allFatesCheck[0]) {
+      const cols = allFatesCheck[0].columns;
+      const vals = allFatesCheck[0].values;
+      console.log('📊 Fates summary:', vals.map(v => `${v[0]}: ${v[1]}`).join(', '));
+    }
+  } catch (e) {
+    console.log('Fates summary check failed:', e.message);
+  }
+
+  console.log('🏛️ Classical Age data check complete');
 }
 
 // Debounced save to prevent EBUSY errors from rapid writes
