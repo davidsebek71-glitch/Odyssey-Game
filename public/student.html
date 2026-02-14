@@ -246,7 +246,7 @@
         }
         
         .hermes-overlay::after {
-            content: 'ðŸª½ SLOWED!';
+            content: '🪽 SLOWED!';
             font-size: 48px;
             color: white;
             text-shadow: 0 0 20px rgba(0,0,0,0.8);
@@ -1858,7 +1858,7 @@
     <div class="header">
         <div class="header-content">
             <div class="logo">
-                <h1>âš¡ ODYSSEY TO OLYMPUS</h1>
+                <h1>⚡ ODYSSEY TO OLYMPUS</h1>
             </div>
             <div class="user-info">
                 <span class="user-name" id="student-name">Student</span>
@@ -1869,7 +1869,7 @@
 
     <!-- Pantheon Bar -->
     <div class="pantheon-bar" id="pantheon-bar">
-        <div class="pantheon-title">âš¡ PANTHEON</div>
+        <div class="pantheon-title">⚡ PANTHEON</div>
         <div class="pantheon-gods" id="pantheon-gods">
             <!-- Zeus -->
             <div class="pantheon-god-wrapper locked" id="pantheon-zeus-wrapper">
@@ -2029,7 +2029,7 @@
             </div>
         </div>
         <button class="new-unlock-btn" id="new-unlock-btn" style="display: none;" onclick="playCelebration()">
-            âš¡ NEW UNLOCK! âš¡
+            ⚡ NEW UNLOCK! ⚡
         </button>
     </div>
     
@@ -2350,19 +2350,19 @@
                 Submit Points
             </button>
             <button class="action-btn" onclick="openMapModal()" id="map-btn">
-                <span class="icon">ðŸ—ºï¸</span>
+                <span class="icon">🗺️</span>
                 My Map
             </button>
             <button class="action-btn" onclick="openArena()" id="arena-btn" style="background: linear-gradient(135deg, #dc2626, #991b1b);">
-                <span class="icon">âš”ï¸</span>
+                <span class="icon">⚔️</span>
                 Battle Arena
             </button>
             <button class="action-btn" onclick="openInviteModal()" id="invite-btn">
-                <span class="icon">ðŸ‘¥</span>
+                <span class="icon">👥</span>
                 Invite Member
             </button>
             <button class="action-btn" onclick="openCreateModal()" id="create-alliance-btn" style="display: none;">
-                <span class="icon">ðŸ›ï¸</span>
+                <span class="icon">🏛️</span>
                 Create Alliance
             </button>
         </div>
@@ -2370,22 +2370,22 @@
         <!-- Stats -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="icon">ðŸ›ï¸</div>
+                <div class="icon">🏛️</div>
                 <div class="label">Alliance</div>
                 <div class="value" id="alliance-name-stat" style="font-size: 20px;">--</div>
             </div>
             <div class="stat-card">
-                <div class="icon">âš¡</div>
+                <div class="icon">⚡</div>
                 <div class="label">Total Points</div>
                 <div class="value" id="points-stat">0</div>
             </div>
             <div class="stat-card">
-                <div class="icon">ðŸ†</div>
+                <div class="icon">🏆</div>
                 <div class="label">Current Rank</div>
                 <div class="value" id="rank-stat">--</div>
             </div>
             <div class="stat-card">
-                <div class="icon">ðŸŒŸ</div>
+                <div class="icon">🌟</div>
                 <div class="label">Current Age</div>
                 <div class="value" id="age-stat" style="font-size: 22px;">Archaic</div>
             </div>
@@ -2397,7 +2397,7 @@
                 <!-- Invitations -->
                 <div class="card" id="invitations-card" style="display: none; margin-bottom: 20px;">
                     <div class="card-title">
-                        ðŸ“¬ Alliance Invitations
+                        📬 Alliance Invitations
                         <span class="notification-badge" id="invitation-count">0</span>
                     </div>
                     <div id="invitations-content"></div>
@@ -2405,14 +2405,14 @@
 
                 <!-- Alliance Info -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">ðŸ‘¥ My Alliance</div>
+                    <div class="card-title">👥 My Alliance</div>
                     <div id="alliance-content" class="loading">Loading...</div>
                 </div>
                 
                 <!-- Building Activations -->
                 <div class="card" id="buildings-card" style="display: none; margin-bottom: 20px;">
                     <div class="card-title">
-                        ðŸ›ï¸ My Buildings
+                        🏛️ My Buildings
                         <span id="active-bonus-badge" style="float: right; background: linear-gradient(135deg, #4ade80, #22c55e); color: #1a0a0f; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 700;">+0%</span>
                     </div>
                     <div id="buildings-activations-content">Loading...</div>
@@ -2420,19 +2420,19 @@
 
                 <!-- My Contributions (Phase 2) -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">ðŸ“Š My Contributions</div>
+                    <div class="card-title">📊 My Contributions</div>
                     <div id="contributions-content" class="loading">Loading...</div>
                 </div>
 
                 <!-- My Grades (V42) -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">ðŸ“Š My Archaic Age Grades</div>
+                    <div class="card-title">📊 My Archaic Age Grades</div>
                     <div id="grades-content" class="loading">Loading...</div>
                 </div>
 
                 <!-- My Submissions -->
                 <div class="card">
-                    <div class="card-title">ðŸ“ My Point Submissions</div>
+                    <div class="card-title">📝 My Point Submissions</div>
                     <div id="submissions-content" class="loading">Loading...</div>
                 </div>
             </div>
@@ -2440,19 +2440,19 @@
             <div>
                 <!-- Age Progress -->
                 <div class="card" style="margin-bottom: 20px;" id="age-progress-card">
-                    <div class="card-title">ðŸ›ï¸ Progress to Classical Age</div>
+                    <div class="card-title">🏛️ Progress to Classical Age</div>
                     <div id="age-progress-content" class="loading">Loading...</div>
                 </div>
                 
                 <!-- Achievements -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">âš¡ Power-Up Achievements</div>
+                    <div class="card-title">⚡ Power-Up Achievements</div>
                     <div id="achievements-content" class="loading">Loading...</div>
                 </div>
                 
                 <!-- Leaderboard -->
                 <div class="card">
-                    <div class="card-title">ðŸ† Leaderboard</div>
+                    <div class="card-title">🏆 Leaderboard</div>
                     <div id="leaderboard-content" class="loading">Loading...</div>
                 </div>
             </div>
@@ -2549,7 +2549,7 @@
     <!-- Building Market Modal (higher z-index to appear on top of map) -->
     <div id="building-modal" class="modal" style="z-index: 1100;">
         <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-title">ðŸ›ï¸ Building Market</div>
+            <div class="modal-title">🏛️ Building Market</div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: rgba(255,215,0,0.1); border-radius: 10px;">
                 <div>
                     <span style="color: rgba(255,255,255,0.7);">Alliance Points:</span>
@@ -2571,7 +2571,7 @@
     <!-- Map Modal -->
     <div id="map-modal" class="modal">
         <div class="modal-content" style="max-width: 1200px; max-height: 95vh; padding: 20px;">
-            <div class="modal-title" style="margin-bottom: 15px;">ðŸ—ºï¸ My Civilization Map</div>
+            <div class="modal-title" style="margin-bottom: 15px;">🗺️ My Civilization Map</div>
             
             <!-- Two-column layout: Progress sidebar + Map -->
             <div id="map-layout" style="display: flex; gap: 20px; min-height: 450px;">
@@ -2579,7 +2579,7 @@
                 <!-- Left Sidebar: Progress to Classical Age -->
                 <div id="map-sidebar-left" style="width: 200px; flex-shrink: 0; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px;">
                     <div style="margin-bottom: 12px;">
-                        <strong style="font-size: 14px; color: #ffd700;">ðŸ›ï¸ Progress to Classical Age</strong>
+                        <strong style="font-size: 14px; color: #ffd700;">🏛️ Progress to Classical Age</strong>
                     </div>
                     <div id="map-progress-content" style="font-size: 12px;">
                         Loading...
@@ -2598,7 +2598,7 @@
             <!-- Buttons below map -->
             <div style="margin-top: 20px; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="openBuildingMarket()" style="padding: 12px 24px;">
-                    ðŸª Building Market
+                    🏪 Building Market
                 </button>
                 <button class="btn btn-secondary" onclick="closeMapModal()" style="padding: 12px 24px;">
                     Close
@@ -2610,7 +2610,7 @@
     <!-- View Other Map Modal -->
     <div id="view-map-modal" class="modal">
         <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
-            <div class="modal-title" id="view-map-title">ðŸ—ºï¸ Viewing Map</div>
+            <div class="modal-title" id="view-map-title">🗺️ Viewing Map</div>
             <div id="view-map-content" style="min-height: 400px;">
                 Loading...
             </div>
@@ -2624,8 +2624,8 @@
     <div id="bonus-portal-modal" class="modal">
         <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                ðŸŽ Extra Credit Bonus Options
-                <button onclick="closeBonusPortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">âœ•</button>
+                🎁 Extra Credit Bonus Options
+                <button onclick="closeBonusPortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
             </div>
             <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Complete these bonus assignments to earn extra credit points. Each can only be done once.</p>
             <div id="bonus-assignments-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
@@ -2640,7 +2640,7 @@
             <div class="modal-title" id="bonus-detail-title">Assignment Details</div>
             <div id="bonus-detail-content">Loading...</div>
             <div class="modal-buttons" style="margin-top: 20px;">
-                <button class="btn btn-secondary" onclick="closeBonusDetail()">â† Back to Bonus Options</button>
+                <button class="btn btn-secondary" onclick="closeBonusDetail()">← Back to Bonus Options</button>
                 <button class="btn btn-primary" id="bonus-submit-btn" onclick="submitBonusWork()">Submit for Review</button>
             </div>
         </div>
@@ -2650,14 +2650,14 @@
     <div id="side-quest-portal-modal" class="modal">
         <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                ðŸ—ºï¸ Side Quest Portal
-                <button onclick="closeSideQuestPortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">âœ•</button>
+                🗺️ Side Quest Portal
+                <button onclick="closeSideQuestPortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
             </div>
             <p style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">Complete these adventure quests to unlock special rewards for your alliance. <strong>All alliance members must complete</strong> a quest to earn its reward!</p>
             
             <!-- Alliance Tech Display -->
             <div id="alliance-techs-display" style="margin-bottom: 20px; padding: 10px; background: rgba(255,215,0,0.1); border-radius: 8px; border: 1px solid rgba(255,215,0,0.3); display: none;">
-                <div style="font-size: 14px; color: #ffd700; font-weight: bold; margin-bottom: 5px;">ðŸ† Alliance Technologies Earned:</div>
+                <div style="font-size: 14px; color: #ffd700; font-weight: bold; margin-bottom: 5px;">🏆 Alliance Technologies Earned:</div>
                 <div id="alliance-techs-list" style="display: flex; gap: 15px; flex-wrap: wrap;"></div>
             </div>
             
@@ -2709,19 +2709,19 @@
         
         // God configuration - MUST be declared before loadPantheon is called
         const GOD_CONFIG = {
-            zeus: { emoji: 'âš¡', glowClass: '', color: '#ffd700', flashId: 'screen-flash-yellow', name: 'Zeus' },
-            poseidon: { emoji: 'ðŸ”±', glowClass: 'glow-blue', color: '#00bfff', flashId: 'screen-flash-blue', name: 'Poseidon' },
-            prometheus: { emoji: 'ðŸ”¥', glowClass: 'glow-darkred', color: '#8b0000', flashId: 'screen-flash-darkred', name: 'Prometheus' },
-            apollo: { emoji: 'â˜€ï¸', glowClass: 'glow-green', color: '#22c55e', flashId: 'screen-flash-green', name: 'Apollo' },
-            artemis: { emoji: 'ðŸ¹', glowClass: 'glow-silvergreen', color: '#7caa98', flashId: 'screen-flash-silvergreen', name: 'Artemis' },
-            athena: { emoji: 'ðŸ¦‰', glowClass: 'glow-aqua', color: '#00ced1', flashId: 'screen-flash-aqua', name: 'Athena' },
-            hera: { emoji: 'ðŸ¦š', glowClass: 'glow-purple', color: '#9370db', flashId: 'screen-flash-purple', name: 'Hera' },
-            aphrodite: { emoji: 'ðŸ’•', glowClass: 'glow-pink', color: '#ff69b4', flashId: 'screen-flash-pink', name: 'Aphrodite' },
-            demeter: { emoji: 'ðŸŒ¾', glowClass: 'glow-gold', color: '#daa520', flashId: 'screen-flash-gold', name: 'Demeter' },
-            hermes: { emoji: 'ðŸª½', glowClass: 'glow-darkorange', color: '#cc5500', flashId: 'screen-flash-darkorange', name: 'Hermes' },
-            hephaestus: { emoji: 'ðŸ”¨', glowClass: 'glow-lightred', color: '#cd5c5c', flashId: 'screen-flash-lightred', name: 'Hephaestus' },
-            hades: { emoji: 'ðŸ’€', glowClass: 'glow-darkpurple', color: '#4b0082', flashId: 'screen-flash-darkpurple', deepSound: true, name: 'Hades' },
-            ares: { emoji: 'âš”ï¸', glowClass: 'glow-bloodred', color: '#dc143c', flashId: 'screen-flash-bloodred', deepSound: true, name: 'Ares' }
+            zeus: { emoji: '⚡', glowClass: '', color: '#ffd700', flashId: 'screen-flash-yellow', name: 'Zeus' },
+            poseidon: { emoji: '🔱', glowClass: 'glow-blue', color: '#00bfff', flashId: 'screen-flash-blue', name: 'Poseidon' },
+            prometheus: { emoji: '🔥', glowClass: 'glow-darkred', color: '#8b0000', flashId: 'screen-flash-darkred', name: 'Prometheus' },
+            apollo: { emoji: '☀️', glowClass: 'glow-green', color: '#22c55e', flashId: 'screen-flash-green', name: 'Apollo' },
+            artemis: { emoji: '🏹', glowClass: 'glow-silvergreen', color: '#7caa98', flashId: 'screen-flash-silvergreen', name: 'Artemis' },
+            athena: { emoji: '🦉', glowClass: 'glow-aqua', color: '#00ced1', flashId: 'screen-flash-aqua', name: 'Athena' },
+            hera: { emoji: '🦚', glowClass: 'glow-purple', color: '#9370db', flashId: 'screen-flash-purple', name: 'Hera' },
+            aphrodite: { emoji: '💕', glowClass: 'glow-pink', color: '#ff69b4', flashId: 'screen-flash-pink', name: 'Aphrodite' },
+            demeter: { emoji: '🌾', glowClass: 'glow-gold', color: '#daa520', flashId: 'screen-flash-gold', name: 'Demeter' },
+            hermes: { emoji: '🪽', glowClass: 'glow-darkorange', color: '#cc5500', flashId: 'screen-flash-darkorange', name: 'Hermes' },
+            hephaestus: { emoji: '🔨', glowClass: 'glow-lightred', color: '#cd5c5c', flashId: 'screen-flash-lightred', name: 'Hephaestus' },
+            hades: { emoji: '💀', glowClass: 'glow-darkpurple', color: '#4b0082', flashId: 'screen-flash-darkpurple', deepSound: true, name: 'Hades' },
+            ares: { emoji: '⚔️', glowClass: 'glow-bloodred', color: '#dc143c', flashId: 'screen-flash-bloodred', deepSound: true, name: 'Ares' }
         };
         
         // ==================== END EARLY DECLARATIONS ====================
@@ -2881,7 +2881,7 @@
                     </div>
                     ${student.reverse_cards > 0 ? `
                     <div style="background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-                        <div style="font-size: 24px; margin-bottom: 5px;">ðŸ”„</div>
+                        <div style="font-size: 24px; margin-bottom: 5px;">🔄</div>
                         <div style="color: #fff; font-weight: 700;">Reverse Cards: ${student.reverse_cards}</div>
                         <div style="color: rgba(255,255,255,0.7); font-size: 12px;">Use to flip negative fates!</div>
                     </div>
@@ -2928,7 +2928,7 @@
                             ${alliance.alliance_id === student.alliance_id ? ' (You)' : ''}
                         </div>
                         <div class="points">${alliance.total_points}</div>
-                        <div style="margin-left: 10px; opacity: 0.5;">ðŸ—ºï¸</div>
+                        <div style="margin-left: 10px; opacity: 0.5;">🗺️</div>
                     </div>
                 `}).join('');
             }
@@ -3075,18 +3075,18 @@
                     
                     if (a.status === 'always_active') {
                         itemClass += ' always-active';
-                        statusHtml = `<span class="status-badge always">ðŸ›¡ï¸ Always On</span>`;
+                        statusHtml = `<span class="status-badge always">🛡️ Always On</span>`;
                     } else if (a.status === 'active') {
                         itemClass += ' active';
-                        statusHtml = `<span class="status-badge active">âœ¨ Active - ${a.hours_remaining}h left</span>`;
+                        statusHtml = `<span class="status-badge active">✨ Active - ${a.hours_remaining}h left</span>`;
                     } else if (a.status === 'cooldown') {
                         itemClass += ' cooldown';
-                        statusHtml = `<span class="status-badge cooldown">ðŸ”§ Repairs - ${a.hours_remaining}h</span>`;
+                        statusHtml = `<span class="status-badge cooldown">🔧 Repairs - ${a.hours_remaining}h</span>`;
                     } else if (isTownCenter || hasNoBonus) {
                         // Town Center and buildings with no bonus don't need activation
                         statusHtml = `<span style="color: rgba(255,255,255,0.5); font-size: 12px;">Hub Building</span>`;
                     } else {
-                        statusHtml = `<button class="btn-activate" onclick="activateBuilding(${a.activation_id})">âš¡ Activate</button>`;
+                        statusHtml = `<button class="btn-activate" onclick="activateBuilding(${a.activation_id})">⚡ Activate</button>`;
                     }
                     
                     return `
@@ -3126,10 +3126,10 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`âœ… ${result.message}`);
+                    alert(`✅ ${result.message}`);
                     loadBuildingActivations();
                 } else {
-                    alert('âŒ ' + result.error);
+                    alert('❌ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to activate building: ' + err.message);
@@ -3147,10 +3147,10 @@
                 
                 const content = document.getElementById('achievements-content');
                 
-                content.innerHTML = renderAchievement(achievements.coeus, 'ðŸ“š') +
-                    renderAchievement(achievements.metis, 'ðŸ“') +
-                    renderAchievement(achievements.apollo, 'ðŸŽ¨') +
-                    renderAchievement(achievements.delphi, 'ðŸŽ¬');
+                content.innerHTML = renderAchievement(achievements.coeus, '📚') +
+                    renderAchievement(achievements.metis, '📝') +
+                    renderAchievement(achievements.apollo, '🎨') +
+                    renderAchievement(achievements.delphi, '🎬');
                     
             } catch (err) {
                 console.error('Failed to load achievements:', err);
@@ -3183,7 +3183,7 @@
                     <div class="achievement-header">
                         <div class="achievement-name">${icon} ${achievement.name}</div>
                         <span class="achievement-badge ${unlocked ? 'unlocked' : 'locked'}">
-                            ${unlocked ? 'âœ… UNLOCKED' : 'ðŸ”’ Locked'}
+                            ${unlocked ? '✅ UNLOCKED' : '🔒 Locked'}
                         </span>
                     </div>
                     <div class="achievement-desc">"${achievement.description}"</div>
@@ -3221,16 +3221,16 @@
                 // Update card title based on current age
                 const cardTitle = card.querySelector('.card-title');
                 if (data.currentAge === 'Classical') {
-                    cardTitle.textContent = 'ðŸ›ï¸ Progress to Heroic Age';
+                    cardTitle.textContent = '🏛️ Progress to Heroic Age';
                 } else if (data.currentAge === 'Heroic') {
-                    cardTitle.textContent = 'ðŸ›ï¸ Heroic Age - Maximum Level!';
+                    cardTitle.textContent = '🏛️ Heroic Age - Maximum Level!';
                 }
                 
                 // If already at max age
                 if (data.currentAge === 'Heroic') {
                     content.innerHTML = `
                         <div class="age-gate-status advanced">
-                            ðŸ† Your alliance has reached the Heroic Age - the pinnacle of civilization!
+                            🏆 Your alliance has reached the Heroic Age - the pinnacle of civilization!
                         </div>
                     `;
                     return;
@@ -3241,10 +3241,10 @@
                 // Build requirements list
                 let html = `
                     <div class="age-requirement">
-                        <div class="age-req-icon">ðŸ’°</div>
+                        <div class="age-req-icon">💰</div>
                         <div class="age-req-text">Points in Bank: ${r.pointsHave}/${r.pointsThreshold}</div>
                         <div class="age-req-status ${r.pointsMet ? 'complete' : 'incomplete'}">
-                            ${r.pointsMet ? 'âœ…' : `Need ${r.pointsThreshold - r.pointsHave} more`}
+                            ${r.pointsMet ? '✅' : `Need ${r.pointsThreshold - r.pointsHave} more`}
                         </div>
                     </div>
                 `;
@@ -3254,10 +3254,10 @@
                     const owned = r.ownedRequired.includes(building);
                     html += `
                         <div class="age-requirement">
-                            <div class="age-req-icon">ðŸ›ï¸</div>
+                            <div class="age-req-icon">🏛️</div>
                             <div class="age-req-text">${building}</div>
                             <div class="age-req-status ${owned ? 'complete' : 'incomplete'}">
-                                ${owned ? 'âœ…' : 'â¬œ Need'}
+                                ${owned ? '✅' : '⬜ Need'}
                             </div>
                         </div>
                     `;
@@ -3266,17 +3266,17 @@
                 // Assignments
                 html += `
                     <div class="age-requirement">
-                        <div class="age-req-icon">ðŸ“œ</div>
+                        <div class="age-req-icon">📜</div>
                         <div class="age-req-text">Rite of Passage Essay</div>
                         <div class="age-req-status ${r.riteComplete ? 'complete' : 'incomplete'}">
-                            ${r.riteComplete ? 'âœ…' : 'â¬œ Need'}
+                            ${r.riteComplete ? '✅' : '⬜ Need'}
                         </div>
                     </div>
                     <div class="age-requirement">
-                        <div class="age-req-icon">ðŸ—ºï¸</div>
+                        <div class="age-req-icon">🗺️</div>
                         <div class="age-req-text">Civilization Map</div>
                         <div class="age-req-status ${r.mapComplete ? 'complete' : 'incomplete'}">
-                            ${r.mapComplete ? 'âœ…' : 'â¬œ Need'}
+                            ${r.mapComplete ? '✅' : '⬜ Need'}
                         </div>
                     </div>
                 `;
@@ -3298,7 +3298,7 @@
                 if (r.isReady && data.gateOpen) {
                     html += `
                         <div class="age-gate-status advanced">
-                            ðŸŽ‰ Congratulations! Your alliance has advanced to the ${data.nextAge} Age!
+                            🎉 Congratulations! Your alliance has advanced to the ${data.nextAge} Age!
                         </div>
                         <button onclick="window.location.href='/hub.html'" style="
                             display: block; width: 100%; margin-top: 12px; padding: 14px 24px;
@@ -3312,25 +3312,25 @@
                             transition: all 0.3s;
                         " onmouseover="this.style.boxShadow='0 8px 30px rgba(74,144,217,0.5)'; this.style.transform='translateY(-2px)'"
                            onmouseout="this.style.boxShadow='0 4px 20px rgba(74,144,217,0.3)'; this.style.transform='translateY(0)'">
-                            ðŸ›ï¸ ENTER THE CLASSICAL AGE
+                            🏛️ ENTER THE CLASSICAL AGE
                         </button>
                     `;
                 } else if (r.isReady && !data.gateOpen) {
                     html += `
                         <div class="age-gate-status ready">
-                            âœ… All requirements met! Waiting for teacher to open the ${data.nextAge} Age gate...
+                            ✅ All requirements met! Waiting for teacher to open the ${data.nextAge} Age gate...
                         </div>
                     `;
                 } else if (data.gateOpen) {
                     html += `
                         <div class="age-gate-status waiting">
-                            ðŸšª ${data.nextAge} Age gate is OPEN! Complete requirements above to advance.
+                            🚪 ${data.nextAge} Age gate is OPEN! Complete requirements above to advance.
                         </div>
                     `;
                 } else {
                     html += `
                         <div class="age-gate-status waiting">
-                            â³ Complete requirements above. Teacher will open gate when class is ready.
+                            ⏳ Complete requirements above. Teacher will open gate when class is ready.
                         </div>
                     `;
                 }
@@ -3413,7 +3413,7 @@
                                     </div>
                                 </div>
                                 <div style="font-size: 15px; font-weight: 600; color: ${assignmentColor}; margin-top: 6px;">
-                                    ${isFate ? 'ðŸŽ¡ ' : isBattle ? 'âš”ï¸ ' : 'ðŸ“ '}${displayReason || c.category}
+                                    ${isFate ? '🎡 ' : isBattle ? '⚔️ ' : '📝 '}${displayReason || c.category}
                                 </div>
                             </div>
                         `}).join('')}
@@ -3483,7 +3483,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('âœ… ' + result.message);
+                    alert('✅ ' + result.message);
                     // Reset form for next submission instead of closing
                     document.getElementById('submit-form').reset();
                     document.getElementById('submit-points').value = '';
@@ -3543,7 +3543,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('âœ… ' + result.message);
+                    alert('✅ ' + result.message);
                     closeInviteModal();
                 } else {
                     alert('Error: ' + result.error);
@@ -3565,7 +3565,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('âœ… ' + result.message);
+                    alert('✅ ' + result.message);
                     loadInvitations();
                     loadDashboard();
                 } else {
@@ -3601,7 +3601,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`âœ… Alliance "${allianceName}" created!`);
+                    alert(`✅ Alliance "${allianceName}" created!`);
                     closeCreateModal();
                     loadDashboard();
                 } else {
@@ -3689,37 +3689,37 @@
                 
                 return `
                     <div class="${cardClass}" ${canPurchase ? `onclick="purchaseBuilding(${building.building_id})"` : ''}>
-                        ${isOwned ? `<div class="building-owned-badge">âœ“ Owned${building.owned_count > 1 ? ` x${building.owned_count}` : ''}</div>` : ''}
+                        ${isOwned ? `<div class="building-owned-badge">✓ Owned${building.owned_count > 1 ? ` x${building.owned_count}` : ''}</div>` : ''}
                         
-                        ${isRequired ? `<div style="position: absolute; top: 8px; right: 8px; color: #ffd700; font-size: 18px;" title="Required for Classical Age">â­</div>` : ''}
+                        ${isRequired ? `<div style="position: absolute; top: 8px; right: 8px; color: #ffd700; font-size: 18px;" title="Required for Classical Age">⭐</div>` : ''}
                         
                         <div class="building-name">${building.building_name}</div>
-                        <div class="building-god">âš¡ ${building.god_associated}</div>
+                        <div class="building-god">⚡ ${building.god_associated}</div>
                         
                         <div class="building-cost">
                             ${building.effective_cost} pts
                         </div>
                         
-                        ${isRequired ? `<div style="font-size: 11px; color: #ffd700; font-weight: 600; margin: 5px 0;">â­ Required for Classical Age</div>` : ''}
+                        ${isRequired ? `<div style="font-size: 11px; color: #ffd700; font-weight: 600; margin: 5px 0;">⭐ Required for Classical Age</div>` : ''}
                         
                         <div class="building-desc">${building.description}</div>
                         
-                        ${building.battle_bonus > 0 ? `<div class="building-bonus">âš”ï¸ +${building.battle_bonus} Battle (Always On)</div>` : ''}
+                        ${building.battle_bonus > 0 ? `<div class="building-bonus">⚔️ +${building.battle_bonus} Battle (Always On)</div>` : ''}
                         
                         ${pointBonusPercent > 0 ? `
                             <div class="building-bonus" style="background: rgba(74,222,128,0.2); color: #4ade80;">
-                                ðŸ“ˆ +${pointBonusPercent}% Points (${building.active_duration_hours}h active, ${building.cooldown_hours}h cooldown)
+                                📈 +${pointBonusPercent}% Points (${building.active_duration_hours}h active, ${building.cooldown_hours}h cooldown)
                             </div>
                         ` : ''}
                         
                         ${building.prerequisite_name ? 
                             `<div style="font-size: 11px; color: ${building.has_prerequisite ? '#4ade80' : '#fbbf24'}; margin-top: 5px;">
-                                ${building.has_prerequisite ? 'âœ“' : 'âš ï¸'} Requires: ${building.prerequisite_name}
+                                ${building.has_prerequisite ? '✓' : '⚠️'} Requires: ${building.prerequisite_name}
                             </div>` : ''}
                         
                         ${building.requires_god_assignment ? 
                             `<div style="font-size: 11px; color: ${building.has_god_assignment ? '#4ade80' : '#ef4444'}; margin-top: 5px;">
-                                ${building.has_god_assignment ? 'âœ“' : 'ðŸ”’'} Requires: ${building.god_associated} Assignment
+                                ${building.has_god_assignment ? '✓' : '🔒'} Requires: ${building.god_associated} Assignment
                             </div>
                             ${building.bonus_completed_count > 0 || !building.has_god_assignment ? `
                                 <div style="margin-top: 8px; padding: 6px; background: rgba(255,255,255,0.05); border-radius: 6px;">
@@ -3742,7 +3742,7 @@
                         
                         ${!isOwned && needsGodAssignment && !building.has_god_assignment ? 
                             `<div style="text-align: center; padding: 10px; background: rgba(239, 68, 68, 0.2); border-radius: 8px; margin-top: 10px; color: #f87171; font-weight: 600;">
-                                ðŸ”’ Complete ${building.god_associated} Bonus First
+                                🔒 Complete ${building.god_associated} Bonus First
                             </div>` : ''}
                         
                         ${isOwned && building.owned_count < building.max_per_alliance && building.can_purchase ? 
@@ -3781,11 +3781,11 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`âœ… ${result.message}`);
+                    alert(`✅ ${result.message}`);
                     await loadBuildingRequests();
                     renderBuildingMarket();
                 } else {
-                    alert('âŒ ' + result.error);
+                    alert('❌ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to request building: ' + err.message);
@@ -3809,14 +3809,14 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`âœ… ${result.message}`);
+                    alert(`✅ ${result.message}`);
                     await loadBuildingMarket();
                     loadDashboard(); // Refresh points
                     loadMapSidebarContent(); // Refresh progress bar in map view
                     loadAgeProgress(); // Refresh dashboard progress
                     loadMyMap(); // Refresh map to show new building to place
                 } else {
-                    alert('âŒ ' + result.error);
+                    alert('❌ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to purchase building: ' + err.message);
@@ -3865,31 +3865,31 @@
                             Requirements to advance:
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Points in Bank
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Points in Bank
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Town Center
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Town Center
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Library
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Library
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> House
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> House
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Dock
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Dock
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Fishing Ship
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Fishing Ship
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Wooden Wall
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Wooden Wall
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Rite of Passage
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Rite of Passage
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">â¬œ</span> Civilization Map
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Civilization Map
                         </div>
                         <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; text-align: center; font-size: 10px; color: rgba(255,255,255,0.5);">
                             Join an alliance to start!
@@ -3902,7 +3902,7 @@
                 if (data.currentAge === 'Heroic') {
                     progressContent.innerHTML = `
                         <div style="padding: 15px; background: rgba(74,222,128,0.2); border-radius: 8px; text-align: center;">
-                            <div style="font-size: 24px; margin-bottom: 8px;">ðŸ†</div>
+                            <div style="font-size: 24px; margin-bottom: 8px;">🏆</div>
                             <div style="font-size: 12px; color: #4ade80;">Heroic Age - Maximum Level!</div>
                         </div>
                     `;
@@ -3915,10 +3915,10 @@
                 let html = `
                     <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <span>ðŸ’°</span>
+                            <span>💰</span>
                             <span>Points: ${r.pointsHave}/${r.pointsThreshold}</span>
                         </div>
-                        <span style="color: ${r.pointsMet ? '#4ade80' : '#fbbf24'};">${r.pointsMet ? 'âœ…' : `Need ${r.pointsThreshold - r.pointsHave}`}</span>
+                        <span style="color: ${r.pointsMet ? '#4ade80' : '#fbbf24'};">${r.pointsMet ? '✅' : `Need ${r.pointsThreshold - r.pointsHave}`}</span>
                     </div>
                 `;
                 
@@ -3928,10 +3928,10 @@
                     html += `
                         <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                             <div style="display: flex; align-items: center; gap: 6px;">
-                                <span>ðŸ›ï¸</span>
+                                <span>🏛️</span>
                                 <span>${building}</span>
                             </div>
-                            <span style="color: ${owned ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${owned ? 'âœ…' : 'â¬œ'}</span>
+                            <span style="color: ${owned ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${owned ? '✅' : '⬜'}</span>
                         </div>
                     `;
                 });
@@ -3940,17 +3940,17 @@
                 html += `
                     <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <span>ðŸ“œ</span>
+                            <span>📜</span>
                             <span>Rite of Passage</span>
                         </div>
-                        <span style="color: ${r.riteComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.riteComplete ? 'âœ…' : 'â¬œ'}</span>
+                        <span style="color: ${r.riteComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.riteComplete ? '✅' : '⬜'}</span>
                     </div>
                     <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <span>ðŸ—ºï¸</span>
+                            <span>🗺️</span>
                             <span>Civilization Map</span>
                         </div>
-                        <span style="color: ${r.mapComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.mapComplete ? 'âœ…' : 'â¬œ'}</span>
+                        <span style="color: ${r.mapComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.mapComplete ? '✅' : '⬜'}</span>
                     </div>
                 `;
                 
@@ -3971,25 +3971,25 @@
                 if (r.isReady && data.gateOpen) {
                     html += `
                         <div style="margin-top: 10px; padding: 8px; background: rgba(74,222,128,0.2); border-radius: 6px; text-align: center; font-size: 10px; color: #4ade80;">
-                            ðŸŽ‰ Advanced to ${data.nextAge} Age!
+                            🎉 Advanced to ${data.nextAge} Age!
                         </div>
                     `;
                 } else if (r.isReady && !data.gateOpen) {
                     html += `
                         <div style="margin-top: 10px; padding: 8px; background: rgba(74,222,128,0.15); border-radius: 6px; text-align: center; font-size: 10px; color: #4ade80;">
-                            âœ… Ready! Waiting for gate...
+                            ✅ Ready! Waiting for gate...
                         </div>
                     `;
                 } else if (data.gateOpen) {
                     html += `
                         <div style="margin-top: 10px; padding: 8px; background: rgba(251,191,36,0.15); border-radius: 6px; text-align: center; font-size: 10px; color: #fbbf24;">
-                            ðŸšª Gate OPEN! Complete above.
+                            🚪 Gate OPEN! Complete above.
                         </div>
                     `;
                 } else {
                     html += `
                         <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; text-align: center; font-size: 10px; color: rgba(255,255,255,0.5);">
-                            â³ Complete requirements above
+                            ⏳ Complete requirements above
                         </div>
                     `;
                 }
@@ -4021,7 +4021,7 @@
                 // Show upload interface
                 content.innerHTML = `
                     <div class="map-upload-area" onclick="document.getElementById('map-file-input').click()">
-                        <div style="font-size: 64px; margin-bottom: 20px;">ðŸ—ºï¸</div>
+                        <div style="font-size: 64px; margin-bottom: 20px;">🗺️</div>
                         <div style="font-size: 18px; font-weight: 700; color: #ffd700; margin-bottom: 10px;">
                             Upload Your Civilization Map
                         </div>
@@ -4030,7 +4030,7 @@
                             Your map is required before you can purchase buildings!
                         </div>
                         <div style="padding: 12px 24px; background: linear-gradient(135deg, #ffd700, #ff8c00); border-radius: 10px; display: inline-block; color: #1a0a0f; font-weight: 700;">
-                            ðŸ“· Choose Photo
+                            📷 Choose Photo
                         </div>
                     </div>
                     <input type="file" id="map-file-input" accept="image/*" style="display: none;" onchange="handleMapUpload(event)">
@@ -4050,7 +4050,7 @@
             if (nonWallBuildingsToPlace.length > 0) {
                 html += `
                     <div class="map-instructions">
-                        ðŸ‘† Select a building below, then click on your map to place it. Drag buildings to move them!
+                        👆 Select a building below, then click on your map to place it. Drag buildings to move them!
                     </div>
                     <div class="buildings-palette">
                         ${nonWallBuildingsToPlace.map(b => `
@@ -4059,7 +4059,7 @@
                                 <span class="icon">${b.icon.startsWith('/') ? `<img src="${b.icon}" alt="${b.building_name}" style="width:32px;height:32px;object-fit:contain;">` : b.icon}</span>
                                 <div>
                                     <div class="name">${b.building_name}</div>
-                                    <div class="count">Ãƒâ€”${b.count} to place</div>
+                                    <div class="count">×${b.count} to place</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -4083,7 +4083,7 @@
                     if (nonWallOwned.length > 0) {
                         html += `
                             <div style="text-align: center; padding: 10px; background: rgba(74,222,128,0.1); border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: #4ade80;">
-                                âœ… All buildings placed! Purchase more in the Building Market.
+                                ✅ All buildings placed! Purchase more in the Building Market.
                             </div>
                         `;
                     }
@@ -4128,7 +4128,7 @@
             if (isDrawingWall) {
                 html += `
                     <div class="wall-mode-indicator">
-                        ðŸ° Wall Drawing Mode - Click to add points, click first point (green) to finish
+                        🏰 Wall Drawing Mode - Click to add points, click first point (green) to finish
                     </div>
                 `;
             }
@@ -4167,10 +4167,10 @@
                 if (isDrawingWall) {
                     html += `
                         <div class="wall-controls">
-                            <button class="wall-btn wall-btn-undo" onclick="undoWallPoint()">â†©ï¸ Undo</button>
-                            <button class="wall-btn wall-btn-clear" onclick="clearWallPoints()">ðŸ—‘ï¸ Clear</button>
-                            <button class="wall-btn wall-btn-finish" onclick="finishWall()">âœ… Finish Wall</button>
-                            <button class="wall-btn wall-btn-cancel" onclick="cancelWallDrawing()">âŒ Cancel</button>
+                            <button class="wall-btn wall-btn-undo" onclick="undoWallPoint()">↩️ Undo</button>
+                            <button class="wall-btn wall-btn-clear" onclick="clearWallPoints()">🗑️ Clear</button>
+                            <button class="wall-btn wall-btn-finish" onclick="finishWall()">✅ Finish Wall</button>
+                            <button class="wall-btn wall-btn-cancel" onclick="cancelWallDrawing()">❌ Cancel</button>
                         </div>
                     `;
                 } else {
@@ -4180,7 +4180,7 @@
                     html += `
                         <div class="wall-controls">
                             <button class="wall-btn wall-btn-draw" onclick="startWallDrawing()" style="background: linear-gradient(135deg, ${wallColor}, ${wallColor}dd);">
-                                ðŸ° ${hasExistingWall ? 'Redraw' : 'Draw'} ${wallLabel}
+                                🏰 ${hasExistingWall ? 'Redraw' : 'Draw'} ${wallLabel}
                             </button>
                         </div>
                     `;
@@ -4192,7 +4192,7 @@
                 html += `
                     <div style="margin-top: 20px; text-align: center;">
                         <button class="btn btn-primary" onclick="viewAllianceMaps()">
-                            ðŸ‘¥ View Alliance Members' Maps
+                            👥 View Alliance Members' Maps
                         </button>
                     </div>
                 `;
@@ -4202,7 +4202,7 @@
             html += `
                 <div style="margin-top: 15px; text-align: center;">
                     <button class="btn btn-secondary" onclick="document.getElementById('map-file-input-replace').click()" style="font-size: 12px; padding: 8px 16px;">
-                        ðŸ“· Replace Map Image
+                        📷 Replace Map Image
                     </button>
                     <input type="file" id="map-file-input-replace" accept="image/*" style="display: none;" onchange="handleMapUpload(event)">
                 </div>
@@ -4562,12 +4562,12 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('âœ… Map uploaded successfully!');
+                    alert('✅ Map uploaded successfully!');
                     loadMyMap();
                     loadMapSidebarContent(); // Refresh progress bar
                     loadAgeProgress(); // Refresh dashboard progress too
                 } else {
-                    alert('âŒ ' + result.error);
+                    alert('❌ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to upload map: ' + err.message);
@@ -4626,7 +4626,7 @@
                 let html = `
                     <div style="margin-bottom: 15px;">
                         <button class="btn btn-secondary" onclick="loadMyMap()" style="font-size: 12px;">
-                            â† Back to My Map
+                            ← Back to My Map
                         </button>
                     </div>
                     <div style="font-size: 16px; font-weight: 700; color: #ffd700; margin-bottom: 15px;">
@@ -4647,7 +4647,7 @@
                         html += `
                             <div class="alliance-map-card" style="opacity: 0.5; cursor: default;">
                                 <div style="height: 150px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05);">
-                                    <span style="font-size: 32px;">ðŸ—ºï¸â“</span>
+                                    <span style="font-size: 32px;">🗺️❓</span>
                                 </div>
                                 <div class="name">${member.name}<br><span style="font-size: 11px; color: rgba(255,255,255,0.5);">No map yet</span></div>
                             </div>
@@ -4668,7 +4668,7 @@
                 const response = await fetch(`${API_URL}/student/map/${studentId}`, { headers });
                 const data = await response.json();
                 
-                document.getElementById('view-map-title').textContent = `ðŸ—ºï¸ ${studentName}'s Map`;
+                document.getElementById('view-map-title').textContent = `🗺️ ${studentName}'s Map`;
                 
                 // Filter out wall placements
                 const nonWallPlacements = data.placements.filter(p => 
@@ -4766,14 +4766,14 @@
                 const response = await fetch(`${API_URL}/alliance/maps/${allianceId}`, { headers });
                 const members = await response.json();
                 
-                document.getElementById('view-map-title').textContent = `ðŸ—ºï¸ ${allianceName} - Maps`;
+                document.getElementById('view-map-title').textContent = `🗺️ ${allianceName} - Maps`;
                 
                 const content = document.getElementById('view-map-content');
                 
                 if (members.length === 0 || !members.some(m => m.hasMap)) {
                     content.innerHTML = `
                         <div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.5);">
-                            <div style="font-size: 48px; margin-bottom: 15px;">ðŸ—ºï¸</div>
+                            <div style="font-size: 48px; margin-bottom: 15px;">🗺️</div>
                             <div>No maps uploaded yet for this alliance.</div>
                         </div>
                     `;
@@ -4792,7 +4792,7 @@
                                     return `
                                         <div class="alliance-map-card" style="opacity: 0.5; cursor: default;">
                                             <div style="height: 150px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05);">
-                                                <span style="font-size: 32px;">ðŸ—ºï¸â“</span>
+                                                <span style="font-size: 32px;">🗺️❓</span>
                                             </div>
                                             <div class="name">${member.name}<br><span style="font-size: 11px; color: rgba(255,255,255,0.5);">No map yet</span></div>
                                         </div>
@@ -4881,11 +4881,11 @@
                         
                         ${grades.section1.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">âœ“ ${grades.section1.completed.length} completed</summary>
+                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section1.completed.length} completed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section1.completed.map(c => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
-                                            âœ“ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
+                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -4894,7 +4894,7 @@
                         
                         ${grades.section1.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">ðŸ“‹ ${grades.section1.missing.length} still needed</summary>
+                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section1.missing.length} still needed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section1.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
@@ -4903,7 +4903,7 @@
                                     `).join('')}
                                 </div>
                             </details>
-                        ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">âœ¨ Section Complete!</div>'}
+                        ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
                     </div>
 
                     <!-- Section Two -->
@@ -4917,11 +4917,11 @@
                         
                         ${grades.section2.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">âœ“ ${grades.section2.completed.length} completed</summary>
+                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section2.completed.length} completed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section2.completed.map(c => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
-                                            âœ“ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
+                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -4930,7 +4930,7 @@
                         
                         ${grades.section2.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">ðŸ“‹ ${grades.section2.missing.length} still needed</summary>
+                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section2.missing.length} still needed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section2.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
@@ -4939,7 +4939,7 @@
                                     `).join('')}
                                 </div>
                             </details>
-                        ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">âœ¨ Section Complete!</div>'}
+                        ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
                     </div>
 
                     <!-- Dramatic Bonus Button -->
@@ -4957,7 +4957,7 @@
                         transition: all 0.3s ease;
                     " onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 6px 20px rgba(245, 158, 11, 0.6), inset 0 1px 0 rgba(255,255,255,0.2)';" 
                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)';">
-                        ðŸŽ Earn Extra Points To Advance to Next Age! âš¡
+                        🎁 Earn Extra Points To Advance to Next Age! ⚡
                     </button>
 
                     <!-- Side Quest Portal Button -->
@@ -4975,13 +4975,13 @@
                         transition: all 0.3s ease;
                     " onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 6px 20px rgba(139, 92, 246, 0.6), inset 0 1px 0 rgba(255,255,255,0.2)';" 
                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255,255,255,0.2)';">
-                        ðŸ—ºï¸ Side Quest Portal â€” Earn Special Rewards! ðŸª“
+                        🗺️ Side Quest Portal — Earn Special Rewards! 🪓
                     </button>
 
                     <!-- Extra Credit -->
                     <div style="background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(245,158,11,0.1)); padding: 15px; border-radius: 10px; border: 1px solid rgba(251,191,36,0.3);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 16px;">ðŸŽ EXTRA CREDIT</strong>
+                            <strong style="font-size: 16px;">🎁 EXTRA CREDIT</strong>
                             <span style="color: #fbbf24; font-weight: bold; font-size: 18px;">${grades.bonus.earned}/${grades.bonus.max}</span>
                         </div>
                         ${createProgressBar(grades.bonus.earned, grades.bonus.max, grades.bonus.percentage)}
@@ -4991,7 +4991,7 @@
                             <div style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.6);">
                                 ${grades.bonus.completed.map(c => `
                                     <div style="padding: 4px 0;">
-                                        âœ“ ${c.display_name} - ${c.points_earned}/${c.points_possible}
+                                        ✓ ${c.display_name} - ${c.points_earned}/${c.points_possible}
                                     </div>
                                 `).join('')}
                             </div>
@@ -5020,33 +5020,33 @@
         }
 
         const GOD_ICONS = {
-            'Zeus': 'âš¡',
-            'Prometheus': 'ðŸ”¥',
-            'Hera': 'ðŸ‘‘',
-            'Athena': 'ðŸ¦‰',
-            'Ares': 'âš”ï¸',
-            'Poseidon': 'ðŸ”±',
-            'Hades': 'ðŸ’€',
-            'Demeter': 'ðŸŒ¾',
-            'Hermes': 'ðŸª½',
-            'Hephaestus': 'ðŸ”¨',
-            'Aphrodite': 'ðŸ’•'
+            'Zeus': '⚡',
+            'Prometheus': '🔥',
+            'Hera': '👑',
+            'Athena': '🦉',
+            'Ares': '⚔️',
+            'Poseidon': '🔱',
+            'Hades': '💀',
+            'Demeter': '🌾',
+            'Hermes': '🪽',
+            'Hephaestus': '🔨',
+            'Aphrodite': '💕'
         };
 
         function renderBonusAssignments(assignments) {
             const grid = document.getElementById('bonus-assignments-grid');
             
             grid.innerHTML = assignments.map(a => {
-                const icon = GOD_ICONS[a.myth_god] || 'ðŸ›ï¸';
+                const icon = GOD_ICONS[a.myth_god] || '🏛️';
                 let statusBadge = '';
                 let cardStyle = '';
                 let buttonHtml = '';
                 
                 if (a.status === 'completed') {
-                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">âœ“ COMPLETE (${a.points_earned}/${a.max_points})</span>`;
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">✓ COMPLETE (${a.points_earned}/${a.max_points})</span>`;
                     cardStyle = 'opacity: 0.7; border-color: #4ade80;';
                 } else if (a.status === 'pending') {
-                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">â³ PENDING REVIEW</span>`;
+                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">⏳ PENDING REVIEW</span>`;
                     cardStyle = 'border-color: #fbbf24;';
                 } else {
                     statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">â—‹ Not Started</span>`;
@@ -5084,7 +5084,7 @@
                 }
                 
                 currentBonusAssignment = assignment;
-                const icon = GOD_ICONS[assignment.myth_god] || 'ðŸ›ï¸';
+                const icon = GOD_ICONS[assignment.myth_god] || '🏛️';
                 
                 document.getElementById('bonus-detail-title').innerHTML = `${icon} ${assignment.myth_god} Bonus (${assignment.max_points} points)`;
                 
@@ -5096,15 +5096,15 @@
                         if (Array.isArray(links) && links.length > 0) {
                             resourcesHtml = `
                                 <div style="background: rgba(59,130,246,0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(59,130,246,0.3);">
-                                    <h4 style="color: #60a5fa; margin-bottom: 10px;">ðŸ“š Resources</h4>
+                                    <h4 style="color: #60a5fa; margin-bottom: 10px;">📚 Resources</h4>
                                     <div style="display: flex; flex-direction: column; gap: 8px;">
                                         ${links.map(link => {
                                             if (link.url) {
                                                 return `<a href="${link.url}" target="_blank" style="color: #60a5fa; text-decoration: none; padding: 8px 12px; background: rgba(59,130,246,0.2); border-radius: 6px; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s;" onmouseover="this.style.background='rgba(59,130,246,0.3)'" onmouseout="this.style.background='rgba(59,130,246,0.2)'">
-                                                    <span>ðŸ”—</span> ${link.label}
+                                                    <span>🔗</span> ${link.label}
                                                 </a>`;
                                             } else {
-                                                return `<span style="color: rgba(255,255,255,0.7); padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px;">ðŸ“– ${link.label}</span>`;
+                                                return `<span style="color: rgba(255,255,255,0.7); padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px;">📖 ${link.label}</span>`;
                                             }
                                         }).join('')}
                                     </div>
@@ -5115,7 +5115,7 @@
                         // If not JSON, display as plain text
                         resourcesHtml = `
                             <div style="background: rgba(59,130,246,0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(59,130,246,0.3);">
-                                <h4 style="color: #60a5fa; margin-bottom: 10px;">ðŸ“š Resources</h4>
+                                <h4 style="color: #60a5fa; margin-bottom: 10px;">📚 Resources</h4>
                                 <p style="color: rgba(255,255,255,0.8); font-size: 14px;">${assignment.resource_links}</p>
                             </div>
                         `;
@@ -5131,7 +5131,7 @@
                     ${resourcesHtml}
                     
                     <div style="margin-top: 20px; padding: 15px; background: rgba(251,191,36,0.1); border-radius: 10px; border: 1px solid rgba(251,191,36,0.3);">
-                        <strong style="color: #fbbf24;">ðŸ’¡ Reminder:</strong>
+                        <strong style="color: #fbbf24;">💡 Reminder:</strong>
                         <span style="color: rgba(255,255,255,0.8);">Complete this assignment by hand or digitally (check with Mr. Sebek), then click "Submit for Review" when done.</span>
                     </div>
                 `;
@@ -5220,7 +5220,7 @@
                 if (!data.hasAlliance) {
                     document.getElementById('side-quests-grid').innerHTML = `
                         <div style="text-align: center; padding: 30px; color: rgba(255,255,255,0.6);">
-                            <div style="font-size: 48px; margin-bottom: 15px;">ðŸ›ï¸</div>
+                            <div style="font-size: 48px; margin-bottom: 15px;">🏛️</div>
                             <div>You must join an alliance to access Side Quests!</div>
                         </div>
                     `;
@@ -5246,11 +5246,11 @@
             if (techs && techs.length > 0) {
                 display.style.display = 'block';
                 list.innerHTML = techs.map(tech => {
-                    let icon = 'ðŸ”§';
+                    let icon = '🔧';
                     let bonus = '';
-                    if (tech === 'Pickaxe') { icon = 'ðŸª“'; bonus = '-10% building costs'; }
-                    if (tech === 'Handaxe') { icon = 'ðŸª“'; bonus = '+5% points earned'; }
-                    if (tech === 'Granary') { icon = 'ðŸŒ¾'; bonus = 'Unlocks Granary building'; }
+                    if (tech === 'Pickaxe') { icon = '🪓'; bonus = '-10% building costs'; }
+                    if (tech === 'Handaxe') { icon = '🪓'; bonus = '+5% points earned'; }
+                    if (tech === 'Granary') { icon = '🌾'; bonus = 'Unlocks Granary building'; }
                     return `
                         <div style="background: rgba(255,215,0,0.2); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 20px;">${icon}</span>
@@ -5270,13 +5270,13 @@
             const grid = document.getElementById('side-quests-grid');
             
             grid.innerHTML = data.quests.map(quest => {
-                const icon = GOD_ICONS[quest.god_associated] || 'ðŸ›ï¸';
+                const icon = GOD_ICONS[quest.god_associated] || '🏛️';
                 
                 // Correct side quest icons (override any incorrect database values)
                 const SIDE_QUEST_ICONS = {
-                    'The Ring of Many': 'ðŸ”¨',
-                    'Panacea\'s Remedy': 'ðŸ¹',
-                    'The Three Seeds': 'ðŸŒ¾'
+                    'The Ring of Many': '🔨',
+                    'Panacea\'s Remedy': '🏹',
+                    'The Three Seeds': '🌾'
                 };
                 const questIcon = SIDE_QUEST_ICONS[quest.quest_name] || quest.icon || icon;
                 
@@ -5292,19 +5292,19 @@
                         <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
                             <div style="background: ${quest.all_complete ? '#4ade80' : '#fbbf24'}; height: 100%; width: ${(quest.completed_count/quest.member_count)*100}%;"></div>
                         </div>
-                        ${quest.completed_members.length > 0 ? `<div style="font-size: 10px; color: #4ade80; margin-top: 4px;">âœ“ ${quest.completed_members.join(', ')}</div>` : ''}
-                        ${quest.pending_members.length > 0 ? `<div style="font-size: 10px; color: #fbbf24; margin-top: 2px;">â³ ${quest.pending_members.join(', ')}</div>` : ''}
+                        ${quest.completed_members.length > 0 ? `<div style="font-size: 10px; color: #4ade80; margin-top: 4px;">✓ ${quest.completed_members.join(', ')}</div>` : ''}
+                        ${quest.pending_members.length > 0 ? `<div style="font-size: 10px; color: #fbbf24; margin-top: 2px;">⏳ ${quest.pending_members.join(', ')}</div>` : ''}
                     </div>
                 `;
                 
                 if (quest.reward_earned) {
-                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">ðŸ† REWARD EARNED!</span>`;
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">🏆 REWARD EARNED!</span>`;
                     cardStyle = 'border-color: #4ade80; background: rgba(74,222,128,0.1);';
                 } else if (quest.my_status === 'approved') {
-                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">âœ“ YOU COMPLETED</span>`;
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">✓ YOU COMPLETED</span>`;
                     cardStyle = 'border-color: #4ade80;';
                 } else if (quest.my_status === 'pending') {
-                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">â³ PENDING APPROVAL</span>`;
+                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">⏳ PENDING APPROVAL</span>`;
                     cardStyle = 'border-color: #fbbf24;';
                 } else {
                     statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">â—‹ Not Started</span>`;
@@ -5312,7 +5312,7 @@
                     const escapedQuestName = quest.quest_name.replace(/'/g, "\\'");
                     buttonHtml = `
                         <a href="${quest.form_url}" target="_blank" class="btn btn-secondary" style="width: 48%; margin-top: 10px; padding: 8px; text-align: center; text-decoration: none; display: inline-block;">â–¶ Start Quest</a>
-                        <button class="btn btn-primary" style="width: 48%; margin-top: 10px; padding: 8px;" onclick="submitSideQuest(${quest.quest_id}, '${escapedQuestName}')">âœ“ I Completed It</button>
+                        <button class="btn btn-primary" style="width: 48%; margin-top: 10px; padding: 8px;" onclick="submitSideQuest(${quest.quest_id}, '${escapedQuestName}')">✓ I Completed It</button>
                     `;
                 }
                 
@@ -5359,10 +5359,10 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('âœ… ' + data.message);
+                    alert('✅ ' + data.message);
                     openSideQuestPortal(); // Refresh
                 } else {
-                    alert('âŒ ' + (data.error || 'Failed to submit'));
+                    alert('❌ ' + (data.error || 'Failed to submit'));
                 }
             } catch (err) {
                 alert('Failed to submit side quest completion');
@@ -5747,7 +5747,7 @@
                 } catch (e) {}
             }, 500);
             
-            // After animation completes (4 pulses Ãƒâ€” 0.5s = 2s, plus message time)
+            // After animation completes (4 pulses × 0.5s = 2s, plus message time)
             setTimeout(() => {
                 godEl.classList.remove('bonus-pulsing');
                 godEl.classList.add('bonus-complete');
@@ -5948,8 +5948,8 @@
                 modal.innerHTML = `
                     <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
                         <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; color: #dc2626;">
-                            âš”ï¸ Battle Arena
-                            <button onclick="closeArena()" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 5px 12px; border-radius: 6px; cursor: pointer;">âœ•</button>
+                            ⚔️ Battle Arena
+                            <button onclick="closeArena()" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 5px 12px; border-radius: 6px; cursor: pointer;">✕</button>
                         </div>
                         <div id="arena-content"><div style="text-align:center;padding:40px;color:rgba(255,255,255,0.6);">Loading...</div></div>
                     </div>
@@ -5993,21 +5993,21 @@
                     const req = data.requirements || {};
                     content.innerHTML = `
                         <div style="text-align: center; padding: 30px;">
-                            <div style="font-size: 60px; margin-bottom: 20px;">ðŸ›ï¸</div>
+                            <div style="font-size: 60px; margin-bottom: 20px;">🏛️</div>
                             <h3 style="color: #ffd700; margin-bottom: 15px;">Arena Locked</h3>
                             <p style="color: rgba(255,255,255,0.8); margin-bottom: 25px; line-height: 1.6;">${data.reason}</p>
                             <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 20px; display: inline-block;">
                                 <h4 style="color: #ffd700; margin-bottom: 15px;">Requirements:</h4>
                                 <div style="text-align: left; color: rgba(255,255,255,0.9);">
-                                    <p style="margin: 8px 0;">${req.hasAlliance ? 'âœ…' : 'âŒ'} Join an Alliance</p>
-                                    <p style="margin: 8px 0;">${req.hasTownCenter ? 'âœ…' : 'âŒ'} Build Town Center (175 points)</p>
-                                    <p style="margin: 8px 0;">${req.hasHouse ? 'âœ…' : 'âŒ'} Build a House (40 points)</p>
+                                    <p style="margin: 8px 0;">${req.hasAlliance ? '✅' : '❌'} Join an Alliance</p>
+                                    <p style="margin: 8px 0;">${req.hasTownCenter ? '✅' : '❌'} Build Town Center (175 points)</p>
+                                    <p style="margin: 8px 0;">${req.hasHouse ? '✅' : '❌'} Build a House (40 points)</p>
                                 </div>
                                 ${req.allianceName ? `<p style="color: rgba(255,255,255,0.5); margin-top: 15px; font-size: 13px;">Alliance: ${req.allianceName} (${req.alliancePoints} pts)</p>` : ''}
                             </div>
                             <div style="margin-top: 20px;">
                                 <button onclick="showGodPowersInfo()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; color: white; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px;">
-                                    âš”ï¸ View God Powers Guide
+                                    ⚔️ View God Powers Guide
                                 </button>
                             </div>
                         </div>
@@ -6019,12 +6019,12 @@
                     arenaGodPowers = data.god_powers || {};
                     content.innerHTML = `
                         <div style="text-align:center;padding:40px;">
-                            <div style="font-size:50px;margin-bottom:15px;">ðŸš«</div>
+                            <div style="font-size:50px;margin-bottom:15px;">🚫</div>
                             <h3 style="color:#ff6b6b;">Arena Disabled</h3>
                             <p style="color:rgba(255,255,255,0.7);">${data.reason}</p>
                             <div style="margin-top: 20px;">
                                 <button onclick="showGodPowersInfo()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; color: white; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px;">
-                                    âš”ï¸ View God Powers Guide
+                                    ⚔️ View God Powers Guide
                                 </button>
                             </div>
                         </div>
@@ -6057,7 +6057,7 @@
                 const stats = data.stats;
                 const pendingHTML = data.pending_challenges?.length > 0 ? `
                     <div style="background: rgba(220,38,38,0.2); border: 1px solid #dc2626; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-                        <h4 style="color: #dc2626; margin-bottom: 10px;">âš”ï¸ Incoming Challenges!</h4>
+                        <h4 style="color: #dc2626; margin-bottom: 10px;">⚔️ Incoming Challenges!</h4>
                         ${data.pending_challenges.map(c => `
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 8px;">
                                 <div><strong style="color: #ffd700;">${c.challenger_name}</strong> <span style="color:rgba(255,255,255,0.6);">(${c.challenger_alliance})</span> - <span style="color:#ff6b6b;">${c.point_stakes} pts</span></div>
@@ -6081,7 +6081,7 @@
                             <div style="color: rgba(255,255,255,0.6); font-size: 14px;">Losses</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; text-align: center;">
-                            <div style="font-size: 34px; color: #22c55e; font-weight: bold;">${stats.current_streak}ðŸ”¥</div>
+                            <div style="font-size: 34px; color: #22c55e; font-weight: bold;">${stats.current_streak}🔥</div>
                             <div style="color: rgba(255,255,255,0.6); font-size: 14px;">Streak</div>
                         </div>
                         <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; text-align: center;">
@@ -6095,19 +6095,19 @@
                     </div>
                     ${data.battles_today >= data.max_battles_per_day ? `
                         <div style="background: rgba(107,114,128,0.3); border: 1px solid #6b7280; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: center;">
-                            <p style="color: #9ca3af; margin: 0;">â° You've reached your daily battle limit. Come back tomorrow!</p>
+                            <p style="color: #9ca3af; margin: 0;">⏰ You've reached your daily battle limit. Come back tomorrow!</p>
                         </div>
                     ` : ''}
                     ${pendingHTML}
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h4 style="color: #dc2626; font-size: 20px; margin: 0;">âš”ï¸ Challenge an Opponent</h4>
+                        <h4 style="color: #dc2626; font-size: 20px; margin: 0;">⚔️ Challenge an Opponent</h4>
                         <button onclick="showGodPowersInfo()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                            â„¹ï¸ God Powers
+                            ℹ️ God Powers
                         </button>
                     </div>
                     ${data.battles_remaining <= 0 ? `
                         <div style="text-align: center; padding: 20px; background: rgba(0,0,0,0.3); border-radius: 10px;">
-                            <div style="font-size: 40px; margin-bottom: 10px;">â°</div>
+                            <div style="font-size: 40px; margin-bottom: 10px;">⏰</div>
                             <p style="color: rgba(255,255,255,0.7); margin-bottom: 10px;">No battles remaining today!</p>
                             <p style="color: #ffd700; font-size: 18px;">Next battles available in: <span id="arena-countdown" style="font-weight: bold;">${getTimeUntilMidnight()}</span></p>
                         </div>
@@ -6136,7 +6136,7 @@
                                      ${oppAtLimit ? '' : `onmouseover="this.style.transform='scale(1.05)'; this.style.borderColor='rgba(220,38,38,0.8)'; this.style.boxShadow='0 8px 25px rgba(220,38,38,0.4)';"`}
                                      ${oppAtLimit ? '' : `onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(220,38,38,0.4)'; this.style.boxShadow='none';"`}>
                                     <!-- Sword Background -->
-                                    <div style="position: absolute; font-size: 80px; opacity: 0.15; top: 50%; left: 50%; transform: translate(-50%, -50%);">âš”ï¸</div>
+                                    <div style="position: absolute; font-size: 80px; opacity: 0.15; top: 50%; left: 50%; transform: translate(-50%, -50%);">⚔️</div>
                                     <!-- Content Overlay -->
                                     <div style="
                                         position: relative;
@@ -6321,7 +6321,7 @@
                     animation: slideDown 0.3s ease;
                 ">
                     <div style="display: flex; align-items: center; gap: 15px;">
-                        <span style="font-size: 30px;">âš”ï¸</span>
+                        <span style="font-size: 30px;">⚔️</span>
                         <div>
                             <div style="font-weight: bold; font-size: 18px;">BATTLE CHALLENGE!</div>
                             <div style="font-size: 14px; opacity: 0.9;">
@@ -6429,7 +6429,7 @@
                     gap: 20px;
                     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                 ">
-                    <span style="font-size: 24px;">âš”ï¸</span>
+                    <span style="font-size: 24px;">⚔️</span>
                     <span style="font-weight: bold; font-size: 18px;">Battle in Progress!</span>
                     <button onclick="openBattle(${battle.battle_id})" style="
                         background: white;
@@ -6447,7 +6447,7 @@
                         padding: 10px 15px;
                         border-radius: 8px;
                         cursor: pointer;
-                    ">âœ• Dismiss</button>
+                    ">✕ Dismiss</button>
                 </div>
             `;
             document.body.appendChild(banner);
@@ -6516,7 +6516,7 @@
             modal.innerHTML = `
                 <div class="modal-content" style="max-width: 750px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
                     <div class="modal-title" style="color: #ffd700; text-align: center;">
-                        âš”ï¸ Select Your Gods for Battle
+                        ⚔️ Select Your Gods for Battle
                     </div>
                     <p style="color: rgba(255,255,255,0.7); text-align: center; margin-bottom: 10px;">
                         Choose up to 3 gods. Hover over a god to see their power!
@@ -6532,7 +6532,7 @@
                         min-height: 80px;
                         text-align: center;
                     ">
-                        <p style="color: rgba(255,255,255,0.5); font-style: italic;">ðŸ‘† Hover over a god to see their power</p>
+                        <p style="color: rgba(255,255,255,0.5); font-style: italic;">👆 Hover over a god to see their power</p>
                     </div>
                     
                     <div id="god-selection-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px;">
@@ -6540,7 +6540,7 @@
                           unlockedGods.map(god => {
                             const isPrometheusUsed = god.name === 'prometheus' && prometheusUsedToday;
                             const godImg = god.name === 'prometheus' ? 'prometheus.png' : `${god.name}.svg`;
-                            const typeIcon = god.type === 'offensive' ? 'âš”ï¸' : (god.type === 'defensive' ? 'ðŸ›¡ï¸' : 'ðŸ”¥');
+                            const typeIcon = god.type === 'offensive' ? '⚔️' : (god.type === 'defensive' ? '🛡️' : '🔥');
                             const typeColor = god.type === 'offensive' ? '#dc2626' : (god.type === 'defensive' ? '#22c55e' : '#f97316');
                             return `
                             <div id="god-select-${god.name}" 
@@ -6558,7 +6558,7 @@
                                     opacity: ${isPrometheusUsed ? '0.5' : '1'};
                                     position: relative;
                                 ">
-                                ${god.hasBonus ? '<div style="position:absolute;top:3px;right:3px;font-size:10px;">âš¡</div>' : ''}
+                                ${god.hasBonus ? '<div style="position:absolute;top:3px;right:3px;font-size:10px;">⚡</div>' : ''}
                                 <img src="${godImg}" alt="${god.displayName}" style="width: 40px; height: 40px; object-fit: contain;">
                                 <div style="color: white; font-size: 10px; margin-top: 3px; font-weight: bold;">${god.displayName}</div>
                                 <div style="color: ${typeColor}; font-size: 9px;">${typeIcon}</div>
@@ -6568,7 +6568,7 @@
                     </div>
                     <p style="color: rgba(255,255,255,0.6); text-align: center; font-size: 14px;">
                         Selected: <span id="god-count">0</span>/3 
-                        <button onclick="showGodPowersInfo()" style="background: rgba(255,215,0,0.2); border: 1px solid #ffd700; color: #ffd700; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-left: 10px;">â„¹ï¸ View All Powers</button>
+                        <button onclick="showGodPowersInfo()" style="background: rgba(255,215,0,0.2); border: 1px solid #ffd700; color: #ffd700; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-left: 10px;">ℹ️ View All Powers</button>
                     </p>
                     <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
                         <button id="enter-battle-btn" onclick="console.log('BUTTON CLICKED!'); confirmGodSelection();" style="
@@ -6606,13 +6606,13 @@
                 return;
             }
             
-            const typeIcon = god.type === 'offensive' ? 'âš”ï¸' : (god.type === 'defensive' ? 'ðŸ›¡ï¸' : 'ðŸ”¥');
+            const typeIcon = god.type === 'offensive' ? '⚔️' : (god.type === 'defensive' ? '🛡️' : '🔥');
             const typeColor = god.type === 'offensive' ? '#dc2626' : (god.type === 'defensive' ? '#22c55e' : '#f97316');
             const typeName = god.type === 'offensive' ? 'OFFENSE' : (god.type === 'defensive' ? 'DEFENSE' : 'SPECIAL');
             
             let html = `
                 <div style="display: flex; align-items: center; gap: 15px; text-align: left;">
-                    <div style="font-size: 40px;">${god.emoji || 'â­'}</div>
+                    <div style="font-size: 40px;">${god.emoji || '⭐'}</div>
                     <div style="flex: 1;">
                         <div style="color: ${typeColor}; font-size: 12px; font-weight: bold;">${typeIcon} ${typeName}</div>
                         <div style="color: #ffd700; font-size: 16px; font-weight: bold;">${god.name}</div>
@@ -6620,13 +6620,13 @@
             `;
             
             if (god.passive) {
-                html += `<div style="color: #22c55e; font-size: 12px; margin-top: 5px;">âœ¨ Passive: ${god.passive}</div>`;
+                html += `<div style="color: #22c55e; font-size: 12px; margin-top: 5px;">✨ Passive: ${god.passive}</div>`;
             }
             if (god.counteredBy) {
-                html += `<div style="color: #ff6b6b; font-size: 11px; margin-top: 3px;">â›” Blocked by: ${god.counteredBy.charAt(0).toUpperCase() + god.counteredBy.slice(1)}</div>`;
+                html += `<div style="color: #ff6b6b; font-size: 11px; margin-top: 3px;">â›" Blocked by: ${god.counteredBy.charAt(0).toUpperCase() + god.counteredBy.slice(1)}</div>`;
             }
             if (god.blocks) {
-                html += `<div style="color: #22c55e; font-size: 11px; margin-top: 3px;">ðŸ›¡ï¸ Blocks: ${god.blocks.charAt(0).toUpperCase() + god.blocks.slice(1)}</div>`;
+                html += `<div style="color: #22c55e; font-size: 11px; margin-top: 3px;">🛡️ Blocks: ${god.blocks.charAt(0).toUpperCase() + god.blocks.slice(1)}</div>`;
             }
             
             html += `</div></div>`;
@@ -6636,7 +6636,7 @@
         function hideGodPreview() {
             const preview = document.getElementById('god-power-preview');
             if (preview) {
-                preview.innerHTML = `<p style="color: rgba(255,255,255,0.5); font-style: italic;">ðŸ‘† Hover over a god to see their power</p>`;
+                preview.innerHTML = `<p style="color: rgba(255,255,255,0.5); font-style: italic;">👆 Hover over a god to see their power</p>`;
             }
         }
         
@@ -6686,11 +6686,11 @@
             modal.innerHTML = `
                 <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2 style="color: #ffd700; margin: 0;">âš”ï¸ God Powers Guide</h2>
-                        <button onclick="document.getElementById('god-powers-info-modal').remove()" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 8px 15px; border-radius: 6px; cursor: pointer;">âœ•</button>
+                        <h2 style="color: #ffd700; margin: 0;">⚔️ God Powers Guide</h2>
+                        <button onclick="document.getElementById('god-powers-info-modal').remove()" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 8px 15px; border-radius: 6px; cursor: pointer;">✕</button>
                     </div>
                     
-                    <h3 style="color: #dc2626; margin-bottom: 10px;">âš”ï¸ OFFENSIVE GODS (Attack your opponent)</h3>
+                    <h3 style="color: #dc2626; margin-bottom: 10px;">⚔️ OFFENSIVE GODS (Attack your opponent)</h3>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-bottom: 25px;">
                         ${offensiveGods.map(g => {
                             const p = arenaGodPowers[g] || {};
@@ -6708,7 +6708,7 @@
                         `}).join('')}
                     </div>
                     
-                    <h3 style="color: #22c55e; margin-bottom: 10px;">ðŸ›¡ï¸ DEFENSIVE GODS (Block attacks + Passive bonus)</h3>
+                    <h3 style="color: #22c55e; margin-bottom: 10px;">🛡️ DEFENSIVE GODS (Block attacks + Passive bonus)</h3>
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-bottom: 25px;">
                         ${defensiveGods.map(g => {
                             const p = arenaGodPowers[g] || {};
@@ -6724,23 +6724,23 @@
                         `}).join('')}
                     </div>
                     
-                    <h3 style="color: #f97316; margin-bottom: 10px;">ðŸ”¥ SPECIAL: Prometheus</h3>
+                    <h3 style="color: #f97316; margin-bottom: 10px;">🔥 SPECIAL: Prometheus</h3>
                     <div style="background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.3); border-radius: 8px; padding: 15px; display: flex; gap: 15px; align-items: center;">
                         <img src="prometheus.png" style="width: 60px; height: 60px; object-fit: contain;">
                         <div>
                             <div style="color: #f97316; font-weight: bold;">Gift of Fire</div>
                             <div style="color: white; font-size: 13px;">See the question 2 seconds before your opponent (3 sec with bonus)</div>
-                            <div style="color: #ff6b6b; font-size: 12px; margin-top: 5px;">âš ï¸ Can only be used ONCE per day! Cannot be blocked.</div>
+                            <div style="color: #ff6b6b; font-size: 12px; margin-top: 5px;">⚠️ Can only be used ONCE per day! Cannot be blocked.</div>
                         </div>
                     </div>
                     
                     <div style="margin-top: 20px; padding: 15px; background: rgba(255,215,0,0.1); border-radius: 8px;">
-                        <h4 style="color: #ffd700; margin-bottom: 10px;">ðŸ’¡ Strategy Tips</h4>
+                        <h4 style="color: #ffd700; margin-bottom: 10px;">💡 Strategy Tips</h4>
                         <ul style="color: rgba(255,255,255,0.8); font-size: 13px; margin: 0; padding-left: 20px;">
                             <li>Each god can only be used once per battle (2-round cooldown after use)</li>
                             <li>Defensive gods ALWAYS give their passive bonus when deployed</li>
                             <li>If you block an opponent's attack, their power is nullified!</li>
-                            <li>âš¡ Gods with completed bonus assignments get 50% stronger effects!</li>
+                            <li>⚡ Gods with completed bonus assignments get 50% stronger effects!</li>
                             <li>Sudden Death rounds (tiebreaker) = NO god powers allowed!</li>
                         </ul>
                     </div>
@@ -6751,11 +6751,11 @@
         
         function getGodEmoji(godName) {
             const emojis = {
-                zeus: 'âš¡', poseidon: 'ðŸ”±', hera: 'ðŸ¦š', athena: 'ðŸ¦‰',
-                apollo: 'â˜€ï¸', artemis: 'ðŸ¹', aphrodite: 'ðŸ’•', ares: 'âš”ï¸',
-                hephaestus: 'ðŸ”¨', hermes: 'ðŸª½', demeter: 'ðŸŒ¾', prometheus: 'ðŸ”¥', hades: 'ðŸ’€'
+                zeus: '⚡', poseidon: '🔱', hera: '🦚', athena: '🦉',
+                apollo: '☀️', artemis: '🏹', aphrodite: '💕', ares: '⚔️',
+                hephaestus: '🔨', hermes: '🪽', demeter: '🌾', prometheus: '🔥', hades: '💀'
             };
-            return emojis[godName] || 'â­';
+            return emojis[godName] || '⭐';
         }
         
         function toggleGodSelection(godName) {
@@ -6778,7 +6778,7 @@
         }
         
         async function confirmGodSelection() {
-            console.log('ðŸ”´ confirmGodSelection called! battle_id:', currentBattleId, 'gods:', selectedGods);
+            console.log('🔴 confirmGodSelection called! battle_id:', currentBattleId, 'gods:', selectedGods);
             
             if (!currentBattleId) {
                 alert('Error: No battle ID set');
@@ -6786,15 +6786,15 @@
             }
             
             try {
-                console.log('ðŸ“¤ Sending god selection request...');
+                console.log('📤 Sending god selection request...');
                 const response = await fetch(`${API_URL}/arena/select-gods`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({ battle_id: currentBattleId, gods: selectedGods })
                 });
-                console.log('ðŸ“¥ Response status:', response.status);
+                console.log('📥 Response status:', response.status);
                 const data = await response.json();
-                console.log('ðŸ“¥ Response data:', data);
+                console.log('📥 Response data:', data);
                 
                 if (data.error) {
                     alert(data.error);
@@ -6807,7 +6807,7 @@
                 godSelectionShown = false; // Reset showing flag
                 godsSubmittedForBattle = currentBattleId; // Mark that we've submitted for this battle
                 
-                console.log('âœ… Gods submitted for battle', currentBattleId);
+                console.log('✅ Gods submitted for battle', currentBattleId);
                 
                 if (data.battle_started) {
                     // Battle started! Open battle screen
@@ -6833,7 +6833,7 @@
                 waiting.style.display = 'flex';
                 waiting.innerHTML = `
                     <div class="modal-content" style="max-width: 400px; text-align: center; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
-                        <div style="font-size: 60px; margin-bottom: 20px;">â³</div>
+                        <div style="font-size: 60px; margin-bottom: 20px;">⏳</div>
                         <h3 style="color: #ffd700; margin-bottom: 15px;">Waiting for Opponent</h3>
                         <p style="color: rgba(255,255,255,0.7);">Your opponent is selecting their gods...</p>
                         <p style="color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 20px;">Battle will start automatically when both players are ready</p>
@@ -6939,7 +6939,7 @@
         async function loadBattleState() {
             // Skip UI refresh during Aphrodite retry window
             if (aphroditeRetryActive) {
-                console.log('ðŸ’• Skipping loadBattleState - Aphrodite retry active');
+                console.log('💕 Skipping loadBattleState - Aphrodite retry active');
                 return;
             }
             
@@ -7031,7 +7031,7 @@
                 
                 content.innerHTML = `
                     <div style="text-align: center; padding: 40px;">
-                        <div style="font-size: 100px; margin-bottom: 20px;">${isTie ? 'ðŸ¤' : (won ? 'ðŸ†' : 'ðŸ˜”')}</div>
+                        <div style="font-size: 100px; margin-bottom: 20px;">${isTie ? '🤝' : (won ? '🏆' : '😔')}</div>
                         <h2 style="color: ${isTie ? '#ffd700' : (won ? '#22c55e' : '#ff6b6b')}; font-size: 44px; margin-bottom: 15px;">
                             ${isTie ? 'TIE GAME!' : (won ? 'VICTORY!' : 'DEFEAT')}
                         </h2>
@@ -7076,7 +7076,7 @@
                         <div style="color: rgba(255,255,255,0.7); font-size: 16px;">${myName} (You)</div>
                     </div>
                     <div style="text-align: center; align-self: center;">
-                        <div style="color: rgba(255,255,255,0.5); font-size: 16px;">${isSuddenDeath ? 'âš¡ SUDDEN DEATH' : `Round ${data.current_round}/5`}</div>
+                        <div style="color: rgba(255,255,255,0.5); font-size: 16px;">${isSuddenDeath ? '⚡ SUDDEN DEATH' : `Round ${data.current_round}/5`}</div>
                         <div style="color: #ffd700; font-size: 16px;">First to 3 wins</div>
                     </div>
                     <div style="text-align: center;">
@@ -7104,7 +7104,7 @@
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 40px;">
-                            <div style="font-size: 60px; margin-bottom: 15px;">âš”ï¸</div>
+                            <div style="font-size: 60px; margin-bottom: 15px;">⚔️</div>
                             <h3 style="color: #ffd700; font-size: 28px;">Round ${roundData.round_number}</h3>
                             <p style="color: rgba(255,255,255,0.6);">Starting in ${Math.ceil(waitForRoundStart / 1000)} second${waitForRoundStart > 1000 ? 's' : ''}...</p>
                         </div>
@@ -7125,12 +7125,12 @@
                         prometheusPreview = `
                             <div style="margin-top: 20px; background: rgba(139,0,0,0.3); border: 2px solid #8b0000; border-radius: 12px; padding: 20px; text-align: left;">
                                 <div style="text-align: center; margin-bottom: 12px;">
-                                    <span style="font-size: 28px;">ðŸ”¥</span>
-                                    <span style="color: #ff6b6b; font-size: 18px; font-weight: bold;"> Prometheus â€” Gift of Fire!</span>
+                                    <span style="font-size: 28px;">🔥</span>
+                                    <span style="color: #ff6b6b; font-size: 18px; font-weight: bold;"> Prometheus — Gift of Fire!</span>
                                 </div>
                                 <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">UPCOMING QUESTION:</p>
                                 <p style="color: #ffd700; font-size: 20px; line-height: 1.5;">${data.question.question_text}</p>
-                                <p style="color: rgba(255,255,255,0.4); font-size: 13px; margin-top: 12px; text-align: center;">ðŸ“– Read carefully â€” answers will appear when the round begins!</p>
+                                <p style="color: rgba(255,255,255,0.4); font-size: 13px; margin-top: 12px; text-align: center;">📖 Read carefully — answers will appear when the round begins!</p>
                             </div>
                         `;
                     }
@@ -7138,7 +7138,7 @@
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
-                            <div style="font-size: 40px; margin-bottom: 15px;">â³</div>
+                            <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
                             <h3 style="color: #ffd700;">Waiting for opponent to choose their god...</h3>
                             <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed || 'No Power'}</p>
                             ${prometheusPreview}
@@ -7170,7 +7170,7 @@
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; margin-bottom: 15px;">
-                            <span style="font-size: 24px; color: #ffd700;">âš”ï¸ Deploy a God Power!</span>
+                            <span style="font-size: 24px; color: #ffd700;">⚔️ Deploy a God Power!</span>
                             <p style="color: rgba(255,255,255,0.6); font-size: 14px;">Time remaining: ${roundData.phase_time_remaining || 12}s</p>
                         </div>
                         <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
@@ -7199,7 +7199,7 @@
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 50px;">
-                            <div style="font-size: 80px; margin-bottom: 20px;">${isCorrect ? 'âœ…' : 'âŒ'}</div>
+                            <div style="font-size: 80px; margin-bottom: 20px;">${isCorrect ? '✅' : '❌'}</div>
                             <h2 style="color: ${isCorrect ? '#22c55e' : '#ef4444'}; font-size: 36px; margin-bottom: 15px;">
                                 ${isCorrect ? 'CORRECT!' : 'WRONG!'}
                             </h2>
@@ -7222,12 +7222,12 @@
                     const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
                     if (myBlocked) {
                         effectsHTML = `<div style="background: rgba(239,68,68,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #ff6b6b;">â›” Your ${roundData.my_god_deployed} was BLOCKED by ${roundData.opponent_god_deployed}!</span>
+                            <span style="color: #ff6b6b;">â›" Your ${roundData.my_god_deployed} was BLOCKED by ${roundData.opponent_god_deployed}!</span>
                         </div>`;
                     }
                     if (oppBlocked) {
                         effectsHTML += `<div style="background: rgba(34,197,94,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #22c55e;">âœ… You BLOCKED their ${roundData.opponent_god_deployed}!</span>
+                            <span style="color: #22c55e;">✅ You BLOCKED their ${roundData.opponent_god_deployed}!</span>
                         </div>`;
                     }
                 }
@@ -7268,7 +7268,7 @@
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 40px;">
-                            <div style="font-size: 60px; margin-bottom: 15px;">âš¡</div>
+                            <div style="font-size: 60px; margin-bottom: 15px;">⚡</div>
                             <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
                             <p style="color: rgba(255,255,255,0.6);">Waiting for opponent...</p>
                             ${godInfoHTML}
@@ -7276,7 +7276,7 @@
                     `;
                     
                     // Signal to server that we're ready for the question
-                    console.log('ðŸ“¡ Signaling ready for question...');
+                    console.log('📡 Signaling ready for question...');
                     signalQuestionReady();
                     return;
                 }
@@ -7289,7 +7289,7 @@
                     
                     // Record the actual start time for accurate answer time calculation
                     questionActualStartTime = Date.now();
-                    console.log(`ðŸ“ Question displayed at ${questionActualStartTime}`);
+                    console.log(`📝 Question displayed at ${questionActualStartTime}`);
                     
                     battleTimer = setInterval(() => {
                         timeRemaining--;
@@ -7360,7 +7360,7 @@
                         heraOverlay.id = 'hera-passive-overlay';
                         heraOverlay.className = 'hermes-overlay';
                         heraOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:all;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(147,112,219,0.3);';
-                        heraOverlay.innerHTML = '<span style="font-size:48px;color:white;text-shadow:0 0 20px rgba(0,0,0,0.8);">ðŸ¦š SLOWED!</span>';
+                        heraOverlay.innerHTML = '<span style="font-size:48px;color:white;text-shadow:0 0 20px rgba(0,0,0,0.8);">🦚 SLOWED!</span>';
                         document.body.appendChild(heraOverlay);
                         setTimeout(() => heraOverlay.remove(), heraDelay);
                     }
@@ -7401,7 +7401,7 @@
                 content.innerHTML = `
                     ${scoreboardHTML}
                     <div style="text-align: center; padding: 30px;">
-                        <div style="font-size: 50px; margin-bottom: 15px;">ðŸ“Š</div>
+                        <div style="font-size: 50px; margin-bottom: 15px;">📊</div>
                         <h3 style="color: #ffd700; font-size: 28px; margin-bottom: 10px;">Round ${roundNumber} Complete!</h3>
                         <p style="color: ${isWinning ? '#22c55e' : isTied ? '#fbbf24' : '#ef4444'}; font-size: 22px; margin-bottom: 15px;">
                             ${isWinning ? "You're winning!" : isTied ? "It's tied!" : "You're behind!"}
@@ -7449,15 +7449,15 @@
                         </h1>
                         
                         <div style="color: #ffd700; font-size: 28px; margin-bottom: 35px; line-height: 1.8;">
-                            <p style="margin: 15px 0;">ðŸš« No gods allowed in Sudden Death</p>
-                            <p style="margin: 15px 0;">ðŸ† First correct answer wins</p>
-                            <p style="margin: 15px 0;">âš¡ Prepare to battle</p>
+                            <p style="margin: 15px 0;">🚫 No gods allowed in Sudden Death</p>
+                            <p style="margin: 15px 0;">🏆 First correct answer wins</p>
+                            <p style="margin: 15px 0;">⚡ Prepare to battle</p>
                         </div>
                         
                         ${myReady ? `
                             <div style="background: rgba(34,197,94,0.2); border: 2px solid #22c55e; border-radius: 12px; padding: 20px; margin-top: 20px;">
                                 <p style="color: #22c55e; font-size: 22px; margin: 0;">
-                                    âœ“ You are READY!
+                                    ✓ You are READY!
                                 </p>
                                 <p style="color: rgba(255,255,255,0.7); font-size: 18px; margin-top: 10px;">
                                     ${oppReady ? 'Starting...' : 'Waiting for opponent...'}
@@ -7479,7 +7479,7 @@
                                 text-transform: uppercase;
                                 letter-spacing: 4px;
                             ">
-                                âš”ï¸ READY âš”ï¸
+                                ⚔️ READY ⚔️
                             </button>
                         `}
                     </div>
@@ -7514,7 +7514,7 @@
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 40px;">
-                            <div style="font-size: 60px; margin-bottom: 15px; animation: pulse 1s infinite;">âš¡</div>
+                            <div style="font-size: 60px; margin-bottom: 15px; animation: pulse 1s infinite;">⚡</div>
                             <h3 style="color: #a855f7; margin-bottom: 15px; font-size: 28px;">SUDDEN DEATH</h3>
                             <p style="color: rgba(255,255,255,0.7); font-size: 18px;">Syncing with opponent...</p>
                         </div>
@@ -7528,7 +7528,7 @@
                     
                     // Record the actual start time for accurate answer time calculation
                     questionActualStartTime = Date.now();
-                    console.log(`ðŸ“ Sudden Death question synced and displayed at ${questionActualStartTime}`);
+                    console.log(`📝 Sudden Death question synced and displayed at ${questionActualStartTime}`);
                     
                     battleTimer = setInterval(() => {
                         timeRemaining--;
@@ -7545,7 +7545,7 @@
                 content.innerHTML = `
                     ${scoreboardHTML}
                     <div style="background: rgba(168,85,247,0.2); padding: 12px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-                        <span style="color: #a855f7; font-weight: bold; font-size: 20px;">âš¡ SUDDEN DEATH - First Correct Answer Wins!</span>
+                        <span style="color: #a855f7; font-weight: bold; font-size: 20px;">⚡ SUDDEN DEATH - First Correct Answer Wins!</span>
                     </div>
                     <div style="text-align: center; margin-bottom: 20px;">
                         <span style="font-size: 56px; font-weight: bold; color: ${timeRemaining <= 5 ? '#ff6b6b' : '#ffd700'};" id="battle-timer">${timeRemaining}</span>
@@ -7575,7 +7575,7 @@
             content.innerHTML = `
                 ${scoreboardHTML}
                 <div style="text-align: center; padding: 40px;">
-                    <div style="font-size: 50px; margin-bottom: 15px;">â³</div>
+                    <div style="font-size: 50px; margin-bottom: 15px;">⏳</div>
                     <p style="color: rgba(255,255,255,0.7); font-size: 18px;">Loading...</p>
                 </div>
             `;
@@ -7600,7 +7600,7 @@
                     }
                 } else if (data.both_ready) {
                     // BOTH players deployed - go directly to question sync (skip loadBattleState roundtrip)
-                    console.log('â±ï¸ Both deployed! Signaling question-ready directly...');
+                    console.log('⏱️ Both deployed! Signaling question-ready directly...');
                     signalQuestionReady();
                 } else {
                     loadBattleState(); // Refresh immediately
@@ -7623,7 +7623,7 @@
                 
                 if (data.show_question) {
                     // Both players ready - show question NOW
-                    console.log('âœ… Both players ready! Showing question immediately');
+                    console.log('✅ Both players ready! Showing question immediately');
                     questionActualStartTime = Date.now();
                     setBattlePollRate(2000); // Back to normal rate for question phase
                     loadBattleState();
@@ -7643,7 +7643,7 @@
         // Signal ready for Sudden Death - called when player clicks READY button
         async function signalSuddenDeathReady() {
             try {
-                console.log('âš¡ Signaling Sudden Death ready...');
+                console.log('⚡ Signaling Sudden Death ready...');
                 const response = await fetch(`${API_URL}/arena/sudden-death-ready`, {
                     method: 'POST',
                     headers,
@@ -7654,12 +7654,12 @@
                 if (data.both_ready) {
                     // Both players ready - transition to question phase
                     // But need to sync via /question-ready like regular rounds
-                    console.log('âš¡ Both players ready! Calling question-ready for sync...');
+                    console.log('⚡ Both players ready! Calling question-ready for sync...');
                     setBattlePollRate(500); // Fast poll
                     signalQuestionReady(); // This will sync both players
                 } else if (data.waiting_for_opponent) {
                     // Marked as ready, waiting for opponent
-                    console.log('âš¡ Waiting for opponent...');
+                    console.log('⚡ Waiting for opponent...');
                     // Refresh to show "You are READY!" state
                     loadBattleState();
                 } else if (data.phase_changed) {
@@ -7912,7 +7912,7 @@
             
             // If this is an Aphrodite retry submission, clear the retry flag and banner
             if (aphroditeRetryActive) {
-                console.log('ðŸ’• Aphrodite retry answer submitted');
+                console.log('💕 Aphrodite retry answer submitted');
                 aphroditeRetryActive = false;
                 const banner = document.getElementById('aphrodite-retry-banner');
                 if (banner) banner.remove();
@@ -7925,7 +7925,7 @@
             
             // Calculate time_ms using actual start time for accuracy
             const timeMs = questionActualStartTime ? (Date.now() - questionActualStartTime) : ((18 - timeRemaining) * 1000);
-            console.log(`â±ï¸ Answer submitted after ${timeMs}ms (questionActualStartTime: ${questionActualStartTime})`);
+            console.log(`⏱️ Answer submitted after ${timeMs}ms (questionActualStartTime: ${questionActualStartTime})`);
             
             try {
                 const response = await fetch(`${API_URL}/arena/answer`, {
@@ -7954,7 +7954,7 @@
                         if (activeAphrodite) {
                             activeAphrodite = false; // Only one retry per round
                             aphroditeRetryActive = true; // Block UI refresh during retry
-                            console.log('ðŸ’• Aphrodite retry activated! 4 seconds to pick again...');
+                            console.log('💕 Aphrodite retry activated! 4 seconds to pick again...');
                             
                             // Re-enable buttons with pink highlight for 4 seconds
                             const battleContent = document.getElementById('battle-content');
@@ -7967,14 +7967,14 @@
                                     buttons[answerIndex].style.borderColor = '#666';
                                     buttons[answerIndex].style.color = '#888';
                                     buttons[answerIndex].style.pointerEvents = 'none'; // Can't pick same wrong answer
-                                    buttons[answerIndex].textContent = 'âŒ ' + buttons[answerIndex].textContent;
+                                    buttons[answerIndex].textContent = '❌ ' + buttons[answerIndex].textContent;
                                 }
                                 
                                 // Show Aphrodite retry notification - bigger and more prominent
                                 const retryBanner = document.createElement('div');
                                 retryBanner.id = 'aphrodite-retry-banner';
                                 retryBanner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg, #ff69b4, #ff1493);color:white;padding:18px 36px;border-radius:15px;z-index:9999;font-size:24px;font-weight:bold;text-align:center;box-shadow:0 6px 30px rgba(255,105,180,0.7);animation:pulse 0.5s ease-in-out infinite;';
-                                retryBanner.innerHTML = 'ðŸ’• APHRODITE\'S CHARM! ðŸ’•<br><span style="font-size:18px;">Pick a different answer!</span>';
+                                retryBanner.innerHTML = '💕 APHRODITE\'S CHARM! 💕<br><span style="font-size:18px;">Pick a different answer!</span>';
                                 document.body.appendChild(retryBanner);
                                 
                                 // Add pink border glow to remaining buttons
