@@ -2986,11 +2986,12 @@
             if (leaderboard.length === 0) {
                 leaderboardContent.innerHTML = '<div class="empty-state">No alliances yet</div>';
             } else {
-                // Show top 8 alliances
+                // Show top 8 alliances (already sorted by display_points from server)
                 const top8 = leaderboard.slice(0, 8);
                 leaderboardContent.innerHTML = top8.map((alliance, index) => {
                     // Use the pre-computed side quest reward icons from server
                     const rewardIcons = alliance.side_quest_reward_icons || '';
+                    const displayPts = alliance.display_points || alliance.total_points;
                     return `
                     <div class="leaderboard-row ${alliance.alliance_id === student.alliance_id ? 'current' : ''}" 
                          style="cursor: pointer;" 
@@ -3000,7 +3001,7 @@
                             ${alliance.alliance_name}${rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                             ${alliance.alliance_id === student.alliance_id ? ' (You)' : ''}
                         </div>
-                        <div class="points">${alliance.total_points}</div>
+                        <div class="points">${displayPts}</div>
                         <div style="margin-left: 10px; opacity: 0.5;">🗺️</div>
                     </div>
                 `}).join('');
