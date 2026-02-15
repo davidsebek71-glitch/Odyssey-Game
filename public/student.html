@@ -4902,6 +4902,50 @@
                 return '#ffffff';
             };
             
+            // Group items by god for organized display
+            const groupByGod = (items) => {
+                const groups = {};
+                items.forEach(item => {
+                    const god = item.myth_god || 'Other';
+                    if (!groups[god]) groups[god] = [];
+                    groups[god].push(item);
+                });
+                // Sort gods alphabetically
+                return Object.keys(groups).sort().map(god => ({ god, items: groups[god] }));
+            };
+            
+            const renderGroupedCompleted = (items) => {
+                const groups = groupByGod(items);
+                return groups.map(g => `
+                    <div style="margin-bottom: 12px;">
+                        <div style="color: ${getGodColor(g.god)}; font-weight: 700; font-size: 15px; padding: 6px 0; border-bottom: 2px solid ${getGodColor(g.god)}40; margin-bottom: 4px;">
+                            ${g.god}
+                        </div>
+                        ${g.items.map(c => `
+                            <div style="padding: 4px 0 4px 12px; color: #4ade80; font-size: 14px;">
+                                ✓ ${c.display_name} — ${c.points_earned}/${c.points_possible}
+                            </div>
+                        `).join('')}
+                    </div>
+                `).join('');
+            };
+            
+            const renderGroupedMissing = (items) => {
+                const groups = groupByGod(items);
+                return groups.map(g => `
+                    <div style="margin-bottom: 12px;">
+                        <div style="color: ${getGodColor(g.god)}; font-weight: 700; font-size: 15px; padding: 6px 0; border-bottom: 2px solid ${getGodColor(g.god)}40; margin-bottom: 4px;">
+                            ${g.god}
+                        </div>
+                        ${g.items.map(m => `
+                            <div style="padding: 4px 0 4px 12px; color: rgba(255,255,255,0.7); font-size: 14px;">
+                                ○ ${m.display_name} (${m.max_points} pts)
+                            </div>
+                        `).join('')}
+                    </div>
+                `).join('');
+            };
+
             const createProgressBar = (earned, max, percentage) => {
                 const barColor = percentage >= 80 ? '#4ade80' : percentage >= 60 ? '#fbbf24' : '#f87171';
                 return `
@@ -4925,12 +4969,8 @@
                         ${grades.section1.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #4ade80; font-size: 18px; font-weight: 600;">✓ ${grades.section1.completed.length} completed</summary>
-                                <div style="margin-top: 8px; font-size: 16px;">
-                                    ${grades.section1.completed.map(c => `
-                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
-                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
-                                        </div>
-                                    `).join('')}
+                                <div style="margin-top: 8px;">
+                                    ${renderGroupedCompleted(grades.section1.completed)}
                                 </div>
                             </details>
                         ` : ''}
@@ -4938,12 +4978,8 @@
                         ${grades.section1.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #fbbf24; font-size: 18px; font-weight: 600;">📋 ${grades.section1.missing.length} still needed</summary>
-                                <div style="margin-top: 8px; font-size: 16px;">
-                                    ${grades.section1.missing.map(m => `
-                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
-                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
-                                        </div>
-                                    `).join('')}
+                                <div style="margin-top: 8px;">
+                                    ${renderGroupedMissing(grades.section1.missing)}
                                 </div>
                             </details>
                         ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
@@ -4961,12 +4997,8 @@
                         ${grades.section2.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #4ade80; font-size: 18px; font-weight: 600;">✓ ${grades.section2.completed.length} completed</summary>
-                                <div style="margin-top: 8px; font-size: 16px;">
-                                    ${grades.section2.completed.map(c => `
-                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
-                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
-                                        </div>
-                                    `).join('')}
+                                <div style="margin-top: 8px;">
+                                    ${renderGroupedCompleted(grades.section2.completed)}
                                 </div>
                             </details>
                         ` : ''}
@@ -4974,12 +5006,8 @@
                         ${grades.section2.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #fbbf24; font-size: 18px; font-weight: 600;">📋 ${grades.section2.missing.length} still needed</summary>
-                                <div style="margin-top: 8px; font-size: 16px;">
-                                    ${grades.section2.missing.map(m => `
-                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
-                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
-                                        </div>
-                                    `).join('')}
+                                <div style="margin-top: 8px;">
+                                    ${renderGroupedMissing(grades.section2.missing)}
                                 </div>
                             </details>
                         ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
