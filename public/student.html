@@ -1927,7 +1927,9 @@
             transition: all 0.3s ease;
             position: relative;
         }
-        .myth-portal.locked { opacity: 0.35; cursor: not-allowed; filter: grayscale(80%); }
+        .myth-portal.locked { cursor: not-allowed; }
+        .myth-portal.locked .myth-portal-img { opacity: 0.35; filter: grayscale(100%) brightness(0.4); }
+        .myth-portal.locked .myth-portal-name { opacity: 0.35; }
         .myth-portal.active {
             border-color: var(--portal-glow, rgba(74, 144, 217, 0.5));
             box-shadow: 0 0 15px var(--portal-glow-dim, rgba(74, 144, 217, 0.2)),
@@ -1950,7 +1952,6 @@
         }
         .myth-portal.active .myth-portal-img,
         .myth-portal.passed .myth-portal-img { border-color: var(--portal-glow, rgba(74,144,217,0.5)); }
-        .myth-portal.locked .myth-portal-img { filter: grayscale(100%) brightness(0.4); }
         .myth-portal-name {
             font-family: 'Cinzel', serif; font-size: 9px;
             font-weight: 600; color: #8aa0c0; letter-spacing: 0.5px;
