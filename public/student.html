@@ -1874,6 +1874,26 @@
         }
         /* ==================== CLASSICAL AGE — MYTH PORTALS ==================== */
         #classical-age-section { display: none; }
+
+        /* Classical Age color overrides — applied via body.classical-age */
+        body.classical-age {
+            background: linear-gradient(135deg, #0a0f1e 0%, #0f1528 50%, #0a0f1e 100%);
+        }
+        body.classical-age .header {
+            background: linear-gradient(135deg, rgba(74, 144, 217, 0.15), rgba(30, 64, 175, 0.2));
+            border-bottom: 2px solid rgba(74, 144, 217, 0.3);
+        }
+        body.classical-age .logo h1 {
+            background: linear-gradient(135deg, #7cb3e8 0%, #4a90d9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        body.classical-age .action-btn {
+            border-color: rgba(74, 144, 217, 0.3);
+        }
+        body.classical-age .stat-card {
+            border-color: rgba(74, 144, 217, 0.2);
+        }
         .myth-portal-bar {
             background: linear-gradient(180deg, rgba(10, 20, 40, 0.95), rgba(8, 15, 35, 0.9));
             border: 1px solid rgba(74, 144, 217, 0.15);
@@ -2564,7 +2584,7 @@
         
         <!-- Quick Action Cards -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
-            <div onclick="openBonusPortal()" style="
+            <div id="bonus-card" onclick="openBonusPortal()" style="
                 background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(180,83,9,0.25));
                 border: 2px solid rgba(251,191,36,0.4);
                 border-radius: 16px;
@@ -3163,9 +3183,17 @@
             if (classicalSection) {
                 if (student.current_age === 'Classical' || student.current_age === 'Heroic') {
                     classicalSection.style.display = 'block';
+                    document.body.classList.add('classical-age');
+                    document.querySelector('.logo h1').textContent = '🏛️ ODYSSEY TO OLYMPUS — CLASSICAL AGE';
+                    // Hide the Archaic bonus card — bonuses are in myth portals now
+                    const bonusCard = document.getElementById('bonus-card');
+                    if (bonusCard) bonusCard.style.display = 'none';
                     loadMythPortals();
                 } else {
                     classicalSection.style.display = 'none';
+                    document.body.classList.remove('classical-age');
+                    const bonusCard = document.getElementById('bonus-card');
+                    if (bonusCard) bonusCard.style.display = '';
                 }
             }
 
