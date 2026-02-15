@@ -837,6 +837,17 @@ function runMigrations() {
   
   // Side quest age column migration
   try {
+    // Update word cloud points from 12 to 20
+    const wcCheck = db.exec("SELECT assignment_id, max_points FROM assignments_ref WHERE assignment_type = 'word_cloud' AND max_points = 12 AND age = 'Classical' LIMIT 1");
+    if (wcCheck[0] && wcCheck[0].values.length > 0) {
+      db.run("UPDATE assignments_ref SET max_points = 20 WHERE assignment_type = 'word_cloud' AND age = 'Classical'");
+      console.log('✅ Word cloud points updated: 12 → 20');
+    }
+  } catch (err) {
+    console.log('Word cloud migration note:', err.message);
+  }
+
+  try {
     const sqCols = db.exec("PRAGMA table_info(side_quests_ref)");
     const sqColNames = sqCols[0] ? sqCols[0].values.map(c => c[1]) : [];
     
@@ -1312,13 +1323,13 @@ function seedReferenceData() {
       // WeVideo Digital Retellings — REMOVED per Classical Age redesign (retellings replaced by original creative work)
       
       // Word Clouds (12 pts each)
-      ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Pandora myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Pandora myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
       
       // ==================== CLASSICAL AGE BONUSES ====================
       ['bonus', 'bonus', 'Pandora', 'Pandora Retelling', 20,

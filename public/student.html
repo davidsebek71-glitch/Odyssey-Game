@@ -2777,6 +2777,7 @@
                         <option value="quiz">Quiz</option>
                         <option value="comp_conn">Reading Notes / Comp Conn</option>
                         <option value="mural">Mural/Comic (Pixton)</option>
+                        <option value="word_cloud">Word Cloud</option>
                         <option value="rite_of_passage">Rite of Passage Essay</option>
                         <option value="bonus">Bonus / Extra Credit</option>
                         <option value="membean">Membean</option>
@@ -3792,8 +3793,8 @@
                 data.section = getSectionForMyth(category, mythValue); // Auto-determine section
             }
             
-            // Include max_points for quizzes, comp conns, and rite of passage - AUTO-CALCULATED
-            if (category === 'quiz' || category === 'comp_conn' || category === 'rite_of_passage') {
+            // Include max_points for quizzes, comp conns, word clouds, murals, and rite of passage - AUTO-CALCULATED
+            if (category === 'quiz' || category === 'comp_conn' || category === 'rite_of_passage' || category === 'word_cloud' || category === 'mural') {
                 const myth = data.myth_god || '';
                 data.max_points = getMaxPoints(category, myth);
             }
@@ -5711,39 +5712,63 @@
         // Section is determined automatically based on which god is selected
         const MYTH_OPTIONS = {
             comp_conn: [
-                // Section 1
+                // Section 1 (Archaic)
                 { myth: 'Greek Pantheon', section: 'section_1' },
                 { myth: 'Zeus', section: 'section_1' },
                 { myth: 'Prometheus', section: 'section_1' },
                 { myth: 'Apollo', section: 'section_1' },
                 { myth: 'Athena', section: 'section_1' },
                 { myth: 'Hera', section: 'section_1' },
-                // Section 2
+                // Section 2 (Archaic)
                 { myth: 'Aphrodite', section: 'section_2' },
                 { myth: 'Poseidon', section: 'section_2' },
                 { myth: 'Artemis', section: 'section_2' },
                 { myth: 'Demeter', section: 'section_2' },
                 { myth: 'Hermes', section: 'section_2' },
-                { myth: 'Hephaestus', section: 'section_2' }
+                { myth: 'Hephaestus', section: 'section_2' },
+                // Classical Age Reading Guides
+                { myth: 'Pandora', section: 'classical' },
+                { myth: 'Phaethon', section: 'classical' },
+                { myth: 'Orpheus', section: 'classical' },
+                { myth: 'Echo and Narcissus', section: 'classical' },
+                { myth: 'Icarus', section: 'classical' },
+                { myth: 'Eros and Psyche', section: 'classical' },
+                { myth: 'Constellations', section: 'classical' }
             ],
             quiz: [
-                // Section 1
+                // Section 1 (Archaic)
                 { myth: 'Zeus', section: 'section_1' },
                 { myth: 'Prometheus', section: 'section_1' },
                 { myth: 'Nine Muses', section: 'section_1' },
                 { myth: 'Athena', section: 'section_1' },
                 { myth: 'Hera', section: 'section_1' },
                 { myth: 'Exit Ticket', section: 'section_1' },
-                // Section 2
+                // Section 2 (Archaic)
                 { myth: 'Apollo and Artemis', section: 'section_2' },
                 { myth: 'Aphrodite', section: 'section_2' },
                 { myth: 'Poseidon', section: 'section_2' },
                 { myth: 'Demeter', section: 'section_2' },
                 { myth: 'Hermes', section: 'section_2' },
                 { myth: 'Hephaestus', section: 'section_2' }
+                // Classical quizzes handled in-game (myth portals), not in submit dropdown
             ],
             mural: [
-                { myth: 'Pixton Retelling', section: 'section_1' }
+                { myth: 'Pixton Retelling', section: 'section_1' },
+                // Classical Age Pixtons
+                { myth: 'Phaethon', section: 'classical_creative' },
+                { myth: 'Echo and Narcissus', section: 'classical_creative' },
+                { myth: 'Icarus', section: 'classical_creative' },
+                { myth: 'Constellations', section: 'classical_creative' }
+            ],
+            word_cloud: [
+                // Classical Age Word Clouds
+                { myth: 'Pandora', section: 'classical_creative' },
+                { myth: 'Phaethon', section: 'classical_creative' },
+                { myth: 'Orpheus', section: 'classical_creative' },
+                { myth: 'Echo and Narcissus', section: 'classical_creative' },
+                { myth: 'Icarus', section: 'classical_creative' },
+                { myth: 'Eros and Psyche', section: 'classical_creative' },
+                { myth: 'Constellations', section: 'classical_creative' }
             ]
         };
         
@@ -5766,20 +5791,31 @@
             rite_of_passage: 100
         };
         
+        // Classical Age myths list (for age-aware max points)
+        const CLASSICAL_MYTHS = ['Pandora', 'Phaethon', 'Orpheus', 'Echo and Narcissus', 'Icarus', 'Eros and Psyche', 'Constellations'];
+        
         // Get max points for an assignment automatically
         function getMaxPoints(category, myth) {
             if (category === 'rite_of_passage') {
                 return 100;
             }
             if (category === 'comp_conn') {
-                return 10; // All reading notes are 10 pts
+                // Classical reading guides are 12 pts, Archaic are 10
+                return CLASSICAL_MYTHS.includes(myth) ? 12 : 10;
             }
             if (category === 'quiz') {
-                // Check for special quizzes worth 10 pts
-                if (myth === 'Nine Muses' || myth === 'Prometheus') {
-                    return 10;
-                }
-                return 5; // Default quiz is 5 pts
+                // Classical quizzes are 10 pts, special Archaic quizzes are 10, default Archaic is 5
+                if (CLASSICAL_MYTHS.includes(myth)) return 10;
+                if (myth === 'Nine Muses' || myth === 'Prometheus') return 10;
+                return 5;
+            }
+            if (category === 'word_cloud') {
+                return 20;
+            }
+            if (category === 'mural') {
+                // Classical Pixtons are 16 pts
+                if (CLASSICAL_MYTHS.includes(myth)) return 16;
+                return null;
             }
             return null; // Other categories don't have max points
         }
@@ -5791,7 +5827,7 @@
             const mythSelect = document.getElementById('submit-myth');
             
             // Categories that need myth tracking
-            const trackedCategories = ['quiz', 'comp_conn', 'mural'];
+            const trackedCategories = ['quiz', 'comp_conn', 'mural', 'word_cloud'];
             
             if (category === 'bonus') {
                 // Hide myth for bonus - they should use the portal
@@ -5849,7 +5885,15 @@
                 'Hephaestus': '#cd5c5c',
                 'Nine Muses': '#ff9933',
                 'Exit Ticket': '#ffffff',
-                'Pixton Retelling': '#ffffff'
+                'Pixton Retelling': '#ffffff',
+                // Classical Age myths
+                'Pandora': '#FFD700',
+                'Phaethon': '#FF8C00',
+                'Orpheus': '#8B5CF6',
+                'Echo and Narcissus': '#EC4899',
+                'Icarus': '#3B82F6',
+                'Eros and Psyche': '#EF4444',
+                'Constellations': '#C0C0C0'
             };
             
             const options = MYTH_OPTIONS[category];
