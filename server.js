@@ -7305,11 +7305,16 @@ function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
   }
   
   // Check which Classical myths are unlocked for this alliance
-  const unlockedPortals = query(
-    'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.alliance_id = ? AND mps.activated = 1',
-    [student.alliance_id]
-  );
-  const unlockedMyths = unlockedPortals.map(p => p.myth_name);
+  let unlockedMyths = [];
+  try {
+    const unlockedPortals = query(
+      'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.alliance_id = ? AND mps.activated = 1',
+      [student.alliance_id]
+    );
+    unlockedMyths = unlockedPortals.map(p => p.myth_name);
+  } catch (portalErr) {
+    console.log('⚠️ myth_portals query failed (tables may not exist yet), using Archaic only');
+  }
   
   // Build question pool: all Archaic + Classical questions for unlocked myths
   let questions;
