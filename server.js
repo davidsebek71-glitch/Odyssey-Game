@@ -4896,8 +4896,8 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       students = students.filter(s => s.class_period === period);
     }
     
-    // Get all side quests
-    const sideQuests = query('SELECT * FROM side_quests_ref ORDER BY quest_id');
+    // Get Archaic side quests only (Classical quests like Hearth of Hestia excluded)
+    const sideQuests = query("SELECT * FROM side_quests_ref WHERE age = 'Archaic' ORDER BY quest_id");
     
     // Get all bonus assignments
     const bonusAssignments = query(`
