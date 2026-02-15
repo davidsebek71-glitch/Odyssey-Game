@@ -3263,20 +3263,13 @@
                     `;
                 });
                 
-                // Assignments
+                // Map requirement (all members must submit)
                 html += `
                     <div class="age-requirement">
-                        <div class="age-req-icon">📜</div>
-                        <div class="age-req-text">Rite of Passage Essay</div>
-                        <div class="age-req-status ${r.riteComplete ? 'complete' : 'incomplete'}">
-                            ${r.riteComplete ? '✅' : '⬜ Need'}
-                        </div>
-                    </div>
-                    <div class="age-requirement">
                         <div class="age-req-icon">🗺️</div>
-                        <div class="age-req-text">Civilization Map</div>
+                        <div class="age-req-text">Civilization Maps (${r.mapsSubmitted || 0}/${r.mapsRequired || 0} members)</div>
                         <div class="age-req-status ${r.mapComplete ? 'complete' : 'incomplete'}">
-                            ${r.mapComplete ? '✅' : '⬜ Need'}
+                            ${r.mapComplete ? '✅' : `⬜ Need ${(r.mapsRequired || 0) - (r.mapsSubmitted || 0)} more`}
                         </div>
                     </div>
                 `;
@@ -3886,10 +3879,7 @@
                             <span style="color: rgba(255,255,255,0.4);">⬜</span> Wooden Wall
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Rite of Passage
-                        </div>
-                        <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Civilization Map
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> All Members' Maps
                         </div>
                         <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; text-align: center; font-size: 10px; color: rgba(255,255,255,0.5);">
                             Join an alliance to start!
@@ -3936,19 +3926,12 @@
                     `;
                 });
                 
-                // Assignments
+                // Map requirement (all members)
                 html += `
                     <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <span>📜</span>
-                            <span>Rite of Passage</span>
-                        </div>
-                        <span style="color: ${r.riteComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.riteComplete ? '✅' : '⬜'}</span>
-                    </div>
-                    <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
                             <span>🗺️</span>
-                            <span>Civilization Map</span>
+                            <span>Maps (${r.mapsSubmitted || 0}/${r.mapsRequired || 0})</span>
                         </div>
                         <span style="color: ${r.mapComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.mapComplete ? '✅' : '⬜'}</span>
                     </div>

@@ -978,36 +978,32 @@
     
     <!-- God Assignments Modal -->
     <div id="god-assignments-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-title">⚡ Grant God Assignments & Side Quest Rewards</div>
             
             <!-- GOD BONUSES SECTION -->
             <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
                 <h3 style="color: #ffd700; margin-bottom: 10px; font-size: 16px;">🏛️ God Bonus Assignments (Building Unlocks)</h3>
                 <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 13px;">
-                    Grant god bonus assignments when <strong>ALL</strong> alliance members have completed the bonus with 80%+ score. Eligible alliances appear automatically.
+                    Grant god bonus assignments to unlock specific buildings for purchase.
                 </p>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                     <div>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Alliance</label>
+                        <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadAllianceAssignments()">
+                            <option value="">Choose alliance...</option>
+                        </select>
+                    </div>
+                    <div>
                         <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select God</label>
-                        <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadEligibleAlliancesForGod()">
+                        <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
                             <option value="">Choose god...</option>
                             <option value="Athena">🦉 Athena (Library)</option>
                             <option value="Ares">⚔️ Ares (Wooden Wall)</option>
                             <option value="Poseidon">🔱 Poseidon (Dock)</option>
                         </select>
                     </div>
-                    <div>
-                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Eligible Alliances</label>
-                        <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
-                            <option value="">Select a god first...</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div id="god-eligible-info" style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 15px;">
-                    Select a god to see which alliances are eligible.
                 </div>
                 
                 <div style="text-align: center; margin-bottom: 10px;">
@@ -1017,7 +1013,7 @@
                 </div>
                 
                 <div id="current-assignments" style="color: rgba(255,255,255,0.6); font-size: 13px; padding-top: 10px; border-top: 1px solid rgba(255,215,0,0.2);">
-                    Select a god to view current assignments
+                    Select an alliance to view current assignments
                 </div>
             </div>
             
@@ -1085,6 +1081,7 @@
                         <option value="quiz">Quiz</option>
                         <option value="myth_comp_conn">Myth Comp Conn</option>
                         <option value="mural">Mural/Comic</option>
+                        <option value="video">Video</option>
                         <option value="bonus_work">Bonus Work</option>
                         <option value="extra_credit">Extra Credit</option>
                         <option value="membean">Membean</option>
@@ -1166,12 +1163,8 @@
     </div>
 
     <!-- GRADE OVERVIEW MODAL -->
-    <!-- GRADE OVERVIEW MODAL -->
-    <!-- MODAL SCROLL PATTERN: Use display:flex + flex-direction:column on modal-content,
-         and flex:1 + overflow:auto + min-height:0 on the scrollable content div.
-         This keeps content scrolling INSIDE the modal box. -->
     <div id="grade-overview-modal" class="modal">
-        <div class="modal-content" style="max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-content" style="max-width: 1100px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 📊 Student Grade Overview
                 <button onclick="closeGradeOverviewModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1179,7 +1172,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
                 All students listed alphabetically by class period. <strong>Click a student's name</strong> to view and manage their submissions.
             </div>
-            <div id="grade-overview-content" style="flex: 1; overflow-y: auto; min-height: 0;">
+            <div id="grade-overview-content" style="max-height: 70vh; overflow-y: auto;">
                 Loading...
             </div>
         </div>
@@ -1187,7 +1180,7 @@
 
     <!-- QUEST & BONUS TRACKER MODAL -->
     <div id="quest-bonus-tracker-modal" class="modal">
-        <div class="modal-content" style="max-width: 1300px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-content" style="max-width: 1300px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 📋 Quest & Bonus Tracker
                 <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">✕</button>
@@ -1205,7 +1198,7 @@
                     <option value="4th">4th Period</option>
                 </select>
             </div>
-            <div id="quest-bonus-tracker-content" style="flex: 1; overflow: auto; min-height: 0;">
+            <div id="quest-bonus-tracker-content" style="max-height: 65vh; overflow: auto;">
                 Loading...
             </div>
         </div>
@@ -1213,7 +1206,7 @@
 
     <!-- STUDENT SUBMISSIONS MODAL -->
     <div id="student-submissions-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 <span id="student-submissions-title">📋 Student Submissions</span>
                 <button onclick="closeStudentSubmissionsModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1221,7 +1214,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
                 ⚠️ <strong>Warning:</strong> Deleting a submission removes points from the student's grade. Any purchases/upgrades already made will remain.
             </div>
-            <div id="student-submissions-content" style="flex: 1; overflow-y: auto; min-height: 0;">
+            <div id="student-submissions-content" style="max-height: 60vh; overflow-y: auto;">
                 Loading...
             </div>
         </div>
@@ -1229,7 +1222,7 @@
 
     <!-- STUDENT MANAGEMENT MODAL -->
     <div id="student-management-modal" class="modal">
-        <div class="modal-content" style="max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 👥 Student Management
                 <button onclick="closeStudentManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1237,7 +1230,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
                 📝 <strong>Manage your students:</strong> Change class periods or remove students who have left.
             </div>
-            <div id="student-management-content" style="flex: 1; overflow-y: auto; min-height: 0;">
+            <div id="student-management-content" style="max-height: 70vh; overflow-y: auto;">
                 Loading...
             </div>
         </div>
@@ -1885,25 +1878,18 @@
                                     <div style="font-weight: 700; color: ${progressColor};">${r.overallProgress}%</div>
                                 </div>
                                 
-                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 11px;">
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px;">
                                     <div style="color: ${r.pointsMet ? '#4ade80' : '#fbbf24'};">
                                         💰 ${r.pointsHave}/${r.pointsThreshold} pts
                                     </div>
                                     <div style="color: ${r.buildingsMet ? '#4ade80' : '#fbbf24'};">
                                         🏛️ ${r.ownedRequired.length}/6 buildings
                                     </div>
-                                    <div style="color: ${r.riteComplete ? '#4ade80' : '#ef4444'};">
-                                        📜 Rite: ${r.riteComplete ? '✅' : '⬜'}
-                                        <button onclick="toggleRite(${a.alliance_id}, ${!r.riteComplete})" 
-                                            style="margin-left: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white;">
-                                            ${r.riteComplete ? 'Unmark' : 'Mark ✓'}
-                                        </button>
-                                    </div>
                                     <div style="color: ${r.mapComplete ? '#4ade80' : '#ef4444'};">
-                                        🗺️ Map: ${r.mapComplete ? '✅' : '⬜'}
-                                        <button onclick="toggleMap(${a.alliance_id}, ${!r.mapComplete})" 
+                                        🗺️ Maps: ${r.mapsSubmitted || 0}/${r.mapsRequired || 0}
+                                        <button onclick="toggleMap(${a.alliance_id}, ${!r.mapComplete})"
                                             style="margin-left: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white;">
-                                            ${r.mapComplete ? 'Unmark' : 'Mark ✓'}
+                                            ${r.mapComplete ? 'Unmark' : 'Mark ✔'}
                                         </button>
                                     </div>
                                 </div>
@@ -1953,30 +1939,7 @@
             }
         }
         
-        async function toggleRite(allianceId, complete) {
-            try {
-                const response = await fetch(`${API_URL}/teacher/mark-rite-complete`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ alliance_id: allianceId, complete })
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    loadAgeGateDetails();
-                    loadAgeGateSummary();
-                    if (result.message.includes('advanced')) {
-                        alert('🎉 ' + result.message);
-                        loadLeaderboard();
-                    }
-                } else {
-                    alert('❌ ' + result.error);
-                }
-            } catch (err) {
-                alert('Failed to update: ' + err.message);
-            }
-        }
+        // toggleRite removed — Rite of Passage moved to Classical→Heroic requirement
         
         async function toggleMap(allianceId, complete) {
             try {
@@ -2057,10 +2020,10 @@
                                         <div class="alliance-name" style="flex: 1;">
                                             ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                             <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
-                                                ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
+                                                ${alliance.member_names?.join(', ') || 'No members'}
                                             </div>
                                         </div>
-                                        <div class="points" style="min-width: 60px; text-align: right;">${alliance.display_points || alliance.total_points} pts</div>
+                                        <div class="points" style="min-width: 60px; text-align: right;">${alliance.total_points} pts</div>
                                     </div>
                                 `;
                             });
@@ -2093,10 +2056,10 @@
                                 <div class="alliance-name" style="flex: 1;">
                                     ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                     <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
-                                        ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
+                                        ${alliance.member_names?.join(', ') || 'No members'}
                                     </div>
                                 </div>
-                                <div class="points" style="min-width: 80px; text-align: right;">${alliance.display_points || alliance.total_points} pts</div>
+                                <div class="points" style="min-width: 80px; text-align: right;">${alliance.total_points} pts</div>
                                 <div style="min-width: 80px; text-align: right; font-size: 12px; color: rgba(255,255,255,0.5);">
                                     ${alliance.buildings_owned?.length || 0} buildings
                                 </div>
@@ -2143,11 +2106,11 @@
                                 <div style="font-weight: 700; color: #ffd700; font-size: 16px;">${alliance.alliance_name}</div>
                                 <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 4px;">
                                     📚 ${alliance.class_period || 'No period'} Period | 
-                                    👥 ${alliance.real_member_count || alliance.member_count} members${alliance.ghost_count > 0 ? ' + ' + alliance.ghost_count + ' 👻' : ''} | 
-                                    ⚡ ${alliance.display_points || alliance.total_points} pts
+                                    👥 ${alliance.member_count} members | 
+                                    ⚡ ${alliance.total_points} pts
                                 </div>
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px;">
-                                    Members: ${alliance.member_names || 'None'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
+                                    Members: ${alliance.member_names || 'None'}
                                 </div>
                             </div>
                             <button class="btn-disband" onclick="disbandAlliance(${alliance.alliance_id}, '${alliance.alliance_name.replace(/'/g, "\\'")}')">
@@ -2194,70 +2157,41 @@
         
         async function openGodAssignmentsModal() {
             document.getElementById('god-assignments-modal').classList.add('show');
-            // Reset god bonus dropdowns
-            document.getElementById('god-assignment-god').value = '';
-            document.getElementById('god-assignment-alliance').innerHTML = '<option value="">Select a god first...</option>';
-            document.getElementById('god-eligible-info').innerHTML = 'Select a god to see which alliances are eligible.';
-            document.getElementById('current-assignments').innerHTML = 'Select a god to view current assignments';
+            
+            // Load alliances into dropdown
+            const response = await fetch(`${API_URL}/teacher/leaderboard`, { headers });
+            const alliances = await response.json();
+            
+            const select = document.getElementById('god-assignment-alliance');
+            select.innerHTML = '<option value="">Choose alliance...</option>' +
+                alliances.map(a => `<option value="${a.alliance_id}">${a.alliance_name} [${a.class_period || 'No period'}]</option>`).join('');
         }
         
         function closeGodAssignmentsModal() {
             document.getElementById('god-assignments-modal').classList.remove('show');
         }
         
-        async function loadEligibleAlliancesForGod() {
-            const select = document.getElementById('god-assignment-alliance');
-            const infoDiv = document.getElementById('god-eligible-info');
-            const godName = document.getElementById('god-assignment-god').value;
+        async function loadAllianceAssignments() {
+            const allianceId = document.getElementById('god-assignment-alliance').value;
+            const content = document.getElementById('current-assignments');
             
-            if (!godName) {
-                select.innerHTML = '<option value="">Select a god first...</option>';
-                infoDiv.innerHTML = 'Select a god to see which alliances are eligible.';
-                document.getElementById('current-assignments').innerHTML = 'Select a god to view current assignments';
+            if (!allianceId) {
+                content.innerHTML = 'Select an alliance to view assignments';
                 return;
             }
             
             try {
-                const response = await fetch(`${API_URL}/teacher/eligible-alliances-for-god-bonus?god_name=${godName}`, { headers });
-                const data = await response.json();
-                
-                if (data.eligible_alliances && data.eligible_alliances.length > 0) {
-                    select.innerHTML = '<option value="">Choose alliance...</option>' +
-                        data.eligible_alliances.map(a => 
-                            `<option value="${a.alliance_id}">${a.alliance_name} [${a.class_period}] (${a.qualified_count}/${a.member_count} qualified)</option>`
-                        ).join('');
-                    infoDiv.innerHTML = `✅ ${data.eligible_alliances.length} alliance(s) eligible for ${godName}. Threshold: ${data.threshold}`;
-                    infoDiv.style.color = '#4ade80';
-                } else {
-                    select.innerHTML = '<option value="">No eligible alliances yet</option>';
-                    infoDiv.innerHTML = `⚠ No alliances have ALL members approved for ${godName} Bonus yet. Threshold: ${data.threshold}`;
-                    infoDiv.style.color = '#fbbf24';
-                }
-                
-                // Also load current assignments for this god
-                loadCurrentGodAssignments(godName);
-            } catch (err) {
-                select.innerHTML = '<option value="">Error loading alliances</option>';
-                infoDiv.innerHTML = '❌ Failed to load eligible alliances';
-                infoDiv.style.color = '#ef4444';
-            }
-        }
-        
-        async function loadCurrentGodAssignments(godName) {
-            const content = document.getElementById('current-assignments');
-            try {
                 const response = await fetch(`${API_URL}/teacher/god-assignments`, { headers });
                 const allAssignments = await response.json();
                 
-                const godAssignments = allAssignments.filter(a => a.god_name === godName);
+                const allianceAssignments = allAssignments.filter(a => a.alliance_id == allianceId);
                 
-                if (godAssignments.length === 0) {
-                    content.innerHTML = `<div style="color: rgba(255,255,255,0.5);">No alliances have been granted ${godName} yet</div>`;
+                if (allianceAssignments.length === 0) {
+                    content.innerHTML = '<div style="color: rgba(255,255,255,0.5);">No assignments yet</div>';
                 } else {
-                    content.innerHTML = `<div style="margin-bottom: 8px; color: #ffd700; font-size: 13px;">Already granted ${godName}:</div>` +
-                        godAssignments.map(a => `
+                    content.innerHTML = allianceAssignments.map(a => `
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 5px;">
-                            <span>⚡ ${a.alliance_name || 'Alliance #' + a.alliance_id}</span>
+                            <span>⚡ ${a.god_name}</span>
                             <button onclick="revokeGodAssignment(${a.alliance_id}, '${a.god_name}')" style="background: rgba(220,38,38,0.3); border: none; color: #fca5a5; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">
                                 Remove
                             </button>
@@ -2274,7 +2208,7 @@
             const godName = document.getElementById('god-assignment-god').value;
             
             if (!allianceId || !godName) {
-                alert('Please select both a god and an eligible alliance');
+                alert('Please select both an alliance and a god');
                 return;
             }
             
@@ -2289,7 +2223,7 @@
                 
                 if (response.ok) {
                     alert('✅ ' + result.message);
-                    loadEligibleAlliancesForGod(); // Refresh to remove granted alliance
+                    loadAllianceAssignments();
                 } else {
                     alert('Error: ' + result.error);
                 }
@@ -2312,7 +2246,7 @@
                 
                 if (response.ok) {
                     alert('✅ Assignment removed');
-                    loadEligibleAlliancesForGod(); // Refresh
+                    loadAllianceAssignments();
                 } else {
                     alert('Error: ' + result.error);
                 }
@@ -2444,13 +2378,8 @@
                         rowsHtml += `<tr><td colspan="${3 + data.side_quests.length + data.bonus_assignments.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${currentPeriod || 'No Period'}</td></tr>`;
                     }
                     
-                    const isGhost = student.is_ghost;
-                    const nameStyle = isGhost 
-                        ? 'position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap; color: #ffffff; font-style: italic;'
-                        : 'position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap;';
-                    
                     rowsHtml += `<tr>`;
-                    rowsHtml += `<td style="${nameStyle}">${isGhost ? '👻 ' : ''}${student.name}</td>`;
+                    rowsHtml += `<td style="position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap;">${student.name}</td>`;
                     
                     // Side Quest status
                     data.side_quests.forEach(sq => {
@@ -2467,72 +2396,10 @@
                     rowsHtml += `</tr>`;
                 });
                 
-                // Build Alliance God Bonus Progress grid from same data
-                let godGridHtml = '';
-                if (data.alliance_god_status) {
-                    const gods = ['Athena', 'Ares', 'Poseidon'];
-                    const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
-                    const godBuildings = { 'Athena': 'Library', 'Ares': 'Wooden Wall', 'Poseidon': 'Dock' };
-                    
-                    let godHeaderHtml = '<th style="position: sticky; left: 0; background: #1e1b4b; z-index: 2; min-width: 160px;">Alliance</th><th style="min-width: 80px;">Period</th>';
-                    gods.forEach(god => {
-                        godHeaderHtml += `<th style="min-width: 100px; text-align: center;" title="${god} - ${godBuildings[god]}">${godEmojis[god]} ${god}</th>`;
-                    });
-                    
-                    let godRowsHtml = '';
-                    let godCurrentPeriod = '';
-                    const alliances = Object.values(data.alliance_god_status).sort((a, b) => (a.class_period || '').localeCompare(b.class_period || ''));
-                    
-                    alliances.forEach(alliance => {
-                        if (alliance.class_period !== godCurrentPeriod) {
-                            godCurrentPeriod = alliance.class_period;
-                            godRowsHtml += `<tr><td colspan="${2 + gods.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${godCurrentPeriod || 'No Period'}</td></tr>`;
-                        }
-                        
-                        godRowsHtml += '<tr>';
-                        godRowsHtml += `<td style="position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap; font-weight: 600;">${alliance.alliance_name}</td>`;
-                        godRowsHtml += `<td style="text-align: center;">${alliance.class_period || '-'}</td>`;
-                        
-                        gods.forEach(god => {
-                            const status = alliance.gods[god];
-                            if (!status) {
-                                godRowsHtml += '<td style="text-align: center;">-</td>';
-                            } else if (status.granted) {
-                                godRowsHtml += `<td style="text-align: center; background: rgba(34,197,94,0.15);"><span style="color: #22c55e; font-size: 16px;">✅</span><br><span style="font-size: 10px; color: #22c55e;">Granted</span></td>`;
-                            } else if (status.all_qualified) {
-                                godRowsHtml += `<td style="text-align: center; background: rgba(250,204,21,0.15);"><span style="color: #fbbf24; font-size: 16px;">⭐</span><br><span style="font-size: 10px; color: #fbbf24;">${status.qualified}/${status.total} Ready!</span></td>`;
-                            } else {
-                                godRowsHtml += `<td style="text-align: center;"><span style="font-size: 12px; color: rgba(255,255,255,0.4);">${status.qualified}/${status.total}</span></td>`;
-                            }
-                        });
-                        
-                        godRowsHtml += '</tr>';
-                    });
-                    
-                    godGridHtml = `
-                        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(255,215,0,0.3);">
-                            <h3 style="color: #ffd700; margin-bottom: 15px; font-size: 18px;">🏛️ Alliance God Bonus Progress (Building Unlocks)</h3>
-                            <div style="background: rgba(255,215,0,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: rgba(255,255,255,0.7);">
-                                ✅ = Granted &nbsp;|&nbsp; ⭐ = All members qualified (ready to grant) &nbsp;|&nbsp; X/Y = Members at 80%+ threshold
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                                <thead>
-                                    <tr style="background: rgba(255,215,0,0.1);">
-                                        ${godHeaderHtml}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${godRowsHtml}
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }
-                
                 content.innerHTML = `
                     <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                         <thead>
-                            <tr style="background: rgba(255,215,0,0.1); position: sticky; top: 0; z-index: 3;">
+                            <tr style="background: rgba(255,215,0,0.1);">
                                 ${headerHtml}
                             </tr>
                         </thead>
@@ -2540,7 +2407,6 @@
                             ${rowsHtml}
                         </tbody>
                     </table>
-                    ${godGridHtml}
                     <style>
                         #quest-bonus-tracker-content table th,
                         #quest-bonus-tracker-content table td {
@@ -2550,12 +2416,6 @@
                         #quest-bonus-tracker-content table tr:hover td {
                             background: rgba(255,255,255,0.05);
                         }
-                        #quest-bonus-tracker-content thead th {
-                            position: sticky;
-                            top: 0;
-                            background: #2d1b4e;
-                            z-index: 3;
-                        }
                     </style>
                 `;
             } catch (err) {
@@ -2563,7 +2423,7 @@
                 content.innerHTML = '<div style="color: #ef4444; text-align: center;">Failed to load tracker data</div>';
             }
         }
-        
+
         async function loadTransactions() {
             try {
                 const response = await fetch(`${API_URL}/teacher/transactions?limit=10`, { headers });
@@ -3032,7 +2892,7 @@
                     requestAnimationFrame(animate);
                 } else {
                     // Spinning complete!
-                    // Normalize rotation to 0-2Ï€ range to prevent accumulation
+                    // Normalize rotation to 0-2π range to prevent accumulation
                     currentRotation = currentRotation % (2 * Math.PI);
                     
                     spinning = false;
@@ -3305,11 +3165,6 @@
                 });
                 
                 const result = await response.json();
-                
-                if (!response.ok || result.error) {
-                    alert('Battle error: ' + (result.error || 'Unknown error'));
-                    return;
-                }
                 
                 // Show battle modal
                 showBattleModal(selectedAllianceId, fate, result);
@@ -4336,6 +4191,7 @@
                 'quiz': '#60a5fa',
                 'comp_conn': '#4ade80',
                 'mural': '#f472b6',
+                'video': '#a78bfa',
                 'rite_of_passage': '#fbbf24',
                 'bonus': '#f97316',
                 'membean': '#22d3d8',
@@ -4347,6 +4203,7 @@
                 'quiz': 'Quiz',
                 'comp_conn': 'Reading Notes',
                 'mural': 'Mural/Comic',
+                'video': 'Video',
                 'rite_of_passage': 'Rite of Passage',
                 'bonus': 'Bonus',
                 'membean': 'Membean',

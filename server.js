@@ -2079,19 +2079,30 @@ app.post('/api/student/upload-map', authenticateToken, (req, res) => {
     run('UPDATE students SET map_image = ?, map_uploaded_at = CURRENT_TIMESTAMP WHERE student_id = ?',
         [map_image, student_id]);
     
-    // If student is in an alliance, mark the alliance's civilization_map_complete as true
+    // Check if ALL non-ghost alliance members have uploaded maps
     const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
     console.log('Student alliance_id:', student ? student.alliance_id : 'no student found');
     
     if (student && student.alliance_id) {
-      console.log('Marking civilization_map_complete = 1 for alliance:', student.alliance_id);
-      run('UPDATE alliances SET civilization_map_complete = 1 WHERE alliance_id = ?', [student.alliance_id]);
+      const totalNonGhost = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+        [student.alliance_id]
+      )[0].count;
+      const membersWithMap = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) AND map_image IS NOT NULL AND map_image != ""',
+        [student.alliance_id]
+      )[0].count;
       
-      // Verify the update worked
-      const alliance = query('SELECT civilization_map_complete FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-      console.log('Alliance civilization_map_complete after update:', alliance ? alliance.civilization_map_complete : 'not found');
+      console.log(`Map check: ${membersWithMap}/${totalNonGhost} non-ghost members have maps`);
       
-      console.log('Alliance map requirement marked complete');
+      if (membersWithMap >= totalNonGhost && totalNonGhost > 0) {
+        run('UPDATE alliances SET civilization_map_complete = 1 WHERE alliance_id = ?', [student.alliance_id]);
+        console.log('All members have maps - alliance map requirement marked complete');
+      } else {
+        // Reset to incomplete if not all members have maps (handles edge case of map deletion)
+        run('UPDATE alliances SET civilization_map_complete = 0 WHERE alliance_id = ?', [student.alliance_id]);
+        console.log(`Waiting for ${totalNonGhost - membersWithMap} more member maps`);
+      }
     }
     
     // Save database to persist
@@ -3416,19 +3427,31 @@ function calculateAgeReadiness(alliance) {
   // Points threshold based on alliance size (reduced by 50 as discussed)
   const pointsThreshold = memberCount === 1 ? 100 : memberCount === 2 ? 200 : memberCount === 3 ? 300 : 400;
   
-  // Calculate progress
+  // Map check: count how many non-ghost members have uploaded maps
+  const membersWithMap = query(
+    'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) AND map_image IS NOT NULL AND map_image != ""',
+    [alliance.alliance_id]
+  )[0].count;
+  const allMapsComplete = membersWithMap >= memberCount && memberCount > 0;
+  
+  // Update alliance map status if it changed
+  if (allMapsComplete && !alliance.civilization_map_complete) {
+    run('UPDATE alliances SET civilization_map_complete = 1 WHERE alliance_id = ?', [alliance.alliance_id]);
+  } else if (!allMapsComplete && alliance.civilization_map_complete) {
+    run('UPDATE alliances SET civilization_map_complete = 0 WHERE alliance_id = ?', [alliance.alliance_id]);
+  }
+  
+  // Calculate progress (Rite of Passage removed from Archaic — moved to Classical→Heroic)
   const buildingsProgress = (ownedRequired.length / requiredBuildings.length) * 100;
   const pointsProgress = Math.min(100, (alliance.total_points / pointsThreshold) * 100);
-  const riteProgress = alliance.rite_of_passage_complete ? 100 : 0;
-  const mapProgress = alliance.civilization_map_complete ? 100 : 0;
+  const mapProgress = allMapsComplete ? 100 : (memberCount > 0 ? (membersWithMap / memberCount) * 100 : 0);
   
-  // Overall progress (weighted average)
-  const overallProgress = (buildingsProgress * 0.4 + pointsProgress * 0.3 + riteProgress * 0.15 + mapProgress * 0.15);
+  // Overall progress (weighted: buildings 45%, points 35%, maps 20%)
+  const overallProgress = (buildingsProgress * 0.45 + pointsProgress * 0.35 + mapProgress * 0.20);
   
   const isReady = ownedRequired.length === requiredBuildings.length &&
                   alliance.total_points >= pointsThreshold &&
-                  alliance.rite_of_passage_complete &&
-                  alliance.civilization_map_complete;
+                  allMapsComplete;
   
   return {
     memberCount,
@@ -3438,8 +3461,9 @@ function calculateAgeReadiness(alliance) {
     requiredBuildings,
     ownedRequired,
     buildingsMet: ownedRequired.length === requiredBuildings.length,
-    riteComplete: alliance.rite_of_passage_complete === 1,
-    mapComplete: alliance.civilization_map_complete === 1,
+    mapComplete: allMapsComplete,
+    mapsSubmitted: membersWithMap,
+    mapsRequired: memberCount,
     overallProgress: Math.round(overallProgress),
     isReady
   };
@@ -3460,18 +3484,22 @@ app.get('/api/student/age-progress', authenticateToken, (req, res) => {
       return res.json({ error: 'Alliance not found', hasAlliance: false });
     }
     
-    // Check if any alliance member has uploaded a map - if so, mark alliance as complete
+    // Check if ALL non-ghost alliance members have uploaded maps
     if (!alliance.civilization_map_complete) {
-      const memberWithMap = query(
-        'SELECT student_id FROM students WHERE alliance_id = ? AND map_image IS NOT NULL AND map_image != ""',
+      const totalNonGhost = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
         [student.alliance_id]
-      );
-      if (memberWithMap.length > 0) {
+      )[0].count;
+      const membersWithMap = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) AND map_image IS NOT NULL AND map_image != ""',
+        [student.alliance_id]
+      )[0].count;
+      
+      if (membersWithMap >= totalNonGhost && totalNonGhost > 0) {
         run('UPDATE alliances SET civilization_map_complete = 1 WHERE alliance_id = ?', [student.alliance_id]);
         saveDatabase();
-        // Refresh alliance data
         alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-        console.log('Auto-marked civilization_map_complete for alliance:', student.alliance_id);
+        console.log('Auto-marked civilization_map_complete for alliance:', student.alliance_id, `(${membersWithMap}/${totalNonGhost} maps)`);
       }
     }
     
