@@ -900,6 +900,11 @@ function seedReferenceData() {
   }
   // ==================== END MIGRATIONS ====================
   
+  // ==================== CLASSICAL AGE SEED DATA ====================
+  // Always run Classical seeding — it has its own internal guards
+  // This must be ABOVE the early return so it runs even when Archaic data exists
+  seedClassicalData();
+  
   if (buildingsExist && choicesExist && sideQuestsExist) {
     console.log('✅ Database already fully seeded');
     return;
@@ -1440,10 +1445,6 @@ function seedReferenceData() {
   }
 
   console.log('✅ Reference data seeded successfully');
-
-  // ==================== CLASSICAL AGE SEED DATA ====================
-  // This runs as a migration — safe for existing live databases
-  seedClassicalData();
 }
 
 function seedClassicalData() {
