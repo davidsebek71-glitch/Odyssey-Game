@@ -3666,7 +3666,6 @@ app.post('/api/teacher/advance-alliance', authenticateToken, (req, res) => {
     if (target_age === 'Classical' && alliance.current_age === 'Archaic') {
       run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance_id]);
       
-      // Also ensure the period gate is open so these students can access hub
       ensureAgeGate(alliance.class_period);
       run(`UPDATE age_gates SET classical_unlocked = 1, classical_unlocked_at = COALESCE(classical_unlocked_at, CURRENT_TIMESTAMP), classical_unlocked_by = COALESCE(classical_unlocked_by, ?)
            WHERE class_period = ? AND classical_unlocked = 0`, [req.user.id, alliance.class_period]);
@@ -7056,20 +7055,12 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       console.error('myth_portals table error:', tableErr.message);
       return res.json({ portals: [], virtues_earned: 0, error: 'myth_portals table not found' });
     }
-    
-    console.log(`Myth portals query returned ${portals.length} portals for student ${req.user.id}`);
-    if (portals.length === 0) {
-      return res.json({ portals: [], virtues_earned: 0 });
-    }
+    console.log(`Myth portals: ${portals.length} found for student ${req.user.id}`);
+    if (portals.length === 0) return res.json({ portals: [], virtues_earned: 0 });
     
     const allianceId = student.alliance_id;
-    let portalStatuses = [];
-    try {
-      portalStatuses = allianceId ? 
-        query('SELECT * FROM myth_portal_status WHERE alliance_id = ?', [allianceId]) : [];
-    } catch (e) {
-      console.log('myth_portal_status table not found, continuing without activation data');
-    }
+    const portalStatuses = allianceId ? 
+      query('SELECT * FROM myth_portal_status WHERE alliance_id = ?', [allianceId]) : [];
     
     // Get student's virtue progress
     const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [req.user.id]);
@@ -7079,6 +7070,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const status = portalStatuses.find(s => s.portal_id === portal.portal_id);
       const activated = status ? status.activated : 0;
       
+      // Check reading guide completion (comp_conn for this myth)
       const hasReadingGuide = gradeRecords.some(g => 
         g.assignment_type === 'comp_conn' && 
         g.myth_god === portal.myth_name && 
@@ -7086,6 +7078,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         g.points_earned > 0
       );
       
+      // Check quiz passed (quiz for this myth, 80%+ = 8+ out of 10)
       const quizGrade = gradeRecords.find(g => 
         g.assignment_type === 'quiz' && 
         g.myth_god === portal.myth_name && 
@@ -7093,6 +7086,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       );
       const quizPassed = quizGrade ? (quizGrade.points_earned / quizGrade.max_points >= 0.8) : false;
       
+      // Check creative work (any bonus, word_cloud, or wildcard for this myth)
       const hasCreative = gradeRecords.some(g => 
         (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && 
         g.myth_god === portal.myth_name && 
@@ -7100,6 +7094,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         g.points_earned > 0
       );
       
+      // Virtue earned when: reading guide + quiz passed + at least 1 creative
       const virtueEarned = hasReadingGuide && quizPassed && hasCreative ? 1 : 0;
       
       return {
@@ -7117,7 +7112,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
     res.json({ portals: enrichedPortals, virtues_earned: virtuesEarned });
   } catch (err) {
     console.error('Myth portals error:', err);
-    res.status(500).json({ error: 'Failed to load myth portals: ' + err.message });
+    res.status(500).json({ error: 'Failed to load myth portals' });
   }
 });
 
@@ -7348,65 +7343,53 @@ function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
   }
   
   // Check which Classical myths are unlocked for this alliance
-  // Wrapped in try/catch — if myth_portals tables don't exist yet, fall back to Archaic only
-  let unlockedMyths = [];
-  try {
-    const unlockedPortals = query(
-      'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.alliance_id = ? AND mps.activated = 1',
-      [student.alliance_id]
-    );
-    unlockedMyths = unlockedPortals.map(p => p.myth_name);
-  } catch (portalErr) {
-    console.log('⚠️ myth_portals query failed, using Archaic only:', portalErr.message);
-  }
-  
-  // Build separate Archaic and Classical question pools
-  const excludePlaceholders = excludeIds.length > 0 ? `AND question_id NOT IN (${excludeIds.map(() => '?').join(',')})` : '';
-  const excludeParams = excludeIds.length > 0 ? excludeIds : [];
-  
-  // Archaic pool: all Archaic/null age questions
-  const archaicQuestions = query(
-    `SELECT * FROM battle_questions WHERE is_active = 1 ${excludePlaceholders} AND (age = 'Archaic' OR age IS NULL)`,
-    excludeParams
+  const unlockedPortals = query(
+    'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.alliance_id = ? AND mps.activated = 1',
+    [student.alliance_id]
   );
+  const unlockedMyths = unlockedPortals.map(p => p.myth_name);
   
-  // Classical pool: only questions from unlocked myths
-  let classicalQuestions = [];
-  if (unlockedMyths.length > 0) {
-    const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
-    classicalQuestions = query(
-      `SELECT * FROM battle_questions WHERE is_active = 1 ${excludePlaceholders} AND age = 'Classical' AND myth_name IN (${mythPlaceholders})`,
-      [...excludeParams, ...unlockedMyths]
-    );
+  // Build question pool: all Archaic + Classical questions for unlocked myths
+  let questions;
+  if (excludeIds.length > 0) {
+    const placeholders = excludeIds.map(() => '?').join(',');
+    if (unlockedMyths.length > 0) {
+      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
+      questions = query(
+        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
+        [...excludeIds, ...unlockedMyths]
+      );
+    } else {
+      questions = query(
+        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL)`,
+        excludeIds
+      );
+    }
+  } else {
+    if (unlockedMyths.length > 0) {
+      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
+      questions = query(
+        `SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
+        unlockedMyths
+      );
+    } else {
+      questions = query("SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL)");
+    }
   }
   
-  // 70% Classical / 30% Archaic weighted selection
-  // If one pool is empty, use the other entirely
-  let selectedPool;
-  if (classicalQuestions.length === 0 && archaicQuestions.length === 0) {
-    // Both empty — fallback to any active question
-    const fallback = query('SELECT * FROM battle_questions WHERE is_active = 1');
-    if (fallback.length === 0) return null;
-    selectedPool = fallback;
-  } else if (classicalQuestions.length === 0) {
-    // No Classical questions available yet — use all Archaic
-    selectedPool = archaicQuestions;
-  } else if (archaicQuestions.length === 0) {
-    // No Archaic left (unlikely) — use all Classical
-    selectedPool = classicalQuestions;
-  } else {
-    // Both pools have questions — apply 70/30 weighting
-    const roll = Math.random();
-    selectedPool = roll < 0.70 ? classicalQuestions : archaicQuestions;
+  if (questions.length === 0) {
+    // Fallback — get any active question
+    questions = query('SELECT * FROM battle_questions WHERE is_active = 1');
+    if (questions.length === 0) return null;
   }
   
   // Fisher-Yates shuffle
-  for (let i = selectedPool.length - 1; i > 0; i--) {
+  for (let i = questions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [selectedPool[i], selectedPool[j]] = [selectedPool[j], selectedPool[i]];
+    [questions[i], questions[j]] = [questions[j], questions[i]];
   }
   
-  return selectedPool[0];
+  return questions[0];
 }
 
 // ====================
