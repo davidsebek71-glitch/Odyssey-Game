@@ -2441,7 +2441,7 @@
                     rowsHtml += `</tr>`;
                 });
                 
-                // Build Alliance Summary
+                // Build Alliance Summary Cards
                 let summaryHtml = '';
                 const allianceStatus = data.alliance_god_status || {};
                 const alliances = Object.entries(allianceStatus);
@@ -2449,54 +2449,77 @@
                 if (alliances.length > 0) {
                     const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
                     const questIcons = { 1: '🔨', 2: '🏹', 3: '🌾' };
+                    const questNames = { 1: 'Ring of Many', 2: "Panacea's Remedy", 3: 'Three Seeds' };
                     
                     // Side quest completion per alliance
                     const allianceSideQuests = {};
                     data.students.forEach(s => {
                         if (!s.alliance_id) return;
-                        if (!allianceSideQuests[s.alliance_id]) {
-                            allianceSideQuests[s.alliance_id] = {};
-                        }
+                        if (!allianceSideQuests[s.alliance_id]) allianceSideQuests[s.alliance_id] = {};
                         data.side_quests.forEach(sq => {
-                            if (!allianceSideQuests[s.alliance_id][sq.quest_id]) {
-                                allianceSideQuests[s.alliance_id][sq.quest_id] = { done: 0, total: 0 };
-                            }
+                            if (!allianceSideQuests[s.alliance_id][sq.quest_id]) allianceSideQuests[s.alliance_id][sq.quest_id] = { done: 0, total: 0 };
                             allianceSideQuests[s.alliance_id][sq.quest_id].total++;
                             if (s.side_quests[sq.quest_id]) allianceSideQuests[s.alliance_id][sq.quest_id].done++;
                         });
                     });
                     
-                    summaryHtml = `
-                        <div style="margin-bottom: 20px; background: rgba(255,215,0,0.05); border: 1px solid rgba(255,215,0,0.2); border-radius: 10px; padding: 15px;">
-                            <h4 style="color: #ffd700; margin-bottom: 12px; font-size: 15px;">📊 Alliance Completion Summary</h4>
-                            <div style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">
-                                ${alliances.map(([id, a]) => {
-                                    const godIcons = Object.entries(a.gods).map(([god, g]) => {
-                                        if (g.granted) return '<span style="color: #4ade80;" title="' + god + ' GRANTED">' + (godEmojis[god] || '⚡') + '✓</span>';
-                                        if (g.all_qualified) return '<span style="color: #fbbf24;" title="' + god + ' ELIGIBLE">' + (godEmojis[god] || '⚡') + '⏳</span>';
-                                        return '<span style="color: rgba(255,255,255,0.3);" title="' + god + ' ' + g.qualified + '/' + g.total + '">' + (godEmojis[god] || '⚡') + '<sup style=\'font-size:10px\'>' + g.qualified + '/' + g.total + '</sup></span>';
-                                    }).join(' ');
-                                    
-                                    const sqIcons = data.side_quests.map(sq => {
-                                        const sqData = (allianceSideQuests[id] || {})[sq.quest_id];
-                                        if (!sqData) return '';
-                                        const icon = questIcons[sq.quest_id] || '🗺️';
-                                        if (sqData.done >= sqData.total) return '<span style="color: #4ade80;" title="' + sq.quest_name + ' COMPLETE">' + icon + '✓</span>';
-                                        return '<span style="color: rgba(255,255,255,0.3);" title="' + sq.quest_name + ' ' + sqData.done + '/' + sqData.total + '">' + icon + '<sup style=\'font-size:10px\'>' + sqData.done + '/' + sqData.total + '</sup></span>';
-                                    }).join(' ');
-                                    
-                                    return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px;">' +
-                                        '<strong style="color: #fff; font-size: 13px; min-width: 150px;">' + a.alliance_name + '</strong>' +
-                                        '<span style="font-size: 14px;">' + godIcons + '</span>' +
-                                        '<span style="font-size: 14px; margin-left: 12px;">' + sqIcons + '</span>' +
-                                    '</div>';
-                                }).join('')}
-                            </div>
-                            <div style="margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">
-                                ✓ = Granted/Complete | ⏳ = Eligible for approval | Numbers = members completed/total
-                            </div>
-                        </div>
-                    `;
+                    const allianceCards = alliances.map(([id, a]) => {
+                        // God bonus rows
+                        const godRows = Object.entries(a.gods).map(([god, g]) => {
+                            const pct = g.total > 0 ? Math.round((g.qualified / g.total) * 100) : 0;
+                            const barColor = g.granted ? '#4ade80' : g.all_qualified ? '#fbbf24' : 'rgba(139, 92, 246, 0.6)';
+                            const statusLabel = g.granted ? '✅ Granted' : g.all_qualified ? '⏳ Ready' : g.qualified + '/' + g.total;
+                            const statusColor = g.granted ? '#4ade80' : g.all_qualified ? '#fbbf24' : 'rgba(255,255,255,0.5)';
+                            return '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">' +
+                                '<span style="width: 24px; text-align: center; font-size: 16px;">' + (godEmojis[god] || '') + '</span>' +
+                                '<span style="width: 65px; font-size: 12px; color: rgba(255,255,255,0.7);">' + god + '</span>' +
+                                '<div style="flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">' +
+                                    '<div style="height: 100%; width: ' + pct + '%; background: ' + barColor + '; border-radius: 4px; transition: width 0.5s;"></div>' +
+                                '</div>' +
+                                '<span style="width: 75px; text-align: right; font-size: 11px; color: ' + statusColor + '; font-weight: 600;">' + statusLabel + '</span>' +
+                            '</div>';
+                        }).join('');
+                        
+                        // Side quest rows
+                        const sqRows = data.side_quests.map(sq => {
+                            const sqData = (allianceSideQuests[id] || {})[sq.quest_id] || { done: 0, total: a.member_count || 0 };
+                            const pct = sqData.total > 0 ? Math.round((sqData.done / sqData.total) * 100) : 0;
+                            const complete = sqData.done >= sqData.total && sqData.total > 0;
+                            const barColor = complete ? '#4ade80' : 'rgba(168, 85, 247, 0.6)';
+                            const statusLabel = complete ? '✅ Complete' : sqData.done + '/' + sqData.total;
+                            const statusColor = complete ? '#4ade80' : 'rgba(255,255,255,0.5)';
+                            const icon = questIcons[sq.quest_id] || '🗺️';
+                            return '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">' +
+                                '<span style="width: 24px; text-align: center; font-size: 16px;">' + icon + '</span>' +
+                                '<span style="width: 65px; font-size: 12px; color: rgba(255,255,255,0.7);">' + (questNames[sq.quest_id] || sq.quest_name).substring(0, 10) + '</span>' +
+                                '<div style="flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">' +
+                                    '<div style="height: 100%; width: ' + pct + '%; background: ' + barColor + '; border-radius: 4px; transition: width 0.5s;"></div>' +
+                                '</div>' +
+                                '<span style="width: 75px; text-align: right; font-size: 11px; color: ' + statusColor + '; font-weight: 600;">' + statusLabel + '</span>' +
+                            '</div>';
+                        }).join('');
+                        
+                        return '<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px;">' +
+                            '<div style="font-weight: 700; color: #ffd700; font-size: 14px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,215,0,0.15);">' +
+                                a.alliance_name + ' <span style="font-size: 11px; color: rgba(255,255,255,0.4); font-weight: 400;">(' + (a.class_period || '') + ' • ' + a.member_count + ' members)</span>' +
+                            '</div>' +
+                            '<div style="margin-bottom: 8px;">' +
+                                '<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,215,0,0.6); margin-bottom: 6px;">God Bonuses</div>' +
+                                godRows +
+                            '</div>' +
+                            '<div>' +
+                                '<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(168,85,247,0.7); margin-bottom: 6px;">Side Quests</div>' +
+                                sqRows +
+                            '</div>' +
+                        '</div>';
+                    }).join('');
+                    
+                    summaryHtml = '<div style="margin-bottom: 20px;">' +
+                        '<h4 style="color: #ffd700; margin-bottom: 12px; font-size: 15px;">📊 Alliance Completion Summary</h4>' +
+                        '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; max-height: 400px; overflow-y: auto; padding: 2px;">' +
+                            allianceCards +
+                        '</div>' +
+                    '</div>';
                 }
                 
                 content.innerHTML = summaryHtml + `
