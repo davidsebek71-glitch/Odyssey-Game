@@ -12,6 +12,24 @@
             box-sizing: border-box;
         }
 
+        @keyframes badgePulse {
+            0%, 100% { box-shadow: 0 0 12px rgba(255, 215, 0, 0.3); }
+            50% { box-shadow: 0 0 24px rgba(255, 215, 0, 0.6); }
+        }
+        @keyframes badgeShatter {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5) rotate(15deg); opacity: 0.5; }
+            100% { transform: scale(0) rotate(45deg); opacity: 0; }
+        }
+        @keyframes badgeNameReveal {
+            from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes bannerSlideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         @keyframes bonusPulse {
             0%, 100% { box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255,255,255,0.2); }
             50% { box-shadow: 0 4px 25px rgba(245, 158, 11, 0.7), inset 0 1px 0 rgba(255,255,255,0.2); }
@@ -176,24 +194,26 @@
         }
         
         .ares-effect {
-            animation: aresShake 2s ease-in-out;
-        }
-        
-        /* Ares - Red Haze of War (translucent red filter, NOT darkness) */
-        @keyframes aresRedHaze {
-            0% { opacity: 0; }
-            10% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { opacity: 0; }
+            animation: aresShake 3s ease-in-out;
         }
         
         .ares-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(220, 20, 20, 0.25);
+            background: radial-gradient(circle, rgba(220, 0, 0, 0.35) 0%, rgba(120, 0, 0, 0.45) 100%);
             pointer-events: none;
             z-index: 9998;
-            animation: aresRedHaze 2s ease-in-out forwards;
+            animation: aresPulse 3s ease-in-out forwards;
+        }
+        
+        @keyframes aresPulse {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            30% { opacity: 0.7; }
+            50% { opacity: 1; }
+            70% { opacity: 0.7; }
+            85% { opacity: 1; }
+            100% { opacity: 0; }
         }
         
         /* Hades - Darkness Effect */
@@ -1861,9 +1881,9 @@
                 <h1>⚡ ODYSSEY TO OLYMPUS</h1>
             </div>
             <div class="user-info">
+                <span class="user-name" id="student-name">Student</span>
                 <button onclick="window.location.href='/hub.html'" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 6px 14px; color: white; cursor: pointer; font-family: 'Cinzel', serif; font-size: 12px; margin-right: 8px;">🏠 Hub</button>
                 <button id="myth-portal-nav-btn" onclick="window.location.href='/classical.html'" style="display: none; background: linear-gradient(135deg, #0ea5e9, #0284c7); border: 1px solid rgba(56,189,248,0.5); border-radius: 8px; padding: 6px 14px; color: white; cursor: pointer; font-family: 'Cinzel', serif; font-size: 12px; margin-right: 8px;">🏛️ Myth Portals</button>
-                <span class="user-name" id="student-name">Student</span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -2369,44 +2389,6 @@
             </button>
         </div>
 
-        <!-- Extra Credit & Side Quests Row -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-            <button onclick="openBonusPortal()" style="
-                background: linear-gradient(135deg, #f59e0b, #d97706);
-                border: 2px solid rgba(251,191,36,0.5);
-                border-radius: 12px;
-                padding: 14px 20px;
-                color: white;
-                font-family: 'Cinzel', serif;
-                font-size: 15px;
-                font-weight: 700;
-                cursor: pointer;
-                text-align: center;
-                box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-                transition: all 0.3s ease;
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(245, 158, 11, 0.5)';"
-               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(245, 158, 11, 0.3)';">
-                🎁 Extra Credit Bonus
-            </button>
-            <button onclick="openSideQuestPortal()" style="
-                background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-                border: 2px solid rgba(167,139,250,0.5);
-                border-radius: 12px;
-                padding: 14px 20px;
-                color: white;
-                font-family: 'Cinzel', serif;
-                font-size: 15px;
-                font-weight: 700;
-                cursor: pointer;
-                text-align: center;
-                box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
-                transition: all 0.3s ease;
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(139, 92, 246, 0.5)';"
-               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(139, 92, 246, 0.3)';">
-                🗺️ Side Quest Portal
-            </button>
-        </div>
-
         <!-- Stats -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -2428,6 +2410,38 @@
                 <div class="icon">🌟</div>
                 <div class="label">Current Age</div>
                 <div class="value" id="age-stat" style="font-size: 22px;">Archaic</div>
+            </div>
+        </div>
+        
+        <!-- Quick Action Cards -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <div onclick="openBonusPortal()" style="
+                background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(180,83,9,0.25));
+                border: 2px solid rgba(251,191,36,0.4);
+                border-radius: 16px;
+                padding: 18px 20px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            " onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='rgba(251,191,36,0.8)'; this.style.boxShadow='0 6px 20px rgba(245,158,11,0.4)';"
+               onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(251,191,36,0.4)'; this.style.boxShadow='none';">
+                <div style="font-size: 28px; margin-bottom: 6px;">🎁</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Extra Credit</div>
+                <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #fbbf24;">Earn Bonus Points ⚡</div>
+            </div>
+            <div onclick="openSideQuestPortal()" style="
+                background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(109,40,217,0.25));
+                border: 2px solid rgba(167,139,250,0.4);
+                border-radius: 16px;
+                padding: 18px 20px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            " onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='rgba(167,139,250,0.8)'; this.style.boxShadow='0 6px 20px rgba(139,92,246,0.4)';"
+               onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(167,139,250,0.4)'; this.style.boxShadow='none';">
+                <div style="font-size: 28px; margin-bottom: 6px;">🗺️</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Side Quests</div>
+                <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #a78bfa;">Earn Special Rewards 🪓</div>
             </div>
         </div>
 
@@ -2458,31 +2472,30 @@
                     <div id="buildings-activations-content">Loading...</div>
                 </div>
 
-                <!-- My Submissions (collapsible) -->
+                <!-- My Grades -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title" onclick="toggleSection('submissions')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                        <span>📝 My Point Submissions</span>
-                        <span id="submissions-toggle" style="font-size: 18px; transition: transform 0.3s;">▶</span>
-                    </div>
-                    <div id="submissions-content" style="display: none; transition: max-height 0.3s ease;"><div class="empty-state" style="color: rgba(255,255,255,0.5); padding: 10px; text-align: center;">Tap header to view</div></div>
+                    <div class="card-title">📊 My Archaic Age Grades</div>
+                    <div id="grades-content" class="loading">Loading...</div>
                 </div>
 
-                <!-- My Grades (collapsible) -->
+                <!-- My Contributions (Collapsible) -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title" onclick="toggleSection('grades')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                        <span>📊 My Archaic Age Grades</span>
-                        <span id="grades-toggle" style="font-size: 18px; transition: transform 0.3s;">▶</span>
+                    <div class="card-title" style="cursor: pointer; user-select: none;" onclick="toggleSection('contributions-section', this)">
+                        📊 My Contributions <span style="float: right; font-size: 14px; color: rgba(255,255,255,0.5);">▼</span>
                     </div>
-                    <div id="grades-content" style="display: none; transition: max-height 0.3s ease;"><div class="empty-state" style="color: rgba(255,255,255,0.5); padding: 10px; text-align: center;">Tap header to view</div></div>
+                    <div id="contributions-section">
+                        <div id="contributions-content" class="loading">Loading...</div>
+                    </div>
                 </div>
 
-                <!-- My Contributions (collapsible) -->
-                <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title" onclick="toggleSection('contributions')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                        <span>📊 My Contributions</span>
-                        <span id="contributions-toggle" style="font-size: 18px; transition: transform 0.3s;">▶</span>
+                <!-- My Point Submissions (Collapsible) -->
+                <div class="card">
+                    <div class="card-title" style="cursor: pointer; user-select: none;" onclick="toggleSection('submissions-section', this)">
+                        📝 My Point Submissions <span style="float: right; font-size: 14px; color: rgba(255,255,255,0.5);">▼</span>
                     </div>
-                    <div id="contributions-content" style="display: none; transition: max-height 0.3s ease;"><div class="empty-state" style="color: rgba(255,255,255,0.5); padding: 10px; text-align: center;">Tap header to view</div></div>
+                    <div id="submissions-section">
+                        <div id="submissions-content" class="loading">Loading...</div>
+                    </div>
                 </div>
             </div>
 
@@ -2519,7 +2532,6 @@
                         <option value="quiz">Quiz</option>
                         <option value="comp_conn">Reading Notes / Comp Conn</option>
                         <option value="mural">Mural/Comic (Pixton)</option>
-                        <option value="video">Video (WeVideo)</option>
                         <option value="rite_of_passage">Rite of Passage Essay</option>
                         <option value="bonus">Bonus / Extra Credit</option>
                         <option value="membean">Membean</option>
@@ -2529,7 +2541,7 @@
                 </div>
                 <div class="form-group" id="myth-group">
                     <label>Myth / God</label>
-                    <select id="submit-myth" required>
+                    <select id="submit-myth">
                         <option value="">Select a myth...</option>
                     </select>
                 </div>
@@ -2545,7 +2557,7 @@
                 </div>
                 <div class="form-group">
                     <label>Points Earned</label>
-                    <input type="number" id="submit-points" min="1" placeholder="Enter points" required>
+                    <input type="number" id="submit-points" min="1" max="100" placeholder="Enter points (max 100)" required oninput="if(this.value > 100) this.value = 100; if(this.value.length > 3) this.value = this.value.slice(0,3);">
                 </div>
                 <div class="form-group">
                     <label>Description</label>
@@ -2718,27 +2730,6 @@
 
     <script>
         const API_URL = '/api';
-
-            // Collapsible section toggle with lazy loading
-            const sectionLoaded = { submissions: false, grades: false, contributions: false };
-            function toggleSection(section) {
-                const content = document.getElementById(section + '-content');
-                const toggle = document.getElementById(section + '-toggle');
-                if (content.style.display === 'none') {
-                    content.style.display = '';
-                    toggle.textContent = '▼';
-                    // Lazy load on first expand
-                    if (!sectionLoaded[section]) {
-                        sectionLoaded[section] = true;
-                        if (section === 'submissions') loadSubmissions();
-                        else if (section === 'grades') loadGrades();
-                        else if (section === 'contributions') loadContributions();
-                    }
-                } else {
-                    content.style.display = 'none';
-                    toggle.textContent = '▶';
-                }
-            }
         const token = localStorage.getItem('token');
         
         if (!token) {
@@ -2764,6 +2755,7 @@
         
         // Arena variables
         let challengePollingInterval = null;
+        let outgoingPollInterval = null; // Polls while waiting for challenge response
         let currentChallengeBanner = null;
         let selectedGods = [];
         let currentBattleId = null;
@@ -2773,9 +2765,6 @@
         let timeRemaining = 15;
         let questionActualStartTime = null; // Tracks when question actually started for accurate time_ms calculation
         let arenaCountdownInterval = null;
-        let suddenDeathIntroShown = false; // Tracks if we've shown the sudden death intro for current round
-        let suddenDeathRoundShown = 0; // Which sudden death round we showed intro for
-        let aphroditeRetryActive = false; // Blocks UI refresh during Aphrodite retry window
         
         // God configuration - MUST be declared before loadPantheon is called
         const GOD_CONFIG = {
@@ -2801,11 +2790,13 @@
 
         loadDashboard();
         loadInvitations();
+        loadSubmissions();
+        loadContributions();
         loadAchievements();
         loadAgeProgress();
-        loadPantheon();
-        checkArenaEligibility();
-        // Submissions, Grades, Contributions load on first expand (lazy loading)
+        loadGrades();
+        loadPantheon(); // Load pantheon status
+        checkArenaEligibility(); // Check if arena button should pulse
         
         // Start background polling for real-time updates
         startBackgroundPolling();
@@ -2844,7 +2835,8 @@
             }
         }
         
-        // Background polling for real-time updates (god unlocks, points, etc.)
+        // Background polling for real-time updates (pantheon unlocks/bonuses ONLY)
+        // Dashboard data is handled by the managed dashboardRefreshInterval
         function startBackgroundPolling() {
             // IMPORTANT: Clear any existing interval first to prevent stacking
             if (pollingInterval) {
@@ -2852,7 +2844,7 @@
                 pollingInterval = null;
             }
             
-            // Poll every 10 seconds for updates
+            // Poll every 15 seconds for pantheon updates only
             pollingInterval = setInterval(async () => {
                 try {
                     // Check for new god unlocks
@@ -2871,21 +2863,10 @@
                         showBonusButton();
                     }
                     
-                    // Check for point changes (refresh dashboard if points changed)
-                    const dashResponse = await fetch(`${API_URL}/student/dashboard`, { headers });
-                    const dashData = await dashResponse.json();
-                    
-                    if (dashData.student && dashData.student.alliance_points !== lastKnownPoints) {
-                        lastKnownPoints = dashData.student.alliance_points;
-                        // Update points display without full reload
-                        const pointsEl = document.getElementById('points-stat');
-                        if (pointsEl) pointsEl.textContent = dashData.student.alliance_points || 0;
-                    }
-                    
                 } catch (err) {
                     // Silently fail - polling errors shouldn't disrupt the UI
                 }
-            }, 30000); // Every 30 seconds
+            }, 15000); // Every 15 seconds (was 10)
         }
         
         // Stop polling when page is hidden (saves resources)
@@ -2899,12 +2880,30 @@
                     clearInterval(challengePollingInterval);
                     challengePollingInterval = null;
                 }
+                if (outgoingPollInterval) {
+                    clearInterval(outgoingPollInterval);
+                    outgoingPollInterval = null;
+                }
+                stopDashboardRefresh();
             } else {
                 // Restart polling when page becomes visible
                 startBackgroundPolling();
                 startChallengePolling();
+                startDashboardRefresh();
             }
         });
+
+        function toggleSection(sectionId, titleEl) {
+            const section = document.getElementById(sectionId);
+            const arrow = titleEl.querySelector('span');
+            if (section.style.display === 'none') {
+                section.style.display = '';
+                arrow.textContent = '▼';
+            } else {
+                section.style.display = 'none';
+                arrow.textContent = '▶';
+            }
+        }
 
         function renderDashboard() {
             const { student, members, leaderboard } = dashboardData;
@@ -2912,9 +2911,9 @@
             // Update stats
             if (student.alliance_name) {
                 const rewardIcons = student.side_quest_reward_icons || '';
-                document.getElementById('alliance-name-stat').innerHTML = student.alliance_name + 
-                    (rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : '');
-                document.getElementById('points-stat').textContent = student.alliance_points || 0;
+                const iconSpan = rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : '';
+                document.getElementById('alliance-name-stat').innerHTML = student.alliance_name + iconSpan;
+                document.getElementById('points-stat').textContent = student.alliance_display_points || student.alliance_points || 0;
                 
                 const rank = leaderboard.findIndex(a => a.alliance_id === student.alliance_id) + 1;
                 document.getElementById('rank-stat').textContent = rank > 0 ? `#${rank}` : '--';
@@ -2934,19 +2933,19 @@
             
             document.getElementById('age-stat').textContent = student.current_age || 'Archaic';
             
-            // Show Myth Portals button for Classical+ students
-            if (student.current_age === 'Classical' || student.current_age === 'Heroic') {
-                document.getElementById('myth-portal-nav-btn').style.display = '';
+            // Show Myth Portal button for Classical age students
+            const portalBtn = document.getElementById('myth-portal-nav-btn');
+            if (portalBtn && student.current_age === 'Classical') {
+                portalBtn.style.display = 'inline-block';
             }
 
             // Render alliance section
             const allianceContent = document.getElementById('alliance-content');
             if (student.alliance_id) {
-                const allianceRewardIcons = student.side_quest_reward_icons || '';
                 allianceContent.innerHTML = `
                     <div style="text-align: center; margin-bottom: 20px;">
                         <div style="font-size: 24px; font-weight: 700; color: #ffd700; margin-bottom: 5px;">
-                            ${student.alliance_name} ${allianceRewardIcons ? `<span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${allianceRewardIcons}</span>` : ''}
+                            ${student.alliance_name}${student.side_quest_reward_icons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${student.side_quest_reward_icons}</span>` : ''}
                         </div>
                         <div style="font-size: 14px; color: rgba(255, 255, 255, 0.6);">
                             ${student.civilization_name || 'Unnamed Civilization'}
@@ -2961,9 +2960,16 @@
                     ` : ''}
                     <div style="margin-top: 20px;">
                         <div style="font-weight: 600; margin-bottom: 12px; color: #c9a0dc; font-size: 14px;">
-                            Members (${members.length})
+                            Members (${members.filter(m => !m.is_ghost).length}${members.some(m => m.is_ghost) ? ' + ' + members.filter(m => m.is_ghost).length + ' 👻' : ''})
                         </div>
-                        ${members.map(m => `
+                        ${members.map(m => m.is_ghost ? `
+                            <div class="member" style="opacity: 0.6; border-left: 3px solid #8b5cf6; padding-left: 10px;">
+                                <div class="member-name" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>👻 ${m.name} <span style="font-size: 11px; color: #a78bfa;">(Spirit Ally: +${m.ghost_points} pts)</span></span>
+                                    <button onclick="kickGhost(${m.student_id})" style="background: rgba(220,38,38,0.3); border: none; color: #fca5a5; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button>
+                                </div>
+                            </div>
+                        ` : `
                             <div class="member">
                                 <div class="member-name">
                                     ${m.name} ${m.student_id === student.student_id ? '(You)' : ''}
@@ -2986,12 +2992,11 @@
             if (leaderboard.length === 0) {
                 leaderboardContent.innerHTML = '<div class="empty-state">No alliances yet</div>';
             } else {
-                // Show top 8 alliances (already sorted by display_points from server)
+                // Show top 8 alliances
                 const top8 = leaderboard.slice(0, 8);
                 leaderboardContent.innerHTML = top8.map((alliance, index) => {
-                    // Use the pre-computed side quest reward icons from server
+                    // Use side quest reward icons from server
                     const rewardIcons = alliance.side_quest_reward_icons || '';
-                    const displayPts = alliance.display_points || alliance.total_points;
                     return `
                     <div class="leaderboard-row ${alliance.alliance_id === student.alliance_id ? 'current' : ''}" 
                          style="cursor: pointer;" 
@@ -3001,7 +3006,7 @@
                             ${alliance.alliance_name}${rewardIcons ? ` <span style="font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                             ${alliance.alliance_id === student.alliance_id ? ' (You)' : ''}
                         </div>
-                        <div class="points">${displayPts}</div>
+                        <div class="points">${alliance.display_points || alliance.total_points}</div>
                         <div style="margin-left: 10px; opacity: 0.5;">🗺️</div>
                     </div>
                 `}).join('');
@@ -3053,7 +3058,7 @@
                     'Aphrodite': '#ff69b4', 'Poseidon': '#00bfff', 'Artemis': '#7caa98',
                     'Demeter': '#daa520', 'Hermes': '#cc5500', 'Hephaestus': '#cd5c5c',
                     'Apollo and Artemis': '#22c55e', 'Nine Muses': '#ff9933',
-                    'Pixton Retelling': '#ffffff', 'WeVideo Movie': '#ffffff', 'Exit Ticket': '#ffffff'
+                    'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff'
                 };
                 
                 const getAssignmentDisplay = (s) => {
@@ -3061,7 +3066,6 @@
                     const assignmentType = s.category === 'comp_conn' ? 'Reading Notes' : 
                                            s.category === 'quiz' ? 'Quiz' :
                                            s.category === 'mural' ? 'Mural' :
-                                           s.category === 'video' ? 'Video' :
                                            s.category === 'bonus' ? 'Bonus' :
                                            s.category === 'rite_of_passage' ? 'Rite of Passage' :
                                            s.category;
@@ -3223,8 +3227,7 @@
                 
                 content.innerHTML = renderAchievement(achievements.coeus, '📚') +
                     renderAchievement(achievements.metis, '📝') +
-                    renderAchievement(achievements.apollo, '🎨') +
-                    renderAchievement(achievements.delphi, '🎬');
+                    renderAchievement(achievements.apollo, '🎨');
                     
             } catch (err) {
                 console.error('Failed to load achievements:', err);
@@ -3241,7 +3244,7 @@
             let progressText = '';
             
             if (progress.needed) {
-                // Count-based (murals, videos)
+                // Count-based (murals)
                 progressPercent = Math.min(100, (progress.count / progress.needed) * 100);
                 progressText = `${progress.count}/${progress.needed}`;
             } else if (progress.threshold) {
@@ -3337,8 +3340,9 @@
                     `;
                 });
                 
-                // Map requirement (all members must submit)
+                // Assignments
                 html += `
+                    <!-- Rite of Passage moved to Classical Age -->
                     <div class="age-requirement">
                         <div class="age-req-icon">🗺️</div>
                         <div class="age-req-text">Civilization Maps (${r.mapsSubmitted || 0}/${r.mapsRequired || 0} members)</div>
@@ -3367,20 +3371,6 @@
                         <div class="age-gate-status advanced">
                             🎉 Congratulations! Your alliance has advanced to the ${data.nextAge} Age!
                         </div>
-                        <button onclick="window.location.href='/hub.html'" style="
-                            display: block; width: 100%; margin-top: 12px; padding: 14px 24px;
-                            background: linear-gradient(135deg, #2563eb, #4a90d9);
-                            border: 2px solid rgba(74,144,217,0.6);
-                            border-radius: 10px; color: #fff;
-                            font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700;
-                            letter-spacing: 3px; cursor: pointer;
-                            text-transform: uppercase;
-                            box-shadow: 0 4px 20px rgba(74,144,217,0.3);
-                            transition: all 0.3s;
-                        " onmouseover="this.style.boxShadow='0 8px 30px rgba(74,144,217,0.5)'; this.style.transform='translateY(-2px)'"
-                           onmouseout="this.style.boxShadow='0 4px 20px rgba(74,144,217,0.3)'; this.style.transform='translateY(0)'">
-                            🏛️ ENTER THE CLASSICAL AGE
-                        </button>
                     `;
                 } else if (r.isReady && !data.gateOpen) {
                     html += `
@@ -3449,7 +3439,7 @@
                                 'Aphrodite': '#ff69b4', 'Poseidon': '#00bfff', 'Artemis': '#7caa98',
                                 'Demeter': '#daa520', 'Hermes': '#cc5500', 'Hephaestus': '#cd5c5c',
                                 'Apollo and Artemis': '#22c55e', 'Nine Muses': '#ff9933',
-                                'Pixton': '#ffffff', 'WeVideo': '#ffffff', 'Exit Ticket': '#ffffff'
+                                'Pixton': '#ffffff', 'Exit Ticket': '#ffffff'
                             };
                             
                             // Get color based on reason content
@@ -3583,7 +3573,7 @@
                     select.innerHTML = '<option value="">No students available</option>';
                 } else {
                     select.innerHTML = '<option value="">Select a student...</option>' +
-                        students.map(s => `<option value="${s.student_id}">${s.name}</option>`).join('');
+                        students.map(s => `<option value="${s.student_id}">${s.is_ghost ? '👻 ' : ''}${s.name}${s.is_ghost ? ' (Spirit Ally)' : ''}</option>`).join('');
                 }
             } catch (err) {
                 console.error('Failed to load students:', err);
@@ -3593,6 +3583,26 @@
         function closeInviteModal() {
             document.getElementById('invite-modal').classList.remove('show');
             document.getElementById('invite-form').reset();
+        }
+
+        async function kickGhost(ghostStudentId) {
+            if (!confirm('Remove this Spirit Ally from your alliance?')) return;
+            try {
+                const response = await fetch(`${API_URL}/alliance/kick-ghost`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ ghost_student_id: ghostStudentId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('✅ ' + result.message);
+                    loadDashboard();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to remove ghost: ' + err.message);
+            }
         }
 
         document.getElementById('invite-form').addEventListener('submit', async (e) => {
@@ -3953,7 +3963,10 @@
                             <span style="color: rgba(255,255,255,0.4);">⬜</span> Wooden Wall
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">⬜</span> All Members' Maps
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Rite of Passage
+                        </div>
+                        <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
+                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Civilization Map
                         </div>
                         <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; text-align: center; font-size: 10px; color: rgba(255,255,255,0.5);">
                             Join an alliance to start!
@@ -4000,8 +4013,9 @@
                     `;
                 });
                 
-                // Map requirement (all members)
+                // Assignments
                 html += `
+                    <!-- Rite moved to Classical -->
                     <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <span>🗺️</span>
@@ -4867,16 +4881,42 @@
             }
         }
 
-        // Auto-refresh every 10 seconds (checks for invitations frequently)
-        setInterval(() => {
-            loadDashboard();
-            loadInvitations();
-            loadSubmissions();
-            loadContributions();
-            loadAchievements();
-            loadAgeProgress();
-            loadGrades();
-        }, 10000);
+        // Managed dashboard refresh - overlap-protected, stoppable, pauses during arena
+        let dashboardRefreshInterval = null;
+        let dashboardRefreshInProgress = false;
+        
+        function startDashboardRefresh() {
+            if (dashboardRefreshInterval) clearInterval(dashboardRefreshInterval);
+            dashboardRefreshInterval = setInterval(async () => {
+                if (dashboardRefreshInProgress) return; // Skip if previous batch still running
+                dashboardRefreshInProgress = true;
+                try {
+                    await Promise.all([
+                        loadDashboard(),
+                        loadInvitations(),
+                        loadSubmissions(),
+                        loadContributions(),
+                        loadAchievements(),
+                        loadAgeProgress(),
+                        loadGrades()
+                    ]);
+                } catch (err) {
+                    // Silent fail - polling errors shouldn't disrupt UI
+                }
+                dashboardRefreshInProgress = false;
+            }, 15000); // 15 seconds instead of 10
+        }
+        
+        function stopDashboardRefresh() {
+            if (dashboardRefreshInterval) {
+                clearInterval(dashboardRefreshInterval);
+                dashboardRefreshInterval = null;
+            }
+            dashboardRefreshInProgress = false;
+        }
+        
+        // Start on page load
+        startDashboardRefresh();
 
         // ====================
         // GRADE TRACKING SYSTEM (V42)
@@ -4906,7 +4946,7 @@
                 'Aphrodite': '#ff69b4', 'Poseidon': '#00bfff', 'Artemis': '#7caa98',
                 'Demeter': '#daa520', 'Hermes': '#cc5500', 'Hephaestus': '#cd5c5c',
                 'Apollo and Artemis': '#22c55e', 'Nine Muses': '#ff9933',
-                'Pixton Retelling': '#ffffff', 'WeVideo Movie': '#ffffff', 'Exit Ticket': '#ffffff'
+                'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff'
             };
             
             const getGodColor = (displayName) => {
@@ -4916,50 +4956,6 @@
                 return '#ffffff';
             };
             
-            // Group items by god for organized display
-            const groupByGod = (items) => {
-                const groups = {};
-                items.forEach(item => {
-                    const god = item.myth_god || 'Other';
-                    if (!groups[god]) groups[god] = [];
-                    groups[god].push(item);
-                });
-                // Sort gods alphabetically
-                return Object.keys(groups).sort().map(god => ({ god, items: groups[god] }));
-            };
-            
-            const renderGroupedCompleted = (items) => {
-                const groups = groupByGod(items);
-                return groups.map(g => `
-                    <div style="margin-bottom: 12px;">
-                        <div style="color: ${getGodColor(g.god)}; font-weight: 700; font-size: 15px; padding: 6px 0; border-bottom: 2px solid ${getGodColor(g.god)}40; margin-bottom: 4px;">
-                            ${g.god}
-                        </div>
-                        ${g.items.map(c => `
-                            <div style="padding: 4px 0 4px 12px; color: #4ade80; font-size: 14px;">
-                                ✓ ${c.display_name} — ${c.points_earned}/${c.points_possible}
-                            </div>
-                        `).join('')}
-                    </div>
-                `).join('');
-            };
-            
-            const renderGroupedMissing = (items) => {
-                const groups = groupByGod(items);
-                return groups.map(g => `
-                    <div style="margin-bottom: 12px;">
-                        <div style="color: ${getGodColor(g.god)}; font-weight: 700; font-size: 15px; padding: 6px 0; border-bottom: 2px solid ${getGodColor(g.god)}40; margin-bottom: 4px;">
-                            ${g.god}
-                        </div>
-                        ${g.items.map(m => `
-                            <div style="padding: 4px 0 4px 12px; color: rgba(255,255,255,0.7); font-size: 14px;">
-                                ○ ${m.display_name} (${m.max_points} pts)
-                            </div>
-                        `).join('')}
-                    </div>
-                `).join('');
-            };
-
             const createProgressBar = (earned, max, percentage) => {
                 const barColor = percentage >= 80 ? '#4ade80' : percentage >= 60 ? '#fbbf24' : '#f87171';
                 return `
@@ -4974,26 +4970,34 @@
                     <!-- Section One -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 18px;">SECTION ONE</strong>
-                            <span style="color: #ffd700; font-weight: bold; font-size: 22px;">${grades.section1.earned}/${grades.section1.max}</span>
+                            <strong style="font-size: 16px;">SECTION ONE</strong>
+                            <span style="color: #ffd700; font-weight: bold; font-size: 18px;">${grades.section1.earned}/${grades.section1.max}</span>
                         </div>
                         ${createProgressBar(grades.section1.earned, grades.section1.max, grades.section1.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.section1.percentage}%</div>
                         
                         ${grades.section1.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #4ade80; font-size: 18px; font-weight: 600;">✓ ${grades.section1.completed.length} completed</summary>
-                                <div style="margin-top: 8px;">
-                                    ${renderGroupedCompleted(grades.section1.completed)}
+                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section1.completed.length} completed</summary>
+                                <div style="margin-top: 8px; font-size: 16px;">
+                                    ${grades.section1.completed.map(c => `
+                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
+                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </details>
                         ` : ''}
                         
                         ${grades.section1.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #fbbf24; font-size: 18px; font-weight: 600;">📋 ${grades.section1.missing.length} still needed</summary>
-                                <div style="margin-top: 8px;">
-                                    ${renderGroupedMissing(grades.section1.missing)}
+                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section1.missing.length} still needed</summary>
+                                <div style="margin-top: 8px; font-size: 16px;">
+                                    ${grades.section1.missing.map(m => `
+                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
+                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </details>
                         ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
@@ -5002,38 +5006,44 @@
                     <!-- Section Two -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 18px;">SECTION TWO</strong>
-                            <span style="color: #ffd700; font-weight: bold; font-size: 22px;">${grades.section2.earned}/${grades.section2.max}</span>
+                            <strong style="font-size: 16px;">SECTION TWO</strong>
+                            <span style="color: #ffd700; font-weight: bold; font-size: 18px;">${grades.section2.earned}/${grades.section2.max}</span>
                         </div>
                         ${createProgressBar(grades.section2.earned, grades.section2.max, grades.section2.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.section2.percentage}%</div>
                         
                         ${grades.section2.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #4ade80; font-size: 18px; font-weight: 600;">✓ ${grades.section2.completed.length} completed</summary>
-                                <div style="margin-top: 8px;">
-                                    ${renderGroupedCompleted(grades.section2.completed)}
+                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section2.completed.length} completed</summary>
+                                <div style="margin-top: 8px; font-size: 16px;">
+                                    ${grades.section2.completed.map(c => `
+                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
+                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </details>
                         ` : ''}
                         
                         ${grades.section2.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #fbbf24; font-size: 18px; font-weight: 600;">📋 ${grades.section2.missing.length} still needed</summary>
-                                <div style="margin-top: 8px;">
-                                    ${renderGroupedMissing(grades.section2.missing)}
+                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section2.missing.length} still needed</summary>
+                                <div style="margin-top: 8px; font-size: 16px;">
+                                    ${grades.section2.missing.map(m => `
+                                        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
+                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
+                                        </div>
+                                    `).join('')}
                                 </div>
                             </details>
                         ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
                     </div>
 
-
-
                     <!-- Extra Credit -->
                     <div style="background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(245,158,11,0.1)); padding: 15px; border-radius: 10px; border: 1px solid rgba(251,191,36,0.3);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 18px;">🎁 EXTRA CREDIT</strong>
-                            <span style="color: #fbbf24; font-weight: bold; font-size: 22px;">${grades.bonus.earned}/${grades.bonus.max}</span>
+                            <strong style="font-size: 16px;">🎁 EXTRA CREDIT</strong>
+                            <span style="color: #fbbf24; font-weight: bold; font-size: 18px;">${grades.bonus.earned}/${grades.bonus.max}</span>
                         </div>
                         ${createProgressBar(grades.bonus.earned, grades.bonus.max, grades.bonus.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.bonus.percentage}%</div>
@@ -5317,20 +5327,18 @@
             }
         }
 
+        // Client-side icon mapping for side quests (overrides DB values)
+        const SIDE_QUEST_ICONS = {
+            'The Ring of Many': '🔨',
+            "Panacea's Remedy": '🏹',
+            'The Three Seeds': '🌾'
+        };
+        
         function renderSideQuests(data) {
             const grid = document.getElementById('side-quests-grid');
             
             grid.innerHTML = data.quests.map(quest => {
-                const icon = GOD_ICONS[quest.god_associated] || '🏛️';
-                
-                // Correct side quest icons (override any incorrect database values)
-                const SIDE_QUEST_ICONS = {
-                    'The Ring of Many': '🔨',
-                    'Panacea\'s Remedy': '🏹',
-                    'The Three Seeds': '🌾'
-                };
-                const questIcon = SIDE_QUEST_ICONS[quest.quest_name] || quest.icon || icon;
-                
+                const icon = SIDE_QUEST_ICONS[quest.quest_name] || GOD_ICONS[quest.god_associated] || '🏛️';
                 let statusBadge = '';
                 let cardStyle = '';
                 let buttonHtml = '';
@@ -5370,7 +5378,7 @@
                 return `
                     <div style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 15px; ${cardStyle}">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                            <div style="font-size: 36px;">${questIcon}</div>
+                            <div style="font-size: 36px;">${SIDE_QUEST_ICONS[quest.quest_name] || quest.icon || icon}</div>
                             <div style="text-align: right;">
                                 ${statusBadge}
                             </div>
@@ -5462,9 +5470,6 @@
             ],
             mural: [
                 { myth: 'Pixton Retelling', section: 'section_1' }
-            ],
-            video: [
-                { myth: 'WeVideo Movie', section: 'section_2' }
             ]
         };
         
@@ -5512,12 +5517,14 @@
             const mythSelect = document.getElementById('submit-myth');
             
             // Categories that need myth tracking
-            const trackedCategories = ['quiz', 'comp_conn', 'mural', 'video'];
+            const trackedCategories = ['quiz', 'comp_conn', 'mural'];
             
             if (category === 'bonus') {
                 // Hide myth for bonus - they should use the portal
                 mythGroup.style.display = 'none';
                 maxPointsGroup.style.display = 'none';
+                mythSelect.removeAttribute('required');
+                mythSelect.value = '';
                 alert('For bonus assignments, please use the "Bonus Options" button on your dashboard!');
                 return;
             }
@@ -5526,12 +5533,15 @@
                 // Rite of Passage is special - no myth needed, fixed at 100 points
                 mythGroup.style.display = 'none';
                 maxPointsGroup.style.display = 'none'; // Auto-calculated to 100
+                mythSelect.removeAttribute('required');
+                mythSelect.value = '';
                 return;
             }
             
             if (trackedCategories.includes(category)) {
                 mythGroup.style.display = 'block';
                 maxPointsGroup.style.display = 'none'; // Auto-calculated
+                mythSelect.setAttribute('required', 'required');
                 
                 // Populate myth dropdown directly with all options for this category
                 populateMythDropdown(category);
@@ -5539,6 +5549,8 @@
                 // Other categories (membean, reading, citizenship) don't need tracking
                 mythGroup.style.display = 'none';
                 maxPointsGroup.style.display = 'none';
+                mythSelect.removeAttribute('required');
+                mythSelect.value = '';
             }
         }
 
@@ -5563,8 +5575,7 @@
                 'Hephaestus': '#cd5c5c',
                 'Nine Muses': '#ff9933',
                 'Exit Ticket': '#ffffff',
-                'Pixton Retelling': '#ffffff',
-                'WeVideo Movie': '#ffffff'
+                'Pixton Retelling': '#ffffff'
             };
             
             const options = MYTH_OPTIONS[category];
@@ -5991,6 +6002,9 @@
         // ====================
         
         async function openArena() {
+            // Pause dashboard refresh while arena is open (reduce API load)
+            stopDashboardRefresh();
+            
             // Create modal if doesn't exist
             if (!document.getElementById('arena-modal')) {
                 const modal = document.createElement('div');
@@ -6029,10 +6043,22 @@
                 clearInterval(arenaCountdownInterval);
                 arenaCountdownInterval = null;
             }
+            if (announcementTimeout) {
+                clearTimeout(announcementTimeout);
+                announcementTimeout = null;
+            }
             document.getElementById('arena-modal').style.display = 'none';
+            
+            // Resume dashboard refresh now that arena is closed
+            startDashboardRefresh();
         }
         
         async function loadArenaStatus() {
+            // Clear outgoing challenge poll if running
+            if (outgoingPollInterval) {
+                clearInterval(outgoingPollInterval);
+                outgoingPollInterval = null;
+            }
             const content = document.getElementById('arena-content');
             try {
                 const response = await fetch(`${API_URL}/arena/status`, { headers });
@@ -6121,8 +6147,95 @@
                     </div>
                 ` : '';
                 
+                // Build badge data
+                const myBadgeKeys = (data.my_badges || []).map(b => b.badge_key);
+                const uncelebrated = (data.my_badges || []).filter(b => !b.celebration_seen).map(b => b.badge_key);
+                const badgeDefs = data.badge_definitions || {};
+                window._lastBadgeDefs = badgeDefs; // Store for celebration function
+                const badgeCount = myBadgeKeys.length;
+                
+                // Determine current daily limit tier
+                let currentTierBadges = 0;
+                let currentTierBattles = 3;
+                let nextTierBadges = 3;
+                let nextTierBattles = 4;
+                if (badgeCount >= 11) { currentTierBadges = 11; currentTierBattles = 6; nextTierBadges = null; nextTierBattles = null; }
+                else if (badgeCount >= 7) { currentTierBadges = 7; currentTierBattles = 5; nextTierBadges = 11; nextTierBattles = 6; }
+                else if (badgeCount >= 3) { currentTierBadges = 3; currentTierBattles = 4; nextTierBadges = 7; nextTierBattles = 5; }
+                
+                // Build tier badge HTML
+                function badgeSlotHTML(key) {
+                    const def = badgeDefs[key];
+                    if (!def) return '';
+                    const earned = myBadgeKeys.includes(key);
+                    const needsCelebration = uncelebrated.includes(key);
+                    const isHidden = def.hidden;
+                    
+                    if (needsCelebration) {
+                        return `<div class="badge-celebration-slot" data-badge-key="${key}" onclick="celebrateBadge('${key}')" style="
+                            width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(255,215,0,0.15); border: 2px solid #ffd700; cursor: pointer; position: relative;
+                            animation: badgePulse 1s ease-in-out infinite; box-shadow: 0 0 20px rgba(255,215,0,0.4);">
+                            <span style="font-size: 11px; font-weight: bold; color: #ffd700; text-transform: uppercase; letter-spacing: 0.5px;">UNLOCK</span>
+                        </div>`;
+                    } else if (earned) {
+                        return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); box-shadow: 0 0 12px rgba(255,215,0,0.15);
+                            cursor: pointer; position: relative;" title="${def.name}: ${def.desc}">
+                            <img src="/badges/${key}.png" style="width: 40px; height: 40px; object-fit: contain;" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <span style="display: none; font-size: 24px; align-items: center; justify-content: center; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));">${def.icon}</span>
+                        </div>`;
+                    } else if (isHidden) {
+                        return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(128,0,255,0.05); border: 1px solid rgba(128,0,255,0.15); cursor: help;" title="??? - Keep battling to discover...">
+                            <span style="font-size: 22px; opacity: 0.4;">❓</span>
+                        </div>`;
+                    } else {
+                        return `<div style="width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+                            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); cursor: help;" title="${def.name}: ${def.desc}">
+                            <span style="font-size: 24px; filter: grayscale(1) opacity(0.2);">${def.icon}</span>
+                        </div>`;
+                    }
+                }
+                
+                // Build progression tier HTML
+                function progressionTier(badges, battles, isCurrent, isNext, isPast) {
+                    if (isCurrent) {
+                        return `<div style="flex:1; background: rgba(6,182,212,0.1); border: 2px solid rgba(6,182,212,0.5); border-radius: 8px; padding: 8px 4px; text-align: center; box-shadow: 0 0 12px rgba(6,182,212,0.15);">
+                            <div style="font-size: 10px; color: #06b6d4;">${badges}${badges > 0 ? ' badges ✓' : ' badges'}</div>
+                            <div style="font-size: 22px; color: #22d3ee; font-weight: bold; margin: 2px 0;">${battles}</div>
+                            <div style="font-size: 9px; color: rgba(6,182,212,0.7);">battles/day</div>
+                            <div style="font-size: 8px; color: #06b6d4; margin-top: 2px; font-weight: 600;">◆ YOU</div>
+                        </div>`;
+                    } else if (isNext) {
+                        return `<div style="flex:1; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,215,0,0.2); border-radius: 8px; padding: 8px 4px; text-align: center;">
+                            <div style="font-size: 10px; color: rgba(255,215,0,0.5);">${badges} badges</div>
+                            <div style="font-size: 22px; color: rgba(255,215,0,0.5); font-weight: bold; margin: 2px 0;">${battles}</div>
+                            <div style="font-size: 9px; color: rgba(255,215,0,0.3);">battles/day</div>
+                            <div style="font-size: 8px; color: rgba(255,215,0,0.4); margin-top: 2px;">${badges - badgeCount} more!</div>
+                        </div>`;
+                    } else {
+                        return `<div style="flex:1; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 4px; text-align: center; opacity: ${isPast ? '0.4' : '0.25'};">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.35);">${badges} badges</div>
+                            <div style="font-size: 22px; color: rgba(255,255,255,0.35); font-weight: bold; margin: 2px 0;">${battles}</div>
+                            <div style="font-size: 9px; color: rgba(255,255,255,0.25);">battles/day</div>
+                        </div>`;
+                    }
+                }
+                
+                // Announcement banner HTML
+                const announcementData = data.announcements || [];
+                const announcementHTML = announcementData.length > 0 ? `
+                    <div id="arena-announcements" style="margin-bottom: 12px;"></div>
+                ` : '';
+                
+                // Build opponent badges lookup
+                const oppBadges = data.opponent_badges || {};
+                
                 content.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 25px;">
+                    ${announcementHTML}
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; text-align: center;">
                             <div style="font-size: 34px; color: #ffd700; font-weight: bold;">${stats.wins}</div>
                             <div style="color: rgba(255,255,255,0.6); font-size: 14px;">Wins</div>
@@ -6144,12 +6257,101 @@
                             <div style="color: rgba(255,255,255,0.6); font-size: 14px;">Today</div>
                         </div>
                     </div>
+                    
+                    <!-- Badge Wall -->
+                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,215,0,0.15); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                            <div style="font-size: 14px; color: #ffd700; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">⚔️ Battle Badges</div>
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.4);"><span style="color: #ffd700; font-weight: 600;">${badgeCount}</span> / 15 earned</div>
+                        </div>
+                        
+                        <!-- Tier 1 - Newcomer -->
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Newcomer</div>
+                            <div style="display: flex; gap: 8px;">
+                                ${badgeSlotHTML('first_blood')}
+                                ${badgeSlotHTML('trial_by_fire')}
+                                ${badgeSlotHTML('athenas_favor')}
+                            </div>
+                        </div>
+                        
+                        <!-- Tier 2 - Warrior -->
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Warrior</div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                ${badgeSlotHTML('spartan_grit')}
+                                ${badgeSlotHTML('on_fire')}
+                                ${badgeSlotHTML('tactician')}
+                                ${badgeSlotHTML('comeback_kid')}
+                                ${badgeSlotHTML('shapeshifter')}
+                            </div>
+                        </div>
+                        
+                        <!-- Tier 3 - Elite -->
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">Elite</div>
+                            <div style="display: flex; gap: 8px;">
+                                ${badgeSlotHTML('champion')}
+                                ${badgeSlotHTML('giant_slayer')}
+                                ${badgeSlotHTML('unstoppable')}
+                                ${badgeSlotHTML('legend')}
+                            </div>
+                        </div>
+                        
+                        <!-- Tier 4 - Hidden -->
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px;">? ? ?</div>
+                            <div style="display: flex; gap: 8px;">
+                                ${badgeSlotHTML('thread_of_fate')}
+                                ${badgeSlotHTML('zeus_judgment')}
+                                ${badgeSlotHTML('hydra_slayer')}
+                            </div>
+                        </div>
+                        
+                        <!-- Badge Rewards Progression -->
+                        <div style="padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">🎁 More Badges = More Daily Battles</div>
+                            <div style="display: flex; gap: 6px; align-items: stretch;">
+                                ${progressionTier(0, 3, currentTierBattles===3, false, badgeCount>=3)}
+                                <div style="display:flex;align-items:center;color:rgba(255,255,255,0.15);font-size:14px;">→</div>
+                                ${progressionTier(3, 4, currentTierBattles===4, nextTierBattles===4, badgeCount>=7)}
+                                <div style="display:flex;align-items:center;color:rgba(255,255,255,0.15);font-size:14px;">→</div>
+                                ${progressionTier(7, 5, currentTierBattles===5, nextTierBattles===5, badgeCount>=11)}
+                                <div style="display:flex;align-items:center;color:rgba(255,215,0,0.3);font-size:14px;">→</div>
+                                ${progressionTier(11, 6, currentTierBattles===6, nextTierBattles===6, false)}
+                            </div>
+                        </div>
+                    </div>
+                    
                     ${data.battles_today >= data.max_battles_per_day ? `
                         <div style="background: rgba(107,114,128,0.3); border: 1px solid #6b7280; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: center;">
                             <p style="color: #9ca3af; margin: 0;">⏰ You've reached your daily battle limit. Come back tomorrow!</p>
                         </div>
                     ` : ''}
                     ${pendingHTML}
+                    ${data.outgoing_challenge ? `
+                        <div style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.25)); border: 2px solid rgba(99,102,241,0.4); border-radius: 12px; padding: 25px; margin-bottom: 20px; text-align: center;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">⏳</div>
+                            <h4 style="color: #a5b4fc; font-size: 20px; margin: 0 0 8px 0;">Challenge Sent!</h4>
+                            <p style="color: white; font-size: 18px; margin-bottom: 5px;">
+                                Waiting for <strong style="color: #ffd700;">${data.outgoing_challenge.defender_name}</strong> to respond...
+                            </p>
+                            <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 15px;">
+                                ${data.outgoing_challenge.defender_alliance} · ${data.outgoing_challenge.point_stakes} point stakes
+                            </p>
+                            <p style="color: rgba(255,255,255,0.4); font-size: 12px; margin-bottom: 15px;">
+                                Challenge expires after 60 seconds if not accepted
+                            </p>
+                            <button onclick="cancelChallenge(${data.outgoing_challenge.battle_id})" style="
+                                background: rgba(220,38,38,0.3); border: 2px solid rgba(220,38,38,0.5);
+                                color: #fca5a5; padding: 10px 24px; border-radius: 8px; cursor: pointer;
+                                font-size: 15px; transition: all 0.2s ease;
+                            " onmouseover="this.style.background='rgba(220,38,38,0.5)'" 
+                               onmouseout="this.style.background='rgba(220,38,38,0.3)'">
+                                ✕ Cancel Challenge
+                            </button>
+                        </div>
+                    ` : `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h4 style="color: #dc2626; font-size: 20px; margin: 0;">⚔️ Challenge an Opponent</h4>
                         <button onclick="showGodPowersInfo()" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">
@@ -6167,6 +6369,11 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;">
                             ${data.available_opponents.map(opp => {
                                 const oppAtLimit = opp.battles_today >= data.max_battles_per_day;
+                                const oppEarnedBadges = (oppBadges[opp.student_id] || []);
+                                const oppBadgeHTML = oppEarnedBadges.length > 0 ? 
+                                    `<div style="margin-top: 4px; display: flex; gap: 2px; justify-content: center; flex-wrap: wrap;">${
+                                        oppEarnedBadges.map(k => `<img src="/badges/${k}.png" style="width: 18px; height: 18px; object-fit: contain;" onerror="this.style.display='none'">`).join('')
+                                    }</div>` : '';
                                 return `
                                 <div ${oppAtLimit ? '' : `onclick="sendChallenge(${opp.student_id}, '${opp.name.replace(/'/g, "\\'")}')"`} 
                                      style="
@@ -6200,6 +6407,7 @@
                                     ">
                                         <div style="font-weight: bold; color: ${oppAtLimit ? '#9ca3af' : '#ffd700'}; font-size: 18px; margin-bottom: 4px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">${opp.name}</div>
                                         <div style="color: rgba(255,255,255,0.8); font-size: 14px;">${opp.alliance_name}</div>
+                                        ${oppBadgeHTML}
                                     </div>
                                     <!-- Click hint -->
                                     <div style="position: absolute; bottom: 10px; font-size: 12px; color: rgba(255,255,255,0.5);">${oppAtLimit ? 'At daily limit' : 'Click to Challenge'}</div>
@@ -6207,7 +6415,20 @@
                             `}).join('')}
                         </div>
                     `}
+                    `}
                 `;
+                
+                // Start announcement cycling
+                if (announcementData.length > 0) {
+                    cycleAnnouncements(announcementData);
+                }
+                
+                // Poll while waiting for outgoing challenge response
+                if (data.outgoing_challenge && !outgoingPollInterval) {
+                    outgoingPollInterval = setInterval(() => {
+                        loadArenaStatus();
+                    }, 3000);
+                }
                 
                 // Start countdown timer if shown
                 if (data.battles_today >= data.max_battles_per_day) {
@@ -6217,6 +6438,146 @@
                 console.error('Arena error:', err);
                 content.innerHTML = `<div style="text-align:center;padding:40px;color:#ff6b6b;">Error loading arena. Please try again.</div>`;
             }
+        }
+        
+        // ==================== BADGE CELEBRATION ====================
+        
+        async function celebrateBadge(badgeKey) {
+            const slot = document.querySelector(`[data-badge-key="${badgeKey}"]`);
+            if (!slot) return;
+            
+            // Get badge definition from the slot's context
+            const badgeDefs = window._lastBadgeDefs || {};
+            const def = badgeDefs[badgeKey];
+            if (!def) return;
+            
+            const isHidden = def.hidden;
+            
+            // Play unlock sound
+            try {
+                const audio = new Audio('/audio/badge_unlock.mp3');
+                audio.volume = 0.7;
+                audio.play();
+            } catch(e) { /* silent fail */ }
+            
+            if (isHidden) {
+                // Hidden badge: shatter the ❓, then reveal
+                slot.innerHTML = '<span style="font-size: 24px; animation: badgeShatter 0.6s ease-out forwards;">❓</span>';
+                await new Promise(r => setTimeout(r, 600));
+            }
+            
+            // Flash the badge icon 3 times
+            for (let i = 0; i < 3; i++) {
+                slot.style.opacity = '0.2';
+                slot.innerHTML = `<img src="/badges/${badgeKey}.png" style="width: 36px; height: 36px; object-fit: contain;" 
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <span style="display: none; font-size: 24px;">${def.icon}</span>`;
+                await new Promise(r => setTimeout(r, 200));
+                slot.style.opacity = '1';
+                await new Promise(r => setTimeout(r, 200));
+            }
+            
+            // Final state: earned badge with glow
+            slot.style.animation = 'none';
+            slot.style.background = 'rgba(255,215,0,0.1)';
+            slot.style.border = '1px solid rgba(255,215,0,0.3)';
+            slot.style.boxShadow = '0 0 20px rgba(255,215,0,0.3)';
+            slot.style.cursor = 'pointer';
+            slot.removeAttribute('data-badge-key');
+            slot.removeAttribute('onclick');
+            slot.className = '';
+            slot.title = `${def.name}: ${def.desc}`;
+            slot.innerHTML = `
+                <img src="/badges/${badgeKey}.png" style="width: 36px; height: 36px; object-fit: contain; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <span style="display: none; font-size: 24px; filter: drop-shadow(0 0 4px rgba(255,215,0,0.4));">${def.icon}</span>
+                <div style="position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+                     background: rgba(0,0,0,0.9); border: 1px solid rgba(255,215,0,0.3); border-radius: 6px; padding: 4px 10px; z-index: 10;
+                     animation: badgeNameReveal 0.5s ease-out;">
+                    <div style="font-size: 11px; color: #ffd700; font-weight: bold;">${def.name}</div>
+                </div>
+            `;
+            
+            // Fade out the name after 3 seconds
+            setTimeout(() => {
+                const nameDiv = slot.querySelector('div');
+                if (nameDiv) nameDiv.style.opacity = '0';
+            }, 3000);
+            
+            // Mark celebration as seen on server
+            try {
+                await fetch(`${API_URL}/arena/badge-celebration-seen`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ badge_key: badgeKey })
+                });
+            } catch(e) { /* silent fail */ }
+        }
+        
+        // ==================== ANNOUNCEMENT CYCLING ====================
+        
+        let announcementTimeout = null;
+        
+        function cycleAnnouncements(announcements) {
+            if (announcementTimeout) clearTimeout(announcementTimeout);
+            const container = document.getElementById('arena-announcements');
+            if (!container || announcements.length === 0) return;
+            
+            // Store badge defs for celebration use
+            window._lastBadgeDefs = window._lastBadgeDefs || {};
+            
+            let index = 0;
+            
+            function showNext() {
+                if (index >= announcements.length) {
+                    // Done cycling, fade out container
+                    container.style.transition = 'opacity 0.5s';
+                    container.style.opacity = '0';
+                    setTimeout(() => { container.innerHTML = ''; }, 500);
+                    return;
+                }
+                
+                const a = announcements[index];
+                const badgeDef = (window._lastBadgeDefs || {})[a.badge_key] || {};
+                const timeAgo = getTimeAgo(a.created_at);
+                
+                container.innerHTML = `
+                    <div style="
+                        background: linear-gradient(90deg, rgba(255,215,0,0.12), rgba(255,215,0,0.04), rgba(255,215,0,0.12));
+                        border: 1px solid rgba(255,215,0,0.2); border-radius: 10px;
+                        padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+                        animation: bannerSlideIn 0.4s ease-out;">
+                        <span style="font-size: 20px; filter: drop-shadow(0 0 6px rgba(255,215,0,0.5));">${badgeDef.icon || '🏅'}</span>
+                        <span style="font-size: 13px; color: #ffd700;">
+                            <strong style="color: #fff;">${a.student_name}</strong> earned <strong>${badgeDef.icon || ''} ${badgeDef.name || a.badge_key}</strong>
+                        </span>
+                        <span style="margin-left: auto; font-size: 11px; color: rgba(255,215,0,0.4);">${timeAgo}</span>
+                    </div>
+                `;
+                
+                index++;
+                announcementTimeout = setTimeout(() => {
+                    // Fade out
+                    const banner = container.querySelector('div');
+                    if (banner) {
+                        banner.style.transition = 'opacity 0.4s';
+                        banner.style.opacity = '0';
+                    }
+                    setTimeout(showNext, 500);
+                }, 5000); // Show each for 5 seconds
+            }
+            
+            showNext();
+        }
+        
+        function getTimeAgo(dateStr) {
+            const now = new Date();
+            const then = new Date(dateStr);
+            const diffMin = Math.floor((now - then) / 60000);
+            if (diffMin < 1) return 'just now';
+            if (diffMin < 60) return diffMin + ' min ago';
+            const diffHr = Math.floor(diffMin / 60);
+            return diffHr + 'h ago';
         }
         
         // Live countdown timer for arena
@@ -6250,7 +6611,17 @@
                 body: JSON.stringify({ defender_id: opponentId, point_stakes: pts })
             }).then(r => r.json()).then(data => {
                 if (data.error) alert(data.error);
-                else { alert(data.message); loadArenaStatus(); }
+                else { loadArenaStatus(); }
+            });
+        }
+        
+        function cancelChallenge(battleId) {
+            fetch(`${API_URL}/arena/cancel-challenge`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ battle_id: battleId })
+            }).then(r => r.json()).then(data => {
+                if (data.error) alert(data.error);
+                else { loadArenaStatus(); }
             });
         }
         
@@ -6557,7 +6928,7 @@
             const data = await response.json();
             const unlockedGods = data.unlocked_gods || [];
             arenaGodPowers = data.god_powers || {};
-            const prometheusUsedToday = data.prometheus_used_today;
+            // FIX 9: Removed prometheusUsedToday — Prometheus is now per-battle, always selectable
             
             // Create modal
             const modal = document.createElement('div');
@@ -6589,31 +6960,28 @@
                     <div id="god-selection-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px;">
                         ${unlockedGods.length === 0 ? '<p style="color: rgba(255,255,255,0.5); text-align: center; grid-column: 1/-1;">No gods unlocked yet. You can still battle!</p>' : 
                           unlockedGods.map(god => {
-                            const isPrometheusUsed = god.name === 'prometheus' && prometheusUsedToday;
                             const godImg = god.name === 'prometheus' ? 'prometheus.png' : `${god.name}.svg`;
                             const typeIcon = god.type === 'offensive' ? '⚔️' : (god.type === 'defensive' ? '🛡️' : '🔥');
                             const typeColor = god.type === 'offensive' ? '#dc2626' : (god.type === 'defensive' ? '#22c55e' : '#f97316');
                             return `
                             <div id="god-select-${god.name}" 
-                                 onclick="${isPrometheusUsed ? '' : `toggleGodSelection('${god.name}')`}"
+                                 onclick="toggleGodSelection('${god.name}')"
                                  onmouseenter="showGodPreview('${god.name}')"
                                  onmouseleave="hideGodPreview()"
                                  style="
-                                    background: ${isPrometheusUsed ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.05)'};
-                                    border: 2px solid ${isPrometheusUsed ? 'rgba(100,100,100,0.3)' : 'rgba(255,255,255,0.2)'};
+                                    background: rgba(255,255,255,0.05);
+                                    border: 2px solid rgba(255,255,255,0.2);
                                     border-radius: 10px;
                                     padding: 10px;
                                     text-align: center;
-                                    cursor: ${isPrometheusUsed ? 'not-allowed' : 'pointer'};
+                                    cursor: pointer;
                                     transition: all 0.2s ease;
-                                    opacity: ${isPrometheusUsed ? '0.5' : '1'};
                                     position: relative;
                                 ">
                                 ${god.hasBonus ? '<div style="position:absolute;top:3px;right:3px;font-size:10px;">⚡</div>' : ''}
                                 <img src="${godImg}" alt="${god.displayName}" style="width: 40px; height: 40px; object-fit: contain;">
                                 <div style="color: white; font-size: 10px; margin-top: 3px; font-weight: bold;">${god.displayName}</div>
                                 <div style="color: ${typeColor}; font-size: 9px;">${typeIcon}</div>
-                                ${isPrometheusUsed ? '<div style="color:#ff6b6b;font-size:8px;">Used today</div>' : ''}
                             </div>
                         `}).join('')}
                     </div>
@@ -6674,7 +7042,7 @@
                 html += `<div style="color: #22c55e; font-size: 12px; margin-top: 5px;">✨ Passive: ${god.passive}</div>`;
             }
             if (god.counteredBy) {
-                html += `<div style="color: #ff6b6b; font-size: 11px; margin-top: 3px;">⛓ Blocked by: ${god.counteredBy.charAt(0).toUpperCase() + god.counteredBy.slice(1)}</div>`;
+                html += `<div style="color: #ff6b6b; font-size: 11px; margin-top: 3px;">⛔ Blocked by: ${god.counteredBy.charAt(0).toUpperCase() + god.counteredBy.slice(1)}</div>`;
             }
             if (god.blocks) {
                 html += `<div style="color: #22c55e; font-size: 11px; margin-top: 3px;">🛡️ Blocks: ${god.blocks.charAt(0).toUpperCase() + god.blocks.slice(1)}</div>`;
@@ -6803,7 +7171,7 @@
         function getGodEmoji(godName) {
             const emojis = {
                 zeus: '⚡', poseidon: '🔱', hera: '🦚', athena: '🦉',
-                apollo: '☀️', artemis: '🏹', aphrodite: '💕', ares: '⚔️',
+                apollo: '☀️', artemis: '🏹', aphrodite: '💕', ares: '🗡️',
                 hephaestus: '🔨', hermes: '🪽', demeter: '🌾', prometheus: '🔥', hades: '💀'
             };
             return emojis[godName] || '⭐';
@@ -6943,6 +7311,10 @@
                 clearInterval(challengePollingInterval);
                 challengePollingInterval = null;
             }
+            if (outgoingPollInterval) {
+                clearInterval(outgoingPollInterval);
+                outgoingPollInterval = null;
+            }
             
             // Remove any banners/overlays
             const activeBanner = document.getElementById('active-battle-banner');
@@ -6970,21 +7342,9 @@
             // Load battle state
             loadBattleState();
             
-            // Start adaptive polling - rate adjusts based on phase
+            // Start polling - reduced frequency to prevent memory issues
             if (battlePollInterval) clearInterval(battlePollInterval);
-            currentBattlePollRate = 2000;
             battlePollInterval = setInterval(loadBattleState, 2000);
-        }
-        
-        // Adaptive polling: fast during transitions, slow during idle
-        let currentBattlePollRate = 2000;
-        function setBattlePollRate(ms) {
-            if (ms === currentBattlePollRate) return;
-            currentBattlePollRate = ms;
-            if (battlePollInterval) {
-                clearInterval(battlePollInterval);
-                battlePollInterval = setInterval(loadBattleState, ms);
-            }
         }
         
         async function loadBattleState() {
@@ -6993,7 +7353,11 @@
                 console.log('💕 Skipping loadBattleState - Aphrodite retry active');
                 return;
             }
-            
+            // Guard against null battle ID (prevents requests to /arena/battle/null)
+            if (!currentBattleId) {
+                if (battlePollInterval) { clearInterval(battlePollInterval); battlePollInterval = null; }
+                return;
+            }
             try {
                 const response = await fetch(`${API_URL}/arena/battle/${currentBattleId}`, { headers });
                 const data = await response.json();
@@ -7001,19 +7365,6 @@
                 if (data.error) {
                     document.getElementById('battle-content').innerHTML = `<div style="color: #ff6b6b; text-align: center;">${data.error}</div>`;
                     return;
-                }
-                
-                // Adaptive polling rate based on current phase
-                const phase = data.round_data?.phase;
-                if (phase === 'results' || phase === 'deploy') {
-                    // Fast polling during transitions - catch next phase quickly
-                    setBattlePollRate(500);
-                } else if (data.status === 'completed') {
-                    // Battle over - slow polling
-                    setBattlePollRate(5000);
-                } else {
-                    // Question phase / idle - normal rate
-                    setBattlePollRate(2000);
                 }
                 
                 renderBattle(data);
@@ -7170,29 +7521,12 @@
                 
                 if (myDeployReady) {
                     // Already deployed, waiting for opponent
-                    // Check if Prometheus preview is available
-                    let prometheusPreview = '';
-                    if (data.question && data.question.prometheus_preview) {
-                        prometheusPreview = `
-                            <div style="margin-top: 20px; background: rgba(139,0,0,0.3); border: 2px solid #8b0000; border-radius: 12px; padding: 20px; text-align: left;">
-                                <div style="text-align: center; margin-bottom: 12px;">
-                                    <span style="font-size: 28px;">🔥</span>
-                                    <span style="color: #ff6b6b; font-size: 18px; font-weight: bold;"> Prometheus — Gift of Fire!</span>
-                                </div>
-                                <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">UPCOMING QUESTION:</p>
-                                <p style="color: #ffd700; font-size: 20px; line-height: 1.5;">${data.question.question_text}</p>
-                                <p style="color: rgba(255,255,255,0.4); font-size: 13px; margin-top: 12px; text-align: center;">📖 Read carefully — answers will appear when the round begins!</p>
-                            </div>
-                        `;
-                    }
-                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
                             <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
                             <h3 style="color: #ffd700;">Waiting for opponent to choose their god...</h3>
                             <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed || 'No Power'}</p>
-                            ${prometheusPreview}
                         </div>
                     `;
                 } else {
@@ -7202,7 +7536,22 @@
                         availableGods.map(g => {
                             const godName = typeof g === 'string' ? g : g.name;
                             const godImg = godName === 'prometheus' ? 'prometheus.png' : `${godName}.svg`;
-                            return `
+                            const apolloLocked = godName === 'apollo' && data.apollo_used_by_me;
+                            const prometheusLocked = godName === 'prometheus' && data.prometheus_used_by_me; // FIX 8
+                            return (apolloLocked || prometheusLocked) ? `
+                                <div style="
+                                    background: rgba(100,100,100,0.15);
+                                    border: 2px solid rgba(100,100,100,0.3);
+                                    border-radius: 10px;
+                                    padding: 10px;
+                                    text-align: center;
+                                    opacity: 0.4;
+                                ">
+                                    <img src="${godImg}" style="width: 40px; height: 40px; filter: grayscale(1);">
+                                    <div style="color: #999; font-size: 11px; margin-top: 5px;">${godName.charAt(0).toUpperCase() + godName.slice(1)}</div>
+                                    <div style="color: #ff6b6b; font-size: 9px;">Used this battle</div>
+                                </div>
+                            ` : `
                                 <button onclick="deployGod('${godName}')" style="
                                     background: rgba(255,255,255,0.1);
                                     border: 2px solid rgba(255,255,255,0.3);
@@ -7242,6 +7591,59 @@
                 return;
             }
             
+            // SUDDEN DEATH INTRO PHASE
+            if (phase === 'sudden_death_intro') {
+                content.innerHTML = `
+                    ${scoreboardHTML}
+                    <div style="
+                        background: #000;
+                        padding: 40px 20px;
+                        text-align: center;
+                        border-radius: 15px;
+                        border: 3px solid #9333ea;
+                        box-shadow: 0 0 30px rgba(147, 51, 234, 0.5);
+                        margin-top: 20px;
+                    ">
+                        <h1 style="
+                            color: #9333ea;
+                            font-size: 42px;
+                            font-weight: bold;
+                            text-shadow: 0 0 20px rgba(147, 51, 234, 0.8), 0 0 40px rgba(147, 51, 234, 0.4);
+                            letter-spacing: 4px;
+                            margin-bottom: 25px;
+                        ">⚡ SUDDEN DEATH ⚡</h1>
+                        
+                        <div style="color: #ffd700; font-size: 16px; margin-bottom: 25px; line-height: 2;">
+                            <p style="margin: 8px 0;">🚫 No gods allowed in Sudden Death</p>
+                            <p style="margin: 8px 0;">🏆 First correct answer wins</p>
+                            <p style="margin: 8px 0;">⚡ Prepare to battle</p>
+                        </div>
+                        
+                        ${roundData.my_sd_ready ? `
+                            <div style="color: #4ade80; font-size: 20px; font-weight: bold;">
+                                ✓ You are READY!
+                                <div style="font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 10px;">
+                                    ${roundData.opponent_sd_ready ? 'Opponent is ready too! Starting...' : 'Waiting for opponent...'}
+                                </div>
+                            </div>
+                        ` : `
+                            <button onclick="signalSuddenDeathReady()" style="
+                                background: #ffd700;
+                                color: #000;
+                                border: none;
+                                padding: 15px 40px;
+                                font-size: 20px;
+                                font-weight: bold;
+                                border-radius: 10px;
+                                cursor: pointer;
+                                animation: badgePulse 1.5s infinite;
+                            ">⚡ READY ⚡</button>
+                        `}
+                    </div>
+                `;
+                return;
+            }
+            
             // QUESTION PHASE
             if (phase === 'question' && data.question) {
                 // Check if we already answered
@@ -7262,7 +7664,9 @@
                 
                 // Show god effects notification if applicable
                 let effectsHTML = '';
-                if (roundData.my_god_deployed && !roundData.challenger_god_blocked && !roundData.defender_god_blocked) {
+                // FIX 6: Check if MY god is blocked (was checking both players — wrong logic)
+                const myBlockedForBanner = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                if (roundData.my_god_deployed && !myBlockedForBanner) {
                     effectsHTML = `<div style="background: rgba(34,197,94,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
                         <span style="color: #22c55e;">Your ${roundData.my_god_deployed} power is active!</span>
                     </div>`;
@@ -7273,7 +7677,7 @@
                     const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
                     if (myBlocked) {
                         effectsHTML = `<div style="background: rgba(239,68,68,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #ff6b6b;">⛓ Your ${roundData.my_god_deployed} was BLOCKED by ${roundData.opponent_god_deployed}!</span>
+                            <span style="color: #ff6b6b;">⛔ Your ${roundData.my_god_deployed} was BLOCKED by ${roundData.opponent_god_deployed}!</span>
                         </div>`;
                     }
                     if (oppBlocked) {
@@ -7285,27 +7689,30 @@
                 
                 // Track current question to detect changes
                 const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
+                if (questionChanged) {
+                    godEffectsAppliedThisRound = false; // Reset effects flag for new question
+                    questionReadySignaled = false; // Reset ready signal for new question
+                    questionReadyRetries = 0; // FIX 3: Reset retry counter for new question
+                }
                 currentQuestion = data.question;
-                if (questionChanged) questionReadyRetries = 0;
                 
-                // Check if question has been displayed yet (both players ready)
+                // SYNC GATE: Both players must signal ready, then server sets a future display time
+                // Question only shows when display time is reached
                 const questionDisplayTime = roundData.question_display_time;
+                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
-                // If question changed and not yet synced, signal ready and wait
-                if (questionChanged && !questionDisplayTime) {
-                    if (battleTimer) clearInterval(battleTimer);
+                // STEP 1: No display time yet - signal ready and wait
+                if (!questionDisplayTime) {
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
-                    // Play round start sound
-                    playBattleSound('roundStart', 0.6);
-                    
-                    // Build god deployment info
+                    // Build god deployment info for waiting screen
                     let godInfoHTML = '';
                     if (roundData.my_god_deployed || roundData.opponent_god_deployed) {
                         const myGod = roundData.my_god_deployed;
                         const oppGod = roundData.opponent_god_deployed;
                         const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                         const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
-                        
                         godInfoHTML = '<div style="margin-top: 20px; font-size: 16px;">';
                         if (myGod) {
                             godInfoHTML += `<p style="color: ${myBlocked ? '#ff6b6b' : '#22c55e'};">Your ${myGod}${myBlocked ? ' was BLOCKED!' : ' is active!'}</p>`;
@@ -7316,7 +7723,21 @@
                         godInfoHTML += '</div>';
                     }
                     
-                    // Show waiting screen
+                    // Show Prometheus preview during Get Ready screen (if available)
+                    let prometheusHTML = '';
+                    if (roundData.prometheus_preview && roundData.my_god_deployed && 
+                        roundData.my_god_deployed.toLowerCase() === 'prometheus') {
+                        const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                        if (!myBlocked) {
+                            prometheusHTML = `
+                                <div style="background: rgba(255, 100, 0, 0.15); border: 2px solid rgba(255, 100, 0, 0.4); border-radius: 12px; padding: 20px; margin-top: 20px;">
+                                    <p style="color: #ff6400; font-size: 14px; margin-bottom: 8px;">🔥 PROMETHEUS PREVIEW</p>
+                                    <p style="color: white; font-size: 20px; line-height: 1.5;">${roundData.prometheus_preview}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 40px;">
@@ -7324,111 +7745,150 @@
                             <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
                             <p style="color: rgba(255,255,255,0.6);">Waiting for opponent...</p>
                             ${godInfoHTML}
+                            ${prometheusHTML}
                         </div>
                     `;
                     
-                    // Signal to server that we're ready for the question
-                    console.log('📡 Signaling ready for question...');
-                    signalQuestionReady();
+                    // Signal ready (only once per question to avoid hammering)
+                    if (!questionReadySignaled) {
+                        questionReadySignaled = true;
+                        playBattleSound('roundStart', 0.6);
+                        signalQuestionReady();
+                        // FIX 7: Removed 3-second reset timeout that caused parallel retry chains
+                        // Flag resets properly via questionChanged detection (line 7697) and closeBattle()
+                    }
                     return;
                 }
                 
-                // Start timer if we have display time and question changed
-                if (!battleTimer || questionChanged) {
-                    if (battleTimer) clearInterval(battleTimer);
-                    // Use server-provided time remaining for synchronization
-                    timeRemaining = Math.max(1, roundData.phase_time_remaining || 20);
+                // STEP 2: Display time exists but hasn't been reached yet - countdown
+                if (!displayTimeReached) {
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
-                    // Record the actual start time for accurate answer time calculation
+                    const secsLeft = Math.ceil((displayTimeMs - Date.now()) / 1000);
+                    
+                    // Show Prometheus preview during countdown too
+                    let prometheusHTML = '';
+                    if (roundData.prometheus_preview && roundData.my_god_deployed && 
+                        roundData.my_god_deployed.toLowerCase() === 'prometheus') {
+                        const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                        if (!myBlocked) {
+                            prometheusHTML = `
+                                <div style="background: rgba(255, 100, 0, 0.15); border: 2px solid rgba(255, 100, 0, 0.4); border-radius: 12px; padding: 20px; margin-top: 20px;">
+                                    <p style="color: #ff6400; font-size: 14px; margin-bottom: 8px;">🔥 PROMETHEUS PREVIEW</p>
+                                    <p style="color: white; font-size: 20px; line-height: 1.5;">${roundData.prometheus_preview}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    content.innerHTML = `
+                        ${scoreboardHTML}
+                        <div style="text-align: center; padding: 40px;">
+                            <div style="font-size: 60px; margin-bottom: 15px;">⚔️</div>
+                            <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
+                            <p style="color: rgba(255,255,255,0.6);">Question in ${secsLeft}...</p>
+                            ${prometheusHTML}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // STEP 3: Display time reached - SHOW THE QUESTION
+                
+                // Only build question HTML ONCE - subsequent polls just update timer
+                // This prevents destroying DOM-based god effects (Poseidon wobble, Athena removal, Apollo glow, etc.)
+                if (!godEffectsAppliedThisRound) {
+                    godEffectsAppliedThisRound = true;
+                    
+                    // Start timer
+                    if (battleTimer) clearInterval(battleTimer);
+                    timeRemaining = Math.max(1, roundData.phase_time_remaining || 20);
                     questionActualStartTime = Date.now();
                     console.log(`📝 Question displayed at ${questionActualStartTime}`);
                     
                     battleTimer = setInterval(() => {
                         timeRemaining--;
                         const timerEl = document.getElementById('battle-timer');
-                        if (timerEl) timerEl.textContent = timeRemaining;
+                        if (timerEl) {
+                            timerEl.textContent = timeRemaining;
+                            timerEl.style.color = timeRemaining <= 5 ? '#ff6b6b' : '#ffd700';
+                        }
                         if (timeRemaining <= 0) {
                             clearInterval(battleTimer);
                             battleTimer = null;
                             submitAnswer(-1);
                         }
                     }, 1000);
-                }
-                
-                content.innerHTML = `
-                    ${scoreboardHTML}
-                    ${effectsHTML}
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <span style="font-size: 56px; font-weight: bold; color: ${timeRemaining <= 5 ? '#ff6b6b' : '#ffd700'};" id="battle-timer">${timeRemaining}</span>
-                        <span style="color: rgba(255,255,255,0.5); font-size: 22px;"> seconds</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; margin-bottom: 25px;">
-                        <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 8px;">${data.question.god_associated}</p>
-                        <p style="color: white; font-size: 22px; line-height: 1.6;">${data.question.question_text}</p>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        ${data.question.shuffled_answers.map((ans, idx) => `
-                            <button onclick="submitAnswer(${idx})" style="
-                                background: rgba(255,255,255,0.1);
-                                border: 2px solid rgba(255,255,255,0.2);
-                                color: white;
-                                padding: 18px;
-                                border-radius: 12px;
-                                font-size: 20px;
-                                cursor: pointer;
-                                text-align: left;
-                                transition: all 0.2s ease;
-                            " onmouseover="this.style.borderColor='#6366f1'; this.style.background='rgba(99,102,241,0.2)';"
-                               onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.background='rgba(255,255,255,0.1)';">
-                                ${ans.text}
-                            </button>
-                        `).join('')}
-                    </div>
-                `;
-                
-                // Apply god power visual effects
-                const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
-                const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
-                
-                // Check if I have Demeter (enemy effects last 50% shorter)
-                const iHaveDemeter = roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'demeter' && !myBlocked;
-                
-                // If opponent used an offensive god and it wasn't blocked, apply the effect to us
-                if (roundData.opponent_god_deployed && !oppBlocked) {
-                    const oppGod = roundData.opponent_god_deployed.toLowerCase();
-                    const offensiveGods = ['zeus', 'poseidon', 'ares', 'hades', 'hephaestus', 'hermes'];
-                    if (offensiveGods.includes(oppGod)) {
-                        applyGodPowerEffect(oppGod, false, iHaveDemeter);
+                    
+                    // Build the question HTML (ONCE)
+                    content.innerHTML = `
+                        ${scoreboardHTML}
+                        ${effectsHTML}
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <span style="font-size: 56px; font-weight: bold; color: ${timeRemaining <= 5 ? '#ff6b6b' : '#ffd700'};" id="battle-timer">${timeRemaining}</span>
+                            <span style="color: rgba(255,255,255,0.5); font-size: 22px;"> seconds</span>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; margin-bottom: 25px;">
+                            <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 8px;">${data.question.god_associated}</p>
+                            <p style="color: white; font-size: 22px; line-height: 1.6;">${data.question.question_text}</p>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            ${data.question.shuffled_answers.map((ans, idx) => `
+                                <button onclick="submitAnswer(${idx})" style="
+                                    background: rgba(255,255,255,0.1);
+                                    border: 2px solid rgba(255,255,255,0.2);
+                                    color: white;
+                                    padding: 18px;
+                                    border-radius: 12px;
+                                    font-size: 20px;
+                                    cursor: pointer;
+                                    text-align: left;
+                                    transition: all 0.2s ease;
+                                " onmouseover="this.style.borderColor='#6366f1'; this.style.background='rgba(99,102,241,0.2)';"
+                                   onmouseout="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.background='rgba(255,255,255,0.1)';">
+                                    ${ans.text}
+                                </button>
+                            `).join('')}
+                        </div>
+                    `;
+                    
+                    // Apply god power visual effects
+                    const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
+                    const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
+                    
+                    // B1: If OPPONENT has Hera deployed (not blocked), apply click delay to US
+                    if (roundData.opponent_god_deployed && !oppBlocked) {
+                        const oppGod = roundData.opponent_god_deployed.toLowerCase();
+                        if (oppGod === 'hera') {
+                            applyHeraDelay();
+                        }
+                    }
+                    
+                    // Offensive god effects with Demeter reduction
+                    const hasDemeter = roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'demeter' && !myBlocked;
+                    if (roundData.opponent_god_deployed && !oppBlocked) {
+                        const oppGod = roundData.opponent_god_deployed.toLowerCase();
+                        const offensiveGods = ['zeus', 'poseidon', 'ares', 'hades', 'hephaestus', 'hermes'];
+                        if (offensiveGods.includes(oppGod)) {
+                            applyGodPowerEffect(oppGod, false, hasDemeter);
+                        }
+                    }
+                    
+                    // Defensive passives (Apollo glow, Athena remove answer, etc.)
+                    if (roundData.my_god_deployed && !myBlocked) {
+                        const myGod = roundData.my_god_deployed.toLowerCase();
+                        const defensiveGods = ['apollo', 'athena', 'hera', 'artemis', 'aphrodite', 'demeter'];
+                        if (defensiveGods.includes(myGod)) {
+                            applyDefensivePassive(myGod, content, data.question);
+                        }
+                        activeAphrodite = (myGod === 'aphrodite');
+                    } else {
+                        activeAphrodite = false;
                     }
                 }
-                
-                // If opponent used Hera (defensive) and it wasn't blocked, apply click delay to US
-                if (roundData.opponent_god_deployed && !oppBlocked) {
-                    const oppGod = roundData.opponent_god_deployed.toLowerCase();
-                    if (oppGod === 'hera') {
-                        // Hera's passive: opponent gets 1 second click delay
-                        const heraDelay = iHaveDemeter ? 500 : 1000;
-                        const heraOverlay = document.createElement('div');
-                        heraOverlay.id = 'hera-passive-overlay';
-                        heraOverlay.className = 'hermes-overlay';
-                        heraOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:all;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(147,112,219,0.3);';
-                        heraOverlay.innerHTML = '<span style="font-size:48px;color:white;text-shadow:0 0 20px rgba(0,0,0,0.8);">🦚 SLOWED!</span>';
-                        document.body.appendChild(heraOverlay);
-                        setTimeout(() => heraOverlay.remove(), heraDelay);
-                    }
-                }
-                
-                // If we used a defensive god and it wasn't blocked, apply passive effect
-                if (roundData.my_god_deployed && !myBlocked) {
-                    const myGod = roundData.my_god_deployed.toLowerCase();
-                    const defensiveGods = ['apollo', 'athena', 'hera', 'artemis', 'aphrodite', 'demeter'];
-                    if (defensiveGods.includes(myGod)) {
-                        applyDefensivePassive(myGod, content, data.question);
-                    }
-                }
-                
-                // Track Aphrodite state for retry on wrong answer
-                activeAphrodite = (roundData.my_god_deployed && roundData.my_god_deployed.toLowerCase() === 'aphrodite' && !myBlocked);
+                // On subsequent polls, DON'T rebuild HTML - just return
+                // Timer updates itself via setInterval, effects persist in DOM
+
                 
                 return;
             }
@@ -7466,121 +7926,84 @@
                 return;
             }
             
-            // SUDDEN DEATH INTRO PHASE - Show dramatic screen with Ready button
-            if (phase === 'sudden_death_intro') {
-                if (battleTimer) clearInterval(battleTimer);
-                
-                // Play dramatic sound (only once)
-                if (suddenDeathRoundShown !== data.current_round) {
-                    suddenDeathRoundShown = data.current_round;
-                    playBattleSound('roundStart', 0.8);
+            // SUDDEN DEATH - show intro then question
+            if (isSuddenDeath && data.question && !data.my_answer) {
+                const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
+                if (questionChanged) {
+                    questionReadySignaled = false;
                 }
-                
-                // Check if we've already clicked ready
-                const myReady = roundData.my_sd_ready;
-                const oppReady = roundData.opponent_sd_ready;
-                
-                content.innerHTML = `
-                    ${scoreboardHTML}
-                    <div style="background: #000; border-radius: 15px; padding: 30px; text-align: center;">
-                        <h1 style="
-                            color: #a855f7; 
-                            font-size: 64px; 
-                            font-weight: 900;
-                            letter-spacing: 8px;
-                            text-transform: uppercase;
-                            text-shadow: 
-                                0 0 20px rgba(168, 85, 247, 0.8),
-                                0 0 40px rgba(168, 85, 247, 0.6),
-                                0 0 60px rgba(168, 85, 247, 0.4),
-                                0 4px 0 #581c87;
-                            margin-bottom: 30px;
-                            font-family: 'Impact', 'Arial Black', sans-serif;
-                        ">
-                            SUDDEN DEATH
-                        </h1>
-                        
-                        <div style="color: #ffd700; font-size: 28px; margin-bottom: 35px; line-height: 1.8;">
-                            <p style="margin: 15px 0;">🚫 No gods allowed in Sudden Death</p>
-                            <p style="margin: 15px 0;">🏆 First correct answer wins</p>
-                            <p style="margin: 15px 0;">⚡ Prepare to battle</p>
-                        </div>
-                        
-                        ${myReady ? `
-                            <div style="background: rgba(34,197,94,0.2); border: 2px solid #22c55e; border-radius: 12px; padding: 20px; margin-top: 20px;">
-                                <p style="color: #22c55e; font-size: 22px; margin: 0;">
-                                    ✓ You are READY!
-                                </p>
-                                <p style="color: rgba(255,255,255,0.7); font-size: 18px; margin-top: 10px;">
-                                    ${oppReady ? 'Starting...' : 'Waiting for opponent...'}
-                                </p>
-                            </div>
-                        ` : `
-                            <button onclick="signalSuddenDeathReady()" style="
-                                background: #000;
-                                color: #ffd700;
-                                font-size: 32px;
-                                font-weight: bold;
-                                padding: 20px 60px;
-                                border: 3px solid #ffd700;
-                                border-radius: 15px;
-                                cursor: pointer;
-                                margin-top: 20px;
-                                animation: sdPulse 1.5s ease-in-out infinite;
-                                box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-                                text-transform: uppercase;
-                                letter-spacing: 4px;
-                            ">
-                                ⚔️ READY ⚔️
-                            </button>
-                        `}
-                    </div>
-                    <style>
-                        @keyframes sdPulse {
-                            0%, 100% { 
-                                box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
-                                transform: scale(1);
-                            }
-                            50% { 
-                                box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
-                                transform: scale(1.05);
-                            }
-                        }
-                    </style>
-                `;
-                return;
-            }
-            
-            // SUDDEN DEATH QUESTION PHASE - show question (no gods)
-            if (isSuddenDeath && phase === 'question' && data.question && !data.my_answer) {
                 currentQuestion = data.question;
                 
-                // Check if question has been synced yet (both players called /question-ready)
+                // SYNC GATE: same pattern as normal rounds
                 const questionDisplayTime = roundData.question_display_time;
+                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
-                // If not synced yet, signal ready and show waiting state
+                // Show Sudden Death intro while waiting for sync
                 if (!questionDisplayTime) {
-                    // Signal that we're ready for the question
-                    signalQuestionReady();
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
+                    
+                    if (!questionReadySignaled) {
+                        questionReadySignaled = true;
+                        playBattleSound('roundStart', 0.8);
+                    }
                     
                     content.innerHTML = `
                         ${scoreboardHTML}
-                        <div style="text-align: center; padding: 40px;">
-                            <div style="font-size: 60px; margin-bottom: 15px; animation: pulse 1s infinite;">⚡</div>
-                            <h3 style="color: #a855f7; margin-bottom: 15px; font-size: 28px;">SUDDEN DEATH</h3>
-                            <p style="color: rgba(255,255,255,0.7); font-size: 18px;">Syncing with opponent...</p>
+                        <div style="text-align: center; padding: 30px;">
+                            <div style="font-size: 80px; margin-bottom: 15px;">⚔️</div>
+                            <h2 style="color: #ff6b6b; font-size: 36px; text-shadow: 0 0 20px rgba(255,107,107,0.5); margin-bottom: 15px;">
+                                ⚡ SUDDEN DEATH! ⚡
+                            </h2>
+                            <p style="color: #ffd700; font-size: 22px; margin-bottom: 10px;">
+                                Scores are TIED!
+                            </p>
+                            <p style="color: white; font-size: 18px; margin-bottom: 20px;">
+                                First to answer correctly WINS the battle!
+                            </p>
+                            <div style="background: rgba(255,107,107,0.2); border: 2px solid #ff6b6b; padding: 15px; border-radius: 10px; display: inline-block;">
+                                <p style="color: #ff6b6b; font-size: 16px; margin: 0;">
+                                    🚫 No God Powers Allowed 🚫
+                                </p>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.6); font-size: 16px; margin-top: 20px;">
+                                Waiting for opponent...
+                            </p>
+                        </div>
+                    `;
+                    
+                    if (!questionReadySignaled) {
+                        // Already signaled above, but call endpoint
+                    }
+                    signalSuddenDeathReady(); // FIX 5: Was calling signalQuestionReady() which rejects sudden_death_intro phase
+                    return;
+                }
+                
+                // Display time exists but not reached - countdown
+                if (!displayTimeReached) {
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
+                    const secsLeft = Math.ceil((displayTimeMs - Date.now()) / 1000);
+                    content.innerHTML = `
+                        ${scoreboardHTML}
+                        <div style="text-align: center; padding: 30px;">
+                            <div style="font-size: 80px; margin-bottom: 15px;">⚔️</div>
+                            <h2 style="color: #ff6b6b; font-size: 36px; text-shadow: 0 0 20px rgba(255,107,107,0.5);">
+                                ⚡ SUDDEN DEATH! ⚡
+                            </h2>
+                            <p style="color: white; font-size: 22px;">Question in ${secsLeft}...</p>
                         </div>
                     `;
                     return;
                 }
                 
-                // Question is synced - both players see it at the same time
+                // Display time reached - show the question
+                
                 if (!battleTimer) {
                     timeRemaining = roundData.phase_time_remaining || 20;
                     
                     // Record the actual start time for accurate answer time calculation
                     questionActualStartTime = Date.now();
-                    console.log(`📝 Sudden Death question synced and displayed at ${questionActualStartTime}`);
+                    console.log(`📝 Sudden Death question displayed at ${questionActualStartTime}`);
                     
                     battleTimer = setInterval(() => {
                         timeRemaining--;
@@ -7596,8 +8019,8 @@
                 
                 content.innerHTML = `
                     ${scoreboardHTML}
-                    <div style="background: rgba(168,85,247,0.2); padding: 12px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-                        <span style="color: #a855f7; font-weight: bold; font-size: 20px;">⚡ SUDDEN DEATH - First Correct Answer Wins!</span>
+                    <div style="background: rgba(239,68,68,0.2); padding: 12px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
+                        <span style="color: #ff6b6b; font-weight: bold; font-size: 20px;">⚡ SUDDEN DEATH - No God Powers!</span>
                     </div>
                     <div style="text-align: center; margin-bottom: 20px;">
                         <span style="font-size: 56px; font-weight: bold; color: ${timeRemaining <= 5 ? '#ff6b6b' : '#ffd700'};" id="battle-timer">${timeRemaining}</span>
@@ -7651,9 +8074,10 @@
                         alert(data.error);
                     }
                 } else if (data.both_ready) {
-                    // BOTH players deployed - go directly to question sync (skip loadBattleState roundtrip)
-                    console.log('⏱️ Both deployed! Signaling question-ready directly...');
-                    signalQuestionReady();
+                    // BOTH players deployed - refresh to enter question sync flow
+                    // Prometheus preview will show in the Get Ready screen
+                    console.log('⏱️ Both deployed! Refreshing to start question sync...');
+                    loadBattleState();
                 } else {
                     loadBattleState(); // Refresh immediately
                 }
@@ -7663,18 +8087,75 @@
             }
         }
         
+        // Prometheus question preview overlay
+        function showPrometheusPreview(questionText, duration) {
+            const overlay = document.createElement('div');
+            overlay.id = 'prometheus-preview';
+            overlay.innerHTML = `
+                <div style="
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(255, 100, 0, 0.15);
+                    display: flex; align-items: center; justify-content: center;
+                    z-index: 10000;
+                ">
+                    <div style="
+                        background: rgba(0,0,0,0.95);
+                        padding: 30px;
+                        border-radius: 15px;
+                        border: 3px solid #ff6b00;
+                        max-width: 80%;
+                        text-align: center;
+                        box-shadow: 0 0 40px rgba(255, 107, 0, 0.4);
+                    ">
+                        <div style="color: #ff6b00; font-size: 24px; margin-bottom: 20px;">
+                            🔥 PROMETHEUS' GIFT 🔥
+                        </div>
+                        <div style="color: white; font-size: 18px; line-height: 1.6;">
+                            ${questionText}
+                        </div>
+                        <div style="color: rgba(255,255,255,0.5); margin-top: 20px; font-size: 14px;">
+                            Question preview — ${Math.round(duration / 1000)} seconds
+                        </div>
+                        <div id="prometheus-timer" style="
+                            margin-top: 12px; height: 4px; background: rgba(255,107,0,0.3);
+                            border-radius: 2px; overflow: hidden;
+                        ">
+                            <div style="height: 100%; background: #ff6b00; width: 100%; transition: width ${duration}ms linear;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            
+            // Start the timer bar animation
+            requestAnimationFrame(() => {
+                const bar = overlay.querySelector('#prometheus-timer div');
+                if (bar) bar.style.width = '0%';
+            });
+            
+            // Play prometheus sound
+            playBattleSound('prometheus', 0.6);
+            
+            setTimeout(() => {
+                if (overlay.parentNode) overlay.remove();
+            }, duration);
+        }
+        
         // Signal to server that client is ready for question display
         let questionReadyRetries = 0;
-        const MAX_QUESTION_READY_RETRIES = 60;
+        const MAX_QUESTION_READY_RETRIES = 60; // 60 retries × 500ms = 30 second max wait
         
         async function signalQuestionReady() {
+            if (!currentBattleId) return;
+            
+            // FIX 3: Enforce retry limit (was defined but never checked — caused infinite request loops)
             questionReadyRetries++;
             if (questionReadyRetries > MAX_QUESTION_READY_RETRIES) {
-                console.log('⚠️ Question ready retry limit reached, falling back to polling');
+                console.log('⚠️ Question ready retry limit reached (' + MAX_QUESTION_READY_RETRIES + '), stopping retries. Normal polling will handle it.');
                 questionReadyRetries = 0;
-                loadBattleState();
                 return;
             }
+            
             try {
                 const response = await fetch(`${API_URL}/arena/question-ready`, {
                     method: 'POST',
@@ -7684,53 +8165,37 @@
                 const data = await response.json();
                 
                 if (data.show_question) {
-                    // Both players ready - show question NOW
-                    console.log('✅ Both players ready! Showing question immediately');
-                    questionActualStartTime = Date.now();
-                    setBattlePollRate(2000); // Back to normal rate for question phase
-                    loadBattleState();
+                    console.log('✅ Both players ready! Display time set - polling will show question');
+                    questionReadyRetries = 0; // Reset on success
                 } else if (data.waiting_for_opponent) {
-                    // Still waiting - poll again in 250ms (fast but not excessive)
-                    setTimeout(() => signalQuestionReady(), 250);
-                } else {
-                    // Error or not ready, try again
-                    setTimeout(() => loadBattleState(), 300);
+                    console.log('⏳ Waiting for opponent to be ready... (retry ' + questionReadyRetries + '/' + MAX_QUESTION_READY_RETRIES + ')');
+                    setTimeout(() => signalQuestionReady(), 500);
+                } else if (data.not_ready) {
+                    console.log('⏳ Server not ready for question signal yet... (retry ' + questionReadyRetries + '/' + MAX_QUESTION_READY_RETRIES + ')');
+                    setTimeout(() => signalQuestionReady(), 500);
                 }
             } catch (err) {
                 console.error('Error signaling question ready:', err);
-                setTimeout(() => loadBattleState(), 300);
+                setTimeout(() => signalQuestionReady(), 1000);
             }
         }
         
-        // Signal ready for Sudden Death - called when player clicks READY button
+        // Signal sudden death ready
         async function signalSuddenDeathReady() {
+            if (!currentBattleId) return;
             try {
-                console.log('⚡ Signaling Sudden Death ready...');
                 const response = await fetch(`${API_URL}/arena/sudden-death-ready`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({ battle_id: currentBattleId })
                 });
                 const data = await response.json();
-                
-                if (data.both_ready) {
-                    // Both players ready - transition to question phase
-                    // But need to sync via /question-ready like regular rounds
-                    console.log('⚡ Both players ready! Calling question-ready for sync...');
-                    setBattlePollRate(500); // Fast poll
-                    signalQuestionReady(); // This will sync both players
-                } else if (data.waiting_for_opponent) {
-                    // Marked as ready, waiting for opponent
-                    console.log('⚡ Waiting for opponent...');
-                    // Refresh to show "You are READY!" state
-                    loadBattleState();
-                } else if (data.phase_changed) {
-                    // Phase already changed, just reload
-                    loadBattleState();
+                if (data.error) {
+                    console.error('Sudden death ready error:', data.error);
                 }
+                // UI will update on next poll cycle
             } catch (err) {
-                console.error('Error signaling sudden death ready:', err);
-                loadBattleState();
+                console.error('Failed to signal sudden death ready:', err);
             }
         }
         
@@ -7802,7 +8267,23 @@
         // ==================== GOD POWER VISUAL EFFECTS ====================
         let activeGodEffect = null;
         
-        function applyGodPowerEffect(godName, blocked, demeterActive = false) {
+        // B1: Hera passive - blocks opponent clicks for 1 second
+        function applyHeraDelay() {
+            console.log('🦚 Hera passive: Opponent has Hera - blocking our clicks for 1s');
+            const heraOverlay = document.createElement('div');
+            heraOverlay.id = 'hera-delay-overlay';
+            heraOverlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 200, 100, 0.08);
+                z-index: 9999; pointer-events: all; cursor: not-allowed;
+            `;
+            document.body.appendChild(heraOverlay);
+            setTimeout(() => {
+                if (heraOverlay.parentNode) heraOverlay.remove();
+            }, 1000);
+        }
+        
+        function applyGodPowerEffect(godName, blocked, hasDemeter) {
             if (!godName) return;
             
             // Play blocked sound if power was blocked
@@ -7817,13 +8298,16 @@
             const battleContent = document.getElementById('battle-content');
             if (!battleContent) return;
             
-            console.log('Applying god power effect:', godName, demeterActive ? '(Demeter: 50% shorter)' : '');
+            console.log('Applying god power effect:', godName);
             
             // Play the god's sound effect
             playBattleSound(godName.toLowerCase());
             
-            // Demeter passive: enemy effects last 50% shorter
-            const durationMult = demeterActive ? 0.5 : 1.0;
+            // B2: Demeter passive - reduce effect duration by 50%
+            const demeterMultiplier = hasDemeter ? 0.5 : 1.0;
+            if (hasDemeter) {
+                console.log('🌾 Demeter passive: Reducing incoming effect duration by 50%');
+            }
             
             switch(godName.toLowerCase()) {
                 case 'zeus':
@@ -7833,7 +8317,7 @@
                     zeusOverlay.className = 'zeus-effect';
                     zeusOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:9998;';
                     document.body.appendChild(zeusOverlay);
-                    setTimeout(() => zeusOverlay.remove(), 2000 * durationMult);
+                    setTimeout(() => zeusOverlay.remove(), 2000 * demeterMultiplier);
                     break;
                     
                 case 'poseidon':
@@ -7846,20 +8330,20 @@
                     setTimeout(() => {
                         battleContent.classList.remove('poseidon-effect');
                         poseidonOverlay.remove();
-                    }, 3000 * durationMult);
+                    }, 3000 * demeterMultiplier);
                     break;
                     
                 case 'ares':
-                    // War Cry - full screen shake with dark red overlay (like Hades but red)
-                    document.body.classList.add('ares-effect');
+                    // Screen shake with red tint - 3 seconds
+                    battleContent.classList.add('ares-effect');
                     const aresOverlay = document.createElement('div');
                     aresOverlay.id = 'god-effect-overlay';
                     aresOverlay.className = 'ares-overlay';
                     document.body.appendChild(aresOverlay);
                     setTimeout(() => {
-                        document.body.classList.remove('ares-effect');
+                        battleContent.classList.remove('ares-effect');
                         aresOverlay.remove();
-                    }, 2000 * durationMult);
+                    }, 3000 * demeterMultiplier);
                     break;
                     
                 case 'hades':
@@ -7868,7 +8352,7 @@
                     hadesOverlay.id = 'god-effect-overlay';
                     hadesOverlay.className = 'hades-overlay';
                     document.body.appendChild(hadesOverlay);
-                    setTimeout(() => hadesOverlay.remove(), 2000 * durationMult);
+                    setTimeout(() => hadesOverlay.remove(), 2000 * demeterMultiplier);
                     break;
                     
                 case 'hephaestus':
@@ -7877,7 +8361,7 @@
                     fireOverlay.id = 'god-effect-overlay';
                     fireOverlay.className = 'hephaestus-overlay';
                     document.body.appendChild(fireOverlay);
-                    setTimeout(() => fireOverlay.remove(), 2000 * durationMult);
+                    setTimeout(() => fireOverlay.remove(), 2000 * demeterMultiplier);
                     break;
                     
                 case 'hermes':
@@ -7886,7 +8370,7 @@
                     hermesOverlay.id = 'god-effect-overlay';
                     hermesOverlay.className = 'hermes-overlay';
                     document.body.appendChild(hermesOverlay);
-                    setTimeout(() => hermesOverlay.remove(), 1000 * durationMult);
+                    setTimeout(() => hermesOverlay.remove(), 1000 * demeterMultiplier);
                     break;
             }
         }
@@ -7932,19 +8416,8 @@
                     break;
                     
                 case 'hera':
-                    // Hera's passive affects the OPPONENT (click delay) - handled in the effects application section above
-                    // Show the user a confirmation that their Hera is working
-                    break;
-                    
-                case 'aphrodite':
-                    // Aphrodite passive: If wrong, get 3 sec to retry
-                    // The actual retry logic is in submitAnswer() - we just set the flag here
-                    // activeAphrodite is set in the effects application section
-                    break;
-                    
-                case 'demeter':
-                    // Demeter passive: Enemy effects last 50% shorter
-                    // The actual shortening is handled by passing demeterActive to applyGodPowerEffect
+                    // Opponent gets 1 sec delay - this affects the OTHER player
+                    // So we don't do anything here for the user who has Hera
                     break;
             }
         }
@@ -7957,28 +8430,30 @@
             if (battleContent) {
                 battleContent.classList.remove('poseidon-effect', 'ares-effect', 'zeus-effect');
             }
-            // Also clear body-level effects (Ares full-screen shake)
-            document.body.classList.remove('ares-effect');
         }
         
         let answerSubmitting = false; // Prevent duplicate submissions
-        let activeAphrodite = false; // Track if Aphrodite retry is available
+        let aphroditeRetryActive = false; // Blocks loadBattleState during Aphrodite retry window
+        let activeAphrodite = false; // Track if Aphrodite retry is available this round
+        let godEffectsAppliedThisRound = false; // Prevent re-applying effects on every poll
+        let questionReadySignaled = false; // Track if we've signaled ready for current question
         
         async function submitAnswer(answerIndex) {
-            // Prevent duplicate submissions
-            if (answerSubmitting) {
+            // Prevent duplicate submissions (but allow Aphrodite retry)
+            if (answerSubmitting && !aphroditeRetryActive) {
                 console.log('Answer already submitting, ignoring');
                 return;
             }
-            answerSubmitting = true;
             
-            // If this is an Aphrodite retry submission, clear the retry flag and banner
+            // If this is an Aphrodite retry submission, clear the retry state first
             if (aphroditeRetryActive) {
                 console.log('💕 Aphrodite retry answer submitted');
                 aphroditeRetryActive = false;
                 const banner = document.getElementById('aphrodite-retry-banner');
                 if (banner) banner.remove();
             }
+            
+            answerSubmitting = true;
             
             if (battleTimer) {
                 clearInterval(battleTimer);
@@ -8007,64 +8482,34 @@
                     // Play correct or wrong sound based on response
                     if (data.was_correct) {
                         playBattleSound('correct', 0.6);
-                        activeAphrodite = false; // No retry needed
-                        aphroditeRetryActive = false; // Ensure flag is clear
+                        // B4: Show Artemis alliance bonus notification
+                        if (data.artemis_alliance_bonus) {
+                            showArtemisBonus();
+                        }
                     } else {
                         playBattleSound('wrong', 0.8);
                         
-                        // APHRODITE RETRY: If wrong and Aphrodite is active, allow a 4-second retry
-                        if (activeAphrodite) {
-                            activeAphrodite = false; // Only one retry per round
-                            aphroditeRetryActive = true; // Block UI refresh during retry
-                            console.log('💕 Aphrodite retry activated! 4 seconds to pick again...');
+                        // B3: Check for Aphrodite retry
+                        if (data.aphrodite_retry_available) {
+                            console.log('💕 Aphrodite retry activated!');
+                            aphroditeRetryActive = true;
+                            answerSubmitting = false; // Allow next submission
+                            showAphroditeRetryBanner(answerIndex);
                             
-                            // Re-enable buttons with pink highlight for 4 seconds
-                            const battleContent = document.getElementById('battle-content');
-                            if (battleContent) {
-                                const buttons = battleContent.querySelectorAll('button[onclick^="submitAnswer"]');
-                                
-                                // Gray out the wrong answer - can't pick it again
-                                if (buttons[answerIndex]) {
-                                    buttons[answerIndex].style.background = 'rgba(100,100,100,0.4)';
-                                    buttons[answerIndex].style.borderColor = '#666';
-                                    buttons[answerIndex].style.color = '#888';
-                                    buttons[answerIndex].style.pointerEvents = 'none'; // Can't pick same wrong answer
-                                    buttons[answerIndex].textContent = '❌ ' + buttons[answerIndex].textContent;
+                            // Auto-expire after 4 seconds
+                            setTimeout(() => {
+                                if (aphroditeRetryActive) {
+                                    console.log('💕 Aphrodite retry timed out');
+                                    aphroditeRetryActive = false;
+                                    activeAphrodite = false;
+                                    const retryBanner = document.getElementById('aphrodite-retry-banner');
+                                    if (retryBanner) retryBanner.remove();
+                                    loadBattleState(); // Resume normal flow
                                 }
-                                
-                                // Show Aphrodite retry notification - bigger and more prominent
-                                const retryBanner = document.createElement('div');
-                                retryBanner.id = 'aphrodite-retry-banner';
-                                retryBanner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg, #ff69b4, #ff1493);color:white;padding:18px 36px;border-radius:15px;z-index:9999;font-size:24px;font-weight:bold;text-align:center;box-shadow:0 6px 30px rgba(255,105,180,0.7);animation:pulse 0.5s ease-in-out infinite;';
-                                retryBanner.innerHTML = '💕 APHRODITE\'S CHARM! 💕<br><span style="font-size:18px;">Pick a different answer!</span>';
-                                document.body.appendChild(retryBanner);
-                                
-                                // Add pink border glow to remaining buttons
-                                buttons.forEach((btn, idx) => {
-                                    if (idx !== answerIndex) {
-                                        btn.classList.add('aphrodite-retry');
-                                        btn.style.cursor = 'pointer';
-                                    }
-                                });
-                                
-                                // Allow submitting again
-                                answerSubmitting = false;
-                                
-                                // Remove retry after 4 seconds
-                                setTimeout(() => {
-                                    aphroditeRetryActive = false; // Allow UI refresh again
-                                    const banner = document.getElementById('aphrodite-retry-banner');
-                                    if (banner) banner.remove();
-                                    buttons.forEach(btn => btn.classList.remove('aphrodite-retry'));
-                                    // Reload state to continue battle
-                                    loadBattleState();
-                                }, 4000);
-                                
-                                return; // Don't reload battle state yet - let them retry
-                            }
+                            }, 4000);
+                            
+                            return; // Don't call loadBattleState yet
                         }
-                        // Not Aphrodite - clear the flag just in case
-                        aphroditeRetryActive = false;
                     }
                 }
                 
@@ -8076,6 +8521,61 @@
                 // Reset after a short delay to allow state to update
                 setTimeout(() => { answerSubmitting = false; }, 500);
             }
+        }
+        
+        // B3: Aphrodite retry UI
+        function showAphroditeRetryBanner(wrongAnswerIndex) {
+            const banner = document.createElement('div');
+            banner.id = 'aphrodite-retry-banner';
+            banner.innerHTML = `
+                <div style="
+                    position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+                    background: linear-gradient(135deg, #ff69b4, #ff1493);
+                    color: white; padding: 20px 40px; border-radius: 15px;
+                    font-size: 20px; font-weight: bold; z-index: 10000;
+                    text-align: center; box-shadow: 0 0 30px rgba(255, 105, 180, 0.5);
+                    animation: badgePulse 1s ease-in-out infinite;
+                ">
+                    💕 APHRODITE'S CHARM! 💕<br>
+                    <span style="font-size: 16px; font-weight: normal;">Pick a different answer!</span>
+                </div>
+            `;
+            document.body.appendChild(banner);
+            
+            // Gray out the wrong answer and add pink glow to remaining
+            const buttons = document.querySelectorAll('#battle-content button[onclick^="submitAnswer"]');
+            buttons.forEach((btn, idx) => {
+                if (idx === wrongAnswerIndex) {
+                    btn.style.background = '#444';
+                    btn.style.color = '#666';
+                    btn.style.borderColor = '#555';
+                    btn.innerHTML = '❌ ' + btn.innerHTML;
+                    btn.disabled = true;
+                    btn.style.cursor = 'not-allowed';
+                } else if (!btn.disabled) {
+                    btn.style.boxShadow = '0 0 15px rgba(255, 105, 180, 0.7)';
+                    btn.style.borderColor = '#ff69b4';
+                }
+            });
+        }
+        
+        // B4: Artemis alliance bonus notification
+        function showArtemisBonus() {
+            const notif = document.createElement('div');
+            notif.style.cssText = `
+                position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+                background: rgba(34, 197, 94, 0.9); color: white;
+                padding: 12px 24px; border-radius: 10px; font-size: 18px; font-weight: bold;
+                z-index: 10000; text-align: center;
+                box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+            `;
+            notif.textContent = '🏹 +1 Alliance Point!';
+            document.body.appendChild(notif);
+            setTimeout(() => {
+                notif.style.transition = 'opacity 0.5s';
+                notif.style.opacity = '0';
+                setTimeout(() => notif.remove(), 500);
+            }, 2000);
         }
         
         function closeBattle() {
@@ -8090,11 +8590,12 @@
             godSelectionShown = false;
             godsSubmittedForBattle = null; // Reset so we can select gods for next battle
             answerSubmitting = false;
+            aphroditeRetryActive = false; // Reset Aphrodite retry
+            activeAphrodite = false; // Reset Aphrodite availability
+            godEffectsAppliedThisRound = false; // Reset effects flag
+            questionReadySignaled = false; // Reset ready signal
             questionActualStartTime = null; // Reset timing
-            suddenDeathIntroShown = false; // Reset sudden death tracking
-            suddenDeathRoundShown = 0;
-            aphroditeRetryActive = false; // Reset Aphrodite retry flag
-            activeAphrodite = false;
+            questionReadyRetries = 0; // Reset question ready retry counter
             
             // Clear any god effects
             clearGodPowerEffects();
@@ -8103,11 +8604,17 @@
             const activeBanner = document.getElementById('active-battle-banner');
             if (activeBanner) activeBanner.remove();
             
+            const waitingOverlay = document.getElementById('waiting-overlay');
+            if (waitingOverlay) waitingOverlay.remove();
+            
+            const prometheusPreview = document.getElementById('prometheus-preview');
+            if (prometheusPreview) prometheusPreview.remove();
+            
             const aphroditeBanner = document.getElementById('aphrodite-retry-banner');
             if (aphroditeBanner) aphroditeBanner.remove();
             
-            const waitingOverlay = document.getElementById('waiting-overlay');
-            if (waitingOverlay) waitingOverlay.remove();
+            const heraOverlay = document.getElementById('hera-delay-overlay');
+            if (heraOverlay) heraOverlay.remove();
             
             const godModal = document.getElementById('god-selection-modal');
             if (godModal) godModal.remove();
