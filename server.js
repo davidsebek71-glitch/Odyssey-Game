@@ -4465,8 +4465,16 @@ app.get('/api/student/side-quests', authenticateToken, (req, res) => {
       return res.json({ error: 'Not in an alliance', hasAlliance: false, quests: [] });
     }
     
-    // Get all side quests
-    const quests = query('SELECT * FROM side_quests_ref ORDER BY quest_id');
+    // Get alliance's current age to filter quests
+    const alliance = query('SELECT current_age FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    const currentAge = alliance ? alliance.current_age : 'Archaic';
+    
+    // Only show quests available at or below the alliance's current age
+    const ageFilter = currentAge === 'Heroic' ? "'Archaic','Classical','Heroic'" :
+                      currentAge === 'Classical' ? "'Archaic','Classical'" : "'Archaic'";
+    
+    // Get side quests filtered by age
+    const quests = query(`SELECT * FROM side_quests_ref WHERE age IN (${ageFilter}) ORDER BY quest_id`);
     
     // Get this student's completions
     const myCompletions = query(
@@ -4556,6 +4564,15 @@ app.post('/api/student/submit-side-quest', authenticateToken, (req, res) => {
     if (!quest) {
       console.log('Quest not found:', quest_id);
       return res.status(404).json({ error: 'Side quest not found' });
+    }
+    
+    // Check if alliance is in the right age for this quest
+    const alliance = query('SELECT current_age FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    const currentAge = alliance ? alliance.current_age : 'Archaic';
+    const allowedAges = currentAge === 'Heroic' ? ['Archaic','Classical','Heroic'] :
+                        currentAge === 'Classical' ? ['Archaic','Classical'] : ['Archaic'];
+    if (!allowedAges.includes(quest.age || 'Archaic')) {
+      return res.status(403).json({ error: 'This quest is not available in your current age' });
     }
     
     // Check if already submitted
