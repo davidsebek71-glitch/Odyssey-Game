@@ -1982,19 +1982,19 @@
         /* ===== WARRIOR AVATAR REVEAL ===== */
         .avatar-reveal-section {
             background: linear-gradient(180deg, rgba(10,15,30,0.9), rgba(5,10,25,0.95));
-            border: 1px solid rgba(255,215,0,0.15); border-radius: 14px;
+            border: 1px solid rgba(74,144,217,0.2); border-radius: 14px;
             padding: 20px; margin-bottom: 16px;
             display: flex; align-items: center; justify-content: center; gap: 0;
             position: relative;
         }
         .avatar-reveal-title {
             font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
-            color: rgba(255,215,0,0.7); letter-spacing: 3px; text-transform: uppercase;
+            color: rgba(74,144,217,0.8); letter-spacing: 3px; text-transform: uppercase;
             text-align: center; margin-bottom: 12px;
         }
         .avatar-frame {
             position: relative; width: 140px; height: 160px;
-            background: rgba(0,0,0,0.8); border: 2px solid rgba(255,215,0,0.2);
+            background: rgba(0,0,0,0.8); border: 2px solid rgba(74,144,217,0.25);
             border-radius: 10px; display: flex; align-items: center; justify-content: center;
             overflow: hidden; flex-shrink: 0;
         }
@@ -2030,8 +2030,8 @@
         .virtue-slot-greek { font-size: 9px; color: rgba(255,255,255,0.3); font-style: italic; }
         .virtue-slot.earned .virtue-slot-greek { color: rgba(255,255,255,0.6); }
         .avatar-progress-text {
-            font-family: 'Cinzel', serif; font-size: 11px; color: rgba(255,215,0,0.6);
-            text-align: center; margin-top: 8px; letter-spacing: 1px;
+            font-family: 'Cinzel', serif; font-size: 12px; color: rgba(74,144,217,0.7);
+            text-align: center; margin-top: 10px; letter-spacing: 1.5px; text-transform: uppercase;
         }
         @media (max-width: 768px) {
             .avatar-reveal-section { flex-direction: column; padding: 14px; }
@@ -2536,7 +2536,6 @@
                          onerror="this.style.display='none'; document.getElementById('avatar-placeholder').style.display='block';">
                     <div id="avatar-placeholder" style="text-align: center; padding: 20px;">
                         <div style="font-size: 40px; opacity: 0.2;">⚔️</div>
-                        <div class="avatar-placeholder-text">Earn virtues to reveal your warrior</div>
                     </div>
                     <div class="avatar-glow" id="avatar-glow"></div>
                 </div>
@@ -9034,9 +9033,9 @@
                 }
             }
             if (progressText) {
-                if (count === 7) { progressText.textContent = '✨ AVATAR REVEALED — The Gods See You ✨'; progressText.style.color = '#ffd700'; }
-                else if (count === 0) { progressText.textContent = '0 / 7 Virtues — Earn virtues to reveal your warrior'; progressText.style.color = 'rgba(255,215,0,0.4)'; }
-                else { progressText.textContent = `${count} / 7 Virtues Earned`; progressText.style.color = 'rgba(255,215,0,0.6)'; }
+                if (count === 7) { progressText.textContent = '✨ Avatar Revealed — The Gods See You ✨'; progressText.style.color = '#ffd700'; }
+                else if (count === 0) { progressText.textContent = '0 / 7 Virtues — Earn Virtues to Reveal Your Warrior'; progressText.style.color = 'rgba(74,144,217,0.5)'; }
+                else { progressText.textContent = `${count} / 7 Virtues Earned`; progressText.style.color = 'rgba(74,144,217,0.8)'; }
             }
         }
 
