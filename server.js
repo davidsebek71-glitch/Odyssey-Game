@@ -3654,6 +3654,38 @@ app.post('/api/teacher/open-age-gate', authenticateToken, (req, res) => {
   }
 });
 
+// Teacher: Override — advance a specific alliance to Classical Age (bypasses requirements)
+app.post('/api/teacher/advance-alliance', authenticateToken, (req, res) => {
+  try {
+    const { alliance_id, target_age } = req.body;
+    if (!alliance_id || !target_age) return res.status(400).json({ error: 'Missing alliance_id or target_age' });
+    
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+    
+    if (target_age === 'Classical' && alliance.current_age === 'Archaic') {
+      run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance_id]);
+      
+      // Also ensure the period gate is open so these students can access hub
+      ensureAgeGate(alliance.class_period);
+      run(`UPDATE age_gates SET classical_unlocked = 1, classical_unlocked_at = COALESCE(classical_unlocked_at, CURRENT_TIMESTAMP), classical_unlocked_by = COALESCE(classical_unlocked_by, ?)
+           WHERE class_period = ? AND classical_unlocked = 0`, [req.user.id, alliance.class_period]);
+      
+      saveDatabase();
+      res.json({ success: true, message: `${alliance.alliance_name} has been advanced to the Classical Age!` });
+    } else if (target_age === 'Heroic' && alliance.current_age === 'Classical') {
+      run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Heroic', alliance_id]);
+      saveDatabase();
+      res.json({ success: true, message: `${alliance.alliance_name} has been advanced to the Heroic Age!` });
+    } else {
+      res.status(400).json({ error: `Cannot advance ${alliance.alliance_name} from ${alliance.current_age} to ${target_age}` });
+    }
+  } catch (err) {
+    console.error('Advance alliance error:', err);
+    res.status(500).json({ error: 'Failed to advance alliance' });
+  }
+});
+
 // Teacher: Mark alliance Rite of Passage complete
 app.post('/api/teacher/mark-rite-complete', authenticateToken, (req, res) => {
   try {

@@ -264,8 +264,6 @@
             border-radius: 20px;
             padding: 40px;
             max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
             width: 90%;
             animation: slideIn 0.3s ease-out;
         }
@@ -813,7 +811,7 @@
     <div class="header">
         <div class="header-content">
             <div class="logo">
-                <h1>⚡ ODYSSEY TO OLYMPUS</h1>
+                <h1>âš¡ ODYSSEY TO OLYMPUS</h1>
             </div>
             <div class="user-info">
                 <span class="user-name" id="teacher-name">Teacher</span>
@@ -825,37 +823,37 @@
     <div class="container">
         <div class="quick-actions">
             <div class="action-card" onclick="openAwardModal()">
-                <div class="icon">➕</div>
+                <div class="icon">âž•</div>
                 <div class="title">Award Points</div>
                 <div class="description">Give points to students</div>
             </div>
             <div class="action-card" onclick="openDeductModal()">
-                <div class="icon">➖</div>
+                <div class="icon">âž–</div>
                 <div class="title">Deduct Points</div>
                 <div class="description">Remove points from alliances</div>
             </div>
             <div class="action-card fate-wheel-card" onclick="openFateWheelModal()">
-                <div class="icon">🎡</div>
+                <div class="icon">ðŸŽ¡</div>
                 <div class="title">Spin Fate Wheel</div>
                 <div class="description">Spin destiny for an alliance</div>
             </div>
             <div class="action-card" onclick="openArenaControlsModal()" style="background: linear-gradient(135deg, rgba(220,38,38,0.2), rgba(153,27,27,0.2)); border-color: rgba(220,38,38,0.4);">
-                <div class="icon">⚔️</div>
+                <div class="icon">âš”ï¸</div>
                 <div class="title">Battle Arena</div>
                 <div class="description">Enable/disable student battles</div>
             </div>
             <div class="action-card" onclick="openGradeOverviewModal()" style="background: linear-gradient(135deg, rgba(74,222,128,0.2), rgba(34,197,94,0.2)); border-color: rgba(74,222,128,0.4);">
-                <div class="icon">📊</div>
+                <div class="icon">ðŸ“Š</div>
                 <div class="title">Grade Overview</div>
                 <div class="description">View all student grades</div>
             </div>
             <div class="action-card" onclick="openQuestBonusTrackerModal()" style="background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(139,92,246,0.2)); border-color: rgba(168,85,247,0.4);">
-                <div class="icon">📋</div>
+                <div class="icon">ðŸ“‹</div>
                 <div class="title">Quest & Bonus Tracker</div>
                 <div class="description">Track side quests & bonuses</div>
             </div>
             <div class="action-card" onclick="openStudentManagementModal()" style="background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.2)); border-color: rgba(59,130,246,0.4);">
-                <div class="icon">👥</div>
+                <div class="icon">ðŸ‘¥</div>
                 <div class="title">Manage Students</div>
                 <div class="description">Edit or remove students</div>
             </div>
@@ -863,7 +861,7 @@
 
         <div class="dashboard-grid">
             <div class="card">
-                <div class="card-title">🏆 Leaderboard by Class Period</div>
+                <div class="card-title">ðŸ† Leaderboard by Class Period</div>
                 
                 <!-- Period Tabs -->
                 <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
@@ -883,7 +881,7 @@
                 <!-- Manage Alliances -->
                 <div class="card" style="margin-bottom: 30px;">
                     <div class="card-title">
-                        🏛️ Manage Alliances
+                        ðŸ›ï¸ Manage Alliances
                         <button class="btn-small" onclick="openManageAlliancesModal()" style="float: right; padding: 5px 10px; font-size: 12px;">View All</button>
                     </div>
                     <div id="alliance-summary" style="color: rgba(255,255,255,0.7); font-size: 14px;">
@@ -894,10 +892,10 @@
                 <!-- 1. Pending Approvals - MOST FREQUENT (daily point submissions) -->
                 <div class="card" style="margin-bottom: 30px;">
                     <div class="card-title">
-                        ⏳ Pending Approvals
+                        â³ Pending Approvals
                         <span class="pending-count" id="pending-count" style="display: none;">0</span>
                     </div>
-                    <div id="pending-content" class="loading" style="max-height: 400px; overflow-y: auto;">
+                    <div id="pending-content" class="loading">
                         Loading submissions...
                     </div>
                 </div>
@@ -905,10 +903,10 @@
                 <!-- 2. Side Quest Approvals - MEDIUM (once per student per quest) -->
                 <div class="card" style="margin-bottom: 30px;">
                     <div class="card-title">
-                        🗺️ Side Quest Approvals
+                        ðŸ—ºï¸ Side Quest Approvals
                         <span class="pending-count" id="side-quest-count" style="display: none;">0</span>
                     </div>
-                    <div id="side-quest-content" style="color: rgba(255,255,255,0.7); font-size: 13px; max-height: 400px; overflow-y: auto;">
+                    <div id="side-quest-content" style="color: rgba(255,255,255,0.7); font-size: 13px;">
                         Loading...
                     </div>
                 </div>
@@ -916,10 +914,10 @@
                 <!-- 3. Building Requests - LOW (weekly/bi-weekly) -->
                 <div class="card" style="margin-bottom: 30px;">
                     <div class="card-title">
-                        📋 Building Requests
+                        ðŸ“‹ Building Requests
                         <span class="pending-count" id="building-requests-count" style="display: none;">0</span>
                     </div>
-                    <div id="building-requests-content" style="color: rgba(255,255,255,0.7); font-size: 13px; max-height: 400px; overflow-y: auto;">
+                    <div id="building-requests-content" style="color: rgba(255,255,255,0.7); font-size: 13px;">
                         Loading...
                     </div>
                 </div>
@@ -927,7 +925,7 @@
                 <!-- 4. God Assignments - RARE (managed through bonus portal) -->
                 <div class="card" style="margin-bottom: 30px;">
                     <div class="card-title">
-                        ⚡ God Assignments
+                        âš¡ God Assignments
                         <button class="btn-small" onclick="openGodAssignmentsModal()" style="float: right; padding: 5px 10px; font-size: 12px;">Manage</button>
                     </div>
                     <div style="color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.5;">
@@ -938,7 +936,7 @@
                 <!-- 5. Age Gate Control - RARE (once per class per age) -->
                 <div class="card" style="margin-bottom: 30px;">
                     <div class="card-title">
-                        🚪 Age Gate Control
+                        ðŸšª Age Gate Control
                         <button class="btn-small" onclick="openAgeGateModal()" style="float: right; padding: 5px 10px; font-size: 12px;">Manage</button>
                     </div>
                     <div id="age-gate-summary" style="color: rgba(255,255,255,0.7); font-size: 13px;">
@@ -947,7 +945,7 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-title">📜 Recent Activity</div>
+                    <div class="card-title">ðŸ“œ Recent Activity</div>
                     <div id="transactions-content" class="loading">
                         Loading transactions...
                     </div>
@@ -959,7 +957,7 @@
     <!-- Manage Alliances Modal -->
     <div id="manage-alliances-modal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-title">🏛️ Manage Alliances</div>
+            <div class="modal-title">ðŸ›ï¸ Manage Alliances</div>
             <div style="margin-bottom: 15px;">
                 <select id="manage-period-filter" onchange="loadManageAlliances()" style="padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
                     <option value="">All Periods</option>
@@ -981,52 +979,47 @@
     <!-- God Assignments Modal -->
     <div id="god-assignments-modal" class="modal">
         <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
-            <div class="modal-title">⚡ Grant God Assignments & Side Quest Rewards</div>
+            <div class="modal-title">âš¡ Grant God Assignments & Side Quest Rewards</div>
             
             <!-- GOD BONUSES SECTION -->
             <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-                <h3 style="color: #ffd700; margin-bottom: 10px; font-size: 16px;">🏛️ God Bonus Assignments (Building Unlocks)</h3>
+                <h3 style="color: #ffd700; margin-bottom: 10px; font-size: 16px;">ðŸ›ï¸ God Bonus Assignments (Building Unlocks)</h3>
                 <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 13px;">
-                    Grant god bonus assignments when <strong>ALL</strong> alliance members score 80%+ on the bonus.
-                    Eligible alliances appear automatically.
+                    Grant god bonus assignments to unlock specific buildings for purchase.
                 </p>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                     <div>
-                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select God</label>
-                        <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadEligibleGodAlliances()">
-                            <option value="">Choose god...</option>
-                            <option value="Athena">🦉 Athena (Library)</option>
-                            <option value="Ares">⚔️ Ares (Wooden Wall)</option>
-                            <option value="Poseidon">🔱 Poseidon (Dock)</option>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Alliance</label>
+                        <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadAllianceAssignments()">
+                            <option value="">Choose alliance...</option>
                         </select>
                     </div>
                     <div>
-                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Eligible Alliances</label>
-                        <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
-                            <option value="">Select a god first...</option>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select God</label>
+                        <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
+                            <option value="">Choose god...</option>
+                            <option value="Athena">ðŸ¦‰ Athena (Library)</option>
+                            <option value="Ares">âš”ï¸ Ares (Wooden Wall)</option>
+                            <option value="Poseidon">ðŸ”± Poseidon (Dock)</option>
                         </select>
                     </div>
-                </div>
-                
-                <div id="god-eligible-info" style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 15px;">
-                    Select a god to see which alliances are eligible.
                 </div>
                 
                 <div style="text-align: center; margin-bottom: 10px;">
                     <button class="btn-fate" onclick="grantGodAssignment()" style="padding: 10px 25px;">
-                        ✨ Grant God Bonus
+                        âœ¨ Grant God Bonus
                     </button>
                 </div>
                 
-                <div id="current-assignments" style="color: rgba(255,255,255,0.6); font-size: 13px; padding-top: 10px; border-top: 1px solid rgba(255,215,0,0.2); max-height: 200px; overflow-y: auto;">
-                    Loading granted assignments...
+                <div id="current-assignments" style="color: rgba(255,255,255,0.6); font-size: 13px; padding-top: 10px; border-top: 1px solid rgba(255,215,0,0.2);">
+                    Select an alliance to view current assignments
                 </div>
             </div>
             
             <!-- SIDE QUEST REWARDS SECTION -->
             <div style="background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-                <h3 style="color: #a855f7; margin-bottom: 10px; font-size: 16px;">🗺️ Side Quest Rewards</h3>
+                <h3 style="color: #a855f7; margin-bottom: 10px; font-size: 16px;">ðŸ—ºï¸ Side Quest Rewards</h3>
                 <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 13px;">
                     Grant side quest rewards when <strong>ALL</strong> alliance members have completed and been approved.
                     Eligible alliances appear automatically.
@@ -1037,9 +1030,9 @@
                         <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Side Quest</label>
                         <select id="side-quest-select" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; color: white;" onchange="loadEligibleAlliances()">
                             <option value="">Choose side quest...</option>
-                            <option value="1">🔨 Ring of Many (-10% building costs)</option>
-                            <option value="2">🏹 Panacea's Remedy (+5% point bonus)</option>
-                            <option value="3">🌾 Three Seeds (Granary unlock)</option>
+                            <option value="1">ðŸ”¨ Ring of Many (-10% building costs)</option>
+                            <option value="2">ðŸ¹ Panacea's Remedy (+5% point bonus)</option>
+                            <option value="3">ðŸŒ¾ Three Seeds (Granary unlock)</option>
                         </select>
                     </div>
                     <div>
@@ -1056,7 +1049,7 @@
                 
                 <div style="text-align: center;">
                     <button class="btn-fate" onclick="grantSideQuestReward()" style="padding: 10px 25px; background: linear-gradient(135deg, #a855f7, #7c3aed);">
-                        🎁 Grant Side Quest Reward
+                        ðŸŽ Grant Side Quest Reward
                     </button>
                 </div>
             </div>
@@ -1151,7 +1144,7 @@
     <!-- Age Gate Modal -->
     <div id="age-gate-modal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-title">🚪 Age Gate Control</div>
+            <div class="modal-title">ðŸšª Age Gate Control</div>
             <div style="margin-bottom: 20px;">
                 <select id="age-gate-period" onchange="loadAgeGateDetails()" style="padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white; font-size: 16px;">
                     <option value="1st">1st Period</option>
@@ -1173,8 +1166,8 @@
     <div id="grade-overview-modal" class="modal">
         <div class="modal-content" style="max-width: 1100px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                📊 Student Grade Overview
-                <button onclick="closeGradeOverviewModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+                ðŸ“Š Student Grade Overview
+                <button onclick="closeGradeOverviewModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">âœ•</button>
             </div>
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
                 All students listed alphabetically by class period. <strong>Click a student's name</strong> to view and manage their submissions.
@@ -1189,12 +1182,12 @@
     <div id="quest-bonus-tracker-modal" class="modal">
         <div class="modal-content" style="max-width: 1300px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                📋 Quest & Bonus Tracker
-                <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">✕</button>
+                ðŸ“‹ Quest & Bonus Tracker
+                <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">âœ•</button>
             </div>
             <div style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8);">
-                <strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea's Remedy | 🌾 Three Seeds<br>
-                <strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)
+                <strong>Side Quests:</strong> ðŸ”¨ Ring of Many | ðŸ¹ Panacea's Remedy | ðŸŒ¾ Three Seeds<br>
+                <strong>Bonuses:</strong> âœ“ = Completed with 80%+ score (activates bonus features)
             </div>
             <div style="margin-bottom: 10px;">
                 <select id="tracker-period-select" onchange="loadQuestBonusTracker()" style="padding: 10px 14px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 6px; color: white; font-size: 15px;">
@@ -1205,7 +1198,7 @@
                     <option value="4th">4th Period</option>
                 </select>
             </div>
-            <div id="quest-bonus-tracker-content">
+            <div id="quest-bonus-tracker-content" style="max-height: 65vh; overflow: auto;">
                 Loading...
             </div>
         </div>
@@ -1215,11 +1208,11 @@
     <div id="student-submissions-modal" class="modal">
         <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span id="student-submissions-title">📋 Student Submissions</span>
-                <button onclick="closeStudentSubmissionsModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+                <span id="student-submissions-title">ðŸ“‹ Student Submissions</span>
+                <button onclick="closeStudentSubmissionsModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">âœ•</button>
             </div>
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
-                ⚠️ <strong>Warning:</strong> Deleting a submission removes points from the student's grade. Any purchases/upgrades already made will remain.
+                âš ï¸ <strong>Warning:</strong> Deleting a submission removes points from the student's grade. Any purchases/upgrades already made will remain.
             </div>
             <div id="student-submissions-content" style="max-height: 60vh; overflow-y: auto;">
                 Loading...
@@ -1231,11 +1224,11 @@
     <div id="student-management-modal" class="modal">
         <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                👥 Student Management
-                <button onclick="closeStudentManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+                ðŸ‘¥ Student Management
+                <button onclick="closeStudentManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">âœ•</button>
             </div>
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
-                📝 <strong>Manage your students:</strong> Change class periods or remove students who have left.
+                ðŸ“ <strong>Manage your students:</strong> Change class periods or remove students who have left.
             </div>
             <div id="student-management-content" style="max-height: 70vh; overflow-y: auto;">
                 Loading...
@@ -1247,8 +1240,8 @@
     <div id="edit-student-modal" class="modal">
         <div class="modal-content" style="max-width: 550px;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                ✏️ Edit Student
-                <button onclick="closeEditStudentModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+                âœï¸ Edit Student
+                <button onclick="closeEditStudentModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">âœ•</button>
             </div>
             <form id="edit-student-form" onsubmit="saveStudentChanges(event)">
                 <input type="hidden" id="edit-student-id">
@@ -1274,7 +1267,7 @@
                 <div class="form-group">
                     <label for="edit-student-password">Reset Password (leave blank to keep current)</label>
                     <input type="text" id="edit-student-password" placeholder="Enter new password" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 16px;">
-                    <p style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 5px;">⚠️ Password will be visible here - share with student securely</p>
+                    <p style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 5px;">âš ï¸ Password will be visible here - share with student securely</p>
                 </div>
                 <div class="form-group" style="margin-top: 15px; padding: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px;">
                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #fca5a5;">
@@ -1293,7 +1286,7 @@
     <!-- DELETE STUDENT CONFIRMATION MODAL -->
     <div id="delete-student-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-title" style="color: #ef4444;">⚠️ Delete Student</div>
+            <div class="modal-title" style="color: #ef4444;">âš ï¸ Delete Student</div>
             <div style="margin-bottom: 20px; padding: 15px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px;">
                 <p style="margin-bottom: 10px;">Are you sure you want to delete <strong id="delete-student-name" style="color: #ffd700;"></strong>?</p>
                 <p style="color: rgba(255,255,255,0.7); font-size: 14px;">This will permanently remove:</p>
@@ -1307,7 +1300,7 @@
             <input type="hidden" id="delete-student-id">
             <div class="modal-buttons">
                 <button type="button" class="btn btn-secondary" onclick="closeDeleteStudentModal()">Cancel</button>
-                <button type="button" class="btn" style="background: rgba(239,68,68,0.3); border-color: #ef4444; color: #fca5a5;" onclick="confirmDeleteStudent()">🗑️ Delete Student</button>
+                <button type="button" class="btn" style="background: rgba(239,68,68,0.3); border-color: #ef4444; color: #fca5a5;" onclick="confirmDeleteStudent()">ðŸ—‘ï¸ Delete Student</button>
             </div>
         </div>
     </div>
@@ -1315,7 +1308,7 @@
     <!-- FATE WHEEL MODAL -->
     <div id="fate-wheel-modal" class="modal fate-modal">
         <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-title">🎡 WHEEL OF FATE 🎡</div>
+            <div class="modal-title">ðŸŽ¡ WHEEL OF FATE ðŸŽ¡</div>
             
             <!-- STEP 1: Alliance Selection -->
             <div id="alliance-selection-step">
@@ -1327,13 +1320,13 @@
                 </div>
 
                 <div class="fate-tracker" id="fate-tracker" style="display: none;">
-                    <div class="fate-tracker-title">⚡ Fates Spun Today</div>
+                    <div class="fate-tracker-title">âš¡ Fates Spun Today</div>
                     <div id="fates-spun-list"></div>
                 </div>
 
                 <div class="modal-buttons" style="margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closeFateWheelModal()">Cancel</button>
-                    <button type="button" class="btn-fate" onclick="startWheelSpin()">🎲 SPIN THE WHEEL 🎲</button>
+                    <button type="button" class="btn-fate" onclick="startWheelSpin()">ðŸŽ² SPIN THE WHEEL ðŸŽ²</button>
                 </div>
             </div>
 
@@ -1352,7 +1345,7 @@
 
                 <div style="text-align: center; margin-top: 30px;">
                     <button type="button" class="btn-fate" id="spin-button" onclick="doSpin()">
-                        🌟 SPIN! 🌟
+                        ðŸŒŸ SPIN! ðŸŒŸ
                     </button>
                 </div>
             </div>
@@ -1364,7 +1357,7 @@
         <div class="modal-content" style="max-width: 700px;">
             <div id="fate-result-content"></div>
             <div class="modal-buttons" style="margin-top: 30px;">
-                <button type="button" class="btn-fate" id="apply-fate-button" onclick="applyFateAndReturn()">✨ APPLY FATE ✨</button>
+                <button type="button" class="btn-fate" id="apply-fate-button" onclick="applyFateAndReturn()">âœ¨ APPLY FATE âœ¨</button>
             </div>
         </div>
     </div>
@@ -1485,10 +1478,10 @@
                         </div>
                         <div class="submission-actions">
                             <button class="btn-approve" onclick="reviewSubmission(${s.submission_id}, true)">
-                                ✓ Approve
+                                âœ“ Approve
                             </button>
                             <button class="btn-reject" onclick="reviewSubmission(${s.submission_id}, false)">
-                                ✗ Reject
+                                âœ— Reject
                             </button>
                         </div>
                     </div>
@@ -1558,7 +1551,7 @@
                             </div>
                             <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
                                 <div style="font-size: 13px; color: #fbbf24;">
-                                    🔒 Requires: <strong>${req.god_associated}</strong> extra credit completion
+                                    ðŸ”’ Requires: <strong>${req.god_associated}</strong> extra credit completion
                                 </div>
                                 <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px;">
                                     Requested by ${req.requested_by_name}
@@ -1568,11 +1561,11 @@
                                 <button onclick="approveBuildingRequest(${req.request_id})" 
                                     style="flex: 1; padding: 10px; background: linear-gradient(135deg, #4ade80, #22c55e); border: none; border-radius: 8px; color: #1a0a0f; font-weight: 700; cursor: pointer;"
                                     ${req.total_points < req.cost_points ? 'disabled title="Not enough points"' : ''}>
-                                    ✅ Approve & Grant
+                                    âœ… Approve & Grant
                                 </button>
                                 <button onclick="rejectBuildingRequest(${req.request_id})" 
                                     style="flex: 1; padding: 10px; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; border-radius: 8px; color: white; font-weight: 700; cursor: pointer;">
-                                    ❌ Reject
+                                    âŒ Reject
                                 </button>
                             </div>
                         </div>
@@ -1600,12 +1593,12 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('✅ ' + result.message);
+                    alert('âœ… ' + result.message);
                     loadBuildingRequests();
                     loadLeaderboard();
                     loadTransactions();
                 } else {
-                    alert('❌ ' + result.error);
+                    alert('âŒ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to approve request: ' + err.message);
@@ -1630,7 +1623,7 @@
                     alert('Request rejected');
                     loadBuildingRequests();
                 } else {
-                    alert('❌ ' + result.error);
+                    alert('âŒ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to reject request: ' + err.message);
@@ -1642,9 +1635,9 @@
         // ==================
         
         const QUEST_ICONS = {
-            'Hephaestus': '🔨',
-            'Artemis': '🏹',
-            'Demeter': '🌾'
+            'Hephaestus': 'ðŸ”¨',
+            'Artemis': 'ðŸ¹',
+            'Demeter': 'ðŸŒ¾'
         };
         
         async function loadSideQuestApprovals() {
@@ -1667,7 +1660,7 @@
                 countBadge.style.display = 'inline';
                 
                 content.innerHTML = data.pending.map(sq => {
-                    const icon = QUEST_ICONS[sq.god_associated] || '🗺️';
+                    const icon = QUEST_ICONS[sq.god_associated] || 'ðŸ—ºï¸';
                     return `
                         <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(109, 40, 217, 0.1)); border: 1px solid rgba(139, 92, 246, 0.4); border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
@@ -1685,10 +1678,10 @@
                                         <strong style="color: #ffd700;">${sq.alliance_name}</strong>
                                     </div>
                                     <div style="font-size: 11px; color: rgba(255,255,255,0.4);">
-                                        ${sq.class_period} • Submitted ${new Date(sq.submitted_at).toLocaleDateString()}
+                                        ${sq.class_period} â€¢ Submitted ${new Date(sq.submitted_at).toLocaleDateString()}
                                     </div>
                                     <div style="font-size: 12px; color: #4ade80; margin-top: 6px; font-weight: 600;">
-                                        🏆 Reward: ${sq.reward_name}
+                                        ðŸ† Reward: ${sq.reward_name}
                                     </div>
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
@@ -1705,7 +1698,7 @@
                                         transition: all 0.2s ease;
                                     " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(34, 197, 94, 0.5)';"
                                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(34, 197, 94, 0.4)';">
-                                        ✓ Approve
+                                        âœ“ Approve
                                     </button>
                                     <button onclick="rejectSideQuest(${sq.completion_id})" style="
                                         background: linear-gradient(135deg, #ef4444, #dc2626);
@@ -1720,7 +1713,7 @@
                                         transition: all 0.2s ease;
                                     " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(239, 68, 68, 0.5)';"
                                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(239, 68, 68, 0.4)';">
-                                        ✕ Reject
+                                        âœ• Reject
                                     </button>
                                 </div>
                             </div>
@@ -1745,14 +1738,14 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    let message = '✅ ' + result.message;
+                    let message = 'âœ… ' + result.message;
                     if (result.reward_granted) {
-                        message += `\n\n🏆 ALLIANCE REWARD UNLOCKED: ${result.reward_name}!\nAll members completed the quest!`;
+                        message += `\n\nðŸ† ALLIANCE REWARD UNLOCKED: ${result.reward_name}!\nAll members completed the quest!`;
                     }
                     alert(message);
                     loadSideQuestApprovals();
                 } else {
-                    alert('❌ ' + result.error);
+                    alert('âŒ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to approve: ' + err.message);
@@ -1777,7 +1770,7 @@
                     alert('Side quest completion rejected. Student can resubmit.');
                     loadSideQuestApprovals();
                 } else {
-                    alert('❌ ' + result.error);
+                    alert('âŒ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to reject: ' + err.message);
@@ -1799,7 +1792,7 @@
                 
                 // Count ready alliances per period
                 const summaryParts = ageGateData.map(p => {
-                    const gateStatus = p.gate.classical_unlocked ? '🟢' : '🔴';
+                    const gateStatus = p.gate.classical_unlocked ? 'ðŸŸ¢' : 'ðŸ”´';
                     return `${p.period}: ${p.readyCount}/${p.totalAlliances} ready ${gateStatus}`;
                 }).filter(s => s.includes('/'));
                 
@@ -1853,11 +1846,11 @@
                             ${!gate.classical_unlocked ? `
                                 <button onclick="openClassicalGate('${period}')" 
                                     style="padding: 12px 20px; background: linear-gradient(135deg, #ffd700, #ff8c00); border: none; border-radius: 10px; color: #1a0a0f; font-weight: 700; cursor: pointer; font-size: 14px;">
-                                    🔓 Open Classical Age Gate
+                                    ðŸ”“ Open Classical Age Gate
                                 </button>
                             ` : `
                                 <div style="padding: 12px 20px; background: rgba(74,222,128,0.2); border-radius: 10px; color: #4ade80; font-weight: 700;">
-                                    ✅ Gate Open
+                                    âœ… Gate Open
                                 </div>
                             `}
                         </div>
@@ -1880,7 +1873,7 @@
                                     <div>
                                         <span style="font-weight: 700; color: #fff;">${a.alliance_name}</span>
                                         <span style="color: rgba(255,255,255,0.5); font-size: 12px; margin-left: 8px;">(${r.memberCount} members)</span>
-                                        ${a.current_age !== 'Archaic' ? `<span style="color: #8b5cf6; font-size: 12px; margin-left: 8px;">🏛️ ${a.current_age}</span>` : ''}
+                                        ${a.current_age !== 'Archaic' ? `<span style="color: #8b5cf6; font-size: 12px; margin-left: 8px;">ðŸ›ï¸ ${a.current_age}</span>` : ''}
                                     </div>
                                     <div style="font-weight: 700; color: ${progressColor};">${r.overallProgress}%</div>
                                 </div>
@@ -1896,14 +1889,26 @@
                                         🗺️ Maps: ${r.mapsSubmitted || 0}/${r.mapsRequired || 0}
                                         <button onclick="toggleMap(${a.alliance_id}, ${!r.mapComplete})" 
                                             style="margin-left: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white;">
-                                            ${r.mapComplete ? 'Unmark' : 'Mark ✔'}
+                                            ${r.mapComplete ? 'Unmark' : 'Mark ✓'}
                                         </button>
                                     </div>
                                 </div>
                                 
-                                ${r.isReady && a.current_age === 'Archaic' && !gate.classical_unlocked ? `
-                                    <div style="margin-top: 10px; padding: 8px; background: rgba(74,222,128,0.1); border-radius: 6px; text-align: center; color: #4ade80; font-size: 12px;">
-                                        ✅ Ready to advance when gate opens!
+                                ${a.current_age === 'Archaic' ? `
+                                    <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                        ${r.isReady ? `
+                                            <span style="color: #4ade80; font-size: 12px;">✅ Meets all requirements</span>
+                                        ` : `
+                                            <span style="color: rgba(255,255,255,0.4); font-size: 12px;">⬜ Requirements not met</span>
+                                        `}
+                                        <button onclick="advanceAlliance(${a.alliance_id}, '${a.alliance_name.replace(/'/g, "\\'")}')" 
+                                            style="padding: 6px 14px; font-size: 12px; cursor: pointer; background: linear-gradient(135deg, #8b5cf6, #6d28d9); border: none; border-radius: 6px; color: white; font-weight: 700;">
+                                            🏛️ Advance to Classical
+                                        </button>
+                                    </div>
+                                ` : a.current_age === 'Classical' ? `
+                                    <div style="margin-top: 10px; padding: 6px 12px; background: rgba(139,92,246,0.15); border-radius: 6px; text-align: center; color: #8b5cf6; font-size: 12px; font-weight: 600;">
+                                        🏛️ Classical Age
                                     </div>
                                 ` : ''}
                             </div>
@@ -1934,19 +1939,66 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('✅ ' + result.message);
+                    alert('âœ… ' + result.message);
                     loadAgeGateDetails();
                     loadAgeGateSummary();
                     loadLeaderboard();
                 } else {
-                    alert('❌ ' + result.error);
+                    alert('âŒ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to open gate: ' + err.message);
             }
         }
         
-        // toggleRite removed — Rite of Passage moved to Classical→Heroic requirement
+        async function advanceAlliance(allianceId, allianceName) {
+            if (!confirm(`Advance "${allianceName}" to the Classical Age?\n\nThis will override requirements and move them immediately.`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/advance-alliance`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ alliance_id: allianceId, target_age: 'Classical' })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(result.message);
+                    loadAgeGateDetails();
+                    loadAgeGateSummary();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to advance alliance: ' + err.message);
+            }
+        }
+
+        async function toggleRite(allianceId, complete) {
+            try {
+                const response = await fetch(`${API_URL}/teacher/mark-rite-complete`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ alliance_id: allianceId, complete })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    loadAgeGateDetails();
+                    loadAgeGateSummary();
+                    if (result.message.includes('advanced')) {
+                        alert('ðŸŽ‰ ' + result.message);
+                        loadLeaderboard();
+                    }
+                } else {
+                    alert('âŒ ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to update: ' + err.message);
+            }
+        }
         
         async function toggleMap(allianceId, complete) {
             try {
@@ -1962,11 +2014,11 @@
                     loadAgeGateDetails();
                     loadAgeGateSummary();
                     if (result.message.includes('advanced')) {
-                        alert('🎉 ' + result.message);
+                        alert('ðŸŽ‰ ' + result.message);
                         loadLeaderboard();
                     }
                 } else {
-                    alert('❌ ' + result.error);
+                    alert('âŒ ' + result.error);
                 }
             } catch (err) {
                 alert('Failed to update: ' + err.message);
@@ -2017,7 +2069,7 @@
                         const periodAlliances = alliances.filter(a => a.class_period === period);
                         if (periodAlliances.length > 0) {
                             html += `<div class="period-section">
-                                <div class="period-header">📚 ${period} Period</div>`;
+                                <div class="period-header">ðŸ“š ${period} Period</div>`;
                             
                             periodAlliances.slice(0, 2).forEach((alliance, index) => {
                                 const rewardIcons = alliance.side_quest_reward_icons || '';
@@ -2054,7 +2106,7 @@
                     }
                     
                     content.innerHTML = `
-                        <div class="period-header">📚 ${currentLeaderboardPeriod} Period - Full Rankings</div>
+                        <div class="period-header">ðŸ“š ${currentLeaderboardPeriod} Period - Full Rankings</div>
                         ${periodAlliances.map((alliance, index) => {
                             const rewardIcons = alliance.side_quest_reward_icons || '';
                             return `
@@ -2112,16 +2164,16 @@
                             <div style="flex: 1;">
                                 <div style="font-weight: 700; color: #ffd700; font-size: 16px;">${alliance.alliance_name}</div>
                                 <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 4px;">
-                                    📚 ${alliance.class_period || 'No period'} Period | 
-                                    👥 ${alliance.member_count} members | 
-                                    ⚡ ${alliance.total_points} pts
+                                    ðŸ“š ${alliance.class_period || 'No period'} Period | 
+                                    ðŸ‘¥ ${alliance.member_count} members | 
+                                    âš¡ ${alliance.total_points} pts
                                 </div>
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px;">
                                     Members: ${alliance.member_names || 'None'}
                                 </div>
                             </div>
                             <button class="btn-disband" onclick="disbandAlliance(${alliance.alliance_id}, '${alliance.alliance_name.replace(/'/g, "\\'")}')">
-                                ⚠️ Disband
+                                âš ï¸ Disband
                             </button>
                         </div>
                     </div>
@@ -2162,80 +2214,43 @@
         // GOD ASSIGNMENTS
         // ==================
         
-        let godTrackerData = null;
-        
         async function openGodAssignmentsModal() {
             document.getElementById('god-assignments-modal').classList.add('show');
-            // Fetch tracker data for eligible alliances
-            try {
-                const response = await fetch(`${API_URL}/teacher/quest-bonus-tracker`, { headers });
-                godTrackerData = await response.json();
-            } catch (err) {
-                console.error('Failed to load tracker data:', err);
-            }
-            loadAllGrantedAssignments();
+            
+            // Load alliances into dropdown
+            const response = await fetch(`${API_URL}/teacher/leaderboard`, { headers });
+            const alliances = await response.json();
+            
+            const select = document.getElementById('god-assignment-alliance');
+            select.innerHTML = '<option value="">Choose alliance...</option>' +
+                alliances.map(a => `<option value="${a.alliance_id}">${a.alliance_name} [${a.class_period || 'No period'}]</option>`).join('');
         }
         
         function closeGodAssignmentsModal() {
             document.getElementById('god-assignments-modal').classList.remove('show');
         }
         
-        async function loadEligibleGodAlliances() {
-            const god = document.getElementById('god-assignment-god').value;
-            const select = document.getElementById('god-assignment-alliance');
-            const info = document.getElementById('god-eligible-info');
+        async function loadAllianceAssignments() {
+            const allianceId = document.getElementById('god-assignment-alliance').value;
+            const content = document.getElementById('current-assignments');
             
-            if (!god || !godTrackerData) {
-                select.innerHTML = '<option value="">Select a god first...</option>';
-                info.innerHTML = 'Select a god to see which alliances are eligible.';
+            if (!allianceId) {
+                content.innerHTML = 'Select an alliance to view assignments';
                 return;
             }
             
-            const status = godTrackerData.alliance_god_status || {};
-            const eligible = [];
-            const inProgress = [];
-            
-            Object.entries(status).forEach(([allianceId, data]) => {
-                const godData = data.gods[god];
-                if (!godData) return;
-                if (godData.granted) return; // already granted
-                if (godData.all_qualified) {
-                    eligible.push({ id: allianceId, name: data.alliance_name, period: data.class_period });
-                } else {
-                    inProgress.push({ name: data.alliance_name, qualified: godData.qualified, total: godData.total });
-                }
-            });
-            
-            if (eligible.length === 0) {
-                select.innerHTML = '<option value="">No eligible alliances yet</option>';
-            } else {
-                select.innerHTML = '<option value="">Choose alliance...</option>' +
-                    eligible.map(a => `<option value="${a.id}">${a.name} [${a.period}] ✅</option>`).join('');
-            }
-            
-            let infoHtml = `<span style="color: #4ade80; font-weight: 700;">${eligible.length} eligible</span>`;
-            if (inProgress.length > 0) {
-                infoHtml += `<span style="margin-left: 12px; color: #fbbf24;">${inProgress.length} in progress:</span><br>`;
-                infoHtml += inProgress.map(a => 
-                    `<span style="color: rgba(255,255,255,0.5); font-size: 12px; margin-left: 8px;">• ${a.name} (${a.qualified}/${a.total} members)</span>`
-                ).join('<br>');
-            }
-            info.innerHTML = infoHtml;
-        }
-        
-        async function loadAllGrantedAssignments() {
-            const content = document.getElementById('current-assignments');
             try {
                 const response = await fetch(`${API_URL}/teacher/god-assignments`, { headers });
                 const allAssignments = await response.json();
                 
-                if (allAssignments.length === 0) {
-                    content.innerHTML = '<div style="color: rgba(255,255,255,0.5);">No assignments granted yet</div>';
+                const allianceAssignments = allAssignments.filter(a => a.alliance_id == allianceId);
+                
+                if (allianceAssignments.length === 0) {
+                    content.innerHTML = '<div style="color: rgba(255,255,255,0.5);">No assignments yet</div>';
                 } else {
-                    const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
-                    content.innerHTML = allAssignments.map(a => `
+                    content.innerHTML = allianceAssignments.map(a => `
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 5px;">
-                            <span>${godEmojis[a.god_name] || '⚡'} ${a.god_name} → <strong style="color: #ffd700;">${a.alliance_name || 'Alliance #' + a.alliance_id}</strong></span>
+                            <span>âš¡ ${a.god_name}</span>
                             <button onclick="revokeGodAssignment(${a.alliance_id}, '${a.god_name}')" style="background: rgba(220,38,38,0.3); border: none; color: #fca5a5; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">
                                 Remove
                             </button>
@@ -2266,11 +2281,8 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('✅ ' + result.message);
-                    // Refresh tracker data and eligible lists
-                    try { const r = await fetch(`${API_URL}/teacher/quest-bonus-tracker`, { headers }); godTrackerData = await r.json(); } catch(e) {}
-                    loadEligibleGodAlliances();
-                    loadAllGrantedAssignments();
+                    alert('âœ… ' + result.message);
+                    loadAllianceAssignments();
                 } else {
                     alert('Error: ' + result.error);
                 }
@@ -2292,7 +2304,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('✅ Assignment removed');
+                    alert('âœ… Assignment removed');
                     loadAllianceAssignments();
                 } else {
                     alert('Error: ' + result.error);
@@ -2323,13 +2335,13 @@
                 
                 if (data.eligible_alliances.length === 0) {
                     select.innerHTML = '<option value="">No eligible alliances yet</option>';
-                    infoDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ No alliances have ALL members approved for ${data.quest.quest_name} yet.</span>`;
+                    infoDiv.innerHTML = `<span style="color: #f59e0b;">âš ï¸ No alliances have ALL members approved for ${data.quest.quest_name} yet.</span>`;
                 } else {
                     select.innerHTML = '<option value="">Choose eligible alliance...</option>' +
                         data.eligible_alliances.map(a => 
                             `<option value="${a.alliance_id}">${a.alliance_name} [${a.class_period || 'No period'}] (${a.approved_count}/${a.member_count} approved)</option>`
                         ).join('');
-                    infoDiv.innerHTML = `<span style="color: #22c55e;">✅ ${data.eligible_alliances.length} alliance(s) ready for ${data.quest.quest_name} reward!</span>`;
+                    infoDiv.innerHTML = `<span style="color: #22c55e;">âœ… ${data.eligible_alliances.length} alliance(s) ready for ${data.quest.quest_name} reward!</span>`;
                 }
             } catch (err) {
                 console.error('Failed to load eligible alliances:', err);
@@ -2357,7 +2369,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`✅ ${result.message}\n\nReward: ${result.reward_description}`);
+                    alert(`âœ… ${result.message}\n\nReward: ${result.reward_description}`);
                     loadEligibleAlliances(); // Refresh to remove granted alliance
                     loadLeaderboard(); // Refresh to show emoji
                 } else {
@@ -2406,11 +2418,11 @@
                 // Bonus columns
                 data.bonus_assignments.forEach(ba => {
                     const godEmojis = {
-                        'Zeus': '⚡', 'Prometheus': '🔥', 'Hera': '🦚', 'Athena': '🦉',
-                        'Ares': '⚔️', 'Poseidon': '🔱', 'Hades': '💀', 'Demeter': '🌾',
-                        'Hermes': '🪽', 'Hephaestus': '🔨', 'Aphrodite': '💕'
+                        'Zeus': 'âš¡', 'Prometheus': 'ðŸ”¥', 'Hera': 'ðŸ¦š', 'Athena': 'ðŸ¦‰',
+                        'Ares': 'âš”ï¸', 'Poseidon': 'ðŸ”±', 'Hades': 'ðŸ’€', 'Demeter': 'ðŸŒ¾',
+                        'Hermes': 'ðŸª½', 'Hephaestus': 'ðŸ”¨', 'Aphrodite': 'ðŸ’•'
                     };
-                    const emoji = godEmojis[ba.myth_god] || '⭐';
+                    const emoji = godEmojis[ba.myth_god] || 'â­';
                     headerHtml += `<th style="min-width: 65px; text-align: center;" title="${ba.display_name}"><span style="font-size: 18px;">${emoji}</span><br><span style="font-size: 11px; font-weight: normal;">${ba.myth_god.substring(0, 4)}</span></th>`;
                 });
                 
@@ -2422,7 +2434,7 @@
                     // Add period separator
                     if (student.class_period !== currentPeriod) {
                         currentPeriod = student.class_period;
-                        rowsHtml += `<tr><td colspan="${3 + data.side_quests.length + data.bonus_assignments.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${currentPeriod || 'No Period'}</td></tr>`;
+                        rowsHtml += `<tr><td colspan="${3 + data.side_quests.length + data.bonus_assignments.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">ðŸ“š ${currentPeriod || 'No Period'}</td></tr>`;
                     }
                     
                     rowsHtml += `<tr>`;
@@ -2431,101 +2443,19 @@
                     // Side Quest status
                     data.side_quests.forEach(sq => {
                         const completed = student.side_quests[sq.quest_id];
-                        rowsHtml += `<td style="text-align: center;">${completed ? '<span style="color: #22c55e; font-size: 18px;">✓</span>' : ''}</td>`;
+                        rowsHtml += `<td style="text-align: center;">${completed ? '<span style="color: #22c55e; font-size: 18px;">âœ“</span>' : ''}</td>`;
                     });
                     
                     // Bonus status
                     data.bonus_assignments.forEach(ba => {
                         const completed = student.bonuses[ba.assignment_id];
-                        rowsHtml += `<td style="text-align: center;">${completed ? '<span style="color: #22c55e; font-size: 18px;">✓</span>' : ''}</td>`;
+                        rowsHtml += `<td style="text-align: center;">${completed ? '<span style="color: #22c55e; font-size: 18px;">âœ“</span>' : ''}</td>`;
                     });
                     
                     rowsHtml += `</tr>`;
                 });
                 
-                // Build Alliance Summary Cards
-                let summaryHtml = '';
-                const allianceStatus = data.alliance_god_status || {};
-                const alliances = Object.entries(allianceStatus);
-                
-                if (alliances.length > 0) {
-                    const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
-                    const questIcons = { 1: '🔨', 2: '🏹', 3: '🌾' };
-                    const questNames = { 1: 'Ring of Many', 2: "Panacea's Remedy", 3: 'Three Seeds' };
-                    
-                    // Side quest completion per alliance
-                    const allianceSideQuests = {};
-                    data.students.forEach(s => {
-                        if (!s.alliance_id) return;
-                        if (!allianceSideQuests[s.alliance_id]) allianceSideQuests[s.alliance_id] = {};
-                        data.side_quests.forEach(sq => {
-                            if (!allianceSideQuests[s.alliance_id][sq.quest_id]) allianceSideQuests[s.alliance_id][sq.quest_id] = { done: 0, total: 0 };
-                            allianceSideQuests[s.alliance_id][sq.quest_id].total++;
-                            if (s.side_quests[sq.quest_id]) allianceSideQuests[s.alliance_id][sq.quest_id].done++;
-                        });
-                    });
-                    
-                    const allianceCards = alliances.map(([id, a]) => {
-                        // God bonus rows
-                        const godRows = Object.entries(a.gods).map(([god, g]) => {
-                            const pct = g.total > 0 ? Math.round((g.qualified / g.total) * 100) : 0;
-                            const barColor = g.granted ? '#4ade80' : g.all_qualified ? '#fbbf24' : 'rgba(139, 92, 246, 0.6)';
-                            const statusLabel = g.granted ? '✅ Granted' : g.all_qualified ? '⏳ Ready' : g.qualified + '/' + g.total;
-                            const statusColor = g.granted ? '#4ade80' : g.all_qualified ? '#fbbf24' : 'rgba(255,255,255,0.5)';
-                            return '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">' +
-                                '<span style="width: 24px; text-align: center; font-size: 16px;">' + (godEmojis[god] || '') + '</span>' +
-                                '<span style="width: 65px; font-size: 12px; color: rgba(255,255,255,0.7);">' + god + '</span>' +
-                                '<div style="flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">' +
-                                    '<div style="height: 100%; width: ' + pct + '%; background: ' + barColor + '; border-radius: 4px; transition: width 0.5s;"></div>' +
-                                '</div>' +
-                                '<span style="width: 75px; text-align: right; font-size: 11px; color: ' + statusColor + '; font-weight: 600;">' + statusLabel + '</span>' +
-                            '</div>';
-                        }).join('');
-                        
-                        // Side quest rows
-                        const sqRows = data.side_quests.map(sq => {
-                            const sqData = (allianceSideQuests[id] || {})[sq.quest_id] || { done: 0, total: a.member_count || 0 };
-                            const pct = sqData.total > 0 ? Math.round((sqData.done / sqData.total) * 100) : 0;
-                            const complete = sqData.done >= sqData.total && sqData.total > 0;
-                            const barColor = complete ? '#4ade80' : 'rgba(168, 85, 247, 0.6)';
-                            const statusLabel = complete ? '✅ Complete' : sqData.done + '/' + sqData.total;
-                            const statusColor = complete ? '#4ade80' : 'rgba(255,255,255,0.5)';
-                            const icon = questIcons[sq.quest_id] || '🗺️';
-                            return '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">' +
-                                '<span style="width: 24px; text-align: center; font-size: 16px;">' + icon + '</span>' +
-                                '<span style="width: 65px; font-size: 12px; color: rgba(255,255,255,0.7);">' + (questNames[sq.quest_id] || sq.quest_name).substring(0, 10) + '</span>' +
-                                '<div style="flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">' +
-                                    '<div style="height: 100%; width: ' + pct + '%; background: ' + barColor + '; border-radius: 4px; transition: width 0.5s;"></div>' +
-                                '</div>' +
-                                '<span style="width: 75px; text-align: right; font-size: 11px; color: ' + statusColor + '; font-weight: 600;">' + statusLabel + '</span>' +
-                            '</div>';
-                        }).join('');
-                        
-                        return '<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px;">' +
-                            '<div style="font-weight: 700; color: #ffd700; font-size: 14px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,215,0,0.15);">' +
-                                a.alliance_name + ' <span style="font-size: 11px; color: rgba(255,255,255,0.4); font-weight: 400;">(' + (a.class_period || '') + ' • ' + a.member_count + ' members)</span>' +
-                            '</div>' +
-                            '<div style="margin-bottom: 8px;">' +
-                                '<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,215,0,0.6); margin-bottom: 6px;">God Bonuses</div>' +
-                                godRows +
-                            '</div>' +
-                            '<div>' +
-                                '<div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(168,85,247,0.7); margin-bottom: 6px;">Side Quests</div>' +
-                                sqRows +
-                            '</div>' +
-                        '</div>';
-                    }).join('');
-                    
-                    summaryHtml = '<div style="margin-bottom: 20px;">' +
-                        '<h4 style="color: #ffd700; margin-bottom: 12px; font-size: 15px;">📊 Alliance Completion Summary</h4>' +
-                        '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; padding: 2px;">' +
-                            allianceCards +
-                        '</div>' +
-                    '</div>';
-                }
-                
-                content.innerHTML = summaryHtml + `
-                    <h4 style="color: #a855f7; margin: 20px 0 12px 0; font-size: 15px; padding-top: 15px; border-top: 1px solid rgba(168,85,247,0.3);">👤 Individual Student Progress</h4>
+                content.innerHTML = `
                     <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                         <thead>
                             <tr style="background: rgba(255,215,0,0.1);">
@@ -2624,7 +2554,7 @@
                         `).join('');
                 }
                 
-                console.log('✅ Loaded', studentsData.length, 'students and', alliancesData.length, 'alliances');
+                console.log('âœ… Loaded', studentsData.length, 'students and', alliancesData.length, 'alliances');
             } catch (err) {
                 console.error('Failed to load students:', err);
             }
@@ -2702,7 +2632,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`✅ ${result.finalAmount} points awarded to ${student.alliance_name}!`);
+                    alert(`âœ… ${result.finalAmount} points awarded to ${student.alliance_name}!`);
                     closeAwardModal();
                     loadLeaderboard();
                     loadTransactions();
@@ -2754,7 +2684,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert(`✅ ${data.amount} points deducted from ${targetName}!`);
+                    alert(`âœ… ${data.amount} points deducted from ${targetName}!`);
                     closeDeductModal();
                     loadLeaderboard();
                     loadTransactions();
@@ -2814,11 +2744,11 @@
             allFates = await fetch(`${API_URL}/teacher/fates?age=Archaic`, { headers }).then(r => r.json());
             
             // DEBUG: Check if battle fates are loaded
-            console.log('📋 Total fates loaded:', allFates.length);
+            console.log('ðŸ“‹ Total fates loaded:', allFates.length);
             const battleFates = allFates.filter(f => f.is_battle === 1 || f.fate_type === 'battle');
-            console.log('⚔️ Battle fates found:', battleFates.map(f => `${f.fate_number}: ${f.fate_name}`));
+            console.log('âš”ï¸ Battle fates found:', battleFates.map(f => `${f.fate_number}: ${f.fate_name}`));
             const specialFates = allFates.filter(f => f.fate_type === 'special');
-            console.log('✨ Special fates found:', specialFates.map(f => `${f.fate_number}: ${f.fate_name}`));
+            console.log('âœ¨ Special fates found:', specialFates.map(f => `${f.fate_number}: ${f.fate_name}`));
             
             // Load today's spins
             loadFatesToday();
@@ -2850,7 +2780,7 @@
                             const pointsText = s.points_change >= 0 ? `+${s.points_change}` : s.points_change;
                             
                             return `<div class="fate-alliance-badge" style="background: ${bgColor}; border-left: 3px solid ${borderColor}; padding: 5px 10px; margin: 3px 0;">
-                                ${isPositive ? '✓' : '✗'} ${s.alliance_name} - ${s.fate_name} <span style="color: ${borderColor}; font-weight: 700;">(${pointsText})</span>
+                                ${isPositive ? 'âœ“' : 'âœ—'} ${s.alliance_name} - ${s.fate_name} <span style="color: ${borderColor}; font-weight: 700;">(${pointsText})</span>
                             </div>`;
                         }).join('') +
                         (spins.length > 10 ? `<div style="color: rgba(255,255,255,0.5); font-size: 12px; margin-top: 5px;">...and ${spins.length - 10} more</div>` : '');
@@ -2958,9 +2888,9 @@
                 const recentEntry = recentFates.find(rf => rf.fateId === fate.fate_id);
                 if (recentEntry) {
                     // On cooldown - the more recent, the lower the chance
-                    // spinsAgo = 0 (just spun) → 5% chance
-                    // spinsAgo = 5 → ~50% chance  
-                    // spinsAgo = 10 → 100% chance (back to normal)
+                    // spinsAgo = 0 (just spun) â†’ 5% chance
+                    // spinsAgo = 5 â†’ ~50% chance  
+                    // spinsAgo = 10 â†’ 100% chance (back to normal)
                     const recoveryFactor = recentEntry.spinsAgo / COOLDOWN_SPINS; // 0 to 1
                     return MIN_COOLDOWN_CHANCE + (1 - MIN_COOLDOWN_CHANCE) * recoveryFactor;
                 }
@@ -2980,18 +2910,18 @@
                 }
             }
             
-            console.log('🎲 All fates:', allFates.map(f => f.fate_name));
-            console.log('🎲 Weights:', weights.map((w, i) => `${allFates[i].fate_number}: ${(w*100).toFixed(0)}%`));
-            console.log('🔄 On cooldown:', recentFates.map(rf => `Fate ${rf.fateId} (${rf.spinsAgo} spins ago)`));
-            console.log(`🎲 Random index: ${randomIndex} out of ${allFates.length}`);
+            console.log('ðŸŽ² All fates:', allFates.map(f => f.fate_name));
+            console.log('ðŸŽ² Weights:', weights.map((w, i) => `${allFates[i].fate_number}: ${(w*100).toFixed(0)}%`));
+            console.log('ðŸ”„ On cooldown:', recentFates.map(rf => `Fate ${rf.fateId} (${rf.spinsAgo} spins ago)`));
+            console.log(`ðŸŽ² Random index: ${randomIndex} out of ${allFates.length}`);
             const randomFate = allFates[randomIndex];
-            console.log(`🎲 Selected fate: ${randomFate.fate_name} (ID: ${randomFate.fate_id})`);
+            console.log(`ðŸŽ² Selected fate: ${randomFate.fate_name} (ID: ${randomFate.fate_id})`);
             
             // Add this fate to cooldown
             recentFates.push({ fateId: randomFate.fate_id, spinsAgo: 0 });
             
             const targetSegment = allFates.findIndex(f => f.fate_id === randomFate.fate_id);
-            console.log(`🎲 Target segment: ${targetSegment}`);
+            console.log(`ðŸŽ² Target segment: ${targetSegment}`);
             
             // Calculate target rotation (must land at CENTER of top wedge)
             const anglePerSegment = (2 * Math.PI) / 20;
@@ -3021,12 +2951,12 @@
                     requestAnimationFrame(animate);
                 } else {
                     // Spinning complete!
-                    // Normalize rotation to 0-2Ï€ range to prevent accumulation
+                    // Normalize rotation to 0-2Ãâ‚¬ range to prevent accumulation
                     currentRotation = currentRotation % (2 * Math.PI);
                     
                     spinning = false;
                     spinButton.disabled = false;
-                    spinButton.textContent = '🌟 SPIN! 🌟';
+                    spinButton.textContent = 'ðŸŒŸ SPIN! ðŸŒŸ';
                     
                     // Send result to backend and show outcome
                     processFateResult(randomFate);
@@ -3038,16 +2968,16 @@
 
         async function processFateResult(fate) {
             try {
-                console.log('🎲 Processing fate:', fate);
-                console.log('🎲 Fate ID:', fate.fate_id);
-                console.log('🎲 Fate Number:', fate.fate_number);
-                console.log('🎲 Fate name:', fate.fate_name);
-                console.log('🎲 Fate type:', fate.fate_type);
-                console.log('🎲 Is battle:', fate.is_battle);
+                console.log('ðŸŽ² Processing fate:', fate);
+                console.log('ðŸŽ² Fate ID:', fate.fate_id);
+                console.log('ðŸŽ² Fate Number:', fate.fate_number);
+                console.log('ðŸŽ² Fate name:', fate.fate_name);
+                console.log('ðŸŽ² Fate type:', fate.fate_type);
+                console.log('ðŸŽ² Is battle:', fate.is_battle);
                 
                 // Validate fate object
                 if (!fate || !fate.fate_id) {
-                    console.error('❌ Invalid fate object!', fate);
+                    console.error('âŒ Invalid fate object!', fate);
                     alert('Error: Invalid fate data. Please refresh and try again.');
                     openFateWheelModal();
                     return;
@@ -3059,39 +2989,39 @@
                 // Route based on fate type
                 if (fate.is_battle === 1) {
                     // BATTLE FATES (8, 14, 17) - Use battle system
-                    console.log('⚔️ Routing to BATTLE');
+                    console.log('âš”ï¸ Routing to BATTLE');
                     await startBattle(fate);
                 } else if (fate.fate_type === 'special' && fate.fate_number === 9) {
                     // COUNTDOWN FATE (9) - Teacher input form
-                    console.log('🎮 Routing to COUNTDOWN GAME');
+                    console.log('ðŸŽ® Routing to COUNTDOWN GAME');
                     showCountdownForm(fate);
                 } else if (fate.fate_type === 'special' && fate.fate_number === 12) {
                     // REVERSE CARD (12) - Add to inventory
-                    console.log('🔄 Routing to REVERSE CARD');
+                    console.log('ðŸ”„ Routing to REVERSE CARD');
                     await awardReverseCard(fate);
                 } else if (fate.fate_type === 'choice') {
                     // CHOICE FATES - Show 3 options
-                    console.log('🎯 Routing to CHOICES for fate_id:', fate.fate_id);
+                    console.log('ðŸŽ¯ Routing to CHOICES for fate_id:', fate.fate_id);
                     
                     // Get the 3 choices for this fate
                     const url = `${API_URL}/teacher/fate-choices/${fate.fate_id}`;
-                    console.log('🎲 Fetching from:', url);
+                    console.log('ðŸŽ² Fetching from:', url);
                     
                     let response;
                     try {
                         response = await fetch(url, { headers });
                     } catch (fetchErr) {
-                        console.error('❌ Fetch error:', fetchErr);
+                        console.error('âŒ Fetch error:', fetchErr);
                         alert(`Network error fetching choices for ${fate.fate_name}!\n\nError: ${fetchErr.message}`);
                         openFateWheelModal();
                         return;
                     }
                     
-                    console.log('🎲 Response status:', response.status);
+                    console.log('ðŸŽ² Response status:', response.status);
                     
                     if (!response.ok) {
                         const errorText = await response.text();
-                        console.error('❌ Response not OK:', response.status, errorText);
+                        console.error('âŒ Response not OK:', response.status, errorText);
                         alert(`Failed to get choices for ${fate.fate_name}!\n\nStatus: ${response.status}\nError: ${errorText}`);
                         openFateWheelModal();
                         return;
@@ -3101,17 +3031,17 @@
                     try {
                         choices = await response.json();
                     } catch (jsonErr) {
-                        console.error('❌ JSON parse error:', jsonErr);
+                        console.error('âŒ JSON parse error:', jsonErr);
                         alert(`Error parsing choices for ${fate.fate_name}!\n\nError: ${jsonErr.message}`);
                         openFateWheelModal();
                         return;
                     }
                     
-                    console.log('✅ Got choices:', choices);
-                    console.log('✅ Number of choices:', choices.length);
+                    console.log('âœ… Got choices:', choices);
+                    console.log('âœ… Number of choices:', choices.length);
                     
                     if (!choices || choices.length === 0) {
-                        console.error('❌ Choices array is EMPTY!');
+                        console.error('âŒ Choices array is EMPTY!');
                         alert(`No choices found for fate: ${fate.fate_name} (ID: ${fate.fate_id}).\n\nPlease delete odyssey_game.db and restart the server.`);
                         openFateWheelModal();
                         return;
@@ -3121,12 +3051,12 @@
                     showFateChoices(fate, choices);
                 } else {
                     // Unknown fate type - show error but don't crash
-                    console.error('❌ Unknown fate type:', fate.fate_type, 'for fate:', fate.fate_name);
+                    console.error('âŒ Unknown fate type:', fate.fate_type, 'for fate:', fate.fate_name);
                     alert(`Unknown fate type "${fate.fate_type}" for ${fate.fate_name}.\n\nFate ID: ${fate.fate_id}\nFate Number: ${fate.fate_number}\n\nPlease report this error!`);
                     openFateWheelModal();
                 }
             } catch (err) {
-                console.error('❌ processFateResult error:', err);
+                console.error('âŒ processFateResult error:', err);
                 alert(`Error processing fate!\n\nFate: ${fate ? fate.fate_name : 'unknown'}\nFate ID: ${fate ? fate.fate_id : 'unknown'}\nFate Type: ${fate ? fate.fate_type : 'unknown'}\n\nError: ${err.message}\n\nCheck browser console (F12) for details.`);
                 openFateWheelModal();
             }
@@ -3142,7 +3072,7 @@
             
             content.innerHTML = `
                 <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">🎮</div>
+                    <div style="font-size: 48px; margin-bottom: 20px;">ðŸŽ®</div>
                     <div style="font-size: 32px; color: #ffd700; font-weight: 800; margin-bottom: 15px;">
                         ${fate.fate_name}
                     </div>
@@ -3168,7 +3098,7 @@
                         </div>
                         
                         <button onclick="submitCountdownPoints()" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer; width: 100%;">
-                            ✨ AWARD POINTS ✨
+                            âœ¨ AWARD POINTS âœ¨
                         </button>
                     </div>
                     
@@ -3247,7 +3177,7 @@
                 const popup = document.createElement('div');
                 popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 100%); padding: 50px; border-radius: 20px; border: 3px solid #9333ea; z-index: 10002; text-align: center; min-width: 450px; box-shadow: 0 0 50px rgba(147, 51, 234, 0.5);';
                 popup.innerHTML = `
-                    <div style="font-size: 72px; margin-bottom: 20px;">🔄</div>
+                    <div style="font-size: 72px; margin-bottom: 20px;">ðŸ”„</div>
                     <div style="font-size: 28px; color: #9333ea; font-weight: 800; margin-bottom: 15px;">
                         REVERSE CARD OBTAINED!
                     </div>
@@ -3256,7 +3186,7 @@
                         <span style="color: rgba(255,255,255,0.7);">Use it to turn a negative fate into positive points!</span>
                     </div>
                     <button onclick="this.parentElement.remove(); openFateWheelModal();" style="background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer;">
-                        ✨ CONTINUE ✨
+                        âœ¨ CONTINUE âœ¨
                     </button>
                 `;
                 document.body.appendChild(popup);
@@ -3324,7 +3254,7 @@
                         ${fate.description}
                     </div>
                     <div style="font-size: 20px; color: #ff6b35; font-weight: 700; margin-top: 20px;">
-                        ⚡ CHOOSE YOUR PATH ⚡
+                        âš¡ CHOOSE YOUR PATH âš¡
                     </div>
                     <div style="font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 8px;">
                         Discuss with your alliance and vote!
@@ -3344,7 +3274,7 @@
         function createChoiceCard(choice, riskLevel, color, fate) {
             // Safety check - if choice is undefined, return error card
             if (!choice) {
-                console.error(`❌ No ${riskLevel} choice found for fate ${fate.fate_name}`);
+                console.error(`âŒ No ${riskLevel} choice found for fate ${fate.fate_name}`);
                 return `
                     <div style="border: 3px solid #ff0000; background: rgba(255,0,0,0.2); border-radius: 15px; padding: 20px; text-align: center;">
                         <div style="color: #ff0000; font-weight: 700;">ERROR</div>
@@ -3379,7 +3309,7 @@
                     
                     <div style="background: rgba(0,0,0,0.4); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
                         <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 8px;">
-                            🎲 ROLL A d20 DIE
+                            ðŸŽ² ROLL A d20 DIE
                         </div>
                         <div style="font-size: 16px; color: ${color}; font-weight: 700; margin-bottom: 8px;">
                             Success: Roll 1-${successRange} (${successPercent}%)
@@ -3401,7 +3331,7 @@
                     </div>
                     
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: ${color}; font-weight: 700; font-size: 14px;">
-                        ✨ CLICK TO CHOOSE ✨
+                        âœ¨ CLICK TO CHOOSE âœ¨
                     </div>
                 </div>
             `;
@@ -3419,13 +3349,13 @@
                 
                 readyDiv.innerHTML = `
                     <div style="font-size: 24px; color: #ffd700; margin-bottom: 20px; font-weight: 800;">
-                        ⚡ READY TO FACE THE FATES? ⚡
+                        âš¡ READY TO FACE THE FATES? âš¡
                     </div>
                     <div style="font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 30px;">
                         ${selectedAllianceName} has chosen the ${riskLevel} path!
                     </div>
                     <button id="roll-dice-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 22px; font-weight: 900; padding: 15px 40px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,215,0,0.5); transition: all 0.3s;">
-                        🎲 ROLL THE DICE! 🎲
+                        ðŸŽ² ROLL THE DICE! ðŸŽ²
                     </button>
                 `;
                 document.body.appendChild(readyDiv);
@@ -3462,7 +3392,7 @@
                     processingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); padding: 60px; border-radius: 20px; border: 3px solid #ffd700; z-index: 10001; text-align: center; min-width: 500px;';
                     processingDiv.innerHTML = `
                         <div style="font-size: 28px; color: #ffd700; margin-bottom: 30px; font-weight: 800;">
-                            🎲 ROLLING THE DIE... 🎲
+                            ðŸŽ² ROLLING THE DIE... ðŸŽ²
                         </div>
                         <div id="dice-number" style="font-size: 140px; margin: 40px 0; font-weight: 900; color: #fff; text-shadow: 0 0 20px #ffd700;">
                             ?
@@ -3528,7 +3458,7 @@
             const content = document.getElementById('fate-result-content');
 
             const resultColor = result.success ? '#4ade80' : '#ef4444';
-            const resultText = result.success ? '✅ SUCCESS!' : '❌ FAILURE!';
+            const resultText = result.success ? 'âœ… SUCCESS!' : 'âŒ FAILURE!';
             const pointsSymbol = result.pointsChange > 0 ? '+' : '';
             
             // Calculate d20 values
@@ -3547,7 +3477,7 @@
             content.innerHTML = `
                 <div class="fate-result-card" style="padding: 15px;">
                     <div style="font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 8px; text-transform: uppercase;">
-                        ${selectedAllianceName} • ${result.choice.risk_level} Choice
+                        ${selectedAllianceName} â€¢ ${result.choice.risk_level} Choice
                     </div>
                     
                     <div style="font-size: 42px; color: ${resultColor}; font-weight: 900; margin: 10px 0;">
@@ -3560,7 +3490,7 @@
                     
                     <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; margin: 15px 0; border: 2px solid ${resultColor};">
                         <div style="font-size: 16px; color: #ffd700; margin-bottom: 10px; font-weight: 700;">
-                            🎲 THE DICE ROLL
+                            ðŸŽ² THE DICE ROLL
                         </div>
                         
                         <div style="font-size: 12px; color: rgba(255,255,255,0.8); margin-bottom: 10px;">
@@ -3569,7 +3499,7 @@
                         
                         <div style="position: relative; height: 30px; background: linear-gradient(90deg, #4ade80 0%, #4ade80 ${successBarWidth}%, #ef4444 ${successBarWidth}%, #ef4444 100%); border-radius: 8px; margin: 10px 0; border: 2px solid rgba(255,255,255,0.3);">
                             <div style="position: absolute; left: ${barPosition}%; top: -20px; transform: translateX(-50%); font-size: 24px;">
-                                ⬇️
+                                â¬‡ï¸
                             </div>
                             <div style="position: absolute; left: ${barPosition}%; top: 50%; transform: translate(-50%, -50%); background: #fff; color: #000; padding: 3px 10px; border-radius: 6px; font-weight: 900; font-size: 16px; border: 2px solid ${resultColor}; box-shadow: 0 0 15px ${resultColor};">
                                 ${diceRoll}
@@ -3586,7 +3516,7 @@
                         </div>
                         
                         <div style="font-size: 14px; color: ${resultColor}; margin-top: 10px; font-weight: 700;">
-                            ${result.success ? `🎉 Rolled ${diceRoll} - In the Success Zone!` : `💔 Rolled ${diceRoll} - Missed the Success Zone!`}
+                            ${result.success ? `ðŸŽ‰ Rolled ${diceRoll} - In the Success Zone!` : `ðŸ’” Rolled ${diceRoll} - Missed the Success Zone!`}
                         </div>
                     </div>
                     
@@ -3646,7 +3576,7 @@
             popup.id = 'reverse-card-offer';
             popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 100%); padding: 40px; border-radius: 20px; border: 3px solid #9333ea; z-index: 10003; text-align: center; min-width: 450px; box-shadow: 0 0 50px rgba(147, 51, 234, 0.5);';
             popup.innerHTML = `
-                <div style="font-size: 48px; margin-bottom: 15px;">🔄</div>
+                <div style="font-size: 48px; margin-bottom: 15px;">ðŸ”„</div>
                 <div style="font-size: 24px; color: #9333ea; font-weight: 800; margin-bottom: 15px;">
                     USE REVERSE CARD?
                 </div>
@@ -3661,10 +3591,10 @@
                 </div>
                 <div style="display: flex; gap: 20px; justify-content: center;">
                     <button id="reverse-yes-btn" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 30px; border-radius: 10px; cursor: pointer;">
-                        ✅ YES, REVERSE IT!
+                        âœ… YES, REVERSE IT!
                     </button>
                     <button id="reverse-no-btn" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 30px; border-radius: 10px; cursor: pointer;">
-                        ❌ NO, KEEP CARD
+                        âŒ NO, KEEP CARD
                     </button>
                 </div>
             `;
@@ -3722,7 +3652,7 @@
                 
                 // Show reversal animation
                 pointsDisplay.innerHTML = `
-                    <div style="font-size: 18px; color: #9333ea; margin-bottom: 10px;">🔄 REVERSED! 🔄</div>
+                    <div style="font-size: 18px; color: #9333ea; margin-bottom: 10px;">ðŸ”„ REVERSED! ðŸ”„</div>
                     <div style="font-size: 24px; color: #ef4444; text-decoration: line-through; margin-bottom: 5px;">
                         ${originalPoints}
                     </div>
@@ -3776,20 +3706,20 @@
         }
 
         function applyFateAndReturn() {
-            console.log('🎯 Apply Fate clicked!');
+            console.log('ðŸŽ¯ Apply Fate clicked!');
             
             try {
                 // Close result modal
-                console.log('🎯 Closing result modal...');
+                console.log('ðŸŽ¯ Closing result modal...');
                 closeFateResultModal();
                 
-                console.log('🎯 Opening wheel modal...');
+                console.log('ðŸŽ¯ Opening wheel modal...');
                 // Reopen wheel modal for next alliance
                 openFateWheelModal();
                 
-                console.log('✅ Apply Fate complete!');
+                console.log('âœ… Apply Fate complete!');
             } catch (err) {
-                console.error('❌ Apply Fate error:', err);
+                console.error('âŒ Apply Fate error:', err);
                 alert('Error: ' + err.message);
             }
         }
@@ -3808,13 +3738,13 @@
             // Build wall bonus display
             const wallBonusHtml = battleResult.wallBonus > 0 ? `
                 <div style="color: #3b82f6; font-weight: 700; margin-top: 8px; padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border-radius: 8px; display: inline-block;">
-                    🏰 ${battleResult.wallType}: +${battleResult.wallBonus} Power
+                    ðŸ° ${battleResult.wallType}: +${battleResult.wallBonus} Power
                 </div>
             ` : '';
 
             content.innerHTML = `
                 <div class="battle-arena">
-                    <div class="battle-title">⚔️ BATTLE COMMENCES! ⚔️</div>
+                    <div class="battle-title">âš”ï¸ BATTLE COMMENCES! âš”ï¸</div>
                     
                     <div style="text-align: center; font-size: 22px; color: #fff8dc; margin-bottom: 30px;">
                         ${fate.battle_description || fate.description}
@@ -3826,7 +3756,7 @@
                             <div class="battle-power" id="alliance-power">${battleResult.alliancePower}</div>
                             <div style="color: rgba(255,255,255,0.7);">Alliance Power</div>
                             ${wallBonusHtml}
-                            ${battleResult.isUnderdog ? '<div style="color: #9333ea; font-weight: 700; margin-top: 8px;">🛡️ Underdog Blessing +25%</div>' : ''}
+                            ${battleResult.isUnderdog ? '<div style="color: #9333ea; font-weight: 700; margin-top: 8px;">ðŸ›¡ï¸ Underdog Blessing +25%</div>' : ''}
                         </div>
 
                         <div class="battle-vs-text">VS</div>
@@ -3842,11 +3772,11 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div style="text-align: center;">
                                 <div style="color: #ffd700; font-size: 18px; margin-bottom: 10px;">Alliance Rolls</div>
-                                <div class="battle-roll" id="alliance-roll" style="font-size: 48px; color: #4ade80;">🎲</div>
+                                <div class="battle-roll" id="alliance-roll" style="font-size: 48px; color: #4ade80;">ðŸŽ²</div>
                             </div>
                             <div style="text-align: center;">
                                 <div style="color: #ff6b35; font-size: 18px; margin-bottom: 10px;">Threat Rolls</div>
-                                <div class="battle-roll" id="threat-roll" style="font-size: 48px; color: #ef4444;">🎲</div>
+                                <div class="battle-roll" id="threat-roll" style="font-size: 48px; color: #ef4444;">ðŸŽ²</div>
                             </div>
                         </div>
                     </div>
@@ -3855,7 +3785,7 @@
 
                     <div style="text-align: center; margin-top: 30px;" id="battle-button-container">
                         <button class="btn-fate" id="battle-roll-btn" onclick="dramaticBattleRoll()">
-                            🎲 ROLL FOR BATTLE! 🎲
+                            ðŸŽ² ROLL FOR BATTLE! ðŸŽ²
                         </button>
                     </div>
                 </div>
@@ -3904,7 +3834,7 @@
             resultDisplay.style.display = 'block';
             resultDisplay.innerHTML = `
                 <div style="font-size: 56px; color: ${battleResult.victory ? '#4ade80' : '#ef4444'}; font-weight: 900; text-shadow: 0 0 20px ${battleResult.victory ? '#4ade80' : '#ef4444'};">
-                    ${battleResult.victory ? '🏆 VICTORY! 🏆' : '💀 DEFEAT! 💀'}
+                    ${battleResult.victory ? 'ðŸ† VICTORY! ðŸ†' : 'ðŸ’€ DEFEAT! ðŸ’€'}
                 </div>
                 <div style="font-size: 42px; color: ${battleResult.pointsChange >= 0 ? '#4ade80' : '#ef4444'}; font-weight: 700; margin-top: 15px;">
                     ${battleResult.pointsChange >= 0 ? '+' : ''}${battleResult.pointsChange} points
@@ -3917,7 +3847,7 @@
             // Hide roll button, show continue button
             document.getElementById('battle-button-container').innerHTML = `
                 <button class="btn-fate" onclick="closeBattleAndReturn()">
-                    ✨ CONTINUE ✨
+                    âœ¨ CONTINUE âœ¨
                 </button>
             `;
 
@@ -4003,13 +3933,13 @@
                 resultDisplay.style.display = 'block';
                 resultDisplay.innerHTML = `
                     <div class="battle-result ${result.victory ? 'victory' : 'defeat'}">
-                        ${result.victory ? '🏆 VICTORY! 🏆' : '💀 DEFEAT 💀'}
+                        ${result.victory ? 'ðŸ† VICTORY! ðŸ†' : 'ðŸ’€ DEFEAT ðŸ’€'}
                     </div>
                     <div style="text-align: center; font-size: 28px; color: ${result.victory ? '#4ade80' : '#ef4444'}; font-weight: 800;">
                         ${result.pointsChange > 0 ? '+' : ''}${result.pointsChange} POINTS
                     </div>
                     <div style="text-align: center; margin-top: 20px;">
-                        <button class="btn-fate" onclick="closeBattleAndReturn()">✨ RETURN TO WHEEL ✨</button>
+                        <button class="btn-fate" onclick="closeBattleAndReturn()">âœ¨ RETURN TO WHEEL âœ¨</button>
                     </div>
                 `;
 
@@ -4152,17 +4082,17 @@
                 modal.innerHTML = `
                     <div class="modal-content" style="max-width: 500px;">
                         <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                            ⚔️ Battle Arena Controls
-                            <button onclick="closeArenaControlsModal()" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 5px 12px; border-radius: 6px; cursor: pointer;">✕</button>
+                            âš”ï¸ Battle Arena Controls
+                            <button onclick="closeArenaControlsModal()" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 5px 12px; border-radius: 6px; cursor: pointer;">âœ•</button>
                         </div>
                         <div id="arena-controls-content" style="padding: 20px 0;">
                             <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">Control student access to the Battle Arena. When disabled, students cannot challenge each other to trivia battles.</p>
                             <div style="display: flex; gap: 15px; justify-content: center;">
                                 <button id="arena-enable-btn" onclick="toggleArena(true)" style="padding: 15px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; background: #22c55e; border: none; color: white;">
-                                    ✅ Enable Arena
+                                    âœ… Enable Arena
                                 </button>
                                 <button id="arena-disable-btn" onclick="toggleArena(false)" style="padding: 15px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6);">
-                                    🚫 Disable Arena
+                                    ðŸš« Disable Arena
                                 </button>
                             </div>
                             <p id="arena-status-text" style="text-align: center; margin-top: 20px; color: #22c55e;">Arena is currently ENABLED</p>
@@ -4172,10 +4102,10 @@
                             <p style="color: rgba(255,255,255,0.7); margin-bottom: 15px; font-size: 14px;">Testing & Maintenance:</p>
                             <div style="text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center;">
                                 <button onclick="resetBattleCounts()" style="padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; background: rgba(251,191,36,0.2); border: 2px solid #fbbf24; color: #fbbf24;">
-                                    🔄 Reset All Battle Counts (0/3)
+                                    ðŸ”„ Reset All Battle Counts (0/3)
                                 </button>
                                 <button onclick="cleanupStuckBattles()" style="padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; background: rgba(239,68,68,0.2); border: 2px solid #ef4444; color: #ef4444;">
-                                    🧹 Cancel All Battles
+                                    ðŸ§¹ Cancel All Battles
                                 </button>
                             </div>
                             <p style="text-align: center; margin-top: 10px; color: rgba(255,255,255,0.4); font-size: 12px;">Reset counts = daily limit. Cancel = stop all pending/in-progress battles.</p>
@@ -4250,9 +4180,9 @@
                 if (data.error) {
                     alert('Error: ' + data.error);
                 } else if (data.message) {
-                    alert('✅ ' + data.message);
+                    alert('âœ… ' + data.message);
                 } else {
-                    alert('✅ Reset complete!');
+                    alert('âœ… Reset complete!');
                 }
             } catch (err) {
                 console.error('Reset battle counts error:', err);
@@ -4273,7 +4203,7 @@
                 if (data.error) {
                     alert(data.error);
                 } else {
-                    alert('✅ ' + data.message);
+                    alert('âœ… ' + data.message);
                 }
             } catch (err) {
                 alert('Failed to cleanup battles');
@@ -4291,7 +4221,7 @@
             currentStudentId = studentId;
             currentStudentName = studentName;
             
-            document.getElementById('student-submissions-title').textContent = `📋 ${studentName}'s Submissions`;
+            document.getElementById('student-submissions-title').textContent = `ðŸ“‹ ${studentName}'s Submissions`;
             document.getElementById('student-submissions-modal').classList.add('show');
             document.getElementById('student-submissions-content').innerHTML = 'Loading...';
             
@@ -4378,7 +4308,7 @@
                                     style="background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #ef4444; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;"
                                     onmouseover="this.style.background='#ef4444'; this.style.color='white';"
                                     onmouseout="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#ef4444';">
-                                    ✕ Delete
+                                    âœ• Delete
                                 </button>
                             ` : `
                                 <span style="color: rgba(255,255,255,0.3); font-size: 12px;">-</span>
@@ -4418,7 +4348,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('✅ Submission deleted successfully');
+                    alert('âœ… Submission deleted successfully');
                     // Refresh the submissions list
                     openStudentSubmissions(currentStudentId, currentStudentName);
                 } else {
@@ -4505,11 +4435,11 @@
                             <td style="padding: 10px; text-align: center;">
                                 <button onclick="openEditStudentModal(${student.student_id}, '${(student.name || '').replace(/'/g, "\\'")}', '${student.class_period || ''}', ${student.alliance_id || 'null'})" 
                                     style="background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.5); color: #93c5fd; padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
-                                    ✏️ Edit
+                                    âœï¸ Edit
                                 </button>
                                 <button onclick="openDeleteStudentModal(${student.student_id}, '${(student.name || '').replace(/'/g, "\\'")}')" 
                                     style="background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); color: #fca5a5; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
-                                    🗑️ Delete
+                                    ðŸ—‘ï¸ Delete
                                 </button>
                             </td>
                         </tr>
@@ -4574,7 +4504,7 @@
                         headers
                     });
                     if (response.ok) {
-                        alert('✅ Student account deleted. They can now re-register with the same email.');
+                        alert('âœ… Student account deleted. They can now re-register with the same email.');
                         closeEditStudentModal();
                         openStudentManagementModal();
                         loadStudents();
@@ -4604,9 +4534,9 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    let message = '✅ Student updated successfully';
+                    let message = 'âœ… Student updated successfully';
                     if (result.removedFromAlliance) {
-                        message += '\n\n⚠️ Student was removed from their alliance due to class change. They can join a new alliance in their new class.';
+                        message += '\n\nâš ï¸ Student was removed from their alliance due to class change. They can join a new alliance in their new class.';
                     }
                     alert(message);
                     closeEditStudentModal();
@@ -4643,7 +4573,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    alert('✅ Student deleted successfully');
+                    alert('âœ… Student deleted successfully');
                     closeDeleteStudentModal();
                     openStudentManagementModal(); // Refresh the list
                     loadStudents(); // Refresh student dropdowns
