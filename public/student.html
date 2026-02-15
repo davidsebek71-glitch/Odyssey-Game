@@ -1861,6 +1861,8 @@
                 <h1>⚡ ODYSSEY TO OLYMPUS</h1>
             </div>
             <div class="user-info">
+                <button onclick="window.location.href='/hub.html'" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 6px 14px; color: white; cursor: pointer; font-family: 'Cinzel', serif; font-size: 12px; margin-right: 8px;">🏠 Hub</button>
+                <button id="myth-portal-nav-btn" onclick="window.location.href='/classical.html'" style="display: none; background: linear-gradient(135deg, #0ea5e9, #0284c7); border: 1px solid rgba(56,189,248,0.5); border-radius: 8px; padding: 6px 14px; color: white; cursor: pointer; font-family: 'Cinzel', serif; font-size: 12px; margin-right: 8px;">🏛️ Myth Portals</button>
                 <span class="user-name" id="student-name">Student</span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -2925,6 +2927,11 @@
             }
             
             document.getElementById('age-stat').textContent = student.current_age || 'Archaic';
+            
+            // Show Myth Portals button for Classical+ students
+            if (student.current_age === 'Classical' || student.current_age === 'Heroic') {
+                document.getElementById('myth-portal-nav-btn').style.display = '';
+            }
 
             // Render alliance section
             const allianceContent = document.getElementById('alliance-content');
