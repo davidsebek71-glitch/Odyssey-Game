@@ -264,6 +264,8 @@
             border-radius: 20px;
             padding: 40px;
             max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
             width: 90%;
             animation: slideIn 0.3s ease-out;
         }
@@ -2523,6 +2525,7 @@
                 }
                 
                 content.innerHTML = summaryHtml + `
+                    <h4 style="color: #a855f7; margin: 20px 0 12px 0; font-size: 15px; padding-top: 15px; border-top: 1px solid rgba(168,85,247,0.3);">👤 Individual Student Progress</h4>
                     <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                         <thead>
                             <tr style="background: rgba(255,215,0,0.1);">
