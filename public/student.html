@@ -1956,28 +1956,28 @@
         .myth-portal.active .myth-portal-name,
         .myth-portal.passed .myth-portal-name { color: #c0d8f0; }
         .myth-portal .virtue-tooltip {
-            position: absolute; top: calc(100% + 8px); left: 50%;
+            position: absolute; top: calc(100% + 35px); left: 50%;
             transform: translateX(-50%);
             background: linear-gradient(135deg, rgba(15,20,40,0.98), rgba(25,30,55,0.98));
-            border: 1px solid var(--portal-glow, rgba(74,144,217,0.5));
-            border-radius: 10px; padding: 12px 14px;
-            min-width: 200px; max-width: 260px;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.25s ease, transform 0.25s ease;
-            transform: translateX(-50%) translateY(-5px);
-            z-index: 100;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px var(--portal-glow-dim, rgba(74,144,217,0.25));
+            border: 2px solid var(--portal-glow, rgba(74,144,217,0.5));
+            border-radius: 10px; padding: 12px 16px;
+            min-width: 220px; max-width: 260px;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            z-index: 10000;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5), 0 0 15px var(--portal-glow-dim, rgba(74,144,217,0.25));
+            pointer-events: none;
         }
-        .myth-portal:hover .virtue-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        .myth-portal:hover .virtue-tooltip { opacity: 1; visibility: visible; }
         .virtue-tooltip::after {
             content: ''; position: absolute; bottom: 100%; left: 50%;
-            transform: translateX(-50%); border: 6px solid transparent;
+            transform: translateX(-50%); border: 10px solid transparent;
             border-bottom-color: var(--portal-glow, rgba(74,144,217,0.5));
         }
-        .virtue-tooltip-title { font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; color: var(--portal-glow, #4a90d9); margin-bottom: 4px; }
-        .virtue-tooltip-greek { font-size: 14px; font-weight: 600; color: #ffd700; margin-bottom: 6px; letter-spacing: 1px; }
-        .virtue-tooltip-desc { font-size: 11px; font-style: italic; color: rgba(255,255,255,0.85); line-height: 1.4; }
-        .virtue-tooltip-status { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 11px; color: rgba(255,255,255,0.75); }
+        .virtue-tooltip-title { font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; color: var(--portal-glow, #4a90d9); margin-bottom: 6px; text-align: center; }
+        .virtue-tooltip-greek { font-size: 14px; font-weight: 600; color: #ffd700; margin-bottom: 6px; letter-spacing: 1px; text-align: center; }
+        .virtue-tooltip-desc { font-size: 12px; font-style: italic; color: rgba(255,255,255,0.85); line-height: 1.4; text-align: center; }
+        .virtue-tooltip-status { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 11px; color: rgba(255,255,255,0.75); text-align: center; }
 
         /* ===== WARRIOR AVATAR REVEAL ===== */
         .avatar-reveal-section {
