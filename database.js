@@ -575,12 +575,12 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS myth_portal_status (
       status_id INTEGER PRIMARY KEY AUTOINCREMENT,
       portal_id INTEGER NOT NULL,
-      alliance_id INTEGER NOT NULL,
+      class_period TEXT NOT NULL,
       activated INTEGER DEFAULT 0,
       activated_at DATETIME,
       activated_by INTEGER,
       FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id),
-      UNIQUE(portal_id, alliance_id)
+      UNIQUE(portal_id, class_period)
     )
   `);
 
@@ -809,30 +809,30 @@ function runMigrations() {
   } catch (err) {
     console.log('Classical Age migration note:', err.message);
   }
-  
-  // Migrate myth_portal_status: class_period → alliance_id
+
+  // Fix myth_portal_status: if it has alliance_id (from bad migration), recreate with class_period
   try {
     const mpsCols = db.exec("PRAGMA table_info(myth_portal_status)");
     const mpsColNames = mpsCols[0] ? mpsCols[0].values.map(c => c[1]) : [];
     
-    if (mpsColNames.includes('class_period') && !mpsColNames.includes('alliance_id')) {
-      console.log('🔄 Migrating myth_portal_status: class_period → alliance_id...');
-      // Table has no real data yet (portals were never seeded before), safe to recreate
+    if (mpsColNames.includes('alliance_id') && !mpsColNames.includes('class_period')) {
+      console.log('🔄 Fixing myth_portal_status: alliance_id → class_period...');
+      // Table has no real data yet (no portals activated), safe to recreate
       db.run('DROP TABLE IF EXISTS myth_portal_status');
       db.run(`CREATE TABLE myth_portal_status (
         status_id INTEGER PRIMARY KEY AUTOINCREMENT,
         portal_id INTEGER NOT NULL,
-        alliance_id INTEGER NOT NULL,
+        class_period TEXT NOT NULL,
         activated INTEGER DEFAULT 0,
         activated_at DATETIME,
         activated_by INTEGER,
         FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id),
-        UNIQUE(portal_id, alliance_id)
+        UNIQUE(portal_id, class_period)
       )`);
-      console.log('✅ myth_portal_status migrated to use alliance_id');
+      console.log('✅ myth_portal_status fixed to use class_period');
     }
   } catch (err) {
-    console.log('myth_portal_status migration note:', err.message);
+    console.log('myth_portal_status fix note:', err.message);
   }
   
   // Side quest age column migration
@@ -1525,9 +1525,7 @@ function seedClassicalData() {
     }
 
     const portalsCheck = db.exec('SELECT COUNT(*) FROM myth_portals');
-    const portalsCount = portalsCheck[0] ? portalsCheck[0].values[0][0] : 0;
-    const portalsExist = portalsCount > 0;
-    console.log(`📜 Myth portals table check: ${portalsCount} rows found`);
+    const portalsExist = portalsCheck[0] && portalsCheck[0].values[0][0] > 0;
     
     // Check if virtue columns exist and have data
     let needsReseed = !portalsExist;
@@ -1547,7 +1545,7 @@ function seedClassicalData() {
         console.log('📜 Myth portals missing virtue data — re-seeding...');
         db.run('DELETE FROM myth_portals');
       }
-      console.log('📜 Seeding myth portals (needsReseed=true)...');
+      console.log('📜 Seeding myth portals...');
       const mythPortals = [
         [1, 'Pandora', "Pandora's Box", '🏺', '/images/classical/myths/Pandora.png', '#FFD700', 'The story of the first woman and the jar that unleashed suffering upon the world — yet Hope remained.', 'Σωφροσύνη', 'Temperance', 'She opened the jar on impulse — temperance is the restraint she lacked.', '🏺'],
         [2, 'Phaethon', "Phaethon's Chariot", '☀️', '/images/classical/myths/Phaethon.png', '#FF8C00', 'The tale of the boy who drove the sun chariot across the sky — and the catastrophe that followed.', 'Ταπεινοφροσύνη', 'Humility', 'He demanded the sun chariot beyond his ability — humility is knowing your limits.', '☀️'],
@@ -1563,11 +1561,6 @@ function seedClassicalData() {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, p);
       });
       console.log('✅ Myth portals seeded (7 portals)');
-      // Verify
-      const verifyCount = db.exec('SELECT COUNT(*) FROM myth_portals');
-      console.log(`📜 Verification: myth_portals now has ${verifyCount[0] ? verifyCount[0].values[0][0] : 0} rows`);
-    } else {
-      console.log('📜 Myth portals already seeded — skipping');
     }
   } catch (err) {
     console.log('Myth portals seed note:', err.message);
