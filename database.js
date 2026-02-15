@@ -1577,6 +1577,100 @@ function seedClassicalData() {
     console.log('Myth portals seed note:', err.message);
   }
 
+  // === CLASSICAL MYTH QUIZ QUESTIONS ===
+  // Portal IDs: 1=Pandora, 2=Phaethon, 3=Orpheus, 4=Echo&Narcissus, 5=Icarus, 6=Eros&Psyche, 7=Constellations
+  try {
+    const quizCheck = db.exec("SELECT COUNT(*) FROM myth_quiz_questions");
+    const quizCount = quizCheck[0] ? quizCheck[0].values[0][0] : 0;
+    
+    if (quizCount === 0) {
+      console.log('📝 Seeding myth quiz questions...');
+      
+      // Format: [portal_id, question_text, answer_a, answer_b, answer_c, answer_d, correct_answer]
+      const quizQuestions = [
+        // ==================== PANDORA (portal_id = 1) ====================
+        [1, 'What is inside Pandora\'s box? p.64', 'Food and drink', 'Happiness, Joy and Cheer', 'Pain, Sorrow and Death', 'Gold, Silver and Jewels', 'c'],
+        [1, 'What happens after Pandora opens the box? p.64', 'She is no longer hungry or thirsty', 'Everyone in the world is happy', 'Pandora becomes the most beautiful woman in the world', 'Trouble and woe comes into the world, as well as hope.', 'd'],
+        [1, 'Pandora means... p.62', '"all knowing"', '"bringer of misfortune"', '"all-giving" or "all-gifted"', '"into darkness"', 'c'],
+        [1, 'Who did Zeus send Pandora to? p.61', 'Prometheus', 'Hermes', 'Epimetheus', 'Hephaestus', 'c'],
+        [1, 'What did Hermes tell Pandora when he gave her the box? p.61', '"Don\'t tell anybody about the box."', '"Open it when I tell you to."', '"Open it on a special day."', '"Never open it."', 'd'],
+        [1, 'Finish this line: For though he can bear endless trouble... p.64', 'he cannot live with no hope at all.', 'he will have detention.', 'he will have to reset the wifi router.', 'he will be reborn in a heroic form.', 'a'],
+        [1, 'After Zeus had condemned Prometheus for giving fire to man, he.... p.61', 'took a week off and went on vacation', 'ordered Hephaestus to make a girl out of clay', 'flew the sun chariot across the sky', 'sent a storm to earth to punish man', 'b'],
+        [1, 'What was the most dangerous creature Pandora was able to shut in the box? p.64', 'Ignorance', 'Foreboding', 'Fear', 'Anger', 'b'],
+        [1, 'Which god gave Pandora a golden box? p.61', 'Apollo', 'Hermes', 'Athena', 'Hestia', 'b'],
+        [1, 'Which gift did Hera give to Pandora? p.61', 'Beauty', 'Wisdom', 'Curiosity', 'Strength', 'c'],
+
+        // ==================== PHAETHON (portal_id = 2) ====================
+        [2, 'In the Evslin book, why does Phaethon go to find his father? p.65', 'Phaethon is lost and asks to be saved by Apollo', 'Zeus wants to destroy Phaethon', 'Apollo calls for Phaethon to come see him', 'Epaphus, the son of Zeus, does not believe that Phaethon is the son of Apollo', 'd'],
+        [2, 'According to Evslin, Phaethon does not make it to the palace of his father on his own, he needs help. How is Phaethon helped? p.68', 'Apollo sends his chariot to pick up Phaethon', 'Poseidon sends a helpful wave to lift Phaethon up to the sun', 'Four sun hawks carried Phaethon who laid on a rug', 'Hephaestus builds a floating disc to carry the young traveler to his father', 'c'],
+        [2, 'Phaethon\'s father makes an unbreakable promise. What does the father figure swear to that makes it impossible to take his word back? p.70', 'The Elysian Fields', 'Zeus\'s name', 'Poseidon\'s Trident', 'The River Styx', 'd'],
+        [2, 'How was the chariot finally stopped? p.76', 'Zeus struck the chariot down with a lightning bolt', 'The chariot crashed on the moon', 'Apollo took over and reined the horses in', 'Phaethon returned the chariot to the stable', 'a'],
+        [2, 'Who came to mourn Phaethon and what did they become? p.76', 'Narcissus (brother); flower', 'Echo (sister); disappeared', 'Actaeon (cousin); stag', 'Heliades (yellow haired sisters); poplar trees', 'd'],
+        [2, 'Phaethon\'s father felt ______________ when he realized the promise he agreed to would kill Phaethon. p.71', 'Joy', 'Envy', 'Regret', 'Pride', 'c'],
+        [2, 'Which of these describes the horses that pull the sun chariot? p.71', 'Jet black with hot yellow eyes', 'Giant fire white with golden manes and golden hooves', 'Gray with black smoke from their noses', 'Small brown ponies with silver wings', 'b'],
+        [2, 'What color are the nostrils of the chariot horses? p.71', 'Golden', 'Fire red', 'Ice blue', 'Jet black', 'b'],
+
+        // ==================== ORPHEUS (portal_id = 3) — 5 questions ====================
+        [3, 'Orpheus was gifted and lucky to know some great mentors. What was he famous for? p.77', 'Singing and dancing', 'Music and poetry', 'Running and athletics', 'Mathematics and science', 'b'],
+        [3, 'How did Eurydice die? p.80', 'She was turned into a poplar tree by a merciful Zeus', 'A young king shot her by accident with the golden bow he stole from Apollo', 'She was chased through the forest and stepped in a bed of snakes.', 'She tripped, running from a young king, and hit her head on a rock', 'c'],
+        [3, 'How did Orpheus get past Charon, the threshold guardian of the River Styx and the Underworld? p.81', 'He bribed Charon with one hundred souls', 'He tricked Charon by playing Charon a song that reminded the boatman of his youth', 'He hid behind a group of souls and Charon never saw him', 'He wrote a poem about Charon that made him cry', 'b'],
+        [3, 'Why did Orpheus turn around, causing Eurydice to return to the Underworld forever? p.86', 'Hermes flew past him with new souls', 'Persephone told Orpheus Hades was tricking him', 'He doubted she was really there', 'Cerberus began chasing them', 'c'],
+        [3, 'Which type of song did Orpheus NOT play for Cerberus? p.81', 'Sad song', 'Dog song', 'Sleeping song', 'Hunting song', 'b'],
+
+        // ==================== ECHO & NARCISSUS (portal_id = 4) — 5 questions ====================
+        [4, 'What did Narcissus hope to find as he wandered through the woods?', 'His way home', 'The Golden Fleece', 'The Minotaur', 'Someone as beautiful as himself', 'd'],
+        [4, 'Which goddess enjoyed talking with Echo?', 'Hera', 'Hestia', 'Aphrodite', 'Demeter', 'a'],
+        [4, 'Why was Echo punished?', 'She lied to Zeus about where Hera really was', 'She lied to Hera about where Zeus really was', 'She offended Aphrodite by hiding her water nymph', 'She tricked Narcissus into following her', 'b'],
+        [4, 'Why was Echo so sad after Narcissus left her?', 'She could not hunt for food without him', 'She had lost her only friend', 'She could not call to him because of Hera\'s curse', 'She was lost in the forest', 'c'],
+        [4, 'What happened to Narcissus?', 'He became king of Athens', 'He married Echo and they lived happily ever after', 'He fell in love with his own reflection and died', 'He was turned into a statue by Athena', 'c'],
+
+        // ==================== ICARUS (portal_id = 5) ====================
+        [5, 'Who built the Labyrinth? p.87', 'Zeus', 'Theseus', 'Daedalus', 'Minos', 'c'],
+        [5, 'Why were Daedalus and Icarus imprisoned? p.88', 'They stole from the king', 'King Minos wanted to keep Daedalus\'s genius trapped on Crete', 'They tried to kill the Minotaur', 'They refused to build a temple', 'b'],
+        [5, 'What did Daedalus use to build the wings? p.89', 'Metal and leather', 'Feathers and wax', 'Silk and wood', 'Leaves and clay', 'b'],
+        [5, 'What warning did Daedalus give Icarus? p.89', 'Don\'t fly at night', 'Don\'t fly over the sea', 'Don\'t fly too close to the sun or too close to the sea', 'Don\'t fly faster than the birds', 'c'],
+        [5, 'What happened to Icarus? p.90', 'He made it to safety', 'He flew too high, the wax melted, and he fell into the sea', 'He was caught by King Minos', 'He landed on Mount Olympus', 'b'],
+        [5, 'What was the Minotaur? p.87', 'A giant snake', 'A three-headed dog', 'Half man, half bull', 'A flying horse', 'c'],
+        [5, 'Who was King Minos? p.87', 'King of Athens', 'King of Sparta', 'King of Crete', 'King of Troy', 'c'],
+        [5, 'Why didn\'t Daedalus and Icarus escape by boat? p.88', 'They couldn\'t swim', 'Minos controlled all the ships and searched them', 'The sea was too rough', 'There were sea monsters', 'b'],
+        [5, 'What sea is named after Icarus? p.90', 'The Aegean Sea', 'The Mediterranean Sea', 'The Icarian Sea', 'The Red Sea', 'c'],
+        [5, 'What is the main lesson of Icarus\'s story?', 'Never try to fly', 'Prudence — know the limits and find the wise middle path', 'Always obey your father', 'Technology is dangerous', 'b'],
+
+        // ==================== EROS & PSYCHE (portal_id = 6) ====================
+        [6, 'Which goddess was jealous of Psyche?', 'Athena', 'Aphrodite', 'Hera', 'Demeter', 'b'],
+        [6, 'The goddess, insulted by Psyche\'s beauty, came up with a plan. What was her plan?', 'Send the giant Python to eat Psyche', 'Send her son Eros to pierce Psyche with an arrow', 'Trick Psyche into falling in love with a statue', 'Lock Psyche in a castle tower', 'b'],
+        [6, 'What is Eros\' reaction to Aphrodite\'s plan?', 'He says its the best plan ever', 'It\'s a boring plan and he wants to do something better', 'He thinks it is a cruel trick', 'He tells Zeus about the plan', 'c'],
+        [6, 'Eros finds Psyche to be beautiful. What happens when she opens her eyes and startles him?', 'He pokes her shoulder and she falls in love with the gardener.', 'He scratches his own hand.', 'He drops the arrow and flies away.', 'He disguises himself as a donkey.', 'b'],
+        [6, 'What was Aphrodite\'s reaction to Eros\' mistake?', 'She praised Eros and said he was a good boy', 'She sent him to timeout in Tartarus', 'She sent Eros away and cast a curse on Psyche', 'She shrugged her shoulders and said, "Better luck next time."', 'c'],
+        [6, 'What was the curse that Aphrodite put on Psyche?', 'Cast an invisible hedge of thorns around Psyche, so no suitor would come close', 'Turned her invisible', 'Made Psyche jealous of her own reflection', 'Turned Psyche into a bear and left her in the forest', 'a'],
+        [6, 'What was Eros\' response to Aphrodite\'s curse?', 'He celebrated her wise decision.', 'He became angry and refused to fire any more arrows.', 'He left Mount Olympus.', 'He went to sit with Psyche and console her.', 'b'],
+        [6, 'What idea did Psyche\'s sisters place in her head?', 'Eros was a monster', 'Eros was just her imagination', 'Eros was a mortal', 'Eros was tricking her', 'a'],
+        [6, 'What were the consequences of Psyche shining a lamp on Eros?', 'Eros smiles and hugs her', 'Eros yells, "Wretched girl - you are not ready to accept love."', 'Eros is blinded by the mortal light.', 'Eros cries and sacrifices Psyche to Aphrodite', 'b'],
+        [6, 'According to the book, which is NOT a possible ending for Psyche\'s story?', 'Everything disappears and she wanders forever, transforming into an owl', 'She turned into a bat and lives in old ruins', 'Eros forgives her and she helps him create love in the world', 'She lives to be an old lady in a castle, never finding love', 'd'],
+
+        // ==================== CONSTELLATIONS (portal_id = 7) ====================
+        [7, 'Who shot Orion?', 'Artemis', 'Apollo', 'Athena', 'Ares', 'a'],
+        [7, 'What special ability did Orion possess?', 'He was a great hunter', 'He was friends with Apollo', 'He could fly', 'He walked on water', 'a'],
+        [7, 'Which animal chased Orion?', 'Scorpion', 'Python', 'Ram', 'Dog', 'a'],
+        [7, 'What is Callisto?', 'Nymph', 'Fairy', 'Elf', 'Hobbit', 'a'],
+        [7, 'Who turned Callisto into a she-bear?', 'Zeus', 'Hera', 'Athena', 'Aphrodite', 'b'],
+        [7, 'What scene depicts Callisto\'s fate in the woods?', 'Callisto\'s son about to shoot her in the woods.', 'Apollo hunting in the woods.', 'A bear about to attack Orion.', 'The original ending of the three little bears story', 'a'],
+        [7, 'Cassiopeia gets in trouble because...', 'she brags about her daughter\'s beauty.', 'she hides seeds from Demeter.', 'she steals Poseidon\'s trident.', 'she shoots her husband with Eros\'s love arrows.', 'a'],
+        [7, 'Andromeda has to pay the price. What is her punishment?', 'Get eaten by Cetus the sea monster', 'Leave the country forever', 'No dessert after dinner', 'Get locked in a tower for twenty years', 'a'],
+        [7, 'Who saves Andromeda from her punishment?', 'Perseus', 'Theseus', 'Daedalus', 'Icarus', 'a'],
+        [7, 'What happens to Cassiopeia?', 'She is placed upside down in the sky', 'She is honored as a wonderful mother', 'She dies from sadness', 'She marries Poseidon', 'a']
+      ];
+
+      quizQuestions.forEach(q => {
+        db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, answer_a, answer_b, answer_c, answer_d, correct_answer)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
+      });
+      console.log('✅ Myth quiz questions seeded (' + quizQuestions.length + ' questions)');
+    }
+  } catch (err) {
+    console.log('Quiz questions seed note:', err.message);
+  }
+
   // === CLASSICAL FATES (24 fates, numbered 21-44 to avoid conflicts with Archaic 1-20) ===
   try {
     const classicalFatesCheck = db.exec("SELECT COUNT(*) FROM fates_ref WHERE age_available = 'Classical'");
