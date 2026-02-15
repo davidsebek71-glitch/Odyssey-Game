@@ -1872,6 +1872,157 @@
             font-weight: 600;
             color: #fff;
         }
+        /* ==================== CLASSICAL AGE — MYTH PORTALS ==================== */
+        #classical-age-section { display: none; }
+        .myth-portal-bar {
+            background: linear-gradient(180deg, rgba(10, 20, 40, 0.95), rgba(8, 15, 35, 0.9));
+            border: 1px solid rgba(74, 144, 217, 0.15);
+            border-radius: 16px;
+            padding: 16px 20px 12px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .myth-portal-title {
+            font-family: 'Cinzel', serif;
+            font-size: 14px; font-weight: 700;
+            color: rgba(120, 170, 230, 0.8);
+            letter-spacing: 4px; text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        .myth-portal-row {
+            display: flex; justify-content: center;
+            gap: 14px; flex-wrap: wrap;
+        }
+        .myth-portal {
+            width: 80px; min-height: 90px;
+            border-radius: 12px; cursor: pointer;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 4px; padding: 8px 4px;
+            background: rgba(20, 30, 50, 0.8);
+            border: 2px solid rgba(60, 80, 120, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .myth-portal.locked { opacity: 0.35; cursor: not-allowed; filter: grayscale(80%); }
+        .myth-portal.active {
+            border-color: var(--portal-glow, rgba(74, 144, 217, 0.5));
+            box-shadow: 0 0 15px var(--portal-glow-dim, rgba(74, 144, 217, 0.2)),
+                        inset 0 0 10px var(--portal-glow-dim, rgba(74, 144, 217, 0.1));
+        }
+        .myth-portal.passed {
+            border-color: var(--portal-glow, rgba(74, 144, 217, 0.6));
+            background: linear-gradient(160deg, rgba(20, 35, 60, 0.9), rgba(15, 25, 45, 0.95));
+            box-shadow: 0 0 20px var(--portal-glow-dim, rgba(74, 144, 217, 0.3));
+        }
+        .myth-portal.passed::after {
+            content: '✓'; position: absolute; top: 4px; right: 6px;
+            font-size: 12px; color: #4ade80; font-weight: 700;
+        }
+        .myth-portal-icon { font-size: 1.8rem; line-height: 1; }
+        .myth-portal-img {
+            width: 60px; height: 60px; border-radius: 50%;
+            object-fit: cover; border: 2px solid rgba(255,255,255,0.15);
+            transition: all 0.3s ease;
+        }
+        .myth-portal.active .myth-portal-img,
+        .myth-portal.passed .myth-portal-img { border-color: var(--portal-glow, rgba(74,144,217,0.5)); }
+        .myth-portal.locked .myth-portal-img { filter: grayscale(100%) brightness(0.4); }
+        .myth-portal-name {
+            font-family: 'Cinzel', serif; font-size: 9px;
+            font-weight: 600; color: #8aa0c0; letter-spacing: 0.5px;
+            text-align: center; line-height: 1.2;
+        }
+        .myth-portal.active .myth-portal-name,
+        .myth-portal.passed .myth-portal-name { color: #c0d8f0; }
+        .myth-portal .virtue-tooltip {
+            position: absolute; bottom: calc(100% + 10px); left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(10,15,30,0.97), rgba(20,25,45,0.97));
+            border: 1px solid var(--portal-glow, rgba(74,144,217,0.4));
+            border-radius: 10px; padding: 12px 14px;
+            min-width: 200px; max-width: 260px;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            transform: translateX(-50%) translateY(5px);
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px var(--portal-glow-dim, rgba(74,144,217,0.15));
+        }
+        .myth-portal:hover .virtue-tooltip { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        .virtue-tooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            transform: translateX(-50%); border: 6px solid transparent;
+            border-top-color: var(--portal-glow, rgba(74,144,217,0.4));
+        }
+        .virtue-tooltip-title { font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; color: var(--portal-glow, #4a90d9); margin-bottom: 4px; }
+        .virtue-tooltip-greek { font-size: 14px; font-weight: 600; color: #ffd700; margin-bottom: 6px; letter-spacing: 1px; }
+        .virtue-tooltip-desc { font-size: 11px; font-style: italic; color: rgba(255,255,255,0.75); line-height: 1.4; }
+        .virtue-tooltip-status { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 11px; color: rgba(255,255,255,0.6); }
+
+        /* ===== WARRIOR AVATAR REVEAL ===== */
+        .avatar-reveal-section {
+            background: linear-gradient(180deg, rgba(10,15,30,0.9), rgba(5,10,25,0.95));
+            border: 1px solid rgba(255,215,0,0.15); border-radius: 14px;
+            padding: 20px; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: center; gap: 0;
+            position: relative;
+        }
+        .avatar-reveal-title {
+            font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
+            color: rgba(255,215,0,0.7); letter-spacing: 3px; text-transform: uppercase;
+            text-align: center; margin-bottom: 12px;
+        }
+        .avatar-frame {
+            position: relative; width: 140px; height: 160px;
+            background: rgba(0,0,0,0.8); border: 2px solid rgba(255,215,0,0.2);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; flex-shrink: 0;
+        }
+        .avatar-frame img { width: 100%; height: 100%; object-fit: contain; transition: opacity 1s ease, filter 1s ease; }
+        .avatar-frame .avatar-glow { position: absolute; inset: 0; border-radius: 8px; pointer-events: none; transition: box-shadow 1s ease; }
+        .avatar-frame.complete { border-color: rgba(255,215,0,0.6); animation: avatarComplete 2s ease-in-out infinite; }
+        @keyframes avatarComplete {
+            0%, 100% { box-shadow: 0 0 15px rgba(255,215,0,0.3), inset 0 0 10px rgba(255,215,0,0.1); }
+            50% { box-shadow: 0 0 30px rgba(255,215,0,0.6), inset 0 0 20px rgba(255,215,0,0.2); }
+        }
+        .avatar-placeholder-text {
+            font-family: 'Cinzel', serif; font-size: 10px; color: rgba(255,255,255,0.3);
+            text-align: center; padding: 10px; position: absolute; bottom: 8px;
+        }
+        .virtue-column { display: flex; flex-direction: column; gap: 8px; padding: 0 14px; }
+        .virtue-slot {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 10px; border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3);
+            transition: all 0.5s ease; min-width: 140px;
+        }
+        .virtue-slot.earned {
+            border-color: var(--virtue-color, rgba(255,215,0,0.4));
+            background: linear-gradient(135deg, rgba(0,0,0,0.4), var(--virtue-bg, rgba(255,215,0,0.08)));
+            box-shadow: 0 0 10px var(--virtue-shadow, rgba(255,215,0,0.15));
+        }
+        .virtue-slot.unearned { opacity: 0.35; }
+        .virtue-slot-emoji { font-size: 18px; filter: grayscale(100%); transition: filter 0.5s ease; }
+        .virtue-slot.earned .virtue-slot-emoji { filter: grayscale(0%); }
+        .virtue-slot-text { display: flex; flex-direction: column; }
+        .virtue-slot-english { font-family: 'Cinzel', serif; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); letter-spacing: 0.5px; }
+        .virtue-slot.earned .virtue-slot-english { color: var(--virtue-color, #ffd700); }
+        .virtue-slot-greek { font-size: 9px; color: rgba(255,255,255,0.3); font-style: italic; }
+        .virtue-slot.earned .virtue-slot-greek { color: rgba(255,255,255,0.6); }
+        .avatar-progress-text {
+            font-family: 'Cinzel', serif; font-size: 11px; color: rgba(255,215,0,0.6);
+            text-align: center; margin-top: 8px; letter-spacing: 1px;
+        }
+        @media (max-width: 768px) {
+            .avatar-reveal-section { flex-direction: column; padding: 14px; }
+            .virtue-column { flex-direction: row; flex-wrap: wrap; justify-content: center; padding: 8px 0; }
+            .virtue-slot { min-width: 120px; }
+            .avatar-frame { width: 110px; height: 130px; }
+        }
+        @media (max-width: 480px) {
+            .virtue-slot { min-width: 100px; padding: 4px 8px; }
+            .virtue-slot-english { font-size: 9px; }
+        }
     </style>
 </head>
 <body>
@@ -1882,8 +2033,6 @@
             </div>
             <div class="user-info">
                 <span class="user-name" id="student-name">Student</span>
-                <button onclick="window.location.href='/hub.html'" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 6px 14px; color: white; cursor: pointer; font-family: 'Cinzel', serif; font-size: 12px; margin-right: 8px;">🏠 Hub</button>
-                <button id="myth-portal-nav-btn" onclick="window.location.href='/classical.html'" style="display: none; background: linear-gradient(135deg, #0ea5e9, #0284c7); border: 1px solid rgba(56,189,248,0.5); border-radius: 8px; padding: 6px 14px; color: white; cursor: pointer; font-family: 'Cinzel', serif; font-size: 12px; margin-right: 8px;">🏛️ Myth Portals</button>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -2445,6 +2594,82 @@
             </div>
         </div>
 
+        <!-- ==================== CLASSICAL AGE SECTION ==================== -->
+        <div id="classical-age-section">
+            <!-- Myth Portal Bar -->
+            <div class="myth-portal-bar">
+                <div class="myth-portal-title">📜 Myth Portals</div>
+                <div class="myth-portal-row" id="myth-portal-row">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Warrior Avatar Reveal -->
+            <div class="avatar-reveal-section" id="avatar-reveal-section">
+                <div class="virtue-column" id="virtue-column-left"></div>
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <div class="avatar-reveal-title">⚔️ Your Warrior Avatar</div>
+                    <div class="avatar-frame" id="avatar-frame">
+                        <img src="/images/heroic/avatars/warrior-avatar.png" alt="Warrior Avatar" id="avatar-image"
+                             style="opacity: 0; filter: brightness(0);"
+                             onerror="this.style.display='none'; document.getElementById('avatar-placeholder').style.display='block';">
+                        <div id="avatar-placeholder" style="display: none; text-align: center; padding: 20px;">
+                            <div style="font-size: 40px; opacity: 0.2;">⚔️</div>
+                            <div class="avatar-placeholder-text">Earn virtues to reveal your warrior</div>
+                        </div>
+                        <div class="avatar-glow" id="avatar-glow"></div>
+                    </div>
+                    <div class="avatar-progress-text" id="avatar-progress-text">0 / 7 Virtues</div>
+                </div>
+                <div class="virtue-column" id="virtue-column-right"></div>
+            </div>
+        </div>
+
+        <!-- Myth Quiz Modal -->
+        <div id="myth-quiz-modal" class="modal" style="z-index: 1200;">
+            <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #0a0f1a 0%, #1a1a3e 100%);">
+                <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span id="quiz-portal-title">📜 Myth Quiz</span>
+                    <button onclick="closeQuizModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+                </div>
+                <div id="quiz-intro" style="text-align: center; padding: 20px;">
+                    <div id="quiz-portal-icon" style="font-size: 4rem; margin-bottom: 12px;">📜</div>
+                    <div id="quiz-portal-name" style="font-family: 'Cinzel', serif; font-size: 1.4rem; color: #ffd700; margin-bottom: 8px;"></div>
+                    <div id="quiz-description" style="color: rgba(255,255,255,0.7); margin-bottom: 20px; line-height: 1.5;"></div>
+                    <div id="quiz-requirement" style="color: #4a90d9; font-size: 14px; margin-bottom: 16px;">Score 80% or higher to unlock this myth's assignments</div>
+                    <div id="quiz-past-attempts" style="margin-bottom: 16px;"></div>
+                    <button id="start-quiz-btn" onclick="startQuiz()" style="padding: 14px 32px; background: linear-gradient(135deg, #1e40af, #4a90d9); border: none; border-radius: 10px; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; font-family: 'Cinzel', serif; letter-spacing: 1px;">📝 Begin Quiz</button>
+                </div>
+                <div id="quiz-questions" style="display: none; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div id="quiz-progress" style="color: #4a90d9; font-weight: 700; font-size: 14px;">Question 1 of 5</div>
+                        <div id="quiz-score-tracker" style="color: #ffd700; font-size: 14px;">✓ 0 correct</div>
+                    </div>
+                    <div id="quiz-question-text" style="font-size: 16px; color: #e2d8c8; line-height: 1.6; margin-bottom: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 10px; border-left: 4px solid #4a90d9;"></div>
+                    <div id="quiz-options" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                    <div id="quiz-feedback" style="display: none; margin-top: 16px; padding: 14px; border-radius: 10px; text-align: center; font-weight: 700;"></div>
+                    <div id="quiz-next-btn-area" style="display: none; text-align: center; margin-top: 16px;">
+                        <button onclick="nextQuestion()" style="padding: 10px 28px; background: linear-gradient(135deg, #1e40af, #4a90d9); border: none; border-radius: 8px; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer;">Next Question →</button>
+                    </div>
+                </div>
+                <div id="quiz-results" style="display: none; text-align: center; padding: 20px;">
+                    <div id="quiz-result-icon" style="font-size: 4rem; margin-bottom: 12px;"></div>
+                    <div id="quiz-result-title" style="font-family: 'Cinzel', serif; font-size: 1.4rem; margin-bottom: 8px;"></div>
+                    <div id="quiz-result-score" style="font-size: 2rem; font-weight: 700; margin-bottom: 8px;"></div>
+                    <div id="quiz-result-message" style="color: rgba(255,255,255,0.7); margin-bottom: 20px;"></div>
+                    <div id="quiz-result-buttons"></div>
+                </div>
+                <div id="myth-assignment-panel" style="display: none; padding: 10px;">
+                    <div style="text-align: center; margin-bottom: 16px;">
+                        <span style="color: #4ade80; font-size: 14px; font-weight: 700;">✅ Quiz Passed!</span>
+                    </div>
+                    <div id="myth-assignments-content" style="color: rgba(255,255,255,0.7);">
+                        <p style="text-align: center; color: #4a90d9; font-style: italic;">Myth assignments coming soon — your teacher will provide these!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Dashboard -->
         <div class="dashboard-grid">
             <div>
@@ -2932,11 +3157,16 @@
             }
             
             document.getElementById('age-stat').textContent = student.current_age || 'Archaic';
-            
-            // Show Myth Portal button for Classical age students
-            const portalBtn = document.getElementById('myth-portal-nav-btn');
-            if (portalBtn && student.current_age === 'Classical') {
-                portalBtn.style.display = 'inline-block';
+
+            // Show/hide Classical Age section based on current age
+            const classicalSection = document.getElementById('classical-age-section');
+            if (classicalSection) {
+                if (student.current_age === 'Classical' || student.current_age === 'Heroic') {
+                    classicalSection.style.display = 'block';
+                    loadMythPortals();
+                } else {
+                    classicalSection.style.display = 'none';
+                }
             }
 
             // Render alliance section
@@ -3342,12 +3572,18 @@
                 
                 // Assignments
                 html += `
-                    <!-- Rite of Passage moved to Classical Age -->
+                    <div class="age-requirement">
+                        <div class="age-req-icon">📜</div>
+                        <div class="age-req-text">Rite of Passage Essay</div>
+                        <div class="age-req-status ${r.riteComplete ? 'complete' : 'incomplete'}">
+                            ${r.riteComplete ? '✅' : '⬜ Need'}
+                        </div>
+                    </div>
                     <div class="age-requirement">
                         <div class="age-req-icon">🗺️</div>
-                        <div class="age-req-text">Civilization Maps (${r.mapsSubmitted || 0}/${r.mapsRequired || 0} members)</div>
+                        <div class="age-req-text">Civilization Map</div>
                         <div class="age-req-status ${r.mapComplete ? 'complete' : 'incomplete'}">
-                            ${r.mapComplete ? '✅' : `⬜ Need ${(r.mapsRequired || 0) - (r.mapsSubmitted || 0)} more`}
+                            ${r.mapComplete ? '✅' : '⬜ Need'}
                         </div>
                     </div>
                 `;
@@ -4015,11 +4251,17 @@
                 
                 // Assignments
                 html += `
-                    <!-- Rite moved to Classical -->
+                    <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span>📜</span>
+                            <span>Rite of Passage</span>
+                        </div>
+                        <span style="color: ${r.riteComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.riteComplete ? '✅' : '⬜'}</span>
+                    </div>
                     <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <span>🗺️</span>
-                            <span>Maps (${r.mapsSubmitted || 0}/${r.mapsRequired || 0})</span>
+                            <span>Civilization Map</span>
                         </div>
                         <span style="color: ${r.mapComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.mapComplete ? '✅' : '⬜'}</span>
                     </div>
@@ -8632,6 +8874,335 @@
         
         // Start challenge polling on page load
         startChallengePolling();
+
+        // ==================== CLASSICAL AGE — MYTH PORTALS ====================
+        const mythPortalGlowColors = {
+            '#FFD700': { glow: 'rgba(255,215,0,0.5)', dim: 'rgba(255,215,0,0.2)', solid: '#FFD700', bg: 'rgba(255,215,0,0.08)', shadow: 'rgba(255,215,0,0.15)' },
+            '#FF8C00': { glow: 'rgba(255,140,0,0.5)', dim: 'rgba(255,140,0,0.2)', solid: '#FF8C00', bg: 'rgba(255,140,0,0.08)', shadow: 'rgba(255,140,0,0.15)' },
+            '#8B5CF6': { glow: 'rgba(139,92,246,0.5)', dim: 'rgba(139,92,246,0.2)', solid: '#8B5CF6', bg: 'rgba(139,92,246,0.08)', shadow: 'rgba(139,92,246,0.15)' },
+            '#EC4899': { glow: 'rgba(236,72,153,0.5)', dim: 'rgba(236,72,153,0.2)', solid: '#EC4899', bg: 'rgba(236,72,153,0.08)', shadow: 'rgba(236,72,153,0.15)' },
+            '#3B82F6': { glow: 'rgba(59,130,246,0.5)', dim: 'rgba(59,130,246,0.2)', solid: '#3B82F6', bg: 'rgba(59,130,246,0.08)', shadow: 'rgba(59,130,246,0.15)' },
+            '#EF4444': { glow: 'rgba(239,68,68,0.5)', dim: 'rgba(239,68,68,0.2)', solid: '#EF4444', bg: 'rgba(239,68,68,0.08)', shadow: 'rgba(239,68,68,0.15)' },
+            '#C0C0C0': { glow: 'rgba(192,192,192,0.5)', dim: 'rgba(192,192,192,0.2)', solid: '#C0C0C0', bg: 'rgba(192,192,192,0.08)', shadow: 'rgba(192,192,192,0.15)' }
+        };
+
+        async function loadMythPortals() {
+            try {
+                const response = await fetch(`${API_URL}/student/myth-portals`, { headers });
+                const data = await response.json();
+                const row = document.getElementById('myth-portal-row');
+                if (!row || !data.portals) return;
+
+                row.innerHTML = data.portals.map(portal => {
+                    const isActive = portal.activated === 1;
+                    const isPassed = portal.quiz_passed === 1;
+                    const isVirtueEarned = portal.virtue_earned === 1;
+                    const stateClass = isVirtueEarned ? 'passed virtue-earned' : (isPassed ? 'passed' : (isActive ? 'active' : 'locked'));
+                    const colors = mythPortalGlowColors[portal.glow_color] || mythPortalGlowColors['#3B82F6'];
+                    const clickAction = isActive || isPassed ? `onclick="openMythPortal(${portal.portal_id})"` : '';
+
+                    let statusText = '🔒 Locked — Reading guide not yet verified';
+                    let statusItems = '';
+                    if (isVirtueEarned) {
+                        statusText = '✨ Virtue Earned!';
+                    } else if (isPassed) {
+                        statusText = '📝 Quiz passed — Complete a creative work to earn virtue';
+                        statusItems = `<div style="margin-top:4px;">` +
+                            `<span style="color:${portal.has_reading_guide ? '#4ade80' : '#fbbf24'}">${portal.has_reading_guide ? '✓' : '○'} Reading Guide</span> · ` +
+                            `<span style="color:#4ade80">✓ Quiz</span> · ` +
+                            `<span style="color:${portal.has_creative ? '#4ade80' : '#fbbf24'}">${portal.has_creative ? '✓' : '○'} Creative</span></div>`;
+                    } else if (isActive) {
+                        statusText = '🌀 Portal open — Take the quiz!';
+                        statusItems = `<div style="margin-top:4px;">` +
+                            `<span style="color:${portal.has_reading_guide ? '#4ade80' : '#fbbf24'}">${portal.has_reading_guide ? '✓' : '○'} Reading Guide</span> · ` +
+                            `<span style="color:#fbbf24">○ Quiz</span> · ` +
+                            `<span style="color:#555">○ Creative</span></div>`;
+                    }
+
+                    const iconContent = portal.icon_url
+                        ? `<img class="myth-portal-img" src="${portal.icon_url}" alt="${portal.display_name}" onerror="this.outerHTML='<div class=\\'myth-portal-icon\\'>${portal.icon_placeholder || '📜'}</div>'">`
+                        : `<div class="myth-portal-icon">${portal.icon_placeholder || '📜'}</div>`;
+
+                    return `<div class="myth-portal ${stateClass}"
+                                style="--portal-glow:${colors.glow}; --portal-glow-dim:${colors.dim}"
+                                ${clickAction}>
+                        ${iconContent}
+                        <div class="myth-portal-name">${portal.display_name || portal.myth_name}</div>
+                        ${isVirtueEarned ? '<div style="position:absolute;top:2px;right:4px;font-size:10px;">✨</div>' : ''}
+                        <div class="virtue-tooltip" style="--portal-glow:${colors.glow}; --portal-glow-dim:${colors.dim}">
+                            <div class="virtue-tooltip-title">${portal.virtue_emoji || ''} ${portal.virtue_english || 'Unknown'}</div>
+                            <div class="virtue-tooltip-greek">${portal.virtue_greek || ''}</div>
+                            <div class="virtue-tooltip-desc">"${portal.virtue_description || ''}"</div>
+                            <div class="virtue-tooltip-status">${statusText}${statusItems}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                renderAvatarReveal(data.portals, data.virtues_earned, mythPortalGlowColors);
+            } catch (err) {
+                console.error('Failed to load myth portals:', err);
+            }
+        }
+
+        function renderAvatarReveal(portals, virtuesEarned, glowColors) {
+            const leftCol = document.getElementById('virtue-column-left');
+            const rightCol = document.getElementById('virtue-column-right');
+            const avatarImg = document.getElementById('avatar-image');
+            const avatarPlaceholder = document.getElementById('avatar-placeholder');
+            const avatarFrame = document.getElementById('avatar-frame');
+            const avatarGlow = document.getElementById('avatar-glow');
+            const progressText = document.getElementById('avatar-progress-text');
+            if (!leftCol || !rightCol) return;
+
+            const leftPortals = portals.slice(0, 4);
+            const rightPortals = portals.slice(4, 7);
+
+            const renderVirtueSlot = (portal) => {
+                const earned = portal.virtue_earned === 1;
+                const colors = glowColors[portal.glow_color] || glowColors['#3B82F6'];
+                return `<div class="virtue-slot ${earned ? 'earned' : 'unearned'}"
+                            style="--virtue-color:${colors.solid}; --virtue-bg:${colors.bg}; --virtue-shadow:${colors.shadow}">
+                    <div class="virtue-slot-emoji">${portal.virtue_emoji || '○'}</div>
+                    <div class="virtue-slot-text">
+                        <div class="virtue-slot-english">${portal.virtue_english || '???'}</div>
+                        <div class="virtue-slot-greek">${portal.virtue_greek || ''}</div>
+                    </div>
+                </div>`;
+            };
+
+            leftCol.innerHTML = leftPortals.map(renderVirtueSlot).join('');
+            rightCol.innerHTML = rightPortals.map(renderVirtueSlot).join('');
+
+            const count = virtuesEarned || 0;
+            const opacitySteps = [0, 0.12, 0.22, 0.38, 0.54, 0.70, 0.85, 1.0];
+            const brightnessSteps = [0, 0.3, 0.4, 0.55, 0.65, 0.78, 0.9, 1.0];
+
+            if (avatarImg) {
+                avatarImg.style.opacity = opacitySteps[count] || 0;
+                avatarImg.style.filter = `brightness(${brightnessSteps[count] || 0})`;
+            }
+            if (avatarPlaceholder) {
+                avatarPlaceholder.style.display = (opacitySteps[count] || 0) === 0 ? 'block' : 'none';
+            }
+            if (avatarGlow) {
+                if (count === 7) {
+                    avatarGlow.style.boxShadow = 'inset 0 0 30px rgba(255,215,0,0.3), 0 0 20px rgba(255,215,0,0.2)';
+                    avatarFrame.classList.add('complete');
+                } else if (count >= 4) {
+                    avatarGlow.style.boxShadow = `inset 0 0 15px rgba(255,215,0,${count * 0.04})`;
+                } else {
+                    avatarGlow.style.boxShadow = 'none';
+                }
+            }
+            if (progressText) {
+                if (count === 7) { progressText.textContent = '✨ AVATAR REVEALED — The Gods See You ✨'; progressText.style.color = '#ffd700'; }
+                else if (count === 0) { progressText.textContent = '0 / 7 Virtues — Earn virtues to reveal your warrior'; progressText.style.color = 'rgba(255,215,0,0.4)'; }
+                else { progressText.textContent = `${count} / 7 Virtues Earned`; progressText.style.color = 'rgba(255,215,0,0.6)'; }
+            }
+        }
+
+        // ==================== MYTH QUIZ SYSTEM ====================
+        let currentQuizPortalId = null;
+        let quizQuestions = [];
+        let quizPlayerAnswers = [];
+        let currentQuestionIndex = 0;
+        let quizCorrectCount = 0;
+        let quizAnswered = false;
+
+        async function openMythPortal(portalId) {
+            currentQuizPortalId = portalId;
+            currentQuestionIndex = 0;
+            quizCorrectCount = 0;
+            quizQuestions = [];
+            quizAnswered = false;
+
+            document.getElementById('myth-quiz-modal').classList.add('show');
+            document.getElementById('quiz-intro').style.display = 'block';
+            document.getElementById('quiz-questions').style.display = 'none';
+            document.getElementById('quiz-results').style.display = 'none';
+            document.getElementById('myth-assignment-panel').style.display = 'none';
+
+            try {
+                const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
+                const statusData = await statusRes.json();
+                const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === portalId) : false;
+                const attemptInfo = statusData.attempts ? statusData.attempts.find(a => a.portal_id === portalId) : null;
+
+                const portalsRes = await fetch(`${API_URL}/student/myth-portals`, { headers });
+                const portalsData = await portalsRes.json();
+                const portal = portalsData.portals ? portalsData.portals.find(p => p.portal_id === portalId) : null;
+
+                if (portal) {
+                    document.getElementById('quiz-portal-title').textContent = `📜 ${portal.display_name}`;
+                    document.getElementById('quiz-portal-icon').textContent = portal.icon_placeholder || '📜';
+                    document.getElementById('quiz-portal-name').textContent = portal.display_name;
+                    document.getElementById('quiz-description').textContent = portal.description || 'Test your knowledge of this myth!';
+                }
+
+                if (hasPassed) {
+                    document.getElementById('quiz-intro').style.display = 'none';
+                    document.getElementById('myth-assignment-panel').style.display = 'block';
+                    return;
+                }
+
+                const attemptsDiv = document.getElementById('quiz-past-attempts');
+                if (attemptInfo && attemptInfo.attempt_count > 0) {
+                    attemptsDiv.innerHTML = `<div style="color: #fbbf24; font-size: 13px;">Previous best: ${attemptInfo.best_score}% (${attemptInfo.attempt_count} attempt${attemptInfo.attempt_count > 1 ? 's' : ''})</div>`;
+                } else {
+                    attemptsDiv.innerHTML = '';
+                }
+            } catch (err) {
+                console.error('Error loading portal data:', err);
+            }
+        }
+
+        async function startQuiz() {
+            try {
+                const response = await fetch(`${API_URL}/student/quiz/${currentQuizPortalId}`, { headers });
+                const data = await response.json();
+
+                if (!data.questions || data.questions.length === 0) {
+                    document.getElementById('quiz-intro').style.display = 'none';
+                    document.getElementById('quiz-questions').style.display = 'block';
+                    document.getElementById('quiz-question-text').textContent = 'No quiz questions available yet. Your teacher will add questions for this myth soon!';
+                    document.getElementById('quiz-options').innerHTML = '';
+                    document.getElementById('quiz-progress').textContent = '';
+                    document.getElementById('quiz-score-tracker').textContent = '';
+                    return;
+                }
+
+                quizQuestions = data.questions;
+                currentQuestionIndex = 0;
+                quizCorrectCount = 0;
+                quizPlayerAnswers = new Array(data.questions.length).fill('');
+
+                document.getElementById('quiz-intro').style.display = 'none';
+                document.getElementById('quiz-questions').style.display = 'block';
+                showQuestion();
+            } catch (err) {
+                console.error('Start quiz error:', err);
+                alert('Failed to load quiz questions');
+            }
+        }
+
+        function showQuestion() {
+            const q = quizQuestions[currentQuestionIndex];
+            if (!q) return;
+            quizAnswered = false;
+            document.getElementById('quiz-progress').textContent = `Question ${currentQuestionIndex + 1} of ${quizQuestions.length}`;
+            document.getElementById('quiz-score-tracker').textContent = `✓ ${quizCorrectCount} correct`;
+            document.getElementById('quiz-question-text').textContent = q.question_text;
+            document.getElementById('quiz-feedback').style.display = 'none';
+            document.getElementById('quiz-next-btn-area').style.display = 'none';
+
+            const options = [
+                { key: 'A', text: q.option_a },
+                { key: 'B', text: q.option_b },
+                { key: 'C', text: q.option_c },
+                { key: 'D', text: q.option_d }
+            ].filter(o => o.text);
+
+            document.getElementById('quiz-options').innerHTML = options.map(opt =>
+                `<button class="quiz-option-btn" onclick="selectAnswer('${opt.key}')"
+                    data-key="${opt.key}"
+                    style="padding: 14px 18px; background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15); border-radius: 10px; color: #e2d8c8; font-size: 15px; text-align: left; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(74,144,217,0.2); color: #4a90d9; font-weight: 700; font-size: 14px; flex-shrink: 0;">${opt.key}</span>
+                    <span>${opt.text}</span>
+                </button>`
+            ).join('');
+        }
+
+        function selectAnswer(key) {
+            if (quizAnswered) return;
+            quizAnswered = true;
+            quizPlayerAnswers[currentQuestionIndex] = key;
+
+            const q = quizQuestions[currentQuestionIndex];
+            const isCorrect = key === q.correct_answer;
+            if (isCorrect) quizCorrectCount++;
+
+            document.querySelectorAll('.quiz-option-btn').forEach(btn => {
+                btn.style.cursor = 'default';
+                const btnKey = btn.dataset.key;
+                if (btnKey === q.correct_answer) {
+                    btn.style.background = 'rgba(74,222,128,0.2)'; btn.style.borderColor = '#4ade80'; btn.style.color = '#4ade80';
+                } else if (btnKey === key && !isCorrect) {
+                    btn.style.background = 'rgba(239,68,68,0.2)'; btn.style.borderColor = '#ef4444'; btn.style.color = '#ef4444';
+                } else {
+                    btn.style.opacity = '0.4';
+                }
+            });
+
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.style.display = 'block';
+            if (isCorrect) {
+                feedback.style.background = 'rgba(74,222,128,0.15)'; feedback.style.border = '1px solid rgba(74,222,128,0.3)';
+                feedback.style.color = '#4ade80'; feedback.textContent = '✓ Correct!';
+            } else {
+                feedback.style.background = 'rgba(239,68,68,0.15)'; feedback.style.border = '1px solid rgba(239,68,68,0.3)';
+                feedback.style.color = '#ef4444'; feedback.textContent = `✗ The answer was ${q.correct_answer}`;
+            }
+            document.getElementById('quiz-score-tracker').textContent = `✓ ${quizCorrectCount} correct`;
+
+            const nextArea = document.getElementById('quiz-next-btn-area');
+            nextArea.style.display = 'block';
+            if (currentQuestionIndex >= quizQuestions.length - 1) {
+                nextArea.innerHTML = '<button onclick="finishQuiz()" style="padding: 10px 28px; background: linear-gradient(135deg, #ffd700, #ff8c00); border: none; border-radius: 8px; color: #1a0a0f; font-weight: 700; font-size: 14px; cursor: pointer;">See Results</button>';
+            }
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < quizQuestions.length) { showQuestion(); }
+            else { finishQuiz(); }
+        }
+
+        async function finishQuiz() {
+            const total = quizQuestions.length;
+            const percentage = Math.round((quizCorrectCount / total) * 100);
+            const passed = percentage >= 80;
+
+            try {
+                const answers = quizQuestions.map((q, i) => ({
+                    question_id: q.question_id,
+                    selected_answer: quizPlayerAnswers[i] || ''
+                }));
+                await fetch(`${API_URL}/student/submit-quiz`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ portal_id: currentQuizPortalId, answers: answers })
+                });
+            } catch (err) {
+                console.error('Submit quiz error:', err);
+            }
+
+            document.getElementById('quiz-questions').style.display = 'none';
+            document.getElementById('quiz-results').style.display = 'block';
+
+            document.getElementById('quiz-result-score').textContent = `${quizCorrectCount}/${total} (${percentage}%)`;
+
+            if (passed) {
+                document.getElementById('quiz-result-icon').textContent = '🏆';
+                document.getElementById('quiz-result-title').style.color = '#4ade80';
+                document.getElementById('quiz-result-title').textContent = 'MYTH MASTERED!';
+                document.getElementById('quiz-result-score').style.color = '#4ade80';
+                document.getElementById('quiz-result-message').textContent = 'You have proven your knowledge of this myth. The portal is now open!';
+                document.getElementById('quiz-result-buttons').innerHTML = '<button onclick="closeQuizModal(); loadMythPortals();" style="padding: 12px 28px; background: linear-gradient(135deg, #059669, #10b981); border: none; border-radius: 10px; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;">✅ Continue</button>';
+            } else {
+                document.getElementById('quiz-result-icon').textContent = '📖';
+                document.getElementById('quiz-result-title').style.color = '#fbbf24';
+                document.getElementById('quiz-result-title').textContent = 'Keep Studying!';
+                document.getElementById('quiz-result-score').style.color = '#fbbf24';
+                document.getElementById('quiz-result-message').textContent = 'You need 80% to pass. Review the myth and try again!';
+                document.getElementById('quiz-result-buttons').innerHTML = `
+                    <button onclick="startQuiz()" style="padding: 12px 28px; background: linear-gradient(135deg, #1e40af, #4a90d9); border: none; border-radius: 10px; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; margin-right: 10px;">🔄 Try Again</button>
+                    <button onclick="closeQuizModal()" style="padding: 12px 28px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; color: #e2d8c8; font-weight: 600; font-size: 14px; cursor: pointer;">Close</button>`;
+            }
+        }
+
+        function closeQuizModal() {
+            document.getElementById('myth-quiz-modal').classList.remove('show');
+        }
 
         // Initialize form on load
         document.addEventListener('DOMContentLoaded', function() {
