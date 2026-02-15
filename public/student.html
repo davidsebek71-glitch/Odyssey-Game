@@ -2456,22 +2456,31 @@
                     <div id="buildings-activations-content">Loading...</div>
                 </div>
 
-                <!-- My Contributions (Phase 2) -->
+                <!-- My Submissions (collapsible) -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">📊 My Contributions</div>
-                    <div id="contributions-content" class="loading">Loading...</div>
+                    <div class="card-title" onclick="toggleSection('submissions')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📝 My Point Submissions</span>
+                        <span id="submissions-toggle" style="font-size: 18px; transition: transform 0.3s;">▼</span>
+                    </div>
+                    <div id="submissions-content" class="loading" style="transition: max-height 0.3s ease;">Loading...</div>
                 </div>
 
-                <!-- My Grades (V42) -->
+                <!-- My Grades (collapsible) -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">📊 My Archaic Age Grades</div>
-                    <div id="grades-content" class="loading">Loading...</div>
+                    <div class="card-title" onclick="toggleSection('grades')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📊 My Archaic Age Grades</span>
+                        <span id="grades-toggle" style="font-size: 18px; transition: transform 0.3s;">▼</span>
+                    </div>
+                    <div id="grades-content" class="loading" style="transition: max-height 0.3s ease;">Loading...</div>
                 </div>
 
-                <!-- My Submissions -->
-                <div class="card">
-                    <div class="card-title">📝 My Point Submissions</div>
-                    <div id="submissions-content" class="loading">Loading...</div>
+                <!-- My Contributions (collapsible) -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-title" onclick="toggleSection('contributions')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📊 My Contributions</span>
+                        <span id="contributions-toggle" style="font-size: 18px; transition: transform 0.3s;">▼</span>
+                    </div>
+                    <div id="contributions-content" class="loading" style="transition: max-height 0.3s ease;">Loading...</div>
                 </div>
             </div>
 
@@ -2707,6 +2716,19 @@
 
     <script>
         const API_URL = '/api';
+
+            // Collapsible section toggle
+            function toggleSection(section) {
+                const content = document.getElementById(section + '-content');
+                const toggle = document.getElementById(section + '-toggle');
+                if (content.style.display === 'none') {
+                    content.style.display = '';
+                    toggle.textContent = '▼';
+                } else {
+                    content.style.display = 'none';
+                    toggle.textContent = '▶';
+                }
+            }
         const token = localStorage.getItem('token');
         
         if (!token) {
@@ -4894,15 +4916,15 @@
                     <!-- Section One -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 16px;">SECTION ONE</strong>
-                            <span style="color: #ffd700; font-weight: bold; font-size: 18px;">${grades.section1.earned}/${grades.section1.max}</span>
+                            <strong style="font-size: 18px;">SECTION ONE</strong>
+                            <span style="color: #ffd700; font-weight: bold; font-size: 22px;">${grades.section1.earned}/${grades.section1.max}</span>
                         </div>
                         ${createProgressBar(grades.section1.earned, grades.section1.max, grades.section1.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.section1.percentage}%</div>
                         
                         ${grades.section1.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section1.completed.length} completed</summary>
+                                <summary style="cursor: pointer; color: #4ade80; font-size: 18px; font-weight: 600;">✓ ${grades.section1.completed.length} completed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section1.completed.map(c => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
@@ -4915,7 +4937,7 @@
                         
                         ${grades.section1.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section1.missing.length} still needed</summary>
+                                <summary style="cursor: pointer; color: #fbbf24; font-size: 18px; font-weight: 600;">📋 ${grades.section1.missing.length} still needed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section1.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
@@ -4930,15 +4952,15 @@
                     <!-- Section Two -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 16px;">SECTION TWO</strong>
-                            <span style="color: #ffd700; font-weight: bold; font-size: 18px;">${grades.section2.earned}/${grades.section2.max}</span>
+                            <strong style="font-size: 18px;">SECTION TWO</strong>
+                            <span style="color: #ffd700; font-weight: bold; font-size: 22px;">${grades.section2.earned}/${grades.section2.max}</span>
                         </div>
                         ${createProgressBar(grades.section2.earned, grades.section2.max, grades.section2.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.section2.percentage}%</div>
                         
                         ${grades.section2.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section2.completed.length} completed</summary>
+                                <summary style="cursor: pointer; color: #4ade80; font-size: 18px; font-weight: 600;">✓ ${grades.section2.completed.length} completed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section2.completed.map(c => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
@@ -4951,7 +4973,7 @@
                         
                         ${grades.section2.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section2.missing.length} still needed</summary>
+                                <summary style="cursor: pointer; color: #fbbf24; font-size: 18px; font-weight: 600;">📋 ${grades.section2.missing.length} still needed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section2.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
@@ -4968,8 +4990,8 @@
                     <!-- Extra Credit -->
                     <div style="background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(245,158,11,0.1)); padding: 15px; border-radius: 10px; border: 1px solid rgba(251,191,36,0.3);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 16px;">🎁 EXTRA CREDIT</strong>
-                            <span style="color: #fbbf24; font-weight: bold; font-size: 18px;">${grades.bonus.earned}/${grades.bonus.max}</span>
+                            <strong style="font-size: 18px;">🎁 EXTRA CREDIT</strong>
+                            <span style="color: #fbbf24; font-weight: bold; font-size: 22px;">${grades.bonus.earned}/${grades.bonus.max}</span>
                         </div>
                         ${createProgressBar(grades.bonus.earned, grades.bonus.max, grades.bonus.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.bonus.percentage}%</div>
