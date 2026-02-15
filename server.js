@@ -7305,6 +7305,7 @@ function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
   }
   
   // Check which Classical myths are unlocked for this alliance
+  // Wrapped in try/catch — if myth_portals tables don't exist yet, fall back to Archaic only
   let unlockedMyths = [];
   try {
     const unlockedPortals = query(
@@ -7313,50 +7314,56 @@ function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
     );
     unlockedMyths = unlockedPortals.map(p => p.myth_name);
   } catch (portalErr) {
-    console.log('⚠️ myth_portals query failed (tables may not exist yet), using Archaic only');
+    console.log('⚠️ myth_portals query failed, using Archaic only:', portalErr.message);
   }
   
-  // Build question pool: all Archaic + Classical questions for unlocked myths
-  let questions;
-  if (excludeIds.length > 0) {
-    const placeholders = excludeIds.map(() => '?').join(',');
-    if (unlockedMyths.length > 0) {
-      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
-      questions = query(
-        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
-        [...excludeIds, ...unlockedMyths]
-      );
-    } else {
-      questions = query(
-        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL)`,
-        excludeIds
-      );
-    }
+  // Build separate Archaic and Classical question pools
+  const excludePlaceholders = excludeIds.length > 0 ? `AND question_id NOT IN (${excludeIds.map(() => '?').join(',')})` : '';
+  const excludeParams = excludeIds.length > 0 ? excludeIds : [];
+  
+  // Archaic pool: all Archaic/null age questions
+  const archaicQuestions = query(
+    `SELECT * FROM battle_questions WHERE is_active = 1 ${excludePlaceholders} AND (age = 'Archaic' OR age IS NULL)`,
+    excludeParams
+  );
+  
+  // Classical pool: only questions from unlocked myths
+  let classicalQuestions = [];
+  if (unlockedMyths.length > 0) {
+    const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
+    classicalQuestions = query(
+      `SELECT * FROM battle_questions WHERE is_active = 1 ${excludePlaceholders} AND age = 'Classical' AND myth_name IN (${mythPlaceholders})`,
+      [...excludeParams, ...unlockedMyths]
+    );
+  }
+  
+  // 70% Classical / 30% Archaic weighted selection
+  // If one pool is empty, use the other entirely
+  let selectedPool;
+  if (classicalQuestions.length === 0 && archaicQuestions.length === 0) {
+    // Both empty — fallback to any active question
+    const fallback = query('SELECT * FROM battle_questions WHERE is_active = 1');
+    if (fallback.length === 0) return null;
+    selectedPool = fallback;
+  } else if (classicalQuestions.length === 0) {
+    // No Classical questions available yet — use all Archaic
+    selectedPool = archaicQuestions;
+  } else if (archaicQuestions.length === 0) {
+    // No Archaic left (unlikely) — use all Classical
+    selectedPool = classicalQuestions;
   } else {
-    if (unlockedMyths.length > 0) {
-      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
-      questions = query(
-        `SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
-        unlockedMyths
-      );
-    } else {
-      questions = query("SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL)");
-    }
-  }
-  
-  if (questions.length === 0) {
-    // Fallback — get any active question
-    questions = query('SELECT * FROM battle_questions WHERE is_active = 1');
-    if (questions.length === 0) return null;
+    // Both pools have questions — apply 70/30 weighting
+    const roll = Math.random();
+    selectedPool = roll < 0.70 ? classicalQuestions : archaicQuestions;
   }
   
   // Fisher-Yates shuffle
-  for (let i = questions.length - 1; i > 0; i--) {
+  for (let i = selectedPool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [questions[i], questions[j]] = [questions[j], questions[i]];
+    [selectedPool[i], selectedPool[j]] = [selectedPool[j], selectedPool[i]];
   }
   
-  return questions[0];
+  return selectedPool[0];
 }
 
 // ====================
