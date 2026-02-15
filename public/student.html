@@ -1901,6 +1901,9 @@
             padding: 16px 20px 12px;
             text-align: center;
             margin-bottom: 16px;
+            overflow: visible;
+            position: relative;
+            z-index: 10;
         }
         .myth-portal-title {
             font-family: 'Cinzel', serif;
@@ -1956,7 +1959,7 @@
         .myth-portal.active .myth-portal-name,
         .myth-portal.passed .myth-portal-name { color: #c0d8f0; }
         .myth-portal .virtue-tooltip {
-            position: absolute; top: calc(100% + 35px); left: 50%;
+            position: absolute; bottom: calc(100% + 35px); left: 50%;
             transform: translateX(-50%);
             background: linear-gradient(135deg, rgba(15,20,40,0.98), rgba(25,30,55,0.98));
             border: 2px solid var(--portal-glow, rgba(74,144,217,0.5));
@@ -1970,9 +1973,9 @@
         }
         .myth-portal:hover .virtue-tooltip { opacity: 1; visibility: visible; }
         .virtue-tooltip::after {
-            content: ''; position: absolute; bottom: 100%; left: 50%;
+            content: ''; position: absolute; top: 100%; left: 50%;
             transform: translateX(-50%); border: 10px solid transparent;
-            border-bottom-color: var(--portal-glow, rgba(74,144,217,0.5));
+            border-top-color: var(--portal-glow, rgba(74,144,217,0.5));
         }
         .virtue-tooltip-title { font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; color: var(--portal-glow, #4a90d9); margin-bottom: 6px; text-align: center; }
         .virtue-tooltip-greek { font-size: 14px; font-weight: 600; color: #ffd700; margin-bottom: 6px; letter-spacing: 1px; text-align: center; }
