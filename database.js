@@ -575,12 +575,12 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS myth_portal_status (
       status_id INTEGER PRIMARY KEY AUTOINCREMENT,
       portal_id INTEGER NOT NULL,
-      class_period TEXT NOT NULL,
+      alliance_id INTEGER NOT NULL,
       activated INTEGER DEFAULT 0,
       activated_at DATETIME,
       activated_by INTEGER,
       FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id),
-      UNIQUE(portal_id, class_period)
+      UNIQUE(portal_id, alliance_id)
     )
   `);
 
@@ -808,6 +808,31 @@ function runMigrations() {
     console.log('✅ Classical Age migrations complete');
   } catch (err) {
     console.log('Classical Age migration note:', err.message);
+  }
+  
+  // Migrate myth_portal_status: class_period → alliance_id
+  try {
+    const mpsCols = db.exec("PRAGMA table_info(myth_portal_status)");
+    const mpsColNames = mpsCols[0] ? mpsCols[0].values.map(c => c[1]) : [];
+    
+    if (mpsColNames.includes('class_period') && !mpsColNames.includes('alliance_id')) {
+      console.log('🔄 Migrating myth_portal_status: class_period → alliance_id...');
+      // Table has no real data yet (portals were never seeded before), safe to recreate
+      db.run('DROP TABLE IF EXISTS myth_portal_status');
+      db.run(`CREATE TABLE myth_portal_status (
+        status_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        portal_id INTEGER NOT NULL,
+        alliance_id INTEGER NOT NULL,
+        activated INTEGER DEFAULT 0,
+        activated_at DATETIME,
+        activated_by INTEGER,
+        FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id),
+        UNIQUE(portal_id, alliance_id)
+      )`);
+      console.log('✅ myth_portal_status migrated to use alliance_id');
+    }
+  } catch (err) {
+    console.log('myth_portal_status migration note:', err.message);
   }
   
   // Side quest age column migration
