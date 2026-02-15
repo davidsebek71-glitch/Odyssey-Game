@@ -7286,6 +7286,7 @@
                 // Track current question to detect changes
                 const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
                 currentQuestion = data.question;
+                if (questionChanged) questionReadyRetries = 0;
                 
                 // Check if question has been displayed yet (both players ready)
                 const questionDisplayTime = roundData.question_display_time;
@@ -7663,7 +7664,17 @@
         }
         
         // Signal to server that client is ready for question display
+        let questionReadyRetries = 0;
+        const MAX_QUESTION_READY_RETRIES = 60;
+        
         async function signalQuestionReady() {
+            questionReadyRetries++;
+            if (questionReadyRetries > MAX_QUESTION_READY_RETRIES) {
+                console.log('⚠️ Question ready retry limit reached, falling back to polling');
+                questionReadyRetries = 0;
+                loadBattleState();
+                return;
+            }
             try {
                 const response = await fetch(`${API_URL}/arena/question-ready`, {
                     method: 'POST',
