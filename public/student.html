@@ -2462,27 +2462,27 @@
                 <div class="card" style="margin-bottom: 20px;">
                     <div class="card-title" onclick="toggleSection('submissions')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
                         <span>📝 My Point Submissions</span>
-                        <span id="submissions-toggle" style="font-size: 18px; transition: transform 0.3s;">▼</span>
+                        <span id="submissions-toggle" style="font-size: 18px; transition: transform 0.3s;">▶</span>
                     </div>
-                    <div id="submissions-content" class="loading" style="transition: max-height 0.3s ease;">Loading...</div>
+                    <div id="submissions-content" style="display: none; transition: max-height 0.3s ease;"><div class="empty-state" style="color: rgba(255,255,255,0.5); padding: 10px; text-align: center;">Tap header to view</div></div>
                 </div>
 
                 <!-- My Grades (collapsible) -->
                 <div class="card" style="margin-bottom: 20px;">
                     <div class="card-title" onclick="toggleSection('grades')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
                         <span>📊 My Archaic Age Grades</span>
-                        <span id="grades-toggle" style="font-size: 18px; transition: transform 0.3s;">▼</span>
+                        <span id="grades-toggle" style="font-size: 18px; transition: transform 0.3s;">▶</span>
                     </div>
-                    <div id="grades-content" class="loading" style="transition: max-height 0.3s ease;">Loading...</div>
+                    <div id="grades-content" style="display: none; transition: max-height 0.3s ease;"><div class="empty-state" style="color: rgba(255,255,255,0.5); padding: 10px; text-align: center;">Tap header to view</div></div>
                 </div>
 
                 <!-- My Contributions (collapsible) -->
                 <div class="card" style="margin-bottom: 20px;">
                     <div class="card-title" onclick="toggleSection('contributions')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
                         <span>📊 My Contributions</span>
-                        <span id="contributions-toggle" style="font-size: 18px; transition: transform 0.3s;">▼</span>
+                        <span id="contributions-toggle" style="font-size: 18px; transition: transform 0.3s;">▶</span>
                     </div>
-                    <div id="contributions-content" class="loading" style="transition: max-height 0.3s ease;">Loading...</div>
+                    <div id="contributions-content" style="display: none; transition: max-height 0.3s ease;"><div class="empty-state" style="color: rgba(255,255,255,0.5); padding: 10px; text-align: center;">Tap header to view</div></div>
                 </div>
             </div>
 
@@ -2719,13 +2719,21 @@
     <script>
         const API_URL = '/api';
 
-            // Collapsible section toggle
+            // Collapsible section toggle with lazy loading
+            const sectionLoaded = { submissions: false, grades: false, contributions: false };
             function toggleSection(section) {
                 const content = document.getElementById(section + '-content');
                 const toggle = document.getElementById(section + '-toggle');
                 if (content.style.display === 'none') {
                     content.style.display = '';
                     toggle.textContent = '▼';
+                    // Lazy load on first expand
+                    if (!sectionLoaded[section]) {
+                        sectionLoaded[section] = true;
+                        if (section === 'submissions') loadSubmissions();
+                        else if (section === 'grades') loadGrades();
+                        else if (section === 'contributions') loadContributions();
+                    }
                 } else {
                     content.style.display = 'none';
                     toggle.textContent = '▶';
@@ -2793,13 +2801,11 @@
 
         loadDashboard();
         loadInvitations();
-        loadSubmissions();
-        loadContributions();
         loadAchievements();
         loadAgeProgress();
-        loadGrades();
-        loadPantheon(); // Load pantheon status
-        checkArenaEligibility(); // Check if arena button should pulse
+        loadPantheon();
+        checkArenaEligibility();
+        // Submissions, Grades, Contributions load on first expand (lazy loading)
         
         // Start background polling for real-time updates
         startBackgroundPolling();
@@ -2879,7 +2885,7 @@
                 } catch (err) {
                     // Silently fail - polling errors shouldn't disrupt the UI
                 }
-            }, 10000); // Every 10 seconds
+            }, 30000); // Every 30 seconds
         }
         
         // Stop polling when page is hidden (saves resources)
