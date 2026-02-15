@@ -1887,7 +1887,7 @@
                                     </div>
                                     <div style="color: ${r.mapComplete ? '#4ade80' : '#ef4444'};">
                                         🗺️ Maps: ${r.mapsSubmitted || 0}/${r.mapsRequired || 0}
-                                        <button onclick="toggleMap(${a.alliance_id}, ${!r.mapComplete})"
+                                        <button onclick="toggleMap(${a.alliance_id}, ${!r.mapComplete})" 
                                             style="margin-left: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white;">
                                             ${r.mapComplete ? 'Unmark' : 'Mark ✔'}
                                         </button>
@@ -2892,7 +2892,7 @@
                     requestAnimationFrame(animate);
                 } else {
                     // Spinning complete!
-                    // Normalize rotation to 0-2π range to prevent accumulation
+                    // Normalize rotation to 0-2Ï€ range to prevent accumulation
                     currentRotation = currentRotation % (2 * Math.PI);
                     
                     spinning = false;
