@@ -7045,31 +7045,35 @@ app.post('/api/student/enter-classical', authenticateToken, (req, res) => {
 // --- Student: Get Myth Portals with progress ---
 app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
   try {
-    const student = query('SELECT * FROM students WHERE student_id = ?', [req.user.id])[0];
+    const student_id = req.user.id;
+    const student = query('SELECT class_period, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
     if (!student) return res.status(404).json({ error: 'Student not found' });
-    
+
     let portals = [];
     try {
-      portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
+      portals = query(`
+        SELECT p.*, 
+               COALESCE(ps.activated, 0) as activated,
+               ps.activated_at
+        FROM myth_portals p
+        LEFT JOIN myth_portal_status ps ON p.portal_id = ps.portal_id AND ps.class_period = ?
+        ORDER BY p.myth_number
+      `, [student.class_period]);
     } catch (tableErr) {
       console.error('myth_portals table error:', tableErr.message);
       return res.json({ portals: [], virtues_earned: 0, error: 'myth_portals table not found' });
     }
-    console.log(`Myth portals: ${portals.length} found for student ${req.user.id}`);
+    console.log(`Myth portals: ${portals.length} found for student ${student_id} (${student.class_period})`);
     if (portals.length === 0) return res.json({ portals: [], virtues_earned: 0 });
+
+    // Get student's grade records for virtue checks
+    const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [student_id]);
     
-    const allianceId = student.alliance_id;
-    const portalStatuses = allianceId ? 
-      query('SELECT * FROM myth_portal_status WHERE alliance_id = ?', [allianceId]) : [];
-    
-    // Get student's virtue progress
-    const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [req.user.id]);
-    
+    // Get quiz attempts
+    const quizAttempts = query('SELECT portal_id, passed, score, percentage FROM myth_quiz_attempts WHERE student_id = ? AND passed = 1', [student_id]);
+
     // Build enriched portal data
     const enrichedPortals = portals.map(portal => {
-      const status = portalStatuses.find(s => s.portal_id === portal.portal_id);
-      const activated = status ? status.activated : 0;
-      
       // Check reading guide completion (comp_conn for this myth)
       const hasReadingGuide = gradeRecords.some(g => 
         g.assignment_type === 'comp_conn' && 
@@ -7078,15 +7082,11 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         g.points_earned > 0
       );
       
-      // Check quiz passed (quiz for this myth, 80%+ = 8+ out of 10)
-      const quizGrade = gradeRecords.find(g => 
-        g.assignment_type === 'quiz' && 
-        g.myth_god === portal.myth_name && 
-        g.age === 'Classical'
-      );
-      const quizPassed = quizGrade ? (quizGrade.points_earned / quizGrade.max_points >= 0.8) : false;
+      // Check quiz passed (from myth_quiz_attempts, 80%+ to pass)
+      const quizResult = quizAttempts.find(q => q.portal_id === portal.portal_id);
+      const quizPassed = quizResult ? 1 : 0;
       
-      // Check creative work (any bonus, word_cloud, or wildcard for this myth)
+      // Check creative work (any bonus, word_cloud, pixton, or wildcard for this myth)
       const hasCreative = gradeRecords.some(g => 
         (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && 
         g.myth_god === portal.myth_name && 
@@ -7099,9 +7099,8 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       
       return {
         ...portal,
-        activated,
         has_reading_guide: hasReadingGuide ? 1 : 0,
-        quiz_passed: quizPassed ? 1 : 0,
+        quiz_passed: quizPassed,
         has_creative: hasCreative ? 1 : 0,
         virtue_earned: virtueEarned
       };
@@ -7109,7 +7108,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
     
     const virtuesEarned = enrichedPortals.filter(p => p.virtue_earned === 1).length;
     
-    res.json({ portals: enrichedPortals, virtues_earned: virtuesEarned });
+    res.json({ portals: enrichedPortals, class_period: student.class_period, virtues_earned: virtuesEarned });
   } catch (err) {
     console.error('Myth portals error:', err);
     res.status(500).json({ error: 'Failed to load myth portals' });
@@ -7246,29 +7245,34 @@ app.get('/api/student/virtues', authenticateToken, (req, res) => {
   }
 });
 
-// --- Teacher: Unlock myth portal for an alliance ---
-app.post('/api/teacher/unlock-myth', authenticateToken, (req, res) => {
+// --- Teacher: Activate a myth portal for a specific period ---
+app.post('/api/teacher/activate-portal', authenticateToken, (req, res) => {
   try {
     if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
     
-    const { portal_id, alliance_id, activated } = req.body;
-    if (!portal_id || !alliance_id) return res.status(400).json({ error: 'Missing portal_id or alliance_id' });
+    const { portal_id, class_period, activated } = req.body;
+    if (!portal_id || !class_period) return res.status(400).json({ error: 'portal_id and class_period required' });
     
-    const existing = query('SELECT * FROM myth_portal_status WHERE portal_id = ? AND alliance_id = ?', [portal_id, alliance_id])[0];
+    const existing = query('SELECT * FROM myth_portal_status WHERE portal_id = ? AND class_period = ?', 
+                           [portal_id, class_period])[0];
     
     if (existing) {
-      run('UPDATE myth_portal_status SET activated = ?, activated_at = CURRENT_TIMESTAMP, activated_by = ? WHERE portal_id = ? AND alliance_id = ?',
-        [activated !== undefined ? activated : 1, req.user.id, portal_id, alliance_id]);
+      run('UPDATE myth_portal_status SET activated = ?, activated_at = CURRENT_TIMESTAMP, activated_by = ? WHERE status_id = ?',
+          [activated ? 1 : 0, req.user.id, existing.status_id]);
     } else {
-      run('INSERT INTO myth_portal_status (portal_id, alliance_id, activated, activated_at, activated_by) VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)',
-        [portal_id, alliance_id, activated !== undefined ? activated : 1, req.user.id]);
+      run(`INSERT INTO myth_portal_status (portal_id, class_period, activated, activated_at, activated_by)
+           VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)`, [portal_id, class_period, activated ? 1 : 0, req.user.id]);
     }
     
     saveDatabase();
-    res.json({ success: true });
+    const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
+    res.json({ 
+      success: true, 
+      message: `${portal ? portal.display_name : 'Portal'} ${activated ? 'activated' : 'deactivated'} for ${class_period} period` 
+    });
   } catch (err) {
-    console.error('Unlock myth error:', err);
-    res.status(500).json({ error: 'Failed to unlock myth' });
+    console.error('Activate portal error:', err);
+    res.status(500).json({ error: 'Failed to activate portal' });
   }
 });
 
@@ -7309,16 +7313,26 @@ app.get('/api/teacher/virtue-progress', authenticateToken, (req, res) => {
   }
 });
 
-// --- Teacher: Get myth portal statuses for all alliances ---
+// --- Teacher: Get myth portal statuses for all periods ---
 app.get('/api/teacher/myth-portals', authenticateToken, (req, res) => {
   try {
     if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
     
     const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
-    const statuses = query('SELECT mps.*, a.alliance_name, a.class_period FROM myth_portal_status mps JOIN alliances a ON mps.alliance_id = a.alliance_id');
-    const alliances = query('SELECT alliance_id, alliance_name, class_period FROM alliances ORDER BY class_period, alliance_name');
+    const statuses = query('SELECT * FROM myth_portal_status');
     
-    res.json({ portals, statuses, alliances });
+    // Group statuses by portal and period
+    const portalData = portals.map(p => ({
+      ...p,
+      periods: {
+        '1st': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '1st') || { activated: 0 },
+        '2nd': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '2nd') || { activated: 0 },
+        '3rd': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '3rd') || { activated: 0 },
+        '4th': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '4th') || { activated: 0 }
+      }
+    }));
+
+    res.json(portalData);
   } catch (err) {
     console.error('Teacher myth portals error:', err);
     res.status(500).json({ error: 'Failed to get myth portals' });
@@ -7335,17 +7349,17 @@ app.get('/api/teacher/myth-portals', authenticateToken, (req, res) => {
 
 // Store reference to check if student has unlocked Classical myths
 function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
-  // Get the student's alliance to check which myths are unlocked
-  const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [studentId])[0];
-  if (!student || !student.alliance_id) {
+  // Get the student's class period to check which myths are unlocked
+  const student = query('SELECT class_period, alliance_id FROM students WHERE student_id = ?', [studentId])[0];
+  if (!student || !student.class_period) {
     // Fallback to all Archaic questions
     return getRandomQuestion(excludeIds);
   }
   
-  // Check which Classical myths are unlocked for this alliance
+  // Check which Classical myths are unlocked for this student's period
   const unlockedPortals = query(
-    'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.alliance_id = ? AND mps.activated = 1',
-    [student.alliance_id]
+    'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.class_period = ? AND mps.activated = 1',
+    [student.class_period]
   );
   const unlockedMyths = unlockedPortals.map(p => p.myth_name);
   
