@@ -590,11 +590,12 @@ async function initDatabase() {
       question_id INTEGER PRIMARY KEY AUTOINCREMENT,
       portal_id INTEGER NOT NULL,
       question_text TEXT NOT NULL,
-      option_a TEXT NOT NULL,
-      option_b TEXT NOT NULL,
-      option_c TEXT NOT NULL,
-      option_d TEXT NOT NULL,
+      answer_a TEXT NOT NULL,
+      answer_b TEXT NOT NULL,
+      answer_c TEXT NOT NULL,
+      answer_d TEXT NOT NULL,
       correct_answer TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
       FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id)
     )
   `);
@@ -809,24 +810,6 @@ function runMigrations() {
   } catch (err) {
     console.log('Classical Age migration note:', err.message);
   }
-
-  // Battle questions age/myth columns for adaptive Classical question pool
-  try {
-    const bqCols = db.exec("PRAGMA table_info(battle_questions)");
-    const bqColNames = bqCols[0] ? bqCols[0].values.map(c => c[1]) : [];
-    
-    if (!bqColNames.includes('age')) {
-      console.log('  Adding age column to battle_questions...');
-      db.run("ALTER TABLE battle_questions ADD COLUMN age TEXT DEFAULT 'Archaic'");
-    }
-    if (!bqColNames.includes('myth_name')) {
-      console.log('  Adding myth_name column to battle_questions...');
-      db.run("ALTER TABLE battle_questions ADD COLUMN myth_name TEXT DEFAULT NULL");
-    }
-    console.log('✅ Battle questions adaptive pool columns ready');
-  } catch (err) {
-    console.log('Battle questions migration note:', err.message);
-  }
   
   // Side quest age column migration
   try {
@@ -864,6 +847,41 @@ function runMigrations() {
     }
   } catch (err) {
     console.log('Side quest migration note:', err.message);
+  }
+
+  // Quiz questions table migration — fix column names and add is_active
+  try {
+    const quizCols = db.exec("PRAGMA table_info(myth_quiz_questions)");
+    const quizColNames = quizCols[0] ? quizCols[0].values.map(c => c[1]) : [];
+    
+    if (quizColNames.length > 0) {
+      // If table has old column names (option_a instead of answer_a), recreate it
+      if (quizColNames.includes('option_a') && !quizColNames.includes('answer_a')) {
+        console.log('  Migrating myth_quiz_questions columns (option_* → answer_*)...');
+        db.run('DROP TABLE IF EXISTS myth_quiz_questions');
+        db.run(`CREATE TABLE myth_quiz_questions (
+          question_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          portal_id INTEGER NOT NULL,
+          question_text TEXT NOT NULL,
+          answer_a TEXT NOT NULL,
+          answer_b TEXT NOT NULL,
+          answer_c TEXT NOT NULL,
+          answer_d TEXT NOT NULL,
+          correct_answer TEXT NOT NULL,
+          is_active INTEGER DEFAULT 1,
+          FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id)
+        )`);
+        console.log('  ✅ myth_quiz_questions table recreated with correct columns');
+      }
+      
+      // Add is_active column if missing
+      if (quizColNames.includes('answer_a') && !quizColNames.includes('is_active')) {
+        console.log('  Adding is_active column to myth_quiz_questions...');
+        db.run('ALTER TABLE myth_quiz_questions ADD COLUMN is_active INTEGER DEFAULT 1');
+      }
+    }
+  } catch (err) {
+    console.log('Quiz table migration note:', err.message);
   }
 }
 
@@ -1291,7 +1309,9 @@ function seedReferenceData() {
       ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
       
       // ==================== CLASSICAL AGE CREATIVE PORTFOLIO ====================
-      // No Pixtons. No WeVideos. Classical Age emphasizes original creative work.
+      // Pixton Comics REMOVED per Classical Age redesign — replaced by original creative bonuses
+      
+      // WeVideo Digital Retellings — REMOVED per Classical Age redesign (retellings replaced by original creative work)
       
       // Word Clouds (12 pts each)
       ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Pandora myth', null, 0, 'Classical'],
@@ -1355,12 +1375,7 @@ function seedReferenceData() {
         '"Arachne" has a clear moral, best summed up in Athena\'s final statement to Arachne: "...it is not wise to strive with [gods/goddesses]." Look at the myths about Persephone trapped in the Underworld and Narcissus and Echo and write a moral that best states the themes of these two tales. Explain how the story creates this moral.',
         JSON.stringify([
           {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      // ==================== WILD CARD BONUS (Student-Created) ====================
-      ['bonus', 'wildcard', 'Wild Card', 'Wild Card Bonus', 0,
-        'Create your own bonus assignment! Describe what you want to do, suggest how many points it should be worth, and submit for teacher approval. This is your chance to show creativity and deeper understanding in your own way. Points are flexible — Mr. Sebek will set the final value based on the quality and scope of your work.',
-        null, 1, 'Classical']
+        ]), 1, 'Classical']
     ];
     
     assignments.forEach(a => {
@@ -1557,6 +1572,102 @@ function seedClassicalData() {
     console.log('Myth portals seed note:', err.message);
   }
 
+  // === CLASSICAL MYTH QUIZ QUESTIONS ===
+  // Portal IDs: 1=Pandora, 2=Phaethon, 3=Orpheus, 4=Echo&Narcissus, 5=Icarus, 6=Eros&Psyche, 7=Constellations
+  try {
+    const quizCheck = db.exec("SELECT COUNT(*) FROM myth_quiz_questions");
+    const quizCount = quizCheck[0] ? quizCheck[0].values[0][0] : 0;
+    
+    if (quizCount === 0) {
+      console.log('📝 Seeding myth quiz questions...');
+      
+      // Format: [portal_id, question_text, answer_a, answer_b, answer_c, answer_d, correct_answer]
+      const quizQuestions = [
+        // ==================== PANDORA (portal_id = 1) ====================
+        [1, 'What is inside Pandora\'s box? p.64', 'Food and drink', 'Happiness, Joy and Cheer', 'Pain, Sorrow and Death', 'Gold, Silver and Jewels', 'c'],
+        [1, 'What happens after Pandora opens the box? p.64', 'She is no longer hungry or thirsty', 'Everyone in the world is happy', 'Pandora becomes the most beautiful woman in the world', 'Trouble and woe comes into the world, as well as hope.', 'd'],
+        [1, 'Pandora means... p.62', '"all knowing"', '"bringer of misfortune"', '"all-giving" or "all-gifted"', '"into darkness"', 'c'],
+        [1, 'Who did Zeus send Pandora to? p.61', 'Prometheus', 'Hermes', 'Epimetheus', 'Hephaestus', 'c'],
+        [1, 'What did Hermes tell Pandora when he gave her the box? p.61', '"Don\'t tell anybody about the box."', '"Open it when I tell you to."', '"Open it on a special day."', '"Never open it."', 'd'],
+        [1, 'Finish this line: For though he can bear endless trouble... p.64', 'he cannot live with no hope at all.', 'he will have detention.', 'he will have to reset the wifi router.', 'he will be reborn in a heroic form.', 'a'],
+        [1, 'After Zeus had condemned Prometheus for giving fire to man, he.... p.61', 'took a week off and went on vacation', 'ordered Hephaestus to make a girl out of clay', 'flew the sun chariot across the sky', 'sent a storm to earth to punish man', 'b'],
+        [1, 'What was the most dangerous creature Pandora was able to shut in the box? p.64', 'Ignorance', 'Foreboding', 'Fear', 'Anger', 'b'],
+        [1, 'Which god gave Pandora a golden box? p.61', 'Apollo', 'Hermes', 'Athena', 'Hestia', 'b'],
+        [1, 'Which gift did Hera give to Pandora? p.61', 'Beauty', 'Wisdom', 'Curiosity', 'Strength', 'c'],
+
+        // ==================== PHAETHON (portal_id = 2) ====================
+        [2, 'In the Evslin book, why does Phaethon go to find his father? p.65', 'Phaethon is lost and asks to be saved by Apollo', 'Zeus wants to destroy Phaethon', 'Apollo calls for Phaethon to come see him', 'Epaphus, the son of Zeus, does not believe that Phaethon is the son of Apollo', 'd'],
+        [2, 'According to Evslin, Phaethon does not make it to the palace of his father on his own, he needs help. How is Phaethon helped? p.68', 'Apollo sends his chariot to pick up Phaethon', 'Poseidon sends a helpful wave to lift Phaethon up to the sun', 'Four sun hawks carried Phaethon who laid on a rug', 'Hephaestus builds a floating disc to carry the young traveler to his father', 'c'],
+        [2, 'Phaethon\'s father makes an unbreakable promise. What does the father figure swear to that makes it impossible to take his word back? p.70', 'The Elysian Fields', 'Zeus\'s name', 'Poseidon\'s Trident', 'The River Styx', 'd'],
+        [2, 'How was the chariot finally stopped? p.76', 'Zeus struck the chariot down with a lightning bolt', 'The chariot crashed on the moon', 'Apollo took over and reined the horses in', 'Phaethon returned the chariot to the stable', 'a'],
+        [2, 'Who came to mourn Phaethon and what did they become? p.76', 'Narcissus (brother); flower', 'Echo (sister); disappeared', 'Actaeon (cousin); stag', 'Heliades (yellow haired sisters); poplar trees', 'd'],
+        [2, 'Phaethon\'s father felt ______________ when he realized the promise he agreed to would kill Phaethon. p.71', 'Joy', 'Envy', 'Regret', 'Pride', 'c'],
+        [2, 'Which of these describes the horses that pull the sun chariot? p.71', 'Black smoke coming from their noses', 'Giant fire white', 'Jet black hair', 'Gray mist from their footprints', 'b'],
+        [2, 'What landform was caused by Phaethon\'s tragic flight across the sky? p.74-75', 'Polar Icecaps', 'Deserts', 'Plateaus', 'Valleys', 'b'],
+
+        // ==================== ORPHEUS & EURYDICE (portal_id = 3) ====================
+        [3, 'Orpheus was gifted and lucky to know some great mentors. What was he famous for? p.77', 'Singing and dancing', 'Music and poetry', 'Running and athletics', 'Mathematics and science', 'b'],
+        [3, 'How did Eurydice die? p.80', 'She was turned into a poplar tree by a merciful Zeus', 'A young king shot her by accident with the golden bow he stole from Apollo', 'She was chased through the forest and stepped in a bed of snakes.', 'She tripped, running from a young king, and hit her head on a rock', 'c'],
+        [3, 'How did Orpheus get past Charon, the threshold guardian of the River Styx and the Underworld? p.81', 'He bribed Charon with one hundred souls', 'He tricked Charon by playing Charon a song that reminded the boatman of his youth', 'He hid behind a group of souls and Charon never saw him', 'He wrote a poem about Charon that made him cry', 'b'],
+        [3, 'Why did Orpheus turn around, causing Eurydice to return to the Underworld forever? p.86', 'Hermes flew past him with new souls', 'Persephone told Orpheus Hades was tricking him', 'He doubted she was really there', 'Cerberus began chasing them', 'c'],
+        [3, 'Which type of song did Orpheus NOT play for Cerberus? p.81', 'Sad song', 'Dog song', 'Sleeping song', 'Hunting song', 'b'],
+
+        // ==================== ECHO & NARCISSUS (portal_id = 4) ====================
+        [4, 'What did Narcissus hope to find as he wandered through the woods?', 'His way home', 'The Golden Fleece', 'The Minotaur', 'Someone as beautiful as himself', 'd'],
+        [4, 'Which goddess enjoyed talking with Echo?', 'Hera', 'Hestia', 'Aphrodite', 'Demeter', 'a'],
+        [4, 'Why was Echo punished?', 'She lied to Zeus about where Hera really was', 'She lied to Hera about where Zeus really was', 'She offended Aphrodite by hiding her water nymph', 'She tricked Narcissus into following her', 'b'],
+        [4, 'Why was Echo so sad after Narcissus left her?', 'She would never have the love she wanted', 'She cannot leave the wood', 'Aphrodite punished her for repeating everything', 'Hera married Narcissus to punish Echo', 'a'],
+        [4, 'What was the punishment for Narcissus rejecting Echo\'s love?', 'He was left in the labyrinth', 'He was turned upside down by Apollo and left on a tree', 'He stared at himself for so long he turned into a flower', 'He was turned into a stag and chased down by Artemis\'s hunting dogs', 'c'],
+
+        // ==================== ICARUS & DAEDALUS (portal_id = 5) ====================
+        [5, 'What was Daedalus\'s occupation? p.144', 'Enginer', 'Doctor', 'Explorer', 'Court Artificer', 'd'],
+        [5, 'Why did Minos imprison Daedalus and Icarus? p.148', 'Minos did not want Daedalus to divulge the secrets of the labyrinth.', 'Minos thought they were trying to poison him.', 'Minos caught them stealing pomegranates from the kitchen.', 'Minos discovered their plans to take over the city.', 'a'],
+        [5, 'What warning did Daedalus give Icarus before they took off? p.149', 'Stay out of the clouds', 'Just keep flapping', 'Don\'t look down', 'Not too high; not too low', 'd'],
+        [5, 'What caused Icarus to fall? p.152', 'The sun melted the wax causing the wings to fall apart', 'He was attacked by an eagle', 'He fell asleep while gliding in the breeze', 'He tried to fly upside down', 'a'],
+        [5, 'What did Daedalus build for Minos? p.148', 'Hammer', 'Labyrinth', 'Saw', 'Fireplace', 'b'],
+        [5, 'Which goddess favored Daedalus for all his wondrous creations? pg.142', 'Athena', 'Aphrodite', 'Hera', 'Demeter', 'a'],
+        [5, 'What invention was Daedalus thinking about when he came to his workshop to find that his nephew, Talos, had discovered? p.143', 'Fishing Pole', 'Hammer', 'Saw', 'Sandpaper', 'c'],
+        [5, 'Which god is given credit for sending the white bull to Crete? p.146', 'Aphrodite', 'Zeus', 'Artemis', 'Apollo', 'a'],
+        [5, 'In the myth, what does the beginning of the myth share with the end of the myth? p.144', 'A young relative of Daedalus falls to their death', 'Daedalus is in prison', 'Daedalus is eating', 'Daedalus is getting married', 'a'],
+        [5, 'Whose idea was it to create the wings? p.149', 'Athena', 'Daedalus', 'Minos', 'Icarus', 'd'],
+
+        // ==================== EROS & PSYCHE (portal_id = 6) ====================
+        [6, 'Which goddess was jealous of Psyche?', 'Athena', 'Aphrodite', 'Hera', 'Demeter', 'b'],
+        [6, 'The goddess, insulted by Psyche\'s beauty, came up with a plan. What was her plan?', 'Send the giant Python to eat Psyche', 'Send her son Eros to pierce Psyche with an arrow', 'Trick Psyche into falling in love with a statue', 'Lock Psyche in a castle tower', 'b'],
+        [6, 'What is Eros\' reaction to Aphrodite\'s plan?', 'He says its the best plan ever', 'It\'s a boring plan and he wants to do something better', 'He thinks it is a cruel trick', 'He tells Zeus about the plan', 'c'],
+        [6, 'Eros finds Psyche to be beautiful. What happens when she opens her eyes and startles him?', 'He pokes her shoulder and she falls in love with the gardener.', 'He scratches his own hand.', 'He drops the arrow and flies away.', 'He disguises himself as a donkey.', 'b'],
+        [6, 'What was Aphrodite\'s reaction to Eros\' mistake?', 'She praised Eros and said he was a good boy', 'She sent him to timeout in Tartarus', 'She sent Eros away and cast a curse on Psyche', 'She shrugged her shoulders and said, "Better luck next time."', 'c'],
+        [6, 'What was the curse that Aphrodite put on Psyche?', 'Cast an invisible hedge of thorns around Psyche, so no suitor would come close', 'Turned her invisible', 'Made Psyche jealous of her own reflection', 'Turned Psyche into a bear and left her in the forest', 'a'],
+        [6, 'What was Eros\' response to Aphrodite\'s curse?', 'He celebrated her wise decision.', 'He became angry and refused to fire any more arrows.', 'He left Mount Olympus.', 'He went to sit with Psyche and console her.', 'b'],
+        [6, 'What idea did Psyche\'s sisters place in her head?', 'Eros was a monster', 'Eros was just her imagination', 'Eros was a mortal', 'Eros was tricking her', 'a'],
+        [6, 'What were the consequences of Psyche shining a lamp on Eros?', 'Eros smiles and hugs her', 'Eros yells, "Wretched girl - you are not ready to accept love."', 'Eros is blinded by the mortal light.', 'Eros cries and sacrifices Psyche to Aphrodite', 'b'],
+        [6, 'According to the book, which is NOT a possible ending for Psyche\'s story?', 'Everything disappears and she wanders forever, transforming into an owl', 'She turned into a bat and lives in old ruins', 'Eros forgives her and she helps him create love in the world', 'She lives to be an old lady in a castle, never finding love', 'd'],
+
+        // ==================== CONSTELLATIONS (portal_id = 7) ====================
+        [7, 'Who shot Orion?', 'Artemis', 'Apollo', 'Athena', 'Ares', 'a'],
+        [7, 'What special ability did Orion possess?', 'He was a great hunter', 'He was friends with Apollo', 'He could fly', 'He walked on water', 'a'],
+        [7, 'Which animal chased Orion?', 'Scorpion', 'Python', 'Ram', 'Dog', 'a'],
+        [7, 'What is Callisto?', 'Nymph', 'Fairy', 'Elf', 'Hobbit', 'a'],
+        [7, 'Who turned Callisto into a she-bear?', 'Zeus', 'Hera', 'Athena', 'Aphrodite', 'b'],
+        [7, 'What scene depicts Callisto\'s fate in the woods?', 'Callisto\'s son about to shoot her in the woods.', 'Apollo hunting in the woods.', 'A bear about to attack Orion.', 'The original ending of the three little bears story', 'a'],
+        [7, 'Cassiopeia gets in trouble because...', 'she brags about her daughter\'s beauty.', 'she hides seeds from Demeter.', 'she steals Poseidon\'s trident.', 'she shoots her husband with Eros\'s love arrows.', 'a'],
+        [7, 'Andromeda has to pay the price. What is her punishment?', 'Get eaten by Cetus the sea monster', 'Leave the country forever', 'No dessert after dinner', 'Get locked in a tower for twenty years', 'a'],
+        [7, 'Who saves Andromeda from her punishment?', 'Perseus', 'Theseus', 'Daedalus', 'Icarus', 'a'],
+        [7, 'What happens to Cassiopeia?', 'She is placed upside down in the sky', 'She is honored as a wonderful mother', 'She dies from sadness', 'She marries Poseidon', 'a']
+      ];
+
+      quizQuestions.forEach(q => {
+        db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, answer_a, answer_b, answer_c, answer_d, correct_answer)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
+      });
+      console.log(`✅ Myth quiz questions seeded (${quizQuestions.length} questions across 7 myths)`);
+    } else {
+      console.log(`✅ Myth quiz questions already exist (${quizCount} questions)`);
+    }
+  } catch (err) {
+    console.log('Quiz questions seed note:', err.message);
+  }
+
   // === CLASSICAL FATES (24 fates, numbered 21-44 to avoid conflicts with Archaic 1-20) ===
   try {
     const classicalFatesCheck = db.exec("SELECT COUNT(*) FROM fates_ref WHERE age_available = 'Classical'");
@@ -1578,13 +1689,13 @@ function seedClassicalData() {
         // Fate 23: Athena/Arachne Disorder (CHOICE NEGATIVE)
         [23, "Athena/Arachne Disorder", 'choice', "Your people are angry with Athena for her treatment of Arachne. The split between supporters and protesters is causing disorder.", 'Athena', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
         // Fate 24: Ares Wild Boar Battle (BATTLE — 95% threat, ±40)
-        [24, "Ares Wild Boar Battle", 'battle', "Ares sends wild boars to attack your village! Their tusks could do up to 60 points of damage. The boar's power is 95% of your country's total points.", 'Ares', null, null, 0, 0, null, 1, 0.95, 60, -60, "Wild boars with razor tusks charge through your village!", 'Classical'],
+        [24, "Ares Wild Boar Battle", 'battle', "Ares sends wild boars to attack your village! Their tusks could do up to 40 points of damage. The boar's power is 95% of your country's total points.", 'Ares', null, null, 0, 0, null, 1, 0.95, 40, -40, "Wild boars with razor tusks charge through your village!", 'Classical'],
         // Fate 25: Hephaestus Ichor Discovery (CHOICE POSITIVE)
         [25, "Hephaestus Ichor Discovery", 'choice', "The lava from Hephaestus's forge has created a new scientific element, Ichor. It is an excellent new source of power.", 'Hephaestus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
         // Fate 26: Demeter's Depression (CHOICE NEGATIVE)
         [26, "Demeter's Depression", 'choice', "Persephone has disappeared, Demeter is depressed. Crops are failing across the land.", 'Demeter', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
         // Fate 27: Kobalos Attack (BATTLE — 95% threat, Armory +10%)
-        [27, "Kobalos Attack", 'battle', "Dionysus has been checking on his grapes. The mischievous Kobalos are running free through your village! They have 95% of your power. If you have an armory you get a bonus.", 'Dionysus', null, null, 0, 0, null, 1, 0.95, 52, -52, "Mischievous Kobalos steal everything in sight!", 'Classical'],
+        [27, "Kobalos Attack", 'battle', "Dionysus has been checking on his grapes. The mischievous Kobalos are running free through your village! They have 95% of your power. If you have an armory you get a bonus.", 'Dionysus', null, null, 0, 0, null, 1, 0.95, 35, -35, "Mischievous Kobalos steal everything in sight!", 'Classical'],
         // Fate 28: Constellation Blessing (STEAL-CHOICE POSITIVE — steal from each)
         [28, "Constellation Blessing", 'steal_choice', "Your land is favored by the gods and you have been granted a constellation in the sky! You gain points from each country.", 'Zeus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
         // Fate 29: Countdown Your Fate (SPECIAL — teacher input)
@@ -1598,11 +1709,11 @@ function seedClassicalData() {
         // Fate 33: Hermes on Strike (CHOICE NEGATIVE)
         [33, "Hermes on Strike", 'choice', "Hermes is on strike! Angered by Hades, he will no longer conduct souls to the Underworld. Spirits roam your cities.", 'Hermes', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
         // Fate 34: Giant Echion (BATTLE — 95% threat, -40 on loss, Armory bonus)
-        [34, "Giant Echion", 'battle', "The giant Echion has found his way to your island! Using his great strength, he threatens your fishing fleet. His power is 95% of yours.", 'Prometheus', null, null, 0, 0, null, 1, 0.95, 60, -60, "Giant Echion towers over your village!", 'Classical'],
+        [34, "Giant Echion", 'battle', "The giant Echion has found his way to your island! Using his great strength, he threatens your fishing fleet. His power is 95% of yours.", 'Prometheus', null, null, 0, 0, null, 1, 0.95, 40, -40, "Giant Echion towers over your village!", 'Classical'],
         // Fate 35: Dionysus Drought (STEAL-CHOICE NEGATIVE — lose to each)
         [35, "Dionysus Drought", 'steal_choice', "A severe drought has killed off many grape vines. Dionysus is upset. You lose points to each country.", 'Dionysus', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
         // Fate 36: Cerastes Vipers (BATTLE — 95% threat, ±35)
-        [36, "Cerastes Vipers", 'battle', "Cerastes, horned vipers, are causing chaos in your village! Many villagers have been bitten. Their attack is 95% of your power.", 'Ares', null, null, 0, 0, null, 1, 0.95, 52, -52, "Horned vipers slither through your streets!", 'Classical'],
+        [36, "Cerastes Vipers", 'battle', "Cerastes, horned vipers, are causing chaos in your village! Many villagers have been bitten. Their attack is 95% of your power.", 'Ares', null, null, 0, 0, null, 1, 0.95, 35, -35, "Horned vipers slither through your streets!", 'Classical'],
         // Fate 37: Hestia's Blessing (CHOICE POSITIVE)
         [37, "Hestia's Blessing", 'choice', "Hestia has favored your land because it is so peaceful and welcoming. As the Goddess of the Hearth, she appreciates your balanced environment.", 'Hestia', null, null, 0, 0, null, 0, null, null, null, null, 'Classical'],
         // Fate 38: River Nymphs (CHOICE NEGATIVE)
@@ -1768,18 +1879,10 @@ function seedClassicalData() {
       ];
 
       classicalChoices.forEach(choice => {
-        // Apply 50% increase to all non-zero point values (Classical Age has bigger point totals)
-        let [fateId, riskLevel, desc, successChance, successPts, failurePts] = choice;
-        if (successPts !== 0) successPts = Math.round(successPts * 1.5);
-        if (failurePts !== 0) failurePts = Math.round(failurePts * 1.5);
         db.run(`INSERT INTO fate_choices (fate_id, risk_level, description, success_chance, success_points, failure_points)
-                VALUES (?, ?, ?, ?, ?, ?)`, [fateId, riskLevel, desc, successChance, successPts, failurePts]);
+                VALUES (?, ?, ?, ?, ?, ?)`, choice);
       });
-      // NOTE: Aggressive failure also uses percentage-based penalty at runtime in server.js
-      // If aggressive failure_points result is less than 10% of alliance total_points, 
-      // the server uses 10% of total_points instead. This ensures aggressive choices 
-      // always sting, even for wealthy alliances.
-      console.log('✅ Classical fate choices seeded (72 choices, all points +50%)');
+      console.log('✅ Classical fate choices seeded (72 choices)');
       
       // Force save and verify
       saveDatabaseNow();
