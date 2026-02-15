@@ -7049,12 +7049,27 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
     const student = query('SELECT * FROM students WHERE student_id = ?', [req.user.id])[0];
     if (!student) return res.status(404).json({ error: 'Student not found' });
     
-    const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
+    let portals = [];
+    try {
+      portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
+    } catch (tableErr) {
+      console.error('myth_portals table error:', tableErr.message);
+      return res.json({ portals: [], virtues_earned: 0, error: 'myth_portals table not found' });
+    }
     
-    // Get portal activation status for this student's alliance
+    console.log(`Myth portals query returned ${portals.length} portals for student ${req.user.id}`);
+    if (portals.length === 0) {
+      return res.json({ portals: [], virtues_earned: 0 });
+    }
+    
     const allianceId = student.alliance_id;
-    const portalStatuses = allianceId ? 
-      query('SELECT * FROM myth_portal_status WHERE alliance_id = ?', [allianceId]) : [];
+    let portalStatuses = [];
+    try {
+      portalStatuses = allianceId ? 
+        query('SELECT * FROM myth_portal_status WHERE alliance_id = ?', [allianceId]) : [];
+    } catch (e) {
+      console.log('myth_portal_status table not found, continuing without activation data');
+    }
     
     // Get student's virtue progress
     const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [req.user.id]);
@@ -7064,7 +7079,6 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const status = portalStatuses.find(s => s.portal_id === portal.portal_id);
       const activated = status ? status.activated : 0;
       
-      // Check reading guide completion (comp_conn for this myth)
       const hasReadingGuide = gradeRecords.some(g => 
         g.assignment_type === 'comp_conn' && 
         g.myth_god === portal.myth_name && 
@@ -7072,7 +7086,6 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         g.points_earned > 0
       );
       
-      // Check quiz passed (quiz for this myth, 80%+ = 8+ out of 10)
       const quizGrade = gradeRecords.find(g => 
         g.assignment_type === 'quiz' && 
         g.myth_god === portal.myth_name && 
@@ -7080,7 +7093,6 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       );
       const quizPassed = quizGrade ? (quizGrade.points_earned / quizGrade.max_points >= 0.8) : false;
       
-      // Check creative work (any bonus, word_cloud, or wildcard for this myth)
       const hasCreative = gradeRecords.some(g => 
         (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && 
         g.myth_god === portal.myth_name && 
@@ -7088,7 +7100,6 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         g.points_earned > 0
       );
       
-      // Virtue earned when: reading guide + quiz passed + at least 1 creative
       const virtueEarned = hasReadingGuide && quizPassed && hasCreative ? 1 : 0;
       
       return {
@@ -7106,7 +7117,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
     res.json({ portals: enrichedPortals, virtues_earned: virtuesEarned });
   } catch (err) {
     console.error('Myth portals error:', err);
-    res.status(500).json({ error: 'Failed to load myth portals' });
+    res.status(500).json({ error: 'Failed to load myth portals: ' + err.message });
   }
 });
 

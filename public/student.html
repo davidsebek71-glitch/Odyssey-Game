@@ -2531,10 +2531,10 @@
             <div style="display: flex; flex-direction: column; align-items: center;">
                 <div class="avatar-reveal-title">⚔️ Your Warrior Avatar</div>
                 <div class="avatar-frame" id="avatar-frame">
-                    <img src="/images/heroic/avatars/warrior-avatar.png" alt="Warrior Avatar" id="avatar-image"
-                         style="opacity: 0; filter: brightness(0);"
+                    <img src="/images/classical/warrior-avatar.png" alt="Warrior Avatar" id="avatar-image"
+                         style="opacity: 0; filter: brightness(0); display: none;"
                          onerror="this.style.display='none'; document.getElementById('avatar-placeholder').style.display='block';">
-                    <div id="avatar-placeholder" style="display: none; text-align: center; padding: 20px;">
+                    <div id="avatar-placeholder" style="text-align: center; padding: 20px;">
                         <div style="font-size: 40px; opacity: 0.2;">⚔️</div>
                         <div class="avatar-placeholder-text">Earn virtues to reveal your warrior</div>
                     </div>
@@ -8924,7 +8924,13 @@
                 const response = await fetch(`${API_URL}/student/myth-portals`, { headers });
                 const data = await response.json();
                 const row = document.getElementById('myth-portal-row');
-                if (!row || !data.portals) return;
+                console.log('Myth portals response:', data);
+                if (!row) return;
+                if (!data.portals || data.portals.length === 0) {
+                    row.innerHTML = '<div style="color: rgba(255,255,255,0.4); font-size: 13px; padding: 10px;">No myth portals found — check database seeding</div>';
+                    console.warn('Myth portals: empty or missing', data);
+                    return;
+                }
 
                 row.innerHTML = data.portals.map(portal => {
                     const isActive = portal.activated === 1;
