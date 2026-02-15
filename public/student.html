@@ -2514,6 +2514,37 @@
             </svg>
         </div>
     </div>
+
+    <!-- ==================== CLASSICAL AGE SECTION ==================== -->
+    <div id="classical-age-section" style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
+        <!-- Myth Portal Bar -->
+        <div class="myth-portal-bar">
+            <div class="myth-portal-title">📜 Myth Portals</div>
+            <div class="myth-portal-row" id="myth-portal-row">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Warrior Avatar Reveal -->
+        <div class="avatar-reveal-section" id="avatar-reveal-section">
+            <div class="virtue-column" id="virtue-column-left"></div>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <div class="avatar-reveal-title">⚔️ Your Warrior Avatar</div>
+                <div class="avatar-frame" id="avatar-frame">
+                    <img src="/images/heroic/avatars/warrior-avatar.png" alt="Warrior Avatar" id="avatar-image"
+                         style="opacity: 0; filter: brightness(0);"
+                         onerror="this.style.display='none'; document.getElementById('avatar-placeholder').style.display='block';">
+                    <div id="avatar-placeholder" style="display: none; text-align: center; padding: 20px;">
+                        <div style="font-size: 40px; opacity: 0.2;">⚔️</div>
+                        <div class="avatar-placeholder-text">Earn virtues to reveal your warrior</div>
+                    </div>
+                    <div class="avatar-glow" id="avatar-glow"></div>
+                </div>
+                <div class="avatar-progress-text" id="avatar-progress-text">0 / 7 Virtues</div>
+            </div>
+            <div class="virtue-column" id="virtue-column-right"></div>
+        </div>
+    </div>
     
     <!-- Screen Flash overlays for each god color -->
     <div class="screen-flash" id="screen-flash-yellow" style="background: linear-gradient(180deg, rgba(255,255,200,0.9), rgba(255,255,255,0.95), rgba(255,215,0,0.8));"></div>
@@ -2583,7 +2614,7 @@
         </div>
         
         <!-- Quick Action Cards -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+        <div id="bonus-quest-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
             <div id="bonus-card" onclick="openBonusPortal()" style="
                 background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(180,83,9,0.25));
                 border: 2px solid rgba(251,191,36,0.4);
@@ -2614,36 +2645,6 @@
             </div>
         </div>
 
-        <!-- ==================== CLASSICAL AGE SECTION ==================== -->
-        <div id="classical-age-section">
-            <!-- Myth Portal Bar -->
-            <div class="myth-portal-bar">
-                <div class="myth-portal-title">📜 Myth Portals</div>
-                <div class="myth-portal-row" id="myth-portal-row">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-
-            <!-- Warrior Avatar Reveal -->
-            <div class="avatar-reveal-section" id="avatar-reveal-section">
-                <div class="virtue-column" id="virtue-column-left"></div>
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <div class="avatar-reveal-title">⚔️ Your Warrior Avatar</div>
-                    <div class="avatar-frame" id="avatar-frame">
-                        <img src="/images/heroic/avatars/warrior-avatar.png" alt="Warrior Avatar" id="avatar-image"
-                             style="opacity: 0; filter: brightness(0);"
-                             onerror="this.style.display='none'; document.getElementById('avatar-placeholder').style.display='block';">
-                        <div id="avatar-placeholder" style="display: none; text-align: center; padding: 20px;">
-                            <div style="font-size: 40px; opacity: 0.2;">⚔️</div>
-                            <div class="avatar-placeholder-text">Earn virtues to reveal your warrior</div>
-                        </div>
-                        <div class="avatar-glow" id="avatar-glow"></div>
-                    </div>
-                    <div class="avatar-progress-text" id="avatar-progress-text">0 / 7 Virtues</div>
-                </div>
-                <div class="virtue-column" id="virtue-column-right"></div>
-            </div>
-        </div>
 
         <!-- Myth Quiz Modal -->
         <div id="myth-quiz-modal" class="modal" style="z-index: 1200;">
@@ -3188,12 +3189,16 @@
                     // Hide the Archaic bonus card — bonuses are in myth portals now
                     const bonusCard = document.getElementById('bonus-card');
                     if (bonusCard) bonusCard.style.display = 'none';
+                    const grid = document.getElementById('bonus-quest-grid');
+                    if (grid) grid.style.gridTemplateColumns = '1fr';
                     loadMythPortals();
                 } else {
                     classicalSection.style.display = 'none';
                     document.body.classList.remove('classical-age');
                     const bonusCard = document.getElementById('bonus-card');
                     if (bonusCard) bonusCard.style.display = '';
+                    const grid = document.getElementById('bonus-quest-grid');
+                    if (grid) grid.style.gridTemplateColumns = '1fr 1fr';
                 }
             }
 
