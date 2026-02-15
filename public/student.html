@@ -3758,6 +3758,38 @@
                 alert('You must be in an alliance to submit points!');
                 return;
             }
+            
+            // Update dropdown options based on current age
+            const currentAge = (dashboardData.student && dashboardData.student.current_age) || 'Archaic';
+            const isClassical = currentAge === 'Classical' || currentAge === 'Heroic';
+            const categorySelect = document.getElementById('submit-category');
+            
+            categorySelect.innerHTML = '';
+            if (!isClassical) {
+                // Archaic Age options
+                categorySelect.innerHTML = `
+                    <option value="quiz">Quiz</option>
+                    <option value="comp_conn">Reading Notes / Comp Conn</option>
+                    <option value="mural">Mural/Comic (Pixton)</option>
+                    <option value="rite_of_passage">Rite of Passage Essay</option>
+                    <option value="bonus">Bonus / Extra Credit</option>
+                    <option value="membean">Membean</option>
+                    <option value="reading">Independent Reading</option>
+                    <option value="citizenship">Citizenship</option>
+                `;
+            } else {
+                // Classical Age options
+                categorySelect.innerHTML = `
+                    <option value="comp_conn">Reading Guide</option>
+                    <option value="word_cloud">Word Cloud</option>
+                    <option value="mural">Mural/Comic (Pixton)</option>
+                    <option value="bonus">Bonus / Extra Credit</option>
+                    <option value="membean">Membean</option>
+                    <option value="reading">Independent Reading</option>
+                    <option value="citizenship">Citizenship</option>
+                `;
+            }
+            
             document.getElementById('submit-modal').classList.add('show');
             onCategoryChange(); // Initialize form visibility
         }
@@ -5896,9 +5928,27 @@
                 'Constellations': '#C0C0C0'
             };
             
+            // Determine student's current age
+            const currentAge = (dashboardData && dashboardData.student && dashboardData.student.current_age) || 'Archaic';
+            const isClassical = currentAge === 'Classical' || currentAge === 'Heroic';
+            
+            // Classical sections
+            const classicalSections = ['classical', 'classical_creative'];
+            // Archaic sections  
+            const archaicSections = ['section_1', 'section_2'];
+            
             const options = MYTH_OPTIONS[category];
             if (options) {
-                options.forEach(opt => {
+                // Filter options based on current age
+                const filtered = options.filter(opt => {
+                    if (isClassical) {
+                        return classicalSections.includes(opt.section);
+                    } else {
+                        return archaicSections.includes(opt.section);
+                    }
+                });
+                
+                filtered.forEach(opt => {
                     const color = mythColors[opt.myth] || '#ffffff';
                     mythSelect.innerHTML += `<option value="${opt.myth}" style="color: ${color}; background: #1a0b2e;">${opt.myth}</option>`;
                 });
