@@ -5339,11 +5339,9 @@
             const container = document.getElementById('grades-content');
             const titleEl = document.getElementById('grades-title');
             
-            // Set title based on age
             const age = grades.age || 'Archaic';
             titleEl.textContent = `📊 My ${age} Age Grades`;
             
-            // Color mapping for grade display
             const mythColors = {
                 'Greek Pantheon': '#ff9933', 'Zeus': '#ffd700', 'Prometheus': '#8b0000',
                 'Apollo': '#22c55e', 'Athena': '#00ced1', 'Hera': '#9370db',
@@ -5353,28 +5351,38 @@
                 'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff',
                 'Pandora': '#FFD700', 'Phaethon': '#FF8C00', 'Orpheus': '#8B5CF6',
                 'Echo and Narcissus': '#EC4899', 'Icarus': '#3B82F6',
-                'Eros and Psyche': '#EF4444', 'Constellations': '#C0C0C0'
+                'Eros and Psyche': '#EF4444', 'Constellations': '#C0C0C0', 'Morals': '#9CA3AF'
             };
             
-            const getColor = (displayName) => {
+            const getColor = (name) => {
                 for (const key of Object.keys(mythColors)) {
-                    if (displayName.includes(key)) return mythColors[key];
+                    if (name && name.includes(key)) return mythColors[key];
                 }
                 return '#ffffff';
             };
             
             const createProgressBar = (earned, max, percentage) => {
                 const barColor = percentage >= 80 ? '#4ade80' : percentage >= 60 ? '#fbbf24' : '#f87171';
-                return `
-                    <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 20px; overflow: hidden; margin: 8px 0;">
-                        <div style="background: ${barColor}; height: 100%; width: ${percentage}%; transition: width 0.5s;"></div>
-                    </div>
-                `;
+                return `<div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 20px; overflow: hidden; margin: 8px 0;">
+                    <div style="background: ${barColor}; height: 100%; width: ${percentage}%; transition: width 0.5s;"></div>
+                </div>`;
             };
 
+            // For Classical Age, render grouped by myth
+            if (age === 'Classical' && grades.section1.myth_order) {
+                container.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        ${renderClassicalSection(grades.section1, '#1e40af', getColor, createProgressBar)}
+                        ${renderClassicalSection(grades.section2, '#ea580c', getColor, createProgressBar)}
+                        ${renderClassicalBonus(grades.bonus, getColor, createProgressBar)}
+                    </div>
+                `;
+                return;
+            }
+            
+            // Archaic Age: original flat rendering
             container.innerHTML = `
                 <div style="display: flex; flex-direction: column; gap: 20px;">
-                    <!-- Section One -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                             <strong style="font-size: 16px;">${grades.section1.label || 'SECTION ONE'}</strong>
@@ -5382,8 +5390,7 @@
                         </div>
                         ${createProgressBar(grades.section1.earned, grades.section1.max, grades.section1.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.section1.percentage}%</div>
-                        
-                        ${grades.section1.completed.length > 0 ? `
+                        ${grades.section1.completed && grades.section1.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section1.completed.length} completed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
@@ -5395,8 +5402,7 @@
                                 </div>
                             </details>
                         ` : ''}
-                        
-                        ${grades.section1.missing.length > 0 ? `
+                        ${grades.section1.missing && grades.section1.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section1.missing.length} still needed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
@@ -5409,8 +5415,6 @@
                             </details>
                         ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
                     </div>
-
-                    <!-- Section Two -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                             <strong style="font-size: 16px;">${grades.section2.label || 'SECTION TWO'}</strong>
@@ -5418,8 +5422,7 @@
                         </div>
                         ${createProgressBar(grades.section2.earned, grades.section2.max, grades.section2.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.section2.percentage}%</div>
-                        
-                        ${grades.section2.completed.length > 0 ? `
+                        ${grades.section2.completed && grades.section2.completed.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #4ade80; font-size: 16px; font-weight: 600;">✓ ${grades.section2.completed.length} completed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
@@ -5431,8 +5434,7 @@
                                 </div>
                             </details>
                         ` : ''}
-                        
-                        ${grades.section2.missing.length > 0 ? `
+                        ${grades.section2.missing && grades.section2.missing.length > 0 ? `
                             <details style="margin-top: 10px;">
                                 <summary style="cursor: pointer; color: #fbbf24; font-size: 16px; font-weight: 600;">📋 ${grades.section2.missing.length} still needed</summary>
                                 <div style="margin-top: 8px; font-size: 16px;">
@@ -5445,8 +5447,6 @@
                             </details>
                         ` : '<div style="color: #4ade80; font-size: 16px; margin-top: 8px;">✨ Section Complete!</div>'}
                     </div>
-
-                    <!-- Extra Credit -->
                     <div style="background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(245,158,11,0.1)); padding: 15px; border-radius: 10px; border: 1px solid rgba(251,191,36,0.3);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                             <strong style="font-size: 16px;">🎁 EXTRA CREDIT</strong>
@@ -5454,19 +5454,144 @@
                         </div>
                         ${createProgressBar(grades.bonus.earned, grades.bonus.max, grades.bonus.percentage)}
                         <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${grades.bonus.percentage}%</div>
-                        
-                        ${grades.bonus.completed.length > 0 ? `
+                        ${grades.bonus.completed && grades.bonus.completed.length > 0 ? `
                             <div style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.6);">
                                 ${grades.bonus.completed.map(c => `
-                                    <div style="padding: 4px 0;">
-                                        ✓ ${c.display_name} - ${c.points_earned}/${c.points_possible}
-                                    </div>
+                                    <div style="padding: 4px 0;">✓ ${c.display_name} - ${c.points_earned}/${c.points_possible}</div>
                                 `).join('')}
                             </div>
                         ` : '<div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 8px;">No bonus work completed yet.</div>'}
                     </div>
                 </div>
             `;
+        }
+
+        // Render a Classical section (1 or 2) with myth grouping
+        function renderClassicalSection(section, accentColor, getColor, createProgressBar) {
+            const totalEarned = section.earned + section.pixton_earned;
+            const pixtonNote = section.pixton_max > 0 
+                ? `<span style="color: #4ade80; font-size: 12px; margin-left: 8px;">(+${section.pixton_earned}/${section.pixton_max} Pixton extra)</span>` 
+                : '';
+            
+            // Count all missing (excluding pixton from main count)
+            let missingCount = 0;
+            let pixtonMissingCount = 0;
+            const order = section.myth_order || [];
+            order.forEach(myth => {
+                const items = section.missing_by_myth[myth] || [];
+                items.forEach(i => { if (i.is_pixton) pixtonMissingCount++; else missingCount++; });
+            });
+            const totalMissing = missingCount + pixtonMissingCount;
+            
+            // Count completed
+            let completedCount = 0;
+            order.forEach(myth => { completedCount += (section.completed_by_myth[myth] || []).length; });
+            
+            // Build grouped missing list
+            let missingHtml = '';
+            order.forEach(myth => {
+                const items = section.missing_by_myth[myth] || [];
+                if (items.length === 0) return;
+                const mythCol = getColor(myth);
+                missingHtml += `<div style="margin-top: 8px; margin-bottom: 4px; font-weight: 700; color: ${mythCol}; font-size: 13px; border-bottom: 1px solid ${mythCol}33; padding-bottom: 4px;">${myth}</div>`;
+                items.forEach(m => {
+                    if (m.is_pixton) {
+                        missingHtml += `<div style="padding: 4px 0 4px 12px; color: #4ade80; font-size: 13px;">⬡ ${m.display_name} <span style="color: #4ade80; font-size: 11px;">(+${m.max_points} extra credit)</span></div>`;
+                    } else {
+                        missingHtml += `<div style="padding: 4px 0 4px 12px; font-size: 13px;">○ <span style="color: rgba(255,255,255,0.8);">${m.display_name}</span> <span style="color: rgba(255,255,255,0.4);">(${m.max_points} pts)</span></div>`;
+                    }
+                });
+            });
+            
+            // Build grouped completed list
+            let completedHtml = '';
+            order.forEach(myth => {
+                const items = section.completed_by_myth[myth] || [];
+                if (items.length === 0) return;
+                const mythCol = getColor(myth);
+                completedHtml += `<div style="margin-top: 8px; margin-bottom: 4px; font-weight: 700; color: ${mythCol}; font-size: 13px; border-bottom: 1px solid ${mythCol}33; padding-bottom: 4px;">${myth}</div>`;
+                items.forEach(c => {
+                    if (c.is_pixton) {
+                        completedHtml += `<div style="padding: 4px 0 4px 12px; color: #4ade80; font-size: 13px;">✓ ${c.display_name} - ${c.points_earned}/${c.points_possible} <span style="font-size: 11px;">(extra credit)</span></div>`;
+                    } else {
+                        completedHtml += `<div style="padding: 4px 0 4px 12px; color: #4ade80; font-size: 13px;">✓ ${c.display_name} - ${c.points_earned}/${c.points_possible}</div>`;
+                    }
+                });
+            });
+            
+            return `<div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; border-left: 3px solid ${accentColor};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <strong style="font-size: 16px;">${section.label}</strong>
+                    <span style="color: #ffd700; font-weight: bold; font-size: 18px;">${section.earned}/${section.max}${pixtonNote}</span>
+                </div>
+                ${createProgressBar(section.earned, section.max, section.percentage)}
+                <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${section.percentage}%</div>
+                ${completedCount > 0 ? `
+                    <details style="margin-top: 10px;">
+                        <summary style="cursor: pointer; color: #4ade80; font-size: 14px; font-weight: 600;">▸ ✓ ${completedCount} completed</summary>
+                        <div style="margin-top: 4px;">${completedHtml}</div>
+                    </details>
+                ` : ''}
+                ${totalMissing > 0 ? `
+                    <details style="margin-top: 10px;">
+                        <summary style="cursor: pointer; color: #fbbf24; font-size: 14px; font-weight: 600;">▸ 📋 ${missingCount} still needed${pixtonMissingCount > 0 ? ` (+${pixtonMissingCount} Pixton extra)` : ''}</summary>
+                        <div style="margin-top: 4px;">${missingHtml}</div>
+                    </details>
+                ` : '<div style="color: #4ade80; font-size: 14px; margin-top: 8px;">✨ Section Complete!</div>'}
+            </div>`;
+        }
+
+        // Render Classical bonus section with myth grouping
+        function renderClassicalBonus(bonus, getColor, createProgressBar) {
+            const order = bonus.myth_order || [];
+            
+            let missingHtml = '';
+            let missingCount = 0;
+            order.forEach(myth => {
+                const items = bonus.missing_by_myth[myth] || [];
+                if (items.length === 0) return;
+                const mythCol = getColor(myth);
+                missingHtml += `<div style="margin-top: 8px; margin-bottom: 4px; font-weight: 700; color: ${mythCol}; font-size: 13px; border-bottom: 1px solid ${mythCol}33; padding-bottom: 4px;">${myth}</div>`;
+                items.forEach(m => {
+                    missingHtml += `<div style="padding: 4px 0 4px 12px; font-size: 13px;">○ <span style="color: rgba(255,255,255,0.8);">${m.display_name}</span> <span style="color: rgba(255,255,255,0.4);">(${m.max_points} pts)</span></div>`;
+                    missingCount++;
+                });
+            });
+            
+            let completedHtml = '';
+            let completedCount = 0;
+            order.forEach(myth => {
+                const items = bonus.completed_by_myth[myth] || [];
+                if (items.length === 0) return;
+                const mythCol = getColor(myth);
+                completedHtml += `<div style="margin-top: 8px; margin-bottom: 4px; font-weight: 700; color: ${mythCol}; font-size: 13px; border-bottom: 1px solid ${mythCol}33; padding-bottom: 4px;">${myth}</div>`;
+                items.forEach(c => {
+                    completedHtml += `<div style="padding: 4px 0 4px 12px; color: #4ade80; font-size: 13px;">✓ ${c.display_name} - ${c.points_earned}/${c.points_possible}</div>`;
+                    completedCount++;
+                });
+            });
+            
+            return `<div style="background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(156,39,176,0.1)); padding: 15px; border-radius: 10px; border: 1px solid rgba(186,104,200,0.3);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <strong style="font-size: 16px;">🏛️ EXTRA CREDIT <span style="font-size: 12px; font-weight: normal; color: rgba(255,255,255,0.5);">(target: 100 from 250 available)</span></strong>
+                    <span style="color: #ce93d8; font-weight: bold; font-size: 18px;">${Math.min(bonus.earned, 100)}/${bonus.max}</span>
+                </div>
+                ${createProgressBar(bonus.earned, bonus.max, bonus.percentage)}
+                <div style="text-align: right; font-size: 14px; color: rgba(255,255,255,0.7);">${bonus.percentage}%${bonus.earned > 100 ? ' (' + bonus.earned + ' total!)' : ''}</div>
+                ${completedCount > 0 ? `
+                    <details style="margin-top: 10px;">
+                        <summary style="cursor: pointer; color: #4ade80; font-size: 14px; font-weight: 600;">▸ ✓ ${completedCount} completed</summary>
+                        <div style="margin-top: 4px;">${completedHtml}</div>
+                    </details>
+                ` : ''}
+                ${missingCount > 0 ? `
+                    <details style="margin-top: 10px;">
+                        <summary style="cursor: pointer; color: #ce93d8; font-size: 14px; font-weight: 600;">▸ 📋 ${missingCount} available assignments</summary>
+                        <div style="margin-top: 4px;">${missingHtml}</div>
+                    </details>
+                ` : ''}
+                ${completedCount === 0 ? '<div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 8px;">Open the Creative Forge to start earning bonus points!</div>' : ''}
+            </div>`;
         }
 
         // Bonus Portal Functions

@@ -1676,9 +1676,16 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
         }
       });
     } else {
-      // CLASSICAL AGE GRADES - Reading Guides/Quizzes, Creative Work, Extra Credit
-      // Use section = 'classical' or 'classical_creative' which always exists
-      const classicalAssignments = query(`
+      // CLASSICAL AGE GRADES - Split by myth grouping per grading breakdown doc
+      // Section 1: Myths 1-4 (Pandora, Phaethon, Orpheus, Echo and Narcissus) = 136 baseline
+      // Section 2: Myths 5-7 (Icarus, Eros and Psyche, Constellations) = 102 baseline
+      // Pixtons are extra credit within each section
+      // Bonus: 100 pt target from 250 available
+      
+      const section1Myths = ['Pandora', 'Phaethon', 'Orpheus', 'Echo and Narcissus'];
+      const section2Myths = ['Icarus', 'Eros and Psyche', 'Constellations'];
+      
+      const allClassical = query(`
         SELECT * FROM assignments_ref WHERE section IN ('classical', 'classical_creative')
       `);
       
@@ -1689,28 +1696,64 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
         WHERE gr.student_id = ? AND ar.section IN ('classical', 'classical_creative')
       `, [student_id]);
       
-      // Classical sections: reading guides & quizzes vs creative work
-      const coreAssignments = classicalAssignments.filter(a => a.section === 'classical');
-      const creativeAssignments = classicalAssignments.filter(a => a.section === 'classical_creative');
+      const completedIds = new Set(completedRecords.map(r => r.assignment_id));
       
-      const coreCompleted = completedRecords.filter(r => r.section === 'classical');
-      const creativeCompleted = completedRecords.filter(r => r.section === 'classical_creative');
+      // Helper: build section data for a myth group
+      function buildSection(mythNames, label) {
+        const assignments = allClassical.filter(a => mythNames.includes(a.myth_god));
+        const baseline = assignments.filter(a => a.assignment_type !== 'mural');
+        const pixton = assignments.filter(a => a.assignment_type === 'mural');
+        const completed = completedRecords.filter(r => mythNames.includes(r.myth_god));
+        const baselineCompleted = completed.filter(r => r.assignment_type !== 'mural');
+        const pixtonCompleted = completed.filter(r => r.assignment_type === 'mural');
+        
+        const baselineEarned = baselineCompleted.reduce((sum, r) => sum + r.points_earned, 0);
+        const baselineMax = baseline.reduce((sum, a) => sum + a.max_points, 0);
+        const pixtonEarned = pixtonCompleted.reduce((sum, r) => sum + r.points_earned, 0);
+        const pixtonMax = pixton.reduce((sum, a) => sum + a.max_points, 0);
+        
+        // Group missing by myth for the UI
+        const missingByMyth = {};
+        assignments.forEach(a => {
+          if (!completedIds.has(a.assignment_id)) {
+            if (!missingByMyth[a.myth_god]) missingByMyth[a.myth_god] = [];
+            missingByMyth[a.myth_god].push({
+              display_name: a.display_name, max_points: a.max_points,
+              myth_god: a.myth_god, assignment_type: a.assignment_type,
+              is_pixton: a.assignment_type === 'mural'
+            });
+          }
+        });
+        
+        // Group completed by myth for the UI
+        const completedByMyth = {};
+        completed.forEach(r => {
+          if (!completedByMyth[r.myth_god]) completedByMyth[r.myth_god] = [];
+          completedByMyth[r.myth_god].push({
+            display_name: r.display_name, myth_god: r.myth_god,
+            points_earned: r.points_earned, points_possible: r.points_possible,
+            assignment_type: r.assignment_type, is_pixton: r.assignment_type === 'mural'
+          });
+        });
+        
+        return {
+          label,
+          earned: baselineEarned, max: baselineMax,
+          percentage: baselineMax > 0 ? Math.round((baselineEarned / baselineMax) * 100) : 0,
+          pixton_earned: pixtonEarned, pixton_max: pixtonMax,
+          completed: completed.map(r => ({
+            display_name: r.display_name, myth_god: r.myth_god,
+            points_earned: r.points_earned, points_possible: r.points_possible,
+            assignment_type: r.assignment_type, is_pixton: r.assignment_type === 'mural'
+          })),
+          completed_by_myth: completedByMyth,
+          missing_by_myth: missingByMyth,
+          myth_order: mythNames
+        };
+      }
       
-      const coreEarned = coreCompleted.reduce((sum, r) => sum + r.points_earned, 0);
-      const creativeEarned = creativeCompleted.reduce((sum, r) => sum + r.points_earned, 0);
-      
-      const coreMax = coreAssignments.reduce((sum, a) => sum + a.max_points, 0);
-      const creativeMax = creativeAssignments.reduce((sum, a) => sum + a.max_points, 0);
-      
-      const completedAssignmentIds = new Set(completedRecords.map(r => r.assignment_id));
-      
-      const coreMissing = coreAssignments
-        .filter(a => !completedAssignmentIds.has(a.assignment_id))
-        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
-      
-      const creativeMissing = creativeAssignments
-        .filter(a => !completedAssignmentIds.has(a.assignment_id))
-        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
+      const s1 = buildSection(section1Myths, 'SECTION 1: MYTHS 1-4');
+      const s2 = buildSection(section2Myths, 'SECTION 2: MYTHS 5-7');
       
       // Classical bonus assignments  
       const bonusAssignments = query(`
@@ -1725,32 +1768,41 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
       const bonusEarned = bonusRecords.reduce((sum, r) => sum + r.points_earned, 0);
       const bonusTarget = 100;
       const bonusCompletedIds = new Set(bonusRecords.map(r => r.assignment_id));
-      const bonusMissing = bonusAssignments
-        .filter(a => !bonusCompletedIds.has(a.assignment_id))
-        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
+      
+      // Group bonus missing by myth
+      const bonusMissingByMyth = {};
+      bonusAssignments.forEach(a => {
+        if (!bonusCompletedIds.has(a.assignment_id)) {
+          const mythKey = a.myth_god === 'Pandora (Box)' ? 'Pandora' : a.myth_god;
+          if (!bonusMissingByMyth[mythKey]) bonusMissingByMyth[mythKey] = [];
+          bonusMissingByMyth[mythKey].push({
+            display_name: a.display_name, max_points: a.max_points,
+            myth_god: a.myth_god, assignment_type: a.assignment_type
+          });
+        }
+      });
+      const bonusCompletedByMyth = {};
+      bonusRecords.forEach(r => {
+        const mythKey = r.myth_god === 'Pandora (Box)' ? 'Pandora' : r.myth_god;
+        if (!bonusCompletedByMyth[mythKey]) bonusCompletedByMyth[mythKey] = [];
+        bonusCompletedByMyth[mythKey].push({
+          display_name: r.display_name, myth_god: r.myth_god,
+          points_earned: r.points_earned, points_possible: r.points_possible
+        });
+      });
 
       res.json({
         age: 'Classical',
-        section1: {
-          label: 'READING GUIDES & QUIZZES',
-          earned: coreEarned, max: coreMax,
-          percentage: coreMax > 0 ? Math.round((coreEarned / coreMax) * 100) : 0,
-          completed: coreCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
-          missing: coreMissing
-        },
-        section2: {
-          label: 'CREATIVE WORK',
-          earned: creativeEarned, max: creativeMax,
-          percentage: creativeMax > 0 ? Math.round((creativeEarned / creativeMax) * 100) : 0,
-          completed: creativeCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
-          missing: creativeMissing
-        },
+        section1: s1,
+        section2: s2,
         bonus: {
           label: 'EXTRA CREDIT',
           earned: bonusEarned, max: bonusTarget,
           percentage: bonusTarget > 0 ? Math.round((Math.min(bonusEarned, bonusTarget) / bonusTarget) * 100) : 0,
-          completed: bonusRecords.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
-          missing: bonusMissing
+          completed: bonusRecords.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible })),
+          completed_by_myth: bonusCompletedByMyth,
+          missing_by_myth: bonusMissingByMyth,
+          myth_order: ['Pandora', 'Phaethon', 'Orpheus', 'Echo and Narcissus', 'Icarus', 'Eros and Psyche', 'Constellations', 'Morals']
         }
       });
     }
