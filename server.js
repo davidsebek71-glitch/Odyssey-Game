@@ -1580,6 +1580,26 @@ app.get('/api/assignments/filter', authenticateToken, (req, res) => {
   }
 });
 
+// Temporary diagnostic - check Classical data state
+app.get('/api/debug/classical-check', (req, res) => {
+  try {
+    const cols = query("PRAGMA table_info(assignments_ref)").map(c => c.name);
+    const classicalCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical'")[0];
+    const creativeCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical_creative'")[0];
+    const allSections = query("SELECT DISTINCT section FROM assignments_ref");
+    const sampleClassical = query("SELECT assignment_id, section, myth_god, display_name FROM assignments_ref WHERE section IN ('classical','classical_creative') LIMIT 5");
+    res.json({ 
+      columns: cols, 
+      classical_count: classicalCount.cnt, 
+      creative_count: creativeCount.cnt,
+      all_sections: allSections.map(s => s.section),
+      sample: sampleClassical
+    });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 // Get student's grade summary
 app.get('/api/student/grades', authenticateToken, (req, res) => {
   try {
