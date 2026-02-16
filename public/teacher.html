@@ -2988,6 +2988,13 @@
             document.getElementById('spinning-wheel-step').style.display = 'block';
             document.getElementById('selected-alliance-name').textContent = selectedAllianceName;
 
+            // Apply age-themed styling
+            const isClassical = currentFateAge === 'Classical';
+            const pointer = document.querySelector('.fate-wheel-pointer');
+            if (pointer) pointer.style.borderTopColor = isClassical ? '#4a90d9' : '#ffd700';
+            const titleDiv = document.querySelector('#spinning-wheel-step > div:first-child > div');
+            if (titleDiv) titleDiv.style.color = isClassical ? '#4a90d9' : '#ffd700';
+
             // Draw the wheel
             drawFateWheel();
         }
@@ -3008,12 +3015,19 @@
             wheelContext.clearRect(0, 0, w, h);
 
             // Draw segments
+            const isClassical = currentFateAge === 'Classical';
+            const color1 = isClassical ? '#1e3a8a' : '#c41e3a';
+            const color2 = isClassical ? '#3b82f6' : '#ff6b35';
+            const borderColor = isClassical ? '#4a90d9' : '#ffd700';
+            const centerBg = isClassical ? '#4a90d9' : '#ffd700';
+            const centerText = isClassical ? '#fff' : '#1a0a0f';
+            
             for (let i = 0; i < numSegments; i++) {
                 const startAngle = i * anglePerSegment + currentRotation;
                 const endAngle = (i + 1) * anglePerSegment + currentRotation;
 
-                // Alternating colors
-                wheelContext.fillStyle = i % 2 === 0 ? '#c41e3a' : '#ff6b35';
+                // Alternating colors - age themed
+                wheelContext.fillStyle = i % 2 === 0 ? color1 : color2;
                 
                 wheelContext.beginPath();
                 wheelContext.moveTo(centerX, centerY);
@@ -3022,11 +3036,11 @@
                 wheelContext.fill();
 
                 // Border
-                wheelContext.strokeStyle = '#ffd700';
+                wheelContext.strokeStyle = borderColor;
                 wheelContext.lineWidth = 2;
                 wheelContext.stroke();
 
-                // Draw fate number
+                // Draw fate number (1-based, not database fate_number)
                 wheelContext.save();
                 wheelContext.translate(centerX, centerY);
                 wheelContext.rotate(startAngle + anglePerSegment / 2);
@@ -3034,17 +3048,17 @@
                 wheelContext.textBaseline = 'middle';
                 wheelContext.fillStyle = '#fff';
                 wheelContext.font = 'bold 16px Inter';
-                wheelContext.fillText(allFates[i]?.fate_number || (i + 1), radius * 0.7, 0);
+                wheelContext.fillText(i + 1, radius * 0.7, 0);
                 wheelContext.restore();
             }
 
             // Center circle
-            wheelContext.fillStyle = '#ffd700';
+            wheelContext.fillStyle = centerBg;
             wheelContext.beginPath();
             wheelContext.arc(centerX, centerY, 40, 0, 2 * Math.PI);
             wheelContext.fill();
             
-            wheelContext.fillStyle = '#1a0a0f';
+            wheelContext.fillStyle = centerText;
             wheelContext.font = 'bold 20px Inter';
             wheelContext.textAlign = 'center';
             wheelContext.textBaseline = 'middle';
@@ -3169,20 +3183,20 @@
                 
                 // Route based on fate type
                 if (fate.is_battle === 1) {
-                    // BATTLE FATES (8, 14, 17) - Use battle system
+                    // BATTLE FATES - Use battle system
                     console.log('⚔️ Routing to BATTLE');
                     await startBattle(fate);
-                } else if (fate.fate_type === 'special' && fate.fate_number === 9) {
-                    // COUNTDOWN FATE (9) - Teacher input form
+                } else if (fate.fate_type === 'special' && (fate.fate_number === 9 || fate.fate_number === 29 || fate.fate_number === 41)) {
+                    // COUNTDOWN FATE - Teacher input form (Archaic 9, Classical 29, 41)
                     console.log('🎮 Routing to COUNTDOWN GAME');
                     showCountdownForm(fate);
-                } else if (fate.fate_type === 'special' && fate.fate_number === 12) {
-                    // REVERSE CARD (12) - Add to inventory
+                } else if (fate.fate_type === 'special' && (fate.fate_number === 12 || fate.fate_number === 30 || fate.fate_number === 32)) {
+                    // REVERSE/STORED CARD (Archaic 12, Classical 30 Power of Prometheus, 32 Reverse Card)
                     console.log('🔄 Routing to REVERSE CARD');
                     await awardReverseCard(fate);
-                } else if (fate.fate_type === 'choice') {
-                    // CHOICE FATES - Show 3 options
-                    console.log('🎯 Routing to CHOICES for fate_id:', fate.fate_id);
+                } else if (fate.fate_type === 'choice' || fate.fate_type === 'steal_choice') {
+                    // CHOICE / STEAL-CHOICE FATES - Show 3 options
+                    console.log('🎯 Routing to CHOICES for fate_id:', fate.fate_id, 'type:', fate.fate_type);
                     
                     // Get the 3 choices for this fate
                     const url = `${API_URL}/teacher/fate-choices/${fate.fate_id}`;
