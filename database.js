@@ -631,6 +631,32 @@ async function initDatabase() {
 function runMigrations() {
   console.log('🔄 Running database migrations...');
   
+  // Ensure students table has current_age column
+  try {
+    const studentCols = db.exec("PRAGMA table_info(students)");
+    const studentColNames = studentCols[0] ? studentCols[0].values.map(c => c[1]) : [];
+    if (!studentColNames.includes('current_age')) {
+      console.log('  Adding current_age column to students...');
+      db.run("ALTER TABLE students ADD COLUMN current_age TEXT DEFAULT 'Archaic'");
+      console.log('✅ students.current_age column added');
+    }
+  } catch (err) {
+    console.log('students current_age migration note:', err.message);
+  }
+  
+  // Ensure alliances table has current_age column
+  try {
+    const allianceCols = db.exec("PRAGMA table_info(alliances)");
+    const allianceColNames = allianceCols[0] ? allianceCols[0].values.map(c => c[1]) : [];
+    if (!allianceColNames.includes('current_age')) {
+      console.log('  Adding current_age column to alliances...');
+      db.run("ALTER TABLE alliances ADD COLUMN current_age TEXT DEFAULT 'Archaic'");
+      console.log('✅ alliances.current_age column added');
+    }
+  } catch (err) {
+    console.log('alliances current_age migration note:', err.message);
+  }
+  
   // Check and add missing columns to alliances table
   try {
     // Check if civilization_map_complete column exists
