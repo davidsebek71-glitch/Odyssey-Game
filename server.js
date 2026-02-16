@@ -7254,7 +7254,7 @@ app.get('/api/student/virtues', authenticateToken, (req, res) => {
 // --- Teacher: Activate a myth portal for a specific period ---
 app.post('/api/teacher/activate-portal', authenticateToken, (req, res) => {
   try {
-    if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
     
     const { portal_id, class_period, activated } = req.body;
     if (!portal_id || !class_period) return res.status(400).json({ error: 'portal_id and class_period required' });
@@ -7285,7 +7285,7 @@ app.post('/api/teacher/activate-portal', authenticateToken, (req, res) => {
 // --- Teacher: Get virtue progress for all students ---
 app.get('/api/teacher/virtue-progress', authenticateToken, (req, res) => {
   try {
-    if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
     
     const students = query('SELECT s.student_id, s.name, s.class_period, s.alliance_id, a.alliance_name FROM students s LEFT JOIN alliances a ON s.alliance_id = a.alliance_id ORDER BY s.class_period, s.name');
     const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
@@ -7322,7 +7322,7 @@ app.get('/api/teacher/virtue-progress', authenticateToken, (req, res) => {
 // --- Teacher: Get myth portal statuses for all periods ---
 app.get('/api/teacher/myth-portals', authenticateToken, (req, res) => {
   try {
-    if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
     
     const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
     const statuses = query('SELECT * FROM myth_portal_status');
