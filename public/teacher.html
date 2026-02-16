@@ -978,32 +978,36 @@
     
     <!-- God Assignments Modal -->
     <div id="god-assignments-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; overflow-y: auto;">
             <div class="modal-title">⚡ Grant God Assignments & Side Quest Rewards</div>
             
             <!-- GOD BONUSES SECTION -->
             <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
                 <h3 style="color: #ffd700; margin-bottom: 10px; font-size: 16px;">🏛️ God Bonus Assignments (Building Unlocks)</h3>
                 <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 13px;">
-                    Grant god bonus assignments to unlock specific buildings for purchase.
+                    Grant god bonus assignments when <strong>ALL</strong> alliance members have completed the bonus with 80%+ score. Eligible alliances appear automatically.
                 </p>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                     <div>
-                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Alliance</label>
-                        <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadAllianceAssignments()">
-                            <option value="">Choose alliance...</option>
-                        </select>
-                    </div>
-                    <div>
                         <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select God</label>
-                        <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
+                        <select id="god-assignment-god" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;" onchange="loadEligibleAlliancesForGod()">
                             <option value="">Choose god...</option>
                             <option value="Athena">🦉 Athena (Library)</option>
                             <option value="Ares">⚔️ Ares (Wooden Wall)</option>
                             <option value="Poseidon">🔱 Poseidon (Dock)</option>
                         </select>
                     </div>
+                    <div>
+                        <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Eligible Alliances</label>
+                        <select id="god-assignment-alliance" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white;">
+                            <option value="">Select a god first...</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="god-eligible-info" style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 15px;">
+                    Select a god to see which alliances are eligible.
                 </div>
                 
                 <div style="text-align: center; margin-bottom: 10px;">
@@ -1013,7 +1017,7 @@
                 </div>
                 
                 <div id="current-assignments" style="color: rgba(255,255,255,0.6); font-size: 13px; padding-top: 10px; border-top: 1px solid rgba(255,215,0,0.2);">
-                    Select an alliance to view current assignments
+                    Select a god to view current assignments
                 </div>
             </div>
             
@@ -1033,7 +1037,6 @@
                             <option value="1">🔨 Ring of Many (-10% building costs)</option>
                             <option value="2">🏹 Panacea's Remedy (+5% point bonus)</option>
                             <option value="3">🌾 Three Seeds (Granary unlock)</option>
-                            <option value="4">🔥 Hearth of Hestia (+8% point bonus)</option>
                         </select>
                     </div>
                     <div>
@@ -1082,7 +1085,6 @@
                         <option value="quiz">Quiz</option>
                         <option value="myth_comp_conn">Myth Comp Conn</option>
                         <option value="mural">Mural/Comic</option>
-                        <option value="video">Video</option>
                         <option value="bonus_work">Bonus Work</option>
                         <option value="extra_credit">Extra Credit</option>
                         <option value="membean">Membean</option>
@@ -1154,14 +1156,14 @@
                     <option value="4th">4th Period</option>
                 </select>
             </div>
-            <div id="age-gate-content" style="max-height: 400px; overflow-y: auto;">
+            <div id="age-gate-content" style="max-height: 500px; overflow-y: auto;">
                 Loading...
             </div>
             
-            <!-- Myth Portal Activation Section - ABOVE close button -->
+            <!-- Myth Portal Activation Section -->
             <div id="myth-portal-section" style="margin-top: 20px; padding: 20px; background: rgba(30,64,175,0.15); border: 1px solid rgba(74,144,217,0.3); border-radius: 12px; display: none;">
                 <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #4a90d9; margin-bottom: 12px;">&#x1F4DC; Myth Portal Activation</div>
-                <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 14px;">Activate myth portals to unlock quizzes and assignments for this period's students in the Classical Age.</div>
+                <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 14px;">Activate myth portals to unlock quizzes and assignments for this period's students.</div>
                 <div id="myth-portal-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                     Loading portals...
                 </div>
@@ -1174,8 +1176,12 @@
     </div>
 
     <!-- GRADE OVERVIEW MODAL -->
+    <!-- GRADE OVERVIEW MODAL -->
+    <!-- MODAL SCROLL PATTERN: Use display:flex + flex-direction:column on modal-content,
+         and flex:1 + overflow:auto + min-height:0 on the scrollable content div.
+         This keeps content scrolling INSIDE the modal box. -->
     <div id="grade-overview-modal" class="modal">
-        <div class="modal-content" style="max-width: 1100px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 1100px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 📊 Student Grade Overview
                 <button onclick="closeGradeOverviewModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1183,7 +1189,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
                 All students listed alphabetically by class period. <strong>Click a student's name</strong> to view and manage their submissions.
             </div>
-            <div id="grade-overview-content" style="max-height: 70vh; overflow-y: auto;">
+            <div id="grade-overview-content" style="flex: 1; overflow-y: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
@@ -1191,13 +1197,13 @@
 
     <!-- QUEST & BONUS TRACKER MODAL -->
     <div id="quest-bonus-tracker-modal" class="modal">
-        <div class="modal-content" style="max-width: 1300px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 1300px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 📋 Quest & Bonus Tracker
                 <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">✕</button>
             </div>
             <div style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8);">
-                <strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea's Remedy | 🌾 Three Seeds | 🏠 Hearth of Hestia<br>
+                <strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea's Remedy | 🌾 Three Seeds<br>
                 <strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)
             </div>
             <div style="margin-bottom: 10px;">
@@ -1209,7 +1215,7 @@
                     <option value="4th">4th Period</option>
                 </select>
             </div>
-            <div id="quest-bonus-tracker-content" style="max-height: 65vh; overflow: auto;">
+            <div id="quest-bonus-tracker-content" style="flex: 1; overflow: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
@@ -1217,7 +1223,7 @@
 
     <!-- STUDENT SUBMISSIONS MODAL -->
     <div id="student-submissions-modal" class="modal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 <span id="student-submissions-title">📋 Student Submissions</span>
                 <button onclick="closeStudentSubmissionsModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1225,7 +1231,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
                 ⚠️ <strong>Warning:</strong> Deleting a submission removes points from the student's grade. Any purchases/upgrades already made will remain.
             </div>
-            <div id="student-submissions-content" style="max-height: 60vh; overflow-y: auto;">
+            <div id="student-submissions-content" style="flex: 1; overflow-y: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
@@ -1233,7 +1239,7 @@
 
     <!-- STUDENT MANAGEMENT MODAL -->
     <div id="student-management-modal" class="modal">
-        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
                 👥 Student Management
                 <button onclick="closeStudentManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -1241,7 +1247,7 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 13px; color: rgba(255,255,255,0.8);">
                 📝 <strong>Manage your students:</strong> Change class periods or remove students who have left.
             </div>
-            <div id="student-management-content" style="max-height: 70vh; overflow-y: auto;">
+            <div id="student-management-content" style="flex: 1; overflow-y: auto; min-height: 0;">
                 Loading...
             </div>
         </div>
@@ -1320,12 +1326,6 @@
     <div id="fate-wheel-modal" class="modal fate-modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-title">🎡 WHEEL OF FATE 🎡</div>
-
-            <!-- Age Toggle for Fate Wheel -->
-            <div id="fate-age-toggle" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 16px;">
-                <button id="fate-age-archaic" onclick="setFateAge('Archaic')" style="padding: 8px 20px; border-radius: 8px; border: 2px solid #b8860b; background: linear-gradient(135deg, #b8860b, #daa520); color: #1a0a0f; font-weight: 700; font-size: 13px; cursor: pointer; font-family: 'Cinzel', serif;">&#x1F3FA; Archaic</button>
-                <button id="fate-age-classical" onclick="setFateAge('Classical')" style="padding: 8px 20px; border-radius: 8px; border: 2px solid rgba(74,144,217,0.4); background: rgba(30,64,175,0.15); color: #7aa8d4; font-weight: 700; font-size: 13px; cursor: pointer; font-family: 'Cinzel', serif;">&#x1F3DB; Classical</button>
-            </div>
             
             <!-- STEP 1: Alliance Selection -->
             <div id="alliance-selection-step">
@@ -1360,10 +1360,7 @@
                     <canvas id="fate-wheel-canvas" width="500" height="500"></canvas>
                 </div>
 
-                <div style="text-align: center; margin-top: 30px; display: flex; justify-content: center; gap: 16px;">
-                    <button type="button" style="padding: 12px 28px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); font-size: 16px; font-weight: 700; cursor: pointer; font-family: 'Cinzel', serif;" onclick="cancelFateSpin()">
-                        ← Back
-                    </button>
+                <div style="text-align: center; margin-top: 30px;">
                     <button type="button" class="btn-fate" id="spin-button" onclick="doSpin()">
                         🌟 SPIN! 🌟
                     </button>
@@ -1933,7 +1930,7 @@
                 
                 content.innerHTML = html;
 
-                // Also load myth portal activation grid
+                // Load myth portal activation grid
                 loadMythPortals();
                 
             } catch (err) {
@@ -1942,6 +1939,67 @@
             }
         }
         
+        // ==================
+        // MYTH PORTAL MANAGEMENT
+        // ==================
+
+        async function loadMythPortals() {
+            var period = document.getElementById('age-gate-period').value;
+            var section = document.getElementById('myth-portal-section');
+            var grid = document.getElementById('myth-portal-grid');
+            
+            try {
+                var response = await fetch(API_URL + '/teacher/myth-portals', { headers: headers });
+                if (!response.ok) { section.style.display = 'none'; return; }
+                var portals = await response.json();
+                
+                // Always show portal section
+                section.style.display = 'block';
+                
+                grid.innerHTML = portals.map(function(p) {
+                    var periodStatus = p.periods[period] || { activated: 0 };
+                    var isActive = periodStatus.activated === 1;
+                    var bgColor = isActive ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.05)';
+                    var borderColor = isActive ? '#4ade80' : 'rgba(255,255,255,0.15)';
+                    
+                    return '<div style="padding: 12px; background: ' + bgColor + '; border: 1px solid ' + borderColor + '; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">' +
+                        '<div>' +
+                            '<span style="font-size: 18px;">' + (p.icon_placeholder || '&#x1F4DC;') + '</span>' +
+                            '<span style="color: #e2d8c8; font-size: 13px; font-weight: 600; margin-left: 6px;">' + p.display_name + '</span>' +
+                        '</div>' +
+                        '<button onclick="toggleMythPortal(' + p.portal_id + ', \'' + period + '\', ' + (!isActive) + ')" ' +
+                            'style="padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 700; ' +
+                            (isActive ? 'background: rgba(74,222,128,0.2); color: #4ade80;' : 'background: linear-gradient(135deg, #1e40af, #4a90d9); color: #fff;') + '">' +
+                            (isActive ? '&#x2705; Active' : '&#x1F513; Activate') +
+                        '</button>' +
+                    '</div>';
+                }).join('');
+                
+            } catch (err) {
+                console.error('Load myth portals error:', err);
+                section.style.display = 'none';
+            }
+        }
+
+        async function toggleMythPortal(portalId, period, activate) {
+            try {
+                var response = await fetch(API_URL + '/teacher/activate-portal', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ portal_id: portalId, class_period: period, activated: activate })
+                });
+                
+                if (response.ok) {
+                    loadMythPortals();
+                } else {
+                    var err = await response.json();
+                    alert('Failed: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
         async function openClassicalGate(period) {
             if (!confirm(`Open the Classical Age gate for ${period} Period?\n\nAll alliances that meet requirements will automatically advance.`)) {
                 return;
@@ -2019,68 +2077,6 @@
             }
         }
 
-
-        // ==================
-        // MYTH PORTAL MANAGEMENT
-        // ==================
-
-        async function loadMythPortals() {
-            var period = document.getElementById('age-gate-period').value;
-            var section = document.getElementById('myth-portal-section');
-            var grid = document.getElementById('myth-portal-grid');
-            
-            try {
-                var response = await fetch(API_URL + '/teacher/myth-portals', { headers: headers });
-                if (!response.ok) { section.style.display = 'none'; return; }
-                var portals = await response.json();
-                
-                // Always show portal section
-                section.style.display = 'block';
-                
-                grid.innerHTML = portals.map(function(p) {
-                    var periodStatus = p.periods[period] || { activated: 0 };
-                    var isActive = periodStatus.activated === 1;
-                    var bgColor = isActive ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.05)';
-                    var borderColor = isActive ? '#4ade80' : 'rgba(255,255,255,0.15)';
-                    
-                    return '<div style="padding: 12px; background: ' + bgColor + '; border: 1px solid ' + borderColor + '; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">' +
-                        '<div>' +
-                            '<span style="font-size: 18px;">' + (p.icon_placeholder || '&#x1F4DC;') + '</span>' +
-                            '<span style="color: #e2d8c8; font-size: 13px; font-weight: 600; margin-left: 6px;">' + p.display_name + '</span>' +
-                        '</div>' +
-                        '<button onclick="toggleMythPortal(' + p.portal_id + ', \'' + period + '\', ' + (!isActive) + ')" ' +
-                            'style="padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 700; ' +
-                            (isActive ? 'background: rgba(74,222,128,0.2); color: #4ade80;' : 'background: linear-gradient(135deg, #1e40af, #4a90d9); color: #fff;') + '">' +
-                            (isActive ? '&#x2705; Active' : '&#x1F513; Activate') +
-                        '</button>' +
-                    '</div>';
-                }).join('');
-                
-            } catch (err) {
-                console.error('Load myth portals error:', err);
-                section.style.display = 'none';
-            }
-        }
-
-        async function toggleMythPortal(portalId, period, activate) {
-            try {
-                var response = await fetch(API_URL + '/teacher/activate-portal', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ portal_id: portalId, class_period: period, activated: activate })
-                });
-                
-                if (response.ok) {
-                    loadMythPortals();
-                } else {
-                    var err = await response.json();
-                    alert('Failed: ' + (err.error || 'Unknown error'));
-                }
-            } catch (err) {
-                alert('Error: ' + err.message);
-            }
-        }
-
         let currentLeaderboardPeriod = 'all';
         
         function switchLeaderboardPeriod(period) {
@@ -2135,10 +2131,10 @@
                                         <div class="alliance-name" style="flex: 1;">
                                             ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                             <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
-                                                ${alliance.member_names?.join(', ') || 'No members'}
+                                                ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
                                             </div>
                                         </div>
-                                        <div class="points" style="min-width: 60px; text-align: right;">${alliance.total_points} pts</div>
+                                        <div class="points" style="min-width: 60px; text-align: right;">${alliance.display_points || alliance.total_points} pts</div>
                                     </div>
                                 `;
                             });
@@ -2171,10 +2167,10 @@
                                 <div class="alliance-name" style="flex: 1;">
                                     ${alliance.alliance_name} ${rewardIcons ? `<span style="margin-left: 5px; font-size: 125%; color: initial; -webkit-text-fill-color: initial;">${rewardIcons}</span>` : ''}
                                     <div style="font-size: 11px; color: rgba(255,255,255,0.5);">
-                                        ${alliance.member_names?.join(', ') || 'No members'}
+                                        ${alliance.member_names?.join(', ') || 'No members'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
                                     </div>
                                 </div>
-                                <div class="points" style="min-width: 80px; text-align: right;">${alliance.total_points} pts</div>
+                                <div class="points" style="min-width: 80px; text-align: right;">${alliance.display_points || alliance.total_points} pts</div>
                                 <div style="min-width: 80px; text-align: right; font-size: 12px; color: rgba(255,255,255,0.5);">
                                     ${alliance.buildings_owned?.length || 0} buildings
                                 </div>
@@ -2221,11 +2217,11 @@
                                 <div style="font-weight: 700; color: #ffd700; font-size: 16px;">${alliance.alliance_name}</div>
                                 <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 4px;">
                                     📚 ${alliance.class_period || 'No period'} Period | 
-                                    👥 ${alliance.member_count} members | 
-                                    ⚡ ${alliance.total_points} pts
+                                    👥 ${alliance.real_member_count || alliance.member_count} members${alliance.ghost_count > 0 ? ' + ' + alliance.ghost_count + ' 👻' : ''} | 
+                                    ⚡ ${alliance.display_points || alliance.total_points} pts
                                 </div>
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px;">
-                                    Members: ${alliance.member_names || 'None'}
+                                    Members: ${alliance.member_names || 'None'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
                                 </div>
                             </div>
                             <button class="btn-disband" onclick="disbandAlliance(${alliance.alliance_id}, '${alliance.alliance_name.replace(/'/g, "\\'")}')">
@@ -2272,41 +2268,70 @@
         
         async function openGodAssignmentsModal() {
             document.getElementById('god-assignments-modal').classList.add('show');
-            
-            // Load alliances into dropdown
-            const response = await fetch(`${API_URL}/teacher/leaderboard`, { headers });
-            const alliances = await response.json();
-            
-            const select = document.getElementById('god-assignment-alliance');
-            select.innerHTML = '<option value="">Choose alliance...</option>' +
-                alliances.map(a => `<option value="${a.alliance_id}">${a.alliance_name} [${a.class_period || 'No period'}]</option>`).join('');
+            // Reset god bonus dropdowns
+            document.getElementById('god-assignment-god').value = '';
+            document.getElementById('god-assignment-alliance').innerHTML = '<option value="">Select a god first...</option>';
+            document.getElementById('god-eligible-info').innerHTML = 'Select a god to see which alliances are eligible.';
+            document.getElementById('current-assignments').innerHTML = 'Select a god to view current assignments';
         }
         
         function closeGodAssignmentsModal() {
             document.getElementById('god-assignments-modal').classList.remove('show');
         }
         
-        async function loadAllianceAssignments() {
-            const allianceId = document.getElementById('god-assignment-alliance').value;
-            const content = document.getElementById('current-assignments');
+        async function loadEligibleAlliancesForGod() {
+            const select = document.getElementById('god-assignment-alliance');
+            const infoDiv = document.getElementById('god-eligible-info');
+            const godName = document.getElementById('god-assignment-god').value;
             
-            if (!allianceId) {
-                content.innerHTML = 'Select an alliance to view assignments';
+            if (!godName) {
+                select.innerHTML = '<option value="">Select a god first...</option>';
+                infoDiv.innerHTML = 'Select a god to see which alliances are eligible.';
+                document.getElementById('current-assignments').innerHTML = 'Select a god to view current assignments';
                 return;
             }
             
             try {
+                const response = await fetch(`${API_URL}/teacher/eligible-alliances-for-god-bonus?god_name=${godName}`, { headers });
+                const data = await response.json();
+                
+                if (data.eligible_alliances && data.eligible_alliances.length > 0) {
+                    select.innerHTML = '<option value="">Choose alliance...</option>' +
+                        data.eligible_alliances.map(a => 
+                            `<option value="${a.alliance_id}">${a.alliance_name} [${a.class_period}] (${a.qualified_count}/${a.member_count} qualified)</option>`
+                        ).join('');
+                    infoDiv.innerHTML = `✅ ${data.eligible_alliances.length} alliance(s) eligible for ${godName}. Threshold: ${data.threshold}`;
+                    infoDiv.style.color = '#4ade80';
+                } else {
+                    select.innerHTML = '<option value="">No eligible alliances yet</option>';
+                    infoDiv.innerHTML = `⚠ No alliances have ALL members approved for ${godName} Bonus yet. Threshold: ${data.threshold}`;
+                    infoDiv.style.color = '#fbbf24';
+                }
+                
+                // Also load current assignments for this god
+                loadCurrentGodAssignments(godName);
+            } catch (err) {
+                select.innerHTML = '<option value="">Error loading alliances</option>';
+                infoDiv.innerHTML = '❌ Failed to load eligible alliances';
+                infoDiv.style.color = '#ef4444';
+            }
+        }
+        
+        async function loadCurrentGodAssignments(godName) {
+            const content = document.getElementById('current-assignments');
+            try {
                 const response = await fetch(`${API_URL}/teacher/god-assignments`, { headers });
                 const allAssignments = await response.json();
                 
-                const allianceAssignments = allAssignments.filter(a => a.alliance_id == allianceId);
+                const godAssignments = allAssignments.filter(a => a.god_name === godName);
                 
-                if (allianceAssignments.length === 0) {
-                    content.innerHTML = '<div style="color: rgba(255,255,255,0.5);">No assignments yet</div>';
+                if (godAssignments.length === 0) {
+                    content.innerHTML = `<div style="color: rgba(255,255,255,0.5);">No alliances have been granted ${godName} yet</div>`;
                 } else {
-                    content.innerHTML = allianceAssignments.map(a => `
+                    content.innerHTML = `<div style="margin-bottom: 8px; color: #ffd700; font-size: 13px;">Already granted ${godName}:</div>` +
+                        godAssignments.map(a => `
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 5px;">
-                            <span>⚡ ${a.god_name}</span>
+                            <span>⚡ ${a.alliance_name || 'Alliance #' + a.alliance_id}</span>
                             <button onclick="revokeGodAssignment(${a.alliance_id}, '${a.god_name}')" style="background: rgba(220,38,38,0.3); border: none; color: #fca5a5; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">
                                 Remove
                             </button>
@@ -2323,7 +2348,7 @@
             const godName = document.getElementById('god-assignment-god').value;
             
             if (!allianceId || !godName) {
-                alert('Please select both an alliance and a god');
+                alert('Please select both a god and an eligible alliance');
                 return;
             }
             
@@ -2338,7 +2363,7 @@
                 
                 if (response.ok) {
                     alert('✅ ' + result.message);
-                    loadAllianceAssignments();
+                    loadEligibleAlliancesForGod(); // Refresh to remove granted alliance
                 } else {
                     alert('Error: ' + result.error);
                 }
@@ -2361,7 +2386,7 @@
                 
                 if (response.ok) {
                     alert('✅ Assignment removed');
-                    loadAllianceAssignments();
+                    loadEligibleAlliancesForGod(); // Refresh
                 } else {
                     alert('Error: ' + result.error);
                 }
@@ -2476,13 +2501,10 @@
                     const godEmojis = {
                         'Zeus': '⚡', 'Prometheus': '🔥', 'Hera': '🦚', 'Athena': '🦉',
                         'Ares': '⚔️', 'Poseidon': '🔱', 'Hades': '💀', 'Demeter': '🌾',
-                        'Hermes': '🪽', 'Hephaestus': '🔨', 'Aphrodite': '💕',
-                        'Pandora': '📦', 'Pandora (Box)': '📦', 'Phaethon': '☀️', 'Orpheus': '🎵',
-                        'Echo and Narcissus': '🪞', 'Icarus': '🪶', 'Eros and Psyche': '🦋',
-                        'Constellations': '⭐', 'Morals': '⚖️'
+                        'Hermes': '🪽', 'Hephaestus': '🔨', 'Aphrodite': '💕'
                     };
                     const emoji = godEmojis[ba.myth_god] || '⭐';
-                    headerHtml += `<th style="min-width: 65px; text-align: center;" title="${ba.display_name}"><span style="font-size: 18px;">${emoji}</span><br><span style="font-size: 11px; font-weight: normal;">${ba.display_name.substring(0, 8)}</span></th>`;
+                    headerHtml += `<th style="min-width: 65px; text-align: center;" title="${ba.display_name}"><span style="font-size: 18px;">${emoji}</span><br><span style="font-size: 11px; font-weight: normal;">${ba.myth_god.substring(0, 4)}</span></th>`;
                 });
                 
                 // Build student rows
@@ -2496,8 +2518,13 @@
                         rowsHtml += `<tr><td colspan="${3 + data.side_quests.length + data.bonus_assignments.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${currentPeriod || 'No Period'}</td></tr>`;
                     }
                     
+                    const isGhost = student.is_ghost;
+                    const nameStyle = isGhost 
+                        ? 'position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap; color: #ffffff; font-style: italic;'
+                        : 'position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap;';
+                    
                     rowsHtml += `<tr>`;
-                    rowsHtml += `<td style="position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap;">${student.name}</td>`;
+                    rowsHtml += `<td style="${nameStyle}">${isGhost ? '👻 ' : ''}${student.name}</td>`;
                     
                     // Side Quest status
                     data.side_quests.forEach(sq => {
@@ -2514,10 +2541,72 @@
                     rowsHtml += `</tr>`;
                 });
                 
+                // Build Alliance God Bonus Progress grid from same data
+                let godGridHtml = '';
+                if (data.alliance_god_status) {
+                    const gods = ['Athena', 'Ares', 'Poseidon'];
+                    const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
+                    const godBuildings = { 'Athena': 'Library', 'Ares': 'Wooden Wall', 'Poseidon': 'Dock' };
+                    
+                    let godHeaderHtml = '<th style="position: sticky; left: 0; background: #1e1b4b; z-index: 2; min-width: 160px;">Alliance</th><th style="min-width: 80px;">Period</th>';
+                    gods.forEach(god => {
+                        godHeaderHtml += `<th style="min-width: 100px; text-align: center;" title="${god} - ${godBuildings[god]}">${godEmojis[god]} ${god}</th>`;
+                    });
+                    
+                    let godRowsHtml = '';
+                    let godCurrentPeriod = '';
+                    const alliances = Object.values(data.alliance_god_status).sort((a, b) => (a.class_period || '').localeCompare(b.class_period || ''));
+                    
+                    alliances.forEach(alliance => {
+                        if (alliance.class_period !== godCurrentPeriod) {
+                            godCurrentPeriod = alliance.class_period;
+                            godRowsHtml += `<tr><td colspan="${2 + gods.length}" style="background: rgba(168,85,247,0.2); color: #a855f7; font-weight: bold; padding: 10px; font-size: 15px;">📚 ${godCurrentPeriod || 'No Period'}</td></tr>`;
+                        }
+                        
+                        godRowsHtml += '<tr>';
+                        godRowsHtml += `<td style="position: sticky; left: 0; background: #1e1b4b; z-index: 1; white-space: nowrap; font-weight: 600;">${alliance.alliance_name}</td>`;
+                        godRowsHtml += `<td style="text-align: center;">${alliance.class_period || '-'}</td>`;
+                        
+                        gods.forEach(god => {
+                            const status = alliance.gods[god];
+                            if (!status) {
+                                godRowsHtml += '<td style="text-align: center;">-</td>';
+                            } else if (status.granted) {
+                                godRowsHtml += `<td style="text-align: center; background: rgba(34,197,94,0.15);"><span style="color: #22c55e; font-size: 16px;">✅</span><br><span style="font-size: 10px; color: #22c55e;">Granted</span></td>`;
+                            } else if (status.all_qualified) {
+                                godRowsHtml += `<td style="text-align: center; background: rgba(250,204,21,0.15);"><span style="color: #fbbf24; font-size: 16px;">⭐</span><br><span style="font-size: 10px; color: #fbbf24;">${status.qualified}/${status.total} Ready!</span></td>`;
+                            } else {
+                                godRowsHtml += `<td style="text-align: center;"><span style="font-size: 12px; color: rgba(255,255,255,0.4);">${status.qualified}/${status.total}</span></td>`;
+                            }
+                        });
+                        
+                        godRowsHtml += '</tr>';
+                    });
+                    
+                    godGridHtml = `
+                        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(255,215,0,0.3);">
+                            <h3 style="color: #ffd700; margin-bottom: 15px; font-size: 18px;">🏛️ Alliance God Bonus Progress (Building Unlocks)</h3>
+                            <div style="background: rgba(255,215,0,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: rgba(255,255,255,0.7);">
+                                ✅ = Granted &nbsp;|&nbsp; ⭐ = All members qualified (ready to grant) &nbsp;|&nbsp; X/Y = Members at 80%+ threshold
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <thead>
+                                    <tr style="background: rgba(255,215,0,0.1);">
+                                        ${godHeaderHtml}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${godRowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+                
                 content.innerHTML = `
                     <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                         <thead>
-                            <tr style="background: rgba(255,215,0,0.1);">
+                            <tr style="background: rgba(255,215,0,0.1); position: sticky; top: 0; z-index: 3;">
                                 ${headerHtml}
                             </tr>
                         </thead>
@@ -2525,6 +2614,7 @@
                             ${rowsHtml}
                         </tbody>
                     </table>
+                    ${godGridHtml}
                     <style>
                         #quest-bonus-tracker-content table th,
                         #quest-bonus-tracker-content table td {
@@ -2534,6 +2624,12 @@
                         #quest-bonus-tracker-content table tr:hover td {
                             background: rgba(255,255,255,0.05);
                         }
+                        #quest-bonus-tracker-content thead th {
+                            position: sticky;
+                            top: 0;
+                            background: #2d1b4e;
+                            z-index: 3;
+                        }
                     </style>
                 `;
             } catch (err) {
@@ -2541,7 +2637,7 @@
                 content.innerHTML = '<div style="color: #ef4444; text-align: center;">Failed to load tracker data</div>';
             }
         }
-
+        
         async function loadTransactions() {
             try {
                 const response = await fetch(`${API_URL}/teacher/transactions?limit=10`, { headers });
@@ -2772,7 +2868,6 @@
         // ====================
 
         let allFates = [];
-        let currentFateAge = 'Archaic';
         let currentBattleData = null;
         let wheelCanvas = null;
         let wheelContext = null;
@@ -2801,7 +2896,7 @@
                 alliances.map(a => `<option value="${a.alliance_id}" data-name="${a.alliance_name}">${a.alliance_name} (${a.total_points} pts)</option>`).join('');
             
             // Load fates
-            allFates = await fetch(`${API_URL}/teacher/fates?age=${currentFateAge}`, { headers }).then(r => r.json());
+            allFates = await fetch(`${API_URL}/teacher/fates?age=Archaic`, { headers }).then(r => r.json());
             
             // DEBUG: Check if battle fates are loaded
             console.log('📋 Total fates loaded:', allFates.length);
@@ -2818,42 +2913,6 @@
             document.getElementById('fate-wheel-modal').classList.remove('show');
             document.getElementById('alliance-selection-step').style.display = 'block';
             document.getElementById('spinning-wheel-step').style.display = 'none';
-        }
-
-        // Switch between Archaic and Classical fate wheels
-        async function setFateAge(age) {
-            currentFateAge = age;
-            updateFateAgeToggle();
-            allFates = await fetch(`${API_URL}/teacher/fates?age=${currentFateAge}`, { headers }).then(r => r.json());
-            console.log('Switched to ' + age + ' wheel: ' + allFates.length + ' fates loaded');
-            document.getElementById('alliance-selection-step').style.display = 'block';
-            document.getElementById('spinning-wheel-step').style.display = 'none';
-        }
-
-        function updateFateAgeToggle() {
-            var archBtn = document.getElementById('fate-age-archaic');
-            var classBtn = document.getElementById('fate-age-classical');
-            if (currentFateAge === 'Archaic') {
-                archBtn.style.background = 'linear-gradient(135deg, #b8860b, #daa520)';
-                archBtn.style.color = '#1a0a0f';
-                archBtn.style.borderColor = '#b8860b';
-                classBtn.style.background = 'rgba(30,64,175,0.15)';
-                classBtn.style.color = '#7aa8d4';
-                classBtn.style.borderColor = 'rgba(74,144,217,0.4)';
-            } else {
-                classBtn.style.background = 'linear-gradient(135deg, #1e40af, #4a90d9)';
-                classBtn.style.color = '#fff';
-                classBtn.style.borderColor = '#4a90d9';
-                archBtn.style.background = 'rgba(184,134,11,0.15)';
-                archBtn.style.color = '#c9a84c';
-                archBtn.style.borderColor = 'rgba(184,134,11,0.4)';
-            }
-        }
-
-        // Go back from spinning wheel to alliance selection
-        function cancelFateSpin() {
-            document.getElementById('spinning-wheel-step').style.display = 'none';
-            document.getElementById('alliance-selection-step').style.display = 'block';
         }
 
         async function loadFatesToday() {
@@ -2916,16 +2975,8 @@
             const centerX = 250;
             const centerY = 250;
             const radius = 240;
-            const numSegments = allFates.length || 20;
+            const numSegments = 20;
             const anglePerSegment = (2 * Math.PI) / numSegments;
-
-            // Age-based color palette
-            const isClassical = currentFateAge === 'Classical';
-            const color1 = isClassical ? '#1e3a8a' : '#c41e3a';      // deep blue / deep red
-            const color2 = isClassical ? '#3b82f6' : '#ff6b35';      // bright blue / orange
-            const borderColor = isClassical ? '#7cb3e8' : '#ffd700'; // light blue / gold
-            const centerColor = isClassical ? '#f59e0b' : '#ffd700'; // amber / gold
-            const centerTextColor = isClassical ? '#1e3a8a' : '#1a0a0f'; // dark blue / dark
 
             // Clear canvas
             wheelContext.clearRect(0, 0, 500, 500);
@@ -2936,7 +2987,7 @@
                 const endAngle = (i + 1) * anglePerSegment + currentRotation;
 
                 // Alternating colors
-                wheelContext.fillStyle = i % 2 === 0 ? color1 : color2;
+                wheelContext.fillStyle = i % 2 === 0 ? '#c41e3a' : '#ff6b35';
                 
                 wheelContext.beginPath();
                 wheelContext.moveTo(centerX, centerY);
@@ -2945,7 +2996,7 @@
                 wheelContext.fill();
 
                 // Border
-                wheelContext.strokeStyle = borderColor;
+                wheelContext.strokeStyle = '#ffd700';
                 wheelContext.lineWidth = 2;
                 wheelContext.stroke();
 
@@ -2956,67 +3007,26 @@
                 wheelContext.textAlign = 'center';
                 wheelContext.textBaseline = 'middle';
                 wheelContext.fillStyle = '#fff';
-                wheelContext.font = numSegments > 20 ? 'bold 13px Inter' : 'bold 16px Inter';
-                wheelContext.fillText(i + 1, radius * 0.7, 0);
+                wheelContext.font = 'bold 16px Inter';
+                wheelContext.fillText(allFates[i]?.fate_number || (i + 1), radius * 0.7, 0);
                 wheelContext.restore();
             }
 
-            // Outer ring
-            wheelContext.strokeStyle = isClassical ? '#f59e0b' : '#ffd700';
-            wheelContext.lineWidth = 4;
-            wheelContext.beginPath();
-            wheelContext.arc(centerX, centerY, radius + 1, 0, 2 * Math.PI);
-            wheelContext.stroke();
-
             // Center circle
-            wheelContext.fillStyle = centerColor;
+            wheelContext.fillStyle = '#ffd700';
             wheelContext.beginPath();
-            wheelContext.arc(centerX, centerY, 42, 0, 2 * Math.PI);
+            wheelContext.arc(centerX, centerY, 40, 0, 2 * Math.PI);
             wheelContext.fill();
             
-            // Center ring accent
-            wheelContext.strokeStyle = isClassical ? '#1e3a8a' : '#1a0a0f';
-            wheelContext.lineWidth = 3;
-            wheelContext.beginPath();
-            wheelContext.arc(centerX, centerY, 42, 0, 2 * Math.PI);
-            wheelContext.stroke();
-            
-            wheelContext.fillStyle = centerTextColor;
+            wheelContext.fillStyle = '#1a0a0f';
             wheelContext.font = 'bold 20px Inter';
             wheelContext.textAlign = 'center';
             wheelContext.textBaseline = 'middle';
             wheelContext.fillText('FATE', centerX, centerY);
-            
-            // Update pointer and title colors based on age
-            const pointer = document.querySelector('.fate-wheel-pointer');
-            if (pointer) {
-                pointer.style.borderTopColor = isClassical ? '#f59e0b' : '#ffd700';
-            }
-            const spinTitle = document.querySelector('#spinning-wheel-step > div:first-child > div:first-child');
-            if (spinTitle) {
-                spinTitle.style.color = isClassical ? '#7cb3e8' : '#ffd700';
-            }
-            // Update spin button color
-            const spinBtn = document.getElementById('spin-button');
-            if (spinBtn) {
-                spinBtn.style.background = isClassical 
-                    ? 'linear-gradient(135deg, #3b82f6, #1e40af)' 
-                    : 'linear-gradient(135deg, #ff6b35, #c41e3a)';
-                spinBtn.style.borderColor = isClassical ? '#f59e0b' : '#ffd700';
-                spinBtn.style.boxShadow = isClassical 
-                    ? '0 6px 20px rgba(59, 130, 246, 0.4)' 
-                    : '0 6px 20px rgba(255, 107, 53, 0.4)';
-            }
         }
 
         async function doSpin() {
             if (spinning) return;
-            
-            if (!allFates || allFates.length === 0) {
-                alert('No fates loaded for ' + currentFateAge + ' Age. Check that fates have been seeded in the database.');
-                return;
-            }
-            
             spinning = true;
 
             const spinButton = document.getElementById('spin-button');
@@ -3045,7 +3055,7 @@
             // Weighted random selection
             const totalWeight = weights.reduce((sum, w) => sum + w, 0);
             let random = Math.random() * totalWeight;
-            let randomIndex = allFates.length - 1; // Default to last fate (safety net)
+            let randomIndex = 0;
             
             for (let i = 0; i < weights.length; i++) {
                 random -= weights[i];
@@ -3069,8 +3079,7 @@
             console.log(`🎲 Target segment: ${targetSegment}`);
             
             // Calculate target rotation (must land at CENTER of top wedge)
-            const numSegments = allFates.length || 20;
-            const anglePerSegment = (2 * Math.PI) / numSegments;
+            const anglePerSegment = (2 * Math.PI) / 20;
             const targetAngle = -(targetSegment * anglePerSegment) - (anglePerSegment / 2) + (Math.PI / 2); // Point to CENTER
             const spins = 5; // Number of full rotations
             
@@ -3097,7 +3106,7 @@
                     requestAnimationFrame(animate);
                 } else {
                     // Spinning complete!
-                    // Normalize rotation to 0-2π range to prevent accumulation
+                    // Normalize rotation to 0-2Ï€ range to prevent accumulation
                     currentRotation = currentRotation % (2 * Math.PI);
                     
                     spinning = false;
@@ -3134,30 +3143,18 @@
                 
                 // Route based on fate type
                 if (fate.is_battle === 1) {
-                    // BATTLE FATES - Use battle system
+                    // BATTLE FATES (8, 14, 17) - Use battle system
                     console.log('⚔️ Routing to BATTLE');
                     await startBattle(fate);
-                } else if (fate.fate_type === 'special' && fate.fate_name.toLowerCase().includes('countdown')) {
-                    // COUNTDOWN FATE - Teacher input form
+                } else if (fate.fate_type === 'special' && fate.fate_number === 9) {
+                    // COUNTDOWN FATE (9) - Teacher input form
                     console.log('🎮 Routing to COUNTDOWN GAME');
                     showCountdownForm(fate);
-                } else if (fate.fate_type === 'special' && fate.fate_name.toLowerCase().includes('reverse')) {
-                    // REVERSE CARD - Add to inventory
+                } else if (fate.fate_type === 'special' && fate.fate_number === 12) {
+                    // REVERSE CARD (12) - Add to inventory
                     console.log('🔄 Routing to REVERSE CARD');
                     await awardReverseCard(fate);
-                } else if (fate.fate_type === 'special' && fate.fate_name.toLowerCase().includes('prometheus')) {
-                    // POWER OF PROMETHEUS - Steal a fate (treat like reverse card for now)
-                    console.log('🔥 Routing to PROMETHEUS CARD');
-                    await awardPrometheusCard(fate);
-                } else if (fate.fate_type === 'special' && fate.fate_name.toLowerCase().includes('swamp')) {
-                    // SWAMP REPTILE - Teacher input (like Countdown)
-                    console.log('🐊 Routing to SWAMP REPTILE CHALLENGE');
-                    showCountdownForm(fate);
-                } else if (fate.fate_type === 'special') {
-                    // Any other special fate - default to countdown/teacher input
-                    console.log('✨ Routing unknown special fate to TEACHER INPUT');
-                    showCountdownForm(fate);
-                } else if (fate.fate_type === 'choice' || fate.fate_type === 'steal_choice') {
+                } else if (fate.fate_type === 'choice') {
                     // CHOICE FATES - Show 3 options
                     console.log('🎯 Routing to CHOICES for fate_id:', fate.fate_id);
                     
@@ -3228,46 +3225,35 @@
             const modal = document.getElementById('fate-choices-modal');
             const content = document.getElementById('fate-choices-content');
             
-            // Dynamic theming based on fate
-            const isSwamp = fate.fate_name.toLowerCase().includes('swamp');
-            const icon = isSwamp ? '🐊' : '🎮';
-            const accentColor = isSwamp ? '#84cc16' : '#ffd700';
-            const gradientStart = isSwamp ? '#365314' : '#ffd700';
-            const gradientEnd = isSwamp ? '#84cc16' : '#ffed4e';
-            const btnTextColor = isSwamp ? '#fff' : '#000';
-            const subtitle = isSwamp 
-                ? '"A massive reptile lurks in the swamps — your alliance must drive it away!"'
-                : '"Grab your alliance, some notecards and create a strategy to win!"';
-            
             content.innerHTML = `
                 <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">${icon}</div>
-                    <div style="font-size: 32px; color: ${accentColor}; font-weight: 800; margin-bottom: 15px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">🎮</div>
+                    <div style="font-size: 32px; color: #ffd700; font-weight: 800; margin-bottom: 15px;">
                         ${fate.fate_name}
                     </div>
                     <div style="font-size: 20px; color: rgba(255,255,255,0.9); margin-bottom: 30px; font-style: italic;">
-                        ${subtitle}
+                        "Grab your alliance, some notecards and create a strategy to win!"
                     </div>
                     
                     <div style="background: rgba(0,0,0,0.3); padding: 30px; border-radius: 15px; margin: 20px auto; max-width: 400px;">
-                        <div style="font-size: 18px; color: ${accentColor}; margin-bottom: 20px;">
-                            Award Points After Challenge:
+                        <div style="font-size: 18px; color: #ffd700; margin-bottom: 20px;">
+                            Award Points After Game:
                         </div>
                         
                         <div style="margin-bottom: 20px;">
                             <label style="display: block; color: rgba(255,255,255,0.8); margin-bottom: 8px; font-size: 14px;">Select Alliance:</label>
-                            <select id="countdown-alliance" style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid ${accentColor}; background: rgba(0,0,0,0.5); color: #fff; font-size: 16px;">
+                            <select id="countdown-alliance" style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #ffd700; background: rgba(0,0,0,0.5); color: #fff; font-size: 16px;">
                                 <option value="">Choose alliance...</option>
                             </select>
                         </div>
                         
                         <div style="margin-bottom: 25px;">
                             <label style="display: block; color: rgba(255,255,255,0.8); margin-bottom: 8px; font-size: 14px;">Points (positive or negative):</label>
-                            <input type="number" id="countdown-points" placeholder="e.g., 15 or -10" style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid ${accentColor}; background: rgba(0,0,0,0.5); color: #fff; font-size: 16px; text-align: center;">
+                            <input type="number" id="countdown-points" placeholder="e.g., 15 or -10" style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #ffd700; background: rgba(0,0,0,0.5); color: #fff; font-size: 16px; text-align: center;">
                         </div>
                         
-                        <button onclick="submitCountdownPoints()" style="background: linear-gradient(135deg, ${gradientStart} 0%, ${gradientEnd} 100%); border: none; color: ${btnTextColor}; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer; width: 100%;">
-                            ${icon} AWARD POINTS ${icon}
+                        <button onclick="submitCountdownPoints()" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer; width: 100%;">
+                            ✨ AWARD POINTS ✨
                         </button>
                     </div>
                     
@@ -3379,329 +3365,6 @@
             }
         }
         
-        // ===== PROMETHEUS CARD CHAIN SYSTEM =====
-        // After a positive fate result, check if any OTHER alliance in the same period has a Prometheus card.
-        // If so, offer each card holder the chance to steal the points in sequence.
-        
-        async function checkPrometheusChain(currentHolderId, currentHolderName, pointsAmount, sourceType) {
-            console.log('🔥 Prometheus chain check:', currentHolderName, '+' + pointsAmount, sourceType);
-            
-            try {
-                // Get all alliances in the same class period
-                const allAlliances = await fetch(`${API_URL}/teacher/leaderboard`, { headers }).then(r => r.json());
-                
-                // Find alliances with Prometheus cards (excluding the current points holder)
-                const cardHolders = [];
-                for (const alliance of allAlliances) {
-                    if (alliance.alliance_id === currentHolderId) continue;
-                    try {
-                        const check = await fetch(`${API_URL}/teacher/check-prometheus-card/${alliance.alliance_id}`, { headers }).then(r => r.json());
-                        if (check.hasCard && check.cardCount > 0) {
-                            cardHolders.push({
-                                id: alliance.alliance_id,
-                                name: alliance.alliance_name,
-                                emoji: alliance.alliance_emoji || '',
-                                points: alliance.total_points,
-                                cardCount: check.cardCount
-                            });
-                        }
-                    } catch (e) { /* skip */ }
-                }
-                
-                // Also check if the current holder has a card (they could steal back later in chain)
-                // We'll re-check each round of the chain
-                
-                if (cardHolders.length === 0) {
-                    console.log('🔥 No Prometheus cards in play — proceeding normally');
-                    // No cards — confetti and apply
-                    createConfetti();
-                    attachApplyFateButton();
-                    return;
-                }
-                
-                console.log('🔥 Prometheus card holders found:', cardHolders.map(c => c.name));
-                
-                // Start the chain
-                runPrometheusChain(currentHolderId, currentHolderName, pointsAmount, 0);
-                
-            } catch (err) {
-                console.error('Prometheus chain error:', err);
-                createConfetti();
-                attachApplyFateButton();
-            }
-        }
-        
-        async function runPrometheusChain(currentHolderId, currentHolderName, pointsAmount, chainStep) {
-            console.log('🔥 Chain step', chainStep, '- Points held by:', currentHolderName, '(+' + pointsAmount + ')');
-            
-            // Get ALL alliances with Prometheus cards except the current holder
-            const allAlliances = await fetch(`${API_URL}/teacher/leaderboard`, { headers }).then(r => r.json());
-            
-            const eligibleStealers = [];
-            for (const alliance of allAlliances) {
-                if (alliance.alliance_id === currentHolderId) continue;
-                try {
-                    const check = await fetch(`${API_URL}/teacher/check-prometheus-card/${alliance.alliance_id}`, { headers }).then(r => r.json());
-                    if (check.hasCard && check.cardCount > 0) {
-                        eligibleStealers.push({
-                            id: alliance.alliance_id,
-                            name: alliance.alliance_name,
-                            emoji: alliance.alliance_emoji || '',
-                            points: alliance.total_points,
-                            cardCount: check.cardCount
-                        });
-                    }
-                } catch (e) { /* skip */ }
-            }
-            
-            if (eligibleStealers.length === 0) {
-                console.log('🔥 No more Prometheus cards — chain complete');
-                createConfetti();
-                attachApplyFateButton();
-                loadLeaderboard();
-                return;
-            }
-            
-            // Show the Prometheus steal offer for the first eligible stealer
-            showPrometheusOffer(eligibleStealers, 0, currentHolderId, currentHolderName, pointsAmount, chainStep);
-        }
-        
-        function showPrometheusOffer(stealersList, stealerIndex, currentHolderId, currentHolderName, pointsAmount, chainStep) {
-            if (stealerIndex >= stealersList.length) {
-                // All card holders have been asked and declined
-                console.log('🔥 All card holders declined — chain complete');
-                createConfetti();
-                attachApplyFateButton();
-                loadLeaderboard();
-                return;
-            }
-            
-            const stealer = stealersList[stealerIndex];
-            
-            // Create the offer popup
-            const popup = document.createElement('div');
-            popup.id = 'prometheus-offer-popup';
-            popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #1a0a0f 0%, #2a0a05 50%, #1a0a0f 100%); padding: 40px; border-radius: 20px; border: 3px solid #f97316; z-index: 10003; text-align: center; min-width: 500px; max-width: 600px; box-shadow: 0 0 60px rgba(249, 115, 22, 0.5), inset 0 0 40px rgba(249, 115, 22, 0.1); opacity: 0; transition: opacity 0.5s;';
-            
-            const chainLabel = chainStep > 0 ? `<div style="font-size: 12px; color: #f97316; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px;">Chain Steal #${chainStep + 1}</div>` : '';
-            
-            popup.innerHTML = `
-                ${chainLabel}
-                <div style="font-size: 56px; margin-bottom: 15px;">🔥</div>
-                <div style="font-size: 28px; color: #f97316; font-weight: 800; margin-bottom: 5px;">
-                    PROMETHEUS CARD!
-                </div>
-                <div style="font-size: 16px; color: rgba(255,255,255,0.5); margin-bottom: 20px;">
-                    ${stealer.name} ${stealer.emoji} has ${stealer.cardCount} card${stealer.cardCount > 1 ? 's' : ''}
-                </div>
-                
-                <div style="background: rgba(0,0,0,0.4); padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid rgba(249,115,22,0.3);">
-                    <div style="font-size: 18px; color: #fff; margin-bottom: 8px;">
-                        <strong style="color: #f97316;">${currentHolderName}</strong> just gained
-                    </div>
-                    <div style="font-size: 48px; color: #4ade80; font-weight: 900; margin: 10px 0;">
-                        +${pointsAmount}
-                    </div>
-                    <div style="font-size: 16px; color: rgba(255,255,255,0.7);">
-                        points from the Wheel of Fate
-                    </div>
-                </div>
-                
-                <div style="font-size: 20px; color: #fff; margin-bottom: 25px;">
-                    Does <strong style="color: #f97316;">${stealer.name} ${stealer.emoji}</strong><br>
-                    want to steal these points?
-                </div>
-                
-                <div style="display: flex; gap: 15px; justify-content: center;">
-                    <button id="prometheus-yes-btn" style="padding: 15px 35px; border-radius: 12px; border: none; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #fff; font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 15px rgba(249,115,22,0.4); transition: transform 0.2s;">
-                        🔥 YES — STEAL IT!
-                    </button>
-                    <button id="prometheus-no-btn" style="padding: 15px 35px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); font-size: 18px; font-weight: 700; cursor: pointer; transition: transform 0.2s;">
-                        No — Save Card
-                    </button>
-                </div>
-                
-                <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 15px;">
-                    Teacher: Ask ${stealer.name} if they want to play their Prometheus card
-                </div>
-            `;
-            
-            document.body.appendChild(popup);
-            // Trigger fade-in
-            requestAnimationFrame(() => { popup.style.opacity = '1'; });
-            
-            // Hover effects
-            const yesBtn = document.getElementById('prometheus-yes-btn');
-            const noBtn = document.getElementById('prometheus-no-btn');
-            yesBtn.onmouseover = () => yesBtn.style.transform = 'scale(1.05)';
-            yesBtn.onmouseout = () => yesBtn.style.transform = 'scale(1)';
-            noBtn.onmouseover = () => noBtn.style.transform = 'scale(1.05)';
-            noBtn.onmouseout = () => noBtn.style.transform = 'scale(1)';
-            
-            // YES — Steal the points (with transition delay)
-            yesBtn.onclick = async () => {
-                yesBtn.disabled = true;
-                noBtn.disabled = true;
-                yesBtn.textContent = '🔥 STEALING...';
-                popup.style.opacity = '0';
-                popup.style.transition = 'opacity 0.5s';
-                setTimeout(async () => {
-                    popup.remove();
-                    await executePrometheusSteal(stealer, currentHolderId, currentHolderName, pointsAmount, chainStep);
-                }, 600);
-            };
-            
-            // NO — Skip to next card holder (with transition delay)
-            noBtn.onclick = () => {
-                noBtn.disabled = true;
-                yesBtn.disabled = true;
-                popup.style.opacity = '0';
-                popup.style.transition = 'opacity 0.5s';
-                setTimeout(() => {
-                    popup.remove();
-                    showPrometheusOffer(stealersList, stealerIndex + 1, currentHolderId, currentHolderName, pointsAmount, chainStep);
-                }, 600);
-            };
-        }
-        
-        async function executePrometheusSteal(stealer, victimId, victimName, pointsAmount, chainStep) {
-            try {
-                // 1. Use the Prometheus card (decrement stealer's cards)
-                await fetch(`${API_URL}/teacher/use-prometheus-card/${stealer.id}`, {
-                    method: 'POST',
-                    headers
-                });
-                
-                // 2. Transfer points: remove from victim, give to stealer
-                // Deduct from victim
-                await fetch(`${API_URL}/teacher/award-points`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        alliance_id: victimId,
-                        amount: -pointsAmount,
-                        reason: 'Prometheus card stolen by ' + stealer.name
-                    })
-                });
-                
-                // Award to stealer
-                await fetch(`${API_URL}/teacher/award-points`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        alliance_id: stealer.id,
-                        amount: pointsAmount,
-                        reason: 'Prometheus card steal from ' + victimName
-                    })
-                });
-                
-                // 3. Show dramatic steal animation
-                const stealPopup = document.createElement('div');
-                stealPopup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #1a0a0f 0%, #4a1a0a 100%); padding: 40px; border-radius: 20px; border: 3px solid #f97316; z-index: 10003; text-align: center; min-width: 500px; box-shadow: 0 0 60px rgba(249, 115, 22, 0.6);';
-                stealPopup.innerHTML = `
-                    <div style="font-size: 56px; margin-bottom: 10px;">🔥⚡🔥</div>
-                    <div style="font-size: 28px; color: #f97316; font-weight: 800; margin-bottom: 15px;">
-                        PROMETHEUS STRIKES!
-                    </div>
-                    <div style="font-size: 18px; color: #fff; margin-bottom: 10px;">
-                        <strong style="color: #f97316;">${stealer.name} ${stealer.emoji}</strong> steals fire from <strong>${victimName}</strong>!
-                    </div>
-                    <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px 0;">
-                        <div style="background: rgba(239,68,68,0.2); padding: 15px 20px; border-radius: 10px; border: 1px solid #ef4444;">
-                            <div style="font-size: 14px; color: #ef4444;">${victimName}</div>
-                            <div style="font-size: 32px; color: #ef4444; font-weight: 900;">-${pointsAmount}</div>
-                        </div>
-                        <div style="font-size: 32px;">→</div>
-                        <div style="background: rgba(74,222,128,0.2); padding: 15px 20px; border-radius: 10px; border: 1px solid #4ade80;">
-                            <div style="font-size: 14px; color: #4ade80;">${stealer.name}</div>
-                            <div style="font-size: 32px; color: #4ade80; font-weight: 900;">+${pointsAmount}</div>
-                        </div>
-                    </div>
-                    <button onclick="this.parentElement.remove(); continuePrometheusChain();" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer; margin-top: 10px;">
-                        🔥 CONTINUE 🔥
-                    </button>
-                `;
-                document.body.appendChild(stealPopup);
-                
-                // Store chain state for the continue button
-                window._prometheusChainState = {
-                    newHolderId: stealer.id,
-                    newHolderName: stealer.name + ' ' + stealer.emoji,
-                    pointsAmount: pointsAmount,
-                    chainStep: chainStep + 1
-                };
-                
-                // Refresh leaderboard
-                loadLeaderboard();
-                
-            } catch (err) {
-                console.error('Prometheus steal error:', err);
-                alert('Failed to execute Prometheus steal: ' + err.message);
-                createConfetti();
-                attachApplyFateButton();
-            }
-        }
-        
-        function continuePrometheusChain() {
-            const state = window._prometheusChainState;
-            if (state) {
-                // Continue checking for more Prometheus cards
-                runPrometheusChain(state.newHolderId, state.newHolderName, state.pointsAmount, state.chainStep);
-            } else {
-                createConfetti();
-                attachApplyFateButton();
-            }
-        }
-
-        async function awardPrometheusCard(fate) {
-            try {
-                // Use the prometheus card endpoint if it exists, otherwise just log it
-                try {
-                    await fetch(`${API_URL}/teacher/award-prometheus-card/${selectedAllianceId}`, {
-                        method: 'POST',
-                        headers
-                    });
-                } catch(e) {
-                    console.log('Prometheus endpoint not available, logging spin only');
-                }
-                
-                // Show celebration
-                const popup = document.createElement('div');
-                popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #1a0a0f 0%, #4a1a0a 100%); padding: 50px; border-radius: 20px; border: 3px solid #f97316; z-index: 10002; text-align: center; min-width: 450px; box-shadow: 0 0 50px rgba(249, 115, 22, 0.5);';
-                popup.innerHTML = `
-                    <div style="font-size: 72px; margin-bottom: 20px;">🔥</div>
-                    <div style="font-size: 28px; color: #f97316; font-weight: 800; margin-bottom: 15px;">
-                        POWER OF PROMETHEUS!
-                    </div>
-                    <div style="font-size: 18px; color: #fff; margin-bottom: 25px;">
-                        <strong>${selectedAllianceName}</strong> stole fire from the gods!<br>
-                        <span style="color: rgba(255,255,255,0.7);">Save this card — steal a fate from another country!</span>
-                    </div>
-                    <button onclick="this.parentElement.remove(); openFateWheelModal();" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer;">
-                        🔥 CONTINUE 🔥
-                    </button>
-                `;
-                document.body.appendChild(popup);
-                
-                // Log the spin
-                await fetch(`${API_URL}/teacher/spin-fate`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        alliance_id: selectedAllianceId,
-                        fate_id: fate.fate_id
-                    })
-                });
-                
-                createConfetti();
-                loadLeaderboard();
-                
-            } catch (err) {
-                console.error('Error awarding Prometheus card:', err);
-                alert('Failed to award Prometheus card!');
-            }
-        }
-
         // Start Battle (Fates 8, 14, 17)
         async function startBattle(fate) {
             try {
@@ -3716,6 +3379,11 @@
                 });
                 
                 const result = await response.json();
+                
+                if (!response.ok || result.error) {
+                    alert('Battle error: ' + (result.error || 'Unknown error'));
+                    return;
+                }
                 
                 // Show battle modal
                 showBattleModal(selectedAllianceId, fate, result);
@@ -3787,7 +3455,7 @@
             
             return `
                 <div class="fate-choice-card" style="border: 3px solid ${color}; background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(26,10,15,0.8) 100%); border-radius: 15px; padding: 20px; cursor: pointer; transition: all 0.3s;" 
-                     onclick="processChoice(${choice.choice_id}, ${fate.fate_id}, '${riskLevel}', '${fate.fate_type}')"
+                     onclick="processChoice(${choice.choice_id}, ${fate.fate_id}, '${riskLevel}')"
                      onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 30px ${color}';"
                      onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';">
                     
@@ -3814,11 +3482,11 @@
                     <div style="display: flex; justify-content: space-between; font-size: 14px;">
                         <div>
                             <div style="color: rgba(255,255,255,0.6); font-size: 11px;">BEST OUTCOME</div>
-                            <div style="color: ${choice.success_points >= 0 ? '#4ade80' : '#ef4444'}; font-weight: 700;">${choice.success_points >= 0 ? '+' : ''}${choice.success_points} pts${fate.fate_type === 'steal_choice' ? '/each' : ''}</div>
+                            <div style="color: #4ade80; font-weight: 700;">${choice.success_points >= 0 ? '+' : ''}${choice.success_points} pts</div>
                         </div>
                         <div>
                             <div style="color: rgba(255,255,255,0.6); font-size: 11px;">WORST OUTCOME</div>
-                            <div style="color: ${choice.failure_points >= 0 ? '#4ade80' : '#ef4444'}; font-weight: 700;">${choice.failure_points >= 0 ? '+' : ''}${choice.failure_points} pts${fate.fate_type === 'steal_choice' ? '/each' : ''}</div>
+                            <div style="color: #ef4444; font-weight: 700;">${choice.failure_points >= 0 ? '+' : ''}${choice.failure_points} pts</div>
                         </div>
                     </div>
                     
@@ -3829,9 +3497,7 @@
             `;
         }
 
-        async function processChoice(choiceId, fateId, riskLevel, fateType) {
-            // Default fateType for backward compatibility
-            fateType = fateType || 'choice';
+        async function processChoice(choiceId, fateId, riskLevel) {
             try {
                 // Close choices modal
                 document.getElementById('fate-choices-modal').classList.remove('show');
@@ -3864,13 +3530,8 @@
                     // Remove ready screen
                     document.body.removeChild(readyDiv);
                     
-                    // Route to correct endpoint based on fate type
-                    const endpoint = fateType === 'steal_choice' 
-                        ? `${API_URL}/teacher/process-steal-choice`
-                        : `${API_URL}/teacher/process-fate-choice`;
-                    
                     // Process the choice to get result
-                    const response = await fetch(endpoint, {
+                    const response = await fetch(`${API_URL}/teacher/process-fate-choice`, {
                         method: 'POST',
                         headers,
                         body: JSON.stringify({
@@ -3938,11 +3599,7 @@
                                 if (processingDiv && processingDiv.parentNode) {
                                     document.body.removeChild(processingDiv);
                                 }
-                                if (fateType === 'steal_choice') {
-                                    showStealChoiceResult(result);
-                                } else {
-                                    showChoiceResult(result);
-                                }
+                                showChoiceResult(result);
                             }, 2000);
                         }
                     }, 50); // 50ms per frame = 2 seconds total animation
@@ -3954,116 +3611,6 @@
                 console.error('Process choice error:', err);
                 alert('Failed to process choice!');
             }
-        }
-
-        function showStealChoiceResult(result) {
-            const modal = document.getElementById('fate-result-modal');
-            const content = document.getElementById('fate-result-content');
-
-            const isSteal = result.direction === 'steal';
-            const isGive = result.direction === 'give';
-            const resultColor = result.success ? '#4ade80' : '#ef4444';
-            const resultText = result.success ? '✅ SUCCESS!' : '❌ FAILURE!';
-            const directionColor = isSteal ? '#4ade80' : '#ef4444';
-            const directionIcon = isSteal ? '🟢' : '🔴';
-            const directionLabel = isSteal ? 'STOLE FROM' : 'GAVE TO';
-            
-            // Calculate d20 values
-            const successChance = result.choice.success_chance;
-            const successRange = Math.round(20 * successChance);
-            const diceRoll = Math.ceil((result.roll / 100) * 20);
-            const barPosition = (diceRoll / 20) * 100;
-            const successBarWidth = (successRange / 20) * 100;
-
-            // Build transfer breakdown
-            const transferRows = result.transfers.map(t => {
-                const tColor = isSteal ? '#ef4444' : '#4ade80';
-                const tSign = isSteal ? '-' : '+';
-                return `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(0,0,0,0.3); border-radius: 8px; margin: 4px 0;">
-                        <span style="color: #fff; font-weight: 600;">${t.emoji} ${t.alliance_name}</span>
-                        <span style="color: ${tColor}; font-weight: 800; font-size: 18px;">${tSign}${Math.abs(t.amount)} pts</span>
-                    </div>
-                `;
-            }).join('');
-
-            const totalSign = result.totalChange > 0 ? '+' : '';
-
-            content.innerHTML = `
-                <div class="fate-result-card" style="padding: 15px;">
-                    <div style="font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 8px; text-transform: uppercase;">
-                        ${selectedAllianceName} • ${result.choice.risk_level} Choice
-                    </div>
-                    
-                    <div style="font-size: 42px; color: ${resultColor}; font-weight: 900; margin: 10px 0;">
-                        ${resultText}
-                    </div>
-                    
-                    <div style="font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 15px;">
-                        ${result.choice.description}
-                    </div>
-                    
-                    <!-- Dice Roll Section -->
-                    <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; margin: 15px 0; border: 2px solid ${resultColor};">
-                        <div style="font-size: 16px; color: #ffd700; margin-bottom: 10px; font-weight: 700;">
-                            🎲 THE DICE ROLL
-                        </div>
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.8); margin-bottom: 10px;">
-                            <strong>Success Zone:</strong> Roll 1-${successRange} out of 20 (${Math.round(successChance * 100)}%)
-                        </div>
-                        <div style="position: relative; height: 30px; background: linear-gradient(90deg, #4ade80 0%, #4ade80 ${successBarWidth}%, #ef4444 ${successBarWidth}%, #ef4444 100%); border-radius: 8px; margin: 10px 0; border: 2px solid rgba(255,255,255,0.3);">
-                            <div style="position: absolute; left: ${barPosition}%; top: -20px; transform: translateX(-50%); font-size: 24px;">⬇️</div>
-                            <div style="position: absolute; left: ${barPosition}%; top: 50%; transform: translate(-50%, -50%); background: #fff; color: #000; padding: 3px 10px; border-radius: 6px; font-weight: 900; font-size: 16px; border: 2px solid ${resultColor}; box-shadow: 0 0 15px ${resultColor};">
-                                ${diceRoll}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Direction Banner -->
-                    <div style="background: linear-gradient(135deg, ${isSteal ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)'} 0%, rgba(0,0,0,0.3) 100%); padding: 15px; border-radius: 10px; margin: 15px 0; border: 2px solid ${directionColor};">
-                        <div style="font-size: 20px; color: ${directionColor}; font-weight: 800; margin-bottom: 5px;">
-                            ${directionIcon} ${selectedAllianceName} ${directionLabel} EACH ALLIANCE
-                        </div>
-                        <div style="font-size: 16px; color: rgba(255,255,255,0.7);">
-                            ${Math.abs(result.pointsPerAlliance)} points ${isSteal ? 'taken from' : 'given to'} each of ${result.allianceCount} alliances
-                        </div>
-                    </div>
-                    
-                    <!-- Per-Alliance Breakdown -->
-                    <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; margin: 15px 0;">
-                        <div style="font-size: 14px; color: #ffd700; font-weight: 700; margin-bottom: 10px; text-transform: uppercase;">
-                            📜 Alliance Breakdown
-                        </div>
-                        ${transferRows}
-                    </div>
-                    
-                    <!-- Net Total -->
-                    <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 15px 0;">
-                        <div style="font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 5px;">
-                            NET CHANGE FOR ${selectedAllianceName.toUpperCase()}
-                        </div>
-                        <div style="font-size: 56px; color: ${result.totalChange >= 0 ? '#4ade80' : '#ef4444'}; font-weight: 900;">
-                            ${totalSign}${result.totalChange}
-                        </div>
-                    </div>
-                    
-                    <div style="font-size: 20px; color: #ffd700; margin-top: 10px; font-weight: 700;">
-                        New Total: ${result.updatedAlliance.total_points} points
-                    </div>
-                </div>
-            `;
-
-            modal.classList.add('show');
-
-            // Check for Prometheus card steals on positive results
-            if (result.totalChange > 0) {
-                checkPrometheusChain(selectedAllianceId, selectedAllianceName, result.totalChange, 'steal_choice');
-            } else {
-                attachApplyFateButton();
-            }
-            
-            // Refresh leaderboard
-            loadLeaderboard();
         }
 
         function showChoiceResult(result) {
@@ -4153,12 +3700,14 @@
             // If points are NEGATIVE, check for Reverse Card
             if (result.pointsChange < 0) {
                 checkAndOfferReverseCard(result);
-            } else if (result.pointsChange > 0) {
-                // POSITIVE points — check for Prometheus card steals before Apply Fate
-                checkPrometheusChain(selectedAllianceId, selectedAllianceName, result.pointsChange, 'choice');
             } else {
-                // Zero points
+                // Attach click handler to Apply Fate button
                 attachApplyFateButton();
+                
+                // Confetti if positive
+                if (result.pointsChange > 0) {
+                    createConfetti();
+                }
             }
         }
         
@@ -4373,9 +3922,9 @@
                         <div class="battle-vs-text">VS</div>
 
                         <div class="battle-side">
-                            <div class="battle-side-title">${fate.fate_name}</div>
+                            <div class="battle-side-title">Enemy Threat</div>
                             <div class="battle-power" id="threat-power">${battleResult.threatPower}</div>
-                            <div style="color: rgba(255,255,255,0.7);">${Math.round((fate.battle_threat_percent || 0.80) * 100)}% of Alliance's Power</div>
+                            <div style="color: rgba(255,255,255,0.7);">80% of Leader's Power</div>
                         </div>
                     </div>
 
@@ -4465,11 +4014,6 @@
             // Confetti if victory
             if (battleResult.victory) {
                 createConfetti();
-            }
-            
-            // Check Prometheus cards for positive battle results
-            if (battleResult.pointsChange > 0) {
-                checkPrometheusChain(selectedAllianceId, selectedAllianceName, battleResult.pointsChange, 'battle');
             }
             
             // Log the fate spin
@@ -4866,7 +4410,6 @@
                 'quiz': '#60a5fa',
                 'comp_conn': '#4ade80',
                 'mural': '#f472b6',
-                'video': '#a78bfa',
                 'rite_of_passage': '#fbbf24',
                 'bonus': '#f97316',
                 'membean': '#22d3d8',
@@ -4878,7 +4421,6 @@
                 'quiz': 'Quiz',
                 'comp_conn': 'Reading Notes',
                 'mural': 'Mural/Comic',
-                'video': 'Video',
                 'rite_of_passage': 'Rite of Passage',
                 'bonus': 'Bonus',
                 'membean': 'Membean',
