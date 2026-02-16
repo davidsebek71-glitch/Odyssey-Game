@@ -501,9 +501,9 @@
 
         .fate-wheel-container {
             position: relative;
-            width: 500px;
-            height: 500px;
-            margin: 30px auto;
+            width: 380px;
+            height: 380px;
+            margin: 20px auto;
         }
 
         .fate-wheel {
@@ -857,6 +857,16 @@
                 <div class="title">Manage Students</div>
                 <div class="description">Edit or remove students</div>
             </div>
+            <div class="action-card" onclick="openGodAssignmentsModal()" style="background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,158,11,0.2)); border-color: rgba(251,191,36,0.4);">
+                <div class="icon">⚡</div>
+                <div class="title">God Assignments</div>
+                <div class="description">Grant building unlocks</div>
+            </div>
+            <div class="action-card" onclick="openAgeGateModal()" style="background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(22,163,74,0.2)); border-color: rgba(34,197,94,0.4);">
+                <div class="icon">🚪</div>
+                <div class="title">Age Gate</div>
+                <div class="description">Control age progression</div>
+            </div>
         </div>
 
         <div class="dashboard-grid">
@@ -922,28 +932,6 @@
                     </div>
                 </div>
                 
-                <!-- 4. God Assignments - RARE (managed through bonus portal) -->
-                <div class="card" style="margin-bottom: 30px;">
-                    <div class="card-title">
-                        ⚡ God Assignments
-                        <button class="btn-small" onclick="openGodAssignmentsModal()" style="float: right; padding: 5px 10px; font-size: 12px;">Manage</button>
-                    </div>
-                    <div style="color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.5;">
-                        <strong style="color: #fbbf24;">Teacher Override Tool:</strong> Use this to manually grant building unlocks to an alliance WITHOUT requiring individual student bonus submissions. Useful for: make-up work, special achievements, administrative corrections, or if a student completed work outside the normal submission system. <em>Note: The Bonus Portal is the primary system - this is a backup.</em>
-                    </div>
-                </div>
-
-                <!-- 5. Age Gate Control - RARE (once per class per age) -->
-                <div class="card" style="margin-bottom: 30px;">
-                    <div class="card-title">
-                        🚪 Age Gate Control
-                        <button class="btn-small" onclick="openAgeGateModal()" style="float: right; padding: 5px 10px; font-size: 12px;">Manage</button>
-                    </div>
-                    <div id="age-gate-summary" style="color: rgba(255,255,255,0.7); font-size: 13px;">
-                        Loading...
-                    </div>
-                </div>
-
                 <div class="card">
                     <div class="card-title">📜 Recent Activity</div>
                     <div id="transactions-content" class="loading">
@@ -1324,7 +1312,7 @@
 
     <!-- FATE WHEEL MODAL -->
     <div id="fate-wheel-modal" class="modal fate-modal">
-        <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-title">🎡 WHEEL OF FATE 🎡</div>
             
             <!-- STEP 1: Alliance Selection -->
@@ -1357,7 +1345,7 @@
 
                 <div class="fate-wheel-container">
                     <div class="fate-wheel-pointer"></div>
-                    <canvas id="fate-wheel-canvas" width="500" height="500"></canvas>
+                    <canvas id="fate-wheel-canvas" width="380" height="380"></canvas>
                 </div>
 
                 <div style="text-align: center; margin-top: 30px;">
@@ -2881,6 +2869,8 @@
         const COOLDOWN_SPINS = 10; // How many spins before a fate returns to normal probability
         const MIN_COOLDOWN_CHANCE = 0.05; // Just spun = only 5% chance (95% reduction!)
 
+        let fateAllianceData = []; // Store alliance data for age lookup
+        
         async function openFateWheelModal() {
             // Reset to selection step
             document.getElementById('alliance-selection-step').style.display = 'block';
@@ -2890,23 +2880,24 @@
             
             // Load alliances for dropdown
             const allianceSelect = document.getElementById('fate-alliance');
-            const alliances = await fetch(`${API_URL}/teacher/leaderboard`, { headers }).then(r => r.json());
+            fateAllianceData = await fetch(`${API_URL}/teacher/leaderboard`, { headers }).then(r => r.json());
             
             allianceSelect.innerHTML = '<option value="">Choose an alliance...</option>' +
-                alliances.map(a => `<option value="${a.alliance_id}" data-name="${a.alliance_name}">${a.alliance_name} (${a.total_points} pts)</option>`).join('');
+                fateAllianceData.map(a => `<option value="${a.alliance_id}" data-name="${a.alliance_name}" data-age="${a.current_age || 'Archaic'}">${a.alliance_name} (${a.total_points} pts)</option>`).join('');
             
-            // Load fates
+            // Load fates for default age (Archaic), will reload on alliance select
             allFates = await fetch(`${API_URL}/teacher/fates?age=Archaic`, { headers }).then(r => r.json());
-            
-            // DEBUG: Check if battle fates are loaded
-            console.log('📋 Total fates loaded:', allFates.length);
-            const battleFates = allFates.filter(f => f.is_battle === 1 || f.fate_type === 'battle');
-            console.log('⚔️ Battle fates found:', battleFates.map(f => `${f.fate_number}: ${f.fate_name}`));
-            const specialFates = allFates.filter(f => f.fate_type === 'special');
-            console.log('✨ Special fates found:', specialFates.map(f => `${f.fate_number}: ${f.fate_name}`));
             
             // Load today's spins
             loadFatesToday();
+            
+            // Reload fates when alliance is selected (age may differ)
+            allianceSelect.onchange = async function() {
+                const selected = allianceSelect.options[allianceSelect.selectedIndex];
+                const age = selected ? (selected.getAttribute('data-age') || 'Archaic') : 'Archaic';
+                allFates = await fetch(`${API_URL}/teacher/fates?age=${age}`, { headers }).then(r => r.json());
+                console.log('Loaded ' + allFates.length + ' fates for age: ' + age);
+            };
         }
 
         function closeFateWheelModal() {
@@ -2972,14 +2963,16 @@
             wheelCanvas = document.getElementById('fate-wheel-canvas');
             wheelContext = wheelCanvas.getContext('2d');
             
-            const centerX = 250;
-            const centerY = 250;
-            const radius = 240;
+            const w = wheelCanvas.width;
+            const h = wheelCanvas.height;
+            const centerX = w / 2;
+            const centerY = h / 2;
+            const radius = (w / 2) - 10;
             const numSegments = 20;
             const anglePerSegment = (2 * Math.PI) / numSegments;
 
             // Clear canvas
-            wheelContext.clearRect(0, 0, 500, 500);
+            wheelContext.clearRect(0, 0, w, h);
 
             // Draw segments
             for (let i = 0; i < numSegments; i++) {
