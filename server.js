@@ -1585,8 +1585,13 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
     
-    // Get student's current age
-    const student = query('SELECT current_age FROM students WHERE student_id = ?', [student_id])[0];
+    // Get student's current age from their alliance (same source as dashboard)
+    const student = query(`
+      SELECT s.student_id, s.alliance_id, COALESCE(a.current_age, 'Archaic') as current_age
+      FROM students s
+      LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
+      WHERE s.student_id = ?
+    `, [student_id])[0];
     const currentAge = (student && student.current_age) || 'Archaic';
     
     if (currentAge === 'Archaic') {
