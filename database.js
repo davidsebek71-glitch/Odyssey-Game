@@ -797,9 +797,15 @@ function runMigrations() {
         allClassicalBonuses.forEach(a => {
           const displayName = a[3];
           if (!existingNames.has(displayName)) {
-            db.run('INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) VALUES (?,?,?,?,?,?,?,?,?)', a);
-            console.log(`  + Inserted: ${displayName} (${a[4]} pts)`);
-            added++;
+            try {
+              const stmt = db.prepare('INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) VALUES (?,?,?,?,?,?,?,?,?)');
+              stmt.run(a);
+              stmt.free();
+              console.log(`  + Inserted: ${displayName} (${a[4]} pts)`);
+              added++;
+            } catch (insertErr) {
+              console.log(`  ✗ FAILED to insert ${displayName}: ${insertErr.message}`);
+            }
           }
         });
         if (added > 0) {
