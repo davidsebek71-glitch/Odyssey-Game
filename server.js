@@ -1991,70 +1991,101 @@ app.get('/api/teacher/student-grades/:student_id', authenticateToken, (req, res)
 // Teacher: Get all students' grade overview by class period
 app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
   try {
-    // Get all students
+    // Get all students with their current age
     const students = query(`
-      SELECT student_id, name, class_period, alliance_id
+      SELECT student_id, name, class_period, alliance_id, current_age
       FROM students
       ORDER BY class_period, name
     `);
     
-    // Get all assignments for calculating max points (exclude video - WeVideo removed)
-    const allAssignments = query(`SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'`);
-    const section1Max = allAssignments.filter(a => a.section === 'section_1').reduce((sum, a) => sum + a.max_points, 0);
-    const section2Max = allAssignments.filter(a => a.section === 'section_2').reduce((sum, a) => sum + a.max_points, 0);
-    const bonusMax = allAssignments.filter(a => a.section === 'bonus').reduce((sum, a) => sum + a.max_points, 0);
+    // === ARCHAIC MAX POINTS ===
+    const archaicAssignments = query(`SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'`);
+    const archaicMax = {
+      section1: archaicAssignments.filter(a => a.section === 'section_1').reduce((sum, a) => sum + a.max_points, 0),
+      section2: archaicAssignments.filter(a => a.section === 'section_2').reduce((sum, a) => sum + a.max_points, 0),
+      bonus: archaicAssignments.filter(a => a.section === 'bonus').reduce((sum, a) => sum + a.max_points, 0)
+    };
     
-    // Get all grade records
+    // === CLASSICAL MAX POINTS ===
+    const section1Myths = ['Pandora', 'Phaethon', 'Orpheus', 'Echo and Narcissus'];
+    const section2Myths = ['Icarus', 'Eros and Psyche', 'Constellations'];
+    const classicalAssignments = query(`SELECT * FROM assignments_ref WHERE section IN ('classical', 'classical_creative')`);
+    const classicalBonusAssignments = query(`SELECT * FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'`);
+    
+    const classicalMax = {
+      section1: classicalAssignments.filter(a => section1Myths.includes(a.myth_god) && a.assignment_type !== 'mural').reduce((sum, a) => sum + a.max_points, 0),
+      section2: classicalAssignments.filter(a => section2Myths.includes(a.myth_god) && a.assignment_type !== 'mural').reduce((sum, a) => sum + a.max_points, 0),
+      bonus: 100 // Target, not total available
+    };
+    
+    // === ALL GRADE RECORDS (single query) ===
     const allGradeRecords = query(`
-      SELECT gr.student_id, gr.points_earned, ar.section
+      SELECT gr.student_id, gr.points_earned, ar.section, ar.myth_god, ar.assignment_type, ar.age
       FROM grade_records gr
       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
     `);
     
-    // Calculate grades for each student
+    // Calculate grades for each student based on their age
     const studentsWithGrades = students.map(student => {
+      const age = student.current_age || 'Archaic';
       const studentRecords = allGradeRecords.filter(r => r.student_id === student.student_id);
       
-      const section1Earned = studentRecords.filter(r => r.section === 'section_1').reduce((sum, r) => sum + r.points_earned, 0);
-      const section2Earned = studentRecords.filter(r => r.section === 'section_2').reduce((sum, r) => sum + r.points_earned, 0);
-      const bonusEarned = studentRecords.filter(r => r.section === 'bonus').reduce((sum, r) => sum + r.points_earned, 0);
-      
-      return {
-        student_id: student.student_id,
-        name: student.name,
-        class_period: student.class_period || 'Unassigned',
-        section1: {
-          earned: section1Earned,
-          max: section1Max,
-          percentage: section1Max > 0 ? Math.round((section1Earned / section1Max) * 100) : 0
-        },
-        section2: {
-          earned: section2Earned,
-          max: section2Max,
-          percentage: section2Max > 0 ? Math.round((section2Earned / section2Max) * 100) : 0
-        },
-        bonus: {
-          earned: bonusEarned,
-          max: bonusMax,
-          percentage: bonusMax > 0 ? Math.round((bonusEarned / bonusMax) * 100) : 0
-        }
-      };
+      if (age === 'Classical') {
+        // Classical: section by myth grouping, exclude Pixton from baseline
+        const s1Records = studentRecords.filter(r => 
+          (r.section === 'classical' || r.section === 'classical_creative') && 
+          section1Myths.includes(r.myth_god) && r.assignment_type !== 'mural'
+        );
+        const s2Records = studentRecords.filter(r => 
+          (r.section === 'classical' || r.section === 'classical_creative') && 
+          section2Myths.includes(r.myth_god) && r.assignment_type !== 'mural'
+        );
+        const bonusRecords = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical');
+        
+        const s1Earned = s1Records.reduce((sum, r) => sum + r.points_earned, 0);
+        const s2Earned = s2Records.reduce((sum, r) => sum + r.points_earned, 0);
+        const bonusEarned = bonusRecords.reduce((sum, r) => sum + r.points_earned, 0);
+        
+        return {
+          student_id: student.student_id,
+          name: student.name,
+          class_period: student.class_period || 'Unassigned',
+          age: 'Classical',
+          section1: { earned: s1Earned, max: classicalMax.section1, percentage: classicalMax.section1 > 0 ? Math.round((s1Earned / classicalMax.section1) * 100) : 0 },
+          section2: { earned: s2Earned, max: classicalMax.section2, percentage: classicalMax.section2 > 0 ? Math.round((s2Earned / classicalMax.section2) * 100) : 0 },
+          bonus: { earned: bonusEarned, max: classicalMax.bonus, percentage: classicalMax.bonus > 0 ? Math.round((Math.min(bonusEarned, 100) / classicalMax.bonus) * 100) : 0 }
+        };
+      } else {
+        // Archaic: original section-based
+        const s1Earned = studentRecords.filter(r => r.section === 'section_1').reduce((sum, r) => sum + r.points_earned, 0);
+        const s2Earned = studentRecords.filter(r => r.section === 'section_2').reduce((sum, r) => sum + r.points_earned, 0);
+        const bonusEarned = studentRecords.filter(r => r.section === 'bonus' && r.age !== 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
+        
+        return {
+          student_id: student.student_id,
+          name: student.name,
+          class_period: student.class_period || 'Unassigned',
+          age: 'Archaic',
+          section1: { earned: s1Earned, max: archaicMax.section1, percentage: archaicMax.section1 > 0 ? Math.round((s1Earned / archaicMax.section1) * 100) : 0 },
+          section2: { earned: s2Earned, max: archaicMax.section2, percentage: archaicMax.section2 > 0 ? Math.round((s2Earned / archaicMax.section2) * 100) : 0 },
+          bonus: { earned: bonusEarned, max: archaicMax.bonus, percentage: archaicMax.bonus > 0 ? Math.round((bonusEarned / archaicMax.bonus) * 100) : 0 }
+        };
+      }
     });
     
     // Group by class period
     const periods = ['1st', '2nd', '3rd', '4th', 'Unassigned'];
-    const byPeriod = periods.map(period => ({
-      period,
-      students: studentsWithGrades.filter(s => s.class_period === period).sort((a, b) => a.name.localeCompare(b.name))
-    })).filter(p => p.students.length > 0);
+    const byPeriod = periods.map(period => {
+      const periodStudents = studentsWithGrades.filter(s => s.class_period === period).sort((a, b) => a.name.localeCompare(b.name));
+      // Determine dominant age for the period (for column headers)
+      const classicalCount = periodStudents.filter(s => s.age === 'Classical').length;
+      const dominantAge = classicalCount > periodStudents.length / 2 ? 'Classical' : 'Archaic';
+      return { period, students: periodStudents, dominantAge };
+    }).filter(p => p.students.length > 0);
     
     res.json({
       byPeriod,
-      maxPoints: {
-        section1: section1Max,
-        section2: section2Max,
-        bonus: bonusMax
-      }
+      maxPoints: { archaic: archaicMax, classical: classicalMax }
     });
   } catch (err) {
     console.error('Get grade overview error:', err);

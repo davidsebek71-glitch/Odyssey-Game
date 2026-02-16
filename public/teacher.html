@@ -4214,28 +4214,49 @@
             }
             
             const getColorForPercent = (pct) => {
-                if (pct >= 80) return '#4ade80';  // Green
-                if (pct >= 60) return '#fbbf24';  // Yellow/Gold
-                return '#fb923c';  // Orange (was pink #f87171, now more readable)
+                if (pct >= 80) return '#4ade80';
+                if (pct >= 60) return '#fbbf24';
+                return '#fb923c';
             };
             
-            let html = '';
+            let html = `<div style="background: rgba(255,255,255,0.03); padding: 8px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: rgba(255,255,255,0.6);">
+                All students listed alphabetically by class period. <strong style="color: rgba(255,255,255,0.9);">Click a student's name</strong> to view and manage their submissions.
+            </div>`;
             
             data.byPeriod.forEach(period => {
+                const age = period.dominantAge || 'Archaic';
+                const isClassical = age === 'Classical';
+                const maxPts = isClassical ? (data.maxPoints.classical || {}) : (data.maxPoints.archaic || data.maxPoints);
+                
+                // Fallback for old response format
+                const s1Max = maxPts.section1 || 0;
+                const s2Max = maxPts.section2 || 0;
+                const bMax = maxPts.bonus || 0;
+                
+                const s1Label = isClassical ? 'Sec 1 (M1-4)' : 'Section 1';
+                const s2Label = isClassical ? 'Sec 2 (M5-7)' : 'Section 2';
+                const headerAccent = isClassical ? 'rgba(30,64,175,0.3), rgba(59,130,246,0.2)' : 'rgba(255,215,0,0.2), rgba(255,140,0,0.2)';
+                const headerBorder = isClassical ? 'rgba(59,130,246,0.5)' : 'rgba(255,215,0,0.5)';
+                const headerColor = isClassical ? '#60a5fa' : '#ffd700';
+                const ageBadge = isClassical 
+                    ? '<span style="background: rgba(59,130,246,0.2); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px;">Classical</span>'
+                    : '<span style="background: rgba(255,215,0,0.2); color: #ffd700; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px;">Archaic</span>';
+                
                 html += `
                     <div style="margin-bottom: 30px;">
-                        <div style="background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,140,0,0.2)); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid rgba(255,215,0,0.5);">
-                            <strong style="font-size: 18px; color: #ffd700;">${period.period} Period</strong>
+                        <div style="background: linear-gradient(135deg, ${headerAccent}); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid ${headerBorder};">
+                            <strong style="font-size: 18px; color: ${headerColor};">${period.period} Period</strong>
                             <span style="margin-left: 15px; font-size: 14px; color: rgba(255,255,255,0.7);">(${period.students.length} students)</span>
+                            ${ageBadge}
                         </div>
                         
                         <table style="width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.02);">
                             <thead>
                                 <tr style="background: rgba(255,255,255,0.05);">
                                     <th style="text-align: left; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1);">Student Name</th>
-                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Section 1<br><span style="font-size: 11px; font-weight: normal;">/${data.maxPoints.section1}</span></th>
-                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Section 2<br><span style="font-size: 11px; font-weight: normal;">/${data.maxPoints.section2}</span></th>
-                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Bonus<br><span style="font-size: 11px; font-weight: normal;">/${data.maxPoints.bonus}</span></th>
+                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">${s1Label}<br><span style="font-size: 11px; font-weight: normal;">/${s1Max}</span></th>
+                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">${s2Label}<br><span style="font-size: 11px; font-weight: normal;">/${s2Max}</span></th>
+                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Bonus<br><span style="font-size: 11px; font-weight: normal;">/${bMax}</span></th>
                                 </tr>
                             </thead>
                             <tbody>
