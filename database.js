@@ -1404,6 +1404,50 @@ function seedReferenceData() {
     console.log('✅ Assignments seeded');
   } else {
     console.log('✅ Assignments already exist');
+    
+    // Check if Classical assignments need to be added (they may not exist if Archaic was seeded before Classical code)
+    try {
+      const classicalCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE section = 'classical'");
+      const classicalExists = classicalCheck[0] && classicalCheck[0].values[0][0] > 0;
+      
+      if (!classicalExists) {
+        console.log('📚 Seeding Classical Age assignments...');
+        const classicalAssignments = [
+          ['classical', 'comp_conn', 'Pandora', 'Pandora Reading Guide', 12, 'Reading guide on the myth of Pandora', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Pandora', 'Pandora Quiz', 10, 'Quiz on Pandora', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Phaethon', 'Phaethon Quiz', 10, 'Quiz on Phaethon', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Orpheus', 'Orpheus Quiz', 10, 'Quiz on Orpheus and Eurydice', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Echo and Narcissus', 'Echo and Narcissus Quiz', 10, 'Quiz on Echo and Narcissus', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 10, 'Quiz on Icarus and Daedalus', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Eros and Psyche', 'Eros and Psyche Quiz', 10, 'Quiz on Eros and Psyche', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
+          ['classical_creative', 'mural', 'Phaethon', 'Phaethon Pixton', 16, 'Comic retelling of the Phaethon myth using Pixton', null, 0, 'Classical'],
+          ['classical_creative', 'mural', 'Echo and Narcissus', 'Echo and Narcissus Pixton', 16, 'Comic retelling of Echo and Narcissus using Pixton', null, 0, 'Classical'],
+          ['classical_creative', 'mural', 'Icarus', 'Icarus Pixton', 16, 'Comic retelling of Icarus and Daedalus using Pixton', null, 0, 'Classical'],
+          ['classical_creative', 'mural', 'Constellations', 'Constellations Pixton', 16, 'Comic retelling of a constellation myth using Pixton', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 20, 'Word cloud for Pandora myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 20, 'Word cloud for Phaethon myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 20, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 20, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud for Icarus myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 20, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 20, 'Word cloud for constellation myths', null, 0, 'Classical']
+        ];
+        classicalAssignments.forEach(a => {
+          db.run(`INSERT OR IGNORE INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, a);
+        });
+        console.log('✅ Classical assignments seeded (' + classicalAssignments.length + ' assignments)');
+      }
+    } catch (err) {
+      console.log('Classical assignments seed note:', err.message);
+    }
   }
 
   // Seed Battle Arena Questions

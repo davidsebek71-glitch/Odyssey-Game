@@ -5238,9 +5238,20 @@
         let currentBonusAssignment = null;
 
         async function loadGrades() {
+            // Set title immediately based on current age
+            const titleEl = document.getElementById('grades-title');
+            const currentAge = (dashboardData && dashboardData.student && dashboardData.student.current_age) || 'Archaic';
+            if (titleEl) titleEl.textContent = `📊 My ${currentAge} Age Grades`;
+            
             try {
                 const response = await fetch(`${API_URL}/student/grades`, { headers });
+                if (!response.ok) {
+                    throw new Error('Server returned ' + response.status);
+                }
                 const grades = await response.json();
+                if (grades.error) {
+                    throw new Error(grades.error);
+                }
                 renderGrades(grades);
             } catch (err) {
                 console.error('Failed to load grades:', err);

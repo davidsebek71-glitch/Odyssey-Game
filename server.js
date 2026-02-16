@@ -1650,15 +1650,16 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
       });
     } else {
       // CLASSICAL AGE GRADES - Reading Guides/Quizzes, Creative Work, Extra Credit
+      // Use section = 'classical' or 'classical_creative' which always exists
       const classicalAssignments = query(`
-        SELECT * FROM assignments_ref WHERE age = 'Classical'
+        SELECT * FROM assignments_ref WHERE section IN ('classical', 'classical_creative')
       `);
       
       const completedRecords = query(`
         SELECT gr.*, ar.section, ar.assignment_type, ar.myth_god, ar.display_name, ar.max_points as assignment_max, ar.is_bonus
         FROM grade_records gr
         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-        WHERE gr.student_id = ? AND ar.age = 'Classical'
+        WHERE gr.student_id = ? AND ar.section IN ('classical', 'classical_creative')
       `, [student_id]);
       
       // Classical sections: reading guides & quizzes vs creative work
