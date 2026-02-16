@@ -1585,88 +1585,126 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
     
-    // Get all assignments (exclude video - WeVideo removed)
-    const allAssignments = query(`
-      SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'
-    `);
+    // Get student's current age
+    const student = query('SELECT current_age FROM students WHERE student_id = ?', [student_id])[0];
+    const currentAge = (student && student.current_age) || 'Archaic';
     
-    // Get student's completed assignments
-    const completedRecords = query(`
-      SELECT gr.*, ar.section, ar.assignment_type, ar.myth_god, ar.display_name, ar.max_points as assignment_max, ar.is_bonus
-      FROM grade_records gr
-      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-      WHERE gr.student_id = ?
-    `, [student_id]);
-    
-    // Calculate totals by section
-    const section1Assignments = allAssignments.filter(a => a.section === 'section_1');
-    const section2Assignments = allAssignments.filter(a => a.section === 'section_2');
-    const bonusAssignments = allAssignments.filter(a => a.section === 'bonus');
-    
-    const section1Completed = completedRecords.filter(r => r.section === 'section_1');
-    const section2Completed = completedRecords.filter(r => r.section === 'section_2');
-    const bonusCompleted = completedRecords.filter(r => r.section === 'bonus');
-    
-    // Calculate earned points
-    const section1Earned = section1Completed.reduce((sum, r) => sum + r.points_earned, 0);
-    const section2Earned = section2Completed.reduce((sum, r) => sum + r.points_earned, 0);
-    const bonusEarned = bonusCompleted.reduce((sum, r) => sum + r.points_earned, 0);
-    
-    // Calculate max points
-    const section1Max = section1Assignments.reduce((sum, a) => sum + a.max_points, 0);
-    const section2Max = section2Assignments.reduce((sum, a) => sum + a.max_points, 0);
-    const bonusMax = bonusAssignments.reduce((sum, a) => sum + a.max_points, 0);
-    
-    // Find missing assignments (not completed)
-    const completedAssignmentIds = new Set(completedRecords.map(r => r.assignment_id));
-    
-    const section1Missing = section1Assignments
-      .filter(a => !completedAssignmentIds.has(a.assignment_id))
-      .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
-    
-    const section2Missing = section2Assignments
-      .filter(a => !completedAssignmentIds.has(a.assignment_id))
-      .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
-    
-    res.json({
-      section1: {
-        earned: section1Earned,
-        max: section1Max,
-        percentage: section1Max > 0 ? Math.round((section1Earned / section1Max) * 100) : 0,
-        completed: section1Completed.map(r => ({
-          display_name: r.display_name,
-          myth_god: r.myth_god,
-          points_earned: r.points_earned,
-          points_possible: r.points_possible,
-          assignment_type: r.assignment_type
-        })),
-        missing: section1Missing
-      },
-      section2: {
-        earned: section2Earned,
-        max: section2Max,
-        percentage: section2Max > 0 ? Math.round((section2Earned / section2Max) * 100) : 0,
-        completed: section2Completed.map(r => ({
-          display_name: r.display_name,
-          myth_god: r.myth_god,
-          points_earned: r.points_earned,
-          points_possible: r.points_possible,
-          assignment_type: r.assignment_type
-        })),
-        missing: section2Missing
-      },
-      bonus: {
-        earned: bonusEarned,
-        max: bonusMax,
-        percentage: bonusMax > 0 ? Math.round((bonusEarned / bonusMax) * 100) : 0,
-        completed: bonusCompleted.map(r => ({
-          display_name: r.display_name,
-          myth_god: r.myth_god,
-          points_earned: r.points_earned,
-          points_possible: r.points_possible
-        }))
-      }
-    });
+    if (currentAge === 'Archaic') {
+      // ARCHAIC AGE GRADES - Section 1, Section 2, Bonus
+      const allAssignments = query(`
+        SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'
+      `);
+      
+      const completedRecords = query(`
+        SELECT gr.*, ar.section, ar.assignment_type, ar.myth_god, ar.display_name, ar.max_points as assignment_max, ar.is_bonus
+        FROM grade_records gr
+        JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+        WHERE gr.student_id = ? AND ar.age = 'Archaic'
+      `, [student_id]);
+      
+      const section1Assignments = allAssignments.filter(a => a.section === 'section_1');
+      const section2Assignments = allAssignments.filter(a => a.section === 'section_2');
+      const bonusAssignments = allAssignments.filter(a => a.section === 'bonus');
+      
+      const section1Completed = completedRecords.filter(r => r.section === 'section_1');
+      const section2Completed = completedRecords.filter(r => r.section === 'section_2');
+      const bonusCompleted = completedRecords.filter(r => r.section === 'bonus');
+      
+      const section1Earned = section1Completed.reduce((sum, r) => sum + r.points_earned, 0);
+      const section2Earned = section2Completed.reduce((sum, r) => sum + r.points_earned, 0);
+      const bonusEarned = bonusCompleted.reduce((sum, r) => sum + r.points_earned, 0);
+      
+      const section1Max = section1Assignments.reduce((sum, a) => sum + a.max_points, 0);
+      const section2Max = section2Assignments.reduce((sum, a) => sum + a.max_points, 0);
+      const bonusMax = bonusAssignments.reduce((sum, a) => sum + a.max_points, 0);
+      
+      const completedAssignmentIds = new Set(completedRecords.map(r => r.assignment_id));
+      
+      const section1Missing = section1Assignments
+        .filter(a => !completedAssignmentIds.has(a.assignment_id))
+        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
+      
+      const section2Missing = section2Assignments
+        .filter(a => !completedAssignmentIds.has(a.assignment_id))
+        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
+      
+      res.json({
+        age: 'Archaic',
+        section1: {
+          earned: section1Earned, max: section1Max,
+          percentage: section1Max > 0 ? Math.round((section1Earned / section1Max) * 100) : 0,
+          completed: section1Completed.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
+          missing: section1Missing
+        },
+        section2: {
+          earned: section2Earned, max: section2Max,
+          percentage: section2Max > 0 ? Math.round((section2Earned / section2Max) * 100) : 0,
+          completed: section2Completed.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
+          missing: section2Missing
+        },
+        bonus: {
+          earned: bonusEarned, max: bonusMax,
+          percentage: bonusMax > 0 ? Math.round((bonusEarned / bonusMax) * 100) : 0,
+          completed: bonusCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible }))
+        }
+      });
+    } else {
+      // CLASSICAL AGE GRADES - Reading Guides/Quizzes, Creative Work, Extra Credit
+      const classicalAssignments = query(`
+        SELECT * FROM assignments_ref WHERE age = 'Classical'
+      `);
+      
+      const completedRecords = query(`
+        SELECT gr.*, ar.section, ar.assignment_type, ar.myth_god, ar.display_name, ar.max_points as assignment_max, ar.is_bonus
+        FROM grade_records gr
+        JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+        WHERE gr.student_id = ? AND ar.age = 'Classical'
+      `, [student_id]);
+      
+      // Classical sections: reading guides & quizzes vs creative work
+      const coreAssignments = classicalAssignments.filter(a => a.section === 'classical');
+      const creativeAssignments = classicalAssignments.filter(a => a.section === 'classical_creative');
+      
+      const coreCompleted = completedRecords.filter(r => r.section === 'classical');
+      const creativeCompleted = completedRecords.filter(r => r.section === 'classical_creative');
+      
+      const coreEarned = coreCompleted.reduce((sum, r) => sum + r.points_earned, 0);
+      const creativeEarned = creativeCompleted.reduce((sum, r) => sum + r.points_earned, 0);
+      
+      const coreMax = coreAssignments.reduce((sum, a) => sum + a.max_points, 0);
+      const creativeMax = creativeAssignments.reduce((sum, a) => sum + a.max_points, 0);
+      
+      const completedAssignmentIds = new Set(completedRecords.map(r => r.assignment_id));
+      
+      const coreMissing = coreAssignments
+        .filter(a => !completedAssignmentIds.has(a.assignment_id))
+        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
+      
+      const creativeMissing = creativeAssignments
+        .filter(a => !completedAssignmentIds.has(a.assignment_id))
+        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
+      
+      res.json({
+        age: 'Classical',
+        section1: {
+          label: 'READING GUIDES & QUIZZES',
+          earned: coreEarned, max: coreMax,
+          percentage: coreMax > 0 ? Math.round((coreEarned / coreMax) * 100) : 0,
+          completed: coreCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
+          missing: coreMissing
+        },
+        section2: {
+          label: 'CREATIVE WORK',
+          earned: creativeEarned, max: creativeMax,
+          percentage: creativeMax > 0 ? Math.round((creativeEarned / creativeMax) * 100) : 0,
+          completed: creativeCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
+          missing: creativeMissing
+        },
+        bonus: {
+          earned: 0, max: 0, percentage: 0, completed: []
+        }
+      });
+    }
   } catch (err) {
     console.error('Get grades error:', err);
     res.status(500).json({ error: 'Failed to fetch grades' });

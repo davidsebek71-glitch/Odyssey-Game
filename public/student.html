@@ -2724,7 +2724,7 @@
 
                 <!-- My Grades -->
                 <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-title">📊 My Archaic Age Grades</div>
+                    <div class="card-title" id="grades-title">📊 My Grades</div>
                     <div id="grades-content" class="loading">Loading...</div>
                 </div>
 
@@ -5250,20 +5250,28 @@
 
         function renderGrades(grades) {
             const container = document.getElementById('grades-content');
+            const titleEl = document.getElementById('grades-title');
             
-            // God color mapping for grade display
-            const godColors = {
+            // Set title based on age
+            const age = grades.age || 'Archaic';
+            titleEl.textContent = `📊 My ${age} Age Grades`;
+            
+            // Color mapping for grade display
+            const mythColors = {
                 'Greek Pantheon': '#ff9933', 'Zeus': '#ffd700', 'Prometheus': '#8b0000',
                 'Apollo': '#22c55e', 'Athena': '#00ced1', 'Hera': '#9370db',
                 'Aphrodite': '#ff69b4', 'Poseidon': '#00bfff', 'Artemis': '#7caa98',
                 'Demeter': '#daa520', 'Hermes': '#cc5500', 'Hephaestus': '#cd5c5c',
                 'Apollo and Artemis': '#22c55e', 'Nine Muses': '#ff9933',
-                'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff'
+                'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff',
+                'Pandora': '#FFD700', 'Phaethon': '#FF8C00', 'Orpheus': '#8B5CF6',
+                'Echo and Narcissus': '#EC4899', 'Icarus': '#3B82F6',
+                'Eros and Psyche': '#EF4444', 'Constellations': '#C0C0C0'
             };
             
-            const getGodColor = (displayName) => {
-                for (const god of Object.keys(godColors)) {
-                    if (displayName.includes(god)) return godColors[god];
+            const getColor = (displayName) => {
+                for (const key of Object.keys(mythColors)) {
+                    if (displayName.includes(key)) return mythColors[key];
                 }
                 return '#ffffff';
             };
@@ -5282,7 +5290,7 @@
                     <!-- Section One -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 16px;">SECTION ONE</strong>
+                            <strong style="font-size: 16px;">${grades.section1.label || 'SECTION ONE'}</strong>
                             <span style="color: #ffd700; font-weight: bold; font-size: 18px;">${grades.section1.earned}/${grades.section1.max}</span>
                         </div>
                         ${createProgressBar(grades.section1.earned, grades.section1.max, grades.section1.percentage)}
@@ -5294,7 +5302,7 @@
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section1.completed.map(c => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
-                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
+                                            ✓ <span style="color: ${getColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -5307,7 +5315,7 @@
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section1.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
-                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
+                                            ○ <span style="color: ${getColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
                                         </div>
                                     `).join('')}
                                 </div>
@@ -5318,7 +5326,7 @@
                     <!-- Section Two -->
                     <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                            <strong style="font-size: 16px;">SECTION TWO</strong>
+                            <strong style="font-size: 16px;">${grades.section2.label || 'SECTION TWO'}</strong>
                             <span style="color: #ffd700; font-weight: bold; font-size: 18px;">${grades.section2.earned}/${grades.section2.max}</span>
                         </div>
                         ${createProgressBar(grades.section2.earned, grades.section2.max, grades.section2.percentage)}
@@ -5330,7 +5338,7 @@
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section2.completed.map(c => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #4ade80;">
-                                            ✓ <span style="color: ${getGodColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
+                                            ✓ <span style="color: ${getColor(c.display_name)}">${c.display_name}</span> - ${c.points_earned}/${c.points_possible}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -5343,7 +5351,7 @@
                                 <div style="margin-top: 8px; font-size: 16px;">
                                     ${grades.section2.missing.map(m => `
                                         <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffffff;">
-                                            ○ <span style="color: ${getGodColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
+                                            ○ <span style="color: ${getColor(m.display_name)}">${m.display_name}</span> (${m.max_points} pts)
                                         </div>
                                     `).join('')}
                                 </div>
