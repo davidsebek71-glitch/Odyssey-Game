@@ -1991,11 +1991,13 @@ app.get('/api/teacher/student-grades/:student_id', authenticateToken, (req, res)
 // Teacher: Get all students' grade overview by class period
 app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
   try {
-    // Get all students with their current age
+    // Get all students with their current age (from alliance)
     const students = query(`
-      SELECT student_id, name, class_period, alliance_id, current_age
-      FROM students
-      ORDER BY class_period, name
+      SELECT s.student_id, s.name, s.class_period, s.alliance_id,
+             COALESCE(a.current_age, 'Archaic') as current_age
+      FROM students s
+      LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
+      ORDER BY s.class_period, s.name
     `);
     
     // === ARCHAIC MAX POINTS ===
