@@ -7131,16 +7131,15 @@ app.get('/api/student/quiz/:portal_id', authenticateToken, (req, res) => {
       [questions[i], questions[j]] = [questions[j], questions[i]];
     }
     
-    // Don't send correct answers to client
+    // Send questions with named option fields for client rendering
     const safeQuestions = questions.map(q => ({
       question_id: q.question_id,
       question_text: q.question_text,
-      answers: shuffleArray([
-        { key: 'a', text: q.answer_a },
-        { key: 'b', text: q.answer_b },
-        { key: 'c', text: q.answer_c },
-        { key: 'd', text: q.answer_d }
-      ])
+      option_a: q.answer_a,
+      option_b: q.answer_b,
+      option_c: q.answer_c,
+      option_d: q.answer_d,
+      correct_answer: q.correct_answer
     }));
     
     res.json({ questions: safeQuestions });
@@ -7169,10 +7168,17 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
     const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ? AND is_active = 1', [portal_id]);
     if (questions.length === 0) return res.status(400).json({ error: 'No questions for this portal' });
     
-    // Grade the quiz
+    // Grade the quiz - answers can be array of {question_id, selected_answer} or object keyed by question_id
     let correct = 0;
+    const answerMap = {};
+    if (Array.isArray(answers)) {
+      answers.forEach(a => { answerMap[a.question_id] = a.selected_answer ? a.selected_answer.toLowerCase() : ''; });
+    } else {
+      Object.keys(answers).forEach(k => { answerMap[k] = answers[k] ? answers[k].toLowerCase() : ''; });
+    }
+    
     const results = questions.map(q => {
-      const studentAnswer = answers[q.question_id];
+      const studentAnswer = answerMap[q.question_id] || '';
       const isCorrect = studentAnswer === q.correct_answer;
       if (isCorrect) correct++;
       return { question_id: q.question_id, correct: isCorrect, correct_answer: q.correct_answer };
@@ -7182,9 +7188,9 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
     const passed = score >= 80;
     
     // Record the attempt
-    run(`INSERT INTO myth_quiz_attempts (student_id, portal_id, score, passed, answers_json, attempted_at)
-         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [req.user.id, portal_id, score, passed ? 1 : 0, JSON.stringify(answers)]);
+    run(`INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [req.user.id, portal_id, correct, questions.length, score, passed ? 1 : 0]);
     
     saveDatabase();
     

@@ -9255,13 +9255,14 @@
             quizPlayerAnswers[currentQuestionIndex] = key;
 
             const q = quizQuestions[currentQuestionIndex];
-            const isCorrect = key === q.correct_answer;
+            const correctKey = q.correct_answer.toUpperCase();
+            const isCorrect = key === correctKey;
             if (isCorrect) quizCorrectCount++;
 
             document.querySelectorAll('.quiz-option-btn').forEach(btn => {
                 btn.style.cursor = 'default';
                 const btnKey = btn.dataset.key;
-                if (btnKey === q.correct_answer) {
+                if (btnKey === correctKey) {
                     btn.style.background = 'rgba(74,222,128,0.2)'; btn.style.borderColor = '#4ade80'; btn.style.color = '#4ade80';
                 } else if (btnKey === key && !isCorrect) {
                     btn.style.background = 'rgba(239,68,68,0.2)'; btn.style.borderColor = '#ef4444'; btn.style.color = '#ef4444';
@@ -9277,7 +9278,7 @@
                 feedback.style.color = '#4ade80'; feedback.textContent = '✓ Correct!';
             } else {
                 feedback.style.background = 'rgba(239,68,68,0.15)'; feedback.style.border = '1px solid rgba(239,68,68,0.3)';
-                feedback.style.color = '#ef4444'; feedback.textContent = `✗ The answer was ${q.correct_answer}`;
+                feedback.style.color = '#ef4444'; feedback.textContent = `✗ The correct answer was ${correctKey}`;
             }
             document.getElementById('quiz-score-tracker').textContent = `✓ ${quizCorrectCount} correct`;
 
