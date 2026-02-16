@@ -1592,7 +1592,7 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
     if (currentAge === 'Archaic') {
       // ARCHAIC AGE GRADES - Section 1, Section 2, Bonus
       const allAssignments = query(`
-        SELECT * FROM assignments_ref WHERE age = 'Archaic' AND assignment_type != 'video'
+        SELECT * FROM assignments_ref WHERE section IN ('section_1', 'section_2', 'bonus') AND assignment_type != 'video'
       `);
       
       const completedRecords = query(`
