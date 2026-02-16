@@ -1144,7 +1144,7 @@
 
     <!-- Age Gate Modal -->
     <div id="age-gate-modal" class="modal">
-        <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-title">🚪 Age Gate Control</div>
             <div style="margin-bottom: 20px;">
                 <select id="age-gate-period" onchange="loadAgeGateDetails()" style="padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 8px; color: white; font-size: 16px;">
@@ -1154,17 +1154,18 @@
                     <option value="4th">4th Period</option>
                 </select>
             </div>
-            <div id="age-gate-content" style="max-height: 400px; overflow-y: auto;">
-                Loading...
-            </div>
             
-            <!-- Myth Portal Activation Section -->
-            <div id="myth-portal-section" style="margin-top: 20px; padding: 20px; background: rgba(30,64,175,0.15); border: 1px solid rgba(74,144,217,0.3); border-radius: 12px; display: none;">
+            <!-- Myth Portal Activation Section - FIRST so teacher sees it immediately -->
+            <div id="myth-portal-section" style="margin-bottom: 20px; padding: 20px; background: rgba(30,64,175,0.15); border: 1px solid rgba(74,144,217,0.3); border-radius: 12px; display: none;">
                 <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #4a90d9; margin-bottom: 12px;">&#x1F4DC; Myth Portal Activation</div>
-                <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 14px;">Activate myth portals to unlock quizzes and assignments for this period's students in the Classical Age.</div>
+                <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 14px;">Activate myth portals to unlock quizzes and assignments for this period's students.</div>
                 <div id="myth-portal-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                     Loading portals...
                 </div>
+            </div>
+            
+            <div id="age-gate-content" style="max-height: 400px; overflow-y: auto;">
+                Loading...
             </div>
             
             <div style="margin-top: 20px; text-align: center;">
