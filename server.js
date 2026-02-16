@@ -1795,6 +1795,57 @@ app.get('/api/student/bonus-assignments', authenticateToken, (req, res) => {
   }
 });
 
+// Student: Get Classical Age bonus assignments with status
+app.get('/api/student/classical-bonus-assignments', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    
+    // Get all Classical bonus assignments
+    const bonusAssignments = query(`
+      SELECT * FROM assignments_ref 
+      WHERE section = 'bonus' AND age = 'Classical'
+      ORDER BY myth_god, max_points DESC
+    `);
+    
+    // Get student's completed bonus records
+    const completedRecords = query(`
+      SELECT gr.assignment_id, gr.points_earned, ar.myth_god, ar.display_name
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id = ? AND ar.section = 'bonus' AND ar.age = 'Classical'
+    `, [student_id]);
+    
+    // Get pending submissions
+    const pendingSubmissions = query(`
+      SELECT ps.description, ps.myth_god FROM point_submissions ps
+      WHERE ps.student_id = ? AND ps.section = 'bonus' AND ps.status = 'pending'
+    `, [student_id]);
+    
+    const completedIds = new Set(completedRecords.map(r => r.assignment_id));
+    const pendingDescs = new Set(pendingSubmissions.map(s => s.description));
+    
+    const assignmentsWithStatus = bonusAssignments.map(a => {
+      let status = 'not_started';
+      let points_earned = null;
+      
+      if (completedIds.has(a.assignment_id)) {
+        status = 'completed';
+        const record = completedRecords.find(r => r.assignment_id === a.assignment_id);
+        points_earned = record ? record.points_earned : null;
+      } else if (pendingDescs.has(a.display_name)) {
+        status = 'pending';
+      }
+      
+      return { ...a, status, points_earned };
+    });
+    
+    res.json(assignmentsWithStatus);
+  } catch (err) {
+    console.error('Get classical bonus assignments error:', err);
+    res.status(500).json({ error: 'Failed to fetch classical bonus assignments' });
+  }
+});
+
 // Teacher: View a specific student's grades
 app.get('/api/teacher/student-grades/:student_id', authenticateToken, (req, res) => {
   try {

@@ -718,6 +718,50 @@ function runMigrations() {
       }
     }
     
+    // Fix word cloud points: seeded at 20, should be 12
+    try {
+      const wcCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE assignment_type = 'word_cloud' AND section = 'classical_creative' AND max_points = 20");
+      const wcCount = wcCheck[0] ? wcCheck[0].values[0][0] : 0;
+      if (wcCount > 0) {
+        db.run("UPDATE assignments_ref SET max_points = 12 WHERE assignment_type = 'word_cloud' AND section = 'classical_creative' AND max_points = 20");
+        console.log(`✅ Fixed ${wcCount} word cloud assignments: 20 → 12 pts`);
+      }
+    } catch (err) {
+      console.log('Word cloud migration note:', err.message);
+    }
+
+    // Add missing Classical bonus assignments (5 new ones)
+    try {
+      const ncCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE display_name = 'Narcissus Cautionary Tale' AND age = 'Classical'");
+      const ncExists = ncCheck[0] ? ncCheck[0].values[0][0] : 0;
+      if (ncExists === 0) {
+        console.log('📝 Adding 5 missing Classical bonus assignments...');
+        const newBonuses = [
+          ['bonus', 'bonus', 'Echo and Narcissus', 'Narcissus Cautionary Tale', 15,
+            'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Echo and Narcissus that warns about the dangers of self-obsession and ignoring the people who care about you.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Icarus', 'Icarus Cautionary Tale', 15,
+            'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Icarus that warns about the dangers of ignoring wise counsel and pushing past safe limits.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Cautionary Tale', 15,
+            'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Eros and Psyche that warns about the dangers of jealousy, distrust, or letting fear destroy something good.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Eros and Psyche', 'Three Word Description', 15,
+            'Choose 10 Greek gods, goddesses, or other characters you learned about in your readings. For each character, choose three words that describe them and use specific details from the text to support your thinking. Defend your word choices with evidence.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Morals', 10,
+            'Analyze the moral lessons found in the myth of Eros and Psyche. What does the story teach us about love, trust, jealousy, and forgiveness? Write a clear explanation of at least two morals from this myth using evidence from the text.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical']
+        ];
+        newBonuses.forEach(a => {
+          db.run('INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) VALUES (?,?,?,?,?,?,?,?,?)', a);
+        });
+        console.log('✅ Added 5 Classical bonus assignments');
+      }
+    } catch (err) {
+      console.log('Classical bonus migration note:', err.message);
+    }
+    
     console.log('✅ Migrations complete');
   } catch (err) {
     console.log('Migration note:', err.message);
@@ -1358,13 +1402,13 @@ function seedReferenceData() {
       // WeVideo Digital Retellings — REMOVED per Classical Age redesign (retellings replaced by original creative work)
       
       // Word Clouds (12 pts each)
-      ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Pandora myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Pandora myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
       
       // ==================== CLASSICAL AGE BONUSES ====================
       ['bonus', 'bonus', 'Pandora', 'Pandora Retelling', 20,
@@ -1419,6 +1463,36 @@ function seedReferenceData() {
         '"Arachne" has a clear moral, best summed up in Athena\'s final statement to Arachne: "...it is not wise to strive with [gods/goddesses]." Look at the myths about Persephone trapped in the Underworld and Narcissus and Echo and write a moral that best states the themes of these two tales. Explain how the story creates this moral.',
         JSON.stringify([
           {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Echo and Narcissus', 'Narcissus Cautionary Tale', 15,
+        'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Echo and Narcissus that warns about the dangers of self-obsession and ignoring the people who care about you.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Icarus', 'Icarus Cautionary Tale', 15,
+        'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Icarus that warns about the dangers of ignoring wise counsel and pushing past safe limits.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Cautionary Tale', 15,
+        'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Eros and Psyche that warns about the dangers of jealousy, distrust, or letting fear destroy something good.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Eros and Psyche', 'Three Word Description', 15,
+        'Choose 10 Greek gods, goddesses, or other characters you learned about in your readings. For each character, choose three words that describe them and use specific details from the text to support your thinking. Defend your word choices with evidence.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
+        ]), 1, 'Classical'],
+      
+      ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Morals', 10,
+        'Analyze the moral lessons found in the myth of Eros and Psyche. What does the story teach us about love, trust, jealousy, and forgiveness? Write a clear explanation of at least two morals from this myth using evidence from the text.',
+        JSON.stringify([
+          {label: "Assignment Instructions (Link Coming Soon)", url: null}
         ]), 1, 'Classical']
     ];
     
@@ -1457,13 +1531,13 @@ function seedReferenceData() {
           ['classical_creative', 'mural', 'Echo and Narcissus', 'Echo and Narcissus Pixton', 16, 'Comic retelling of Echo and Narcissus using Pixton', null, 0, 'Classical'],
           ['classical_creative', 'mural', 'Icarus', 'Icarus Pixton', 16, 'Comic retelling of Icarus and Daedalus using Pixton', null, 0, 'Classical'],
           ['classical_creative', 'mural', 'Constellations', 'Constellations Pixton', 16, 'Comic retelling of a constellation myth using Pixton', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 20, 'Word cloud for Pandora myth', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 20, 'Word cloud for Phaethon myth', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 20, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 20, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud for Icarus myth', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 20, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 20, 'Word cloud for constellation myths', null, 0, 'Classical']
+          ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 12, 'Word cloud for Pandora myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud for Phaethon myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud for Icarus myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud for constellation myths', null, 0, 'Classical']
         ];
         classicalAssignments.forEach(a => {
           db.run(`INSERT OR IGNORE INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) 
