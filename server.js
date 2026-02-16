@@ -2027,52 +2027,48 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
     `);
     
-    // Calculate grades for each student based on their age
+    // Calculate grades for each student - return BOTH ages for Classical students
     const studentsWithGrades = students.map(student => {
       const age = student.current_age || 'Archaic';
       const studentRecords = allGradeRecords.filter(r => r.student_id === student.student_id);
       
+      // Always compute Archaic grades (every student has these)
+      const arcS1 = studentRecords.filter(r => r.section === 'section_1').reduce((sum, r) => sum + r.points_earned, 0);
+      const arcS2 = studentRecords.filter(r => r.section === 'section_2').reduce((sum, r) => sum + r.points_earned, 0);
+      const arcBonus = studentRecords.filter(r => r.section === 'bonus' && r.age !== 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
+      
+      const result = {
+        student_id: student.student_id,
+        name: student.name,
+        class_period: student.class_period || 'Unassigned',
+        age: age,
+        archaic: {
+          section1: { earned: arcS1, max: archaicMax.section1, percentage: archaicMax.section1 > 0 ? Math.round((arcS1 / archaicMax.section1) * 100) : 0 },
+          section2: { earned: arcS2, max: archaicMax.section2, percentage: archaicMax.section2 > 0 ? Math.round((arcS2 / archaicMax.section2) * 100) : 0 },
+          bonus: { earned: arcBonus, max: archaicMax.bonus, percentage: archaicMax.bonus > 0 ? Math.round((arcBonus / archaicMax.bonus) * 100) : 0 }
+        }
+      };
+      
+      // Compute Classical grades for Classical-age students
       if (age === 'Classical') {
-        // Classical: section by myth grouping, exclude Pixton from baseline
-        const s1Records = studentRecords.filter(r => 
+        const claS1 = studentRecords.filter(r => 
           (r.section === 'classical' || r.section === 'classical_creative') && 
           section1Myths.includes(r.myth_god) && r.assignment_type !== 'mural'
-        );
-        const s2Records = studentRecords.filter(r => 
+        ).reduce((sum, r) => sum + r.points_earned, 0);
+        const claS2 = studentRecords.filter(r => 
           (r.section === 'classical' || r.section === 'classical_creative') && 
           section2Myths.includes(r.myth_god) && r.assignment_type !== 'mural'
-        );
-        const bonusRecords = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical');
+        ).reduce((sum, r) => sum + r.points_earned, 0);
+        const claBonus = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
         
-        const s1Earned = s1Records.reduce((sum, r) => sum + r.points_earned, 0);
-        const s2Earned = s2Records.reduce((sum, r) => sum + r.points_earned, 0);
-        const bonusEarned = bonusRecords.reduce((sum, r) => sum + r.points_earned, 0);
-        
-        return {
-          student_id: student.student_id,
-          name: student.name,
-          class_period: student.class_period || 'Unassigned',
-          age: 'Classical',
-          section1: { earned: s1Earned, max: classicalMax.section1, percentage: classicalMax.section1 > 0 ? Math.round((s1Earned / classicalMax.section1) * 100) : 0 },
-          section2: { earned: s2Earned, max: classicalMax.section2, percentage: classicalMax.section2 > 0 ? Math.round((s2Earned / classicalMax.section2) * 100) : 0 },
-          bonus: { earned: bonusEarned, max: classicalMax.bonus, percentage: classicalMax.bonus > 0 ? Math.round((Math.min(bonusEarned, 100) / classicalMax.bonus) * 100) : 0 }
-        };
-      } else {
-        // Archaic: original section-based
-        const s1Earned = studentRecords.filter(r => r.section === 'section_1').reduce((sum, r) => sum + r.points_earned, 0);
-        const s2Earned = studentRecords.filter(r => r.section === 'section_2').reduce((sum, r) => sum + r.points_earned, 0);
-        const bonusEarned = studentRecords.filter(r => r.section === 'bonus' && r.age !== 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
-        
-        return {
-          student_id: student.student_id,
-          name: student.name,
-          class_period: student.class_period || 'Unassigned',
-          age: 'Archaic',
-          section1: { earned: s1Earned, max: archaicMax.section1, percentage: archaicMax.section1 > 0 ? Math.round((s1Earned / archaicMax.section1) * 100) : 0 },
-          section2: { earned: s2Earned, max: archaicMax.section2, percentage: archaicMax.section2 > 0 ? Math.round((s2Earned / archaicMax.section2) * 100) : 0 },
-          bonus: { earned: bonusEarned, max: archaicMax.bonus, percentage: archaicMax.bonus > 0 ? Math.round((bonusEarned / archaicMax.bonus) * 100) : 0 }
+        result.classical = {
+          section1: { earned: claS1, max: classicalMax.section1, percentage: classicalMax.section1 > 0 ? Math.round((claS1 / classicalMax.section1) * 100) : 0 },
+          section2: { earned: claS2, max: classicalMax.section2, percentage: classicalMax.section2 > 0 ? Math.round((claS2 / classicalMax.section2) * 100) : 0 },
+          bonus: { earned: claBonus, max: classicalMax.bonus, percentage: classicalMax.bonus > 0 ? Math.round((Math.min(claBonus, 100) / classicalMax.bonus) * 100) : 0 }
         };
       }
+      
+      return result;
     });
     
     // Group by class period

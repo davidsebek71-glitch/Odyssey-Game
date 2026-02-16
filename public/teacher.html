@@ -4205,12 +4205,41 @@
             document.getElementById('grade-overview-modal').classList.remove('show');
         }
         
+        let gradeOverviewAge = 'Archaic';
+        let gradeOverviewData = null;
+        
         function renderGradeOverview(data) {
+            gradeOverviewData = data;
             const content = document.getElementById('grade-overview-content');
             
             if (!data.byPeriod || data.byPeriod.length === 0) {
                 content.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 40px;">No students found</div>';
                 return;
+            }
+            
+            // Check if any Classical students exist
+            const hasClassical = data.byPeriod.some(p => p.students.some(s => s.age === 'Classical'));
+            
+            let html = '';
+            
+            // Age toggle tabs
+            if (hasClassical) {
+                const arcActive = gradeOverviewAge === 'Archaic';
+                const claActive = gradeOverviewAge === 'Classical';
+                html += `<div style="display: flex; gap: 0; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15);">
+                    <button onclick="gradeOverviewAge='Archaic'; renderGradeOverview(gradeOverviewData);" style="flex: 1; padding: 12px; border: none; cursor: pointer; font-weight: 700; font-size: 14px; font-family: 'Cinzel', serif; letter-spacing: 1px; transition: all 0.2s;
+                        background: ${arcActive ? 'linear-gradient(135deg, rgba(255,215,0,0.3), rgba(255,140,0,0.2))' : 'rgba(255,255,255,0.03)'};
+                        color: ${arcActive ? '#ffd700' : 'rgba(255,255,255,0.4)'};
+                        ${arcActive ? 'box-shadow: inset 0 -3px 0 #ffd700;' : ''}">
+                        🏛️ Archaic Age
+                    </button>
+                    <button onclick="gradeOverviewAge='Classical'; renderGradeOverview(gradeOverviewData);" style="flex: 1; padding: 12px; border: none; cursor: pointer; font-weight: 700; font-size: 14px; font-family: 'Cinzel', serif; letter-spacing: 1px; transition: all 0.2s;
+                        background: ${claActive ? 'linear-gradient(135deg, rgba(30,64,175,0.3), rgba(59,130,246,0.2))' : 'rgba(255,255,255,0.03)'};
+                        color: ${claActive ? '#60a5fa' : 'rgba(255,255,255,0.4)'};
+                        ${claActive ? 'box-shadow: inset 0 -3px 0 #60a5fa;' : ''}">
+                        🏛️ Classical Age
+                    </button>
+                </div>`;
             }
             
             const getColorForPercent = (pct) => {
@@ -4222,28 +4251,29 @@
             const maxPts = data.maxPoints || {};
             const arcMax = maxPts.archaic || maxPts;
             const claMax = maxPts.classical || {};
+            const isClassical = gradeOverviewAge === 'Classical';
+            const s1Max = isClassical ? (claMax.section1 || 136) : (arcMax.section1 || 105);
+            const s2Max = isClassical ? (claMax.section2 || 102) : (arcMax.section2 || 90);
+            const bMax = isClassical ? (claMax.bonus || 100) : (arcMax.bonus || 150);
+            const s1Label = isClassical ? 'Sec 1 (M1-4)' : 'Section 1';
+            const s2Label = isClassical ? 'Sec 2 (M5-7)' : 'Section 2';
+            const headerAccent = isClassical ? 'rgba(30,64,175,0.3), rgba(59,130,246,0.2)' : 'rgba(255,215,0,0.2), rgba(255,140,0,0.2)';
+            const headerBorder = isClassical ? 'rgba(59,130,246,0.5)' : 'rgba(255,215,0,0.5)';
+            const headerColor = isClassical ? '#60a5fa' : '#ffd700';
             
-            function buildTable(students, age, periodLabel) {
-                if (students.length === 0) return '';
-                const isClassical = age === 'Classical';
-                const s1Max = isClassical ? (claMax.section1 || 136) : (arcMax.section1 || 105);
-                const s2Max = isClassical ? (claMax.section2 || 102) : (arcMax.section2 || 90);
-                const bMax = isClassical ? (claMax.bonus || 100) : (arcMax.bonus || 150);
-                const s1Label = isClassical ? 'Sec 1 (M1-4)' : 'Section 1';
-                const s2Label = isClassical ? 'Sec 2 (M5-7)' : 'Section 2';
-                const headerAccent = isClassical ? 'rgba(30,64,175,0.3), rgba(59,130,246,0.2)' : 'rgba(255,215,0,0.2), rgba(255,140,0,0.2)';
-                const headerBorder = isClassical ? 'rgba(59,130,246,0.5)' : 'rgba(255,215,0,0.5)';
-                const headerColor = isClassical ? '#60a5fa' : '#ffd700';
-                const ageBadge = isClassical 
-                    ? '<span style="background: rgba(59,130,246,0.2); color: #60a5fa; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px;">Classical Age</span>'
-                    : '<span style="background: rgba(255,215,0,0.2); color: #ffd700; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px;">Archaic Age</span>';
+            data.byPeriod.forEach(period => {
+                // Archaic view: show ALL students with Archaic grades
+                // Classical view: show only Classical-age students with Classical grades
+                const filtered = isClassical 
+                    ? period.students.filter(s => s.age === 'Classical')
+                    : period.students;
+                if (filtered.length === 0) return;
                 
-                return `
+                html += `
                     <div style="margin-bottom: 24px;">
                         <div style="background: linear-gradient(135deg, ${headerAccent}); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid ${headerBorder};">
-                            <strong style="font-size: 18px; color: ${headerColor};">${periodLabel}</strong>
-                            <span style="margin-left: 15px; font-size: 14px; color: rgba(255,255,255,0.7);">(${students.length} student${students.length !== 1 ? 's' : ''})</span>
-                            ${ageBadge}
+                            <strong style="font-size: 18px; color: ${headerColor};">${period.period} Period</strong>
+                            <span style="margin-left: 15px; font-size: 14px; color: rgba(255,255,255,0.7);">(${filtered.length} student${filtered.length !== 1 ? 's' : ''})</span>
                         </div>
                         <table style="width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.02);">
                             <thead>
@@ -4255,43 +4285,36 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${students.map((s, idx) => `
+                                ${filtered.map((s, idx) => {
+                                    const grades = isClassical ? (s.classical || s.archaic) : s.archaic;
+                                    return `
                                     <tr style="background: ${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
                                         <td style="padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                             <span style="font-weight: 500; color: #60a5fa; cursor: pointer; text-decoration: underline;" onclick="openStudentSubmissions(${s.student_id}, '${s.name.replace(/'/g, "\\'")}')">${s.name}</span>
                                         </td>
                                         <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                            <span style="color: ${getColorForPercent(s.section1.percentage)}; font-weight: 600;">${s.section1.earned}</span>
-                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${s.section1.percentage}%)</span>
+                                            <span style="color: ${getColorForPercent(grades.section1.percentage)}; font-weight: 600;">${grades.section1.earned}</span>
+                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.section1.percentage}%)</span>
                                         </td>
                                         <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                            <span style="color: ${getColorForPercent(s.section2.percentage)}; font-weight: 600;">${s.section2.earned}</span>
-                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${s.section2.percentage}%)</span>
+                                            <span style="color: ${getColorForPercent(grades.section2.percentage)}; font-weight: 600;">${grades.section2.earned}</span>
+                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.section2.percentage}%)</span>
                                         </td>
                                         <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                            <span style="color: #fbbf24; font-weight: 600;">${s.bonus.earned}</span>
-                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${s.bonus.percentage}%)</span>
+                                            <span style="color: #fbbf24; font-weight: 600;">${grades.bonus.earned}</span>
+                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.bonus.percentage}%)</span>
                                         </td>
-                                    </tr>
-                                `).join('')}
+                                    </tr>`;
+                                }).join('')}
                             </tbody>
                         </table>
                     </div>`;
-            }
-            
-            let html = '';
-            data.byPeriod.forEach(period => {
-                const archaicStudents = period.students.filter(s => s.age !== 'Classical');
-                const classicalStudents = period.students.filter(s => s.age === 'Classical');
-                
-                // Show Classical first if any exist, then Archaic
-                if (classicalStudents.length > 0) {
-                    html += buildTable(classicalStudents, 'Classical', period.period + ' Period');
-                }
-                if (archaicStudents.length > 0) {
-                    html += buildTable(archaicStudents, 'Archaic', period.period + ' Period');
-                }
             });
+            
+            // If no students for selected age
+            if (!html.includes('<table')) {
+                html += `<div style="text-align: center; color: rgba(255,255,255,0.4); padding: 40px; font-size: 14px;">No students in the ${gradeOverviewAge} Age yet</div>`;
+            }
             
             content.innerHTML = html;
         }
