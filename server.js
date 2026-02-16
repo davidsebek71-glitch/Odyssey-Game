@@ -1708,7 +1708,7 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
     }
   } catch (err) {
     console.error('Get grades error:', err);
-    res.status(500).json({ error: 'Failed to fetch grades' });
+    res.status(500).json({ error: 'Failed to fetch grades', detail: err.message, stack: err.stack ? err.stack.substring(0, 500) : '' });
   }
 });
 

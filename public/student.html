@@ -5246,7 +5246,9 @@
             try {
                 const response = await fetch(`${API_URL}/student/grades`, { headers });
                 if (!response.ok) {
-                    throw new Error('Server returned ' + response.status);
+                    const errData = await response.json().catch(() => ({}));
+                    console.error('Grades error detail:', errData);
+                    throw new Error('Server returned ' + response.status + ': ' + (errData.detail || errData.error || ''));
                 }
                 const grades = await response.json();
                 if (grades.error) {
