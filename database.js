@@ -615,6 +615,99 @@ async function initDatabase() {
     )
   `);
 
+  // ==================== TRADE SYSTEM TABLES ====================
+
+  // Alliance resource assignments and shared pools
+  db.run(`
+    CREATE TABLE IF NOT EXISTS alliance_resources (
+      alliance_id INTEGER PRIMARY KEY,
+      native_resource TEXT NOT NULL,
+      pool_olive INTEGER DEFAULT 0,
+      pool_grape INTEGER DEFAULT 0,
+      pool_iron INTEGER DEFAULT 0,
+      pool_grain INTEGER DEFAULT 0,
+      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
+    )
+  `);
+
+  // Student personal resource inventories
+  db.run(`
+    CREATE TABLE IF NOT EXISTS student_resources (
+      student_id INTEGER PRIMARY KEY,
+      olive INTEGER DEFAULT 0,
+      grape INTEGER DEFAULT 0,
+      iron INTEGER DEFAULT 0,
+      grain INTEGER DEFAULT 0,
+      FOREIGN KEY (student_id) REFERENCES students(student_id)
+    )
+  `);
+
+  // Trade records
+  db.run(`
+    CREATE TABLE IF NOT EXISTS trades (
+      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      initiator_id INTEGER NOT NULL,
+      partner_id INTEGER NOT NULL,
+      give_resource TEXT NOT NULL,
+      give_amount INTEGER NOT NULL,
+      receive_resource TEXT NOT NULL,
+      receive_amount INTEGER NOT NULL,
+      status TEXT DEFAULT 'pending',
+      flagged INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      FOREIGN KEY (initiator_id) REFERENCES students(student_id),
+      FOREIGN KEY (partner_id) REFERENCES students(student_id)
+    )
+  `);
+
+  // Resource purchase proposals (alliance buys native resource with points)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS resource_purchases (
+      purchase_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id INTEGER NOT NULL,
+      resource_type TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      points_spent INTEGER NOT NULL,
+      vote_status TEXT DEFAULT 'proposed',
+      proposed_by INTEGER NOT NULL,
+      votes_for TEXT DEFAULT '[]',
+      votes_against TEXT DEFAULT '[]',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id),
+      FOREIGN KEY (proposed_by) REFERENCES students(student_id)
+    )
+  `);
+
+  // Sell-back records
+  db.run(`
+    CREATE TABLE IF NOT EXISTS resource_sellbacks (
+      sellback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      alliance_id INTEGER NOT NULL,
+      resource_type TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      market_value REAL NOT NULL,
+      points_earned INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(student_id),
+      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
+    )
+  `);
+
+  // Trade window status per period
+  db.run(`
+    CREATE TABLE IF NOT EXISTS trade_window (
+      period TEXT PRIMARY KEY,
+      is_open INTEGER DEFAULT 0,
+      opened_at DATETIME,
+      closed_at DATETIME,
+      opened_by INTEGER
+    )
+  `);
+
   // Run migrations for existing databases
   runMigrations();
   

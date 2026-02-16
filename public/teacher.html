@@ -867,6 +867,11 @@
                 <div class="title">Age Gate</div>
                 <div class="description">Control age progression</div>
             </div>
+            <div class="action-card" onclick="openTradeManagementModal()" style="background: linear-gradient(135deg, rgba(234,179,8,0.2), rgba(161,98,7,0.2)); border-color: rgba(234,179,8,0.4);">
+                <div class="icon">🫒</div>
+                <div class="title">Trade System</div>
+                <div class="description">Resources & marketplace</div>
+            </div>
         </div>
 
         <div class="dashboard-grid">
@@ -1164,6 +1169,19 @@
     </div>
 
     <!-- GRADE OVERVIEW MODAL -->
+    <!-- TRADE MANAGEMENT MODAL -->
+    <div id="trade-management-modal" class="modal">
+        <div class="modal-content" style="max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
+                🫒 Trade System Management
+                <button onclick="closeTradeManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
+            </div>
+            <div id="trade-management-content" style="flex: 1; overflow-y: auto; min-height: 0;">
+                Loading...
+            </div>
+        </div>
+    </div>
+
     <!-- GRADE OVERVIEW MODAL -->
     <!-- MODAL SCROLL PATTERN: Use display:flex + flex-direction:column on modal-content,
          and flex:1 + overflow:auto + min-height:0 on the scrollable content div.
@@ -4317,6 +4335,200 @@
             }
             
             content.innerHTML = html;
+        }
+        
+        // ====================
+        // TRADE MANAGEMENT
+        // ====================
+        
+        const TRADE_RESOURCE_ICONS = { olive: '🫒', grape: '🍇', iron: '⚒️', grain: '🌾' };
+        const TRADE_RESOURCE_NAMES = { olive: 'Olive Oil', grape: 'Grapes', iron: 'Iron', grain: 'Grain' };
+        let tradeData = null;
+        let tradeViewPeriod = 'all';
+        
+        async function openTradeManagementModal() {
+            document.getElementById('trade-management-modal').classList.add('show');
+            document.getElementById('trade-management-content').innerHTML = '<div style="text-align:center; padding:40px; color:rgba(255,255,255,0.5);">Loading trade data...</div>';
+            await loadTradeManagement();
+        }
+        
+        function closeTradeManagementModal() {
+            document.getElementById('trade-management-modal').classList.remove('show');
+        }
+        
+        async function loadTradeManagement() {
+            try {
+                const [assignRes, flaggedRes] = await Promise.all([
+                    fetch(`${API_URL}/trade/assignments`, { headers }),
+                    fetch(`${API_URL}/trade/flagged`, { headers })
+                ]);
+                const assignData = await assignRes.json();
+                const flaggedData = await flaggedRes.json();
+                tradeData = { ...assignData, flagged: flaggedData.flagged || [] };
+                renderTradeManagement();
+            } catch (err) {
+                document.getElementById('trade-management-content').innerHTML = '<div style="color:#f87171; padding:20px;">Failed to load trade data</div>';
+            }
+        }
+        
+        function renderTradeManagement() {
+            const content = document.getElementById('trade-management-content');
+            if (!tradeData) { content.innerHTML = 'No data'; return; }
+            
+            const alliances = tradeData.alliances || [];
+            const windows = tradeData.trade_windows || [];
+            const flagged = tradeData.flagged || [];
+            const periods = [...new Set(alliances.map(a => a.class_period))].sort();
+            const unassigned = alliances.filter(a => !a.native_resource);
+            
+            let html = '';
+            
+            // Flagged trades alert
+            if (flagged.length > 0) {
+                html += `<div style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+                    <div style="font-weight: 700; color: #f87171; margin-bottom: 10px;">⚠️ ${flagged.length} Flagged Trade${flagged.length > 1 ? 's' : ''} Awaiting Review</div>
+                    ${flagged.map(t => `
+                        <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <strong style="color: #60a5fa;">${t.initiator_name}</strong> <span style="color: rgba(255,255,255,0.5);">(${t.initiator_alliance})</span>
+                                gives <strong style="color: #fbbf24;">${t.give_amount} ${TRADE_RESOURCE_ICONS[t.give_resource]} ${TRADE_RESOURCE_NAMES[t.give_resource]}</strong>
+                                → <strong style="color: #60a5fa;">${t.partner_name}</strong> <span style="color: rgba(255,255,255,0.5);">(${t.partner_alliance})</span>
+                                gives <strong style="color: #fbbf24;">${t.receive_amount} ${TRADE_RESOURCE_ICONS[t.receive_resource]} ${TRADE_RESOURCE_NAMES[t.receive_resource]}</strong>
+                                <span style="color: rgba(255,255,255,0.4); font-size: 12px; margin-left: 8px;">(${Math.max(t.give_amount/t.receive_amount, t.receive_amount/t.give_amount).toFixed(1)}:1 ratio)</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="approveFlaggedTrade(${t.trade_id})" style="background: #22c55e; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">✓ Approve</button>
+                                <button onclick="rejectFlaggedTrade(${t.trade_id})" style="background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">✕ Reject</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
+            }
+            
+            // Per-period sections
+            periods.forEach(period => {
+                const periodAlliances = alliances.filter(a => a.class_period === period);
+                const windowStatus = windows.find(w => w.period === period);
+                const isOpen = windowStatus?.is_open === 1;
+                const allAssigned = periodAlliances.every(a => a.native_resource);
+                
+                html += `<div style="margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, rgba(234,179,8,0.2), rgba(161,98,7,0.15)); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <strong style="font-size: 17px; color: #fbbf24;">${period} Period</strong>
+                            <span style="color: rgba(255,255,255,0.6); margin-left: 12px;">(${periodAlliances.length} alliances)</span>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            ${!allAssigned ? `<button onclick="assignResources('${period}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">🎲 Assign Resources</button>` : ''}
+                            <button onclick="toggleTradeWindow('${period}', ${isOpen ? 'false' : 'true'})" style="background: ${isOpen ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}; border: 1px solid ${isOpen ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.6)'}; color: ${isOpen ? '#f87171' : '#4ade80'}; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                                ${isOpen ? '🔒 Close Market' : '🔓 Open Market'}
+                            </button>
+                            <span style="font-size: 12px; padding: 4px 10px; border-radius: 4px; background: ${isOpen ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)'}; color: ${isOpen ? '#4ade80' : 'rgba(255,255,255,0.4)'};">
+                                ${isOpen ? '● Market Open' : '○ Market Closed'}
+                            </span>
+                        </div>
+                    </div>
+                    <div style="padding: 16px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.05);">
+                                    <th style="text-align: left; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Alliance</th>
+                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Native Resource</th>
+                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">🫒 Pool</th>
+                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">🍇 Pool</th>
+                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">⚒️ Pool</th>
+                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">🌾 Pool</th>
+                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${periodAlliances.map((a, idx) => {
+                                    const res = a.native_resource;
+                                    return `<tr style="background: ${idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
+                                        <td style="padding: 10px 12px; font-weight: 500;">${a.alliance_name}</td>
+                                        <td style="text-align: center; padding: 10px 12px;">
+                                            ${res ? `<span style="background: rgba(234,179,8,0.15); padding: 3px 10px; border-radius: 4px; font-size: 13px;">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]}</span>` : '<span style="color: rgba(255,255,255,0.3);">—</span>'}
+                                        </td>
+                                        <td style="text-align: center; padding: 10px 12px; color: ${a.pool_olive > 0 ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${a.pool_olive || 0}</td>
+                                        <td style="text-align: center; padding: 10px 12px; color: ${a.pool_grape > 0 ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${a.pool_grape || 0}</td>
+                                        <td style="text-align: center; padding: 10px 12px; color: ${a.pool_iron > 0 ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${a.pool_iron || 0}</td>
+                                        <td style="text-align: center; padding: 10px 12px; color: ${a.pool_grain > 0 ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${a.pool_grain || 0}</td>
+                                        <td style="text-align: center; padding: 10px 12px; font-weight: 600; color: #fbbf24;">${a.total_points}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            });
+            
+            if (periods.length === 0) {
+                html += '<div style="text-align: center; color: rgba(255,255,255,0.4); padding: 40px;">No alliances found. Students must be in alliances to use the Trade System.</div>';
+            }
+            
+            content.innerHTML = html;
+        }
+        
+        async function assignResources(period) {
+            if (!confirm(`Randomly assign native resources to all alliances in ${period} period?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/assign-resources`, {
+                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message + '\n\n' + data.assignments.map(a => `${a.alliance_name}: ${TRADE_RESOURCE_ICONS[a.native_resource]} ${TRADE_RESOURCE_NAMES[a.native_resource]}`).join('\n'));
+                    await loadTradeManagement();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed'));
+                }
+            } catch (err) {
+                alert('Failed to assign resources');
+            }
+        }
+        
+        async function toggleTradeWindow(period, open) {
+            try {
+                const action = open === 'true' || open === true ? 'open' : 'close';
+                const res = await fetch(`${API_URL}/trade/window/${action}`, {
+                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period })
+                });
+                const data = await res.json();
+                if (data.success) await loadTradeManagement();
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) {
+                alert('Failed to toggle trade window');
+            }
+        }
+        
+        async function approveFlaggedTrade(tradeId) {
+            if (!confirm('Approve this flagged trade? Resources will transfer immediately.')) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/flagged/${tradeId}/approve`, {
+                    method: 'POST', headers
+                });
+                const data = await res.json();
+                if (data.success) await loadTradeManagement();
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) {
+                alert('Failed to approve trade');
+            }
+        }
+        
+        async function rejectFlaggedTrade(tradeId) {
+            if (!confirm('Reject this flagged trade? It will be cancelled.')) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/flagged/${tradeId}/reject`, {
+                    method: 'POST', headers
+                });
+                const data = await res.json();
+                if (data.success) await loadTradeManagement();
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) {
+                alert('Failed to reject trade');
+            }
         }
         
         // ====================

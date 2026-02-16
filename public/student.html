@@ -2666,6 +2666,22 @@
                 <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Side Quests</div>
                 <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #a78bfa;">Earn Special Rewards 🪓</div>
             </div>
+            <div id="trade-portal-card" onclick="openTradePortal()" style="
+                display: none;
+                background: linear-gradient(135deg, rgba(234,179,8,0.2), rgba(161,98,7,0.25));
+                border: 2px solid rgba(234,179,8,0.4);
+                border-radius: 16px;
+                padding: 18px 20px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            " onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='rgba(234,179,8,0.8)'; this.style.boxShadow='0 6px 20px rgba(234,179,8,0.4)';"
+               onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(234,179,8,0.4)'; this.style.boxShadow='none';">
+                <div style="font-size: 28px; margin-bottom: 6px;">🫒</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Trade Portal</div>
+                <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #fbbf24;">Open the Market ⚓</div>
+                <div id="trade-portal-mini-status" style="margin-top: 6px; font-size: 12px; color: rgba(234,179,8,0.7);"></div>
+            </div>
         </div>
 
 
@@ -3260,15 +3276,18 @@
                     classicalSection.style.display = 'block';
                     document.body.classList.add('classical-age');
                     document.querySelector('.logo h1').textContent = '🏛️ ODYSSEY TO OLYMPUS — CLASSICAL AGE';
-                    // Swap bonus cards: hide Archaic, show Classical
+                    // Swap bonus cards: hide Archaic, show Classical + Trade
                     const bonusCard = document.getElementById('bonus-card');
                     if (bonusCard) bonusCard.style.display = 'none';
                     const classicalBonusCard = document.getElementById('classical-bonus-card');
                     if (classicalBonusCard) classicalBonusCard.style.display = '';
+                    const tradePortalCard = document.getElementById('trade-portal-card');
+                    if (tradePortalCard) tradePortalCard.style.display = '';
                     const grid = document.getElementById('bonus-quest-grid');
-                    if (grid) grid.style.gridTemplateColumns = '1fr 1fr';
+                    if (grid) grid.style.gridTemplateColumns = '1fr 1fr 1fr';
                     loadMythPortals();
                     loadClassicalBonusProgress();
+                    loadTradePortalMini();
                 } else {
                     classicalSection.style.display = 'none';
                     document.body.classList.remove('classical-age');
@@ -3276,6 +3295,8 @@
                     if (bonusCard) bonusCard.style.display = '';
                     const classicalBonusCard = document.getElementById('classical-bonus-card');
                     if (classicalBonusCard) classicalBonusCard.style.display = 'none';
+                    const tradePortalCard = document.getElementById('trade-portal-card');
+                    if (tradePortalCard) tradePortalCard.style.display = 'none';
                     const grid = document.getElementById('bonus-quest-grid');
                     if (grid) grid.style.gridTemplateColumns = '1fr 1fr';
                 }
@@ -9953,6 +9974,411 @@
         document.addEventListener('DOMContentLoaded', function() {
             onCategoryChange();
         });
+        
+        // ====================
+        // TRADE PORTAL
+        // ====================
+        
+        const TRADE_ICONS = { olive: '🫒', grape: '🍇', iron: '⚒️', grain: '🌾' };
+        const TRADE_NAMES = { olive: 'Olive Oil', grape: 'Grapes', iron: 'Iron', grain: 'Grain' };
+        let tradePortalData = null;
+        let tradeMarketData = null;
+        
+        function loadTradePortalMini() {
+            // Mini status on dashboard card
+            fetch(`${API_URL}/trade/my-data`, { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('trade-portal-mini-status');
+                    if (!el) return;
+                    if (data.not_assigned) { el.textContent = 'Not yet assigned'; return; }
+                    if (data.error) { el.textContent = ''; return; }
+                    const r = data.my_resources;
+                    const filled = ['olive','grape','iron','grain'].filter(k => r[k] >= 500).length;
+                    el.textContent = `${TRADE_ICONS[data.native_resource]} ${TRADE_NAMES[data.native_resource]} · ${filled}/4 filled`;
+                }).catch(() => {});
+        }
+        
+        async function openTradePortal() {
+            // Create modal if not exists
+            if (!document.getElementById('trade-portal-modal')) {
+                const modal = document.createElement('div');
+                modal.id = 'trade-portal-modal';
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 1100px; max-height: 95vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 2px solid rgba(234,179,8,0.3);">
+                            <div style="font-family: 'Cinzel', serif; font-size: 22px; font-weight: 700; color: #fbbf24; letter-spacing: 2px;">🫒 TRADE PORTAL</div>
+                            <button onclick="closeTradePortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 16px;">✕</button>
+                        </div>
+                        <div id="trade-portal-body" style="flex: 1; overflow-y: auto; min-height: 0; padding: 20px 24px;">
+                            <div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">Loading trade data...</div>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+            document.getElementById('trade-portal-modal').classList.add('show');
+            await loadTradePortalData();
+        }
+        
+        function closeTradePortal() {
+            document.getElementById('trade-portal-modal').classList.remove('show');
+        }
+        
+        async function loadTradePortalData() {
+            try {
+                const [myRes, marketRes] = await Promise.all([
+                    fetch(`${API_URL}/trade/my-data`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_URL}/trade/market`, { headers: { 'Authorization': `Bearer ${token}` } })
+                ]);
+                tradePortalData = await myRes.json();
+                tradeMarketData = await marketRes.json();
+                renderTradePortal();
+            } catch (err) {
+                document.getElementById('trade-portal-body').innerHTML = '<div style="color: #f87171; padding: 20px;">Failed to load trade data</div>';
+            }
+        }
+        
+        function renderTradePortal() {
+            const body = document.getElementById('trade-portal-body');
+            const d = tradePortalData;
+            const m = tradeMarketData;
+            
+            if (d.not_assigned || d.error) {
+                body.innerHTML = `<div style="text-align: center; padding: 60px 20px;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">🫒</div>
+                    <div style="font-family: 'Cinzel', serif; font-size: 20px; color: #fbbf24; margin-bottom: 10px;">Trade System Coming Soon</div>
+                    <div style="color: rgba(255,255,255,0.5);">Your teacher hasn't assigned resources to your alliance yet.</div>
+                </div>`;
+                return;
+            }
+            
+            const res = d.my_resources;
+            const pool = d.alliance_pool;
+            const native = d.native_resource;
+            const windowOpen = d.trade_window_open;
+            const hasShip = d.has_transport_ship;
+            const values = m.market_values || {};
+            
+            let html = '';
+            
+            // Status bar
+            html += `<div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div style="background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 150px;">
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Your Alliance</div>
+                    <div style="font-weight: 700; color: #fbbf24;">${d.alliance_name}</div>
+                </div>
+                <div style="background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 150px;">
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Native Resource</div>
+                    <div style="font-weight: 700; color: #fbbf24;">${TRADE_ICONS[native]} ${TRADE_NAMES[native]}</div>
+                </div>
+                <div style="background: ${windowOpen ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.1)'}; border: 1px solid ${windowOpen ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.2)'}; border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 150px;">
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Market Status</div>
+                    <div style="font-weight: 700; color: ${windowOpen ? '#4ade80' : '#f87171'};">${windowOpen ? '● Open for Trading' : '○ Market Closed'}</div>
+                </div>
+                ${!hasShip ? `<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 200px;">
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">⚠️ Required</div>
+                    <div style="font-weight: 700; color: #f87171;">Build a Transport Ship to trade</div>
+                </div>` : ''}
+            </div>`;
+            
+            // My Resources (4 cards)
+            html += `<div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin-bottom: 12px;">My Resources</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
+                ${['olive','grape','iron','grain'].map(r => {
+                    const amt = res[r] || 0;
+                    const pct = Math.min(100, (amt / 500) * 100);
+                    const filled = amt >= 500;
+                    const isNative = r === native;
+                    const val = values[r] || 10;
+                    const valLabel = val >= 12 ? 'High' : val >= 8 ? 'Fair' : 'Low';
+                    const valColor = val >= 12 ? '#4ade80' : val >= 8 ? '#fbbf24' : '#f87171';
+                    return `<div style="background: rgba(255,255,255,0.05); border: 1px solid ${filled ? 'rgba(34,197,94,0.4)' : isNative ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.1)'}; border-radius: 10px; padding: 14px; text-align: center;">
+                        <div style="font-size: 28px;">${TRADE_ICONS[r]}</div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin: 4px 0;">${TRADE_NAMES[r]}${isNative ? ' ★' : ''}</div>
+                        <div style="font-size: 22px; font-weight: 700; color: ${filled ? '#4ade80' : '#fff'};">${amt}</div>
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.4);">/ 500</div>
+                        <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 6px; margin-top: 8px; overflow: hidden;">
+                            <div style="height: 100%; width: ${pct}%; background: ${filled ? '#4ade80' : pct > 50 ? '#fbbf24' : '#60a5fa'}; border-radius: 4px; transition: width 0.3s;"></div>
+                        </div>
+                        ${filled ? '<div style="font-size: 11px; color: #4ade80; margin-top: 4px;">✓ Complete</div>' : ''}
+                        <div style="font-size: 10px; color: ${valColor}; margin-top: 4px;">Value: ${valLabel}</div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+            
+            // Alliance Pool + Buy Section
+            html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 16px;">
+                    <div style="font-family: 'Cinzel', serif; font-size: 14px; color: #fbbf24; margin-bottom: 12px;">Alliance Pool</div>
+                    ${['olive','grape','iron','grain'].map(r => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <span>${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</span>
+                            <span style="font-weight: 600; color: ${pool[r] > 0 ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${pool[r] || 0}</span>
+                        </div>
+                    `).join('')}
+                    <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        ${['olive','grape','iron','grain'].filter(r => pool[r] > 0).map(r => `
+                            <button onclick="withdrawResource('${r}')" style="background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); color: #60a5fa; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                Take ${TRADE_ICONS[r]}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 16px;">
+                    <div style="font-family: 'Cinzel', serif; font-size: 14px; color: #fbbf24; margin-bottom: 12px;">Buy ${TRADE_ICONS[native]} ${TRADE_NAMES[native]}</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 10px;">1 alliance point = 10 units · Alliance has <strong style="color: #fbbf24;">${d.alliance_points} pts</strong></div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input id="trade-buy-points" type="number" min="1" max="${d.alliance_points}" value="10" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 12px; border-radius: 6px; width: 80px; font-size: 14px;">
+                        <span style="color: rgba(255,255,255,0.5); font-size: 13px;">pts =</span>
+                        <span id="trade-buy-units" style="font-weight: 700; color: #fbbf24;">100</span>
+                        <span style="color: rgba(255,255,255,0.5); font-size: 13px;">units</span>
+                        <button onclick="proposeBuy()" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-left: auto;">Propose Buy</button>
+                    </div>
+                    <div id="trade-buy-pending" style="margin-top: 10px;"></div>
+                </div>
+            </div>`;
+            
+            // Make a Trade section
+            if (hasShip && windowOpen) {
+                const partners = m.partners || [];
+                html += `<div style="background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+                    <div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin-bottom: 14px;">⚓ Make a Trade</div>
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: start;">
+                        <div>
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">YOU GIVE</div>
+                            <select id="trade-give-resource" onchange="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (have: ${res[r]})</option>`).join('')}
+                            </select>
+                            <input id="trade-give-amount" type="number" min="1" value="100" onchange="updateFairness()" oninput="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; box-sizing: border-box;">
+                        </div>
+                        <div style="font-size: 28px; color: rgba(255,255,255,0.3); padding-top: 30px;">⇄</div>
+                        <div>
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">YOU RECEIVE</div>
+                            <select id="trade-receive-resource" onchange="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                            </select>
+                            <input id="trade-receive-amount" type="number" min="1" value="100" onchange="updateFairness()" oninput="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; box-sizing: border-box;">
+                        </div>
+                    </div>
+                    <div id="trade-fairness-meter" style="margin-top: 14px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;"></div>
+                    <div style="margin-top: 12px;">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">TRADE WITH</div>
+                        <select id="trade-partner" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px;">
+                            <option value="">Select a partner...</option>
+                            ${partners.map(p => `<option value="${p.student_id}">${p.name} — ${p.alliance_name} (${TRADE_ICONS[p.native_resource]})</option>`).join('')}
+                        </select>
+                    </div>
+                    <button onclick="proposeTrade()" style="margin-top: 14px; width: 100%; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 15px; font-family: 'Cinzel', serif;">
+                        ⚓ Propose Trade
+                    </button>
+                </div>`;
+            }
+            
+            // Pending trades
+            const pending = d.pending_trades || [];
+            if (pending.length > 0) {
+                html += `<div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin-bottom: 12px;">Pending Trades</div>`;
+                pending.forEach(t => {
+                    const isInitiator = t.initiator_id === d.student_id;
+                    html += `<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(234,179,8,0.2); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <strong style="color: #60a5fa;">${t.initiator_name}</strong> gives 
+                            <strong style="color: #fbbf24;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</strong> → 
+                            <strong style="color: #60a5fa;">${t.partner_name}</strong> gives 
+                            <strong style="color: #fbbf24;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</strong>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background: #22c55e; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">✓ Accept</button>` : ''}
+                            <button onclick="rejectTrade(${t.trade_id})" style="background: rgba(239,68,68,0.3); color: #f87171; border: 1px solid rgba(239,68,68,0.4); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">${isInitiator ? 'Cancel' : 'Decline'}</button>
+                        </div>
+                    </div>`;
+                });
+            }
+            
+            // Teammate progress
+            const teammates = d.teammates || [];
+            if (teammates.length > 0) {
+                html += `<div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin: 20px 0 12px;">Alliance Progress</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                    ${teammates.map(t => {
+                        return `<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; text-align: center;">
+                            <div style="font-size: 13px; font-weight: 600; color: #60a5fa; margin-bottom: 8px;">${t.name}</div>
+                            ${['olive','grape','iron','grain'].map(r => {
+                                const val = t[r] || 0;
+                                const pct = Math.min(100, (val / 500) * 100);
+                                return `<div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                                    <span style="font-size: 12px; width: 20px;">${TRADE_ICONS[r]}</span>
+                                    <div style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 3px; height: 5px; overflow: hidden;">
+                                        <div style="width: ${pct}%; height: 100%; background: ${val >= 500 ? '#4ade80' : '#60a5fa'}; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="font-size: 10px; color: rgba(255,255,255,0.4); width: 30px; text-align: right;">${val}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            }
+            
+            body.innerHTML = html;
+            
+            // Set up buy input listener
+            const buyInput = document.getElementById('trade-buy-points');
+            if (buyInput) {
+                buyInput.addEventListener('input', () => {
+                    const units = (parseInt(buyInput.value) || 0) * 10;
+                    document.getElementById('trade-buy-units').textContent = units;
+                });
+            }
+            
+            // Load pending buy vote
+            loadPendingBuy();
+            
+            // Set default receive to different resource
+            const giveSelect = document.getElementById('trade-give-resource');
+            const receiveSelect = document.getElementById('trade-receive-resource');
+            if (giveSelect && receiveSelect) {
+                receiveSelect.value = ['olive','grape','iron','grain'].find(r => r !== giveSelect.value) || 'grape';
+                updateFairness();
+            }
+        }
+        
+        function updateFairness() {
+            const meter = document.getElementById('trade-fairness-meter');
+            if (!meter || !tradeMarketData) return;
+            const values = tradeMarketData.market_values || {};
+            const giveR = document.getElementById('trade-give-resource').value;
+            const recvR = document.getElementById('trade-receive-resource').value;
+            const giveA = parseInt(document.getElementById('trade-give-amount').value) || 0;
+            const recvA = parseInt(document.getElementById('trade-receive-amount').value) || 0;
+            
+            if (giveA <= 0 || recvA <= 0) { meter.innerHTML = ''; return; }
+            
+            const giveVal = giveA * (values[giveR] || 10);
+            const recvVal = recvA * (values[recvR] || 10);
+            const ratio = giveVal / recvVal;
+            const deviation = Math.abs(1 - ratio);
+            
+            let verdict, color;
+            if (deviation <= 0.15) { verdict = '✦ Great Trade'; color = '#4ade80'; }
+            else if (deviation <= 0.35) { verdict = '● Fair Trade'; color = '#86efac'; }
+            else if (deviation <= 0.60) { verdict = '▲ Slightly Uneven'; color = '#fbbf24'; }
+            else if (deviation <= 1.0) { verdict = '⚠ Unfair Trade'; color = '#fb923c'; }
+            else { verdict = '🚫 Very Unfair'; color = '#f87171'; }
+            
+            const favors = ratio > 1.05 ? 'Favors your partner' : ratio < 0.95 ? 'Favors you' : 'Even exchange';
+            const needlePos = Math.max(5, Math.min(95, 50 + (ratio - 1) * 50));
+            
+            meter.innerHTML = `
+                <div style="position: relative; height: 12px; background: linear-gradient(to right, #f87171, #fb923c, #fbbf24, #4ade80, #4ade80, #fbbf24, #fb923c, #f87171); border-radius: 6px; margin-bottom: 8px;">
+                    <div style="position: absolute; left: ${needlePos}%; top: -2px; transform: translateX(-50%); width: 4px; height: 16px; background: white; border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.8);"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                    <span style="color: ${color}; font-weight: 700;">${verdict}</span>
+                    <span style="color: rgba(255,255,255,0.5);">${favors}</span>
+                </div>`;
+        }
+        
+        async function proposeBuy() {
+            const pts = parseInt(document.getElementById('trade-buy-points').value);
+            if (!pts || pts < 1) return alert('Enter points to spend');
+            try {
+                const res = await fetch(`${API_URL}/trade/buy-propose`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ points_to_spend: pts })
+                });
+                const data = await res.json();
+                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to propose purchase'); }
+        }
+        
+        async function loadPendingBuy() {
+            try {
+                const res = await fetch(`${API_URL}/trade/buy-pending`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await res.json();
+                const el = document.getElementById('trade-buy-pending');
+                if (!el || !data.pending) return;
+                const p = data.pending;
+                el.innerHTML = `<div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 6px; padding: 10px; font-size: 13px;">
+                    <strong>${p.proposed_by_name}</strong> proposed buying <strong>${p.amount} ${TRADE_ICONS[p.resource_type]}</strong> for <strong>${p.points_spent} pts</strong>
+                    · Votes: ${p.votes_for_count}/${p.votes_needed} needed
+                    ${p.my_vote ? `<span style="color: ${p.my_vote === 'for' ? '#4ade80' : '#f87171'};">(You voted ${p.my_vote})</span>` : `
+                        <button onclick="voteBuy(${p.purchase_id}, 'for')" style="background: #22c55e; color: white; border: none; padding: 3px 10px; border-radius: 4px; cursor: pointer; margin-left: 8px;">✓ Yes</button>
+                        <button onclick="voteBuy(${p.purchase_id}, 'against')" style="background: #ef4444; color: white; border: none; padding: 3px 10px; border-radius: 4px; cursor: pointer;">✕ No</button>
+                    `}
+                </div>`;
+            } catch (err) {}
+        }
+        
+        async function voteBuy(purchaseId, vote) {
+            try {
+                const res = await fetch(`${API_URL}/trade/buy-vote/${purchaseId}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vote })
+                });
+                const data = await res.json();
+                if (data.success) { if (data.result === 'approved') alert('Purchase approved! Resources added to alliance pool.'); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to vote'); }
+        }
+        
+        async function withdrawResource(resource) {
+            const max = tradePortalData?.alliance_pool?.[resource] || 0;
+            const amount = prompt(`Withdraw how many ${TRADE_NAMES[resource]} from alliance pool? (max: ${max})`);
+            if (!amount) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/withdraw`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resource, amount: parseInt(amount) })
+                });
+                const data = await res.json();
+                if (data.success) await loadTradePortalData();
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to withdraw'); }
+        }
+        
+        async function proposeTrade() {
+            const partnerId = document.getElementById('trade-partner').value;
+            if (!partnerId) return alert('Select a trade partner');
+            const giveResource = document.getElementById('trade-give-resource').value;
+            const giveAmount = parseInt(document.getElementById('trade-give-amount').value);
+            const receiveResource = document.getElementById('trade-receive-resource').value;
+            const receiveAmount = parseInt(document.getElementById('trade-receive-amount').value);
+            if (!giveAmount || !receiveAmount) return alert('Enter valid amounts');
+            try {
+                const res = await fetch(`${API_URL}/trade/propose`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ partner_id: parseInt(partnerId), give_resource: giveResource, give_amount: giveAmount, receive_resource: receiveResource, receive_amount: receiveAmount })
+                });
+                const data = await res.json();
+                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to propose trade'); }
+        }
+        
+        async function confirmTrade(tradeId) {
+            if (!confirm('Accept this trade? This is final.')) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/confirm/${tradeId}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) { alert('Trade completed!'); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to confirm trade'); }
+        }
+        
+        async function rejectTrade(tradeId) {
+            try {
+                const res = await fetch(`${API_URL}/trade/reject/${tradeId}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) await loadTradePortalData();
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to reject trade'); }
+        }
     </script>
 </body>
 </html>
