@@ -7804,33 +7804,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // Diagnostic: Check Classical bonus assignments in database
-app.get('/api/diag/classical-bonuses', (req, res) => {
-  try {
-    const bonuses = query("SELECT assignment_id, display_name, myth_god, max_points FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical' ORDER BY myth_god, display_name");
-    const required = ['Pandora Retelling', "Pandora's Box 2026", "Phaethon's Caution", 'Orpheus New Ending',
-      'I, Icarus', 'Eros and Psyche Character Study', 'Constellation Story', 'Echo and Narcissus Metamorphosis',
-      'Morals', 'Narcissus Cautionary Tale', 'Icarus Cautionary Tale', 'Eros and Psyche Cautionary Tale',
-      'Three Word Description', 'Eros and Psyche Morals'];
-    const existing = new Set(bonuses.map(b => b.display_name));
-    const missing = required.filter(n => !existing.has(n));
-    res.json({ total_rows: bonuses.length, unique_names: existing.size, bonuses, missing, required_count: 14 });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Diagnostic: Check alliance ages and age gates
-app.get('/api/diag/ages', (req, res) => {
-  try {
-    const alliances = query("SELECT alliance_id, alliance_name, class_period, current_age FROM alliances WHERE is_disbanded = 0 ORDER BY class_period, alliance_name");
-    const gates = query("SELECT * FROM age_gates");
-    const studentCounts = query("SELECT a.alliance_id, a.alliance_name, a.current_age, COUNT(s.student_id) as student_count FROM alliances a LEFT JOIN students s ON a.alliance_id = s.alliance_id WHERE a.is_disbanded = 0 GROUP BY a.alliance_id");
-    res.json({ alliances, gates, studentCounts });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Start server
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
