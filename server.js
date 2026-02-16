@@ -1580,23 +1580,76 @@ app.get('/api/assignments/filter', authenticateToken, (req, res) => {
   }
 });
 
-// Temporary diagnostic - check Classical data state
+// Temporary diagnostic - check and fix Classical data state
 app.get('/api/debug/classical-check', (req, res) => {
   try {
     const cols = query("PRAGMA table_info(assignments_ref)").map(c => c.name);
-    const classicalCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical'")[0];
-    const creativeCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical_creative'")[0];
-    const allSections = query("SELECT DISTINCT section FROM assignments_ref");
-    const sampleClassical = query("SELECT assignment_id, section, myth_god, display_name FROM assignments_ref WHERE section IN ('classical','classical_creative') LIMIT 5");
+    let classicalCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical'")[0].cnt;
+    let creativeCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical_creative'")[0].cnt;
+    const allSections = query("SELECT DISTINCT section FROM assignments_ref").map(s => s.section);
+    
+    let seeded = false;
+    if (classicalCount === 0) {
+      // Force seed Classical assignments now
+      const classicalAssignments = [
+        ['classical', 'comp_conn', 'Pandora', 'Pandora Reading Guide', 12, 'Reading guide on the myth of Pandora', null, 0, 'Classical'],
+        ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
+        ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
+        ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
+        ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+        ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
+        ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
+        ['classical', 'quiz', 'Pandora', 'Pandora Quiz', 10, 'Quiz on Pandora', null, 0, 'Classical'],
+        ['classical', 'quiz', 'Phaethon', 'Phaethon Quiz', 10, 'Quiz on Phaethon', null, 0, 'Classical'],
+        ['classical', 'quiz', 'Orpheus', 'Orpheus Quiz', 10, 'Quiz on Orpheus and Eurydice', null, 0, 'Classical'],
+        ['classical', 'quiz', 'Echo and Narcissus', 'Echo and Narcissus Quiz', 10, 'Quiz on Echo and Narcissus', null, 0, 'Classical'],
+        ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 10, 'Quiz on Icarus and Daedalus', null, 0, 'Classical'],
+        ['classical', 'quiz', 'Eros and Psyche', 'Eros and Psyche Quiz', 10, 'Quiz on Eros and Psyche', null, 0, 'Classical'],
+        ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
+        ['classical_creative', 'mural', 'Phaethon', 'Phaethon Pixton', 16, 'Comic retelling of the Phaethon myth using Pixton', null, 0, 'Classical'],
+        ['classical_creative', 'mural', 'Echo and Narcissus', 'Echo and Narcissus Pixton', 16, 'Comic retelling of Echo and Narcissus using Pixton', null, 0, 'Classical'],
+        ['classical_creative', 'mural', 'Icarus', 'Icarus Pixton', 16, 'Comic retelling of Icarus and Daedalus using Pixton', null, 0, 'Classical'],
+        ['classical_creative', 'mural', 'Constellations', 'Constellations Pixton', 16, 'Comic retelling of a constellation myth using Pixton', null, 0, 'Classical'],
+        ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 20, 'Word cloud for Pandora myth', null, 0, 'Classical'],
+        ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 20, 'Word cloud for Phaethon myth', null, 0, 'Classical'],
+        ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 20, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
+        ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 20, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
+        ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud for Icarus myth', null, 0, 'Classical'],
+        ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 20, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
+        ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 20, 'Word cloud for constellation myths', null, 0, 'Classical']
+      ];
+      let errors = [];
+      classicalAssignments.forEach(a => {
+        try {
+          run(`INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, a);
+        } catch (e) {
+          errors.push(a[3] + ': ' + e.message);
+        }
+      });
+      seeded = true;
+      classicalCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical'")[0].cnt;
+      creativeCount = query("SELECT COUNT(*) as cnt FROM assignments_ref WHERE section = 'classical_creative'")[0].cnt;
+      
+      const { saveDatabase } = require('./database');
+      if (typeof saveDatabase === 'function') saveDatabase();
+      
+      res.json({ 
+        columns: cols, classical_count: classicalCount, creative_count: creativeCount,
+        all_sections: query("SELECT DISTINCT section FROM assignments_ref").map(s => s.section),
+        seeded: true, seed_errors: errors,
+        sample: query("SELECT assignment_id, section, myth_god, display_name FROM assignments_ref WHERE section IN ('classical','classical_creative') LIMIT 5")
+      });
+      return;
+    }
+    
     res.json({ 
-      columns: cols, 
-      classical_count: classicalCount.cnt, 
-      creative_count: creativeCount.cnt,
-      all_sections: allSections.map(s => s.section),
-      sample: sampleClassical
+      columns: cols, classical_count: classicalCount, creative_count: creativeCount,
+      all_sections: allSections, seeded: false,
+      sample: query("SELECT assignment_id, section, myth_god, display_name FROM assignments_ref WHERE section IN ('classical','classical_creative') LIMIT 5")
     });
   } catch (err) {
-    res.json({ error: err.message });
+    res.json({ error: err.message, stack: err.stack ? err.stack.substring(0, 500) : '' });
   }
 });
 
