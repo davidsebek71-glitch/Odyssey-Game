@@ -718,13 +718,22 @@ function runMigrations() {
       }
     }
     
-    // Fix word cloud points: seeded at 20, should be 12
+    // Fix word cloud points: should be 12, not 20
     try {
-      const wcCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE assignment_type = 'word_cloud' AND section = 'classical_creative' AND max_points = 20");
+      const wcCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical' AND max_points != 12");
       const wcCount = wcCheck[0] ? wcCheck[0].values[0][0] : 0;
       if (wcCount > 0) {
-        db.run("UPDATE assignments_ref SET max_points = 12 WHERE assignment_type = 'word_cloud' AND section = 'classical_creative' AND max_points = 20");
-        console.log(`✅ Fixed ${wcCount} word cloud assignments: 20 → 12 pts`);
+        db.run("UPDATE assignments_ref SET max_points = 12 WHERE assignment_type = 'word_cloud' AND age = 'Classical'");
+        console.log(`✅ Fixed ${wcCount} Classical word cloud assignments → 12 pts`);
+      }
+      // Also fix any grade_records that recorded points_possible as 20 for Classical word clouds
+      const grCheck = db.exec(`SELECT COUNT(*) FROM grade_records WHERE points_possible = 20 AND assignment_id IN 
+        (SELECT assignment_id FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical')`);
+      const grCount = grCheck[0] ? grCheck[0].values[0][0] : 0;
+      if (grCount > 0) {
+        db.run(`UPDATE grade_records SET points_possible = 12, points_earned = MIN(points_earned, 12) WHERE assignment_id IN 
+          (SELECT assignment_id FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical')`);
+        console.log(`✅ Fixed ${grCount} grade records: word cloud points_possible → 12`);
       }
     } catch (err) {
       console.log('Word cloud migration note:', err.message);
@@ -993,17 +1002,6 @@ function runMigrations() {
   }
   
   // Side quest age column migration
-  try {
-    // Update word cloud points from 12 to 20
-    const wcCheck = db.exec("SELECT assignment_id, max_points FROM assignments_ref WHERE assignment_type = 'word_cloud' AND max_points = 12 AND age = 'Classical' LIMIT 1");
-    if (wcCheck[0] && wcCheck[0].values.length > 0) {
-      db.run("UPDATE assignments_ref SET max_points = 20 WHERE assignment_type = 'word_cloud' AND age = 'Classical'");
-      console.log('✅ Word cloud points updated: 12 → 20');
-    }
-  } catch (err) {
-    console.log('Word cloud migration note:', err.message);
-  }
-
   try {
     const sqCols = db.exec("PRAGMA table_info(side_quests_ref)");
     const sqColNames = sqCols[0] ? sqCols[0].values.map(c => c[1]) : [];
