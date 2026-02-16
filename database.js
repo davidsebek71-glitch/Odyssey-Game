@@ -730,13 +730,40 @@ function runMigrations() {
       console.log('Word cloud migration note:', err.message);
     }
 
-    // Add missing Classical bonus assignments (5 new ones)
+    // Ensure ALL 14 Classical bonus assignments exist in production
     try {
-      const ncCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE display_name = 'Narcissus Cautionary Tale' AND age = 'Classical'");
-      const ncExists = ncCheck[0] ? ncCheck[0].values[0][0] : 0;
-      if (ncExists === 0) {
-        console.log('📝 Adding 5 missing Classical bonus assignments...');
-        const newBonuses = [
+      const classicalBonusCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'");
+      const cbCount = classicalBonusCheck[0] ? classicalBonusCheck[0].values[0][0] : 0;
+      if (cbCount < 14) {
+        console.log(`📝 Classical bonuses: ${cbCount}/14 found. Seeding missing ones...`);
+        const allClassicalBonuses = [
+          ['bonus', 'bonus', 'Pandora', 'Pandora Retelling', 20,
+            'Use one of the paintings in the provided link that you find the most expressive and make a retelling of Pandora\'s myth that matches the tone and idea of the painting. Write your story based on the painting you choose.',
+            JSON.stringify([{label: "Pandora Paintings (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Pandora (Box)', 'Pandora\'s Box 2026', 50,
+            'Create a new box that will release emotion into the world. Follow the directions to earn credit for your Pandora\'s Box 2026. This is a major creative project worth 50 points.',
+            JSON.stringify([{label: "Pandora\'s Box Directions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Phaethon', 'Phaethon\'s Caution', 15,
+            'A cautionary poem tells a story with dire consequences in order to show readers what to avoid. Write a cautionary poem about Phaethon\'s ride across the sky in his father\'s sun chariot. Your poem should warn readers about the dangers of hubris and ignoring wise counsel.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Orpheus', 'Orpheus New Ending', 20,
+            'Have you ever wished that you could undo something that you had done? Would you do it differently if you had another opportunity to try again? Give Orpheus a second chance by changing the outcome of his tragic trip through Tartarus. Write a new ending for Orpheus and Eurydice.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Icarus', 'I, Icarus', 20,
+            'Pass the challenge of I, Icarus and create a new myth for your land. Use the story of Icarus and Daedalus as inspiration to craft an original myth about innovation, ambition, and the limits of human achievement.',
+            JSON.stringify([{label: "I, Icarus Challenge (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Character Study', 15,
+            'Using a chart, list 10 Greek gods, goddesses or other characters you learned about in your readings and generalize, or draw a conclusion, about the qualities of each. Choose three words to describe each character and use details from the text to support your thinking.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Constellations', 'Constellation Story', 20,
+            'Using the questions at the bottom of your note taking sheet you will write the story of your constellation. Create an original myth explaining how a constellation came to be in the night sky.',
+            JSON.stringify([{label: "Note Taking Sheet (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Echo and Narcissus', 'Echo and Narcissus Metamorphosis', 15,
+            'Greek myths, like Athena and Arachne, often feature a mortal who is transformed into a nonhuman creature because of pride. Into what would you turn a person who is spiteful? lazy? loud? Read the directions so that you understand how to present your ideas and make it clear what you are showing.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+          ['bonus', 'bonus', 'Morals', 'Morals', 5,
+            '"Arachne" has a clear moral, best summed up in Athena\'s final statement to Arachne: "...it is not wise to strive with [gods/goddesses]." Look at the myths about Persephone trapped in the Underworld and Narcissus and Echo and write a moral that best states the themes of these two tales. Explain how the story creates this moral.',
+            JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
           ['bonus', 'bonus', 'Echo and Narcissus', 'Narcissus Cautionary Tale', 15,
             'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Echo and Narcissus that warns about the dangers of self-obsession and ignoring the people who care about you.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
@@ -753,10 +780,17 @@ function runMigrations() {
             'Analyze the moral lessons found in the myth of Eros and Psyche. What does the story teach us about love, trust, jealousy, and forgiveness? Write a clear explanation of at least two morals from this myth using evidence from the text.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical']
         ];
-        newBonuses.forEach(a => {
-          db.run('INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) VALUES (?,?,?,?,?,?,?,?,?)', a);
+        allClassicalBonuses.forEach(a => {
+          // Check if this specific assignment already exists by display_name
+          const exists = db.exec(`SELECT COUNT(*) FROM assignments_ref WHERE display_name = '${a[3].replace(/'/g, "''")}' AND age = 'Classical'`);
+          const count = exists[0] ? exists[0].values[0][0] : 0;
+          if (count === 0) {
+            db.run('INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) VALUES (?,?,?,?,?,?,?,?,?)', a);
+            console.log(`  + Added: ${a[3]} (${a[4]} pts)`);
+          }
         });
-        console.log('✅ Added 5 Classical bonus assignments');
+        const afterCount = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'");
+        console.log(`✅ Classical bonuses now: ${afterCount[0] ? afterCount[0].values[0][0] : '?'}/14`);
       }
     } catch (err) {
       console.log('Classical bonus migration note:', err.message);

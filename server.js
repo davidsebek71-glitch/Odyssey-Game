@@ -1712,6 +1712,23 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
         .filter(a => !completedAssignmentIds.has(a.assignment_id))
         .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
       
+      // Classical bonus assignments  
+      const bonusAssignments = query(`
+        SELECT * FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'
+      `);
+      const bonusRecords = query(`
+        SELECT gr.*, ar.section, ar.assignment_type, ar.myth_god, ar.display_name, ar.max_points as assignment_max
+        FROM grade_records gr
+        JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+        WHERE gr.student_id = ? AND ar.section = 'bonus' AND ar.age = 'Classical'
+      `, [student_id]);
+      const bonusEarned = bonusRecords.reduce((sum, r) => sum + r.points_earned, 0);
+      const bonusTarget = 100;
+      const bonusCompletedIds = new Set(bonusRecords.map(r => r.assignment_id));
+      const bonusMissing = bonusAssignments
+        .filter(a => !bonusCompletedIds.has(a.assignment_id))
+        .map(a => ({ display_name: a.display_name, max_points: a.max_points, myth_god: a.myth_god, assignment_type: a.assignment_type }));
+
       res.json({
         age: 'Classical',
         section1: {
@@ -1729,7 +1746,11 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
           missing: creativeMissing
         },
         bonus: {
-          earned: 0, max: 0, percentage: 0, completed: []
+          label: 'EXTRA CREDIT',
+          earned: bonusEarned, max: bonusTarget,
+          percentage: bonusTarget > 0 ? Math.round((Math.min(bonusEarned, bonusTarget) / bonusTarget) * 100) : 0,
+          completed: bonusRecords.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
+          missing: bonusMissing
         }
       });
     }

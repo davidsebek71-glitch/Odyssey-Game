@@ -5689,7 +5689,7 @@
                 emoji: '📦',
                 color: '#e53935',
                 desc: 'Anchored by the Pandora\'s Box 2026 major creative project. Combine it with a few shorter pieces to reach 100.',
-                myths: ['Pandora', 'Pandora (Box)']
+                assignments: ['Pandora\'s Box 2026', 'Pandora Retelling', 'Constellation Story', 'Morals']
             },
             {
                 id: 'writer',
@@ -5697,7 +5697,7 @@
                 emoji: '✍️',
                 color: '#43a047',
                 desc: 'Original retellings, new endings, and first-person narratives. Tell the myths your way through creative writing.',
-                myths: ['Pandora', 'Orpheus', 'Icarus']
+                assignments: ['Pandora Retelling', 'Orpheus New Ending', 'I, Icarus', 'Constellation Story', 'Echo and Narcissus Metamorphosis']
             },
             {
                 id: 'cautionary-poet',
@@ -5705,7 +5705,7 @@
                 emoji: '⚠️',
                 color: '#f9a825',
                 desc: 'Write cautionary tales inspired by each myth\'s lesson. Warn readers about hubris, self-obsession, and trust.',
-                myths: ['Phaethon', 'Echo and Narcissus', 'Icarus', 'Eros and Psyche']
+                assignments: ['Phaethon\'s Caution', 'Narcissus Cautionary Tale', 'Icarus Cautionary Tale', 'Eros and Psyche Cautionary Tale']
             },
             {
                 id: 'analyst',
@@ -5713,7 +5713,7 @@
                 emoji: '🔍',
                 color: '#1e88e5',
                 desc: 'Character studies, moral analysis, and three-word descriptions. Break down the myths through close reading and reasoning.',
-                myths: ['Eros and Psyche', 'Echo and Narcissus', 'Morals']
+                assignments: ['Eros and Psyche Character Study', 'Three Word Description', 'Eros and Psyche Morals', 'Echo and Narcissus Metamorphosis', 'Morals']
             }
         ];
 
@@ -5794,7 +5794,7 @@
         function renderPathwayCards() {
             const grid = document.getElementById('cb-pathways-grid');
             grid.innerHTML = CLASSICAL_PATHWAYS.map(pathway => {
-                const relevant = classicalBonusData.filter(a => pathway.myths.some(m => a.myth_god === m || a.myth_god === 'Morals' && pathway.myths.includes('Morals')));
+                const relevant = classicalBonusData.filter(a => pathway.assignments.includes(a.display_name));
                 const completed = relevant.filter(a => a.status === 'completed');
                 const pathPts = completed.reduce((sum, a) => sum + (a.points_earned || 0), 0);
                 const available = relevant.reduce((sum, a) => sum + a.max_points, 0);
