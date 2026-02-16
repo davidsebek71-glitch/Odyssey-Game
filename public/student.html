@@ -3039,18 +3039,22 @@
         const student = JSON.parse(localStorage.getItem('user'));
         document.getElementById('student-name').textContent = student.name;
 
-        loadDashboard();
-        loadInvitations();
-        loadSubmissions();
-        loadContributions();
-        loadAchievements();
-        loadAgeProgress();
-        loadGrades();
-        loadPantheon(); // Load pantheon status
-        checkArenaEligibility(); // Check if arena button should pulse
+        // Load dashboard first (sets dashboardData needed by other sections), then load rest in parallel
+        loadDashboard().then(() => {
+            Promise.all([
+                loadInvitations(),
+                loadSubmissions(),
+                loadContributions(),
+                loadAchievements(),
+                loadAgeProgress(),
+                loadGrades(),
+                loadPantheon(),
+                checkArenaEligibility()
+            ]);
+        });
         
-        // Start background polling for real-time updates
-        startBackgroundPolling();
+        // Start background polling for real-time updates (delayed to avoid initial burst)
+        setTimeout(() => startBackgroundPolling(), 5000);
 
         async function loadDashboard() {
             try {
@@ -3117,7 +3121,7 @@
                 } catch (err) {
                     // Silently fail - polling errors shouldn't disrupt the UI
                 }
-            }, 15000); // Every 15 seconds (was 10)
+            }, 30000); // Every 30 seconds (reduced from 15 for performance)
         }
         
         // Stop polling when page is hidden (saves resources)

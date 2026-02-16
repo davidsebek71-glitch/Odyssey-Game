@@ -1104,27 +1104,43 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       student.alliance_display_points = student.alliance_points + student.ghost_bonus_points;
     }
     
-    // Get leaderboard
+    // Get leaderboard with technologies and member counts in batch queries
     const leaderboard = query(`
       SELECT 
-        alliance_id,
-        alliance_name,
-        total_points,
-        current_age,
-        side_quest_rewards
-      FROM alliances
-      WHERE is_disbanded = 0
-      ORDER BY total_points DESC
+        a.alliance_id,
+        a.alliance_name,
+        a.total_points,
+        a.current_age,
+        a.side_quest_rewards
+      FROM alliances a
+      WHERE a.is_disbanded = 0
+      ORDER BY a.total_points DESC
     `);
     
-    // Add technologies and side quest icons to each alliance
+    // Batch: get all technologies for all alliances at once
+    const allTechs = query('SELECT alliance_id, tech_name FROM alliance_technologies');
+    const techsByAlliance = {};
+    allTechs.forEach(t => {
+      if (!techsByAlliance[t.alliance_id]) techsByAlliance[t.alliance_id] = [];
+      techsByAlliance[t.alliance_id].push(t.tech_name);
+    });
+    
+    // Batch: get living and ghost counts for all alliances at once
+    const memberCounts = query(`
+      SELECT alliance_id,
+        SUM(CASE WHEN is_ghost = 0 OR is_ghost IS NULL THEN 1 ELSE 0 END) as living_count,
+        SUM(CASE WHEN is_ghost = 1 THEN 1 ELSE 0 END) as ghost_count
+      FROM students
+      WHERE alliance_id IS NOT NULL
+      GROUP BY alliance_id
+    `);
+    const countsByAlliance = {};
+    memberCounts.forEach(m => {
+      countsByAlliance[m.alliance_id] = { living: m.living_count, ghost: m.ghost_count };
+    });
+    
+    // Build leaderboard with batch data (no per-alliance queries)
     const leaderboardWithTechs = leaderboard.map(alliance => {
-      const techs = query(
-        'SELECT tech_name FROM alliance_technologies WHERE alliance_id = ?',
-        [alliance.alliance_id]
-      ).map(t => t.tech_name);
-      
-      // Parse side quest rewards and convert to emoji string
       const rewards = JSON.parse(alliance.side_quest_rewards || '[]');
       const rewardIcons = rewards.map(questId => {
         if (questId === 1) return '🔨';
@@ -1133,21 +1149,13 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         return '';
       }).join('');
       
-      // Calculate ghost bonus points
-      const livingCount = query(
-        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
-        [alliance.alliance_id]
-      )[0].count;
-      const ghostCount = query(
-        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND is_ghost = 1',
-        [alliance.alliance_id]
-      )[0].count;
-      const ghostPointsEach = livingCount > 0 ? Math.round(alliance.total_points / livingCount) : 0;
-      const ghostBonus = ghostPointsEach * ghostCount;
+      const counts = countsByAlliance[alliance.alliance_id] || { living: 0, ghost: 0 };
+      const ghostPointsEach = counts.living > 0 ? Math.round(alliance.total_points / counts.living) : 0;
+      const ghostBonus = ghostPointsEach * counts.ghost;
       
       return { 
         ...alliance, 
-        technologies: techs, 
+        technologies: techsByAlliance[alliance.alliance_id] || [], 
         side_quest_reward_icons: rewardIcons,
         display_points: alliance.total_points + ghostBonus,
         ghost_bonus: ghostBonus
@@ -1376,6 +1384,32 @@ app.get('/api/student/pantheon', authenticateToken, (req, res) => {
     ensureAchievementProgress(student_id);
     let progress = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [student_id])[0];
     
+    // Batch: get ALL grade records for this student in one query
+    const allGrades = query(`
+      SELECT ar.myth_god, ar.assignment_type, ar.section, gr.points_earned
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id = ?
+    `, [student_id]);
+    
+    // Build lookup maps from batch results
+    const quizScores = {};  // myth_god -> points_earned
+    const notesScores = {}; // myth_god -> points_earned
+    const bonusComplete = {}; // myth_god -> true/false
+    allGrades.forEach(g => {
+      if (g.assignment_type === 'quiz') quizScores[g.myth_god] = g.points_earned;
+      if (g.assignment_type === 'comp_conn') notesScores[g.myth_god] = g.points_earned;
+      if (g.section === 'bonus' && g.points_earned > 0) bonusComplete[g.myth_god] = true;
+    });
+    
+    // Helper using batch data
+    function getGodScoreBatch(godName, quizGod) {
+      const qGod = quizGod || godName;
+      const quizScore = quizScores[qGod] || 0;
+      const notesScore = notesScores[godName] || 0;
+      return { quizScore, notesScore, total: quizScore + notesScore };
+    }
+    
     // Define all gods with their unlock requirements
     const godConfigs = [
       { name: 'zeus', emoji: '⚡', threshold: 13, maxScore: 15, quizMax: 5, notesMax: 10 },
@@ -1406,16 +1440,14 @@ app.get('/api/student/pantheon', authenticateToken, (req, res) => {
       let scoreInfo = {};
       
       if (god.isBonus) {
-        // Bonus-based unlock (Hades, Ares)
-        qualifies = isBonusComplete(student_id, godNameCap);
+        qualifies = !!bonusComplete[godNameCap];
         scoreInfo = {
           requirement: `Complete ${godNameCap} Bonus assignment`,
           current_score: qualifies ? 'Bonus Complete ✓' : 'Bonus not complete'
         };
       } else {
-        // Quiz + Notes based unlock
         const quizGod = god.quizGod || godNameCap;
-        const scores = getGodScore(student_id, godNameCap, quizGod);
+        const scores = getGodScoreBatch(godNameCap, quizGod);
         qualifies = scores.total >= god.threshold;
         scoreInfo = {
           requirement: `Combined ${god.threshold}+ on quiz and reading notes`,
@@ -1429,7 +1461,6 @@ app.get('/api/student/pantheon', authenticateToken, (req, res) => {
              SET ${colUnlocked} = 1, ${colUnlockedAt} = CURRENT_TIMESTAMP
              WHERE student_id = ?`, [student_id]);
         console.log(`${god.emoji} ${studentName} unlocked ${godNameCap} in the Pantheon!`);
-        // Refresh progress
         progress = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [student_id])[0];
       }
       
@@ -1439,30 +1470,21 @@ app.get('/api/student/pantheon', authenticateToken, (req, res) => {
         unlocked: progress[colUnlocked] === 1,
         unlocked_at: progress[colUnlockedAt],
         celebration_seen: progress[colSeen] === 1,
-        bonus_complete: god.isBonus ? qualifies : isBonusComplete(student_id, godNameCap),
+        bonus_complete: god.isBonus ? qualifies : !!bonusComplete[godNameCap],
         bonus_celebration_seen: progress[colBonusSeen] === 1,
         ...scoreInfo
       };
       
-      // Add to newUnlocks if unlocked but not celebrated
       if (pantheon[god.name].unlocked && !pantheon[god.name].celebration_seen) {
         newUnlocks.push(god.name);
       }
     }
     
-    // Build array of NEW bonus completions to celebrate
-    // For Hades/Ares, bonus_complete triggers both unlock AND bonus celebration together
     const newBonuses = [];
     for (const god of godConfigs) {
       const godData = pantheon[god.name];
-      // Only add to newBonuses if:
-      // 1. God is unlocked AND celebration was seen (so they've already unlocked)
-      // 2. Bonus is complete
-      // 3. Bonus celebration hasn't been seen yet
-      // OR for Hades/Ares: they unlock via bonus, so bonus celebration happens with unlock
       if (god.isBonus) {
         // Hades/Ares: bonus celebration triggers with unlock celebration
-        // So we don't add them to newBonuses separately
       } else {
         if (godData.unlocked && godData.celebration_seen && godData.bonus_complete && !godData.bonus_celebration_seen) {
           newBonuses.push(god.name);
