@@ -7132,19 +7132,24 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
     console.log(`Myth portals: ${portals.length} found for student ${student_id} (${student.class_period})`);
     if (portals.length === 0) return res.json({ portals: [], virtues_earned: 0 });
 
-    // Get student's grade records for virtue checks
-    const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [student_id]);
+    // Get student's grade records WITH assignment info for virtue checks
+    const gradeRecords = query(`
+      SELECT gr.*, ar.assignment_type, ar.myth_god, ar.section, ar.age
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id = ?
+    `, [student_id]);
     
     // Get quiz attempts
     const quizAttempts = query('SELECT portal_id, passed, score, percentage FROM myth_quiz_attempts WHERE student_id = ? AND passed = 1', [student_id]);
 
     // Build enriched portal data
     const enrichedPortals = portals.map(portal => {
-      // Check reading guide completion (comp_conn for this myth)
+      // Check reading guide completion (comp_conn for this myth in classical section)
       const hasReadingGuide = gradeRecords.some(g => 
         g.assignment_type === 'comp_conn' && 
         g.myth_god === portal.myth_name && 
-        g.age === 'Classical' &&
+        g.section === 'classical' &&
         g.points_earned > 0
       );
       
@@ -7152,11 +7157,11 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const quizResult = quizAttempts.find(q => q.portal_id === portal.portal_id);
       const quizPassed = quizResult ? 1 : 0;
       
-      // Check creative work (any bonus, word_cloud, pixton, or wildcard for this myth)
+      // Check creative work (word_cloud or mural/pixton for this myth in classical_creative section)
       const hasCreative = gradeRecords.some(g => 
-        (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && 
+        (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && 
         g.myth_god === portal.myth_name && 
-        g.age === 'Classical' &&
+        g.section === 'classical_creative' &&
         g.points_earned > 0
       );
       
@@ -7302,10 +7307,11 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
 app.get('/api/student/quiz-status', authenticateToken, (req, res) => {
   try {
     const attempts = query(
-      'SELECT portal_id, MAX(score) as best_score, MAX(passed) as ever_passed FROM myth_quiz_attempts WHERE student_id = ? GROUP BY portal_id',
+      'SELECT portal_id, COUNT(*) as attempt_count, MAX(percentage) as best_score, MAX(passed) as ever_passed FROM myth_quiz_attempts WHERE student_id = ? GROUP BY portal_id',
       [req.user.id]
     );
-    res.json({ attempts });
+    const passed = attempts.filter(a => a.ever_passed === 1);
+    res.json({ attempts, passed });
   } catch (err) {
     console.error('Quiz status error:', err);
     res.status(500).json({ error: 'Failed to get quiz status' });
@@ -7320,13 +7326,18 @@ app.get('/api/student/virtues', authenticateToken, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
     
     const portals = query('SELECT * FROM myth_portals ORDER BY myth_number');
-    const gradeRecords = query('SELECT * FROM grade_records WHERE student_id = ?', [req.user.id]);
+    const gradeRecords = query(`
+      SELECT gr.*, ar.assignment_type, ar.myth_god, ar.section
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id = ?
+    `, [req.user.id]);
+    const quizAttempts = query('SELECT portal_id, passed FROM myth_quiz_attempts WHERE student_id = ? AND passed = 1', [req.user.id]);
     
     const virtues = portals.map(portal => {
-      const hasReadingGuide = gradeRecords.some(g => g.assignment_type === 'comp_conn' && g.myth_god === portal.myth_name && g.age === 'Classical' && g.points_earned > 0);
-      const quizGrade = gradeRecords.find(g => g.assignment_type === 'quiz' && g.myth_god === portal.myth_name && g.age === 'Classical');
-      const quizPassed = quizGrade ? (quizGrade.points_earned / quizGrade.max_points >= 0.8) : false;
-      const hasCreative = gradeRecords.some(g => (g.assignment_type === 'bonus' || g.assignment_type === 'word_cloud' || g.assignment_type === 'wildcard') && g.myth_god === portal.myth_name && g.age === 'Classical' && g.points_earned > 0);
+      const hasReadingGuide = gradeRecords.some(g => g.assignment_type === 'comp_conn' && g.myth_god === portal.myth_name && g.section === 'classical' && g.points_earned > 0);
+      const quizPassed = quizAttempts.some(q => q.portal_id === portal.portal_id);
+      const hasCreative = gradeRecords.some(g => (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && g.myth_god === portal.myth_name && g.section === 'classical_creative' && g.points_earned > 0);
       
       return {
         myth_name: portal.myth_name,
