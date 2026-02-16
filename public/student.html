@@ -2703,12 +2703,9 @@
                     <div id="quiz-result-message" style="color: rgba(255,255,255,0.7); margin-bottom: 20px;"></div>
                     <div id="quiz-result-buttons"></div>
                 </div>
-                <div id="myth-assignment-panel" style="display: none; padding: 10px;">
-                    <div style="text-align: center; margin-bottom: 16px;">
-                        <span style="color: #4ade80; font-size: 14px; font-weight: 700;">✅ Quiz Passed!</span>
-                    </div>
-                    <div id="myth-assignments-content" style="color: rgba(255,255,255,0.7);">
-                        <p style="text-align: center; color: #4a90d9; font-style: italic;">Myth assignments coming soon — your teacher will provide these!</p>
+                <div id="myth-assignment-panel" style="display: none; padding: 10px; max-height: 60vh; overflow-y: auto;">
+                    <div id="myth-assignments-content" style="color: rgba(255,255,255,0.9);">
+                        <p style="text-align: center; color: #4a90d9; font-style: italic;">Loading assignments...</p>
                     </div>
                 </div>
             </div>
@@ -9667,6 +9664,7 @@
                 if (hasPassed) {
                     document.getElementById('quiz-intro').style.display = 'none';
                     document.getElementById('myth-assignment-panel').style.display = 'block';
+                    loadMythAssignments(portalId);
                     return;
                 }
 
@@ -9678,6 +9676,127 @@
                 }
             } catch (err) {
                 console.error('Error loading portal data:', err);
+            }
+        }
+
+        async function loadMythAssignments(portalId) {
+            const container = document.getElementById('myth-assignments-content');
+            container.innerHTML = '<p style="text-align: center; color: #4a90d9;">Loading assignments...</p>';
+            
+            try {
+                const res = await fetch(`${API_URL}/student/myth-assignments/${portalId}`, { headers });
+                const data = await res.json();
+                if (data.error) { container.innerHTML = `<p style="color: #f87171;">${data.error}</p>`; return; }
+                
+                const portal = data.portal;
+                const glowCol = portal.glow_color || '#4a90d9';
+                
+                // Virtue progress tracker
+                const vp = data.virtue_progress;
+                const allDone = vp.reading_guide && vp.quiz_passed && vp.creative_done;
+                
+                let html = '';
+                
+                // Header with virtue info
+                html += `<div style="text-align: center; margin-bottom: 16px;">
+                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">✅ Quiz Passed!</div>
+                    <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px;">
+                        ${portal.virtue_emoji || '🏛️'} Virtue: <span style="color: #ffd700;">${portal.virtue_english}</span>
+                        <span style="color: rgba(255,255,255,0.4); font-size: 11px;">(${portal.virtue_greek})</span>
+                    </div>
+                </div>`;
+                
+                // Virtue progress checklist
+                html += `<div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; border: 1px solid ${glowCol}33;">
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Virtue Progress</div>
+                    <div style="display: flex; gap: 16px; justify-content: center; font-size: 13px;">
+                        <span style="color: ${vp.reading_guide ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${vp.reading_guide ? '✅' : '○'} Guide</span>
+                        <span style="color: ${vp.quiz_passed ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${vp.quiz_passed ? '✅' : '○'} Quiz</span>
+                        <span style="color: ${vp.creative_done ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${vp.creative_done ? '✅' : '○'} Creative</span>
+                    </div>
+                    ${allDone ? `<div style="text-align: center; margin-top: 8px; color: #ffd700; font-weight: 700; font-size: 13px;">🏛️ Virtue Earned!</div>` : 
+                    `<div style="text-align: center; margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.4);">Complete all three to earn this virtue</div>`}
+                </div>`;
+                
+                // Baseline assignments section
+                html += `<div style="margin-bottom: 14px;">
+                    <div style="font-size: 13px; font-weight: 700; color: ${glowCol}; margin-bottom: 8px; border-bottom: 1px solid ${glowCol}33; padding-bottom: 4px;">📖 Core Assignments</div>`;
+                
+                // Sort: reading guide first, then quiz, then word cloud
+                const typeOrder = { 'comp_conn': 1, 'quiz': 2, 'word_cloud': 3 };
+                const sorted = [...data.baseline].sort((a, b) => (typeOrder[a.assignment_type] || 9) - (typeOrder[b.assignment_type] || 9));
+                
+                sorted.forEach(a => {
+                    const typeLabel = a.assignment_type === 'comp_conn' ? 'Reading Guide' : 
+                                     a.assignment_type === 'quiz' ? 'Quiz' : 
+                                     a.assignment_type === 'word_cloud' ? 'Word Cloud' : a.assignment_type;
+                    const typeIcon = a.assignment_type === 'comp_conn' ? '📖' : 
+                                    a.assignment_type === 'quiz' ? '❓' : '☁️';
+                    
+                    if (a.completed) {
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 4px; background: rgba(74,222,128,0.08); border-radius: 6px; border-left: 3px solid #4ade80;">
+                            <div>
+                                <span style="color: #4ade80; font-size: 13px;">${typeIcon} ✓ ${typeLabel}</span>
+                                <span style="color: rgba(255,255,255,0.4); font-size: 11px; margin-left: 6px;">${a.display_name}</span>
+                            </div>
+                            <span style="color: #4ade80; font-size: 13px; font-weight: 600;">${a.points_earned}/${a.max_points}</span>
+                        </div>`;
+                    } else {
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 4px; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 3px solid rgba(255,255,255,0.15);">
+                            <div>
+                                <span style="color: rgba(255,255,255,0.8); font-size: 13px;">${typeIcon} ${typeLabel}</span>
+                                <span style="color: rgba(255,255,255,0.4); font-size: 11px; margin-left: 6px;">${a.display_name}</span>
+                            </div>
+                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;">${a.max_points} pts</span>
+                        </div>`;
+                    }
+                });
+                html += `</div>`;
+                
+                // Pixton extra credit
+                if (data.pixton && data.pixton.length > 0) {
+                    html += `<div style="margin-bottom: 14px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #4ade80; margin-bottom: 8px; border-bottom: 1px solid rgba(74,222,128,0.3); padding-bottom: 4px;">⬡ Extra Credit</div>`;
+                    data.pixton.forEach(a => {
+                        if (a.completed) {
+                            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(74,222,128,0.08); border-radius: 6px; border-left: 3px solid #4ade80;">
+                                <span style="color: #4ade80; font-size: 13px;">🎨 ✓ Pixton Comic</span>
+                                <span style="color: #4ade80; font-size: 13px; font-weight: 600;">+${a.points_earned}/${a.max_points}</span>
+                            </div>`;
+                        } else {
+                            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(74,222,128,0.04); border-radius: 6px; border-left: 3px solid rgba(74,222,128,0.3);">
+                                <span style="color: rgba(255,255,255,0.7); font-size: 13px;">🎨 Pixton Comic</span>
+                                <span style="color: #4ade80; font-size: 12px;">+${a.max_points} extra</span>
+                            </div>`;
+                        }
+                    });
+                    html += `</div>`;
+                }
+                
+                // Bonus assignments for this myth
+                if (data.bonus && data.bonus.length > 0) {
+                    html += `<div style="margin-bottom: 8px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #ce93d8; margin-bottom: 8px; border-bottom: 1px solid rgba(206,147,216,0.3); padding-bottom: 4px;">🏛️ Bonus Assignments <span style="font-weight: 400; font-size: 11px; color: rgba(255,255,255,0.4);">(Creative Forge)</span></div>`;
+                    data.bonus.forEach(a => {
+                        if (a.completed) {
+                            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 4px; background: rgba(206,147,216,0.08); border-radius: 6px; border-left: 3px solid #ce93d8;">
+                                <span style="color: #ce93d8; font-size: 13px;">✓ ${a.display_name}</span>
+                                <span style="color: #ce93d8; font-size: 13px; font-weight: 600;">${a.points_earned}/${a.max_points}</span>
+                            </div>`;
+                        } else {
+                            html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 4px; background: rgba(206,147,216,0.04); border-radius: 6px; border-left: 3px solid rgba(206,147,216,0.2);">
+                                <span style="color: rgba(255,255,255,0.7); font-size: 13px;">○ ${a.display_name}</span>
+                                <span style="color: rgba(206,147,216,0.6); font-size: 12px;">${a.max_points} pts</span>
+                            </div>`;
+                        }
+                    });
+                    html += `</div>`;
+                }
+                
+                container.innerHTML = html;
+            } catch (err) {
+                console.error('Load myth assignments error:', err);
+                container.innerHTML = '<p style="text-align: center; color: #f87171;">Failed to load assignments</p>';
             }
         }
 

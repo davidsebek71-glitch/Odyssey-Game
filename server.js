@@ -7427,6 +7427,107 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
   }
 });
 
+// --- Student: Get assignments for a myth portal (after quiz passed) ---
+app.get('/api/student/myth-assignments/:portal_id', authenticateToken, (req, res) => {
+  try {
+    const portalId = parseInt(req.params.portal_id);
+    const student_id = req.user.id;
+    
+    const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portalId])[0];
+    if (!portal) return res.status(404).json({ error: 'Portal not found' });
+    
+    // Map portal myth_name to assignments_ref myth_god
+    const mythGodMap = {
+      'Pandora': 'Pandora',
+      'Phaethon': 'Phaethon',
+      'Orpheus & Eurydice': 'Orpheus',
+      'Echo & Narcissus': 'Echo and Narcissus',
+      'Icarus & Daedalus': 'Icarus',
+      'Eros & Psyche': 'Eros and Psyche',
+      'Constellations': 'Constellations'
+    };
+    const mythGod = mythGodMap[portal.myth_name] || portal.myth_name;
+    
+    // Get baseline assignments (reading guide, quiz, word cloud)
+    const baselineAssignments = query(
+      "SELECT * FROM assignments_ref WHERE myth_god = ? AND section IN ('classical', 'classical_creative') AND assignment_type != 'mural'",
+      [mythGod]
+    );
+    
+    // Get pixton (extra credit mural)
+    const pixtonAssignment = query(
+      "SELECT * FROM assignments_ref WHERE myth_god = ? AND section = 'classical_creative' AND assignment_type = 'mural'",
+      [mythGod]
+    );
+    
+    // Get bonus assignments for this myth
+    const bonusMythGods = [mythGod];
+    // Pandora also has Pandora (Box) bonus
+    if (mythGod === 'Pandora') bonusMythGods.push('Pandora (Box)');
+    const placeholders = bonusMythGods.map(() => '?').join(',');
+    const bonusAssignments = query(
+      `SELECT * FROM assignments_ref WHERE myth_god IN (${placeholders}) AND section = 'bonus' AND age = 'Classical'`,
+      bonusMythGods
+    );
+    
+    // Get student's completed records for these assignments
+    const allAssignmentIds = [
+      ...baselineAssignments.map(a => a.assignment_id),
+      ...pixtonAssignment.map(a => a.assignment_id),
+      ...bonusAssignments.map(a => a.assignment_id)
+    ];
+    
+    let gradeRecords = [];
+    if (allAssignmentIds.length > 0) {
+      const idPlaceholders = allAssignmentIds.map(() => '?').join(',');
+      gradeRecords = query(
+        `SELECT * FROM grade_records WHERE student_id = ? AND assignment_id IN (${idPlaceholders})`,
+        [student_id, ...allAssignmentIds]
+      );
+    }
+    const completedIds = new Set(gradeRecords.map(g => g.assignment_id));
+    
+    const formatAssignment = (a) => ({
+      assignment_id: a.assignment_id,
+      display_name: a.display_name,
+      assignment_type: a.assignment_type,
+      max_points: a.max_points,
+      description: a.description,
+      resource_links: a.resource_links,
+      completed: completedIds.has(a.assignment_id),
+      points_earned: gradeRecords.find(g => g.assignment_id === a.assignment_id)?.points_earned || 0
+    });
+    
+    res.json({
+      portal: {
+        portal_id: portal.portal_id,
+        myth_name: portal.myth_name,
+        display_name: portal.display_name,
+        virtue_english: portal.virtue_english,
+        virtue_greek: portal.virtue_greek,
+        virtue_emoji: portal.virtue_emoji,
+        glow_color: portal.glow_color
+      },
+      myth_god: mythGod,
+      baseline: baselineAssignments.map(formatAssignment),
+      pixton: pixtonAssignment.map(formatAssignment),
+      bonus: bonusAssignments.map(formatAssignment),
+      virtue_progress: {
+        reading_guide: baselineAssignments.some(a => a.assignment_type === 'comp_conn' && completedIds.has(a.assignment_id)),
+        quiz_passed: true,
+        creative_done: baselineAssignments.some(a => a.assignment_type === 'word_cloud' && completedIds.has(a.assignment_id)) ||
+                       pixtonAssignment.some(a => completedIds.has(a.assignment_id)),
+        virtue_earned: baselineAssignments.some(a => a.assignment_type === 'comp_conn' && completedIds.has(a.assignment_id)) &&
+                       (baselineAssignments.some(a => a.assignment_type === 'word_cloud' && completedIds.has(a.assignment_id)) ||
+                        pixtonAssignment.some(a => completedIds.has(a.assignment_id)))
+      }
+    });
+  } catch (err) {
+    console.error('Myth assignments error:', err);
+    res.status(500).json({ error: 'Failed to load myth assignments' });
+  }
+});
+
 // --- Student: Get quiz status for a portal ---
 app.get('/api/student/quiz-status', authenticateToken, (req, res) => {
   try {
