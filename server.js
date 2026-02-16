@@ -7236,6 +7236,37 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
       [req.user.id, portal_id, correct, questions.length, score, passed ? 1 : 0]);
     
+    // If passed, record grade for the quiz assignment
+    if (passed) {
+      try {
+        const portal = query('SELECT myth_name FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
+        if (portal) {
+          const quizAssignment = query(
+            "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?",
+            [portal.myth_name]
+          )[0];
+          
+          if (quizAssignment) {
+            // Check if grade record already exists
+            const existingGrade = query(
+              'SELECT record_id FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+              [req.user.id, quizAssignment.assignment_id]
+            )[0];
+            
+            if (!existingGrade) {
+              const pointsEarned = Math.round((correct / questions.length) * quizAssignment.max_points);
+              run(`INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
+                   VALUES (?, ?, ?, ?)`,
+                [req.user.id, quizAssignment.assignment_id, pointsEarned, quizAssignment.max_points]);
+              console.log(`✅ Quiz grade recorded: ${portal.myth_name} - ${pointsEarned}/${quizAssignment.max_points}`);
+            }
+          }
+        }
+      } catch (gradeErr) {
+        console.error('Quiz grade recording error:', gradeErr.message);
+      }
+    }
+    
     saveDatabase();
     
     res.json({ score, correct, total: questions.length, passed, results });
