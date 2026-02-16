@@ -501,8 +501,8 @@
 
         .fate-wheel-container {
             position: relative;
-            width: 380px;
-            height: 380px;
+            width: 420px;
+            height: 420px;
             margin: 20px auto;
         }
 
@@ -1317,6 +1317,10 @@
             
             <!-- STEP 1: Alliance Selection -->
             <div id="alliance-selection-step">
+                <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+                    <button id="fate-age-archaic" onclick="setFateAge('Archaic')" class="btn-fate" style="padding: 10px 24px; font-size: 15px; background: linear-gradient(135deg, #c41e3a, #ff6b35);">🏛️ Archaic Age</button>
+                    <button id="fate-age-classical" onclick="setFateAge('Classical')" class="btn-fate" style="padding: 10px 24px; font-size: 15px; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6);">🏛️ Classical Age</button>
+                </div>
                 <div class="form-group">
                     <label>Select Alliance to Spin For:</label>
                     <select id="fate-alliance" required style="font-size: 18px; padding: 12px;">
@@ -1345,7 +1349,7 @@
 
                 <div class="fate-wheel-container">
                     <div class="fate-wheel-pointer"></div>
-                    <canvas id="fate-wheel-canvas" width="380" height="380"></canvas>
+                    <canvas id="fate-wheel-canvas" width="420" height="420"></canvas>
                 </div>
 
                 <div style="text-align: center; margin-top: 30px;">
@@ -1794,6 +1798,7 @@
                 ageGateData = await response.json();
                 
                 const summary = document.getElementById('age-gate-summary');
+                if (!summary) return; // Element may not exist if Age Gate is in top row only
                 
                 // Count ready alliances per period
                 const summaryParts = ageGateData.map(p => {
@@ -2870,6 +2875,7 @@
         const MIN_COOLDOWN_CHANCE = 0.05; // Just spun = only 5% chance (95% reduction!)
 
         let fateAllianceData = []; // Store alliance data for age lookup
+        let currentFateAge = 'Archaic'; // Track selected fate age
         
         async function openFateWheelModal() {
             // Reset to selection step
@@ -2879,25 +2885,52 @@
             document.getElementById('fate-wheel-modal').classList.add('show');
             
             // Load alliances for dropdown
-            const allianceSelect = document.getElementById('fate-alliance');
             fateAllianceData = await fetch(`${API_URL}/teacher/leaderboard`, { headers }).then(r => r.json());
             
-            allianceSelect.innerHTML = '<option value="">Choose an alliance...</option>' +
-                fateAllianceData.map(a => `<option value="${a.alliance_id}" data-name="${a.alliance_name}" data-age="${a.current_age || 'Archaic'}">${a.alliance_name} (${a.total_points} pts)</option>`).join('');
+            // Set default age and load
+            currentFateAge = 'Archaic';
+            updateFateAgeButtons();
+            filterFateAlliances();
             
-            // Load fates for default age (Archaic), will reload on alliance select
+            // Load fates for default age
             allFates = await fetch(`${API_URL}/teacher/fates?age=Archaic`, { headers }).then(r => r.json());
             
             // Load today's spins
             loadFatesToday();
-            
-            // Reload fates when alliance is selected (age may differ)
-            allianceSelect.onchange = async function() {
-                const selected = allianceSelect.options[allianceSelect.selectedIndex];
-                const age = selected ? (selected.getAttribute('data-age') || 'Archaic') : 'Archaic';
-                allFates = await fetch(`${API_URL}/teacher/fates?age=${age}`, { headers }).then(r => r.json());
+        }
+        
+        function setFateAge(age) {
+            currentFateAge = age;
+            updateFateAgeButtons();
+            filterFateAlliances();
+            // Reload fates for selected age
+            fetch(`${API_URL}/teacher/fates?age=${age}`, { headers }).then(r => r.json()).then(fates => {
+                allFates = fates;
                 console.log('Loaded ' + allFates.length + ' fates for age: ' + age);
-            };
+            });
+        }
+        
+        function updateFateAgeButtons() {
+            const archBtn = document.getElementById('fate-age-archaic');
+            const classBtn = document.getElementById('fate-age-classical');
+            if (currentFateAge === 'Archaic') {
+                archBtn.style.background = 'linear-gradient(135deg, #c41e3a, #ff6b35)';
+                archBtn.style.color = '#fff';
+                classBtn.style.background = 'rgba(255,255,255,0.15)';
+                classBtn.style.color = 'rgba(255,255,255,0.6)';
+            } else {
+                classBtn.style.background = 'linear-gradient(135deg, #1e40af, #4a90d9)';
+                classBtn.style.color = '#fff';
+                archBtn.style.background = 'rgba(255,255,255,0.15)';
+                archBtn.style.color = 'rgba(255,255,255,0.6)';
+            }
+        }
+        
+        function filterFateAlliances() {
+            const allianceSelect = document.getElementById('fate-alliance');
+            const filtered = fateAllianceData.filter(a => (a.current_age || 'Archaic') === currentFateAge);
+            allianceSelect.innerHTML = '<option value="">Choose an alliance...</option>' +
+                filtered.map(a => `<option value="${a.alliance_id}" data-name="${a.alliance_name}">${a.alliance_name} (${a.total_points} pts)</option>`).join('');
         }
 
         function closeFateWheelModal() {
@@ -2968,7 +3001,7 @@
             const centerX = w / 2;
             const centerY = h / 2;
             const radius = (w / 2) - 10;
-            const numSegments = 20;
+            const numSegments = allFates.length || 20;
             const anglePerSegment = (2 * Math.PI) / numSegments;
 
             // Clear canvas
@@ -3072,7 +3105,7 @@
             console.log(`🎲 Target segment: ${targetSegment}`);
             
             // Calculate target rotation (must land at CENTER of top wedge)
-            const anglePerSegment = (2 * Math.PI) / 20;
+            const anglePerSegment = (2 * Math.PI) / allFates.length;
             const targetAngle = -(targetSegment * anglePerSegment) - (anglePerSegment / 2) + (Math.PI / 2); // Point to CENTER
             const spins = 5; // Number of full rotations
             
