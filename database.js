@@ -780,17 +780,26 @@ function runMigrations() {
             'Analyze the moral lessons found in the myth of Eros and Psyche. What does the story teach us about love, trust, jealousy, and forgiveness? Write a clear explanation of at least two morals from this myth using evidence from the text.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical']
         ];
+        // Get existing display names to avoid duplicates
+        let existingNames = new Set();
+        try {
+          const existing = db.exec("SELECT display_name FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'");
+          if (existing[0]) {
+            existing[0].values.forEach(row => existingNames.add(row[0]));
+          }
+        } catch(e) {}
+        console.log(`  Existing bonus names: ${Array.from(existingNames).join(', ')}`);
+        
+        let added = 0;
         allClassicalBonuses.forEach(a => {
-          // Check if this specific assignment already exists by display_name
-          const exists = db.exec(`SELECT COUNT(*) FROM assignments_ref WHERE display_name = '${a[3].replace(/'/g, "''")}' AND age = 'Classical'`);
-          const count = exists[0] ? exists[0].values[0][0] : 0;
-          if (count === 0) {
+          const displayName = a[3];
+          if (!existingNames.has(displayName)) {
             db.run('INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) VALUES (?,?,?,?,?,?,?,?,?)', a);
-            console.log(`  + Added: ${a[3]} (${a[4]} pts)`);
+            console.log(`  + Added: ${displayName} (${a[4]} pts)`);
+            added++;
           }
         });
-        const afterCount = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'");
-        console.log(`✅ Classical bonuses now: ${afterCount[0] ? afterCount[0].values[0][0] : '?'}/14`);
+        console.log(`✅ Classical bonuses: added ${added}, total now ${cbCount + added}`);
       }
     } catch (err) {
       console.log('Classical bonus migration note:', err.message);
