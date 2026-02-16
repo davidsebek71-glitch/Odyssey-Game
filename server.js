@@ -7673,6 +7673,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Diagnostic: Check Classical bonus assignments in database
+app.get('/api/diag/classical-bonuses', (req, res) => {
+  try {
+    const bonuses = query("SELECT assignment_id, display_name, myth_god, max_points FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical' ORDER BY myth_god, display_name");
+    const required = ['Pandora Retelling', "Pandora's Box 2026", "Phaethon's Caution", 'Orpheus New Ending',
+      'I, Icarus', 'Eros and Psyche Character Study', 'Constellation Story', 'Echo and Narcissus Metamorphosis',
+      'Morals', 'Narcissus Cautionary Tale', 'Icarus Cautionary Tale', 'Eros and Psyche Cautionary Tale',
+      'Three Word Description', 'Eros and Psyche Morals'];
+    const existing = new Set(bonuses.map(b => b.display_name));
+    const missing = required.filter(n => !existing.has(n));
+    res.json({ total_rows: bonuses.length, unique_names: existing.size, bonuses, missing, required_count: 14 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
