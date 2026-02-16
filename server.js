@@ -7823,6 +7823,18 @@ app.get('/api/diag/classical-bonuses', (req, res) => {
   }
 });
 
+// Diagnostic: Check alliance ages and age gates
+app.get('/api/diag/ages', (req, res) => {
+  try {
+    const alliances = query("SELECT alliance_id, alliance_name, class_period, current_age FROM alliances WHERE is_disbanded = 0 ORDER BY class_period, alliance_name");
+    const gates = query("SELECT * FROM age_gates");
+    const studentCounts = query("SELECT a.alliance_id, a.alliance_name, a.current_age, COUNT(s.student_id) as student_count FROM alliances a LEFT JOIN students s ON a.alliance_id = s.alliance_id WHERE a.is_disbanded = 0 GROUP BY a.alliance_id");
+    res.json({ alliances, gates, studentCounts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
