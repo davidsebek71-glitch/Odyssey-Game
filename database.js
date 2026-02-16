@@ -854,8 +854,17 @@ function runMigrations() {
     if (!sqColNames.includes('age')) {
       console.log('  Adding age column to side_quests_ref...');
       db.run("ALTER TABLE side_quests_ref ADD COLUMN age TEXT DEFAULT 'Archaic'");
-      // Tag existing quests as Archaic
       db.run("UPDATE side_quests_ref SET age = 'Archaic' WHERE age IS NULL");
+    }
+    
+    // Ensure assignments_ref has age column
+    const arCols = db.exec("PRAGMA table_info(assignments_ref)");
+    const arColNames = arCols[0] ? arCols[0].values.map(c => c[1]) : [];
+    if (!arColNames.includes('age')) {
+      console.log('  Adding age column to assignments_ref...');
+      db.run("ALTER TABLE assignments_ref ADD COLUMN age TEXT DEFAULT 'Archaic'");
+      db.run("UPDATE assignments_ref SET age = 'Archaic' WHERE age IS NULL");
+      console.log('✅ assignments_ref age column added');
     }
     
     // Seed Hearth of Hestia if not exists

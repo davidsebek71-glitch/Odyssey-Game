@@ -1599,7 +1599,7 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
         SELECT gr.*, ar.section, ar.assignment_type, ar.myth_god, ar.display_name, ar.max_points as assignment_max, ar.is_bonus
         FROM grade_records gr
         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-        WHERE gr.student_id = ? AND ar.age = 'Archaic'
+        WHERE gr.student_id = ?
       `, [student_id]);
       
       const section1Assignments = allAssignments.filter(a => a.section === 'section_1');
