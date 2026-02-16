@@ -744,48 +744,79 @@ function runMigrations() {
       } catch(e) {}
       console.log(`📝 Classical bonuses: ${existingCount} rows, ${existingNames.size} unique names`);
       console.log(`  Existing: [${Array.from(existingNames).join('] [')}]`);
+      
+      // Fix existing rows: update assignment_type from 'bonus' to unique slugs
+      const typeMap = {
+        'Pandora Retelling': 'bonus_retelling',
+        "Pandora's Box 2026": 'bonus_box2026',
+        "Phaethon's Caution": 'bonus_caution_poem',
+        'Orpheus New Ending': 'bonus_new_ending',
+        'Narcissus Cautionary Tale': 'bonus_ct_narcissus',
+        'Icarus Cautionary Tale': 'bonus_ct_icarus',
+        'Eros and Psyche Cautionary Tale': 'bonus_ct_psyche',
+        'I, Icarus': 'bonus_i_icarus',
+        'Eros and Psyche Character Study': 'bonus_char_study',
+        'Constellation Story': 'bonus_constellation',
+        'Echo and Narcissus Metamorphosis': 'bonus_metamorphosis',
+        'Morals': 'bonus_morals_cross',
+        'Three Word Description': 'bonus_three_word',
+        'Eros and Psyche Morals': 'bonus_morals_ep'
+      };
+      let updated = 0;
+      for (const [displayName, newType] of Object.entries(typeMap)) {
+        try {
+          const check = db.exec(`SELECT assignment_id, assignment_type FROM assignments_ref WHERE display_name = '${displayName.replace(/'/g, "''")}' AND age = 'Classical' AND section = 'bonus' AND assignment_type = 'bonus'`);
+          if (check[0] && check[0].values.length > 0) {
+            const id = check[0].values[0][0];
+            db.run(`UPDATE assignments_ref SET assignment_type = '${newType}' WHERE assignment_id = ${id}`);
+            console.log(`  ~ Updated type: ${displayName} → ${newType}`);
+            updated++;
+          }
+        } catch(e) {}
+      }
+      if (updated > 0) console.log(`  Fixed ${updated} existing assignment_type values`);
       {
         const allClassicalBonuses = [
-          ['bonus', 'bonus', 'Pandora', 'Pandora Retelling', 20,
+          ['bonus', 'bonus_retelling', 'Pandora', 'Pandora Retelling', 20,
             'Use one of the paintings in the provided link that you find the most expressive and make a retelling of Pandora\'s myth that matches the tone and idea of the painting. Write your story based on the painting you choose.',
             JSON.stringify([{label: "Pandora Paintings (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Pandora (Box)', 'Pandora\'s Box 2026', 50,
+          ['bonus', 'bonus_box2026', 'Pandora (Box)', 'Pandora\'s Box 2026', 50,
             'Create a new box that will release emotion into the world. Follow the directions to earn credit for your Pandora\'s Box 2026. This is a major creative project worth 50 points.',
             JSON.stringify([{label: "Pandora\'s Box Directions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Phaethon', 'Phaethon\'s Caution', 15,
+          ['bonus', 'bonus_caution_poem', 'Phaethon', 'Phaethon\'s Caution', 15,
             'A cautionary poem tells a story with dire consequences in order to show readers what to avoid. Write a cautionary poem about Phaethon\'s ride across the sky in his father\'s sun chariot. Your poem should warn readers about the dangers of hubris and ignoring wise counsel.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Orpheus', 'Orpheus New Ending', 20,
+          ['bonus', 'bonus_new_ending', 'Orpheus', 'Orpheus New Ending', 20,
             'Have you ever wished that you could undo something that you had done? Would you do it differently if you had another opportunity to try again? Give Orpheus a second chance by changing the outcome of his tragic trip through Tartarus. Write a new ending for Orpheus and Eurydice.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Icarus', 'I, Icarus', 20,
+          ['bonus', 'bonus_i_icarus', 'Icarus', 'I, Icarus', 20,
             'Pass the challenge of I, Icarus and create a new myth for your land. Use the story of Icarus and Daedalus as inspiration to craft an original myth about innovation, ambition, and the limits of human achievement.',
             JSON.stringify([{label: "I, Icarus Challenge (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Character Study', 15,
+          ['bonus', 'bonus_char_study', 'Eros and Psyche', 'Eros and Psyche Character Study', 15,
             'Using a chart, list 10 Greek gods, goddesses or other characters you learned about in your readings and generalize, or draw a conclusion, about the qualities of each. Choose three words to describe each character and use details from the text to support your thinking.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Constellations', 'Constellation Story', 20,
+          ['bonus', 'bonus_constellation', 'Constellations', 'Constellation Story', 20,
             'Using the questions at the bottom of your note taking sheet you will write the story of your constellation. Create an original myth explaining how a constellation came to be in the night sky.',
             JSON.stringify([{label: "Note Taking Sheet (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Echo and Narcissus', 'Echo and Narcissus Metamorphosis', 15,
+          ['bonus', 'bonus_metamorphosis', 'Echo and Narcissus', 'Echo and Narcissus Metamorphosis', 15,
             'Greek myths, like Athena and Arachne, often feature a mortal who is transformed into a nonhuman creature because of pride. Into what would you turn a person who is spiteful? lazy? loud? Read the directions so that you understand how to present your ideas and make it clear what you are showing.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Morals', 'Morals', 5,
+          ['bonus', 'bonus_morals_cross', 'Morals', 'Morals', 5,
             '"Arachne" has a clear moral, best summed up in Athena\'s final statement to Arachne: "...it is not wise to strive with [gods/goddesses]." Look at the myths about Persephone trapped in the Underworld and Narcissus and Echo and write a moral that best states the themes of these two tales. Explain how the story creates this moral.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Echo and Narcissus', 'Narcissus Cautionary Tale', 15,
+          ['bonus', 'bonus_ct_narcissus', 'Echo and Narcissus', 'Narcissus Cautionary Tale', 15,
             'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Echo and Narcissus that warns about the dangers of self-obsession and ignoring the people who care about you.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Icarus', 'Icarus Cautionary Tale', 15,
+          ['bonus', 'bonus_ct_icarus', 'Icarus', 'Icarus Cautionary Tale', 15,
             'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Icarus that warns about the dangers of ignoring wise counsel and pushing past safe limits.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Cautionary Tale', 15,
+          ['bonus', 'bonus_ct_psyche', 'Eros and Psyche', 'Eros and Psyche Cautionary Tale', 15,
             'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Eros and Psyche that warns about the dangers of jealousy, distrust, or letting fear destroy something good.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Eros and Psyche', 'Three Word Description', 15,
+          ['bonus', 'bonus_three_word', 'Eros and Psyche', 'Three Word Description', 15,
             'Choose 10 Greek gods, goddesses, or other characters you learned about in your readings. For each character, choose three words that describe them and use specific details from the text to support your thinking. Defend your word choices with evidence.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
-          ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Morals', 10,
+          ['bonus', 'bonus_morals_ep', 'Eros and Psyche', 'Eros and Psyche Morals', 10,
             'Analyze the moral lessons found in the myth of Eros and Psyche. What does the story teach us about love, trust, jealousy, and forgiveness? Write a clear explanation of at least two morals from this myth using evidence from the text.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical']
         ];
@@ -1467,89 +1498,48 @@ function seedReferenceData() {
       ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
       
       // ==================== CLASSICAL AGE BONUSES ====================
-      ['bonus', 'bonus', 'Pandora', 'Pandora Retelling', 20,
+      ['bonus', 'bonus_retelling', 'Pandora', 'Pandora Retelling', 20,
         'Use one of the paintings in the provided link that you find the most expressive and make a retelling of Pandora\'s myth that matches the tone and idea of the painting. Write your story based on the painting you choose.',
-        JSON.stringify([
-          {label: "Pandora Paintings (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Pandora (Box)', 'Pandora\'s Box 2026', 50,
+        JSON.stringify([{label: "Pandora Paintings (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_box2026', 'Pandora (Box)', 'Pandora\'s Box 2026', 50,
         'Create a new box that will release emotion into the world. Follow the directions to earn credit for your Pandora\'s Box 2026. This is a major creative project worth 50 points.',
-        JSON.stringify([
-          {label: "Pandora's Box Directions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Phaethon', 'Phaethon\'s Caution', 15,
+        JSON.stringify([{label: "Pandora's Box Directions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_caution_poem', 'Phaethon', 'Phaethon\'s Caution', 15,
         'A cautionary poem tells a story with dire consequences in order to show readers what to avoid. Write a cautionary poem about Phaethon\'s ride across the sky in his father\'s sun chariot. Your poem should warn readers about the dangers of hubris and ignoring wise counsel.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Orpheus', 'Orpheus New Ending', 20,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_new_ending', 'Orpheus', 'Orpheus New Ending', 20,
         'Have you ever wished that you could undo something that you had done? Would you do it differently if you had another opportunity to try again? Give Orpheus a second chance by changing the outcome of his tragic trip through Tartarus. Write a new ending for Orpheus and Eurydice.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Icarus', 'I, Icarus', 20,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_i_icarus', 'Icarus', 'I, Icarus', 20,
         'Pass the challenge of I, Icarus and create a new myth for your land. Use the story of Icarus and Daedalus as inspiration to craft an original myth about innovation, ambition, and the limits of human achievement.',
-        JSON.stringify([
-          {label: "I, Icarus Challenge (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Character Study', 15,
+        JSON.stringify([{label: "I, Icarus Challenge (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_char_study', 'Eros and Psyche', 'Eros and Psyche Character Study', 15,
         'Using a chart, list 10 Greek gods, goddesses or other characters you learned about in your readings and generalize, or draw a conclusion, about the qualities of each. Choose three words to describe each character and use details from the text to support your thinking.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Constellations', 'Constellation Story', 20,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_constellation', 'Constellations', 'Constellation Story', 20,
         'Using the questions at the bottom of your note taking sheet you will write the story of your constellation. Create an original myth explaining how a constellation came to be in the night sky.',
-        JSON.stringify([
-          {label: "Note Taking Sheet (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Echo and Narcissus', 'Echo and Narcissus Metamorphosis', 15,
+        JSON.stringify([{label: "Note Taking Sheet (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_metamorphosis', 'Echo and Narcissus', 'Echo and Narcissus Metamorphosis', 15,
         'Greek myths, like Athena and Arachne, often feature a mortal who is transformed into a nonhuman creature because of pride. Into what would you turn a person who is spiteful? lazy? loud? Read the directions so that you understand how to present your ideas and make it clear what you are showing.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Morals', 'Morals', 5,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_morals_cross', 'Morals', 'Morals', 5,
         '"Arachne" has a clear moral, best summed up in Athena\'s final statement to Arachne: "...it is not wise to strive with [gods/goddesses]." Look at the myths about Persephone trapped in the Underworld and Narcissus and Echo and write a moral that best states the themes of these two tales. Explain how the story creates this moral.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Echo and Narcissus', 'Narcissus Cautionary Tale', 15,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_ct_narcissus', 'Echo and Narcissus', 'Narcissus Cautionary Tale', 15,
         'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Echo and Narcissus that warns about the dangers of self-obsession and ignoring the people who care about you.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Icarus', 'Icarus Cautionary Tale', 15,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_ct_icarus', 'Icarus', 'Icarus Cautionary Tale', 15,
         'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Icarus that warns about the dangers of ignoring wise counsel and pushing past safe limits.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Cautionary Tale', 15,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_ct_psyche', 'Eros and Psyche', 'Eros and Psyche Cautionary Tale', 15,
         'A cautionary tale tells a story with dire consequences to warn readers about dangerous behavior. Write a cautionary tale inspired by the myth of Eros and Psyche that warns about the dangers of jealousy, distrust, or letting fear destroy something good.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Eros and Psyche', 'Three Word Description', 15,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_three_word', 'Eros and Psyche', 'Three Word Description', 15,
         'Choose 10 Greek gods, goddesses, or other characters you learned about in your readings. For each character, choose three words that describe them and use specific details from the text to support your thinking. Defend your word choices with evidence.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical'],
-      
-      ['bonus', 'bonus', 'Eros and Psyche', 'Eros and Psyche Morals', 10,
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical'],
+      ['bonus', 'bonus_morals_ep', 'Eros and Psyche', 'Eros and Psyche Morals', 10,
         'Analyze the moral lessons found in the myth of Eros and Psyche. What does the story teach us about love, trust, jealousy, and forgiveness? Write a clear explanation of at least two morals from this myth using evidence from the text.',
-        JSON.stringify([
-          {label: "Assignment Instructions (Link Coming Soon)", url: null}
-        ]), 1, 'Classical']
+        JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical']
     ];
     
     assignments.forEach(a => {
