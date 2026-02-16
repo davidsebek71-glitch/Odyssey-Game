@@ -731,11 +731,20 @@ function runMigrations() {
     }
 
     // Ensure ALL 14 Classical bonus assignments exist in production
+    // Always runs - Set-based dedup prevents duplicates
     try {
-      const classicalBonusCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'");
-      const cbCount = classicalBonusCheck[0] ? classicalBonusCheck[0].values[0][0] : 0;
-      if (cbCount < 14) {
-        console.log(`📝 Classical bonuses: ${cbCount}/14 found. Seeding missing ones...`);
+      let existingNames = new Set();
+      let existingCount = 0;
+      try {
+        const existing = db.exec("SELECT display_name FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'");
+        if (existing[0]) {
+          existingCount = existing[0].values.length;
+          existing[0].values.forEach(row => existingNames.add(row[0]));
+        }
+      } catch(e) {}
+      console.log(`📝 Classical bonuses: ${existingCount} rows, ${existingNames.size} unique names`);
+      console.log(`  Existing: [${Array.from(existingNames).join('] [')}]`);
+      {
         const allClassicalBonuses = [
           ['bonus', 'bonus', 'Pandora', 'Pandora Retelling', 20,
             'Use one of the paintings in the provided link that you find the most expressive and make a retelling of Pandora\'s myth that matches the tone and idea of the painting. Write your story based on the painting you choose.',
@@ -780,26 +789,24 @@ function runMigrations() {
             'Analyze the moral lessons found in the myth of Eros and Psyche. What does the story teach us about love, trust, jealousy, and forgiveness? Write a clear explanation of at least two morals from this myth using evidence from the text.',
             JSON.stringify([{label: "Assignment Instructions (Link Coming Soon)", url: null}]), 1, 'Classical']
         ];
-        // Get existing display names to avoid duplicates
-        let existingNames = new Set();
-        try {
-          const existing = db.exec("SELECT display_name FROM assignments_ref WHERE section = 'bonus' AND age = 'Classical'");
-          if (existing[0]) {
-            existing[0].values.forEach(row => existingNames.add(row[0]));
-          }
-        } catch(e) {}
-        console.log(`  Existing bonus names: ${Array.from(existingNames).join(', ')}`);
+        const requiredNames = allClassicalBonuses.map(a => a[3]);
+        const missingNames = requiredNames.filter(n => !existingNames.has(n));
+        console.log(`  Missing (${missingNames.length}): ${missingNames.length > 0 ? missingNames.join(', ') : 'none'}`);
         
         let added = 0;
         allClassicalBonuses.forEach(a => {
           const displayName = a[3];
           if (!existingNames.has(displayName)) {
             db.run('INSERT INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) VALUES (?,?,?,?,?,?,?,?,?)', a);
-            console.log(`  + Added: ${displayName} (${a[4]} pts)`);
+            console.log(`  + Inserted: ${displayName} (${a[4]} pts)`);
             added++;
           }
         });
-        console.log(`✅ Classical bonuses: added ${added}, total now ${cbCount + added}`);
+        if (added > 0) {
+          console.log(`✅ Classical bonuses: added ${added} new assignments`);
+        } else {
+          console.log(`✅ Classical bonuses: all 14 present`);
+        }
       }
     } catch (err) {
       console.log('Classical bonus migration note:', err.message);
