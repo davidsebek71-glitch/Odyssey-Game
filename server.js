@@ -1113,14 +1113,12 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
     // Get leaderboard with technologies and member counts in batch queries
     // Test period isolation: Test students only see Test alliances, regular students never see Test alliances
     const studentPeriod = student.class_period;
-    const isTestStudent = isTestPeriod(studentPeriod);
+    const isStudentInTestPeriod = isTestPeriod(studentPeriod);
     
-    let leaderboardQuery;
-    let leaderboardParams = [];
-    
-    if (isTestStudent) {
+    let leaderboard;
+    if (isStudentInTestPeriod) {
       // Test student: only show Test period alliances
-      leaderboardQuery = `
+      leaderboard = query(`
         SELECT 
           a.alliance_id,
           a.alliance_name,
@@ -1130,11 +1128,10 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         FROM alliances a
         WHERE a.is_disbanded = 0 AND a.class_period = ?
         ORDER BY a.total_points DESC
-      `;
-      leaderboardParams = [TEST_PERIOD];
+      `, [TEST_PERIOD]);
     } else {
       // Regular student: exclude Test period alliances
-      leaderboardQuery = `
+      leaderboard = query(`
         SELECT 
           a.alliance_id,
           a.alliance_name,
@@ -1144,11 +1141,8 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         FROM alliances a
         WHERE a.is_disbanded = 0 AND (a.class_period IS NULL OR a.class_period != ?)
         ORDER BY a.total_points DESC
-      `;
-      leaderboardParams = [TEST_PERIOD];
+      `, [TEST_PERIOD]);
     }
-    
-    const leaderboard = query(leaderboardQuery, leaderboardParams);
     
     // Batch: get all technologies for all alliances at once
     const allTechs = query('SELECT alliance_id, tech_name FROM alliance_technologies');
