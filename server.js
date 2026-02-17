@@ -9,6 +9,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'odyssey-secret-key-change-in-production';
 
+// Test Period Configuration - Hidden from regular students
+const TEST_PERIOD = 'Test';
+function isTestPeriod(period) {
+  return period === TEST_PERIOD;
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Increased limit for map image uploads
@@ -1105,17 +1111,44 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
     }
     
     // Get leaderboard with technologies and member counts in batch queries
-    const leaderboard = query(`
-      SELECT 
-        a.alliance_id,
-        a.alliance_name,
-        a.total_points,
-        a.current_age,
-        a.side_quest_rewards
-      FROM alliances a
-      WHERE a.is_disbanded = 0
-      ORDER BY a.total_points DESC
-    `);
+    // Test period isolation: Test students only see Test alliances, regular students never see Test alliances
+    const studentPeriod = student.class_period;
+    const isTestStudent = isTestPeriod(studentPeriod);
+    
+    let leaderboardQuery;
+    let leaderboardParams = [];
+    
+    if (isTestStudent) {
+      // Test student: only show Test period alliances
+      leaderboardQuery = `
+        SELECT 
+          a.alliance_id,
+          a.alliance_name,
+          a.total_points,
+          a.current_age,
+          a.side_quest_rewards
+        FROM alliances a
+        WHERE a.is_disbanded = 0 AND a.class_period = ?
+        ORDER BY a.total_points DESC
+      `;
+      leaderboardParams = [TEST_PERIOD];
+    } else {
+      // Regular student: exclude Test period alliances
+      leaderboardQuery = `
+        SELECT 
+          a.alliance_id,
+          a.alliance_name,
+          a.total_points,
+          a.current_age,
+          a.side_quest_rewards
+        FROM alliances a
+        WHERE a.is_disbanded = 0 AND (a.class_period IS NULL OR a.class_period != ?)
+        ORDER BY a.total_points DESC
+      `;
+      leaderboardParams = [TEST_PERIOD];
+    }
+    
+    const leaderboard = query(leaderboardQuery, leaderboardParams);
     
     // Batch: get all technologies for all alliances at once
     const allTechs = query('SELECT alliance_id, tech_name FROM alliance_technologies');

@@ -885,6 +885,7 @@
                     <button class="period-tab" data-period="2nd" onclick="switchLeaderboardPeriod('2nd')">2nd Period</button>
                     <button class="period-tab" data-period="3rd" onclick="switchLeaderboardPeriod('3rd')">3rd Period</button>
                     <button class="period-tab" data-period="4th" onclick="switchLeaderboardPeriod('4th')">4th Period</button>
+                    <button class="period-tab" data-period="Test" onclick="switchLeaderboardPeriod('Test')" style="background: rgba(168,85,247,0.3);">🧪 Test</button>
                 </div>
                 
                 <div id="leaderboard-content" class="loading">
@@ -958,6 +959,7 @@
                     <option value="2nd">2nd Period</option>
                     <option value="3rd">3rd Period</option>
                     <option value="4th">4th Period</option>
+                    <option value="Test">🧪 Test Period</option>
                 </select>
             </div>
             <div id="manage-alliances-content" style="max-height: 500px; overflow-y: auto;">
@@ -1147,6 +1149,7 @@
                     <option value="2nd">2nd Period</option>
                     <option value="3rd">3rd Period</option>
                     <option value="4th">4th Period</option>
+                    <option value="Test">🧪 Test Period</option>
                 </select>
             </div>
             <div id="age-gate-content" style="max-height: 500px; overflow-y: auto;">
@@ -1219,6 +1222,7 @@
                     <option value="2nd">2nd Period</option>
                     <option value="3rd">3rd Period</option>
                     <option value="4th">4th Period</option>
+                    <option value="Test">🧪 Test Period</option>
                 </select>
             </div>
             <div id="quest-bonus-tracker-content" style="flex: 1; overflow: auto; min-height: 0;">
@@ -1279,6 +1283,7 @@
                         <option value="2nd">2nd Period</option>
                         <option value="3rd">3rd Period</option>
                         <option value="4th">4th Period</option>
+                        <option value="Test">🧪 Test Period</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -2112,7 +2117,7 @@
                 const content = document.getElementById('leaderboard-content');
                 
                 // Update alliance summary
-                const periods = ['1st', '2nd', '3rd', '4th'];
+                const periods = ['1st', '2nd', '3rd', '4th', 'Test'];
                 const periodCounts = periods.map(p => ({
                     period: p,
                     count: alliances.filter(a => a.class_period === p).length
@@ -2132,7 +2137,7 @@
                         const periodAlliances = alliances.filter(a => a.class_period === period);
                         if (periodAlliances.length > 0) {
                             html += `<div class="period-section">
-                                <div class="period-header">📚 ${period} Period</div>`;
+                                <div class="period-header">${period === 'Test' ? '🧪' : '📚'} ${period} Period</div>`;
                             
                             periodAlliances.slice(0, 2).forEach((alliance, index) => {
                                 const rewardIcons = alliance.side_quest_reward_icons || '';
