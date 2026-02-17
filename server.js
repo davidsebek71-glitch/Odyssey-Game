@@ -3102,16 +3102,18 @@ app.get('/api/alliance/buildings/:alliance_id', authenticateToken, (req, res) =>
     }
     
     const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
+    const currentAge = alliance.current_age || 'Archaic';
     
-    // Get all buildings
+    // Get buildings available for current age (Archaic shows Archaic, Classical shows both)
     const allBuildings = query(`
       SELECT 
         b.*,
         pb.building_name as prerequisite_name
       FROM buildings_ref b
       LEFT JOIN buildings_ref pb ON b.prerequisite_building_id = pb.building_id
-      ORDER BY b.building_id
-    `);
+      WHERE b.age_available = ? OR (? = 'Classical' AND b.age_available = 'Archaic')
+      ORDER BY b.age_available, b.building_id
+    `, [currentAge, currentAge]);
     
     // Get completed god assignments for this alliance - check BOTH god_assignments table AND grade_records for bonus assignments
     const godAssignmentsFromTable = query(
@@ -3260,6 +3262,7 @@ app.get('/api/alliance/buildings/:alliance_id', authenticateToken, (req, res) =>
       completed_assignments: completedAssignments,
       alliance_technologies: allianceTechs,
       member_count: memberCount,
+      current_age: currentAge,
       buildings: buildingsWithEligibility
     });
   } catch (err) {
@@ -3307,6 +3310,12 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
     
     if (!building) {
       return res.status(404).json({ error: 'Building not found' });
+    }
+    
+    // Check if building is available for alliance's current age
+    const currentAge = alliance.current_age || 'Archaic';
+    if (building.age_available !== currentAge && !(currentAge === 'Classical' && building.age_available === 'Archaic')) {
+      return res.status(400).json({ error: `This building requires ${building.age_available} Age` });
     }
     
     // Calculate effective cost with Pickaxe discount
