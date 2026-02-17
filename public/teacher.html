@@ -4868,7 +4868,7 @@
             });
             
             // Sort periods
-            const periodOrder = ['1st', '2nd', '3rd', '4th', 'Unassigned'];
+            const periodOrder = ['1st', '2nd', '3rd', '4th', 'Test', 'Unassigned'];
             const sortedPeriods = Object.keys(byPeriod).sort((a, b) => {
                 return periodOrder.indexOf(a) - periodOrder.indexOf(b);
             });
@@ -4880,8 +4880,8 @@
                 
                 html += `
                     <div style="margin-bottom: 25px;">
-                        <div style="background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(37,99,235,0.2)); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid rgba(59,130,246,0.5);">
-                            <span style="font-weight: 700; color: #93c5fd;">${period} Period</span>
+                        <div style="background: linear-gradient(135deg, ${period === 'Test' ? 'rgba(168,85,247,0.2), rgba(147,51,234,0.2)' : 'rgba(59,130,246,0.2), rgba(37,99,235,0.2)'}); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid ${period === 'Test' ? 'rgba(168,85,247,0.5)' : 'rgba(59,130,246,0.5)'};">
+                            <span style="font-weight: 700; color: ${period === 'Test' ? '#c4b5fd' : '#93c5fd'};">${period === 'Test' ? '🧪 Test' : period} Period</span>
                             <span style="color: rgba(255,255,255,0.6); margin-left: 10px;">(${students.length} student${students.length !== 1 ? 's' : ''})</span>
                         </div>
                         <div style="background: rgba(255,255,255,0.03); border-radius: 0 0 10px 10px; padding: 10px;">
