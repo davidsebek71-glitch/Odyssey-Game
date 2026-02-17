@@ -4364,10 +4364,14 @@
                 ]);
                 const assignData = await assignRes.json();
                 const flaggedData = await flaggedRes.json();
+                if (assignData.error) {
+                    document.getElementById('trade-management-content').innerHTML = `<div style="color:#f87171; padding:20px;">Server error: ${assignData.error}</div>`;
+                    return;
+                }
                 tradeData = { ...assignData, flagged: flaggedData.flagged || [] };
                 renderTradeManagement();
             } catch (err) {
-                document.getElementById('trade-management-content').innerHTML = '<div style="color:#f87171; padding:20px;">Failed to load trade data</div>';
+                document.getElementById('trade-management-content').innerHTML = `<div style="color:#f87171; padding:20px;">Failed to load trade data: ${err.message}</div>`;
             }
         }
         
