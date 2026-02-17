@@ -738,6 +738,95 @@ app.post('/api/teacher/disband-alliance', authenticateToken, (req, res) => {
   }
 });
 
+// Teacher: Recalculate alliance points from approved submissions
+// Useful for fixing point discrepancies or after reforming alliances
+app.post('/api/teacher/recalculate-alliance-points', authenticateToken, (req, res) => {
+  try {
+    const { alliance_id } = req.body;
+    
+    if (alliance_id) {
+      // Recalculate single alliance
+      const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+      if (!alliance) {
+        return res.status(404).json({ error: 'Alliance not found' });
+      }
+      
+      // Get all members of this alliance
+      const members = query('SELECT student_id FROM students WHERE alliance_id = ?', [alliance_id]);
+      const memberIds = members.map(m => m.student_id);
+      
+      let totalPoints = 0;
+      if (memberIds.length > 0) {
+        // Sum all approved point submissions for these members
+        const placeholders = memberIds.map(() => '?').join(',');
+        const result = query(`
+          SELECT COALESCE(SUM(points_earned), 0) as total
+          FROM point_submissions 
+          WHERE student_id IN (${placeholders}) AND status = 'approved'
+        `, memberIds)[0];
+        totalPoints = result.total || 0;
+      }
+      
+      const oldPoints = alliance.total_points;
+      run('UPDATE alliances SET total_points = ? WHERE alliance_id = ?', [totalPoints, alliance_id]);
+      saveDatabase();
+      
+      console.log(`🔄 Recalculated ${alliance.alliance_name}: ${oldPoints} → ${totalPoints} points`);
+      
+      res.json({ 
+        success: true, 
+        alliance_name: alliance.alliance_name,
+        old_points: oldPoints,
+        new_points: totalPoints,
+        member_count: memberIds.length
+      });
+    } else {
+      // Recalculate ALL alliances
+      const alliances = query('SELECT * FROM alliances WHERE is_disbanded = 0');
+      const results = [];
+      
+      alliances.forEach(alliance => {
+        const members = query('SELECT student_id FROM students WHERE alliance_id = ?', [alliance.alliance_id]);
+        const memberIds = members.map(m => m.student_id);
+        
+        let totalPoints = 0;
+        if (memberIds.length > 0) {
+          const placeholders = memberIds.map(() => '?').join(',');
+          const result = query(`
+            SELECT COALESCE(SUM(points_earned), 0) as total
+            FROM point_submissions 
+            WHERE student_id IN (${placeholders}) AND status = 'approved'
+          `, memberIds)[0];
+          totalPoints = result.total || 0;
+        }
+        
+        const oldPoints = alliance.total_points;
+        run('UPDATE alliances SET total_points = ? WHERE alliance_id = ?', [totalPoints, alliance.alliance_id]);
+        
+        results.push({
+          alliance_name: alliance.alliance_name,
+          class_period: alliance.class_period,
+          old_points: oldPoints,
+          new_points: totalPoints,
+          difference: totalPoints - oldPoints
+        });
+      });
+      
+      saveDatabase();
+      console.log(`🔄 Recalculated points for ${results.length} alliances`);
+      
+      res.json({ 
+        success: true, 
+        message: `Recalculated ${results.length} alliances`,
+        results 
+      });
+    }
+  } catch (err) {
+    console.error('Recalculate alliance points error:', err);
+    res.status(500).json({ error: 'Failed to recalculate points' });
+  }
+});
+
 // Get Student's Contribution History (for carrying over to new alliance)
 app.get('/api/student/contribution-history', authenticateToken, (req, res) => {
   try {
