@@ -760,7 +760,7 @@ app.post('/api/teacher/recalculate-alliance-points', authenticateToken, (req, re
         // Sum all approved point submissions for these members
         const placeholders = memberIds.map(() => '?').join(',');
         const result = query(`
-          SELECT COALESCE(SUM(points_earned), 0) as total
+          SELECT COALESCE(SUM(points_claimed), 0) as total
           FROM point_submissions 
           WHERE student_id IN (${placeholders}) AND status = 'approved'
         `, memberIds)[0];
@@ -793,7 +793,7 @@ app.post('/api/teacher/recalculate-alliance-points', authenticateToken, (req, re
         if (memberIds.length > 0) {
           const placeholders = memberIds.map(() => '?').join(',');
           const result = query(`
-            SELECT COALESCE(SUM(points_earned), 0) as total
+            SELECT COALESCE(SUM(points_claimed), 0) as total
             FROM point_submissions 
             WHERE student_id IN (${placeholders}) AND status = 'approved'
           `, memberIds)[0];
