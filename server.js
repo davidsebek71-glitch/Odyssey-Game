@@ -5144,10 +5144,12 @@ app.get('/api/admin/bonus-audit', (req, res) => {
     `);
 
     const techBonuses = query(`
-      SELECT tech_name, COUNT(*) as student_count, bonus_value, bonus_type
-      FROM alliance_technologies
-      GROUP BY tech_name
-      ORDER BY student_count DESC
+      SELECT at.tech_name, COUNT(*) as alliance_count,
+             tr.bonus_value, tr.bonus_type
+      FROM alliance_technologies at
+      LEFT JOIN technologies_ref tr ON at.tech_name = tr.tech_name
+      GROUP BY at.tech_name
+      ORDER BY alliance_count DESC
     `);
 
     const buildings = query(`
