@@ -4419,13 +4419,9 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
     const success = roll < choice.success_chance;
     let pointsChange = success ? choice.success_points : choice.failure_points;
     
-    // Apply percentage-based floor for aggressive failures (Classical Age balancing)
-    // If aggressive failure is less than 10% of alliance total, use 10% instead
-    if (!success && choice.risk_level === 'aggressive') {
-      pointsChange = applyAggressivePenalty(pointsChange, alliance.total_points, choice.risk_level);
-    }
+    // Fate outcome is applied exactly as written — no scaling
     
-    // Fates do NOT get building bonuses - apply points directly
+    // Apply fate outcome exactly as written
     run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
         [pointsChange, alliance_id]);
     
@@ -4445,14 +4441,14 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
     
     // Get updated alliance
     const updatedAlliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
-    
+
     res.json({
       success,
       pointsChange,
       choice,
       fate,
       updatedAlliance,
-      roll: (roll * 100).toFixed(1) // Return roll percentage for display
+      roll: (roll * 100).toFixed(1)
     });
   } catch (err) {
     console.error('Process fate choice error:', err);
@@ -8196,17 +8192,7 @@ function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
 
 // Helper: Apply percentage-based floor for aggressive fate failures
 // If the flat failure points are less than 10% of alliance total, use 10% instead
-function applyAggressivePenalty(failurePoints, allianceTotalPoints, riskLevel) {
-  if (riskLevel !== 'aggressive') return failurePoints;
-  
-  const percentFloor = Math.round(allianceTotalPoints * 0.10);
-  // failurePoints is negative, so we compare absolute values
-  const absFailure = Math.abs(failurePoints);
-  if (absFailure < percentFloor) {
-    return -percentFloor; // Return negative value
-  }
-  return failurePoints;
-}
+// applyAggressivePenalty removed V91 — fate outcomes apply exactly as written
 
 // ====================
 // HEALTH CHECK
