@@ -5103,10 +5103,10 @@ app.post('/api/teacher/reject-side-quest', authenticateToken, (req, res) => {
 
 
 // V91 TEMP: Bonus audit endpoint — READ ONLY, no data changes
-app.get('/api/admin/bonus-audit', authenticateToken, (req, res) => {
+app.get('/api/admin/bonus-audit', (req, res) => {
   try {
-    if (req.user.type !== 'teacher') {
-      return res.status(403).json({ error: 'Teachers only' });
+    if (req.query.key !== 'odyssey2026audit') {
+      return res.status(403).send('Access denied. Add ?key=odyssey2026audit to the URL.');
     }
 
     const allianceSummary = query(`
