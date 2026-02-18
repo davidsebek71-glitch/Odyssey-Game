@@ -525,6 +525,41 @@
             justify-content: center;
             background: radial-gradient(ellipse at center, #2a0a14 0%, #1a0208 50%, #000 100%) !important;
         }
+        .fate-modal.fullscreen-spin.classical-age .modal-content {
+            background: radial-gradient(ellipse at center, #0a1a3a 0%, #020818 50%, #000 100%) !important;
+        }
+
+        /* Fate revealed transition overlay */
+        #fate-reveal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: radial-gradient(ellipse at center, #2a0a14 0%, #000 100%);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInOverlay 0.3s ease-out;
+        }
+        #fate-reveal-overlay.classical {
+            background: radial-gradient(ellipse at center, #0a1a3a 0%, #000 100%);
+        }
+        #fate-reveal-overlay.visible {
+            display: flex;
+        }
+        @keyframes fadeInOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes revealPulse {
+            0% { transform: scale(0.8); opacity: 0; }
+            60% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .fate-reveal-text {
+            animation: revealPulse 0.5s ease-out forwards;
+            text-align: center;
+        }
         .fate-modal.fullscreen-spin .fate-wheel-container {
             width: min(70vh, 600px);
             height: min(70vh, 600px);
@@ -1436,6 +1471,14 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- FATE REVEAL TRANSITION OVERLAY -->
+    <div id="fate-reveal-overlay">
+        <div class="fate-reveal-text">
+            <div id="fate-reveal-name" style="font-size: 48px; font-weight: 900; color: #ffd700; text-shadow: 0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,107,53,0.5); letter-spacing: 2px; margin-bottom: 16px;"></div>
+            <div id="fate-reveal-sub" style="font-size: 20px; color: rgba(255,255,255,0.7); letter-spacing: 4px; text-transform: uppercase;"></div>
         </div>
     </div>
 
@@ -3100,6 +3143,8 @@
         function closeFateWheelModal() {
             document.getElementById('fate-wheel-modal').classList.remove('show');
             document.getElementById('fate-wheel-modal').classList.remove('fullscreen-spin');
+            document.getElementById('fate-wheel-modal').classList.remove('classical-age');
+            document.getElementById('fate-reveal-overlay').className = '';
             document.getElementById('alliance-selection-step').style.display = 'block';
             document.getElementById('spinning-wheel-step').style.display = 'none';
         }
@@ -3152,7 +3197,13 @@
             document.getElementById('alliance-selection-step').style.display = 'none';
             document.getElementById('spinning-wheel-step').style.display = 'block';
             document.getElementById('selected-alliance-name').textContent = selectedAllianceName;
-            document.getElementById('fate-wheel-modal').classList.add('fullscreen-spin');
+            const wheelModal = document.getElementById('fate-wheel-modal');
+            wheelModal.classList.add('fullscreen-spin');
+            if (currentFateAge === 'Classical') {
+                wheelModal.classList.add('classical-age');
+            } else {
+                wheelModal.classList.remove('classical-age');
+            }
 
             // Apply age-themed styling
             const isClassical = currentFateAge === 'Classical';
@@ -3373,10 +3424,21 @@
                     return;
                 }
                 
-                // Close wheel modal and exit fullscreen
+                // Show fate reveal overlay (seamless transition — no dashboard flash)
+                const overlay = document.getElementById('fate-reveal-overlay');
+                const isClassical = currentFateAge === 'Classical';
+                overlay.className = 'visible' + (isClassical ? ' classical' : '');
+                document.getElementById('fate-reveal-name').style.color = isClassical ? '#4a90d9' : '#ffd700';
+                document.getElementById('fate-reveal-name').style.textShadow = isClassical
+                    ? '0 0 40px rgba(74,144,217,0.8), 0 0 80px rgba(30,58,138,0.5)'
+                    : '0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,107,53,0.5)';
+                document.getElementById('fate-reveal-name').textContent = fate.fate_name;
+                document.getElementById('fate-reveal-sub').textContent = 'Fate Revealed for ' + selectedAllianceName;
+
+                // Close wheel behind the overlay
                 document.getElementById('fate-wheel-modal').classList.remove('show');
                 document.getElementById('fate-wheel-modal').classList.remove('fullscreen-spin');
-                
+
                 // Route based on fate type
                 if (fate.is_battle === 1) {
                     // BATTLE FATES - Use battle system
@@ -3458,6 +3520,7 @@
         
         // Show Countdown Game form (Fate 9)
         function showCountdownForm(fate) {
+            document.getElementById('fate-reveal-overlay').className = '';
             const modal = document.getElementById('fate-choices-modal');
             const content = document.getElementById('fate-choices-content');
             
@@ -3558,6 +3621,7 @@
         
         // Award Reverse Card (Fate 12)
         async function awardReverseCard(fate) {
+            document.getElementById('fate-reveal-overlay').className = '';
             try {
                 await fetch(`${API_URL}/teacher/award-reverse-card/${selectedAllianceId}`, {
                     method: 'POST',
@@ -3631,6 +3695,7 @@
         }
 
         function showFateChoices(fate, choices) {
+            document.getElementById('fate-reveal-overlay').className = '';
             const modal = document.getElementById('fate-choices-modal');
             const content = document.getElementById('fate-choices-content');
             
@@ -3850,6 +3915,7 @@
         }
 
         function showChoiceResult(result) {
+            document.getElementById('fate-reveal-overlay').className = '';
             const modal = document.getElementById('fate-result-modal');
             const content = document.getElementById('fate-result-content');
 
@@ -4123,6 +4189,7 @@
         }
 
         async function showBattleModal(allianceId, fate, battleResult) {
+            document.getElementById('fate-reveal-overlay').className = '';
             const modal = document.getElementById('battle-modal');
             const content = document.getElementById('battle-content');
 
