@@ -443,6 +443,40 @@ app.post('/api/teacher/award-points', authenticateToken, (req, res) => {
     if (!alliance_id) {
       return res.status(400).json({ error: 'alliance_id required' });
     }
+
+    // V91 FIX: Membean cap — max 45 points per manual award
+    const MEMBEAN_MAX = 45;
+    if (category === 'membean' && amount > MEMBEAN_MAX) {
+      return res.status(400).json({ 
+        error: 'Membean awards are capped at ' + MEMBEAN_MAX + ' points per entry. You entered ' + amount + '. Please correct and resubmit.'
+      });
+    }
+
+    // V91 FIX: Duplicate detection for manual quiz/reading note awards
+    // If same student+category+reason already has points, deduct old before adding new
+    if (student_id && amount > 0 && ['quiz', 'myth_comp_conn', 'comp_conn', 'mural'].includes(category) && reason) {
+      const existing = query(
+        'SELECT transaction_id, amount FROM point_transactions WHERE student_id = ? AND category = ? AND reason = ? AND amount > 0 ORDER BY timestamp DESC LIMIT 1',
+        [student_id, category, reason]
+      )[0];
+
+      if (existing) {
+        if (existing.amount === amount) {
+          return res.status(400).json({ 
+            error: 'Duplicate detected: ' + reason + ' was already awarded ' + existing.amount + ' pts to this student. No change made.'
+          });
+        }
+        // Score changed (resubmit) — deduct old amount before new one is applied below
+        run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', [existing.amount, alliance_id]);
+        run(
+          'INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [alliance_id, student_id, -existing.amount, category, 'Duplicate correction: removed previous ' + reason, teacher_id]
+        );
+        console.log('Duplicate manual award detected for ' + category + '/' + reason + ' - deducted previous ' + existing.amount + ' pts');
+      }
+    }
+
+
     
     // Start with base amount
     let finalAmount = amount;
