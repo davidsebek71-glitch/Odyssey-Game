@@ -1191,6 +1191,33 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: Demeter question -', e.message);
   }
+  // V91 FIX: Prometheus BioPoem bonus increased from 5 to 10 points
+  try {
+    db.run("UPDATE assignments_ref SET max_points = 10 WHERE section = 'bonus' AND myth_god = 'Prometheus' AND assignment_type = 'bonus'");
+    db.run(`UPDATE grade_records SET points_earned = 10 WHERE points_earned = 5 AND assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE section = 'bonus' AND myth_god = 'Prometheus' AND assignment_type = 'bonus')`);
+    // Award +5 correction to alliances where a student got bumped
+    const affected = db.prepare(`
+      SELECT DISTINCT s.alliance_id, gr.student_id
+      FROM grade_records gr
+      JOIN students s ON gr.student_id = s.student_id
+      WHERE gr.points_earned = 10
+      AND gr.assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE section = 'bonus' AND myth_god = 'Prometheus' AND assignment_type = 'bonus')
+      AND s.alliance_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM point_transactions pt WHERE pt.student_id = gr.student_id AND pt.reason LIKE '%Prometheus BioPoem retroactive%'
+      )
+    `).all();
+    let correctedCount = 0;
+    for (const row of affected) {
+      db.prepare("INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, 5, 'extra_credit', 'Prometheus BioPoem retroactive correction: 5to10 pts')").run(row.alliance_id, row.student_id);
+      db.prepare("UPDATE alliances SET total_points = total_points + 5 WHERE alliance_id = ?").run(row.alliance_id);
+      correctedCount++;
+    }
+    console.log(`✅ Prometheus BioPoem updated to 10 pts. Retroactively corrected ${correctedCount} student(s).`);
+  } catch (e) {
+    console.log('Migration note: Prometheus bonus update -', e.message);
+  }
+
   // ==================== END MIGRATIONS ====================
   
   // ==================== CLASSICAL AGE SEED DATA ====================
@@ -1484,7 +1511,7 @@ function seedReferenceData() {
           {label: "Audio Version - Video 69", url: "https://youtu.be/U6-Nw8_zEmk?si=ayhuLeweNXdSG-dq"}
         ]), 1, 'Archaic'],
       
-      ['bonus', 'bonus', 'Prometheus', 'Prometheus Bonus', 5,
+      ['bonus', 'bonus', 'Prometheus', 'Prometheus Bonus', 10,
         'Prometheus lives on in the history of man. Celebrate him by creating a bio poem that celebrates his story. Use the provided link to find the format and example of what is expected from your bio poem about Prometheus.',
         JSON.stringify([
           {label: "Bio Poem Format & Example", url: "https://www.readwritethink.org/sites/default/files/resources/lesson_images/lesson398/biopoem.pdf"}

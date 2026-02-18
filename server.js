@@ -4986,25 +4986,22 @@ app.get('/api/teacher/side-quest-approvals', authenticateToken, (req, res) => {
     const teacher_id = req.user.id;
     const { period } = req.query;
     
-    let pendingQuery = `
+    let baseQuery = `
       SELECT sqc.*, sq.quest_name, sq.god_associated, sq.reward_name,
              s.name as student_name, s.class_period, a.alliance_name
       FROM side_quest_completions sqc
       JOIN side_quests_ref sq ON sqc.quest_id = sq.quest_id
       JOIN students s ON sqc.student_id = s.student_id
       JOIN alliances a ON sqc.alliance_id = a.alliance_id
-      WHERE sqc.status = 'pending'
     `;
     
-    if (period && period !== 'all') {
-      pendingQuery += ` AND s.class_period = '${period}'`;
-    }
+    const periodFilter = (period && period !== 'all') ? ` AND s.class_period = '${period}'` : '';
     
-    pendingQuery += ' ORDER BY sqc.submitted_at DESC';
+    const pending = query(baseQuery + ` WHERE sqc.status = 'pending'` + periodFilter + ' ORDER BY sqc.submitted_at DESC');
+    // V91: Also return recently approved so teacher can unapprove accidental approvals
+    const approved = query(baseQuery + ` WHERE sqc.status = 'approved'` + periodFilter + ' ORDER BY sqc.reviewed_at DESC LIMIT 20');
     
-    const pending = query(pendingQuery);
-    
-    res.json({ pending });
+    res.json({ pending, approved });
   } catch (err) {
     console.error('Get side quest approvals error:', err);
     res.status(500).json({ error: 'Failed to fetch side quest approvals' });
@@ -5100,6 +5097,188 @@ app.post('/api/teacher/reject-side-quest', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Reject side quest error:', err);
     res.status(500).json({ error: 'Failed to reject side quest' });
+  }
+});
+
+// V91 TEMP: Bonus audit endpoint — READ ONLY, no data changes
+app.get('/api/admin/bonus-audit', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') {
+      return res.status(403).json({ error: 'Teachers only' });
+    }
+
+    // Alliance summary
+    const allianceSummary = query(`
+      SELECT 
+        a.alliance_name,
+        a.class_period,
+        a.total_points as current_total,
+        COUNT(pt.transaction_id) as total_transactions,
+        SUM(CASE WHEN pt.amount > 0 THEN pt.amount ELSE 0 END) as total_earned,
+        SUM(CASE WHEN pt.amount < 0 THEN ABS(pt.amount) ELSE 0 END) as total_lost,
+        SUM(CASE WHEN pt.category = 'citizenship' THEN pt.amount ELSE 0 END) as citizenship_pts,
+        SUM(CASE WHEN pt.category = 'membean' THEN pt.amount ELSE 0 END) as membean_pts,
+        SUM(CASE WHEN pt.category = 'quiz' THEN pt.amount ELSE 0 END) as quiz_pts,
+        SUM(CASE WHEN pt.category = 'myth_comp_conn' THEN pt.amount ELSE 0 END) as comp_pts,
+        SUM(CASE WHEN pt.category = 'extra_credit' THEN pt.amount ELSE 0 END) as extra_credit_pts,
+        SUM(CASE WHEN pt.category = 'bonus_work' THEN pt.amount ELSE 0 END) as bonus_work_pts,
+        SUM(CASE WHEN pt.category = 'fate' THEN pt.amount ELSE 0 END) as fate_pts,
+        SUM(CASE WHEN pt.category = 'battle' THEN pt.amount ELSE 0 END) as battle_pts
+      FROM alliances a
+      LEFT JOIN point_transactions pt ON a.alliance_id = pt.alliance_id
+      WHERE a.is_disbanded = 0 OR a.is_disbanded IS NULL
+      GROUP BY a.alliance_id, a.alliance_name, a.class_period, a.total_points
+      ORDER BY a.total_points DESC
+    `);
+
+    // Potentially inflated awards (individual awards above expected base values)
+    const suspicious = query(`
+      SELECT 
+        s.name as student_name,
+        a.alliance_name,
+        a.class_period,
+        pt.category,
+        pt.amount,
+        pt.reason,
+        pt.timestamp
+      FROM point_transactions pt
+      JOIN students s ON pt.student_id = s.student_id
+      JOIN alliances a ON pt.alliance_id = a.alliance_id
+      WHERE pt.amount > 12
+        AND pt.category NOT IN ('fate', 'battle', 'building_purchase', 'citizenship', 'reading')
+        AND pt.student_id IS NOT NULL
+      ORDER BY pt.amount DESC
+      LIMIT 50
+    `);
+
+    // Tech bonuses in use
+    const techBonuses = query(`
+      SELECT tech_name, COUNT(*) as student_count, bonus_value, bonus_type
+      FROM alliance_technologies
+      GROUP BY tech_name
+      ORDER BY student_count DESC
+    `);
+
+    // Buildings owned per alliance
+    const buildings = query(`
+      SELECT a.alliance_name, a.buildings_owned
+      FROM alliances a
+      WHERE a.is_disbanded = 0 OR a.is_disbanded IS NULL
+    `);
+
+    // HTML response for easy reading in browser
+    const html = \`<!DOCTYPE html>
+<html><head><title>Odyssey Bonus Audit</title>
+<style>
+  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+  h1 { color: #ffd700; } h2 { color: #c4b5fd; border-bottom: 1px solid #444; padding-bottom: 5px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 30px; font-size: 13px; }
+  th { background: #2d2d4e; color: #ffd700; padding: 8px; text-align: left; }
+  td { padding: 6px 8px; border-bottom: 1px solid #333; }
+  tr:hover td { background: rgba(255,255,255,0.05); }
+  .warn { color: #f97316; font-weight: bold; }
+  .ok { color: #4ade80; }
+  .note { color: #94a3b8; font-size: 12px; margin-bottom: 15px; }
+</style></head><body>
+<h1>🏛️ Odyssey Bonus Audit — \${new Date().toLocaleString()}</h1>
+<p class="note">READ ONLY — no data was changed. Copy this page and paste into chat.</p>
+
+<h2>Alliance Point Summary (sorted by total points)</h2>
+<table>
+  <tr><th>Alliance</th><th>Period</th><th>Current Total</th><th>Total Earned</th><th>Total Lost</th><th>Quiz</th><th>Comp Conn</th><th>Extra Credit</th><th>Bonus Work</th><th>Membean</th><th>Citizenship</th><th>Fate</th><th>Battle</th></tr>
+  \${allianceSummary.map(r => \`<tr>
+    <td>\${r.alliance_name}</td>
+    <td>\${r.class_period || '-'}</td>
+    <td><strong>\${r.current_total}</strong></td>
+    <td class="ok">\${r.total_earned || 0}</td>
+    <td class="warn">\${r.total_lost || 0}</td>
+    <td>\${r.quiz_pts || 0}</td>
+    <td>\${r.comp_pts || 0}</td>
+    <td>\${r.extra_credit_pts || 0}</td>
+    <td>\${r.bonus_work_pts || 0}</td>
+    <td>\${r.membean_pts || 0}</td>
+    <td>\${r.citizenship_pts || 0}</td>
+    <td>\${r.fate_pts || 0}</td>
+    <td>\${r.battle_pts || 0}</td>
+  </tr>\`).join('')}
+</table>
+
+<h2>⚠️ Potentially Inflated Awards (individual awards > 12 pts)</h2>
+<p class="note">These may be legitimate (videos=22pts, comp conn=10pts base + bonuses) or inflated. Review manually.</p>
+<table>
+  <tr><th>Student</th><th>Alliance</th><th>Period</th><th>Category</th><th>Amount</th><th>Reason</th><th>Date</th></tr>
+  \${suspicious.length === 0 
+    ? '<tr><td colspan="7" style="color:#4ade80;">✅ No suspicious awards found</td></tr>'
+    : suspicious.map(r => \`<tr>
+      <td>\${r.student_name}</td>
+      <td>\${r.alliance_name}</td>
+      <td>\${r.class_period}</td>
+      <td>\${r.category}</td>
+      <td class="\${r.amount > 25 ? 'warn' : ''}">\${r.amount}</td>
+      <td>\${r.reason || '-'}</td>
+      <td>\${new Date(r.timestamp).toLocaleDateString()}</td>
+    </tr>\`).join('')}
+</table>
+
+<h2>Tech Bonuses Active</h2>
+<table>
+  <tr><th>Technology</th><th>Students Using</th><th>Bonus Value</th><th>Type</th></tr>
+  \${techBonuses.map(r => \`<tr>
+    <td>\${r.tech_name}</td>
+    <td>\${r.student_count}</td>
+    <td class="warn">+\${Math.round((r.bonus_value || 0) * 100)}%</td>
+    <td>\${r.bonus_type}</td>
+  </tr>\`).join('')}
+</table>
+
+<h2>Buildings Owned Per Alliance</h2>
+<table>
+  <tr><th>Alliance</th><th>Buildings</th></tr>
+  \${buildings.map(r => {
+    let bldgs = [];
+    try { bldgs = JSON.parse(r.buildings_owned || '[]'); } catch(e) {}
+    return \`<tr><td>\${r.alliance_name}</td><td>\${bldgs.length > 0 ? bldgs.join(', ') : '<em>none</em>'}</td></tr>\`;
+  }).join('')}
+</table>
+
+</body></html>\`;
+
+    res.send(html);
+  } catch (err) {
+    console.error('Bonus audit error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Teacher: Unapprove (reverse) an approved side quest completion — V91 FIX
+app.post('/api/teacher/unapprove-side-quest', authenticateToken, (req, res) => {
+  try {
+    const { completion_id } = req.body;
+    const teacher_id = req.user.id;
+
+    const completion = query('SELECT * FROM side_quest_completions WHERE completion_id = ?', [completion_id])[0];
+    if (!completion) {
+      return res.status(404).json({ error: 'Completion not found' });
+    }
+
+    if (completion.status !== 'approved') {
+      return res.status(400).json({ error: `Cannot unapprove — status is '${completion.status}', not 'approved'` });
+    }
+
+    // Revert to pending so student can see it again and teacher can re-review
+    run(`UPDATE side_quest_completions SET status = 'pending', reviewed_at = NULL, reviewed_by_teacher_id = NULL WHERE completion_id = ?`, [completion_id]);
+    saveDatabase();
+
+    const student = query('SELECT name FROM students WHERE student_id = ?', [completion.student_id])[0];
+    const quest = query('SELECT quest_name FROM side_quests_ref WHERE quest_id = ?', [completion.quest_id])[0];
+
+    res.json({
+      success: true,
+      message: `Reversed approval for ${student ? student.name : 'student'}'s ${quest ? quest.quest_name : 'side quest'}. Status reset to pending.`
+    });
+  } catch (err) {
+    console.error('Unapprove side quest error:', err);
+    res.status(500).json({ error: 'Failed to unapprove side quest' });
   }
 });
 

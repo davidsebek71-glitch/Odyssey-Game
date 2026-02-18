@@ -1083,7 +1083,7 @@
                         <option value="quiz">Quiz</option>
                         <option value="myth_comp_conn">Myth Comp Conn</option>
                         <option value="mural">Mural/Comic</option>
-                        <option value="bonus_work">Bonus Work</option>
+                        <option value="bonus_work">Student Created Bonus</option>
                         <option value="extra_credit">Extra Credit</option>
                         <option value="membean">Membean</option>
                         <option value="reading">Reading</option>
@@ -1685,76 +1685,75 @@
                 const content = document.getElementById('side-quest-content');
                 const countBadge = document.getElementById('side-quest-count');
                 
-                if (!data.pending || data.pending.length === 0) {
-                    content.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;">No pending side quest completions</div>';
-                    countBadge.style.display = 'none';
-                    return;
-                }
-                
-                countBadge.textContent = data.pending.length;
-                countBadge.style.display = 'inline';
-                
-                content.innerHTML = data.pending.map(sq => {
+                countBadge.textContent = data.pending ? data.pending.length : 0;
+                countBadge.style.display = (data.pending && data.pending.length > 0) ? 'inline' : 'none';
+
+                const buildCard = (sq, isPending) => {
                     const icon = QUEST_ICONS[sq.god_associated] || '🗺️';
+                    const buttons = isPending ? `
+                        <button onclick="approveSideQuest(${sq.completion_id})" style="
+                            background: linear-gradient(135deg, #22c55e, #16a34a);
+                            color: white; border: none; padding: 10px 16px; border-radius: 8px;
+                            cursor: pointer; font-weight: 700; font-size: 13px;
+                            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4); transition: all 0.2s ease;"
+                            onmouseover="this.style.transform='translateY(-2px)';"
+                            onmouseout="this.style.transform='translateY(0)';">✓ Approve</button>
+                        <button onclick="rejectSideQuest(${sq.completion_id})" style="
+                            background: linear-gradient(135deg, #ef4444, #dc2626);
+                            color: white; border: none; padding: 10px 16px; border-radius: 8px;
+                            cursor: pointer; font-weight: 700; font-size: 13px;
+                            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); transition: all 0.2s ease;"
+                            onmouseover="this.style.transform='translateY(-2px)';"
+                            onmouseout="this.style.transform='translateY(0)';">✕ Reject</button>
+                    ` : `
+                        <button onclick="unapproveSideQuest(${sq.completion_id})" style="
+                            background: linear-gradient(135deg, #f97316, #ea580c);
+                            color: white; border: none; padding: 10px 16px; border-radius: 8px;
+                            cursor: pointer; font-weight: 700; font-size: 13px;
+                            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4); transition: all 0.2s ease;"
+                            onmouseover="this.style.transform='translateY(-2px)';"
+                            onmouseout="this.style.transform='translateY(0)';">↩ Reverse</button>
+                    `;
+                    const borderColor = isPending ? 'rgba(139, 92, 246, 0.4)' : 'rgba(74,222,128,0.4)';
+                    const dateLine = isPending
+                        ? `Submitted ${new Date(sq.submitted_at).toLocaleDateString()}`
+                        : `Approved ${new Date(sq.reviewed_at).toLocaleDateString()}`;
                     return `
-                        <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(109, 40, 217, 0.1)); border: 1px solid rgba(139, 92, 246, 0.4); border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);">
+                        <div style="background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.1)); border: 1px solid ${borderColor}; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(139,92,246,0.2);">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
                                 <div style="flex: 1;">
                                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                                        <span style="font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${icon}</span>
+                                        <span style="font-size: 28px;">${icon}</span>
                                         <div>
-                                            <div style="font-weight: 700; color: #c4b5fd; font-size: 15px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${sq.quest_name}</div>
+                                            <div style="font-weight: 700; color: #c4b5fd; font-size: 15px;">${sq.quest_name}</div>
                                             <div style="font-size: 11px; color: rgba(255,255,255,0.5);">${sq.god_associated} Quest</div>
                                         </div>
                                     </div>
                                     <div style="font-size: 14px; color: #fff; margin-bottom: 4px;">
-                                        <strong style="color: #ffd700;">${sq.student_name}</strong> 
-                                        <span style="color: rgba(255,255,255,0.6);">from</span> 
+                                        <strong style="color: #ffd700;">${sq.student_name}</strong>
+                                        <span style="color: rgba(255,255,255,0.6);"> from </span>
                                         <strong style="color: #ffd700;">${sq.alliance_name}</strong>
                                     </div>
-                                    <div style="font-size: 11px; color: rgba(255,255,255,0.4);">
-                                        ${sq.class_period} • Submitted ${new Date(sq.submitted_at).toLocaleDateString()}
-                                    </div>
-                                    <div style="font-size: 12px; color: #4ade80; margin-top: 6px; font-weight: 600;">
-                                        🏆 Reward: ${sq.reward_name}
-                                    </div>
+                                    <div style="font-size: 11px; color: rgba(255,255,255,0.4);">${sq.class_period} • ${dateLine}</div>
+                                    <div style="font-size: 12px; color: #4ade80; margin-top: 6px; font-weight: 600;">🏆 Reward: ${sq.reward_name}</div>
                                 </div>
-                                <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
-                                    <button onclick="approveSideQuest(${sq.completion_id})" style="
-                                        background: linear-gradient(135deg, #22c55e, #16a34a);
-                                        color: white;
-                                        border: none;
-                                        padding: 10px 16px;
-                                        border-radius: 8px;
-                                        cursor: pointer;
-                                        font-weight: 700;
-                                        font-size: 13px;
-                                        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
-                                        transition: all 0.2s ease;
-                                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(34, 197, 94, 0.5)';"
-                                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(34, 197, 94, 0.4)';">
-                                        ✓ Approve
-                                    </button>
-                                    <button onclick="rejectSideQuest(${sq.completion_id})" style="
-                                        background: linear-gradient(135deg, #ef4444, #dc2626);
-                                        color: white;
-                                        border: none;
-                                        padding: 10px 16px;
-                                        border-radius: 8px;
-                                        cursor: pointer;
-                                        font-weight: 700;
-                                        font-size: 13px;
-                                        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-                                        transition: all 0.2s ease;
-                                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(239, 68, 68, 0.5)';"
-                                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(239, 68, 68, 0.4)';">
-                                        ✕ Reject
-                                    </button>
-                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">${buttons}</div>
                             </div>
-                        </div>
-                    `;
-                }).join('');
+                        </div>`;
+                };
+
+                const pendingHtml = (data.pending && data.pending.length > 0)
+                    ? data.pending.map(sq => buildCard(sq, true)).join('')
+                    : '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 15px;">No pending side quest completions</div>';
+
+                const approvedHtml = (data.approved && data.approved.length > 0)
+                    ? `<div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Recently Approved — click ↩ Reverse to undo</div>
+                        ${data.approved.map(sq => buildCard(sq, false)).join('')}
+                       </div>`
+                    : '';
+
+                content.innerHTML = pendingHtml + approvedHtml;
                 
             } catch (err) {
                 console.error('Failed to load side quest approvals:', err);
@@ -1809,6 +1808,29 @@
                 }
             } catch (err) {
                 alert('Failed to reject: ' + err.message);
+            }
+        }
+
+        // V91 FIX: Reverse an accidental side quest approval
+        async function unapproveSideQuest(completionId) {
+            if (!confirm('Reverse this approval?\n\nThe quest will return to Pending status and the student can access and resubmit it.')) {
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/teacher/unapprove-side-quest`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ completion_id: completionId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('✅ ' + result.message);
+                    loadSideQuestApprovals();
+                } else {
+                    alert('❌ ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to reverse approval: ' + err.message);
             }
         }
 
