@@ -5136,6 +5136,58 @@ app.post('/api/teacher/reject-side-quest', authenticateToken, (req, res) => {
 
 
 
+// V91 FIX: Shortkingslovetrump corruption fix — one-time surgical correction
+app.post('/api/admin/fix-shortkings', (req, res) => {
+  try {
+    if (req.query.key !== 'odyssey2026audit') {
+      return res.status(403).send('Access denied.');
+    }
+
+    // Verify the corrupt transactions still exist before touching anything
+    const corrupt1 = query('SELECT * FROM point_transactions WHERE transaction_id = 1223')[0];
+    const corrupt2 = query('SELECT * FROM point_transactions WHERE transaction_id = 1230')[0];
+
+    if (!corrupt1 && !corrupt2) {
+      return res.json({ message: 'No corrupt transactions found — fix may have already been applied.', alreadyFixed: true });
+    }
+
+    // Get alliance
+    const alliance = query("SELECT * FROM alliances WHERE LOWER(alliance_name) LIKE '%shortkings%'")[0];
+    if (!alliance) {
+      return res.status(404).json({ error: 'Shortkingslovetrump alliance not found' });
+    }
+
+    const oldTotal = alliance.total_points;
+
+    // Delete both corrupt transactions
+    if (corrupt1) run('DELETE FROM point_transactions WHERE transaction_id = 1223');
+    if (corrupt2) run('DELETE FROM point_transactions WHERE transaction_id = 1230');
+
+    // Set correct total to 750 (verified by full transaction analysis)
+    run('UPDATE alliances SET total_points = 750 WHERE alliance_id = ?', [alliance.alliance_id]);
+
+    // Log the correction cleanly
+    run(
+      'INSERT INTO point_transactions (alliance_id, amount, category, reason) VALUES (?, ?, ?, ?)',
+      [alliance.alliance_id, 0, 'correction', 'V91 surgical fix: deleted corrupt transactions 1223 and 1230, set total to 750 (verified by full audit 2/18/2026)']
+    );
+
+    saveDatabase();
+
+    res.json({
+      success: true,
+      alliance: alliance.alliance_name,
+      old_total: oldTotal,
+      new_total: 750,
+      deleted_transactions: [corrupt1 ? 1223 : null, corrupt2 ? 1230 : null].filter(Boolean),
+      message: 'Shortkingslovetrump corrected. Corrupt transactions deleted. Total set to 750.'
+    });
+  } catch (err) {
+    console.error('Shortkings fix error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // V91 TEMP: Bonus audit endpoint — READ ONLY, no data changes
 app.get('/api/admin/bonus-audit', (req, res) => {
   try {
