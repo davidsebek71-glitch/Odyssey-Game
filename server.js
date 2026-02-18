@@ -5201,6 +5201,42 @@ app.get('/api/admin/bonus-audit', (req, res) => {
       bldgRows += '<tr><td>' + r.alliance_name + '</td><td>' + (bldgs.length > 0 ? bldgs.join(', ') : '<em>none</em>') + '</td></tr>';
     });
 
+    // Shortkingslovetrump full transaction breakdown
+    const shortkings = query(`
+      SELECT 
+        pt.transaction_id,
+        s.name as student_name,
+        s.is_ghost,
+        pt.category,
+        pt.amount,
+        pt.reason,
+        pt.timestamp
+      FROM point_transactions pt
+      LEFT JOIN students s ON pt.student_id = s.student_id
+      JOIN alliances a ON pt.alliance_id = a.alliance_id
+      WHERE LOWER(a.alliance_name) LIKE '%shortkings%'
+      ORDER BY pt.timestamp ASC
+    `);
+
+    // Real sum ignoring the corrupt Carter quiz entry
+    const shortkindsRealSum = shortkings
+      .filter(r => Math.abs(r.amount) < 10000)
+      .reduce((sum, r) => sum + r.amount, 0);
+
+    let skRows = '';
+    shortkings.forEach(function(r) {
+      const corrupt = Math.abs(r.amount) > 10000;
+      const style = corrupt ? 'background:#4a0000;color:#ff6b6b;font-weight:bold;' : '';
+      skRows += '<tr style="' + style + '">'
+        + '<td>' + r.transaction_id + '</td>'
+        + '<td>' + (r.student_name || 'Alliance') + (r.is_ghost ? ' 👻' : '') + '</td>'
+        + '<td>' + r.category + '</td>'
+        + '<td>' + r.amount + (corrupt ? ' ⚠️ CORRUPT' : '') + '</td>'
+        + '<td>' + (r.reason || '-') + '</td>'
+        + '<td>' + new Date(r.timestamp).toLocaleDateString() + '</td>'
+        + '</tr>';
+    });
+
     const css = 'body{font-family:monospace;background:#1a1a2e;color:#e0e0e0;padding:20px}'
       + 'h1{color:#ffd700}h2{color:#c4b5fd;border-bottom:1px solid #444;padding-bottom:5px}'
       + 'table{border-collapse:collapse;width:100%;margin-bottom:30px;font-size:13px}'
@@ -5226,6 +5262,11 @@ app.get('/api/admin/bonus-audit', (req, res) => {
       + '<h2>Buildings Per Alliance</h2><table>'
       + '<tr><th>Alliance</th><th>Buildings Owned</th></tr>'
       + bldgRows + '</table>'
+      + '<h2 style="color:#ff6b6b;">🔧 Shortkingslovetrump — Full Transaction History</h2>'
+      + '<p class="note">All transactions for this alliance. Corrupt entries highlighted in red. '
+      + 'Calculated real total (excluding corrupt entries): <strong style="color:#ffd700">' + shortkindsRealSum + ' pts</strong></p>'
+      + '<table><tr><th>ID</th><th>Student</th><th>Category</th><th>Amount</th><th>Reason</th><th>Date</th></tr>'
+      + skRows + '</table>'
       + '</body></html>';
 
     res.send(html);
