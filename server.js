@@ -5137,7 +5137,7 @@ app.post('/api/teacher/reject-side-quest', authenticateToken, (req, res) => {
 
 
 // V91 FIX: Shortkingslovetrump corruption fix — one-time surgical correction
-app.post('/api/admin/fix-shortkings', (req, res) => {
+app.get('/api/admin/fix-shortkings', (req, res) => {
   try {
     if (req.query.key !== 'odyssey2026audit') {
       return res.status(403).send('Access denied.');
