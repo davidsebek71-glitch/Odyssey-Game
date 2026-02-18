@@ -1191,6 +1191,29 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: Demeter question -', e.message);
   }
+  // V91 FIX: Classical Age building prices increased by 55%
+  try {
+    db.run("UPDATE buildings_ref SET cost_points = 341 WHERE building_name = 'Transport Ship' AND cost_points IN (220, 308)");
+    db.run("UPDATE buildings_ref SET cost_points = 465 WHERE building_name = 'Armory' AND cost_points IN (300, 420)");
+    db.run("UPDATE buildings_ref SET cost_points = 186 WHERE building_name = 'Theater' AND cost_points IN (120, 168)");
+    db.run("UPDATE buildings_ref SET cost_points = 124 WHERE building_name = 'Agora' AND cost_points IN (80, 112)");
+    db.run("UPDATE buildings_ref SET cost_points = 232 WHERE building_name = 'Oracle' AND cost_points IN (150, 210)");
+    console.log('✅ Classical Age building prices increased by 55%');
+  } catch (e) {
+    console.log('Migration note: Classical building price update -', e.message);
+  }
+
+  // V91 FIX: Reduce Archaic tech bonuses from 10% to 3% (beta year rebalancing)
+  try {
+    db.run("UPDATE technologies_ref SET bonus_value = 0.03, description = 'Improves gold gather rate by +3%' WHERE tech_name = 'Pickaxe' AND bonus_value = 0.10");
+    db.run("UPDATE technologies_ref SET bonus_value = 0.03, description = 'Increases wood gather rate by +3%' WHERE tech_name = 'Handaxe' AND bonus_value = 0.10");
+    db.run("UPDATE technologies_ref SET bonus_value = 0.03, description = 'Increases hunting rate by +3%' WHERE tech_name = 'Hunting Dogs' AND bonus_value = 0.10");
+    db.run("UPDATE technologies_ref SET bonus_value = 0.03, description = 'Increases food production by +3%' WHERE tech_name = 'Husbandry' AND bonus_value = 0.10");
+    console.log('✅ Archaic tech bonuses reduced from 10% to 3%');
+  } catch (e) {
+    console.log('Migration note: tech bonus update -', e.message);
+  }
+
   // V91 FIX: Prometheus BioPoem bonus increased from 5 to 10 points
   try {
     db.run("UPDATE assignments_ref SET max_points = 10 WHERE section = 'bonus' AND myth_god = 'Prometheus' AND assignment_type = 'bonus'");
@@ -1267,10 +1290,10 @@ function seedReferenceData() {
       ['Olympic Parentage', 'earning_multiplier', 0.10, null, 'Complete Zeus extra credit', 'Zeus', 'Archaic', 'Increases defense by +10%'],
       ['Lord of Horses', 'earning_multiplier', 0.10, null, 'Complete Poseidon extra credit', 'Poseidon', 'Archaic', 'Increases attack/earning by +10%'],
       ['Vaults of Erebus', 'earning_multiplier', 0.15, 'membean', 'Complete Hades quiz and map', 'Hades', 'Archaic', 'Increases Membean scores by +15%'],
-      ['Pickaxe', 'earning_multiplier', 0.10, null, 'Complete Hephaestus side quest', 'Hephaestus', 'Archaic', 'Improves gold gather rate by +10%'],
-      ['Handaxe', 'earning_multiplier', 0.10, null, 'Complete Artemis side quest', 'Artemis', 'Archaic', 'Increases wood gather rate by +10%'],
-      ['Hunting Dogs', 'earning_multiplier', 0.10, null, 'Build Storehouse', 'Artemis', 'Archaic', 'Increases hunting rate by +10%'],
-      ['Husbandry', 'earning_multiplier', 0.10, null, 'Build Granary', 'Hermes', 'Archaic', 'Increases food production by +10%']
+      ['Pickaxe', 'earning_multiplier', 0.03, null, 'Complete Hephaestus side quest', 'Hephaestus', 'Archaic', 'Improves gold gather rate by +3%'],
+      ['Handaxe', 'earning_multiplier', 0.03, null, 'Complete Artemis side quest', 'Artemis', 'Archaic', 'Increases wood gather rate by +3%'],
+      ['Hunting Dogs', 'earning_multiplier', 0.03, null, 'Build Storehouse', 'Artemis', 'Archaic', 'Increases hunting rate by +3%'],
+      ['Husbandry', 'earning_multiplier', 0.03, null, 'Build Granary', 'Hermes', 'Archaic', 'Increases food production by +3%']
     ];
 
     technologies.forEach(t => {
@@ -1813,16 +1836,16 @@ function seedClassicalData() {
       // Need to get the building IDs for prerequisites
       // Town Center = 1, Library = 2, House = 3, Wooden Wall = 4, Stone Wall = 5, Dock = 6
       const classicalBuildings = [
-        // Transport Ship: 220 pts, requires Dock (6), Poseidon themed
-        ['Transport Ship', 220, 6, 'Poseidon', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Ocean-going vessel for trade and exploration. Requires Dock. Enables Classical trade routes.'],
-        // Armory: 300 pts, requires Library (2), Hephaestus themed, +150 battle bonus
-        ['Armory', 300, 2, 'Hephaestus', 0, 1, 'Classical', 150, 0, 0, 0, 1, 0, 'Weapons and armor forge. +150 battle bonus. Always active. Requires Library.'],
-        // Theater: 120 pts, requires Library (2), Apollo themed, +8% points
-        ['Theater', 120, 2, 'Apollo', 0, 1, 'Classical', 0, 0.08, 48, 72, 0, 0, 'Cultural center for drama and music. +8% point bonus when active. Requires Library.'],
-        // Agora: 80 pts, requires Town Center (1), Hermes themed
-        ['Agora', 80, 1, 'Hermes', 0, 1, 'Classical', 0, 0.05, 48, 48, 0, 0, 'Marketplace and civic center. +5% point bonus when active. Requires Town Center.'],
-        // Oracle: 150 pts, requires Stone Wall (5), Apollo themed
-        ['Oracle', 150, 5, 'Apollo', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Sacred prophecy site. Grants 1 free fate re-spin per week. Requires Stone Wall.']
+        // Transport Ship: 308 pts (was 220, +55% V91 rebalance), requires Dock (6), Poseidon themed
+        ['Transport Ship', 341, 6, 'Poseidon', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Ocean-going vessel for trade and exploration. Requires Dock. Enables Classical trade routes.'],
+        // Armory: 420 pts (was 300, +55% V91 rebalance), requires Library (2), Hephaestus themed, +150 battle bonus
+        ['Armory', 465, 2, 'Hephaestus', 0, 1, 'Classical', 150, 0, 0, 0, 1, 0, 'Weapons and armor forge. +150 battle bonus. Always active. Requires Library.'],
+        // Theater: 168 pts (was 120, +55% V91 rebalance), requires Library (2), Apollo themed, +8% points
+        ['Theater', 186, 2, 'Apollo', 0, 1, 'Classical', 0, 0.08, 48, 72, 0, 0, 'Cultural center for drama and music. +8% point bonus when active. Requires Library.'],
+        // Agora: 112 pts (was 80, +55% V91 rebalance), requires Town Center (1), Hermes themed
+        ['Agora', 124, 1, 'Hermes', 0, 1, 'Classical', 0, 0.05, 48, 48, 0, 0, 'Marketplace and civic center. +5% point bonus when active. Requires Town Center.'],
+        // Oracle: 210 pts (was 150, +55% V91 rebalance), requires Stone Wall (5), Apollo themed
+        ['Oracle', 232, 5, 'Apollo', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Sacred prophecy site. Grants 1 free fate re-spin per week. Requires Stone Wall.']
       ];
 
       classicalBuildings.forEach(b => {
