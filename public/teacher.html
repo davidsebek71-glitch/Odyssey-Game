@@ -501,9 +501,45 @@
 
         .fate-wheel-container {
             position: relative;
-            width: 420px;
-            height: 420px;
+            width: 504px;
+            height: 504px;
             margin: 20px auto;
+            filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.4));
+        }
+
+        /* Fullscreen spinning mode */
+        .fate-modal.fullscreen-spin {
+            padding: 0;
+        }
+        .fate-modal.fullscreen-spin .modal-content {
+            max-width: 100vw !important;
+            width: 100vw !important;
+            max-height: 100vh !important;
+            height: 100vh !important;
+            border-radius: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(ellipse at center, #2a0a14 0%, #1a0208 50%, #000 100%) !important;
+        }
+        .fate-modal.fullscreen-spin .fate-wheel-container {
+            width: min(70vh, 600px);
+            height: min(70vh, 600px);
+            filter: drop-shadow(0 0 50px rgba(255, 215, 0, 0.6));
+        }
+        .fate-modal.fullscreen-spin canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 30px rgba(255,215,0,0.4)); }
+            50% { filter: drop-shadow(0 0 60px rgba(255,107,53,0.8)); }
+        }
+        .fate-wheel-container.spinning-glow {
+            animation: pulseGlow 0.8s ease-in-out infinite;
         }
 
         .fate-wheel {
@@ -527,16 +563,16 @@
 
         .fate-wheel-pointer {
             position: absolute;
-            top: -30px;
+            top: -20px;
             left: 50%;
             transform: translateX(-50%);
             width: 0;
             height: 0;
-            border-left: 20px solid transparent;
-            border-right: 20px solid transparent;
-            border-top: 40px solid #ffd700;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 24px solid #ffd700;
             z-index: 10;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
         }
 
         .fate-result-card {
@@ -1354,8 +1390,8 @@
 
     <!-- FATE WHEEL MODAL -->
     <div id="fate-wheel-modal" class="modal fate-modal">
-        <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
-            <div class="modal-title">🎡 WHEEL OF FATE 🎡</div>
+        <div class="modal-content" style="max-width: 780px; max-height: 92vh; overflow-y: auto; background: radial-gradient(ellipse at top, #2a0a14 0%, #1a0a0f 60%, #0d0508 100%); border: 2px solid rgba(255,215,0,0.3); box-shadow: 0 0 60px rgba(196,30,58,0.4), inset 0 0 60px rgba(0,0,0,0.5);">
+            <div class="modal-title" style="font-size: 36px; letter-spacing: 3px; text-shadow: 0 0 30px rgba(255,215,0,0.8), 0 0 60px rgba(255,100,50,0.4);">⚡ WHEEL OF FATE ⚡</div>
             
             <!-- STEP 1: Alliance Selection -->
             <div id="alliance-selection-step">
@@ -1391,11 +1427,11 @@
 
                 <div class="fate-wheel-container">
                     <div class="fate-wheel-pointer"></div>
-                    <canvas id="fate-wheel-canvas" width="420" height="420"></canvas>
+                    <canvas id="fate-wheel-canvas" width="504" height="504"></canvas>
                 </div>
 
                 <div style="text-align: center; margin-top: 30px;">
-                    <button type="button" class="btn-fate" id="spin-button" onclick="doSpin()">
+                    <button type="button" class="btn-fate" id="spin-button" onclick="doSpin()" style="font-size: 22px; padding: 18px 60px; letter-spacing: 4px; background: linear-gradient(135deg, #c41e3a 0%, #ff6b35 50%, #ffd700 100%); box-shadow: 0 0 30px rgba(255,107,53,0.6), 0 4px 20px rgba(0,0,0,0.4); border: 2px solid rgba(255,215,0,0.5); transition: all 0.2s; text-shadow: 0 2px 4px rgba(0,0,0,0.5);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 50px rgba(255,107,53,0.9)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 0 30px rgba(255,107,53,0.6)';">
                         🌟 SPIN! 🌟
                     </button>
                 </div>
@@ -3005,9 +3041,10 @@
         let currentFateAge = 'Archaic'; // Track selected fate age
         
         async function openFateWheelModal() {
-            // Reset to selection step
+            // Reset to selection step (ensure fullscreen is cleared)
             document.getElementById('alliance-selection-step').style.display = 'block';
             document.getElementById('spinning-wheel-step').style.display = 'none';
+            document.getElementById('fate-wheel-modal').classList.remove('fullscreen-spin');
             
             document.getElementById('fate-wheel-modal').classList.add('show');
             
@@ -3062,6 +3099,7 @@
 
         function closeFateWheelModal() {
             document.getElementById('fate-wheel-modal').classList.remove('show');
+            document.getElementById('fate-wheel-modal').classList.remove('fullscreen-spin');
             document.getElementById('alliance-selection-step').style.display = 'block';
             document.getElementById('spinning-wheel-step').style.display = 'none';
         }
@@ -3110,10 +3148,11 @@
             selectedAllianceId = allianceId;
             selectedAllianceName = select.options[select.selectedIndex].dataset.name;
 
-            // Show wheel step
+            // Show wheel step — go fullscreen
             document.getElementById('alliance-selection-step').style.display = 'none';
             document.getElementById('spinning-wheel-step').style.display = 'block';
             document.getElementById('selected-alliance-name').textContent = selectedAllianceName;
+            document.getElementById('fate-wheel-modal').classList.add('fullscreen-spin');
 
             // Apply age-themed styling
             const isClassical = currentFateAge === 'Classical';
@@ -3179,14 +3218,39 @@
                 wheelContext.restore();
             }
 
-            // Center circle
-            wheelContext.fillStyle = centerBg;
+            // Outer decorative ring
+            wheelContext.strokeStyle = borderColor;
+            wheelContext.lineWidth = 6;
+            wheelContext.shadowColor = borderColor;
+            wheelContext.shadowBlur = 20;
             wheelContext.beginPath();
-            wheelContext.arc(centerX, centerY, 40, 0, 2 * Math.PI);
+            wheelContext.arc(centerX, centerY, radius + 4, 0, 2 * Math.PI);
+            wheelContext.stroke();
+            wheelContext.shadowBlur = 0;
+
+            // Inner ring accent
+            wheelContext.strokeStyle = 'rgba(255,255,255,0.15)';
+            wheelContext.lineWidth = 2;
+            wheelContext.beginPath();
+            wheelContext.arc(centerX, centerY, radius - 20, 0, 2 * Math.PI);
+            wheelContext.stroke();
+
+            // Center circle with glow
+            wheelContext.shadowColor = borderColor;
+            wheelContext.shadowBlur = 15;
+            wheelContext.fillStyle = borderColor;
+            wheelContext.beginPath();
+            wheelContext.arc(centerX, centerY, 44, 0, 2 * Math.PI);
+            wheelContext.fill();
+            wheelContext.shadowBlur = 0;
+
+            wheelContext.fillStyle = '#1a0a0f';
+            wheelContext.beginPath();
+            wheelContext.arc(centerX, centerY, 38, 0, 2 * Math.PI);
             wheelContext.fill();
             
-            wheelContext.fillStyle = centerText;
-            wheelContext.font = 'bold 20px Inter';
+            wheelContext.fillStyle = borderColor;
+            wheelContext.font = 'bold 18px Inter';
             wheelContext.textAlign = 'center';
             wheelContext.textBaseline = 'middle';
             wheelContext.fillText('FATE', centerX, centerY);
@@ -3199,6 +3263,9 @@
             const spinButton = document.getElementById('spin-button');
             spinButton.disabled = true;
             spinButton.textContent = 'SPINNING...';
+
+            // Add pulsing glow while spinning
+            document.querySelector('.fate-wheel-container').classList.add('spinning-glow');
 
             // Update cooldown - increment spinsAgo for all recent fates
             recentFates = recentFates
@@ -3277,6 +3344,7 @@
                     currentRotation = currentRotation % (2 * Math.PI);
                     
                     spinning = false;
+            document.querySelector('.fate-wheel-container').classList.remove('spinning-glow');
                     spinButton.disabled = false;
                     spinButton.textContent = '🌟 SPIN! 🌟';
                     
@@ -3305,8 +3373,9 @@
                     return;
                 }
                 
-                // Close wheel modal
+                // Close wheel modal and exit fullscreen
                 document.getElementById('fate-wheel-modal').classList.remove('show');
+                document.getElementById('fate-wheel-modal').classList.remove('fullscreen-spin');
                 
                 // Route based on fate type
                 if (fate.is_battle === 1) {
