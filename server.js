@@ -5100,6 +5100,8 @@ app.post('/api/teacher/reject-side-quest', authenticateToken, (req, res) => {
   }
 });
 
+
+
 // V91 TEMP: Bonus audit endpoint — READ ONLY, no data changes
 app.get('/api/admin/bonus-audit', authenticateToken, (req, res) => {
   try {
@@ -5107,12 +5109,9 @@ app.get('/api/admin/bonus-audit', authenticateToken, (req, res) => {
       return res.status(403).json({ error: 'Teachers only' });
     }
 
-    // Alliance summary
     const allianceSummary = query(`
       SELECT 
-        a.alliance_name,
-        a.class_period,
-        a.total_points as current_total,
+        a.alliance_name, a.class_period, a.total_points as current_total,
         COUNT(pt.transaction_id) as total_transactions,
         SUM(CASE WHEN pt.amount > 0 THEN pt.amount ELSE 0 END) as total_earned,
         SUM(CASE WHEN pt.amount < 0 THEN ABS(pt.amount) ELSE 0 END) as total_lost,
@@ -5126,32 +5125,24 @@ app.get('/api/admin/bonus-audit', authenticateToken, (req, res) => {
         SUM(CASE WHEN pt.category = 'battle' THEN pt.amount ELSE 0 END) as battle_pts
       FROM alliances a
       LEFT JOIN point_transactions pt ON a.alliance_id = pt.alliance_id
-      WHERE a.is_disbanded = 0 OR a.is_disbanded IS NULL
+      WHERE (a.is_disbanded = 0 OR a.is_disbanded IS NULL)
       GROUP BY a.alliance_id, a.alliance_name, a.class_period, a.total_points
       ORDER BY a.total_points DESC
     `);
 
-    // Potentially inflated awards (individual awards above expected base values)
     const suspicious = query(`
-      SELECT 
-        s.name as student_name,
-        a.alliance_name,
-        a.class_period,
-        pt.category,
-        pt.amount,
-        pt.reason,
-        pt.timestamp
+      SELECT s.name as student_name, a.alliance_name, a.class_period,
+             pt.category, pt.amount, pt.reason, pt.timestamp
       FROM point_transactions pt
       JOIN students s ON pt.student_id = s.student_id
       JOIN alliances a ON pt.alliance_id = a.alliance_id
       WHERE pt.amount > 12
-        AND pt.category NOT IN ('fate', 'battle', 'building_purchase', 'citizenship', 'reading')
+        AND pt.category NOT IN ('fate','battle','building_purchase','citizenship','reading')
         AND pt.student_id IS NOT NULL
       ORDER BY pt.amount DESC
       LIMIT 50
     `);
 
-    // Tech bonuses in use
     const techBonuses = query(`
       SELECT tech_name, COUNT(*) as student_count, bonus_value, bonus_type
       FROM alliance_technologies
@@ -5159,89 +5150,81 @@ app.get('/api/admin/bonus-audit', authenticateToken, (req, res) => {
       ORDER BY student_count DESC
     `);
 
-    // Buildings owned per alliance
     const buildings = query(`
       SELECT a.alliance_name, a.buildings_owned
-      FROM alliances a
-      WHERE a.is_disbanded = 0 OR a.is_disbanded IS NULL
+      FROM alliances a WHERE (a.is_disbanded = 0 OR a.is_disbanded IS NULL)
     `);
 
-    // HTML response for easy reading in browser
-    const html = \`<!DOCTYPE html>
-<html><head><title>Odyssey Bonus Audit</title>
-<style>
-  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
-  h1 { color: #ffd700; } h2 { color: #c4b5fd; border-bottom: 1px solid #444; padding-bottom: 5px; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 30px; font-size: 13px; }
-  th { background: #2d2d4e; color: #ffd700; padding: 8px; text-align: left; }
-  td { padding: 6px 8px; border-bottom: 1px solid #333; }
-  tr:hover td { background: rgba(255,255,255,0.05); }
-  .warn { color: #f97316; font-weight: bold; }
-  .ok { color: #4ade80; }
-  .note { color: #94a3b8; font-size: 12px; margin-bottom: 15px; }
-</style></head><body>
-<h1>🏛️ Odyssey Bonus Audit — \${new Date().toLocaleString()}</h1>
-<p class="note">READ ONLY — no data was changed. Copy this page and paste into chat.</p>
+    let rows = '';
+    allianceSummary.forEach(function(r) {
+      rows += '<tr><td>' + r.alliance_name + '</td><td>' + (r.class_period||'-') + '</td>';
+      rows += '<td><strong>' + r.current_total + '</strong></td>';
+      rows += '<td style="color:#4ade80">' + (r.total_earned||0) + '</td>';
+      rows += '<td style="color:#f97316">' + (r.total_lost||0) + '</td>';
+      rows += '<td>' + (r.quiz_pts||0) + '</td><td>' + (r.comp_pts||0) + '</td>';
+      rows += '<td>' + (r.extra_credit_pts||0) + '</td><td>' + (r.bonus_work_pts||0) + '</td>';
+      rows += '<td>' + (r.membean_pts||0) + '</td><td>' + (r.citizenship_pts||0) + '</td>';
+      rows += '<td>' + (r.fate_pts||0) + '</td><td>' + (r.battle_pts||0) + '</td></tr>';
+    });
 
-<h2>Alliance Point Summary (sorted by total points)</h2>
-<table>
-  <tr><th>Alliance</th><th>Period</th><th>Current Total</th><th>Total Earned</th><th>Total Lost</th><th>Quiz</th><th>Comp Conn</th><th>Extra Credit</th><th>Bonus Work</th><th>Membean</th><th>Citizenship</th><th>Fate</th><th>Battle</th></tr>
-  \${allianceSummary.map(r => \`<tr>
-    <td>\${r.alliance_name}</td>
-    <td>\${r.class_period || '-'}</td>
-    <td><strong>\${r.current_total}</strong></td>
-    <td class="ok">\${r.total_earned || 0}</td>
-    <td class="warn">\${r.total_lost || 0}</td>
-    <td>\${r.quiz_pts || 0}</td>
-    <td>\${r.comp_pts || 0}</td>
-    <td>\${r.extra_credit_pts || 0}</td>
-    <td>\${r.bonus_work_pts || 0}</td>
-    <td>\${r.membean_pts || 0}</td>
-    <td>\${r.citizenship_pts || 0}</td>
-    <td>\${r.fate_pts || 0}</td>
-    <td>\${r.battle_pts || 0}</td>
-  </tr>\`).join('')}
-</table>
+    let suspRows = '';
+    if (suspicious.length === 0) {
+      suspRows = '<tr><td colspan="7" style="color:#4ade80">No awards over 12 pts found</td></tr>';
+    } else {
+      suspicious.forEach(function(r) {
+        const highlight = r.amount > 25 ? 'color:#f97316;font-weight:bold' : '';
+        suspRows += '<tr><td>' + r.student_name + '</td><td>' + r.alliance_name + '</td>';
+        suspRows += '<td>' + r.class_period + '</td><td>' + r.category + '</td>';
+        suspRows += '<td style="' + highlight + '">' + r.amount + '</td>';
+        suspRows += '<td>' + (r.reason||'-') + '</td>';
+        suspRows += '<td>' + new Date(r.timestamp).toLocaleDateString() + '</td></tr>';
+      });
+    }
 
-<h2>⚠️ Potentially Inflated Awards (individual awards > 12 pts)</h2>
-<p class="note">These may be legitimate (videos=22pts, comp conn=10pts base + bonuses) or inflated. Review manually.</p>
-<table>
-  <tr><th>Student</th><th>Alliance</th><th>Period</th><th>Category</th><th>Amount</th><th>Reason</th><th>Date</th></tr>
-  \${suspicious.length === 0 
-    ? '<tr><td colspan="7" style="color:#4ade80;">✅ No suspicious awards found</td></tr>'
-    : suspicious.map(r => \`<tr>
-      <td>\${r.student_name}</td>
-      <td>\${r.alliance_name}</td>
-      <td>\${r.class_period}</td>
-      <td>\${r.category}</td>
-      <td class="\${r.amount > 25 ? 'warn' : ''}">\${r.amount}</td>
-      <td>\${r.reason || '-'}</td>
-      <td>\${new Date(r.timestamp).toLocaleDateString()}</td>
-    </tr>\`).join('')}
-</table>
+    let techRows = '';
+    if (techBonuses.length === 0) {
+      techRows = '<tr><td colspan="4" style="color:#94a3b8">No tech bonuses active</td></tr>';
+    } else {
+      techBonuses.forEach(function(r) {
+        techRows += '<tr><td>' + r.tech_name + '</td><td>' + r.student_count + '</td>';
+        techRows += '<td style="color:#f97316">+' + Math.round((r.bonus_value||0)*100) + '%</td>';
+        techRows += '<td>' + r.bonus_type + '</td></tr>';
+      });
+    }
 
-<h2>Tech Bonuses Active</h2>
-<table>
-  <tr><th>Technology</th><th>Students Using</th><th>Bonus Value</th><th>Type</th></tr>
-  \${techBonuses.map(r => \`<tr>
-    <td>\${r.tech_name}</td>
-    <td>\${r.student_count}</td>
-    <td class="warn">+\${Math.round((r.bonus_value || 0) * 100)}%</td>
-    <td>\${r.bonus_type}</td>
-  </tr>\`).join('')}
-</table>
+    let bldgRows = '';
+    buildings.forEach(function(r) {
+      var bldgs = [];
+      try { bldgs = JSON.parse(r.buildings_owned || '[]'); } catch(e) {}
+      bldgRows += '<tr><td>' + r.alliance_name + '</td><td>' + (bldgs.length > 0 ? bldgs.join(', ') : '<em>none</em>') + '</td></tr>';
+    });
 
-<h2>Buildings Owned Per Alliance</h2>
-<table>
-  <tr><th>Alliance</th><th>Buildings</th></tr>
-  \${buildings.map(r => {
-    let bldgs = [];
-    try { bldgs = JSON.parse(r.buildings_owned || '[]'); } catch(e) {}
-    return \`<tr><td>\${r.alliance_name}</td><td>\${bldgs.length > 0 ? bldgs.join(', ') : '<em>none</em>'}</td></tr>\`;
-  }).join('')}
-</table>
+    const css = 'body{font-family:monospace;background:#1a1a2e;color:#e0e0e0;padding:20px}'
+      + 'h1{color:#ffd700}h2{color:#c4b5fd;border-bottom:1px solid #444;padding-bottom:5px}'
+      + 'table{border-collapse:collapse;width:100%;margin-bottom:30px;font-size:13px}'
+      + 'th{background:#2d2d4e;color:#ffd700;padding:8px;text-align:left}'
+      + 'td{padding:6px 8px;border-bottom:1px solid #333}'
+      + '.note{color:#94a3b8;font-size:12px;margin-bottom:15px}';
 
-</body></html>\`;
+    const html = '<!DOCTYPE html><html><head><title>Odyssey Bonus Audit</title><style>' + css + '</style></head><body>'
+      + '<h1>Odyssey Bonus Audit - ' + new Date().toLocaleString() + '</h1>'
+      + '<p class="note">READ ONLY - no data changed. Copy this page and paste into chat.</p>'
+      + '<h2>Alliance Point Summary (sorted by total points)</h2><table>'
+      + '<tr><th>Alliance</th><th>Period</th><th>Current Total</th><th>Earned</th><th>Lost</th>'
+      + '<th>Quiz</th><th>Comp Conn</th><th>Extra Credit</th><th>Bonus Work</th>'
+      + '<th>Membean</th><th>Citizenship</th><th>Fate</th><th>Battle</th></tr>'
+      + rows + '</table>'
+      + '<h2>Awards Over 12 pts (possible inflation)</h2>'
+      + '<p class="note">Videos (22pts) are legitimate. Review anything else over 15pts carefully.</p>'
+      + '<table><tr><th>Student</th><th>Alliance</th><th>Period</th><th>Category</th><th>Amount</th><th>Reason</th><th>Date</th></tr>'
+      + suspRows + '</table>'
+      + '<h2>Active Tech Bonuses</h2><table>'
+      + '<tr><th>Technology</th><th>Students Using</th><th>Bonus</th><th>Type</th></tr>'
+      + techRows + '</table>'
+      + '<h2>Buildings Per Alliance</h2><table>'
+      + '<tr><th>Alliance</th><th>Buildings Owned</th></tr>'
+      + bldgRows + '</table>'
+      + '</body></html>';
 
     res.send(html);
   } catch (err) {
