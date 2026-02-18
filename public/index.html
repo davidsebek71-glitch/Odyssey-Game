@@ -401,20 +401,9 @@
                 tab.classList.add('active');
                 userType = tab.dataset.type;
                 
-                // For students: check if they've registered before
-                if (userType === 'student') {
-                    const hasRegistered = localStorage.getItem('studentHasRegistered');
-                    if (hasRegistered) {
-                        // Returning student - show login
-                        setLoginMode();
-                    } else {
-                        // New student - show register
-                        setRegisterMode();
-                    }
-                } else {
-                    // Teacher - default to login
-                    setLoginMode();
-                }
+                // Always default to login when switching tabs
+                // Students use "Register here" link at the bottom if they need to register
+                setLoginMode();
                 
                 // Show/hide class period based on user type and mode
                 updateClassPeriodVisibility();
