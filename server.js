@@ -3953,7 +3953,7 @@ app.get('/api/student/available-buildings', authenticateToken, (req, res) => {
 // Teacher: Get age gate status and alliance readiness for all periods
 app.get('/api/teacher/age-gates', authenticateToken, (req, res) => {
   try {
-    const periods = ['1st', '2nd', '3rd', '4th'];
+    const periods = ['1st', '2nd', '3rd', '4th', 'Test'];
     
     // Ensure all gates exist
     periods.forEach(p => ensureAgeGate(p));
@@ -7982,10 +7982,13 @@ app.get('/api/health', (req, res) => {
 
 // Diagnostic: Check Classical bonus assignments in database
 // ==================== TRADE SYSTEM ENDPOINTS ====================
+// Revised design: No shared pool. Students buy directly into personal inventory.
+// Spending cap based on individual contribution to alliance.
 
 const TRADE_RESOURCES = ['olive', 'grape', 'iron', 'grain'];
 const TRADE_RESOURCE_LABELS = { olive: '🫒 Olive Oil', grape: '🍇 Grapes', iron: '⚒️ Iron', grain: '🌾 Grain' };
 const RESOURCE_BUY_RATE = 10; // 1 alliance point = 10 resource units
+const DEFAULT_RESOURCE_THRESHOLD = 500; // configurable per period
 
 // Helper: ensure student_resources row exists
 function ensureStudentResources(student_id) {
@@ -7995,11 +7998,63 @@ function ensureStudentResources(student_id) {
   }
 }
 
-// Helper: ensure alliance_resources row exists
-function ensureAllianceResources(alliance_id) {
-  const existing = query('SELECT alliance_id FROM alliance_resources WHERE alliance_id = ?', [alliance_id])[0];
-  if (!existing) return null; // Must be assigned first
-  return existing;
+// Helper: get a student's personal contribution to their alliance
+function getStudentContribution(student_id) {
+  const result = query(
+    "SELECT COALESCE(SUM(amount), 0) as total FROM point_transactions WHERE student_id = ? AND amount > 0",
+    [student_id]
+  )[0];
+  return result ? result.total : 0;
+}
+
+// Helper: get how much a student has already spent on resources
+function getStudentResourceSpending(student_id) {
+  const result = query(
+    "SELECT COALESCE(SUM(points_spent), 0) as total FROM resource_buys WHERE student_id = ?",
+    [student_id]
+  )[0];
+  return result ? result.total : 0;
+}
+
+// Helper: get configured threshold for a period (default 500)
+function getResourceThreshold(period) {
+  const tw = query('SELECT resource_threshold FROM trade_window WHERE period = ?', [period])[0];
+  return (tw && tw.resource_threshold) ? tw.resource_threshold : DEFAULT_RESOURCE_THRESHOLD;
+}
+
+// Helper: Calculate market values for a period
+function getMarketValues(period) {
+  const alliances = query('SELECT alliance_id FROM alliances WHERE class_period = ? AND is_disbanded = 0', [period]);
+  if (alliances.length === 0) return { olive: 10, grape: 10, iron: 10, grain: 10 };
+  
+  const allianceIds = alliances.map(a => a.alliance_id);
+  const placeholders = allianceIds.map(() => '?').join(',');
+  
+  // Total in personal inventories for this period
+  const personal = query(`SELECT SUM(sr.olive) as po, SUM(sr.grape) as pg, SUM(sr.iron) as pi, SUM(sr.grain) as pgr
+    FROM student_resources sr JOIN students s ON sr.student_id = s.student_id
+    WHERE s.alliance_id IN (${placeholders})`, allianceIds)[0];
+  
+  const totalHeld = {
+    olive: personal?.po || 0,
+    grape: personal?.pg || 0,
+    iron: personal?.pi || 0,
+    grain: personal?.pgr || 0
+  };
+  
+  const totalAll = totalHeld.olive + totalHeld.grape + totalHeld.iron + totalHeld.grain;
+  if (totalAll === 0) return { olive: 10, grape: 10, iron: 10, grain: 10 };
+  
+  const avg = totalAll / 4;
+  const values = {};
+  TRADE_RESOURCES.forEach(r => {
+    const held = totalHeld[r];
+    if (avg === 0) { values[r] = 10; return; }
+    const ratio = held / avg;
+    values[r] = Math.round(Math.max(5, Math.min(15, 10 / ratio)) * 10) / 10;
+  });
+  
+  return values;
 }
 
 // --- Teacher: Assign native resources to alliances ---
@@ -8012,7 +8067,6 @@ app.post('/api/trade/assign-resources', authenticateToken, (req, res) => {
     const alliances = query('SELECT alliance_id, alliance_name FROM alliances WHERE class_period = ? AND is_disbanded = 0', [period]);
     if (alliances.length === 0) return res.status(400).json({ error: 'No alliances found for this period' });
     
-    // Shuffle resources and assign round-robin
     const shuffled = [...TRADE_RESOURCES].sort(() => Math.random() - 0.5);
     const assignments = [];
     
@@ -8027,7 +8081,7 @@ app.post('/api/trade/assign-resources', authenticateToken, (req, res) => {
       assignments.push({ alliance_id: a.alliance_id, alliance_name: a.alliance_name, native_resource: resource });
     });
     
-    // Ensure trade window row exists for this period
+    // Ensure trade window row exists
     const tw = query('SELECT period FROM trade_window WHERE period = ?', [period])[0];
     if (!tw) run('INSERT INTO trade_window (period, is_open) VALUES (?, 0)', [period]);
     
@@ -8073,7 +8127,7 @@ app.get('/api/trade/assignments', authenticateToken, (req, res) => {
   try {
     const data = query(`
       SELECT a.alliance_id, a.alliance_name, a.class_period, a.total_points,
-             ar.native_resource, ar.pool_olive, ar.pool_grape, ar.pool_iron, ar.pool_grain
+             ar.native_resource
       FROM alliances a
       LEFT JOIN alliance_resources ar ON a.alliance_id = ar.alliance_id
       WHERE a.is_disbanded = 0
@@ -8118,7 +8172,29 @@ app.post('/api/trade/window/:action', authenticateToken, (req, res) => {
   }
 });
 
-// --- Student: Get my trade data (inventory, alliance pool, market) ---
+// --- Teacher: Set resource threshold for a period ---
+app.post('/api/trade/set-threshold', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const { period, threshold } = req.body;
+    if (!period || !threshold || threshold < 1) return res.status(400).json({ error: 'Valid period and threshold required' });
+    
+    const existing = query('SELECT period FROM trade_window WHERE period = ?', [period])[0];
+    if (existing) {
+      run('UPDATE trade_window SET resource_threshold = ? WHERE period = ?', [threshold, period]);
+    } else {
+      run('INSERT INTO trade_window (period, is_open, resource_threshold) VALUES (?, 0, ?)', [period, threshold]);
+    }
+    
+    saveDatabase();
+    res.json({ success: true, period, threshold });
+  } catch (err) {
+    console.error('Set threshold error:', err);
+    res.status(500).json({ error: 'Failed to set threshold' });
+  }
+});
+
+// --- Student: Get my trade data (inventory, spending cap, market) ---
 app.get('/api/trade/my-data', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
@@ -8126,16 +8202,20 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.alliance_id) return res.status(400).json({ error: 'You must be in an alliance' });
     
-    // Get alliance info and native resource
     const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
     const allianceRes = query('SELECT * FROM alliance_resources WHERE alliance_id = ?', [student.alliance_id])[0];
     if (!allianceRes) return res.json({ error: 'Trade system not yet set up for your alliance', not_assigned: true });
     
-    // Ensure personal inventory exists
+    // Personal inventory
     ensureStudentResources(student_id);
     const myResources = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
     
-    // Get alliance teammates' inventories
+    // Spending cap
+    const contribution = getStudentContribution(student_id);
+    const alreadySpent = getStudentResourceSpending(student_id);
+    const remainingCap = Math.max(0, contribution - alreadySpent);
+    
+    // Teammates
     const teammates = query(`
       SELECT s.student_id, s.name, sr.olive, sr.grape, sr.iron, sr.grain
       FROM students s
@@ -8143,14 +8223,15 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       WHERE s.alliance_id = ? AND s.student_id != ?
     `, [student.alliance_id, student_id]);
     
-    // Trade window status
+    // Trade window
     const window = query('SELECT * FROM trade_window WHERE period = ?', [student.class_period])[0];
+    const threshold = getResourceThreshold(student.class_period);
     
-    // Check Transport Ship prerequisite
+    // Transport Ship check
     const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
     const hasTransportShip = ownedBuildings.includes('Transport Ship');
     
-    // Pending trades for this student
+    // Pending trades
     const pendingTrades = query(`
       SELECT t.*, 
              si.name as initiator_name, sp.name as partner_name
@@ -8167,21 +8248,22 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       alliance_name: alliance.alliance_name,
       alliance_points: alliance.total_points,
       native_resource: allianceRes.native_resource,
-      alliance_pool: {
-        olive: allianceRes.pool_olive,
-        grape: allianceRes.pool_grape,
-        iron: allianceRes.pool_iron,
-        grain: allianceRes.pool_grain
-      },
       my_resources: {
         olive: myResources.olive,
         grape: myResources.grape,
         iron: myResources.iron,
         grain: myResources.grain
       },
+      spending: {
+        contribution,
+        already_spent: alreadySpent,
+        remaining_cap: remainingCap,
+        max_units: remainingCap * RESOURCE_BUY_RATE
+      },
       teammates,
       trade_window_open: window ? window.is_open === 1 : false,
       has_transport_ship: hasTransportShip,
+      resource_threshold: threshold,
       pending_trades: pendingTrades
     });
   } catch (err) {
@@ -8190,8 +8272,8 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
   }
 });
 
-// --- Student: Propose buying native resource for alliance ---
-app.post('/api/trade/buy-propose', authenticateToken, (req, res) => {
+// --- Student: Buy native resource (direct to personal inventory) ---
+app.post('/api/trade/buy', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
     const { points_to_spend } = req.body;
@@ -8202,236 +8284,58 @@ app.post('/api/trade/buy-propose', authenticateToken, (req, res) => {
     if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
     
     const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-    if (alliance.total_points < points_to_spend) return res.status(400).json({ error: `Alliance only has ${alliance.total_points} points` });
+    if (alliance.total_points < points_to_spend) {
+      return res.status(400).json({ error: `Alliance only has ${alliance.total_points} points` });
+    }
     
     const allianceRes = query('SELECT native_resource FROM alliance_resources WHERE alliance_id = ?', [student.alliance_id])[0];
     if (!allianceRes) return res.status(400).json({ error: 'Trade system not set up for your alliance' });
     
-    // Check for existing pending purchase
-    const pending = query("SELECT purchase_id FROM resource_purchases WHERE alliance_id = ? AND vote_status = 'proposed'", [student.alliance_id])[0];
-    if (pending) return res.status(400).json({ error: 'Your alliance already has a pending purchase vote' });
+    // Check spending cap
+    const contribution = getStudentContribution(student_id);
+    const alreadySpent = getStudentResourceSpending(student_id);
+    const remainingCap = Math.max(0, contribution - alreadySpent);
     
-    const units = points_to_spend * RESOURCE_BUY_RATE;
-    
-    run(`INSERT INTO resource_purchases (alliance_id, resource_type, amount, points_spent, proposed_by, votes_for)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      [student.alliance_id, allianceRes.native_resource, units, points_to_spend, student_id, JSON.stringify([student_id])]);
-    
-    saveDatabase();
-    
-    const memberCount = query('SELECT COUNT(*) as c FROM students WHERE alliance_id = ?', [student.alliance_id])[0].c;
-    const needed = Math.ceil(memberCount / 2);
-    
-    res.json({ 
-      success: true, 
-      resource: allianceRes.native_resource,
-      units,
-      points_spent: points_to_spend,
-      votes_for: 1,
-      votes_needed: needed,
-      message: `Proposed buying ${units} ${TRADE_RESOURCE_LABELS[allianceRes.native_resource]} for ${points_to_spend} alliance points. Need ${needed} votes to approve.`
-    });
-  } catch (err) {
-    console.error('Buy propose error:', err);
-    res.status(500).json({ error: 'Failed to propose purchase' });
-  }
-});
-
-// --- Student: Vote on a resource purchase ---
-app.post('/api/trade/buy-vote/:purchaseId', authenticateToken, (req, res) => {
-  try {
-    const purchase_id = parseInt(req.params.purchaseId);
-    const { vote } = req.body; // 'for' or 'against'
-    const student_id = req.user.id;
-    
-    if (vote !== 'for' && vote !== 'against') return res.status(400).json({ error: 'Vote must be for or against' });
-    
-    const purchase = query("SELECT * FROM resource_purchases WHERE purchase_id = ? AND vote_status = 'proposed'", [purchase_id])[0];
-    if (!purchase) return res.status(404).json({ error: 'Purchase not found or already resolved' });
-    
-    // Verify student is in the same alliance
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student || student.alliance_id !== purchase.alliance_id) return res.status(403).json({ error: 'Not in this alliance' });
-    
-    let votesFor = JSON.parse(purchase.votes_for || '[]');
-    let votesAgainst = JSON.parse(purchase.votes_against || '[]');
-    
-    // Remove existing vote if switching
-    votesFor = votesFor.filter(id => id !== student_id);
-    votesAgainst = votesAgainst.filter(id => id !== student_id);
-    
-    if (vote === 'for') votesFor.push(student_id);
-    else votesAgainst.push(student_id);
-    
-    run('UPDATE resource_purchases SET votes_for = ?, votes_against = ? WHERE purchase_id = ?',
-      [JSON.stringify(votesFor), JSON.stringify(votesAgainst), purchase_id]);
-    
-    // Check for majority
-    const memberCount = query('SELECT COUNT(*) as c FROM students WHERE alliance_id = ?', [purchase.alliance_id])[0].c;
-    const needed = Math.ceil(memberCount / 2);
-    
-    if (votesFor.length >= needed) {
-      // Execute the purchase
-      const alliance = query('SELECT total_points FROM alliances WHERE alliance_id = ?', [purchase.alliance_id])[0];
-      if (alliance.total_points < purchase.points_spent) {
-        run("UPDATE resource_purchases SET vote_status = 'rejected' WHERE purchase_id = ?", [purchase_id]);
-        saveDatabase();
-        return res.json({ success: true, result: 'rejected', reason: 'Not enough alliance points anymore' });
-      }
-      
-      // Deduct points
-      run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', [purchase.points_spent, purchase.alliance_id]);
-      
-      // Add to alliance pool
-      const col = 'pool_' + purchase.resource_type;
-      run(`UPDATE alliance_resources SET ${col} = ${col} + ? WHERE alliance_id = ?`, [purchase.amount, purchase.alliance_id]);
-      
-      run("UPDATE resource_purchases SET vote_status = 'approved', completed_at = CURRENT_TIMESTAMP WHERE purchase_id = ?", [purchase_id]);
-      
-      // Log transaction
-      run(`INSERT INTO transactions (alliance_id, transaction_type, points_change, description)
-           VALUES (?, 'resource_purchase', ?, ?)`,
-        [purchase.alliance_id, -purchase.points_spent, `Bought ${purchase.amount} ${TRADE_RESOURCE_LABELS[purchase.resource_type]} for ${purchase.points_spent} pts`]);
-      
-      saveDatabase();
-      return res.json({ 
-        success: true, result: 'approved', 
-        units_added: purchase.amount, 
-        resource: purchase.resource_type,
-        points_spent: purchase.points_spent
+    if (points_to_spend > remainingCap) {
+      return res.status(400).json({ 
+        error: `Spending cap: you've contributed ${contribution} pts and already spent ${alreadySpent} on resources. You can spend up to ${remainingCap} more.`
       });
     }
     
-    if (votesAgainst.length > memberCount - needed) {
-      // Majority against — reject
-      run("UPDATE resource_purchases SET vote_status = 'rejected' WHERE purchase_id = ?", [purchase_id]);
-      saveDatabase();
-      return res.json({ success: true, result: 'rejected', reason: 'Majority voted against' });
-    }
+    const units = points_to_spend * RESOURCE_BUY_RATE;
+    const resource = allianceRes.native_resource;
     
-    saveDatabase();
-    res.json({ success: true, result: 'pending', votes_for: votesFor.length, votes_against: votesAgainst.length, votes_needed: needed });
-  } catch (err) {
-    console.error('Buy vote error:', err);
-    res.status(500).json({ error: 'Failed to record vote' });
-  }
-});
-
-// --- Student: Withdraw from alliance pool to personal inventory ---
-app.post('/api/trade/withdraw', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const { resource, amount } = req.body;
+    // Deduct alliance points
+    run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', [points_to_spend, student.alliance_id]);
     
-    if (!TRADE_RESOURCES.includes(resource)) return res.status(400).json({ error: 'Invalid resource' });
-    if (!amount || amount < 1) return res.status(400).json({ error: 'Amount must be positive' });
-    
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
-    
-    const allianceRes = query('SELECT * FROM alliance_resources WHERE alliance_id = ?', [student.alliance_id])[0];
-    if (!allianceRes) return res.status(400).json({ error: 'Trade not set up' });
-    
-    const poolCol = 'pool_' + resource;
-    const available = allianceRes[poolCol];
-    if (available < amount) return res.status(400).json({ error: `Only ${available} ${resource} in alliance pool` });
-    
-    // Deduct from pool, add to personal
-    run(`UPDATE alliance_resources SET ${poolCol} = ${poolCol} - ? WHERE alliance_id = ?`, [amount, student.alliance_id]);
+    // Add to personal inventory
     ensureStudentResources(student_id);
-    run(`UPDATE student_resources SET ${resource} = ${resource} + ? WHERE student_id = ?`, [amount, student_id]);
+    run(`UPDATE student_resources SET ${resource} = ${resource} + ? WHERE student_id = ?`, [units, student_id]);
+    
+    // Log the purchase
+    run(`INSERT INTO resource_buys (student_id, alliance_id, resource_type, amount, points_spent)
+         VALUES (?, ?, ?, ?, ?)`,
+      [student_id, student.alliance_id, resource, units, points_to_spend]);
+    
+    // Log transaction
+    run(`INSERT INTO transactions (alliance_id, transaction_type, points_change, description)
+         VALUES (?, 'resource_purchase', ?, ?)`,
+      [student.alliance_id, -points_to_spend, `${student_id} bought ${units} ${TRADE_RESOURCE_LABELS[resource]} for ${points_to_spend} pts`]);
     
     saveDatabase();
-    res.json({ success: true, resource, amount, message: `Withdrew ${amount} ${TRADE_RESOURCE_LABELS[resource]} from alliance pool` });
-  } catch (err) {
-    console.error('Withdraw error:', err);
-    res.status(500).json({ error: 'Failed to withdraw' });
-  }
-});
-
-// --- Student: Get pending purchase votes for alliance ---
-app.get('/api/trade/buy-pending', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student?.alliance_id) return res.json({ pending: null });
-    
-    const pending = query(`
-      SELECT rp.*, s.name as proposed_by_name
-      FROM resource_purchases rp
-      JOIN students s ON rp.proposed_by = s.student_id
-      WHERE rp.alliance_id = ? AND rp.vote_status = 'proposed'
-      ORDER BY rp.created_at DESC LIMIT 1
-    `, [student.alliance_id])[0];
-    
-    if (!pending) return res.json({ pending: null });
-    
-    const memberCount = query('SELECT COUNT(*) as c FROM students WHERE alliance_id = ?', [student.alliance_id])[0].c;
-    const votesFor = JSON.parse(pending.votes_for || '[]');
-    const votesAgainst = JSON.parse(pending.votes_against || '[]');
-    const myVote = votesFor.includes(student_id) ? 'for' : votesAgainst.includes(student_id) ? 'against' : null;
-    
     res.json({ 
-      pending: {
-        ...pending,
-        votes_for_count: votesFor.length,
-        votes_against_count: votesAgainst.length,
-        votes_needed: Math.ceil(memberCount / 2),
-        my_vote: myVote,
-        resource_label: TRADE_RESOURCE_LABELS[pending.resource_type]
-      }
+      success: true, 
+      resource,
+      units,
+      points_spent: points_to_spend,
+      remaining_cap: remainingCap - points_to_spend,
+      message: `Bought ${units} ${TRADE_RESOURCE_LABELS[resource]} for ${points_to_spend} alliance points`
     });
   } catch (err) {
-    console.error('Buy pending error:', err);
-    res.status(500).json({ error: 'Failed to get pending purchases' });
+    console.error('Buy resource error:', err);
+    res.status(500).json({ error: 'Failed to buy resource' });
   }
 });
-
-// --- Helper: Calculate market values for a period ---
-function getMarketValues(period) {
-  // Get total produced and held per resource for this period
-  const alliances = query('SELECT alliance_id FROM alliances WHERE class_period = ? AND is_disbanded = 0', [period]);
-  if (alliances.length === 0) return { olive: 10, grape: 10, iron: 10, grain: 10 };
-  
-  const allianceIds = alliances.map(a => a.alliance_id);
-  const placeholders = allianceIds.map(() => '?').join(',');
-  
-  // Total in alliance pools
-  const pools = query(`SELECT SUM(pool_olive) as po, SUM(pool_grape) as pg, SUM(pool_iron) as pi, SUM(pool_grain) as pgr
-    FROM alliance_resources WHERE alliance_id IN (${placeholders})`, allianceIds)[0];
-  
-  // Total in personal inventories
-  const personal = query(`SELECT SUM(sr.olive) as po, SUM(sr.grape) as pg, SUM(sr.iron) as pi, SUM(sr.grain) as pgr
-    FROM student_resources sr JOIN students s ON sr.student_id = s.student_id
-    WHERE s.alliance_id IN (${placeholders})`, allianceIds)[0];
-  
-  const totalHeld = {
-    olive: (pools?.po || 0) + (personal?.po || 0),
-    grape: (pools?.pg || 0) + (personal?.pg || 0),
-    iron: (pools?.pi || 0) + (personal?.pi || 0),
-    grain: (pools?.pgr || 0) + (personal?.pgr || 0)
-  };
-  
-  const totalAll = totalHeld.olive + totalHeld.grape + totalHeld.iron + totalHeld.grain;
-  if (totalAll === 0) return { olive: 10, grape: 10, iron: 10, grain: 10 };
-  
-  // Average per resource
-  const avg = totalAll / 4;
-  
-  // Value: scarce = high (up to 15), abundant = low (down to 5), base = 10
-  const values = {};
-  TRADE_RESOURCES.forEach(r => {
-    const held = totalHeld[r];
-    if (avg === 0) { values[r] = 10; return; }
-    // ratio > 1 means abundant (more than average), < 1 means scarce
-    const ratio = held / avg;
-    // Invert: abundant → lower value, scarce → higher value
-    // Clamp to 5-15 range
-    values[r] = Math.round(Math.max(5, Math.min(15, 10 / ratio)) * 10) / 10;
-  });
-  
-  return values;
-}
 
 // --- Student: Get market data for their period ---
 app.get('/api/trade/market', authenticateToken, (req, res) => {
@@ -8441,8 +8345,9 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
     
     const values = getMarketValues(student.class_period);
     const window = query('SELECT * FROM trade_window WHERE period = ?', [student.class_period])[0];
+    const threshold = getResourceThreshold(student.class_period);
     
-    // Get tradeable partners (same period, different alliance, with resources assigned)
+    // Tradeable partners (same period, different alliance, with resources assigned)
     const partners = query(`
       SELECT s.student_id, s.name, a.alliance_name, ar.native_resource
       FROM students s
@@ -8452,7 +8357,7 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
       ORDER BY a.alliance_name, s.name
     `, [student.class_period, student.alliance_id]);
     
-    // Recent trades for this period (last 20)
+    // Recent completed trades (last 20)
     const recentTrades = query(`
       SELECT t.*, si.name as initiator_name, sp.name as partner_name,
              ai.alliance_name as initiator_alliance, ap.alliance_name as partner_alliance
@@ -8468,6 +8373,7 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
     res.json({
       market_values: values,
       trade_window_open: window ? window.is_open === 1 : false,
+      resource_threshold: threshold,
       partners,
       recent_trades: recentTrades
     });
@@ -8483,7 +8389,6 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
     const student_id = req.user.id;
     const { partner_id, give_resource, give_amount, receive_resource, receive_amount } = req.body;
     
-    // Validate inputs
     if (!partner_id || !give_resource || !give_amount || !receive_resource || !receive_amount) {
       return res.status(400).json({ error: 'All trade fields required' });
     }
@@ -8494,7 +8399,6 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
     if (give_resource === receive_resource) return res.status(400).json({ error: 'Cannot trade same resource' });
     if (partner_id === student_id) return res.status(400).json({ error: 'Cannot trade with yourself' });
     
-    // Verify both students exist and are in the same period
     const initiator = query('SELECT student_id, class_period, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
     const partner = query('SELECT student_id, class_period, alliance_id FROM students WHERE student_id = ?', [partner_id])[0];
     if (!initiator || !partner) return res.status(404).json({ error: 'Student not found' });
@@ -8505,19 +8409,19 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
     const window = query('SELECT is_open FROM trade_window WHERE period = ?', [initiator.class_period])[0];
     if (!window || window.is_open !== 1) return res.status(400).json({ error: 'Trade window is closed' });
     
-    // Check Transport Ship for initiator's alliance
+    // Check Transport Ship
     const alliance = query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [initiator.alliance_id])[0];
     const owned = JSON.parse(alliance?.buildings_owned || '[]');
     if (!owned.includes('Transport Ship')) return res.status(400).json({ error: 'Your alliance needs a Transport Ship to trade' });
     
-    // Check initiator has enough resources
+    // Check initiator has enough
     ensureStudentResources(student_id);
     const myRes = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
     if (myRes[give_resource] < give_amount) {
       return res.status(400).json({ error: `You only have ${myRes[give_resource]} ${TRADE_RESOURCE_LABELS[give_resource]}` });
     }
     
-    // Check for auto-flag (3:1 ratio)
+    // Auto-flag 3:1 ratio
     const ratio = Math.max(give_amount / receive_amount, receive_amount / give_amount);
     const flagged = ratio > 3 ? 1 : 0;
     const status = flagged ? 'flagged' : 'pending';
@@ -8527,7 +8431,6 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
       [initiator.class_period, student_id, partner_id, give_resource, give_amount, receive_resource, receive_amount, status, flagged]);
     
     const tradeId = query('SELECT last_insert_rowid() as id')[0].id;
-    
     saveDatabase();
     
     if (flagged) {
@@ -8551,14 +8454,14 @@ app.post('/api/trade/confirm/:tradeId', authenticateToken, (req, res) => {
     if (!trade) return res.status(404).json({ error: 'Trade not found or not pending' });
     if (trade.partner_id !== student_id) return res.status(403).json({ error: 'Only the trade partner can confirm' });
     
-    // Verify partner has enough resources
+    // Verify partner has enough
     ensureStudentResources(student_id);
     const partnerRes = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
     if (partnerRes[trade.receive_resource] < trade.receive_amount) {
       return res.status(400).json({ error: `You only have ${partnerRes[trade.receive_resource]} ${TRADE_RESOURCE_LABELS[trade.receive_resource]}` });
     }
     
-    // Re-verify initiator still has resources
+    // Re-verify initiator
     const initiatorRes = query('SELECT * FROM student_resources WHERE student_id = ?', [trade.initiator_id])[0];
     if (initiatorRes[trade.give_resource] < trade.give_amount) {
       run("UPDATE trades SET status = 'rejected' WHERE trade_id = ?", [trade_id]);
@@ -8566,17 +8469,13 @@ app.post('/api/trade/confirm/:tradeId', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Initiator no longer has enough resources. Trade cancelled.' });
     }
     
-    // Execute the trade
-    // Initiator gives, partner receives
+    // Execute trade
     run(`UPDATE student_resources SET ${trade.give_resource} = ${trade.give_resource} - ? WHERE student_id = ?`, [trade.give_amount, trade.initiator_id]);
     run(`UPDATE student_resources SET ${trade.give_resource} = ${trade.give_resource} + ? WHERE student_id = ?`, [trade.give_amount, trade.partner_id]);
-    
-    // Partner gives, initiator receives
     run(`UPDATE student_resources SET ${trade.receive_resource} = ${trade.receive_resource} - ? WHERE student_id = ?`, [trade.receive_amount, trade.partner_id]);
     run(`UPDATE student_resources SET ${trade.receive_resource} = ${trade.receive_resource} + ? WHERE student_id = ?`, [trade.receive_amount, trade.initiator_id]);
     
     run("UPDATE trades SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE trade_id = ?", [trade_id]);
-    
     saveDatabase();
     res.json({ success: true, message: 'Trade completed!' });
   } catch (err) {
@@ -8593,8 +8492,6 @@ app.post('/api/trade/reject/:tradeId', authenticateToken, (req, res) => {
     
     const trade = query("SELECT * FROM trades WHERE trade_id = ? AND status = 'pending'", [trade_id])[0];
     if (!trade) return res.status(404).json({ error: 'Trade not found or not pending' });
-    
-    // Either party can reject
     if (trade.partner_id !== student_id && trade.initiator_id !== student_id) {
       return res.status(403).json({ error: 'Not involved in this trade' });
     }
@@ -8639,7 +8536,6 @@ app.post('/api/trade/flagged/:tradeId/approve', authenticateToken, (req, res) =>
     const trade = query("SELECT * FROM trades WHERE trade_id = ? AND status = 'flagged'", [trade_id])[0];
     if (!trade) return res.status(404).json({ error: 'Flagged trade not found' });
     
-    // Verify both sides still have resources
     const initiatorRes = query('SELECT * FROM student_resources WHERE student_id = ?', [trade.initiator_id])[0];
     const partnerRes = query('SELECT * FROM student_resources WHERE student_id = ?', [trade.partner_id])[0];
     
@@ -8654,7 +8550,6 @@ app.post('/api/trade/flagged/:tradeId/approve', authenticateToken, (req, res) =>
       return res.status(400).json({ error: 'Partner no longer has enough resources' });
     }
     
-    // Execute
     run(`UPDATE student_resources SET ${trade.give_resource} = ${trade.give_resource} - ? WHERE student_id = ?`, [trade.give_amount, trade.initiator_id]);
     run(`UPDATE student_resources SET ${trade.give_resource} = ${trade.give_resource} + ? WHERE student_id = ?`, [trade.give_amount, trade.partner_id]);
     run(`UPDATE student_resources SET ${trade.receive_resource} = ${trade.receive_resource} - ? WHERE student_id = ?`, [trade.receive_amount, trade.partner_id]);
@@ -8693,18 +8588,17 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
     const period = req.params.period;
     const values = getMarketValues(period);
     const window = query('SELECT * FROM trade_window WHERE period = ?', [period])[0];
+    const threshold = getResourceThreshold(period);
     
-    // Alliance summaries
     const allianceSummaries = query(`
       SELECT a.alliance_id, a.alliance_name, a.total_points,
-             ar.native_resource, ar.pool_olive, ar.pool_grape, ar.pool_iron, ar.pool_grain
+             ar.native_resource
       FROM alliances a
       JOIN alliance_resources ar ON a.alliance_id = ar.alliance_id
       WHERE a.class_period = ? AND a.is_disbanded = 0
       ORDER BY a.alliance_name
     `, [period]);
     
-    // Student inventories
     const studentInventories = query(`
       SELECT s.student_id, s.name, s.alliance_id, a.alliance_name,
              sr.olive, sr.grape, sr.iron, sr.grain
@@ -8715,7 +8609,6 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
       ORDER BY a.alliance_name, s.name
     `, [period]);
     
-    // Trade counts
     const tradeCounts = query(`
       SELECT COUNT(*) as total,
              SUM(CASE WHEN status = 'completed' OR status = 'approved' THEN 1 ELSE 0 END) as completed,
@@ -8728,6 +8621,7 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
       period,
       market_values: values,
       trade_window: window || { is_open: 0 },
+      resource_threshold: threshold,
       alliances: allianceSummaries,
       students: studentInventories,
       trade_counts: tradeCounts

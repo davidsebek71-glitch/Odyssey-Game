@@ -617,15 +617,11 @@ async function initDatabase() {
 
   // ==================== TRADE SYSTEM TABLES ====================
 
-  // Alliance resource assignments and shared pools
+  // Alliance native resource assignments (no shared pool — students buy directly)
   db.run(`
     CREATE TABLE IF NOT EXISTS alliance_resources (
       alliance_id INTEGER PRIMARY KEY,
       native_resource TEXT NOT NULL,
-      pool_olive INTEGER DEFAULT 0,
-      pool_grape INTEGER DEFAULT 0,
-      pool_iron INTEGER DEFAULT 0,
-      pool_grain INTEGER DEFAULT 0,
       FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
     )
   `);
@@ -662,22 +658,18 @@ async function initDatabase() {
     )
   `);
 
-  // Resource purchase proposals (alliance buys native resource with points)
+  // Resource buy log (student buys native resource directly into personal inventory)
   db.run(`
-    CREATE TABLE IF NOT EXISTS resource_purchases (
-      purchase_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CREATE TABLE IF NOT EXISTS resource_buys (
+      buy_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
       alliance_id INTEGER NOT NULL,
       resource_type TEXT NOT NULL,
       amount INTEGER NOT NULL,
       points_spent INTEGER NOT NULL,
-      vote_status TEXT DEFAULT 'proposed',
-      proposed_by INTEGER NOT NULL,
-      votes_for TEXT DEFAULT '[]',
-      votes_against TEXT DEFAULT '[]',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      completed_at DATETIME,
-      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id),
-      FOREIGN KEY (proposed_by) REFERENCES students(student_id)
+      FOREIGN KEY (student_id) REFERENCES students(student_id),
+      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
     )
   `);
 
@@ -697,14 +689,15 @@ async function initDatabase() {
     )
   `);
 
-  // Trade window status per period
+  // Trade window status per period (with configurable threshold)
   db.run(`
     CREATE TABLE IF NOT EXISTS trade_window (
       period TEXT PRIMARY KEY,
       is_open INTEGER DEFAULT 0,
       opened_at DATETIME,
       closed_at DATETIME,
-      opened_by INTEGER
+      opened_by INTEGER,
+      resource_threshold INTEGER DEFAULT 500
     )
   `);
 
@@ -1191,6 +1184,28 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: Demeter question -', e.message);
   }
+  // Trade system schema migration: add resource_threshold, create resource_buys
+  try {
+    const twCols = db.exec("PRAGMA table_info(trade_window)");
+    const twColNames = twCols[0] ? twCols[0].values.map(c => c[1]) : [];
+    if (!twColNames.includes('resource_threshold')) {
+      db.run("ALTER TABLE trade_window ADD COLUMN resource_threshold INTEGER DEFAULT 500");
+      console.log('✅ Added resource_threshold column to trade_window');
+    }
+  } catch (e) { console.log('Migration note: trade_window threshold -', e.message); }
+  
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS resource_buys (
+      buy_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      alliance_id INTEGER NOT NULL,
+      resource_type TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      points_spent INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+  } catch (e) { console.log('Migration note: resource_buys -', e.message); }
+
   // V91 FIX: Classical Age building prices increased by 55%
   try {
     db.run("UPDATE buildings_ref SET cost_points = 341 WHERE building_name = 'Transport Ship' AND cost_points IN (220, 308)");
