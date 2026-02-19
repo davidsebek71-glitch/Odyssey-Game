@@ -1259,6 +1259,8 @@
             padding: 15px;
             transition: all 0.3s;
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
         
         .building-card:hover {
@@ -1313,6 +1315,7 @@
             font-size: 12px;
             color: rgba(255,255,255,0.6);
             margin-bottom: 10px;
+            flex: 1;
         }
         
         .building-requirement {
@@ -1348,6 +1351,7 @@
             width: 100%;
             padding: 10px;
             background: linear-gradient(135deg, #ffd700, #ff8c00);
+            margin-top: auto;
             border: none;
             border-radius: 8px;
             color: #1a0a0f;
@@ -2904,7 +2908,7 @@
                     Buildings: 0
                 </div>
             </div>
-            <div id="building-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; max-height: 500px; overflow-y: auto;">
+            <div id="building-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-height: 500px; overflow-y: auto;">
                 Loading buildings...
             </div>
             <div style="margin-top: 20px; text-align: center;">
@@ -4197,10 +4201,10 @@
                 const isClassicalBuilding = building.age_available === 'Classical';
                 
                 return `
-                    <div class="${cardClass}" ${canPurchase ? `onclick="purchaseBuilding(${building.building_id})"` : ''} style="${isClassicalBuilding ? 'border-color: rgba(59,130,246,0.4);' : ''}">
+                    <div class="${cardClass}" ${canPurchase ? `onclick="purchaseBuilding(${building.building_id})"` : ''} style="${isClassicalBuilding ? 'border-color: rgba(59,130,246,0.4); padding-top: 28px;' : ''}">
                         ${isOwned ? `<div class="building-owned-badge">✓ Owned${building.owned_count > 1 ? ` x${building.owned_count}` : ''}</div>` : ''}
                         
-                        ${isClassicalBuilding ? `<div style="position: absolute; top: 8px; left: 8px; background: rgba(59,130,246,0.3); color: #93c5fd; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Classical</div>` : ''}
+                        ${isClassicalBuilding ? `<div style="position: absolute; top: 6px; left: 10px; background: rgba(59,130,246,0.3); color: #93c5fd; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Classical</div>` : ''}
                         ${isRequired ? `<div style="position: absolute; top: 8px; right: 8px; color: #ffd700; font-size: 18px;" title="Required for Age Advancement">⭐</div>` : ''}
                         
                         <div class="building-name">${building.building_name}</div>
