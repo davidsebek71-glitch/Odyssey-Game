@@ -3797,13 +3797,21 @@ function ensureAgeGate(class_period) {
 function calculateAgeReadiness(alliance) {
   const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
   const memberCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [alliance.alliance_id])[0].count;
+  const currentAge = alliance.current_age || 'Archaic';
   
-  // Required buildings for Classical Age (6 buildings - includes Wooden Wall)
-  const requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall'];
+  let requiredBuildings, pointsThreshold;
+  
+  if (currentAge === 'Classical' || currentAge === 'Heroic') {
+    // Classical → Heroic requirements: all Archaic buildings PLUS Classical buildings
+    requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall', 'Transport Ship', 'Armory', 'Theater', 'Agora', 'Oracle'];
+    pointsThreshold = memberCount === 1 ? 200 : memberCount === 2 ? 400 : memberCount === 3 ? 600 : 800;
+  } else {
+    // Archaic → Classical requirements
+    requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall'];
+    pointsThreshold = memberCount === 1 ? 100 : memberCount === 2 ? 200 : memberCount === 3 ? 300 : 400;
+  }
+  
   const ownedRequired = requiredBuildings.filter(b => ownedBuildings.includes(b));
-  
-  // Points threshold based on alliance size (reduced by 50 as discussed)
-  const pointsThreshold = memberCount === 1 ? 100 : memberCount === 2 ? 200 : memberCount === 3 ? 300 : 400;
   
   // Map check: count how many non-ghost members have uploaded maps
   const membersWithMap = query(
@@ -3819,7 +3827,7 @@ function calculateAgeReadiness(alliance) {
     run('UPDATE alliances SET civilization_map_complete = 0 WHERE alliance_id = ?', [alliance.alliance_id]);
   }
   
-  // Calculate progress (Rite of Passage removed from Archaic — moved to Classical→Heroic)
+  // Calculate progress
   const buildingsProgress = (ownedRequired.length / requiredBuildings.length) * 100;
   const pointsProgress = Math.min(100, (alliance.total_points / pointsThreshold) * 100);
   const mapProgress = allMapsComplete ? 100 : (memberCount > 0 ? (membersWithMap / memberCount) * 100 : 0);
@@ -3832,6 +3840,7 @@ function calculateAgeReadiness(alliance) {
                   allMapsComplete;
   
   return {
+    currentAge,
     memberCount,
     pointsThreshold,
     pointsHave: alliance.total_points,
@@ -3842,6 +3851,7 @@ function calculateAgeReadiness(alliance) {
     mapComplete: allMapsComplete,
     mapsSubmitted: membersWithMap,
     mapsRequired: memberCount,
+    riteComplete: alliance.rite_of_passage_complete === 1,
     overallProgress: Math.round(overallProgress),
     isReady
   };

@@ -2027,13 +2027,6 @@
                                     <div style="color: ${r.buildingsMet ? '#4ade80' : '#fbbf24'};">
                                         🏛️ ${r.ownedRequired.length}/6 buildings
                                     </div>
-                                    <div style="color: ${r.riteComplete ? '#4ade80' : '#ef4444'};">
-                                        📜 Rite: ${r.riteComplete ? '✅' : '⬜'}
-                                        <button onclick="toggleRite(${a.alliance_id}, ${!r.riteComplete})" 
-                                            style="margin-left: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white;">
-                                            ${r.riteComplete ? 'Unmark' : 'Mark ✓'}
-                                        </button>
-                                    </div>
                                     <div style="color: ${r.mapComplete ? '#4ade80' : '#ef4444'};">
                                         🗺️ Map: ${r.mapComplete ? '✅' : '⬜'}
                                         <button onclick="toggleMap(${a.alliance_id}, ${!r.mapComplete})" 
