@@ -126,8 +126,8 @@ function updateAchievementProgress(student_id, category, points_earned, max_poin
     run(`UPDATE student_achievement_progress SET mural_count = ? WHERE student_id = ?`,
         [newMuralCount, student_id]);
     
-    // Check for Apollo unlock (5+ murals)
-    if (newMuralCount >= 5 && !progress.apollo_unlocked) {
+    // Check for Apollo unlock (2+ murals)
+    if (newMuralCount >= 2 && !progress.apollo_unlocked) {
       run(`UPDATE student_achievement_progress 
            SET apollo_unlocked = 1, apollo_unlocked_at = CURRENT_TIMESTAMP
            WHERE student_id = ?`, [student_id]);
@@ -1464,13 +1464,13 @@ app.get('/api/student/achievements', authenticateToken, (req, res) => {
       apollo: {
         name: "Apollo's Blessing",
         description: 'The god of art rewards dedicated creators',
-        requirement: 'Create 5 murals or comics',
+        requirement: 'Create 2 murals or comics',
         effect: '+33% on future mural/comic points',
         unlocked: progress.apollo_unlocked === 1,
         unlocked_at: progress.apollo_unlocked_at,
         progress: {
           count: progress.mural_count,
-          needed: 5
+          needed: 2
         }
       }
     });
@@ -7883,7 +7883,8 @@ app.get('/api/teacher/myth-portals', authenticateToken, (req, res) => {
         '1st': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '1st') || { activated: 0 },
         '2nd': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '2nd') || { activated: 0 },
         '3rd': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '3rd') || { activated: 0 },
-        '4th': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '4th') || { activated: 0 }
+        '4th': statuses.find(s => s.portal_id === p.portal_id && s.class_period === '4th') || { activated: 0 },
+        'Test': statuses.find(s => s.portal_id === p.portal_id && s.class_period === 'Test') || { activated: 0 }
       }
     }));
 

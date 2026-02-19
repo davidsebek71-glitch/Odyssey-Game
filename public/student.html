@@ -2060,6 +2060,8 @@
                 <h1>⚡ ODYSSEY TO OLYMPUS</h1>
             </div>
             <div class="user-info">
+                <button id="age-toggle-btn" style="display: none; background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: 'Cinzel', serif; margin-right: 8px;" onclick="toggleAgeView()">🏛️ Classical</button>
+                <button style="background: rgba(255,215,0,0.15); color: #ffd700; border: 1px solid rgba(255,215,0,0.3); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; margin-right: 8px;" onclick="window.location.href='/hub.html'">🏠 Hub</button>
                 <span class="user-name" id="student-name">Student</span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -2815,7 +2817,6 @@
                         <option value="comp_conn">Reading Notes / Comp Conn</option>
                         <option value="mural">Mural/Comic (Pixton)</option>
                         <option value="word_cloud">Word Cloud</option>
-                        <option value="rite_of_passage">Rite of Passage Essay</option>
                         <option value="bonus">Student Created Bonus</option>
                         <option value="membean">Membean</option>
                         <option value="reading">Independent Reading</option>
@@ -3269,10 +3270,34 @@
             
             document.getElementById('age-stat').textContent = student.current_age || 'Archaic';
 
-            // Show/hide Classical Age section based on current age
+            // Age view override: ?view=archaic lets Classical players see Archaic dashboard
+            const urlParams = new URLSearchParams(window.location.search);
+            const viewOverride = urlParams.get('view');
+            const actualAge = student.current_age || 'Archaic';
+            const isClassicalPlayer = actualAge === 'Classical' || actualAge === 'Heroic';
+            const showClassicalView = isClassicalPlayer && viewOverride !== 'archaic';
+            
+            // Show age toggle button for Classical players
+            const ageToggleBtn = document.getElementById('age-toggle-btn');
+            if (ageToggleBtn && isClassicalPlayer) {
+                ageToggleBtn.style.display = 'inline-block';
+                if (showClassicalView) {
+                    ageToggleBtn.innerHTML = '🏺 Archaic View';
+                    ageToggleBtn.style.background = 'linear-gradient(135deg, #78350f, #b45309)';
+                    ageToggleBtn.style.color = '#fbbf24';
+                    ageToggleBtn.style.borderColor = 'rgba(234,179,8,0.4)';
+                } else {
+                    ageToggleBtn.innerHTML = '🏛️ Classical View';
+                    ageToggleBtn.style.background = 'linear-gradient(135deg, #1e3a8a, #3b82f6)';
+                    ageToggleBtn.style.color = '#93c5fd';
+                    ageToggleBtn.style.borderColor = 'rgba(59,130,246,0.4)';
+                }
+            }
+
+            // Show/hide Classical Age section based on current age (with view override)
             const classicalSection = document.getElementById('classical-age-section');
             if (classicalSection) {
-                if (student.current_age === 'Classical' || student.current_age === 'Heroic') {
+                if (showClassicalView) {
                     classicalSection.style.display = 'block';
                     document.body.classList.add('classical-age');
                     document.querySelector('.logo h1').textContent = '🏛️ ODYSSEY TO OLYMPUS — CLASSICAL AGE';
@@ -3706,13 +3731,6 @@
                 // Assignments
                 html += `
                     <div class="age-requirement">
-                        <div class="age-req-icon">📜</div>
-                        <div class="age-req-text">Rite of Passage Essay</div>
-                        <div class="age-req-status ${r.riteComplete ? 'complete' : 'incomplete'}">
-                            ${r.riteComplete ? '✅' : '⬜ Need'}
-                        </div>
-                    </div>
-                    <div class="age-requirement">
                         <div class="age-req-icon">🗺️</div>
                         <div class="age-req-text">Civilization Map</div>
                         <div class="age-req-status ${r.mapComplete ? 'complete' : 'incomplete'}">
@@ -3859,9 +3877,10 @@
                 return;
             }
             
-            // Update dropdown options based on current age
+            // Update dropdown options based on current age (respect view override)
             const currentAge = (dashboardData.student && dashboardData.student.current_age) || 'Archaic';
-            const isClassical = currentAge === 'Classical' || currentAge === 'Heroic';
+            const viewParam = new URLSearchParams(window.location.search).get('view');
+            const isClassical = (currentAge === 'Classical' || currentAge === 'Heroic') && viewParam !== 'archaic';
             const categorySelect = document.getElementById('submit-category');
             
             categorySelect.innerHTML = '';
@@ -3871,7 +3890,6 @@
                     <option value="quiz">Quiz</option>
                     <option value="comp_conn">Reading Notes / Comp Conn</option>
                     <option value="mural">Mural/Comic (Pixton)</option>
-                    <option value="rite_of_passage">Rite of Passage Essay</option>
                     <option value="bonus">Student Created Bonus</option>
                     <option value="membean">Membean</option>
                     <option value="reading">Independent Reading</option>
@@ -4094,6 +4112,18 @@
             localStorage.clear();
             window.location.href = '/';
         }
+        
+        function toggleAgeView() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentView = urlParams.get('view');
+            if (currentView === 'archaic') {
+                // Switch back to Classical
+                window.location.href = '/student.html';
+            } else {
+                // Switch to Archaic view
+                window.location.href = '/student.html?view=archaic';
+            }
+        }
 
         // ==================
         // BUILDING MARKET
@@ -4164,12 +4194,14 @@
                 const pointBonusPercent = Math.round((building.point_bonus || 0) * 100);
                 const isWall = building.always_active && building.battle_bonus > 0;
                 const isRequired = building.required_for_age === 1;
+                const isClassicalBuilding = building.age_available === 'Classical';
                 
                 return `
-                    <div class="${cardClass}" ${canPurchase ? `onclick="purchaseBuilding(${building.building_id})"` : ''}>
+                    <div class="${cardClass}" ${canPurchase ? `onclick="purchaseBuilding(${building.building_id})"` : ''} style="${isClassicalBuilding ? 'border-color: rgba(59,130,246,0.4);' : ''}">
                         ${isOwned ? `<div class="building-owned-badge">✓ Owned${building.owned_count > 1 ? ` x${building.owned_count}` : ''}</div>` : ''}
                         
-                        ${isRequired ? `<div style="position: absolute; top: 8px; right: 8px; color: #ffd700; font-size: 18px;" title="Required for Classical Age">⭐</div>` : ''}
+                        ${isClassicalBuilding ? `<div style="position: absolute; top: 8px; left: 8px; background: rgba(59,130,246,0.3); color: #93c5fd; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px;">Classical</div>` : ''}
+                        ${isRequired ? `<div style="position: absolute; top: 8px; right: 8px; color: #ffd700; font-size: 18px;" title="Required for Age Advancement">⭐</div>` : ''}
                         
                         <div class="building-name">${building.building_name}</div>
                         <div class="building-god">⚡ ${building.god_associated}</div>
@@ -4364,9 +4396,6 @@
                             <span style="color: rgba(255,255,255,0.4);">⬜</span> Wooden Wall
                         </div>
                         <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
-                            <span style="color: rgba(255,255,255,0.4);">⬜</span> Rite of Passage
-                        </div>
-                        <div class="age-requirement" style="font-size: 11px; padding: 4px 0;">
                             <span style="color: rgba(255,255,255,0.4);">⬜</span> Civilization Map
                         </div>
                         <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; text-align: center; font-size: 10px; color: rgba(255,255,255,0.5);">
@@ -4416,13 +4445,6 @@
                 
                 // Assignments
                 html += `
-                    <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span>📜</span>
-                            <span>Rite of Passage</span>
-                        </div>
-                        <span style="color: ${r.riteComplete ? '#4ade80' : 'rgba(255,255,255,0.4)'};">${r.riteComplete ? '✅' : '⬜'}</span>
-                    </div>
                     <div class="age-requirement" style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <span>🗺️</span>
