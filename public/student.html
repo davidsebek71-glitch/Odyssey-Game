@@ -1129,6 +1129,7 @@
             z-index: 1000;
             justify-content: center;
             align-items: center;
+            overflow: hidden;
         }
 
         .modal.show {
@@ -1142,7 +1143,7 @@
             padding: 30px;
             max-width: 500px;
             width: 90%;
-            max-height: 80vh;
+            max-height: 85vh;
             overflow-y: auto;
         }
 
@@ -2895,9 +2896,10 @@
         </div>
     </div>
 
-    <!-- Building Market Modal (higher z-index to appear on top of map) -->
-    <div id="building-modal" class="modal" style="z-index: 1100;">
-        <div class="modal-content" style="max-width: 900px;">
+    <!-- Building Market Modal - self-contained fullscreen overlay -->
+    <div id="building-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); backdrop-filter:blur(10px); z-index:1100; overflow-y:auto;">
+        <div style="max-width:920px; width:92%; margin:30px auto; background:#1a0b2e; border:2px solid rgba(255,215,0,0.5); border-radius:20px; padding:30px; position:relative;">
+            <button onclick="closeBuildingMarket()" style="position:absolute; top:14px; right:14px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); color:white; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:18px; line-height:1; z-index:10;">✕</button>
             <div class="modal-title">🏛️ Building Market</div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: rgba(255,215,0,0.1); border-radius: 10px;">
                 <div>
@@ -2908,7 +2910,7 @@
                     Buildings: 0
                 </div>
             </div>
-            <div id="building-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-height: 500px; overflow-y: auto;">
+            <div id="building-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                 Loading buildings...
             </div>
             <div style="margin-top: 20px; text-align: center;">
@@ -4141,12 +4143,22 @@
                 return;
             }
             
-            document.getElementById('building-modal').classList.add('show');
+            // Hide map modal underneath (building market opens from inside map modal)
+            var mapModal = document.getElementById('map-modal');
+            if (mapModal) mapModal.style.visibility = 'hidden';
+            
+            document.getElementById('building-modal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
             await loadBuildingMarket();
         }
         
         function closeBuildingMarket() {
-            document.getElementById('building-modal').classList.remove('show');
+            document.getElementById('building-modal').style.display = 'none';
+            document.body.style.overflow = '';
+            
+            // Restore map modal visibility
+            var mapModal = document.getElementById('map-modal');
+            if (mapModal) mapModal.style.visibility = '';
         }
         
         async function loadBuildingMarket() {
