@@ -8137,7 +8137,7 @@ app.get('/api/trade/assignments', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
   try {
     const data = query(`
-      SELECT a.alliance_id, a.alliance_name, a.class_period, a.total_points,
+      SELECT a.alliance_id, a.alliance_name, a.class_period, a.total_points, a.buildings_owned,
              ar.native_resource
       FROM alliances a
       LEFT JOIN alliance_resources ar ON a.alliance_id = ar.alliance_id

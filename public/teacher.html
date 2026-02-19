@@ -4678,17 +4678,21 @@
                                 <tr style="background: rgba(255,255,255,0.05);">
                                     <th style="text-align: left; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Alliance</th>
                                     <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Native Resource</th>
+                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">⚓ Ship</th>
                                     <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Points</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${periodAlliances.map((a, idx) => {
                                     const res = a.native_resource;
+                                    const owned = JSON.parse(a.buildings_owned || '[]');
+                                    const hasShip = owned.includes('Transport Ship');
                                     return `<tr style="background: ${idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
                                         <td style="padding: 10px 12px; font-weight: 500;">${a.alliance_name}</td>
                                         <td style="text-align: center; padding: 10px 12px;">
                                             ${res ? `<span style="background: rgba(234,179,8,0.15); padding: 3px 10px; border-radius: 4px; font-size: 13px;">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]}</span>` : '<span style="color: rgba(255,255,255,0.3);">—</span>'}
                                         </td>
+                                        <td style="text-align: center; padding: 10px 12px; font-size: 16px;">${hasShip ? '<span style="color: #4ade80;" title="Transport Ship built">⚓</span>' : '<span style="color: rgba(255,255,255,0.2);" title="No Transport Ship">—</span>'}</td>
                                         <td style="text-align: center; padding: 10px 12px; font-weight: 600; color: #fbbf24;">${a.total_points}</td>
                                     </tr>`;
                                 }).join('')}
