@@ -8329,9 +8329,9 @@ app.post('/api/trade/buy', authenticateToken, (req, res) => {
       [student_id, student.alliance_id, resource, units, points_to_spend]);
     
     // Log transaction
-    run(`INSERT INTO transactions (alliance_id, transaction_type, points_change, description)
-         VALUES (?, 'resource_purchase', ?, ?)`,
-      [student.alliance_id, -points_to_spend, `${student_id} bought ${units} ${TRADE_RESOURCE_LABELS[resource]} for ${points_to_spend} pts`]);
+    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+         VALUES (?, ?, ?, 'resource_purchase', ?)`,
+      [student.alliance_id, student_id, -points_to_spend, `Bought ${units} ${TRADE_RESOURCE_LABELS[resource]} for ${points_to_spend} pts`]);
     
     saveDatabase();
     res.json({ 
