@@ -1494,9 +1494,9 @@
 
     <!-- FATE CHOICES MODAL -->
     <div id="fate-choices-modal" class="modal fate-modal">
-        <div class="modal-content" style="max-width: 1200px; background: linear-gradient(135deg, #1a0a0f 0%, #2a1520 100%);">
+        <div class="modal-content" style="max-width: 1200px; max-height: 95vh; overflow-y: auto; background: linear-gradient(135deg, #1a0a0f 0%, #2a1520 100%);">
             <span class="close" onclick="closeFateChoicesModal()">&times;</span>
-            <div id="fate-choices-content" style="padding: 20px;"></div>
+            <div id="fate-choices-content" style="padding: 15px;"></div>
         </div>
     </div>
 
@@ -3724,38 +3724,34 @@
             const allianceCount = periodAlliances.length;
             
             const stealBanner = isSteal ? `
-                <div style="background: linear-gradient(135deg, rgba(147,51,234,0.25), rgba(88,28,135,0.3)); border: 2px solid rgba(168,85,247,0.5); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; text-align: center;">
-                    <div style="font-size: 22px; font-weight: 800; color: #c084fc; margin-bottom: 6px;">
+                <div style="background: linear-gradient(135deg, rgba(147,51,234,0.25), rgba(88,28,135,0.3)); border: 2px solid rgba(168,85,247,0.5); border-radius: 10px; padding: 10px 16px; margin-bottom: 12px; text-align: center;">
+                    <div style="font-size: 18px; font-weight: 800; color: #c084fc; margin-bottom: 4px;">
                         ⚔️ STEAL FATE — Affects ALL ${allianceCount} Other Alliances!
                     </div>
-                    <div style="font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.5;">
-                        Points shown are <strong>per alliance</strong>. Positive = you steal from each. Negative = you pay each.
-                        <br>With ${allianceCount} other alliances, totals are <strong>${allianceCount}×</strong> what's shown!
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6);">
+                        Positive = you steal from each. Negative = you pay each. Totals are <strong>${allianceCount}×</strong> what's shown.
                     </div>
                 </div>
             ` : '';
 
             content.innerHTML = `
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <div style="font-size: 16px; color: rgba(255,255,255,0.7); text-transform: uppercase;">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); text-transform: uppercase;">
                         Fate Revealed for ${selectedAllianceName}
                     </div>
-                    <div style="font-size: 32px; color: ${isSteal ? '#c084fc' : '#ffd700'}; margin: 15px 0; font-weight: 800;">
+                    <div style="font-size: 26px; color: ${isSteal ? '#c084fc' : '#ffd700'}; margin: 8px 0; font-weight: 800;">
                         ${fate.fate_name}
                     </div>
-                    <div style="font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 10px;">
+                    <div style="font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 8px;">
                         ${fate.description}
                     </div>
                     ${stealBanner}
-                    <div style="font-size: 20px; color: #ff6b35; font-weight: 700; margin-top: 20px;">
+                    <div style="font-size: 16px; color: #ff6b35; font-weight: 700;">
                         ⚡ CHOOSE YOUR PATH ⚡
-                    </div>
-                    <div style="font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 8px;">
-                        Discuss with your alliance and vote!
                     </div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 30px;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
                     ${createChoiceCard(conservativeChoice, 'conservative', '#4ade80', fate, isSteal, allianceCount)}
                     ${createChoiceCard(moderateChoice, 'moderate', '#fbbf24', fate, isSteal, allianceCount)}
                     ${createChoiceCard(aggressiveChoice, 'aggressive', '#ef4444', fate, isSteal, allianceCount)}
@@ -3801,23 +3797,23 @@
                 };
                 const fmtTotal = (v) => {
                     const c = v >= 0 ? '#4ade80' : '#ef4444';
-                    return `<span style="color:${c}; font-weight:900; font-size:18px;">${v >= 0 ? '+' : ''}${v} total</span>`;
+                    return `<span style="color:${c}; font-weight:900; font-size:15px;">${v >= 0 ? '+' : ''}${v} total</span>`;
                 };
                 
                 outcomesHtml = `
-                    <div style="background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.25); border-radius: 8px; padding: 10px; margin-bottom: 8px;">
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 5px; text-transform: uppercase;">✅ If you WIN:</div>
-                        <div style="font-size: 13px; color: rgba(255,255,255,0.85);">
-                            ${describeFlow(choice.success_points)} × ${n} alliances
+                    <div style="background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.25); border-radius: 6px; padding: 7px 9px; margin-bottom: 6px;">
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.5); margin-bottom: 3px; text-transform: uppercase;">✅ If you WIN:</div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.85);">
+                            ${describeFlow(choice.success_points)} × ${n}
                         </div>
-                        <div style="margin-top: 4px;">${fmtTotal(sTotal)}</div>
+                        <div style="margin-top: 2px;">${fmtTotal(sTotal)}</div>
                     </div>
-                    <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 10px;">
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 5px; text-transform: uppercase;">❌ If you LOSE:</div>
-                        <div style="font-size: 13px; color: rgba(255,255,255,0.85);">
-                            ${describeFlow(choice.failure_points)} × ${n} alliances
+                    <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 6px; padding: 7px 9px;">
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.5); margin-bottom: 3px; text-transform: uppercase;">❌ If you LOSE:</div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.85);">
+                            ${describeFlow(choice.failure_points)} × ${n}
                         </div>
-                        <div style="margin-top: 4px;">${fmtTotal(fTotal)}</div>
+                        <div style="margin-top: 2px;">${fmtTotal(fTotal)}</div>
                     </div>
                 `;
             } else {
@@ -3836,34 +3832,34 @@
             }
             
             return `
-                <div class="fate-choice-card" style="border: 3px solid ${color}; background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(26,10,15,0.8) 100%); border-radius: 15px; padding: 20px; cursor: pointer; transition: all 0.3s;" 
+                <div class="fate-choice-card" style="border: 3px solid ${color}; background: linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(26,10,15,0.8) 100%); border-radius: 12px; padding: 14px; cursor: pointer; transition: all 0.3s;" 
                      onclick="processChoice(${choice.choice_id}, ${fate.fate_id}, '${riskLevel}')"
-                     onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 30px ${color}';"
+                     onmouseover="this.style.transform='scale(1.03)'; this.style.boxShadow='0 0 25px ${color}';"
                      onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';">
                     
-                    <div style="font-size: 20px; color: ${color}; font-weight: 800; margin-bottom: 15px;">
+                    <div style="font-size: 17px; color: ${color}; font-weight: 800; margin-bottom: 8px;">
                         ${riskNames[riskLevel]}
                     </div>
                     
-                    <div style="font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 20px; min-height: 80px; line-height: 1.4;">
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.9); margin-bottom: 12px; min-height: 40px; line-height: 1.3;">
                         ${choice.description}
                     </div>
                     
-                    <div style="background: rgba(0,0,0,0.4); border-radius: 10px; padding: 15px; margin-bottom: 15px;">
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 8px;">
+                    <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 5px;">
                             🎲 ROLL A d20 DIE
                         </div>
-                        <div style="font-size: 16px; color: ${color}; font-weight: 700; margin-bottom: 8px;">
+                        <div style="font-size: 14px; color: ${color}; font-weight: 700; margin-bottom: 5px;">
                             Success: Roll 1-${successRange} (${successPercent}%)
                         </div>
-                        <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;">
                             <div style="width: ${successPercent}%; height: 100%; background: ${color};"></div>
                         </div>
                     </div>
                     
                     ${outcomesHtml}
                     
-                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: ${color}; font-weight: 700; font-size: 14px;">
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: ${color}; font-weight: 700; font-size: 13px;">
                         ✨ CLICK TO CHOOSE ✨
                     </div>
                 </div>
