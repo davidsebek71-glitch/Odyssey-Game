@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Odyssey Diagnostics</title>
+    <style>
+        body { background: #111; color: #eee; font-family: monospace; padding: 20px; font-size: 14px; }
+        .section { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+        .section h3 { color: #fbbf24; margin: 0 0 10px 0; }
+        .ok { color: #4ade80; }
+        .warn { color: #fbbf24; }
+        .bad { color: #f87171; font-weight: bold; }
+        pre { background: #0a0a1a; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+        button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin: 4px; font-size: 14px; }
+        button:hover { background: #1d4ed8; }
+        #log { background: #0a0a1a; padding: 12px; border-radius: 4px; min-height: 100px; max-height: 400px; overflow-y: auto; }
+        .log-line { margin: 2px 0; border-bottom: 1px solid #1a1a2e; padding: 2px 0; }
+    </style>
+</head>
+<body>
+    <h1 style="color: #fbbf24;">⚡ Odyssey Diagnostics</h1>
+    <p>This page safely loads data WITHOUT rendering the full student UI.</p>
+    
+    <div class="section">
+        <h3>Auth Status</h3>
+        <div id="auth-status">Checking...</div>
+    </div>
+
+    <div class="section">
+        <h3>Controls</h3>
+        <button onclick="runAllChecks()">🔍 Run All Checks</button>
+        <button onclick="checkEndpoint('/api/student/dashboard', 'Dashboard')">Dashboard</button>
+        <button onclick="checkEndpoint('/api/arena/status', 'Arena Status')">Arena Status</button>
+        <button onclick="checkEndpoint('/api/student/pantheon', 'Pantheon')">Pantheon</button>
+        <button onclick="checkEndpoint('/api/student/grades', 'Grades')">Grades</button>
+        <button onclick="checkEndpoint('/api/student/age-progress', 'Age Progress')">Age Progress</button>
+        <button onclick="checkEndpoint('/api/student/invitations', 'Invitations')">Invitations</button>
+        <button onclick="checkEndpoint('/api/student/submissions', 'Submissions')">Submissions</button>
+        <button onclick="checkEndpoint('/api/student/my-contributions', 'Contributions')">Contributions</button>
+        <button onclick="checkEndpoint('/api/student/achievements', 'Achievements')">Achievements</button>
+        <button onclick="checkEndpoint('/api/trade/my-data', 'Trade My Data')">Trade Data</button>
+        <button onclick="checkEndpoint('/api/trade/market', 'Trade Market')">Trade Market</button>
+        <button onclick="clearLog()">🗑️ Clear Log</button>
+    </div>
+    
+    <div class="section">
+        <h3>Response Log</h3>
+        <div id="log"></div>
+    </div>
+
+    <div class="section">
+        <h3>Raw Response Inspector</h3>
+        <p style="font-size: 12px; color: #888;">Click any endpoint button above. Last response shown below:</p>
+        <pre id="raw-response">No response yet</pre>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+        
+        // Auth check
+        const authEl = document.getElementById('auth-status');
+        if (!token) {
+            authEl.innerHTML = '<span class="bad">No token found. Log in first at the main page, then come back here.</span>';
+        } else {
+            try {
+                const u = JSON.parse(user);
+                authEl.innerHTML = `<span class="ok">✓ Logged in as: ${u.name} (ID: ${u.id})</span>`;
+            } catch(e) {
+                authEl.innerHTML = `<span class="warn">Token exists but user data parse failed: ${e.message}</span>`;
+            }
+        }
+        
+        function log(msg, cls) {
+            const el = document.getElementById('log');
+            const line = document.createElement('div');
+            line.className = 'log-line ' + (cls || '');
+            line.innerHTML = `<span style="color:#666">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('raw-response').textContent = 'No response yet';
+        }
+        
+        function sizeLabel(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`;
+            return `${(bytes/1024/1024).toFixed(1)} MB`;
+        }
+        
+        function sizeClass(bytes) {
+            if (bytes > 500000) return 'bad';
+            if (bytes > 100000) return 'warn';
+            return 'ok';
+        }
+        
+        async function checkEndpoint(url, label) {
+            log(`Fetching <b>${label}</b> (${url})...`);
+            const start = performance.now();
+            try {
+                const res = await fetch(url, { headers });
+                const text = await res.text();
+                const elapsed = (performance.now() - start).toFixed(0);
+                const bytes = new Blob([text]).size;
+                
+                if (!res.ok) {
+                    log(`<span class="bad">✗ ${label}: HTTP ${res.status} (${elapsed}ms)</span>`, 'bad');
+                    document.getElementById('raw-response').textContent = text.substring(0, 5000);
+                    return { ok: false, label, status: res.status };
+                }
+                
+                log(`<span class="${sizeClass(bytes)}">✓ ${label}: ${sizeLabel(bytes)} in ${elapsed}ms (HTTP ${res.status})</span>`);
+                
+                // Try to parse and inspect
+                try {
+                    const data = JSON.parse(text);
+                    
+                    // Check for suspicious fields
+                    const inspection = inspectObject(data, label);
+                    if (inspection.length > 0) {
+                        inspection.forEach(warning => {
+                            log(`  ⚠️ ${warning}`, 'warn');
+                        });
+                    }
+                    
+                    // Show truncated response
+                    const pretty = JSON.stringify(data, null, 2);
+                    document.getElementById('raw-response').textContent = pretty.length > 20000 
+                        ? pretty.substring(0, 20000) + '\n\n... TRUNCATED (total: ' + sizeLabel(bytes) + ') ...'
+                        : pretty;
+                    
+                    return { ok: true, label, bytes, elapsed, data };
+                } catch(parseErr) {
+                    log(`<span class="bad">  ✗ JSON parse failed: ${parseErr.message}</span>`, 'bad');
+                    document.getElementById('raw-response').textContent = text.substring(0, 5000);
+                    return { ok: false, label, parseError: parseErr.message };
+                }
+                
+            } catch(err) {
+                log(`<span class="bad">✗ ${label}: Network error - ${err.message}</span>`, 'bad');
+                return { ok: false, label, error: err.message };
+            }
+        }
+        
+        function inspectObject(data, label) {
+            const warnings = [];
+            
+            // Check for extremely large arrays
+            function checkArrays(obj, path) {
+                if (!obj || typeof obj !== 'object') return;
+                if (Array.isArray(obj)) {
+                    if (obj.length > 100) {
+                        warnings.push(`${path}: Array has ${obj.length} items`);
+                    }
+                    // Check first item for nested arrays
+                    if (obj.length > 0 && typeof obj[0] === 'object') {
+                        checkArrays(obj[0], path + '[0]');
+                    }
+                    return;
+                }
+                for (const key of Object.keys(obj)) {
+                    const val = obj[key];
+                    if (typeof val === 'string' && val.length > 10000) {
+                        warnings.push(`${path}.${key}: String is ${sizeLabel(val.length)} long!`);
+                    }
+                    if (Array.isArray(val) && val.length > 50) {
+                        warnings.push(`${path}.${key}: Array has ${val.length} items`);
+                    }
+                    if (typeof val === 'object' && val !== null) {
+                        checkArrays(val, path + '.' + key);
+                    }
+                }
+            }
+            
+            checkArrays(data, label);
+            
+            // Dashboard-specific checks
+            if (label === 'Dashboard' && data.student) {
+                const s = data.student;
+                if (s.buildings_owned && Array.isArray(s.buildings_owned) && s.buildings_owned.length > 50) {
+                    warnings.push(`buildings_owned has ${s.buildings_owned.length} entries - possible corruption!`);
+                }
+                if (s.technologies_unlocked && Array.isArray(s.technologies_unlocked) && s.technologies_unlocked.length > 50) {
+                    warnings.push(`technologies_unlocked has ${s.technologies_unlocked.length} entries!`);
+                }
+                if (typeof s.buildings_owned === 'string') {
+                    warnings.push(`buildings_owned is a string, not parsed: "${s.buildings_owned.substring(0, 100)}"`);
+                }
+            }
+            
+            // Arena-specific checks
+            if (label === 'Arena Status') {
+                if (data.available_opponents && data.available_opponents.length > 30) {
+                    warnings.push(`${data.available_opponents.length} opponents returned`);
+                }
+                if (data.god_powers) {
+                    const gpSize = JSON.stringify(data.god_powers).length;
+                    warnings.push(`god_powers payload: ${sizeLabel(gpSize)}`);
+                }
+                if (data.badge_definitions) {
+                    const bdSize = JSON.stringify(data.badge_definitions).length;
+                    warnings.push(`badge_definitions payload: ${sizeLabel(bdSize)}`);
+                }
+            }
+            
+            return warnings;
+        }
+        
+        async function runAllChecks() {
+            log('<b style="color:#fbbf24">═══ Running All Endpoint Checks ═══</b>');
+            
+            const endpoints = [
+                ['/api/student/dashboard', 'Dashboard'],
+                ['/api/student/pantheon', 'Pantheon'],
+                ['/api/student/grades', 'Grades'],
+                ['/api/student/age-progress', 'Age Progress'],
+                ['/api/student/invitations', 'Invitations'],
+                ['/api/student/submissions', 'Submissions'],
+                ['/api/student/my-contributions', 'Contributions'],
+                ['/api/student/achievements', 'Achievements'],
+                ['/api/arena/status', 'Arena Status'],
+                ['/api/trade/my-data', 'Trade My Data'],
+                ['/api/trade/market', 'Trade Market']
+            ];
+            
+            let totalBytes = 0;
+            for (const [url, label] of endpoints) {
+                const result = await checkEndpoint(url, label);
+                if (result && result.bytes) totalBytes += result.bytes;
+            }
+            
+            log(`<b style="color:#fbbf24">═══ Total payload: ${sizeLabel(totalBytes)} ═══</b>`);
+            
+            if (totalBytes > 500000) {
+                log('<span class="bad">⚠️ TOTAL PAYLOAD OVER 500KB — this is likely causing the crash on low-memory devices!</span>');
+            } else if (totalBytes > 200000) {
+                log('<span class="warn">⚠️ Total payload is heavy but should be manageable.</span>');
+            } else {
+                log('<span class="ok">✓ Total payload size looks reasonable.</span>');
+            }
+        }
+    </script>
+</body>
+</html>
