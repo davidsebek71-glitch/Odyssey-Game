@@ -466,7 +466,9 @@ async function initDatabase() {
       wrong_answer_2 TEXT NOT NULL,
       wrong_answer_3 TEXT NOT NULL,
       difficulty TEXT DEFAULT 'medium',
-      is_active INTEGER DEFAULT 1
+      is_active INTEGER DEFAULT 1,
+      age TEXT DEFAULT 'Archaic',
+      myth_name TEXT
     )
   `);
   
@@ -2267,6 +2269,76 @@ function seedClassicalData() {
     }
   } catch (e) {
     console.log('Fates summary check failed:', e.message);
+  }
+
+  // === CLASSICAL BATTLE QUESTIONS (converted from myth quiz questions) ===
+  // Add age and myth_name columns if they don't exist (migration for existing DBs)
+  try {
+    const cols = db.exec("PRAGMA table_info(battle_questions)");
+    const colNames = cols[0] ? cols[0].values.map(c => c[1]) : [];
+    if (!colNames.includes('age')) {
+      db.run("ALTER TABLE battle_questions ADD COLUMN age TEXT DEFAULT 'Archaic'");
+      console.log('✅ Added age column to battle_questions');
+    }
+    if (!colNames.includes('myth_name')) {
+      db.run("ALTER TABLE battle_questions ADD COLUMN myth_name TEXT");
+      console.log('✅ Added myth_name column to battle_questions');
+    }
+  } catch (e) {
+    console.log('battle_questions column migration note:', e.message);
+  }
+
+  // Sync Classical battle questions from myth_quiz_questions
+  try {
+    const classicalBattleCheck = db.exec("SELECT COUNT(*) FROM battle_questions WHERE age = 'Classical'");
+    const classicalBattleCount = classicalBattleCheck[0] ? classicalBattleCheck[0].values[0][0] : 0;
+    
+    // Get current myth quiz count to detect if new questions were added
+    const quizCountCheck = db.exec("SELECT COUNT(*) FROM myth_quiz_questions");
+    const totalQuizQuestions = quizCountCheck[0] ? quizCountCheck[0].values[0][0] : 0;
+    
+    if (classicalBattleCount !== totalQuizQuestions) {
+      if (classicalBattleCount > 0) {
+        console.log(`⚠️ Classical battle questions (${classicalBattleCount}) != quiz questions (${totalQuizQuestions}), re-syncing...`);
+        db.run("DELETE FROM battle_questions WHERE age = 'Classical'");
+      }
+      
+      // Portal ID to myth name mapping
+      const portalNames = {
+        1: 'Pandora', 2: 'Phaethon', 3: 'Orpheus', 4: 'Echo & Narcissus',
+        5: 'Icarus', 6: 'Eros & Psyche', 7: 'Constellations'
+      };
+      
+      // Get all quiz questions
+      const quizRows = db.exec("SELECT portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer FROM myth_quiz_questions");
+      if (quizRows[0]) {
+        let inserted = 0;
+        quizRows[0].values.forEach(row => {
+          const [portalId, questionText, optA, optB, optC, optD, correctLetter] = row;
+          const mythName = portalNames[portalId] || 'Unknown';
+          
+          // Convert letter answer to actual text values for battle format
+          const answers = { a: optA, b: optB, c: optC, d: optD };
+          const correctAnswer = answers[correctLetter] || optA;
+          
+          // Get wrong answers (all options except the correct one)
+          const wrongAnswers = Object.entries(answers)
+            .filter(([letter]) => letter !== correctLetter)
+            .map(([, text]) => text);
+          
+          db.run(`INSERT INTO battle_questions (god_associated, question_text, correct_answer, wrong_answer_1, wrong_answer_2, wrong_answer_3, difficulty, age, myth_name)
+                  VALUES (?, ?, ?, ?, ?, ?, 'medium', 'Classical', ?)`,
+            [mythName, questionText, correctAnswer, wrongAnswers[0], wrongAnswers[1], wrongAnswers[2], mythName]);
+          inserted++;
+        });
+        console.log(`✅ Classical battle questions synced (${inserted} questions from ${Object.keys(portalNames).length} myths)`);
+      }
+      saveDatabaseNow();
+    } else {
+      console.log(`✅ Classical battle questions already synced (${classicalBattleCount} questions)`);
+    }
+  } catch (err) {
+    console.error('❌ Classical battle questions sync error:', err.message);
   }
 
   console.log('🏛️ Classical Age data check complete');

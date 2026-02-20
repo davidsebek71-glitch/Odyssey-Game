@@ -6474,7 +6474,7 @@ app.post('/api/arena/select-gods', authenticateToken, (req, res) => {
     if (updated.challenger_gods_ready === 1 && updated.defender_gods_ready === 1) {
       // BOTH ready - start battle with deploy phase
       // Use adaptive question pool (Archaic + unlocked Classical myths)
-      const question = getAdaptiveBattleQuestion(updated.challenger_id, []);
+      const question = getAdaptiveBattleQuestion(updated.challenger_id, updated.defender_id, []);
       
       if (question) {
         // Set synchronized start time - 1 second from now for both players
@@ -6593,7 +6593,7 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
             // Get unused questions using adaptive pool (Archaic + unlocked Classical myths)
             const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
             const usedIds = usedQuestions.map(q => q.question_id);
-            const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, usedIds);
+            const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, battle.defender_id, usedIds);
             
             if (nextQ) {
               const isSuddenDeath = nextRoundNum > 5;
@@ -7146,7 +7146,7 @@ function scoreRound(battle_id, round_id) {
       const nextRound = battle.current_round + 1;
       const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
       const usedIds = usedQuestions.map(q => q.question_id);
-      const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, usedIds);
+      const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, battle.defender_id, usedIds);
       
       if (nextQ) {
         const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
@@ -7995,66 +7995,91 @@ app.get('/api/teacher/myth-portals', authenticateToken, (req, res) => {
 // ====================
 
 // Override the getRandomQuestion function to support adaptive Classical pool
-// The original function is defined earlier in this file — we enhance it here
-// by wrapping the battle endpoint's question selection
+// Uses intersection of both battlers' unlocked myths with 70/30 Classical/Archaic weighting
 
-// Store reference to check if student has unlocked Classical myths
-function getAdaptiveBattleQuestion(studentId, excludeIds = []) {
-  // Get the student's class period to check which myths are unlocked
-  const student = query('SELECT class_period, alliance_id FROM students WHERE student_id = ?', [studentId])[0];
-  if (!student || !student.class_period) {
-    // Fallback to all Archaic questions
+function getAdaptiveBattleQuestion(challengerId, defenderId, excludeIds = []) {
+  // Get both students' class periods
+  const challenger = query('SELECT class_period FROM students WHERE student_id = ?', [challengerId])[0];
+  const defender = defenderId ? query('SELECT class_period FROM students WHERE student_id = ?', [defenderId])[0] : null;
+  
+  if (!challenger || !challenger.class_period) {
     return getRandomQuestion(excludeIds);
   }
   
-  // Check which Classical myths are unlocked for this student's period
+  // Get myths unlocked for this period (portals activated by teacher)
   const unlockedPortals = query(
-    'SELECT mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.class_period = ? AND mps.activated = 1',
-    [student.class_period]
+    'SELECT mp.portal_id, mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.class_period = ? AND mps.activated = 1',
+    [challenger.class_period]
   );
-  const unlockedMyths = unlockedPortals.map(p => p.myth_name);
   
-  // Build question pool: all Archaic + Classical questions for unlocked myths
-  let questions;
-  if (excludeIds.length > 0) {
-    const placeholders = excludeIds.map(() => '?').join(',');
-    if (unlockedMyths.length > 0) {
-      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
-      questions = query(
-        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
-        [...excludeIds, ...unlockedMyths]
+  // Filter to only myths BOTH students have passed the quiz for
+  let sharedMyths = [];
+  if (unlockedPortals.length > 0) {
+    for (const portal of unlockedPortals) {
+      const challengerPassed = query(
+        'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
+        [challengerId, portal.portal_id]
       );
-    } else {
-      questions = query(
-        `SELECT * FROM battle_questions WHERE is_active = 1 AND question_id NOT IN (${placeholders}) AND (age = 'Archaic' OR age IS NULL)`,
-        excludeIds
+      
+      // If no defender (edge case), just check challenger
+      if (!defenderId) {
+        if (challengerPassed.length > 0) sharedMyths.push(portal.myth_name);
+        continue;
+      }
+      
+      const defenderPassed = query(
+        'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
+        [defenderId, portal.portal_id]
       );
+      
+      if (challengerPassed.length > 0 && defenderPassed.length > 0) {
+        sharedMyths.push(portal.myth_name);
+      }
     }
+  }
+  
+  // Build exclude clause
+  const excludeClause = excludeIds.length > 0 
+    ? `AND question_id NOT IN (${excludeIds.map(() => '?').join(',')})` 
+    : '';
+  const excludeParams = excludeIds.length > 0 ? [...excludeIds] : [];
+  
+  // Get Archaic and Classical question pools separately
+  const archaicQuestions = query(
+    `SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL) ${excludeClause}`,
+    excludeParams
+  );
+  
+  let classicalQuestions = [];
+  if (sharedMyths.length > 0) {
+    const mythPlaceholders = sharedMyths.map(() => '?').join(',');
+    classicalQuestions = query(
+      `SELECT * FROM battle_questions WHERE is_active = 1 AND age = 'Classical' AND myth_name IN (${mythPlaceholders}) ${excludeClause}`,
+      [...sharedMyths, ...excludeParams]
+    );
+  }
+  
+  // 70/30 weighting: if Classical questions exist, 70% chance of Classical, 30% Archaic
+  let pool;
+  if (classicalQuestions.length > 0 && archaicQuestions.length > 0) {
+    pool = Math.random() < 0.7 ? classicalQuestions : archaicQuestions;
+  } else if (classicalQuestions.length > 0) {
+    pool = classicalQuestions;
+  } else if (archaicQuestions.length > 0) {
+    pool = archaicQuestions;
   } else {
-    if (unlockedMyths.length > 0) {
-      const mythPlaceholders = unlockedMyths.map(() => '?').join(',');
-      questions = query(
-        `SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL OR (age = 'Classical' AND myth_name IN (${mythPlaceholders})))`,
-        unlockedMyths
-      );
-    } else {
-      questions = query("SELECT * FROM battle_questions WHERE is_active = 1 AND (age = 'Archaic' OR age IS NULL)");
-    }
+    // Absolute fallback
+    pool = query('SELECT * FROM battle_questions WHERE is_active = 1');
+    if (pool.length === 0) return null;
   }
   
-  if (questions.length === 0) {
-    // Fallback — get any active question
-    questions = query('SELECT * FROM battle_questions WHERE is_active = 1');
-    if (questions.length === 0) return null;
-  }
-  
-  // Fisher-Yates shuffle
-  for (let i = questions.length - 1; i > 0; i--) {
+  // Fisher-Yates shuffle and return first
+  for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [questions[i], questions[j]] = [questions[j], questions[i]];
+    [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   
-  return questions[0];
+  return pool[0];
 }
 
 // ====================
