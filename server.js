@@ -8394,6 +8394,7 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
     const threshold = getResourceThreshold(student.class_period);
     
     // Tradeable partners (same period, different alliance, with resources assigned + their inventories)
+    // Only include partners whose alliance has built a Transport Ship
     const partners = query(`
       SELECT s.student_id, s.name, a.alliance_name, ar.native_resource,
              COALESCE(sr.olive, 0) as olive, COALESCE(sr.grape, 0) as grape,
@@ -8403,6 +8404,7 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
       JOIN alliance_resources ar ON a.alliance_id = ar.alliance_id
       LEFT JOIN student_resources sr ON s.student_id = sr.student_id
       WHERE s.class_period = ? AND s.alliance_id != ? AND a.is_disbanded = 0
+        AND a.buildings_owned LIKE '%Transport Ship%'
       ORDER BY a.alliance_name, s.name
     `, [student.class_period, student.alliance_id]);
     
