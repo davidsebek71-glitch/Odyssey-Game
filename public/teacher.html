@@ -3987,7 +3987,20 @@
                     <div id="total-display" style="font-size: 20px; color: #ffd700; margin-top: 10px; font-weight: 700;">
                         New Total: ${result.updatedAlliance.total_points} points
                     </div>
-
+                    
+                    ${result.stealDetails ? `
+                    <div style="background: rgba(147, 51, 234, 0.15); border: 1px solid rgba(147, 51, 234, 0.4); padding: 12px; border-radius: 8px; margin-top: 12px;">
+                        <div style="font-size: 14px; color: #c084fc; font-weight: 700; margin-bottom: 6px;">
+                            ⚔️ STEAL FATE — ${result.stealDetails.alliancesAffected} Alliances Affected
+                        </div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.8);">
+                            ${result.stealDetails.perAlliance > 0 
+                                ? `Stole <strong style="color: #4ade80;">${result.stealDetails.perAlliance}</strong> pts from each alliance` 
+                                : `Gave <strong style="color: #ef4444;">${Math.abs(result.stealDetails.perAlliance)}</strong> pts to each alliance`}
+                            &nbsp;·&nbsp; Total: <strong style="color: ${result.pointsChange >= 0 ? '#4ade80' : '#ef4444'};">${result.pointsChange >= 0 ? '+' : ''}${result.pointsChange}</strong> pts
+                        </div>
+                    </div>
+                    ` : ''}
 
                 </div>
             `;

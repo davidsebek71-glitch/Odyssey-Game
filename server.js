@@ -4434,13 +4434,60 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
     
     // Fate outcome is applied exactly as written — no scaling
     
-    // Apply fate outcome exactly as written
+    // Apply fate outcome to this alliance
     run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
         [pointsChange, alliance_id]);
     
     run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
          VALUES (?, ?, ?, ?, ?)`, 
         [alliance_id, pointsChange, 'fate', `Fate: ${fate.fate_name} (${choice.risk_level} choice - ${success ? 'success' : 'failure'})`, teacher_id]);
+    
+    // STEAL-CHOICE: distribute inverse points to/from all other alliances in same period
+    let stealDetails = null;
+    if (fate.fate_type === 'steal_choice') {
+      // Get all other alliances in the same period
+      const allPeriodAlliances = query(`
+        SELECT DISTINCT a.alliance_id, a.alliance_name 
+        FROM alliances a 
+        JOIN students s ON s.alliance_id = a.alliance_id 
+        WHERE s.class_period = (SELECT class_period FROM students WHERE alliance_id = ? LIMIT 1)
+          AND a.alliance_id != ? AND a.is_disbanded = 0
+      `, [alliance_id, alliance_id]);
+      
+      // The pointsChange for this alliance is what they gain/lose per other alliance
+      // Other alliances get the inverse: if you steal +10, each other loses 10
+      // If you fail and get -15, each other gains 15
+      const inversePerAlliance = -pointsChange;
+      const totalAlliancesAffected = allPeriodAlliances.length;
+      
+      allPeriodAlliances.forEach(other => {
+        run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
+            [inversePerAlliance, other.alliance_id]);
+        run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
+             VALUES (?, ?, ?, ?, ?)`, 
+            [other.alliance_id, inversePerAlliance, 'fate', 
+             `Fate: ${fate.fate_name} (${inversePerAlliance > 0 ? 'gained from' : 'lost to'} ${alliance.alliance_name})`, teacher_id]);
+      });
+      
+      // Scale this alliance's total: they gain/lose pointsChange PER other alliance
+      const additionalPoints = pointsChange * (totalAlliancesAffected - 1); // already applied once above
+      if (additionalPoints !== 0) {
+        run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
+            [additionalPoints, alliance_id]);
+        run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
+             VALUES (?, ?, ?, ?, ?)`, 
+            [alliance_id, additionalPoints, 'fate', 
+             `Fate: ${fate.fate_name} (${pointsChange > 0 ? 'stole from' : 'gave to'} ${totalAlliancesAffected - 1} more alliances)`, teacher_id]);
+      }
+      
+      const totalChange = pointsChange * totalAlliancesAffected;
+      stealDetails = {
+        perAlliance: pointsChange,
+        alliancesAffected: totalAlliancesAffected,
+        totalChange
+      };
+      pointsChange = totalChange; // Update for response
+    }
     
     // Log the fate outcome
     run(`INSERT INTO fate_outcomes (alliance_id, fate_id, outcome_type, choice_made, points_awarded) 
@@ -4461,7 +4508,8 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       choice,
       fate,
       updatedAlliance,
-      roll: (roll * 100).toFixed(1)
+      roll: (roll * 100).toFixed(1),
+      stealDetails
     });
   } catch (err) {
     console.error('Process fate choice error:', err);
