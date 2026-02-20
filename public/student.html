@@ -3129,20 +3129,26 @@
 
         // Load dashboard first (sets dashboardData needed by other sections), then load rest in parallel
         loadDashboard().then(() => {
+            // Stagger parallel loads to avoid overwhelming the browser
             Promise.all([
                 loadInvitations(),
                 loadSubmissions(),
-                loadContributions(),
-                loadAchievements(),
-                loadAgeProgress(),
-                loadGrades(),
-                loadPantheon(),
-                checkArenaEligibility()
-            ]);
-        });
+                loadContributions()
+            ]).catch(err => console.warn('Batch 1 load error:', err));
+            // Delay second batch to prevent request flood
+            setTimeout(() => {
+                Promise.all([
+                    loadAchievements(),
+                    loadAgeProgress(),
+                    loadGrades(),
+                    loadPantheon(),
+                    checkArenaEligibility()
+                ]).catch(err => console.warn('Batch 2 load error:', err));
+            }, 2000);
+        }).catch(err => console.error('Dashboard load failed:', err));
         
         // Start background polling for real-time updates (delayed to avoid initial burst)
-        setTimeout(() => startBackgroundPolling(), 5000);
+        setTimeout(() => startBackgroundPolling(), 10000);
 
         async function loadDashboard() {
             try {
@@ -5360,8 +5366,8 @@
             dashboardRefreshInProgress = false;
         }
         
-        // Start on page load
-        startDashboardRefresh();
+        // Start on page load (delayed to let initial loads complete first)
+        setTimeout(() => startDashboardRefresh(), 15000);
 
         // ====================
         // GRADE TRACKING SYSTEM (V42)
@@ -9541,8 +9547,8 @@
             startChallengePolling();
         }
         
-        // Start challenge polling on page load
-        startChallengePolling();
+        // Start challenge polling on page load (delayed to let page settle)
+        setTimeout(() => startChallengePolling(), 12000);
 
         // ==================== CLASSICAL AGE — MYTH PORTALS ====================
         const mythPortalGlowColors = {
