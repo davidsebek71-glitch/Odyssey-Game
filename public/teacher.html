@@ -1484,7 +1484,7 @@
 
     <!-- FATE RESULT MODAL -->
     <div id="fate-result-modal" class="modal fate-modal">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content" style="max-width: 700px; max-height: 95vh; overflow-y: auto;">
             <div id="fate-result-content"></div>
             <div class="modal-buttons" style="margin-top: 30px;">
                 <button type="button" class="btn-fate" id="apply-fate-button" onclick="applyFateAndReturn()">✨ APPLY FATE ✨</button>
@@ -1502,7 +1502,7 @@
 
     <!-- BATTLE MODAL -->
     <div id="battle-modal" class="modal fate-modal">
-        <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-content" style="max-width: 800px; max-height: 95vh; overflow-y: auto;">
             <div id="battle-content"></div>
         </div>
     </div>
@@ -3432,6 +3432,9 @@
                 document.getElementById('fate-wheel-modal').classList.remove('show');
                 document.getElementById('fate-wheel-modal').classList.remove('fullscreen-spin');
 
+                // Hold the fate reveal for 2 seconds so students can read the name
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
                 // Route based on fate type
                 if (fate.is_battle === 1) {
                     // BATTLE FATES - Use battle system
@@ -3511,24 +3514,39 @@
         // OLD Reverse Card functions REMOVED
         // Reverse Card is now handled AFTER the roll in showChoiceResult()
         
-        // Show Countdown Game form (Fate 9)
+        // Show Countdown Game form (Fate 9, 29)
         function showCountdownForm(fate) {
             document.getElementById('fate-reveal-overlay').className = '';
             const modal = document.getElementById('fate-choices-modal');
             const content = document.getElementById('fate-choices-content');
             
+            // Determine theme based on fate
+            const isSwampReptile = fate.fate_number === 41;
+            const themeEmoji = isSwampReptile ? '🐊' : '🎮';
+            const themeName = fate.fate_name;
+            const themeQuote = isSwampReptile 
+                ? '"A massive reptile lurks in the swamps! Your warriors must drive it away!"'
+                : '"Grab your alliance, some notecards and create a strategy to win!"';
+            const themeBg = isSwampReptile
+                ? 'background: linear-gradient(135deg, rgba(20,80,20,0.4), rgba(40,60,20,0.3));'
+                : '';
+            const themeBorder = isSwampReptile
+                ? 'border: 2px solid rgba(34,139,34,0.5);'
+                : '';
+            const themeColor = isSwampReptile ? '#4ade80' : '#ffd700';
+            
             content.innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">🎮</div>
-                    <div style="font-size: 32px; color: #ffd700; font-weight: 800; margin-bottom: 15px;">
-                        ${fate.fate_name}
+                <div style="text-align: center; padding: 20px; ${themeBg} border-radius: 15px;">
+                    <div style="font-size: 72px; margin-bottom: 10px;">${themeEmoji}</div>
+                    <div style="font-size: 32px; color: ${themeColor}; font-weight: 800; margin-bottom: 15px;">
+                        ${themeName}
                     </div>
                     <div style="font-size: 20px; color: rgba(255,255,255,0.9); margin-bottom: 30px; font-style: italic;">
-                        "Grab your alliance, some notecards and create a strategy to win!"
+                        ${themeQuote}
                     </div>
                     
-                    <div style="background: rgba(0,0,0,0.3); padding: 30px; border-radius: 15px; margin: 20px auto; max-width: 400px;">
-                        <div style="font-size: 18px; color: #ffd700; margin-bottom: 20px;">
+                    <div style="background: rgba(0,0,0,0.3); padding: 30px; border-radius: 15px; margin: 20px auto; max-width: 400px; ${themeBorder}">
+                        <div style="font-size: 18px; color: ${themeColor}; margin-bottom: 20px;">
                             Award Points After Game:
                         </div>
                         
