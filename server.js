@@ -1163,10 +1163,11 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
     
-    // Get student info
+    // Get student info (explicitly exclude map_image which can be 100KB+ base64)
     const student = query(`
       SELECT 
-        s.*,
+        s.student_id, s.name, s.class_period, s.alliance_id, s.civilization_name,
+        s.technologies_unlocked, s.badges_earned, s.is_ghost, s.classical_entered,
         a.alliance_name,
         a.total_points as alliance_points,
         a.current_age,
@@ -2576,15 +2577,17 @@ app.post('/api/student/place-building', authenticateToken, (req, res) => {
     const { building_name, x_position, y_position } = req.body;
     const student_id = req.user.id;
     
-    // Check student has a map
+    // Check student has a map (use length check to avoid loading full blob)
     const student = query(`
-      SELECT s.*, a.buildings_owned 
+      SELECT s.student_id, s.alliance_id, s.class_period, 
+             CASE WHEN s.map_image IS NOT NULL AND s.map_image != '' THEN 1 ELSE 0 END as has_map,
+             a.buildings_owned 
       FROM students s 
       LEFT JOIN alliances a ON s.alliance_id = a.alliance_id 
       WHERE s.student_id = ?
     `, [student_id])[0];
     
-    if (!student.map_image) {
+    if (!student.has_map) {
       return res.status(400).json({ error: 'You must upload a map first' });
     }
     
@@ -2660,7 +2663,7 @@ app.post('/api/student/save-wall', authenticateToken, (req, res) => {
     
     // Check student has a wall building
     const student = query(`
-      SELECT s.*, a.buildings_owned 
+      SELECT s.student_id, s.alliance_id, s.wall_points, a.buildings_owned 
       FROM students s 
       LEFT JOIN alliances a ON s.alliance_id = a.alliance_id 
       WHERE s.student_id = ?
@@ -5957,8 +5960,8 @@ app.get('/api/arena/status', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
     
-    // Get student info
-    const student = query('SELECT * FROM students WHERE student_id = ?', [student_id])[0];
+    // Get student info (exclude map_image blob)
+    const student = query('SELECT student_id, name, class_period, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
     if (!student) {
       return res.json({ 
         arena_unlocked: false, 
@@ -6270,8 +6273,8 @@ app.post('/api/arena/challenge', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'This player has reached their daily battle limit.' });
     }
     
-    const challenger = query('SELECT * FROM students WHERE student_id = ?', [challenger_id])[0];
-    const defender = query('SELECT * FROM students WHERE student_id = ?', [defender_id])[0];
+    const challenger = query('SELECT student_id, name, class_period, alliance_id FROM students WHERE student_id = ?', [challenger_id])[0];
+    const defender = query('SELECT student_id, name, class_period, alliance_id FROM students WHERE student_id = ?', [defender_id])[0];
     
     if (!challenger || !defender) {
       return res.status(400).json({ error: 'Invalid players' });
