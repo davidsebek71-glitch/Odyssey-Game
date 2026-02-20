@@ -3911,7 +3911,12 @@
                                 if (processingDiv && processingDiv.parentNode) {
                                     document.body.removeChild(processingDiv);
                                 }
-                                showChoiceResult(result);
+                                // If steal_choice fate, show dramatic transfer screen first
+                                if (result.stealDetails) {
+                                    showStealTransferSequence(result);
+                                } else {
+                                    showChoiceResult(result);
+                                }
                             }, 2000);
                         }
                     }, 50); // 50ms per frame = 2 seconds total animation
@@ -3923,6 +3928,140 @@
                 console.error('Process choice error:', err);
                 alert('Failed to process choice!');
             }
+        }
+
+        // Dramatic steal transfer sequence — shows each alliance being affected one by one
+        async function showStealTransferSequence(result) {
+            const sd = result.stealDetails;
+            const isPositive = sd.perAlliance > 0; // Are WE gaining (stealing) or losing (giving)?
+            const perAmount = Math.abs(sd.perAlliance);
+            
+            // Create fullscreen overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'steal-sequence-overlay';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: radial-gradient(ellipse at center, ${isPositive ? '#0a1a0a' : '#1a0a0a'} 0%, #000 100%);
+                z-index: 10002; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            `;
+            
+            // Header
+            const header = document.createElement('div');
+            header.style.cssText = 'text-align: center; margin-bottom: 40px;';
+            header.innerHTML = `
+                <div style="font-size: 56px; margin-bottom: 15px;">${isPositive ? '⚔️' : '💸'}</div>
+                <div style="font-size: 36px; font-weight: 900; color: ${isPositive ? '#4ade80' : '#ef4444'}; 
+                     text-shadow: 0 0 30px ${isPositive ? 'rgba(74,222,128,0.5)' : 'rgba(239,68,68,0.5)'}; letter-spacing: 3px;">
+                    ${isPositive ? 'STEALING FROM ALL ALLIANCES!' : 'PAYING ALL ALLIANCES!'}
+                </div>
+                <div style="font-size: 18px; color: rgba(255,255,255,0.6); margin-top: 8px;">
+                    ${result.fate.fate_name} — ${selectedAllianceName}
+                </div>
+            `;
+            overlay.appendChild(header);
+            
+            // Alliance transfer container
+            const transferContainer = document.createElement('div');
+            transferContainer.style.cssText = 'width: 90%; max-width: 700px;';
+            overlay.appendChild(transferContainer);
+            
+            // Running total
+            const totalDiv = document.createElement('div');
+            totalDiv.style.cssText = `
+                text-align: center; margin-top: 35px; opacity: 0; transition: opacity 0.5s;
+            `;
+            overlay.appendChild(totalDiv);
+            
+            document.body.appendChild(overlay);
+            
+            // Animate each alliance appearing one by one
+            const alliances = sd.affectedAlliances || [];
+            let runningTotal = 0;
+            
+            for (let i = 0; i < alliances.length; i++) {
+                const a = alliances[i];
+                runningTotal += Math.abs(sd.perAlliance);
+                
+                const row = document.createElement('div');
+                row.style.cssText = `
+                    display: flex; align-items: center; justify-content: space-between;
+                    background: rgba(255,255,255,0.05); border: 1px solid ${isPositive ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'};
+                    border-radius: 12px; padding: 16px 24px; margin-bottom: 12px;
+                    opacity: 0; transform: translateX(${isPositive ? '100px' : '-100px'}); 
+                    transition: all 0.5s ease-out;
+                `;
+                
+                const arrow = isPositive 
+                    ? `<span style="color: #4ade80; font-size: 24px; margin: 0 15px;">→</span>`
+                    : `<span style="color: #ef4444; font-size: 24px; margin: 0 15px;">←</span>`;
+                
+                const allianceColor = isPositive ? '#ef4444' : '#4ade80';
+                const youColor = isPositive ? '#4ade80' : '#ef4444';
+                
+                row.innerHTML = `
+                    <div style="flex: 1;">
+                        <div style="font-size: 20px; font-weight: 700; color: ${allianceColor};">
+                            ${a.name}
+                        </div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 2px;">
+                            ${isPositive ? 'Loses' : 'Gains'} ${perAmount} points
+                        </div>
+                    </div>
+                    ${arrow}
+                    <div style="text-align: right;">
+                        <div style="font-size: 28px; font-weight: 900; color: ${youColor};">
+                            ${isPositive ? '+' : '-'}${perAmount}
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.4);">
+                            ${isPositive ? 'stolen' : 'given'}
+                        </div>
+                    </div>
+                `;
+                
+                transferContainer.appendChild(row);
+                
+                // Trigger animation after a frame
+                await new Promise(r => setTimeout(r, 50));
+                row.style.opacity = '1';
+                row.style.transform = 'translateX(0)';
+                
+                // Wait between each alliance reveal
+                await new Promise(r => setTimeout(r, 800));
+            }
+            
+            // Show final total with dramatic reveal
+            await new Promise(r => setTimeout(r, 400));
+            const totalAmount = Math.abs(sd.totalChange);
+            totalDiv.innerHTML = `
+                <div style="font-size: 20px; color: rgba(255,255,255,0.5); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 2px;">
+                    Total ${isPositive ? 'Stolen' : 'Given'}
+                </div>
+                <div style="font-size: 72px; font-weight: 900; color: ${isPositive ? '#4ade80' : '#ef4444'}; 
+                     text-shadow: 0 0 40px ${isPositive ? 'rgba(74,222,128,0.6)' : 'rgba(239,68,68,0.6)'};">
+                    ${isPositive ? '+' : '-'}${totalAmount}
+                </div>
+                <div style="font-size: 16px; color: #ffd700; margin-top: 8px;">
+                    from ${sd.alliancesAffected} alliance${sd.alliancesAffected > 1 ? 's' : ''}
+                </div>
+                <button id="steal-continue-btn" style="
+                    margin-top: 30px; background: linear-gradient(135deg, #ffd700, #ffed4e); 
+                    border: none; color: #000; font-size: 20px; font-weight: 800; 
+                    padding: 16px 50px; border-radius: 12px; cursor: pointer;
+                    transform: scale(0.9); transition: transform 0.3s;
+                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    ✨ SEE FINAL RESULT ✨
+                </button>
+            `;
+            totalDiv.style.opacity = '1';
+            
+            // Wait for button click
+            await new Promise(resolve => {
+                document.getElementById('steal-continue-btn').onclick = resolve;
+            });
+            
+            // Remove overlay and show normal result
+            document.body.removeChild(overlay);
+            showChoiceResult(result);
         }
 
         function showChoiceResult(result) {

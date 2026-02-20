@@ -4484,7 +4484,11 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       stealDetails = {
         perAlliance: pointsChange,
         alliancesAffected: totalAlliancesAffected,
-        totalChange
+        totalChange,
+        affectedAlliances: allPeriodAlliances.map(a => ({
+          name: a.alliance_name,
+          pointsChange: inversePerAlliance
+        }))
       };
       pointsChange = totalChange; // Update for response
     }
