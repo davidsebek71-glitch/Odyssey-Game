@@ -2109,27 +2109,32 @@ function seedClassicalData() {
       }
 
       const classicalChoices = [
-        // === STEAL-CHOICE FATES (special handling — amounts per alliance) ===
+        // === STEAL-CHOICE FATES (amounts are PER ALLIANCE from spinner's perspective) ===
+        // Positive value = spinner steals FROM each other alliance
+        // Negative value = spinner gives TO each other alliance
         
-        // Fate 21: Artemis Forest Fires (negative steal — give pts to each)
-        [classicalFateIds[21], 'conservative', "Offer tribute to calm Artemis — limit the fire damage", 0.85, -4, -10],
-        [classicalFateIds[21], 'moderate', "Rally firefighting crews — might turn the tide", 0.55, 2, -15],
-        [classicalFateIds[21], 'aggressive', "Harness the flames to forge new weapons!", 0.30, 10, -25],
+        // Fate 21: Artemis Forest Fires (NEGATIVE steal — you're in trouble, limit the damage)
+        // Conservative: safe damage control. Moderate: chance to escape. Aggressive: hero play or disaster.
+        [classicalFateIds[21], 'conservative', "Offer tribute to calm Artemis — limit the damage", 0.85, -5, -10],
+        [classicalFateIds[21], 'moderate', "Rally firefighting crews — might turn the tide", 0.55, 0, -12],
+        [classicalFateIds[21], 'aggressive', "Harness the flames to forge new weapons!", 0.30, 8, -15],
         
-        // Fate 28: Constellation Blessing (positive steal — steal from each)
-        [classicalFateIds[28], 'conservative', "Accept the stars' modest gift", 0.85, 10, 4],
-        [classicalFateIds[28], 'moderate', "Claim a greater constellation for your people", 0.55, 15, 0],
-        [classicalFateIds[28], 'aggressive', "Demand the grandest constellation in the heavens!", 0.30, 20, -15],
+        // Fate 28: Constellation Blessing (POSITIVE steal — you're blessed, how greedy will you be?)
+        // Conservative: safe win. Moderate: bigger haul. Aggressive: massive or painful reversal.
+        [classicalFateIds[28], 'conservative', "Accept the stars' modest gift", 0.85, 8, -4],
+        [classicalFateIds[28], 'moderate', "Claim a greater constellation for your people", 0.55, 12, -6],
+        [classicalFateIds[28], 'aggressive', "Demand the grandest constellation in the heavens!", 0.30, 18, -12],
         
-        // Fate 35: Dionysus Drought (negative steal — lose to each)
-        [classicalFateIds[35], 'conservative', "Ration remaining wine and pray for rain", 0.85, -4, -10],
-        [classicalFateIds[35], 'moderate', "Send scouts to find hidden springs", 0.55, 2, -15],
-        [classicalFateIds[35], 'aggressive', "Steal wine reserves from neighboring lands!", 0.30, 10, -25],
+        // Fate 35: Dionysus Drought (NEGATIVE steal — worse than Artemis, higher stakes)
+        // Conservative: contained loss. Moderate: almost escaped. Aggressive: forgiven or catastrophic.
+        [classicalFateIds[35], 'conservative', "Ration remaining wine and pray for rain", 0.85, -6, -12],
+        [classicalFateIds[35], 'moderate', "Send scouts to find hidden springs", 0.55, -3, -15],
+        [classicalFateIds[35], 'aggressive', "Steal wine reserves from neighboring lands!", 0.30, 5, -18],
         
-        // Fate 44: Pandora's Echo (positive steal — steal from each)
-        [classicalFateIds[44], 'conservative', "Carefully share Hope with your closest allies", 0.85, 10, 4],
-        [classicalFateIds[44], 'moderate', "Use Hope to inspire your people to greatness", 0.55, 15, 0],
-        [classicalFateIds[44], 'aggressive', "Open the fragment fully and release all of Hope!", 0.30, 20, -15],
+        // Fate 44: Pandora's Echo (POSITIVE steal — similar to Constellation but different theme)
+        [classicalFateIds[44], 'conservative', "Carefully contain the fragment of Hope", 0.85, 8, -4],
+        [classicalFateIds[44], 'moderate', "Use Hope to inspire your people to greatness", 0.55, 12, -6],
+        [classicalFateIds[44], 'aggressive', "Open the fragment fully and release all of Hope!", 0.30, 18, -12],
 
         // === STANDARD CHOICE FATES ===
         
