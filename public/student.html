@@ -3187,7 +3187,7 @@
                 pollingInterval = null;
             }
             
-            // Poll every 15 seconds for pantheon updates only
+            // Poll every 30 seconds for pantheon updates only
             pollingInterval = setInterval(async () => {
                 try {
                     // Check for new god unlocks
@@ -5349,7 +5349,7 @@
                     // Silent fail - polling errors shouldn't disrupt UI
                 }
                 dashboardRefreshInProgress = false;
-            }, 15000); // 15 seconds instead of 10
+            }, 30000); // 30 seconds — balanced between freshness and browser performance
         }
         
         function stopDashboardRefresh() {
@@ -7575,8 +7575,8 @@
                 challengePollingInterval = null;
             }
             
-            // Poll every 5 seconds (reduced to prevent memory issues)
-            challengePollingInterval = setInterval(checkForChallenges, 5000);
+            // Poll every 8 seconds using lightweight endpoint
+            challengePollingInterval = setInterval(checkForChallenges, 8000);
             checkForChallenges(); // Check immediately
         }
         
@@ -7588,7 +7588,7 @@
             challengeCheckInProgress = true;
             
             try {
-                const response = await fetch(`${API_URL}/arena/status`, { headers });
+                const response = await fetch(`${API_URL}/arena/check-challenges`, { headers });
                 const data = await response.json();
                 
                 // Check for pending challenges (for defender)
@@ -7601,8 +7601,6 @@
                 
                 // Check for active battle
                 if (data.active_battle) {
-                    console.log('Active battle found:', data.active_battle.status, 'challenger_gods_ready:', data.active_battle.challenger_gods_ready, 'defender_gods_ready:', data.active_battle.defender_gods_ready);
-                    
                     // If battle is ACCEPTED, BOTH players need to go to god selection
                     if (data.active_battle.status === 'accepted') {
                         // Check if we haven't already selected gods
@@ -7614,15 +7612,11 @@
                             (data.active_battle.challenger_gods_ready === 1 || data.active_battle.challenger_gods_ready === true) : 
                             (data.active_battle.defender_gods_ready === 1 || data.active_battle.defender_gods_ready === true);
                         
-                        console.log('I am', isChallenger ? 'challenger' : 'defender', 'myGodsReady:', myGodsReady);
-                        
                         // Don't show god selection if:
                         // 1. We're already marked as ready on server, OR
                         // 2. We've already submitted gods for this battle (even if server hasn't updated yet), OR
                         // 3. God selection is currently showing
                         if (!myGodsReady && !godSelectionShown && godsSubmittedForBattle !== data.active_battle.battle_id) {
-                            // We need to select gods! Show god selection
-                            console.log('Showing god selection for battle', data.active_battle.battle_id);
                             showGodSelection(data.active_battle.battle_id);
                         }
                     }
@@ -10044,12 +10038,16 @@
                 modal.id = 'trade-portal-modal';
                 modal.className = 'modal';
                 modal.innerHTML = `
-                    <div class="modal-content" style="max-width: 1100px; max-height: 95vh; display: flex; flex-direction: column; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 2px solid rgba(234,179,8,0.3);">
-                            <div style="font-family: 'Cinzel', serif; font-size: 22px; font-weight: 700; color: #fbbf24; letter-spacing: 2px;">🫒 TRADE PORTAL</div>
-                            <button onclick="closeTradePortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 16px;">✕</button>
+                    <div class="modal-content" style="max-width: 960px; max-height: 92vh; display: flex; flex-direction: column; background: #0f1628; border: 1px solid rgba(234,179,8,0.2); border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.6);">
+                        <div id="tp-head" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: linear-gradient(135deg, rgba(234,179,8,0.1), rgba(161,98,7,0.06)); border-bottom: 1px solid rgba(234,179,8,0.15); flex-shrink: 0;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="font-family: 'Cinzel', serif; font-size: 17px; font-weight: 700; color: #fbbf24; letter-spacing: 1.5px;">⚓ TRADE PORTAL</div>
+                                <div id="tp-status-pill" style="display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 600;"></div>
+                            </div>
+                            <button onclick="closeTradePortal()" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;">✕</button>
                         </div>
-                        <div id="trade-portal-body" style="flex: 1; overflow-y: auto; min-height: 0; padding: 20px 24px;">
+                        <div id="tp-wallet" style="display: flex; align-items: stretch; background: #111a30; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;"></div>
+                        <div id="trade-portal-body" style="flex: 1; overflow-y: auto; min-height: 0; padding: 20px;">
                             <div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">Loading trade data...</div>
                         </div>
                     </div>`;
@@ -10077,14 +10075,18 @@
             }
         }
         
+        let selectedTradePartner = null;
+        
         function renderTradePortal() {
             const body = document.getElementById('trade-portal-body');
             const d = tradePortalData;
             const m = tradeMarketData;
             
             if (d.not_assigned || d.error) {
+                document.getElementById('tp-wallet').innerHTML = '';
+                document.getElementById('tp-status-pill').innerHTML = '';
                 body.innerHTML = `<div style="text-align: center; padding: 60px 20px;">
-                    <div style="font-size: 48px; margin-bottom: 16px;">🫒</div>
+                    <div style="font-size: 48px; margin-bottom: 16px;">⚓</div>
                     <div style="font-family: 'Cinzel', serif; font-size: 20px; color: #fbbf24; margin-bottom: 10px;">Trade System Coming Soon</div>
                     <div style="color: rgba(255,255,255,0.5);">Your teacher hasn't assigned resources to your alliance yet.</div>
                 </div>`;
@@ -10098,154 +10100,201 @@
             const values = m.market_values || {};
             const threshold = d.resource_threshold || 500;
             const spending = d.spending || { contribution: 0, already_spent: 0, remaining_cap: 0, max_units: 0 };
+            const partners = m.partners || [];
             
-            let html = '';
-            
-            // Status bar
-            html += `<div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
-                <div style="background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 150px;">
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Your Alliance</div>
-                    <div style="font-weight: 700; color: #fbbf24;">${d.alliance_name}</div>
-                </div>
-                <div style="background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 150px;">
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Native Resource</div>
-                    <div style="font-weight: 700; color: #fbbf24;">${TRADE_ICONS[native]} ${TRADE_NAMES[native]}</div>
-                </div>
-                <div style="background: ${windowOpen ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.1)'}; border: 1px solid ${windowOpen ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.2)'}; border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 150px;">
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">Market Status</div>
-                    <div style="font-weight: 700; color: ${windowOpen ? '#4ade80' : '#f87171'};">${windowOpen ? '● Open for Trading' : '○ Market Closed'}</div>
-                </div>
-                ${!hasShip ? `<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 16px; flex: 1; min-width: 200px;">
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase;">⚠️ Required</div>
-                    <div style="font-weight: 700; color: #f87171;">Build a Transport Ship to trade</div>
-                </div>` : ''}
-            </div>`;
-            
-            // My Resources (4 cards)
-            html += `<div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin-bottom: 12px;">My Resources</div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
-                ${['olive','grape','iron','grain'].map(r => {
-                    const amt = res[r] || 0;
-                    const pct = Math.min(100, (amt / threshold) * 100);
-                    const filled = amt >= threshold;
-                    const isNative = r === native;
-                    const val = values[r] || 10;
-                    const valLabel = val >= 12 ? 'High' : val >= 8 ? 'Fair' : 'Low';
-                    const valColor = val >= 12 ? '#4ade80' : val >= 8 ? '#fbbf24' : '#f87171';
-                    return `<div style="background: rgba(255,255,255,0.05); border: 1px solid ${filled ? 'rgba(34,197,94,0.4)' : isNative ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.1)'}; border-radius: 10px; padding: 14px; text-align: center;">
-                        <div style="font-size: 28px;">${TRADE_ICONS[r]}</div>
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin: 4px 0;">${TRADE_NAMES[r]}${isNative ? ' ★' : ''}</div>
-                        <div style="font-size: 22px; font-weight: 700; color: ${filled ? '#4ade80' : '#fff'};">${amt}</div>
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.4);">/ ${threshold}</div>
-                        <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 6px; margin-top: 8px; overflow: hidden;">
-                            <div style="height: 100%; width: ${pct}%; background: ${filled ? '#4ade80' : pct > 50 ? '#fbbf24' : '#60a5fa'}; border-radius: 4px; transition: width 0.3s;"></div>
-                        </div>
-                        ${filled ? '<div style="font-size: 11px; color: #4ade80; margin-top: 4px;">✓ Complete</div>' : ''}
-                        <div style="font-size: 10px; color: ${valColor}; margin-top: 4px;">Value: ${valLabel}</div>
-                    </div>`;
-                }).join('')}
-            </div>`;
-            
-            // Buy Section (personal, with spending cap)
-            html += `<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 16px; margin-bottom: 24px;">
-                <div style="font-family: 'Cinzel', serif; font-size: 14px; color: #fbbf24; margin-bottom: 12px;">Buy ${TRADE_ICONS[native]} ${TRADE_NAMES[native]}</div>
-                <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">1 alliance point = 10 units · Alliance has <strong style="color: #fbbf24;">${d.alliance_points} pts</strong></div>
-                <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">
-                    Your contribution: <strong style="color: #60a5fa;">${spending.contribution} pts</strong> · 
-                    Already spent: <strong style="color: #fb923c;">${spending.already_spent} pts</strong> · 
-                    Remaining budget: <strong style="color: ${spending.remaining_cap > 0 ? '#4ade80' : '#f87171'};">${spending.remaining_cap} pts</strong> 
-                    (${spending.max_units} units)
-                </div>
-                ${spending.remaining_cap > 0 ? `
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <input id="trade-buy-points" type="number" min="1" max="${Math.min(spending.remaining_cap, d.alliance_points)}" value="${Math.min(10, spending.remaining_cap, d.alliance_points)}" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 12px; border-radius: 6px; width: 80px; font-size: 14px;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 13px;">pts =</span>
-                        <span id="trade-buy-units" style="font-weight: 700; color: #fbbf24;">${Math.min(10, spending.remaining_cap, d.alliance_points) * 10}</span>
-                        <span style="color: rgba(255,255,255,0.5); font-size: 13px;">units</span>
-                        <button onclick="buyResource()" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-left: auto;">Buy Now</button>
-                    </div>
-                ` : `<div style="color: rgba(255,255,255,0.4); font-style: italic;">No remaining budget. Earn more points through assignments to buy more resources.</div>`}
-            </div>`;
-            
-            // Make a Trade section
-            if (hasShip && windowOpen) {
-                const partners = m.partners || [];
-                html += `<div style="background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 10px; padding: 16px; margin-bottom: 24px;">
-                    <div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin-bottom: 14px;">⚓ Make a Trade</div>
-                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: start;">
-                        <div>
-                            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">YOU GIVE</div>
-                            <select id="trade-give-resource" onchange="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (have: ${res[r]})</option>`).join('')}
-                            </select>
-                            <input id="trade-give-amount" type="number" min="1" value="100" onchange="updateFairness()" oninput="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; box-sizing: border-box;">
-                        </div>
-                        <div style="font-size: 28px; color: rgba(255,255,255,0.3); padding-top: 30px;">⇄</div>
-                        <div>
-                            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">YOU RECEIVE</div>
-                            <select id="trade-receive-resource" onchange="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
-                            </select>
-                            <input id="trade-receive-amount" type="number" min="1" value="100" onchange="updateFairness()" oninput="updateFairness()" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; box-sizing: border-box;">
-                        </div>
-                    </div>
-                    <div id="trade-fairness-meter" style="margin-top: 14px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;"></div>
-                    <div style="margin-top: 12px;">
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">TRADE WITH</div>
-                        <select id="trade-partner" style="width: 100%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px;">
-                            <option value="">Select a partner...</option>
-                            ${partners.map(p => `<option value="${p.student_id}">${p.name} — ${p.alliance_name} (${TRADE_ICONS[p.native_resource]})</option>`).join('')}
-                        </select>
-                    </div>
-                    <button onclick="proposeTrade()" style="margin-top: 14px; width: 100%; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 15px; font-family: 'Cinzel', serif;">
-                        ⚓ Propose Trade
-                    </button>
-                </div>`;
+            // Status pill
+            const pill = document.getElementById('tp-status-pill');
+            if (windowOpen) {
+                pill.style.background = 'rgba(34,197,94,0.15)';
+                pill.style.border = '1px solid rgba(34,197,94,0.3)';
+                pill.style.color = '#4ade80';
+                pill.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;display:inline-block;"></span> Market Open';
+            } else {
+                pill.style.background = 'rgba(239,68,68,0.1)';
+                pill.style.border = '1px solid rgba(239,68,68,0.25)';
+                pill.style.color = '#f87171';
+                pill.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#f87171;display:inline-block;"></span> Market Closed';
             }
             
-            // Pending trades
+            // Wallet bar
+            const walletEl = document.getElementById('tp-wallet');
+            walletEl.innerHTML = ['olive','grape','iron','grain'].map(r => {
+                const amt = res[r] || 0;
+                const pct = Math.min(100, (amt / threshold) * 100);
+                const filled = amt >= threshold;
+                const isNative = r === native;
+                const barColor = filled ? '#4ade80' : '#60a5fa';
+                return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 8px; border-right:1px solid rgba(255,255,255,0.06); ${isNative ? 'background:rgba(234,179,8,0.06);' : ''} position:relative;">
+                    ${isNative ? '<div style="position:absolute;top:3px;right:5px;font-size:8px;color:#fbbf24;font-weight:700;">★ NATIVE</div>' : ''}
+                    <div style="font-size:16px;">${TRADE_ICONS[r]}</div>
+                    <div style="font-size:17px;font-weight:700;color:${filled ? '#4ade80' : '#fff'};line-height:1.2;">${amt}</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.3);">/ ${threshold}</div>
+                    <div style="width:80%;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-top:3px;">
+                        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px;transition:width 0.5s;"></div>
+                    </div>
+                    ${filled ? '<div style="font-size:9px;color:#4ade80;font-weight:700;margin-top:1px;">✓</div>' : ''}
+                </div>`;
+            }).join('');
+            
+            selectedTradePartner = null;
+            let html = '';
+            
+            // ===== SECTION 1: BUY YOUR RESOURCE =====
+            html += `<div style="margin-bottom: 24px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#fbbf24;letter-spacing:1px;">Buy Your Resource</div>
+                    <div style="flex:1;height:1px;background:rgba(234,179,8,0.2);"></div>
+                </div>
+                <div style="background:rgba(234,179,8,0.04);border:2px solid rgba(234,179,8,0.2);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:200px;">
+                        <div style="font-size:34px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.2);border-radius:12px;flex-shrink:0;">${TRADE_ICONS[native]}</div>
+                        <div>
+                            <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#fbbf24;">${TRADE_NAMES[native]}</div>
+                            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;">Alliance treasury: <strong style="color:rgba(255,255,255,0.65);">${d.alliance_points} pts</strong></div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">1 pt = 10 units · Budget: <strong style="color:${spending.remaining_cap > 0 ? '#4ade80' : '#f87171'};">${spending.remaining_cap} pts</strong> remaining</div>
+                        </div>
+                    </div>
+                    ${spending.remaining_cap > 0 ? `<div style="display:flex;align-items:center;gap:10px;">
+                        <input type="number" id="trade-buy-points" min="1" max="${Math.min(spending.remaining_cap, d.alliance_points)}" value="${Math.min(10, spending.remaining_cap, d.alliance_points)}" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;width:72px;font-size:16px;font-weight:700;text-align:center;outline:none;">
+                        <span style="color:rgba(255,255,255,0.25);font-size:16px;">→</span>
+                        <div style="text-align:center;min-width:70px;">
+                            <div id="trade-buy-units" style="font-size:20px;font-weight:700;color:#fbbf24;">${Math.min(10, spending.remaining_cap, d.alliance_points) * 10}</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.3);">units</div>
+                        </div>
+                        <button onclick="buyResource()" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:12px 28px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap;">Buy</button>
+                    </div>` : `<div style="color:rgba(255,255,255,0.35);font-style:italic;font-size:13px;">No budget remaining. Earn more points!</div>`}
+                </div>
+            </div>`;
+            
+            // ===== SECTION 2: TRADE PARTNERS =====
+            html += `<div style="margin-bottom: 24px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#60a5fa;letter-spacing:1px;">Trade Partners</div>
+                    <div style="flex:1;height:1px;background:rgba(96,165,250,0.2);"></div>
+                    <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(96,165,250,0.15);color:#60a5fa;">${partners.length} available</div>
+                </div>`;
+            
+            if (!hasShip) {
+                html += `<div style="background:rgba(239,68,68,0.08);border:2px solid rgba(239,68,68,0.2);border-radius:14px;padding:24px;text-align:center;">
+                    <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
+                    <div style="font-family:'Cinzel',serif;font-size:15px;color:#f87171;font-weight:700;">Transport Ship Required</div>
+                    <div style="font-size:13px;color:rgba(255,255,255,0.4);margin-top:6px;">Your alliance must build a Transport Ship before you can trade with other alliances.</div>
+                </div></div>`;
+            } else if (!windowOpen) {
+                html += `<div style="background:rgba(239,68,68,0.05);border:2px solid rgba(239,68,68,0.15);border-radius:14px;padding:24px;text-align:center;">
+                    <div style="font-size:32px;margin-bottom:8px;">🔒</div>
+                    <div style="font-family:'Cinzel',serif;font-size:15px;color:#f87171;font-weight:700;">Market Closed</div>
+                    <div style="font-size:13px;color:rgba(255,255,255,0.4);margin-top:6px;">Your teacher will open the market when trading begins.</div>
+                </div></div>`;
+            } else {
+                // The Trade Desk (empty until partner selected)
+                html += `<div id="tp-desk" style="border:2px solid rgba(96,165,250,0.2);border-radius:14px;overflow:hidden;margin-bottom:16px;transition:border-color 0.3s;">
+                    <div id="tp-desk-empty" style="padding:30px 20px;text-align:center;background:rgba(96,165,250,0.03);">
+                        <div style="font-size:32px;margin-bottom:6px;opacity:0.5;">⚓</div>
+                        <div style="font-size:14px;color:rgba(255,255,255,0.35);">Select a partner below to start trading</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.2);margin-top:4px;">Click any partner card to see their inventory and make a trade</div>
+                    </div>
+                    <div id="tp-desk-active" style="display:none;">
+                        <div id="tp-desk-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(234,179,8,0.06);border-bottom:1px solid rgba(255,255,255,0.06);">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div id="tp-desk-icon" style="font-size:20px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0;"></div>
+                                <div>
+                                    <div id="tp-desk-name" style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#fbbf24;"></div>
+                                    <div id="tp-desk-sub" style="font-size:11px;color:rgba(255,255,255,0.4);"></div>
+                                </div>
+                            </div>
+                            <button onclick="closeDeskPanel()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;">✕ Close</button>
+                        </div>
+                        <div style="padding:16px 18px;background:rgba(0,0,0,0.12);">
+                            <div id="tp-desk-compare" style="display:grid;grid-template-columns:1fr 1fr;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;margin-bottom:16px;"></div>
+                            <div style="display:grid;grid-template-columns:1fr 36px 1fr;gap:8px;align-items:start;margin-bottom:12px;">
+                                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#f87171;">📤 You Give</div>
+                                    <select id="tp-give-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
+                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                    </select>
+                                    <input type="number" id="tp-give-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                    <div id="tp-give-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
+                                </div>
+                                <div style="display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(255,255,255,0.15);padding-top:26px;">⇄</div>
+                                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#4ade80;">📥 You Get</div>
+                                    <select id="tp-recv-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
+                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                    </select>
+                                    <input type="number" id="tp-recv-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                    <div id="tp-recv-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
+                                </div>
+                            </div>
+                            <div id="tp-fairness" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;margin-bottom:12px;"></div>
+                            <button id="tp-propose-btn" onclick="proposeTrade()" style="width:100%;background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;padding:12px;border-radius:9px;font-family:'Cinzel',serif;font-weight:700;font-size:14px;letter-spacing:0.5px;cursor:pointer;">⚓ Propose Trade</button>
+                        </div>
+                    </div>
+                </div>`;
+                
+                // Partner cards grid
+                html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">`;
+                partners.forEach(p => {
+                    const pRes = { olive: p.olive || 0, grape: p.grape || 0, iron: p.iron || 0, grain: p.grain || 0 };
+                    // Has (resources above 200) and Needs (below 100)
+                    const hasItems = ['olive','grape','iron','grain'].filter(r => pRes[r] >= 200);
+                    const needItems = ['olive','grape','iron','grain'].filter(r => pRes[r] < 150);
+                    
+                    html += `<div id="tp-pc-${p.student_id}" onclick="selectTradePartner(${p.student_id})" style="background:rgba(96,165,250,0.03);border:2px solid rgba(96,165,250,0.12);border-radius:12px;padding:14px;cursor:pointer;transition:all 0.2s;position:relative;">
+                        <div style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;" id="tp-check-${p.student_id}">✓</div>
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                            <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.15);">${TRADE_ICONS[p.native_resource]}</div>
+                            <div>
+                                <div style="font-size:14px;font-weight:700;color:#e2e8f0;">${p.name}</div>
+                                <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px;">${p.alliance_name}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:4px;">
+                                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:48px;flex-shrink:0;color:#4ade80;">Has</div>
+                                <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                    ${hasItems.length > 0 ? hasItems.map(r => `<div style="display:flex;align-items:center;gap:3px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);padding:2px 7px;border-radius:6px;font-size:11px;color:#4ade80;"><span>${TRADE_ICONS[r]}</span><span style="font-weight:700;">${pRes[r]}</span></div>`).join('') : '<span style="font-size:10px;color:rgba(255,255,255,0.2);">Low stock</span>'}
+                                </div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:5px;font-size:12px;">
+                                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;width:48px;flex-shrink:0;color:#fb923c;">Needs</div>
+                                <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                    ${needItems.length > 0 ? needItems.map(r => `<div style="display:flex;align-items:center;gap:3px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.15);padding:2px 7px;border-radius:6px;font-size:11px;color:#fb923c;"><span>${TRADE_ICONS[r]}</span><span style="font-weight:700;">${pRes[r]}</span></div>`).join('') : '<span style="font-size:10px;color:rgba(255,255,255,0.2);">Well stocked</span>'}
+                                </div>
+                            </div>
+                        </div>
+                        <button style="margin-top:10px;width:100%;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:7px 14px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;" id="tp-btn-${p.student_id}">Trade with ${p.name.split(' ')[0]}</button>
+                    </div>`;
+                });
+                html += `</div></div>`;
+            }
+            
+            // ===== SECTION 3: PENDING TRADES =====
             const pending = d.pending_trades || [];
             if (pending.length > 0) {
-                html += `<div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin-bottom: 12px;">Pending Trades</div>`;
+                html += `<div style="margin-bottom: 24px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
+                        <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
+                        <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>
+                    </div>`;
                 pending.forEach(t => {
                     const isInitiator = t.initiator_id === d.student_id;
-                    html += `<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(234,179,8,0.2); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                        <div>
-                            <strong style="color: #60a5fa;">${t.initiator_name}</strong> gives 
-                            <strong style="color: #fbbf24;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</strong> → 
-                            <strong style="color: #60a5fa;">${t.partner_name}</strong> gives 
-                            <strong style="color: #fbbf24;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</strong>
+                    html += `<div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <div style="font-size:13px;line-height:1.5;">
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
+                            <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
                         </div>
-                        <div style="display: flex; gap: 8px;">
-                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background: #22c55e; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">✓ Accept</button>` : ''}
-                            <button onclick="rejectTrade(${t.trade_id})" style="background: rgba(239,68,68,0.3); color: #f87171; border: 1px solid rgba(239,68,68,0.4); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600;">${isInitiator ? 'Cancel' : 'Decline'}</button>
+                        <div style="display:flex;gap:6px;flex-shrink:0;">
+                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
+                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
                         </div>
                     </div>`;
                 });
-            }
-            
-            // Teammate progress
-            const teammates = d.teammates || [];
-            if (teammates.length > 0) {
-                html += `<div style="font-family: 'Cinzel', serif; font-size: 16px; color: #fbbf24; margin: 20px 0 12px;">Alliance Progress</div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px;">
-                    ${teammates.map(t => {
-                        return `<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; text-align: center;">
-                            <div style="font-size: 13px; font-weight: 600; color: #60a5fa; margin-bottom: 8px;">${t.name}</div>
-                            ${['olive','grape','iron','grain'].map(r => {
-                                const val = t[r] || 0;
-                                const pct = Math.min(100, (val / threshold) * 100);
-                                return `<div style="display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
-                                    <span style="font-size: 12px; width: 20px;">${TRADE_ICONS[r]}</span>
-                                    <div style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 3px; height: 5px; overflow: hidden;">
-                                        <div style="width: ${pct}%; height: 100%; background: ${val >= threshold ? '#4ade80' : '#60a5fa'}; border-radius: 3px;"></div>
-                                    </div>
-                                    <span style="font-size: 10px; color: rgba(255,255,255,0.4); width: 30px; text-align: right;">${val}</span>
-                                </div>`;
-                            }).join('')}
-                        </div>`;
-                    }).join('')}
-                </div>`;
+                html += `</div>`;
             }
             
             body.innerHTML = html;
@@ -10258,26 +10307,145 @@
                     document.getElementById('trade-buy-units').textContent = units;
                 });
             }
-            
-            // Set default receive to different resource
-            const giveSelect = document.getElementById('trade-give-resource');
-            const receiveSelect = document.getElementById('trade-receive-resource');
-            if (giveSelect && receiveSelect) {
-                receiveSelect.value = ['olive','grape','iron','grain'].find(r => r !== giveSelect.value) || 'grape';
-                updateFairness();
-            }
         }
         
-        function updateFairness() {
-            const meter = document.getElementById('trade-fairness-meter');
+        function selectTradePartner(partnerId) {
+            const partners = tradeMarketData.partners || [];
+            const p = partners.find(x => x.student_id === partnerId);
+            if (!p) return;
+            
+            const res = tradePortalData.my_resources;
+            selectedTradePartner = p;
+            
+            // Highlight selected card
+            document.querySelectorAll('[id^="tp-pc-"]').forEach(el => {
+                el.style.borderColor = 'rgba(96,165,250,0.12)';
+                el.style.background = 'rgba(96,165,250,0.03)';
+            });
+            document.querySelectorAll('[id^="tp-check-"]').forEach(el => {
+                el.style.borderColor = 'rgba(255,255,255,0.1)';
+                el.style.background = 'transparent';
+                el.style.color = 'transparent';
+            });
+            document.querySelectorAll('[id^="tp-btn-"]').forEach(el => {
+                el.style.background = 'linear-gradient(135deg,#2563eb,#1d4ed8)';
+            });
+            
+            const card = document.getElementById('tp-pc-' + partnerId);
+            if (card) {
+                card.style.borderColor = '#fbbf24';
+                card.style.background = 'rgba(234,179,8,0.08)';
+            }
+            const check = document.getElementById('tp-check-' + partnerId);
+            if (check) {
+                check.style.borderColor = '#fbbf24';
+                check.style.background = '#fbbf24';
+                check.style.color = '#000';
+            }
+            const btn = document.getElementById('tp-btn-' + partnerId);
+            if (btn) {
+                btn.style.background = 'linear-gradient(135deg,#d97706,#b45309)';
+            }
+            
+            // Show desk
+            document.getElementById('tp-desk').style.borderColor = 'rgba(234,179,8,0.4)';
+            document.getElementById('tp-desk-empty').style.display = 'none';
+            document.getElementById('tp-desk-active').style.display = 'block';
+            
+            // Populate desk header
+            document.getElementById('tp-desk-icon').textContent = TRADE_ICONS[p.native_resource];
+            document.getElementById('tp-desk-icon').style.background = 'rgba(234,179,8,0.08)';
+            document.getElementById('tp-desk-icon').style.border = '1px solid rgba(234,179,8,0.2)';
+            document.getElementById('tp-desk-name').textContent = p.name;
+            document.getElementById('tp-desk-sub').textContent = p.alliance_name + ' · ' + TRADE_ICONS[p.native_resource] + ' ' + TRADE_NAMES[p.native_resource] + ' specialist';
+            
+            // Populate compare table
+            const pRes = { olive: p.olive || 0, grape: p.grape || 0, iron: p.iron || 0, grain: p.grain || 0 };
+            const threshold = tradePortalData.resource_threshold || 500;
+            
+            function amtClass(val) {
+                if (val >= 300) return 'color:#4ade80;';
+                if (val === 0) return 'color:rgba(255,255,255,0.18);';
+                if (val < 150) return 'color:#fb923c;';
+                return 'color:#e2e8f0;';
+            }
+            
+            let cmpHtml = `<div style="border-right:1px solid rgba(255,255,255,0.06);">
+                <div style="padding:8px 14px;font-size:12px;font-weight:700;text-align:center;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(96,165,250,0.08);color:#60a5fa;">📦 You</div>`;
+            ['olive','grape','iron','grain'].forEach(r => {
+                cmpHtml += `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.5);">${TRADE_ICONS[r]} ${TRADE_NAMES[r].split(' ')[0]}</div>
+                    <div style="font-size:14px;font-weight:700;${amtClass(res[r])}">${res[r]}</div>
+                </div>`;
+            });
+            cmpHtml += `</div><div>
+                <div style="padding:8px 14px;font-size:12px;font-weight:700;text-align:center;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(234,179,8,0.08);color:#fbbf24;">${TRADE_ICONS[p.native_resource]} ${p.name.split(' ')[0]}</div>`;
+            ['olive','grape','iron','grain'].forEach(r => {
+                cmpHtml += `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.5);">${TRADE_ICONS[r]} ${TRADE_NAMES[r].split(' ')[0]}</div>
+                    <div style="font-size:14px;font-weight:700;${amtClass(pRes[r])}">${pRes[r]}</div>
+                </div>`;
+            });
+            cmpHtml += `</div>`;
+            document.getElementById('tp-desk-compare').innerHTML = cmpHtml;
+            
+            // Set smart defaults: give what you have most of, get what they have most of
+            const giveRes = document.getElementById('tp-give-res');
+            const recvRes = document.getElementById('tp-recv-res');
+            recvRes.value = p.native_resource;
+            const bestGive = ['olive','grape','iron','grain'].filter(r => r !== p.native_resource).sort((a,b) => res[b] - res[a])[0];
+            giveRes.value = bestGive;
+            
+            updateDeskForm();
+            document.getElementById('tp-propose-btn').textContent = '⚓ Propose Trade to ' + p.name.split(' ')[0];
+            
+            // Scroll desk into view
+            setTimeout(() => {
+                document.getElementById('tp-desk').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
+        }
+        
+        function closeDeskPanel() {
+            document.getElementById('tp-desk').style.borderColor = 'rgba(96,165,250,0.2)';
+            document.getElementById('tp-desk-empty').style.display = 'block';
+            document.getElementById('tp-desk-active').style.display = 'none';
+            selectedTradePartner = null;
+            // Deselect cards
+            document.querySelectorAll('[id^="tp-pc-"]').forEach(el => {
+                el.style.borderColor = 'rgba(96,165,250,0.12)';
+                el.style.background = 'rgba(96,165,250,0.03)';
+            });
+            document.querySelectorAll('[id^="tp-check-"]').forEach(el => {
+                el.style.borderColor = 'rgba(255,255,255,0.1)';
+                el.style.background = 'transparent';
+                el.style.color = 'transparent';
+            });
+            document.querySelectorAll('[id^="tp-btn-"]').forEach(el => {
+                el.style.background = 'linear-gradient(135deg,#2563eb,#1d4ed8)';
+            });
+        }
+        
+        function updateDeskForm() {
+            if (!selectedTradePartner) return;
+            const res = tradePortalData.my_resources;
+            const p = selectedTradePartner;
+            const giveR = document.getElementById('tp-give-res').value;
+            const recvR = document.getElementById('tp-recv-res').value;
+            document.getElementById('tp-give-have').textContent = 'You have: ' + (res[giveR] || 0);
+            document.getElementById('tp-recv-have').textContent = 'They have: ' + (p[recvR] || 0);
+            updateDeskFairness();
+        }
+        
+        function updateDeskFairness() {
+            const meter = document.getElementById('tp-fairness');
             if (!meter || !tradeMarketData) return;
             const values = tradeMarketData.market_values || {};
-            const giveR = document.getElementById('trade-give-resource').value;
-            const recvR = document.getElementById('trade-receive-resource').value;
-            const giveA = parseInt(document.getElementById('trade-give-amount').value) || 0;
-            const recvA = parseInt(document.getElementById('trade-receive-amount').value) || 0;
+            const giveR = document.getElementById('tp-give-res')?.value;
+            const recvR = document.getElementById('tp-recv-res')?.value;
+            const giveA = parseInt(document.getElementById('tp-give-amt')?.value) || 0;
+            const recvA = parseInt(document.getElementById('tp-recv-amt')?.value) || 0;
             
-            if (giveA <= 0 || recvA <= 0) { meter.innerHTML = ''; return; }
+            if (giveA <= 0 || recvA <= 0) { meter.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.2);text-align:center;">Enter amounts to see fairness</div>'; return; }
             
             const giveVal = giveA * (values[giveR] || 10);
             const recvVal = recvA * (values[recvR] || 10);
@@ -10295,12 +10463,12 @@
             const needlePos = Math.max(5, Math.min(95, 50 + (ratio - 1) * 50));
             
             meter.innerHTML = `
-                <div style="position: relative; height: 12px; background: linear-gradient(to right, #f87171, #fb923c, #fbbf24, #4ade80, #4ade80, #fbbf24, #fb923c, #f87171); border-radius: 6px; margin-bottom: 8px;">
-                    <div style="position: absolute; left: ${needlePos}%; top: -2px; transform: translateX(-50%); width: 4px; height: 16px; background: white; border-radius: 2px; box-shadow: 0 0 4px rgba(255,255,255,0.8);"></div>
+                <div style="position:relative;height:7px;background:linear-gradient(to right,#f87171,#fb923c,#fbbf24,#4ade80,#4ade80,#fbbf24,#fb923c,#f87171);border-radius:4px;margin-bottom:5px;">
+                    <div style="position:absolute;left:${needlePos}%;top:-2px;transform:translateX(-50%);width:4px;height:11px;background:#fff;border-radius:2px;box-shadow:0 0 5px rgba(255,255,255,0.6);transition:left 0.3s;"></div>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 13px;">
-                    <span style="color: ${color}; font-weight: 700;">${verdict}</span>
-                    <span style="color: rgba(255,255,255,0.5);">${favors}</span>
+                <div style="display:flex;justify-content:space-between;font-size:11px;">
+                    <span style="color:${color};font-weight:700;">${verdict}</span>
+                    <span style="color:rgba(255,255,255,0.3);">${favors}</span>
                 </div>`;
         }
         
@@ -10319,17 +10487,16 @@
         }
         
         async function proposeTrade() {
-            const partnerId = document.getElementById('trade-partner').value;
-            if (!partnerId) return alert('Select a trade partner');
-            const giveResource = document.getElementById('trade-give-resource').value;
-            const giveAmount = parseInt(document.getElementById('trade-give-amount').value);
-            const receiveResource = document.getElementById('trade-receive-resource').value;
-            const receiveAmount = parseInt(document.getElementById('trade-receive-amount').value);
+            if (!selectedTradePartner) return alert('Select a trade partner first');
+            const giveResource = document.getElementById('tp-give-res').value;
+            const giveAmount = parseInt(document.getElementById('tp-give-amt').value);
+            const receiveResource = document.getElementById('tp-recv-res').value;
+            const receiveAmount = parseInt(document.getElementById('tp-recv-amt').value);
             if (!giveAmount || !receiveAmount) return alert('Enter valid amounts');
             try {
                 const res = await fetch(`${API_URL}/trade/propose`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ partner_id: parseInt(partnerId), give_resource: giveResource, give_amount: giveAmount, receive_resource: receiveResource, receive_amount: receiveAmount })
+                    body: JSON.stringify({ partner_id: selectedTradePartner.student_id, give_resource: giveResource, give_amount: giveAmount, receive_resource: receiveResource, receive_amount: receiveAmount })
                 });
                 const data = await res.json();
                 if (data.success) { alert(data.message); await loadTradePortalData(); }

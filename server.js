@@ -5920,6 +5920,38 @@ function retroactivelyAwardBadges() {
   }
 }
 
+// Lightweight challenge check (5-second polling — skips heavy data like opponents, gods, badges)
+app.get('/api/arena/check-challenges', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    
+    // Expire old pending challenges
+    run(`UPDATE arena_battles SET status = 'expired' WHERE status = 'pending' AND datetime(created_at, '+60 seconds') < datetime('now')`);
+    
+    // Check pending challenges (for defender)
+    const pendingChallenges = query(`
+      SELECT ab.battle_id, ab.challenger_id, ab.point_stakes, s.name as challenger_name, a.alliance_name as challenger_alliance
+      FROM arena_battles ab
+      JOIN students s ON ab.challenger_id = s.student_id
+      JOIN alliances a ON ab.challenger_alliance_id = a.alliance_id
+      WHERE ab.defender_id = ? AND ab.status = 'pending'
+      ORDER BY ab.created_at DESC LIMIT 1
+    `, [student_id]);
+    
+    // Check active battle (minimal fields only)
+    const activeBattle = query(`
+      SELECT battle_id, status, challenger_id, defender_id, challenger_gods_ready, defender_gods_ready, started_at
+      FROM arena_battles 
+      WHERE (challenger_id = ? OR defender_id = ?) AND status IN ('accepted', 'in_progress')
+      LIMIT 1
+    `, [student_id, student_id])[0] || null;
+    
+    res.json({ pending_challenges: pendingChallenges, active_battle: activeBattle });
+  } catch (err) {
+    res.status(500).json({ error: 'Challenge check failed' });
+  }
+});
+
 // Get arena status - shows requirements clearly if not met
 app.get('/api/arena/status', authenticateToken, (req, res) => {
   try {
@@ -8358,12 +8390,15 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
     const window = query('SELECT * FROM trade_window WHERE period = ?', [student.class_period])[0];
     const threshold = getResourceThreshold(student.class_period);
     
-    // Tradeable partners (same period, different alliance, with resources assigned)
+    // Tradeable partners (same period, different alliance, with resources assigned + their inventories)
     const partners = query(`
-      SELECT s.student_id, s.name, a.alliance_name, ar.native_resource
+      SELECT s.student_id, s.name, a.alliance_name, ar.native_resource,
+             COALESCE(sr.olive, 0) as olive, COALESCE(sr.grape, 0) as grape,
+             COALESCE(sr.iron, 0) as iron, COALESCE(sr.grain, 0) as grain
       FROM students s
       JOIN alliances a ON s.alliance_id = a.alliance_id
       JOIN alliance_resources ar ON a.alliance_id = ar.alliance_id
+      LEFT JOIN student_resources sr ON s.student_id = sr.student_id
       WHERE s.class_period = ? AND s.alliance_id != ? AND a.is_disbanded = 0
       ORDER BY a.alliance_name, s.name
     `, [student.class_period, student.alliance_id]);
