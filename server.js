@@ -2178,6 +2178,13 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
     `);
     
+    // === QUIZ ATTEMPTS & MYTH COMPLETIONS (for Classical grading) ===
+    const allQuizAttempts = query('SELECT student_id, portal_id, passed FROM myth_quiz_attempts WHERE passed = 1');
+    let allMythCompletions = [];
+    try {
+      allMythCompletions = query('SELECT student_id, portal_id, teacher_approved FROM student_myth_completion WHERE teacher_approved = 1');
+    } catch (e) { /* table may not exist yet */ }
+    
     // Calculate grades for each student - return BOTH ages for Classical students
     const studentsWithGrades = students.map(student => {
       const age = student.current_age || 'Archaic';
@@ -2202,20 +2209,52 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
       
       // Compute Classical grades for Classical-age students
       if (age === 'Classical') {
-        const claS1 = studentRecords.filter(r => 
-          (r.section === 'classical' || r.section === 'classical_creative') && 
-          section1Myths.includes(r.myth_god) && r.assignment_type !== 'mural'
-        ).reduce((sum, r) => sum + r.points_earned, 0);
-        const claS2 = studentRecords.filter(r => 
-          (r.section === 'classical' || r.section === 'classical_creative') && 
-          section2Myths.includes(r.myth_god) && r.assignment_type !== 'mural'
-        ).reduce((sum, r) => sum + r.points_earned, 0);
+        const mythNames = ['Pandora', 'Phaethon', 'Orpheus & Eurydice', 'Echo & Narcissus', 'Icarus & Daedalus', 'Eros & Psyche', 'Constellations'];
+        // Map portal myth_name to possible grade record myth_god values
+        const mythAliases = {
+          'Pandora': ['Pandora'],
+          'Phaethon': ['Phaethon'],
+          'Orpheus & Eurydice': ['Orpheus & Eurydice', 'Orpheus', 'Orpheus and Eurydice'],
+          'Echo & Narcissus': ['Echo & Narcissus', 'Echo and Narcissus'],
+          'Icarus & Daedalus': ['Icarus & Daedalus', 'Icarus', 'Icarus and Daedalus'],
+          'Eros & Psyche': ['Eros & Psyche', 'Eros and Psyche'],
+          'Constellations': ['Constellations']
+        };
+        
+        // Get quiz scores for this student
+        const studentQuizzes = allQuizAttempts.filter(q => q.student_id === student.student_id && q.passed === 1);
+        // Get portal assignment approvals
+        const studentCompletions = allMythCompletions.filter(c => c.student_id === student.student_id && c.teacher_approved === 1);
+        
+        const classicalMyths = {};
+        mythNames.forEach((mythName, idx) => {
+          const portalId = idx + 1;
+          const aliases = mythAliases[mythName] || [mythName];
+          
+          // Reading guide points (comp_conn for this myth in classical section)
+          const guidePoints = studentRecords
+            .filter(r => r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
+            .reduce((sum, r) => sum + r.points_earned, 0);
+          
+          // Quiz points (10 if passed)
+          const quizPassed = studentQuizzes.some(q => q.portal_id === portalId);
+          const quizPoints = quizPassed ? 10 : 0;
+          
+          // Portal assignment points (15 if approved)
+          const completion = studentCompletions.find(c => c.portal_id === portalId);
+          const portalPoints = completion ? 15 : 0;
+          
+          const earned = Math.min(guidePoints, 12) + quizPoints + portalPoints;
+          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, 12), quiz: quizPoints, portal: portalPoints };
+        });
+        
         const claBonus = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
         
+        result.classicalMyths = classicalMyths;
         result.classical = {
-          section1: { earned: claS1, max: classicalMax.section1, percentage: classicalMax.section1 > 0 ? Math.round((claS1 / classicalMax.section1) * 100) : 0 },
-          section2: { earned: claS2, max: classicalMax.section2, percentage: classicalMax.section2 > 0 ? Math.round((claS2 / classicalMax.section2) * 100) : 0 },
-          bonus: { earned: claBonus, max: classicalMax.bonus, percentage: classicalMax.bonus > 0 ? Math.round((Math.min(claBonus, 100) / classicalMax.bonus) * 100) : 0 }
+          section1: { earned: 0, max: 0, percentage: 0 },
+          section2: { earned: 0, max: 0, percentage: 0 },
+          bonus: { earned: claBonus, max: 100, percentage: claBonus > 0 ? Math.round((Math.min(claBonus, 100) / 100) * 100) : 0 }
         };
       }
       

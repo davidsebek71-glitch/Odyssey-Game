@@ -2553,6 +2553,14 @@
         <!-- Virtue Claim Banner (shown when a virtue is ready to claim) -->
         <div id="virtue-claim-banner" style="display: none;"></div>
 
+        <!-- Student Myth Progress Tracker -->
+        <div id="myth-progress-tracker" style="margin-bottom: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; display: none;">
+            <div style="font-family: 'Cinzel', serif; font-size: 15px; color: #60a5fa; margin-bottom: 12px; font-weight: 700;">📊 My Myth Progress</div>
+            <div id="myth-progress-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
         <!-- Warrior Avatar Reveal -->
         <div class="avatar-reveal-section" id="avatar-reveal-section">
             <div class="virtue-column" id="virtue-column-left"></div>
@@ -3924,11 +3932,8 @@
                 // Classical Age options
                 categorySelect.innerHTML = `
                     <option value="comp_conn">Reading Guide</option>
-                    <option value="word_cloud">Word Cloud</option>
-                    <option value="mural">Mural/Comic (Pixton)</option>
                     <option value="bonus">Student Created Bonus</option>
                     <option value="membean">Membean</option>
-                    <option value="reading">Independent Reading</option>
                     <option value="citizenship">Citizenship</option>
                 `;
             }
@@ -9666,6 +9671,55 @@
                 } else if (banner) {
                     banner.style.display = 'none';
                     banner.innerHTML = '';
+                }
+                
+                // Render student myth progress tracker
+                const trackerDiv = document.getElementById('myth-progress-tracker');
+                const trackerGrid = document.getElementById('myth-progress-grid');
+                if (trackerDiv && trackerGrid && data.portals.length > 0) {
+                    trackerDiv.style.display = 'block';
+                    let totalEarned = 0;
+                    let totalPossible = 0;
+                    
+                    trackerGrid.innerHTML = data.portals.map(portal => {
+                        const quizPassed = portal.quiz_passed === 1;
+                        const hasGuide = portal.has_reading_guide === 1;
+                        const approved = portal.assignment_approved === 1;
+                        const claimed = portal.virtue_claimed === 1;
+                        const colors = mythPortalGlowColors[portal.glow_color] || mythPortalGlowColors['#3B82F6'];
+                        
+                        // Calculate points: guide(12) + quiz(10) + portal(15) = 37
+                        let earned = 0;
+                        if (hasGuide) earned += 12;
+                        if (quizPassed) earned += 10;
+                        if (approved) earned += 15;
+                        totalEarned += earned;
+                        totalPossible += 37;
+                        
+                        const pct = Math.round((earned / 37) * 100);
+                        const complete = earned === 37;
+                        const borderCol = complete ? '#4ade80' : (quizPassed ? portal.glow_color : 'rgba(255,255,255,0.1)');
+                        
+                        return `<div style="background: ${complete ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.02)'}; border: 1px solid ${borderCol}44; border-radius: 8px; padding: 10px; text-align: center;">
+                            <div style="font-size: 18px; margin-bottom: 4px;">${portal.virtue_emoji || '📜'}</div>
+                            <div style="font-size: 11px; color: ${portal.glow_color || '#fff'}; font-weight: 600; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${portal.myth_name}</div>
+                            <div style="display: flex; flex-direction: column; gap: 2px; font-size: 10px;">
+                                <span style="color: ${hasGuide ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${hasGuide ? '✅' : '○'} Guide</span>
+                                <span style="color: ${quizPassed ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${quizPassed ? '✅' : '○'} Quiz</span>
+                                <span style="color: ${approved ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${approved ? '✅' : '○'} Assignment</span>
+                            </div>
+                            <div style="margin-top: 6px; font-size: 12px; color: ${complete ? '#4ade80' : 'rgba(255,255,255,0.5)'}; font-weight: 600;">${earned}/37</div>
+                            ${claimed ? '<div style="font-size: 9px; color: #ffd700; margin-top: 2px;">✨ Virtue Earned</div>' : ''}
+                        </div>`;
+                    }).join('');
+                    
+                    // Add total row
+                    const totalPct = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
+                    trackerGrid.innerHTML += `<div style="background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.3); border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Total</div>
+                        <div style="font-size: 20px; color: #60a5fa; font-weight: 700;">${totalEarned}/${totalPossible}</div>
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.4);">${totalPct}%</div>
+                    </div>`;
                 }
             } catch (err) {
                 console.error('Failed to load myth portals:', err);

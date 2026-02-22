@@ -4750,68 +4750,118 @@
                 return '#fb923c';
             };
             
-            const maxPts = data.maxPoints || {};
-            const arcMax = maxPts.archaic || maxPts;
-            const claMax = maxPts.classical || {};
             const isClassical = gradeOverviewAge === 'Classical';
-            const s1Max = isClassical ? (claMax.section1 || 136) : (arcMax.section1 || 105);
-            const s2Max = isClassical ? (claMax.section2 || 102) : (arcMax.section2 || 90);
-            const bMax = isClassical ? (claMax.bonus || 100) : (arcMax.bonus || 150);
-            const s1Label = isClassical ? 'Sec 1 (M1-4)' : 'Section 1';
-            const s2Label = isClassical ? 'Sec 2 (M5-7)' : 'Section 2';
-            const headerAccent = isClassical ? 'rgba(30,64,175,0.3), rgba(59,130,246,0.2)' : 'rgba(255,215,0,0.2), rgba(255,140,0,0.2)';
-            const headerBorder = isClassical ? 'rgba(59,130,246,0.5)' : 'rgba(255,215,0,0.5)';
-            const headerColor = isClassical ? '#60a5fa' : '#ffd700';
             
-            data.byPeriod.forEach(period => {
-                // Archaic view: show ALL students with Archaic grades
-                // Classical view: show only Classical-age students with Classical grades
-                const filtered = isClassical 
-                    ? period.students.filter(s => s.age === 'Classical')
-                    : period.students;
-                if (filtered.length === 0) return;
+            if (isClassical) {
+                // === CLASSICAL VIEW: Myth-by-myth columns ===
+                const mythNames = ['Pandora', 'Phaethon', 'Orpheus', 'Echo & Narcissus', 'Icarus', 'Eros & Psyche', 'Constellations'];
+                const mythShort = ['Pan', 'Pha', 'Orp', 'E&N', 'Ica', 'E&P', 'Con'];
+                const mythEmoji = ['🏺', '☀️', '🎵', '🪞', '🪶', '💘', '⭐'];
                 
-                html += `
-                    <div style="margin-bottom: 24px;">
-                        <div style="background: linear-gradient(135deg, ${headerAccent}); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid ${headerBorder};">
-                            <strong style="font-size: 18px; color: ${headerColor};">${period.period} Period</strong>
+                data.byPeriod.forEach(period => {
+                    const filtered = period.students.filter(s => s.age === 'Classical');
+                    if (filtered.length === 0) return;
+                    
+                    html += `<div style="margin-bottom: 24px;">
+                        <div style="background: linear-gradient(135deg, rgba(30,64,175,0.3), rgba(59,130,246,0.2)); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid rgba(59,130,246,0.5);">
+                            <strong style="font-size: 18px; color: #60a5fa;">${period.period} Period</strong>
                             <span style="margin-left: 15px; font-size: 14px; color: rgba(255,255,255,0.7);">(${filtered.length} student${filtered.length !== 1 ? 's' : ''})</span>
                         </div>
-                        <table style="width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.02);">
+                        <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.02); font-size: 12px;">
                             <thead>
                                 <tr style="background: rgba(255,255,255,0.05);">
-                                    <th style="text-align: left; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1);">Student Name</th>
-                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">${s1Label}<br><span style="font-size: 11px; font-weight: normal;">/${s1Max}</span></th>
-                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">${s2Label}<br><span style="font-size: 11px; font-weight: normal;">/${s2Max}</span></th>
-                                    <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Bonus<br><span style="font-size: 11px; font-weight: normal;">/${bMax}</span></th>
+                                    <th style="text-align: left; padding: 8px 10px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 120px; position: sticky; left: 0; background: #1a1a2e; z-index: 1;">Student</th>
+                                    ${mythNames.map((m, i) => `<th style="text-align: center; padding: 8px 6px; font-weight: 600; color: rgba(255,255,255,0.7); border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 65px;">
+                                        ${mythEmoji[i]}<br><span style="font-size: 10px;">${mythShort[i]}</span><br><span style="font-size: 9px; font-weight: normal; color: rgba(255,255,255,0.4);">/37</span>
+                                    </th>`).join('')}
+                                    <th style="text-align: center; padding: 8px 10px; font-weight: 700; color: #60a5fa; border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 70px;">Total<br><span style="font-size: 9px; font-weight: normal; color: rgba(255,255,255,0.4);">/259</span></th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${filtered.map((s, idx) => {
-                                    const grades = isClassical ? (s.classical || s.archaic) : s.archaic;
-                                    return `
-                                    <tr style="background: ${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
-                                        <td style="padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                            <span style="font-weight: 500; color: #60a5fa; cursor: pointer; text-decoration: underline;" onclick="openStudentSubmissions(${s.student_id}, '${s.name.replace(/'/g, "\\'")}')">${s.name}</span>
-                                        </td>
-                                        <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                            <span style="color: ${getColorForPercent(grades.section1.percentage)}; font-weight: 600;">${grades.section1.earned}</span>
-                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.section1.percentage}%)</span>
-                                        </td>
-                                        <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                            <span style="color: ${getColorForPercent(grades.section2.percentage)}; font-weight: 600;">${grades.section2.earned}</span>
-                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.section2.percentage}%)</span>
-                                        </td>
-                                        <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                            <span style="color: #fbbf24; font-weight: 600;">${grades.bonus.earned}</span>
-                                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.bonus.percentage}%)</span>
-                                        </td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>`;
-            });
+                            <tbody>`;
+                    
+                    filtered.forEach((s, idx) => {
+                        const myths = s.classicalMyths || {};
+                        let totalEarned = 0;
+                        
+                        html += `<tr style="background: ${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
+                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); position: sticky; left: 0; background: ${idx % 2 === 0 ? '#1a1a2e' : '#1d1d32'}; z-index: 1;">
+                                <span style="font-weight: 500; color: #60a5fa; cursor: pointer; text-decoration: underline;" onclick="openStudentSubmissions(${s.student_id}, '${s.name.replace(/'/g, "\\'")}')">${s.name}</span>
+                            </td>`;
+                        
+                        mythNames.forEach(mythName => {
+                            const myth = myths[mythName] || { earned: 0 };
+                            totalEarned += myth.earned;
+                            const pct = Math.round((myth.earned / 37) * 100);
+                            const col = myth.earned === 37 ? '#4ade80' : (myth.earned > 0 ? '#fbbf24' : 'rgba(255,255,255,0.25)');
+                            html += `<td style="text-align: center; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <span style="color: ${col}; font-weight: 600;">${myth.earned}</span>
+                            </td>`;
+                        });
+                        
+                        const totalPct = Math.round((totalEarned / 259) * 100);
+                        html += `<td style="text-align: center; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <span style="color: ${getColorForPercent(totalPct)}; font-weight: 700;">${totalEarned}</span>
+                            <span style="color: rgba(255,255,255,0.4); font-size: 10px;"> (${totalPct}%)</span>
+                        </td></tr>`;
+                    });
+                    
+                    html += `</tbody></table></div></div>`;
+                });
+            } else {
+                // === ARCHAIC VIEW: Original Section 1/Section 2/Bonus columns ===
+                const maxPts = data.maxPoints || {};
+                const arcMax = maxPts.archaic || maxPts;
+                const s1Max = arcMax.section1 || 105;
+                const s2Max = arcMax.section2 || 90;
+                const bMax = arcMax.bonus || 150;
+            
+                data.byPeriod.forEach(period => {
+                    const filtered = period.students;
+                    if (filtered.length === 0) return;
+                    
+                    html += `
+                        <div style="margin-bottom: 24px;">
+                            <div style="background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,140,0,0.2)); padding: 12px 20px; border-radius: 10px 10px 0 0; border-bottom: 2px solid rgba(255,215,0,0.5);">
+                                <strong style="font-size: 18px; color: #ffd700;">${period.period} Period</strong>
+                                <span style="margin-left: 15px; font-size: 14px; color: rgba(255,255,255,0.7);">(${filtered.length} student${filtered.length !== 1 ? 's' : ''})</span>
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.02);">
+                                <thead>
+                                    <tr style="background: rgba(255,255,255,0.05);">
+                                        <th style="text-align: left; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1);">Student Name</th>
+                                        <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Section 1<br><span style="font-size: 11px; font-weight: normal;">/${s1Max}</span></th>
+                                        <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Section 2<br><span style="font-size: 11px; font-weight: normal;">/${s2Max}</span></th>
+                                        <th style="text-align: center; padding: 12px 15px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); width: 120px;">Bonus<br><span style="font-size: 11px; font-weight: normal;">/${bMax}</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filtered.map((s, idx) => {
+                                        const grades = s.archaic;
+                                        return `
+                                        <tr style="background: ${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
+                                            <td style="padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                                <span style="font-weight: 500; color: #60a5fa; cursor: pointer; text-decoration: underline;" onclick="openStudentSubmissions(${s.student_id}, '${s.name.replace(/'/g, "\\'")}')">${s.name}</span>
+                                            </td>
+                                            <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                                <span style="color: ${getColorForPercent(grades.section1.percentage)}; font-weight: 600;">${grades.section1.earned}</span>
+                                                <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.section1.percentage}%)</span>
+                                            </td>
+                                            <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                                <span style="color: ${getColorForPercent(grades.section2.percentage)}; font-weight: 600;">${grades.section2.earned}</span>
+                                                <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.section2.percentage}%)</span>
+                                            </td>
+                                            <td style="text-align: center; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                                <span style="color: #fbbf24; font-weight: 600;">${grades.bonus.earned}</span>
+                                                <span style="color: rgba(255,255,255,0.5); font-size: 12px;"> (${grades.bonus.percentage}%)</span>
+                                            </td>
+                                        </tr>`;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>`;
+                });
+            }
             
             // If no students for selected age
             if (!html.includes('<table')) {
