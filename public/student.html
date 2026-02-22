@@ -3932,6 +3932,8 @@
                 // Classical Age options
                 categorySelect.innerHTML = `
                     <option value="comp_conn">Reading Guide</option>
+                    <option value="creative">Creative Assignment</option>
+                    <option value="cer">CER (Claim-Evidence-Reasoning)</option>
                     <option value="bonus">Student Created Bonus</option>
                     <option value="membean">Membean</option>
                     <option value="citizenship">Citizenship</option>
@@ -5418,7 +5420,7 @@
             }
         }
 
-        function renderGrades(grades) {
+        async function renderGrades(grades) {
             const container = document.getElementById('grades-content');
             const titleEl = document.getElementById('grades-title');
             
@@ -5451,15 +5453,76 @@
                 </div>`;
             };
 
-            // For Classical Age, render grouped by myth
-            if (age === 'Classical' && grades.section1.myth_order) {
-                container.innerHTML = `
-                    <div style="display: flex; flex-direction: column; gap: 20px;">
-                        ${renderClassicalSection(grades.section1, '#1e40af', getColor, createProgressBar)}
-                        ${renderClassicalSection(grades.section2, '#ea580c', getColor, createProgressBar)}
-                        ${renderClassicalBonus(grades.bonus, getColor, createProgressBar)}
-                    </div>
-                `;
+            // For Classical Age, render myth-by-myth progress
+            if (age === 'Classical') {
+                // Fetch myth portal data for the progress display
+                try {
+                    const portalsRes = await fetch(`${API_URL}/student/myth-portals`, { headers });
+                    const portalsData = await portalsRes.json();
+                    const portals = portalsData.portals || [];
+                    
+                    const mythEmoji = { 'Pandora': '🏺', 'Phaethon': '☀️', 'Orpheus & Eurydice': '🎵', 'Echo & Narcissus': '🪞', 'Icarus & Daedalus': '🪶', 'Eros & Psyche': '💘', 'Constellations': '⭐' };
+                    const mythColors = { 'Pandora': '#FFD700', 'Phaethon': '#FF8C00', 'Orpheus & Eurydice': '#8B5CF6', 'Echo & Narcissus': '#EC4899', 'Icarus & Daedalus': '#3B82F6', 'Eros & Psyche': '#EF4444', 'Constellations': '#C0C0C0' };
+                    
+                    let totalEarned = 0;
+                    let totalPossible = portals.length * 37;
+                    
+                    let mythCards = portals.map(portal => {
+                        const quizPassed = portal.quiz_passed === 1;
+                        const hasGuide = portal.has_reading_guide === 1;
+                        const approved = portal.assignment_approved === 1;
+                        const claimed = portal.virtue_claimed === 1;
+                        const col = portal.glow_color || '#4a90d9';
+                        
+                        let earned = 0;
+                        if (hasGuide) earned += 12;
+                        if (quizPassed) earned += 10;
+                        if (approved) earned += 15;
+                        totalEarned += earned;
+                        
+                        const pct = Math.round((earned / 37) * 100);
+                        const complete = earned === 37;
+                        const barColor = complete ? '#4ade80' : (earned > 0 ? '#fbbf24' : 'rgba(255,255,255,0.1)');
+                        
+                        return `<div style="background: rgba(255,255,255,0.04); border: 1px solid ${complete ? '#4ade8044' : 'rgba(255,255,255,0.08)'}; border-radius: 10px; padding: 12px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <span style="font-size: 20px;">${portal.virtue_emoji || '📜'}</span>
+                                <span style="font-weight: 700; color: ${col}; font-size: 14px;">${portal.myth_name}</span>
+                                <span style="margin-left: auto; font-weight: 700; color: ${complete ? '#4ade80' : 'rgba(255,255,255,0.6)'}; font-size: 14px;">${earned}/37</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.1); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 8px;">
+                                <div style="background: ${barColor}; height: 100%; width: ${pct}%; transition: width 0.5s;"></div>
+                            </div>
+                            <div style="display: flex; gap: 12px; font-size: 12px;">
+                                <span style="color: ${hasGuide ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${hasGuide ? '✅' : '○'} Guide (12)</span>
+                                <span style="color: ${quizPassed ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${quizPassed ? '✅' : '○'} Quiz (10)</span>
+                                <span style="color: ${approved ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${approved ? '✅' : '○'} Assignment (15)</span>
+                            </div>
+                            ${claimed ? '<div style="font-size: 11px; color: #ffd700; margin-top: 6px;">✨ Virtue: ' + (portal.virtue_english || '') + '</div>' : ''}
+                        </div>`;
+                    }).join('');
+                    
+                    const totalPct = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
+                    const totalBarColor = totalPct >= 80 ? '#4ade80' : totalPct >= 60 ? '#fbbf24' : '#f87171';
+                    
+                    container.innerHTML = `
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.3); border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <strong style="font-size: 15px; color: #60a5fa;">Classical Age Total</strong>
+                                    <span style="color: ${totalBarColor}; font-weight: 700; font-size: 20px;">${totalEarned}/${totalPossible}</span>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.1); border-radius: 6px; height: 8px; overflow: hidden;">
+                                    <div style="background: ${totalBarColor}; height: 100%; width: ${totalPct}%; transition: width 0.5s;"></div>
+                                </div>
+                                <div style="text-align: right; font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 4px;">${totalPct}%</div>
+                            </div>
+                            ${mythCards}
+                        </div>`;
+                } catch (err) {
+                    console.error('Failed to load Classical grades:', err);
+                    container.innerHTML = '<div style="color: #f87171;">Failed to load grades</div>';
+                }
                 return;
             }
             
