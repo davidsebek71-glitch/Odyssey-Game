@@ -10307,7 +10307,7 @@
                 document.getElementById('quiz-result-title').textContent = 'MYTH MASTERED!';
                 document.getElementById('quiz-result-score').style.color = '#4ade80';
                 document.getElementById('quiz-result-message').textContent = 'You have proven your knowledge of this myth. The portal is now open!';
-                document.getElementById('quiz-result-buttons').innerHTML = '<button onclick="closeQuizModal(); loadMythPortals();" style="padding: 12px 28px; background: linear-gradient(135deg, #059669, #10b981); border: none; border-radius: 10px; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;">✅ Continue</button>';
+                document.getElementById('quiz-result-buttons').innerHTML = '<button onclick="showPostQuizAssignments()" style="padding: 12px 28px; background: linear-gradient(135deg, #059669, #10b981); border: none; border-radius: 10px; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;">✅ See Your Assignments</button>';
             } else {
                 document.getElementById('quiz-result-icon').textContent = '📖';
                 document.getElementById('quiz-result-title').style.color = '#fbbf24';
@@ -10318,6 +10318,15 @@
                     <button onclick="startQuiz()" style="padding: 12px 28px; background: linear-gradient(135deg, #1e40af, #4a90d9); border: none; border-radius: 10px; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; margin-right: 10px;">🔄 Try Again</button>
                     <button onclick="closeQuizModal()" style="padding: 12px 28px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; color: #e2d8c8; font-weight: 600; font-size: 14px; cursor: pointer;">Close</button>`;
             }
+        }
+
+        function showPostQuizAssignments() {
+            // Hide quiz results, show assignment panel
+            document.getElementById('quiz-results').style.display = 'none';
+            document.getElementById('myth-assignment-panel').style.display = 'block';
+            loadMythAssignments(currentQuizPortalId);
+            // Also refresh portals in background so the portal card updates
+            loadMythPortals();
         }
 
         function closeQuizModal() {

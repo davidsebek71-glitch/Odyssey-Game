@@ -7685,7 +7685,7 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
 // --- Teacher: Approve myth portal assignment ---
 app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) => {
   try {
-    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
     const { student_id, portal_id, assignment_path } = req.body;
     if (!student_id || !portal_id || !assignment_path) {
       return res.status(400).json({ error: 'Missing student_id, portal_id, or assignment_path' });
@@ -7725,7 +7725,7 @@ app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) =
 // --- Teacher: Unapprove myth portal assignment ---
 app.post('/api/teacher/unapprove-myth-assignment', authenticateToken, (req, res) => {
   try {
-    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
     const { student_id, portal_id } = req.body;
     if (!student_id || !portal_id) return res.status(400).json({ error: 'Missing student_id or portal_id' });
     
@@ -7740,7 +7740,7 @@ app.post('/api/teacher/unapprove-myth-assignment', authenticateToken, (req, res)
 // --- Teacher: Get myth completion overview for a period ---
 app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) => {
   try {
-    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
     const period = req.query.period;
     if (!period) return res.status(400).json({ error: 'Missing period parameter' });
     
