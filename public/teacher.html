@@ -939,7 +939,7 @@
                 <div class="description">Control age progression</div>
             </div>
             <div class="action-card" onclick="openTradeManagementModal()" style="background: linear-gradient(135deg, rgba(234,179,8,0.2), rgba(161,98,7,0.2)); border-color: rgba(234,179,8,0.4);">
-                <div class="icon">🫒</div>
+                <div class="icon">⚖️</div>
                 <div class="title">Trade System</div>
                 <div class="description">Resources & marketplace</div>
             </div>
@@ -4719,8 +4719,8 @@
                 return;
             }
             
-            // Check if any Classical students exist
-            const hasClassical = data.byPeriod.some(p => p.students.some(s => s.age === 'Classical'));
+            // Always show toggle since Classical Age is now active
+            const hasClassical = true;
             
             let html = '';
             
@@ -4759,7 +4759,7 @@
                 const mythEmoji = ['🏺', '☀️', '🎵', '🪞', '🪶', '💘', '⭐'];
                 
                 data.byPeriod.forEach(period => {
-                    const filtered = period.students.filter(s => s.age === 'Classical');
+                    const filtered = period.students;  // Show all students — everyone is doing Classical work
                     if (filtered.length === 0) return;
                     
                     html += `<div style="margin-bottom: 24px;">
