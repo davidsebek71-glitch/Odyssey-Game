@@ -9783,24 +9783,26 @@
             rightCol.innerHTML = rightPortals.map(renderVirtueSlot).join('');
 
             const count = virtuesEarned || 0;
-            const opacitySteps = [0, 0.12, 0.22, 0.38, 0.54, 0.70, 0.85, 1.0];
-            const brightnessSteps = [0, 0.3, 0.4, 0.55, 0.65, 0.78, 0.9, 1.0];
+            const opacitySteps = [0.05, 0.20, 0.35, 0.50, 0.65, 0.78, 0.90, 1.0];
+            const brightnessSteps = [0.15, 0.35, 0.50, 0.60, 0.72, 0.82, 0.92, 1.0];
 
             if (avatarImg) {
-                avatarImg.style.opacity = opacitySteps[count] || 0;
-                avatarImg.style.filter = `brightness(${brightnessSteps[count] || 0})`;
+                avatarImg.style.display = 'block';
+                avatarImg.style.opacity = opacitySteps[count] || 0.05;
+                avatarImg.style.filter = `brightness(${brightnessSteps[count] || 0.15})`;
             }
             if (avatarPlaceholder) {
-                avatarPlaceholder.style.display = (opacitySteps[count] || 0) === 0 ? 'block' : 'none';
+                avatarPlaceholder.style.display = 'none';
             }
             if (avatarGlow) {
                 if (count === 7) {
                     avatarGlow.style.boxShadow = 'inset 0 0 30px rgba(255,215,0,0.3), 0 0 20px rgba(255,215,0,0.2)';
                     avatarFrame.classList.add('complete');
-                } else if (count >= 4) {
-                    avatarGlow.style.boxShadow = `inset 0 0 15px rgba(255,215,0,${count * 0.04})`;
+                } else if (count >= 1) {
+                    const glowIntensity = 0.06 + (count * 0.04);
+                    avatarGlow.style.boxShadow = `inset 0 0 ${8 + count * 3}px rgba(255,215,0,${glowIntensity}), 0 0 ${count * 3}px rgba(255,215,0,${glowIntensity * 0.5})`;
                 } else {
-                    avatarGlow.style.boxShadow = 'none';
+                    avatarGlow.style.boxShadow = 'inset 0 0 8px rgba(255,215,0,0.04)';
                 }
             }
             if (progressText) {
@@ -10062,7 +10064,7 @@
             overlay.id = 'virtue-reveal-overlay';
             overlay.style.cssText = `
                 position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                background: radial-gradient(ellipse at center, ${virtue.glow_color}22 0%, rgba(0,0,0,0.95) 70%);
+                background: radial-gradient(ellipse at center, ${virtue.glow_color}33 0%, rgba(0,0,0,1) 60%);
                 z-index: 100000; display: flex; flex-direction: column;
                 align-items: center; justify-content: center;
                 opacity: 0; transition: opacity 0.8s;

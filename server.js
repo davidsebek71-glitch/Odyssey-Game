@@ -8597,8 +8597,14 @@ app.post('/api/trade/buy', authenticateToken, (req, res) => {
     
     if (!points_to_spend || points_to_spend < 1) return res.status(400).json({ error: 'Must spend at least 1 point' });
     
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
     if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
+    
+    // Check trade window is open
+    const tradeWindow = query('SELECT is_open FROM trade_window WHERE period = ?', [student.class_period])[0];
+    if (!tradeWindow || tradeWindow.is_open !== 1) {
+      return res.status(400).json({ error: 'The market is currently closed. Wait for Mr. Sebek to open trading.' });
+    }
     
     const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
     if (alliance.total_points < points_to_spend) {
