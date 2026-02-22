@@ -2550,6 +2550,9 @@
             </div>
         </div>
 
+        <!-- Virtue Claim Banner (shown when a virtue is ready to claim) -->
+        <div id="virtue-claim-banner" style="display: none;"></div>
+
         <!-- Warrior Avatar Reveal -->
         <div class="avatar-reveal-section" id="avatar-reveal-section">
             <div class="virtue-column" id="virtue-column-left"></div>
@@ -9630,6 +9633,40 @@
                 }).join('');
 
                 renderAvatarReveal(data.portals, data.virtues_earned, mythPortalGlowColors);
+                
+                // Check for unclaimed virtues and show banner on dashboard
+                const unclaimedVirtues = data.portals.filter(p => p.assignment_approved && !p.virtue_claimed);
+                const banner = document.getElementById('virtue-claim-banner');
+                if (banner && unclaimedVirtues.length > 0) {
+                    banner.style.display = 'block';
+                    banner.innerHTML = unclaimedVirtues.map(portal => {
+                        const colors = mythPortalGlowColors[portal.glow_color] || mythPortalGlowColors['#3B82F6'];
+                        return `
+                        <div style="background: linear-gradient(135deg, rgba(0,0,0,0.6), ${portal.glow_color}22); border: 2px solid ${portal.glow_color}88; border-radius: 14px; padding: 20px; margin-bottom: 12px; text-align: center; animation: virtueBtnPulse 2s ease-in-out infinite;">
+                            <div style="font-size: 36px; margin-bottom: 8px; animation: virtuePulse 2s ease-in-out infinite;">${portal.virtue_emoji || '🏛️'}</div>
+                            <div style="font-family: 'Cinzel', serif; font-size: 16px; color: rgba(255,255,255,0.6); letter-spacing: 2px; margin-bottom: 6px;">
+                                A virtue has awakened within you...
+                            </div>
+                            <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${portal.glow_color}; margin-bottom: 14px;">
+                                ${portal.display_name || portal.myth_name} — ${portal.virtue_english}
+                            </div>
+                            <button onclick="claimVirtue(${portal.portal_id})" style="
+                                padding: 14px 36px;
+                                background: linear-gradient(135deg, ${portal.glow_color}, ${portal.glow_color}cc);
+                                border: 2px solid ${portal.glow_color};
+                                border-radius: 10px; color: #fff;
+                                font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700;
+                                cursor: pointer; letter-spacing: 1px;
+                                box-shadow: 0 0 25px ${portal.glow_color}44;
+                            ">
+                                ${portal.virtue_emoji || '🏛️'} CLAIM YOUR VIRTUE ${portal.virtue_emoji || '🏛️'}
+                            </button>
+                        </div>`;
+                    }).join('');
+                } else if (banner) {
+                    banner.style.display = 'none';
+                    banner.innerHTML = '';
+                }
             } catch (err) {
                 console.error('Failed to load myth portals:', err);
             }
@@ -9816,26 +9853,25 @@
                     return;
                 }
                 
-                // STATE: Approved but virtue not claimed — show claim button
+                // STATE: Approved but virtue not claimed — direct to dashboard
                 if (portal.assignment_approved) {
                     html = `
                         <div style="text-align: center; padding: 30px 10px;">
                             <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 12px;">✅ Quiz Passed! ✅ Assignment Approved!</div>
                             <div style="font-size: 40px; margin-bottom: 16px; animation: virtuePulse 2s ease-in-out infinite;">${portal.virtue_emoji || '🏛️'}</div>
-                            <div style="font-family: 'Cinzel', serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 8px; letter-spacing: 2px;">
-                                A virtue has awakened within you...
+                            <div style="font-family: 'Cinzel', serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 12px; letter-spacing: 2px;">
+                                A virtue awaits you!
                             </div>
-                            <button onclick="claimVirtue(${portalId})" style="
-                                margin-top: 16px; padding: 16px 40px;
-                                background: linear-gradient(135deg, ${glowCol}, ${glowCol}dd);
+                            <button onclick="closeQuizModal()" style="
+                                margin-top: 8px; padding: 14px 32px;
+                                background: linear-gradient(135deg, ${glowCol}, ${glowCol}cc);
                                 border: 2px solid ${glowCol};
-                                border-radius: 12px; color: #fff;
-                                font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700;
+                                border-radius: 10px; color: #fff;
+                                font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700;
                                 cursor: pointer; letter-spacing: 1px;
-                                animation: virtueBtnPulse 1.5s ease-in-out infinite;
-                                box-shadow: 0 0 30px ${glowCol}66;
+                                box-shadow: 0 0 20px ${glowCol}44;
                             ">
-                                ${portal.virtue_emoji || '🏛️'} CLAIM YOUR VIRTUE ${portal.virtue_emoji || '🏛️'}
+                                Close & Claim on Dashboard
                             </button>
                         </div>`;
                     container.innerHTML = html;
