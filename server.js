@@ -7653,8 +7653,10 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const virtueClaimed = mythCompletion ? mythCompletion.virtue_claimed === 1 : false;
       const assignmentPath = mythCompletion ? mythCompletion.assignment_path : null;
       
-      // Virtue earned: quiz passed + (new system approval OR legacy creative completion)
-      const virtueEarned = quizPassed && (assignmentApproved || hasCreative) ? 1 : 0;
+      // Virtue ready to claim: quiz passed + assignment approved (but not yet claimed)
+      const virtueReady = quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
+      // Virtue earned: only after student has claimed it
+      const virtueEarned = virtueClaimed ? 1 : 0;
       
       return {
         ...portal,
@@ -7664,11 +7666,12 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         assignment_approved: assignmentApproved ? 1 : 0,
         assignment_path: assignmentPath,
         virtue_earned: virtueEarned,
+        virtue_ready: virtueReady,
         virtue_claimed: virtueClaimed ? 1 : 0
       };
     });
     
-    const virtuesEarned = enrichedPortals.filter(p => p.virtue_earned === 1).length;
+    const virtuesEarned = enrichedPortals.filter(p => p.virtue_claimed === 1).length;
     
     res.json({ portals: enrichedPortals, class_period: student.class_period, virtues_earned: virtuesEarned });
   } catch (err) {
