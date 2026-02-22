@@ -38,6 +38,16 @@
             50% { box-shadow: 0 4px 25px rgba(245, 158, 11, 0.7), inset 0 1px 0 rgba(255,255,255,0.2); }
         }
         
+        @keyframes virtuePulse {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.15); filter: brightness(1.3); }
+        }
+        
+        @keyframes virtueBtnPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px currentColor; }
+            50% { transform: scale(1.05); box-shadow: 0 0 40px currentColor, 0 0 60px currentColor; }
+        }
+        
         /* Arena Button Pulse when eligible */
         @keyframes arenaPulse {
             0%, 100% { 
@@ -9738,7 +9748,313 @@
             }
         }
 
+        // Portal assignment definitions - two paths per myth
+        // Only Pandora is active for testing. Add more myths here when ready.
+        const portalAssignments = {
+            1: { // Pandora
+                analytical: {
+                    title: "The Scholar's Path",
+                    icon: "📜",
+                    name: "CER: Courage or Weakness?",
+                    description: "Was opening the box an act of courage or weakness? Write a CER using evidence from the myth.",
+                    link: null // no external link for CER — done on Classroom
+                },
+                creative: {
+                    title: "The Creator's Path",
+                    icon: "🎨",
+                    name: "Pandora Retelling",
+                    description: "Retell the myth of Pandora from a different character's point of view.",
+                    link: "https://docs.google.com/presentation/d/e/2PACX-1vSUaMWz-ZQ_zoGNe3EZ2yw4qOkNmNbamYnPw-Mq7selnkjrmPAdJVR4kHED6nKp0XyCl83K9ur8nNly/pub?start=true&loop=true&delayms=60000"
+                }
+            }
+        };
+
         async function loadMythAssignments(portalId) {
+            const container = document.getElementById('myth-assignments-content');
+            container.innerHTML = '<p style="text-align: center; color: #4a90d9;">Loading...</p>';
+            
+            try {
+                // Get portal data including approval status
+                const portalsRes = await fetch(`${API_URL}/student/myth-portals`, { headers });
+                const portalsData = await portalsRes.json();
+                const portal = portalsData.portals ? portalsData.portals.find(p => p.portal_id === portalId) : null;
+                
+                if (!portal) {
+                    container.innerHTML = '<p style="color: #f87171;">Portal not found</p>';
+                    return;
+                }
+                
+                const glowCol = portal.glow_color || '#4a90d9';
+                const assignments = portalAssignments[portalId];
+                
+                // If no portal assignments defined yet, fall back to old display
+                if (!assignments) {
+                    loadMythAssignmentsLegacy(portalId);
+                    return;
+                }
+                
+                let html = '';
+                
+                // STATE: Virtue already claimed — show completed view
+                if (portal.virtue_claimed) {
+                    html = `
+                        <div style="text-align: center; padding: 20px 0;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">${portal.virtue_emoji || '🏛️'}</div>
+                            <div style="font-family: 'Cinzel', serif; font-size: 20px; color: #ffd700; font-weight: 700; margin-bottom: 4px;">${portal.virtue_english}</div>
+                            <div style="font-size: 14px; color: ${glowCol}; font-style: italic; margin-bottom: 8px;">${portal.virtue_greek}</div>
+                            <div style="font-size: 13px; color: rgba(255,255,255,0.6); max-width: 400px; margin: 0 auto; line-height: 1.5;">
+                                "${portal.virtue_description}"
+                            </div>
+                            <div style="margin-top: 16px; color: #4ade80; font-weight: 700; font-size: 14px;">
+                                ✅ ${portal.display_name} — Complete
+                            </div>
+                            <div style="margin-top: 6px; color: rgba(255,255,255,0.4); font-size: 12px;">
+                                Path: ${portal.assignment_path === 'analytical' ? "📜 Scholar's Path" : "🎨 Creator's Path"}
+                            </div>
+                        </div>`;
+                    container.innerHTML = html;
+                    return;
+                }
+                
+                // STATE: Approved but virtue not claimed — show claim button
+                if (portal.assignment_approved) {
+                    html = `
+                        <div style="text-align: center; padding: 30px 10px;">
+                            <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 12px;">✅ Quiz Passed! ✅ Assignment Approved!</div>
+                            <div style="font-size: 40px; margin-bottom: 16px; animation: virtuePulse 2s ease-in-out infinite;">${portal.virtue_emoji || '🏛️'}</div>
+                            <div style="font-family: 'Cinzel', serif; font-size: 18px; color: rgba(255,255,255,0.6); margin-bottom: 8px; letter-spacing: 2px;">
+                                A virtue has awakened within you...
+                            </div>
+                            <button onclick="claimVirtue(${portalId})" style="
+                                margin-top: 16px; padding: 16px 40px;
+                                background: linear-gradient(135deg, ${glowCol}, ${glowCol}dd);
+                                border: 2px solid ${glowCol};
+                                border-radius: 12px; color: #fff;
+                                font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700;
+                                cursor: pointer; letter-spacing: 1px;
+                                animation: virtueBtnPulse 1.5s ease-in-out infinite;
+                                box-shadow: 0 0 30px ${glowCol}66;
+                            ">
+                                ${portal.virtue_emoji || '🏛️'} CLAIM YOUR VIRTUE ${portal.virtue_emoji || '🏛️'}
+                            </button>
+                        </div>`;
+                    container.innerHTML = html;
+                    return;
+                }
+                
+                // STATE: Quiz passed, not yet approved — show two path cards
+                html += `
+                    <div style="text-align: center; margin-bottom: 16px;">
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✅ Quiz Passed!</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px; margin-bottom: 4px;">
+                            ${portal.virtue_emoji || '🏛️'} Earn the Virtue of <span style="color: #ffd700;">${portal.virtue_english}</span>
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Choose a path and complete on Google Classroom</div>
+                    </div>
+                    
+                    <div style="font-family: 'Cinzel', serif; font-size: 15px; color: #ff6b35; text-align: center; font-weight: 700; margin-bottom: 12px;">
+                        ⚡ CHOOSE YOUR PATH ⚡
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                        ${renderPathCard(assignments.analytical, 'analytical', glowCol, portalId)}
+                        ${renderPathCard(assignments.creative, 'creative', glowCol, portalId)}
+                    </div>
+                    
+                    <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.15);">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5);">
+                            ⏳ After you complete and turn in on Google Classroom, Mr. Sebek will verify and unlock your virtue.
+                        </div>
+                    </div>`;
+                
+                container.innerHTML = html;
+            } catch (err) {
+                console.error('Load myth assignments error:', err);
+                container.innerHTML = '<p style="text-align: center; color: #f87171;">Failed to load assignments</p>';
+            }
+        }
+        
+        function renderPathCard(assignment, pathType, glowCol, portalId) {
+            const borderColor = pathType === 'analytical' ? '#60a5fa' : '#f59e0b';
+            const bgColor = pathType === 'analytical' ? 'rgba(96,165,250,0.08)' : 'rgba(245,158,11,0.08)';
+            const labelColor = pathType === 'analytical' ? '#93c5fd' : '#fcd34d';
+            
+            const linkBtn = assignment.link ? `
+                <a href="${assignment.link}" target="_blank" style="
+                    display: inline-block; margin-top: 10px; padding: 8px 16px;
+                    background: ${borderColor}22; border: 1px solid ${borderColor}88;
+                    border-radius: 8px; color: ${borderColor};
+                    font-size: 12px; font-weight: 600; text-decoration: none;
+                    transition: all 0.2s;
+                " onmouseover="this.style.background='${borderColor}44'" onmouseout="this.style.background='${borderColor}22'">
+                    📋 View Directions
+                </a>` : `
+                <div style="margin-top: 10px; padding: 6px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 11px; color: rgba(255,255,255,0.4);">
+                    Complete on Google Classroom
+                </div>`;
+            
+            return `
+                <div style="
+                    border: 2px solid ${borderColor}66; background: ${bgColor};
+                    border-radius: 12px; padding: 16px; text-align: center;
+                    transition: all 0.3s;
+                " onmouseover="this.style.borderColor='${borderColor}'; this.style.boxShadow='0 0 20px ${borderColor}33';"
+                   onmouseout="this.style.borderColor='${borderColor}66'; this.style.boxShadow='none';">
+                    <div style="font-size: 28px; margin-bottom: 8px;">${assignment.icon}</div>
+                    <div style="font-family: 'Cinzel', serif; font-size: 14px; color: ${labelColor}; font-weight: 700; margin-bottom: 6px;">
+                        ${assignment.title}
+                    </div>
+                    <div style="font-size: 13px; color: #fff; font-weight: 600; margin-bottom: 6px;">
+                        ${assignment.name}
+                    </div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.4; min-height: 36px;">
+                        ${assignment.description}
+                    </div>
+                    <div style="font-size: 12px; color: #ffd700; margin-top: 8px; font-weight: 600;">15 points</div>
+                    ${linkBtn}
+                </div>`;
+        }
+        
+        async function claimVirtue(portalId) {
+            try {
+                const res = await fetch(`${API_URL}/student/claim-virtue`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ portal_id: portalId })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert(data.error || 'Failed to claim virtue');
+                    return;
+                }
+                
+                // Close the quiz modal
+                document.getElementById('myth-quiz-modal').classList.remove('show');
+                
+                // Show the dramatic virtue reveal
+                showVirtueReveal(data.virtue, data.total_virtues);
+            } catch (err) {
+                console.error('Claim virtue error:', err);
+                alert('Failed to claim virtue');
+            }
+        }
+        
+        function showVirtueReveal(virtue, totalVirtues) {
+            // Create full-screen overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'virtue-reveal-overlay';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: radial-gradient(ellipse at center, ${virtue.glow_color}22 0%, rgba(0,0,0,0.95) 70%);
+                z-index: 100000; display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                opacity: 0; transition: opacity 0.8s;
+            `;
+            
+            overlay.innerHTML = `
+                <div id="vr-emoji" style="font-size: 96px; opacity: 0; transform: scale(0.5); transition: all 0.8s; filter: drop-shadow(0 0 40px ${virtue.glow_color});">
+                    ${virtue.virtue_emoji}
+                </div>
+                <div id="vr-greek" style="font-family: 'Cinzel', serif; font-size: 24px; color: ${virtue.glow_color}; opacity: 0; transform: translateY(15px); transition: all 0.6s; margin-top: 20px; letter-spacing: 3px;">
+                    ${virtue.virtue_greek}
+                </div>
+                <div id="vr-english" style="font-family: 'Cinzel', serif; font-size: 42px; color: #ffd700; opacity: 0; transform: scale(0.8); transition: all 0.6s; margin-top: 8px; font-weight: 900; text-shadow: 0 0 30px rgba(255,215,0,0.5);">
+                    ${virtue.virtue_english.toUpperCase()}
+                </div>
+                <div id="vr-desc" style="font-size: 16px; color: rgba(255,255,255,0.7); opacity: 0; transition: all 0.6s; margin-top: 16px; max-width: 500px; text-align: center; line-height: 1.6; font-style: italic;">
+                    "${virtue.virtue_description}"
+                </div>
+                <div id="vr-count" style="font-family: 'Cinzel', serif; font-size: 20px; color: ${virtue.glow_color}; opacity: 0; transition: all 0.6s; margin-top: 30px; letter-spacing: 2px;">
+                    ${totalVirtues} of 7 Virtues Collected
+                </div>
+                <button id="vr-continue" onclick="closeVirtueReveal()" style="
+                    opacity: 0; transition: all 0.6s; margin-top: 24px;
+                    padding: 14px 36px; background: linear-gradient(135deg, ${virtue.glow_color}, ${virtue.glow_color}cc);
+                    border: 2px solid ${virtue.glow_color}; border-radius: 10px;
+                    color: #fff; font-family: 'Cinzel', serif; font-size: 16px;
+                    font-weight: 700; cursor: pointer; letter-spacing: 1px;
+                ">
+                    Continue
+                </button>
+                <canvas id="vr-particles" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+            `;
+            
+            document.body.appendChild(overlay);
+            
+            // Staggered reveal sequence
+            setTimeout(() => overlay.style.opacity = '1', 50);
+            setTimeout(() => { const el = document.getElementById('vr-emoji'); if(el) { el.style.opacity = '1'; el.style.transform = 'scale(1)'; } }, 1000);
+            setTimeout(() => { const el = document.getElementById('vr-greek'); if(el) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; } }, 2000);
+            setTimeout(() => { const el = document.getElementById('vr-english'); if(el) { el.style.opacity = '1'; el.style.transform = 'scale(1)'; } }, 2800);
+            setTimeout(() => { const el = document.getElementById('vr-desc'); if(el) { el.style.opacity = '1'; } }, 3600);
+            setTimeout(() => { launchVirtueParticles(virtue.glow_color); }, 4500);
+            setTimeout(() => { const el = document.getElementById('vr-count'); if(el) { el.style.opacity = '1'; } }, 5500);
+            setTimeout(() => { const el = document.getElementById('vr-continue'); if(el) { el.style.opacity = '1'; } }, 6500);
+        }
+        
+        function launchVirtueParticles(color) {
+            const canvas = document.getElementById('vr-particles');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const particles = [];
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            // Parse hex color
+            const r = parseInt(color.slice(1,3), 16);
+            const g = parseInt(color.slice(3,5), 16);
+            const b = parseInt(color.slice(5,7), 16);
+            
+            for (let i = 0; i < 80; i++) {
+                const angle = (Math.PI * 2 * i) / 80 + (Math.random() - 0.5) * 0.5;
+                const speed = 2 + Math.random() * 4;
+                particles.push({
+                    x: cx, y: cy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1,
+                    decay: 0.005 + Math.random() * 0.01,
+                    size: 2 + Math.random() * 4
+                });
+            }
+            
+            let frame = 0;
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+                particles.forEach(p => {
+                    if (p.life <= 0) return;
+                    alive = true;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.02; // gravity
+                    p.life -= p.decay;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${r},${g},${b},${p.life * 0.8})`;
+                    ctx.fill();
+                });
+                frame++;
+                if (alive && frame < 300) requestAnimationFrame(animate);
+            }
+            animate();
+        }
+        
+        function closeVirtueReveal() {
+            const overlay = document.getElementById('virtue-reveal-overlay');
+            if (overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.remove(), 800);
+            }
+            // Refresh portals to show updated state
+            loadMythPortals();
+        }
+
+        // Legacy assignment display for myths without portal assignments defined yet
+        async function loadMythAssignmentsLegacy(portalId) {
             const container = document.getElementById('myth-assignments-content');
             container.innerHTML = '<p style="text-align: center; color: #4a90d9;">Loading assignments...</p>';
             

@@ -617,6 +617,21 @@ async function initDatabase() {
     )
   `);
 
+  // Student myth portal assignment completion and virtue tracking
+  db.run(`
+    CREATE TABLE IF NOT EXISTS student_myth_completion (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      portal_id INTEGER NOT NULL,
+      assignment_path TEXT,
+      teacher_approved INTEGER DEFAULT 0,
+      approved_at DATETIME,
+      virtue_claimed INTEGER DEFAULT 0,
+      virtue_claimed_at DATETIME,
+      UNIQUE(student_id, portal_id)
+    )
+  `);
+
   // ==================== TRADE SYSTEM TABLES ====================
 
   // Alliance native resource assignments (no shared pool — students buy directly)

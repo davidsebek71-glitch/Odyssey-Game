@@ -7578,6 +7578,14 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
     // Get quiz attempts
     const quizAttempts = query('SELECT portal_id, passed, score, percentage FROM myth_quiz_attempts WHERE student_id = ? AND passed = 1', [student_id]);
 
+    // Get myth completion records (teacher-approved portal assignments)
+    let mythCompletions = [];
+    try {
+      mythCompletions = query('SELECT * FROM student_myth_completion WHERE student_id = ?', [student_id]);
+    } catch (e) {
+      // Table may not exist yet
+    }
+
     // Build enriched portal data
     const enrichedPortals = portals.map(portal => {
       // Check reading guide completion (comp_conn for this myth in classical section)
@@ -7592,7 +7600,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const quizResult = quizAttempts.find(q => q.portal_id === portal.portal_id);
       const quizPassed = quizResult ? 1 : 0;
       
-      // Check creative work (word_cloud or mural/pixton for this myth in classical_creative section)
+      // Check creative work (legacy: word_cloud or mural for this myth)
       const hasCreative = gradeRecords.some(g => 
         (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && 
         g.myth_god === portal.myth_name && 
@@ -7600,15 +7608,24 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         g.points_earned > 0
       );
       
-      // Virtue earned when: reading guide + quiz passed + at least 1 creative
-      const virtueEarned = hasReadingGuide && quizPassed && hasCreative ? 1 : 0;
+      // Check new portal assignment system
+      const mythCompletion = mythCompletions.find(mc => mc.portal_id === portal.portal_id);
+      const assignmentApproved = mythCompletion ? mythCompletion.teacher_approved === 1 : false;
+      const virtueClaimed = mythCompletion ? mythCompletion.virtue_claimed === 1 : false;
+      const assignmentPath = mythCompletion ? mythCompletion.assignment_path : null;
+      
+      // Virtue earned: quiz passed + (new system approval OR legacy creative completion)
+      const virtueEarned = quizPassed && (assignmentApproved || hasCreative) ? 1 : 0;
       
       return {
         ...portal,
         has_reading_guide: hasReadingGuide ? 1 : 0,
         quiz_passed: quizPassed,
         has_creative: hasCreative ? 1 : 0,
-        virtue_earned: virtueEarned
+        assignment_approved: assignmentApproved ? 1 : 0,
+        assignment_path: assignmentPath,
+        virtue_earned: virtueEarned,
+        virtue_claimed: virtueClaimed ? 1 : 0
       };
     });
     
@@ -7618,6 +7635,146 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Myth portals error:', err);
     res.status(500).json({ error: 'Failed to load myth portals' });
+  }
+});
+
+// --- Student: Claim virtue after teacher approval ---
+app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { portal_id } = req.body;
+    if (!portal_id) return res.status(400).json({ error: 'Missing portal_id' });
+    
+    // Check that teacher has approved
+    const completion = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
+    if (!completion.length || !completion[0].teacher_approved) {
+      return res.status(400).json({ error: 'Assignment not yet approved' });
+    }
+    if (completion[0].virtue_claimed) {
+      return res.status(400).json({ error: 'Virtue already claimed' });
+    }
+    
+    // Mark virtue as claimed
+    run('UPDATE student_myth_completion SET virtue_claimed = 1, virtue_claimed_at = CURRENT_TIMESTAMP WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
+    
+    // Get virtue data for the reveal
+    const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
+    
+    // Count total virtues earned
+    const totalVirtues = query('SELECT COUNT(*) as count FROM student_myth_completion WHERE student_id = ? AND virtue_claimed = 1', [student_id])[0].count;
+    
+    res.json({
+      success: true,
+      virtue: {
+        myth_name: portal.myth_name,
+        display_name: portal.display_name,
+        virtue_english: portal.virtue_english,
+        virtue_greek: portal.virtue_greek,
+        virtue_description: portal.virtue_description,
+        virtue_emoji: portal.virtue_emoji,
+        glow_color: portal.glow_color
+      },
+      total_virtues: totalVirtues
+    });
+  } catch (err) {
+    console.error('Claim virtue error:', err);
+    res.status(500).json({ error: 'Failed to claim virtue' });
+  }
+});
+
+// --- Teacher: Approve myth portal assignment ---
+app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const { student_id, portal_id, assignment_path } = req.body;
+    if (!student_id || !portal_id || !assignment_path) {
+      return res.status(400).json({ error: 'Missing student_id, portal_id, or assignment_path' });
+    }
+    
+    // Upsert the completion record
+    const existing = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
+    if (existing.length > 0) {
+      run('UPDATE student_myth_completion SET assignment_path = ?, teacher_approved = 1, approved_at = CURRENT_TIMESTAMP WHERE student_id = ? AND portal_id = ?',
+        [assignment_path, student_id, portal_id]);
+    } else {
+      run('INSERT INTO student_myth_completion (student_id, portal_id, assignment_path, teacher_approved, approved_at) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)',
+        [student_id, portal_id, assignment_path]);
+    }
+    
+    // Award points for the portal assignment
+    const student = query('SELECT s.name, s.alliance_id, a.alliance_name FROM students s LEFT JOIN alliances a ON s.alliance_id = a.alliance_id WHERE s.student_id = ?', [student_id])[0];
+    const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
+    
+    // Award 15 points to the alliance
+    if (student && student.alliance_id) {
+      run('UPDATE alliances SET total_points = total_points + 15 WHERE alliance_id = ?', [student.alliance_id]);
+      run('INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, 15, ?, ?, ?)',
+        [student.alliance_id, 'assignment', `Myth Portal: ${portal.myth_name} (${assignment_path} path) - ${student.name}`, req.user.id]);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Approved ${student ? student.name : 'student'}'s ${assignment_path} path for ${portal ? portal.myth_name : 'myth'} (+15 pts)` 
+    });
+  } catch (err) {
+    console.error('Approve myth assignment error:', err);
+    res.status(500).json({ error: 'Failed to approve' });
+  }
+});
+
+// --- Teacher: Unapprove myth portal assignment ---
+app.post('/api/teacher/unapprove-myth-assignment', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const { student_id, portal_id } = req.body;
+    if (!student_id || !portal_id) return res.status(400).json({ error: 'Missing student_id or portal_id' });
+    
+    run('DELETE FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
+    res.json({ success: true, message: 'Assignment unapproved' });
+  } catch (err) {
+    console.error('Unapprove myth assignment error:', err);
+    res.status(500).json({ error: 'Failed to unapprove' });
+  }
+});
+
+// --- Teacher: Get myth completion overview for a period ---
+app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const period = req.query.period;
+    if (!period) return res.status(400).json({ error: 'Missing period parameter' });
+    
+    const students = query('SELECT student_id, name, alliance_id FROM students WHERE class_period = ? ORDER BY name', [period]);
+    const portals = query('SELECT portal_id, myth_name, display_name, virtue_english, virtue_emoji FROM myth_portals ORDER BY myth_number');
+    
+    // Get all quiz passes for this period
+    const quizPasses = query(`SELECT mqa.student_id, mqa.portal_id FROM myth_quiz_attempts mqa 
+      JOIN students s ON mqa.student_id = s.student_id WHERE s.class_period = ? AND mqa.passed = 1`, [period]);
+    
+    // Get all myth completions for this period
+    const completions = query(`SELECT smc.* FROM student_myth_completion smc 
+      JOIN students s ON smc.student_id = s.student_id WHERE s.class_period = ?`, [period]);
+    
+    const studentData = students.map(s => {
+      const mythProgress = portals.map(p => {
+        const quizPassed = quizPasses.some(qp => qp.student_id === s.student_id && qp.portal_id === p.portal_id);
+        const completion = completions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
+        return {
+          portal_id: p.portal_id,
+          myth_name: p.myth_name,
+          quiz_passed: quizPassed,
+          assignment_path: completion ? completion.assignment_path : null,
+          teacher_approved: completion ? completion.teacher_approved === 1 : false,
+          virtue_claimed: completion ? completion.virtue_claimed === 1 : false
+        };
+      });
+      return { ...s, myths: mythProgress };
+    });
+    
+    res.json({ students: studentData, portals });
+  } catch (err) {
+    console.error('Myth completion overview error:', err);
+    res.status(500).json({ error: 'Failed to load overview' });
   }
 });
 

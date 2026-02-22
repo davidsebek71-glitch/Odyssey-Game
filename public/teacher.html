@@ -943,6 +943,11 @@
                 <div class="title">Trade System</div>
                 <div class="description">Resources & marketplace</div>
             </div>
+            <div class="action-card" onclick="openMythProgressModal()" style="background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(126,34,206,0.2)); border-color: rgba(168,85,247,0.4);">
+                <div class="icon">🏛️</div>
+                <div class="title">Myth Progress</div>
+                <div class="description">Approve portal assignments</div>
+            </div>
         </div>
 
         <div class="dashboard-grid">
@@ -1504,6 +1509,18 @@
     <div id="battle-modal" class="modal fate-modal">
         <div class="modal-content" style="max-width: 800px; max-height: 95vh; overflow-y: auto;">
             <div id="battle-content"></div>
+        </div>
+    </div>
+
+    <!-- Myth Progress Modal -->
+    <div id="myth-progress-modal" class="modal">
+        <div class="modal-content" style="max-width: 1100px; max-height: 90vh; overflow-y: auto;">
+            <span class="close" onclick="document.getElementById('myth-progress-modal').classList.remove('show')">&times;</span>
+            <h2 style="margin-bottom: 10px;">🏛️ Myth Portal Progress</h2>
+            <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;" id="myth-progress-period-tabs"></div>
+            <div id="myth-progress-content" style="color: rgba(255,255,255,0.9);">
+                <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period to view progress</p>
+            </div>
         </div>
     </div>
 
@@ -4813,6 +4830,139 @@
         let tradeData = null;
         let tradeViewPeriod = 'all';
         
+        // ==================== MYTH PROGRESS MANAGEMENT ====================
+        
+        let mythProgressPeriod = null;
+        
+        function openMythProgressModal() {
+            document.getElementById('myth-progress-modal').classList.add('show');
+            const tabsDiv = document.getElementById('myth-progress-period-tabs');
+            tabsDiv.innerHTML = ['1st', '2nd', '3rd', '4th', 'Test'].map(p => 
+                `<button onclick="loadMythProgress('${p}')" style="padding: 6px 14px; border-radius: 6px; border: 1px solid ${p === 'Test' ? 'rgba(168,85,247,0.5)' : 'rgba(255,255,255,0.2)'}; background: ${p === mythProgressPeriod ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.05)'}; color: #fff; cursor: pointer; font-size: 13px;">${p}</button>`
+            ).join('');
+            if (mythProgressPeriod) loadMythProgress(mythProgressPeriod);
+        }
+        
+        async function loadMythProgress(period) {
+            mythProgressPeriod = period;
+            const content = document.getElementById('myth-progress-content');
+            content.innerHTML = '<p style="text-align: center; color: #a78bfa;">Loading...</p>';
+            
+            // Re-render tabs to show active
+            const tabsDiv = document.getElementById('myth-progress-period-tabs');
+            tabsDiv.innerHTML = ['1st', '2nd', '3rd', '4th', 'Test'].map(p => 
+                `<button onclick="loadMythProgress('${p}')" style="padding: 6px 14px; border-radius: 6px; border: 1px solid ${p === 'Test' ? 'rgba(168,85,247,0.5)' : 'rgba(255,255,255,0.2)'}; background: ${p === period ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.05)'}; color: #fff; cursor: pointer; font-size: 13px;">${p}</button>`
+            ).join('');
+            
+            try {
+                const res = await fetch(`${API_URL}/teacher/myth-completion-overview?period=${encodeURIComponent(period)}`, { headers });
+                const data = await res.json();
+                if (data.error) { content.innerHTML = `<p style="color: #f87171;">${data.error}</p>`; return; }
+                
+                if (!data.students || data.students.length === 0) {
+                    content.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.4);">No students in this period</p>';
+                    return;
+                }
+                
+                // Build grid table
+                let html = `<div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid rgba(168,85,247,0.3);">
+                                <th style="text-align: left; padding: 8px; color: #a78bfa; position: sticky; left: 0; background: #1a1a2e; z-index: 1; min-width: 120px;">Student</th>
+                                ${data.portals.map(p => `<th style="text-align: center; padding: 8px; color: rgba(255,255,255,0.6); min-width: 90px;">${p.virtue_emoji || ''}<br>${p.myth_name}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                
+                data.students.forEach(student => {
+                    html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 8px; color: #fff; font-weight: 600; position: sticky; left: 0; background: #1a1a2e; z-index: 1;">${student.name}</td>`;
+                    
+                    student.myths.forEach(myth => {
+                        let cellContent = '';
+                        let cellBg = 'transparent';
+                        
+                        if (myth.virtue_claimed) {
+                            // Fully complete
+                            cellContent = '🌟';
+                            cellBg = 'rgba(74,222,128,0.1)';
+                        } else if (myth.teacher_approved) {
+                            // Approved, awaiting claim
+                            cellContent = `<span style="color: #4ade80;">✅</span>`;
+                            cellBg = 'rgba(74,222,128,0.05)';
+                        } else if (myth.quiz_passed) {
+                            // Quiz passed, needs approval
+                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name}', '${myth.myth_name}')" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
+                            cellBg = 'rgba(251,191,36,0.05)';
+                        } else {
+                            // Quiz not passed
+                            cellContent = '<span style="color: rgba(255,255,255,0.15);">—</span>';
+                        }
+                        
+                        html += `<td style="text-align: center; padding: 8px; background: ${cellBg};">${cellContent}</td>`;
+                    });
+                    
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table></div>';
+                
+                // Legend
+                html += `<div style="display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: rgba(255,255,255,0.5); flex-wrap: wrap;">
+                    <span>— = Quiz not passed</span>
+                    <span style="color: #c4b5fd;">Approve = Quiz passed, verify in Classroom</span>
+                    <span style="color: #4ade80;">✅ = Approved, student can claim</span>
+                    <span>🌟 = Virtue claimed</span>
+                </div>`;
+                
+                content.innerHTML = html;
+            } catch (err) {
+                console.error('Load myth progress error:', err);
+                content.innerHTML = '<p style="color: #f87171;">Failed to load progress</p>';
+            }
+        }
+        
+        async function approveMythAssignment(studentId, portalId, studentName, mythName) {
+            // Ask which path
+            const pathDiv = document.createElement('div');
+            pathDiv.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 100001; display: flex; align-items: center; justify-content: center;';
+            pathDiv.innerHTML = `
+                <div style="background: #1a1a2e; border: 2px solid rgba(168,85,247,0.5); border-radius: 12px; padding: 24px; max-width: 400px; text-align: center;">
+                    <div style="font-size: 14px; color: #fff; margin-bottom: 6px; font-weight: 700;">Approve ${studentName}</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 16px;">${mythName} — Which path did they complete?</div>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button onclick="confirmMythApproval(${studentId}, ${portalId}, 'analytical', this.parentElement.parentElement.parentElement)" style="padding: 10px 20px; background: rgba(96,165,250,0.2); border: 2px solid #60a5fa; border-radius: 8px; color: #93c5fd; cursor: pointer; font-size: 13px; font-weight: 600;">📜 Scholar's Path</button>
+                        <button onclick="confirmMythApproval(${studentId}, ${portalId}, 'creative', this.parentElement.parentElement.parentElement)" style="padding: 10px 20px; background: rgba(245,158,11,0.2); border: 2px solid #f59e0b; border-radius: 8px; color: #fcd34d; cursor: pointer; font-size: 13px; font-weight: 600;">🎨 Creator's Path</button>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="margin-top: 12px; padding: 6px 16px; background: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 12px;">Cancel</button>
+                </div>`;
+            document.body.appendChild(pathDiv);
+        }
+        
+        async function confirmMythApproval(studentId, portalId, path, overlayEl) {
+            if (overlayEl) overlayEl.remove();
+            try {
+                const res = await fetch(`${API_URL}/teacher/approve-myth-assignment`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: path })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    loadMythProgress(mythProgressPeriod);
+                } else {
+                    alert(data.error || 'Failed to approve');
+                }
+            } catch (err) {
+                console.error('Approve error:', err);
+                alert('Failed to approve');
+            }
+        }
+
+        // ==================== TRADE SYSTEM MANAGEMENT ====================
+
         async function openTradeManagementModal() {
             document.getElementById('trade-management-modal').classList.add('show');
             document.getElementById('trade-management-content').innerHTML = '<div style="text-align:center; padding:40px; color:rgba(255,255,255,0.5);">Loading trade data...</div>';
