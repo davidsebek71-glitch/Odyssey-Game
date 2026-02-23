@@ -1223,16 +1223,16 @@ function seedReferenceData() {
     )`);
   } catch (e) { console.log('Migration note: resource_buys -', e.message); }
 
-  // V91 FIX: Classical Age building prices increased by 55%
+  // V92 FIX: Classical Age building prices +12% and bonus reductions
   try {
-    db.run("UPDATE buildings_ref SET cost_points = 341 WHERE building_name = 'Transport Ship' AND cost_points IN (220, 308)");
-    db.run("UPDATE buildings_ref SET cost_points = 465 WHERE building_name = 'Armory' AND cost_points IN (300, 420)");
-    db.run("UPDATE buildings_ref SET cost_points = 186 WHERE building_name = 'Theater' AND cost_points IN (120, 168)");
-    db.run("UPDATE buildings_ref SET cost_points = 124 WHERE building_name = 'Agora' AND cost_points IN (80, 112)");
-    db.run("UPDATE buildings_ref SET cost_points = 232 WHERE building_name = 'Oracle' AND cost_points IN (150, 210)");
-    console.log('✅ Classical Age building prices increased by 55%');
+    db.run("UPDATE buildings_ref SET cost_points = 382 WHERE building_name = 'Transport Ship' AND cost_points IN (220, 308, 341)");
+    db.run("UPDATE buildings_ref SET cost_points = 521 WHERE building_name = 'Armory' AND cost_points IN (300, 420, 465)");
+    db.run("UPDATE buildings_ref SET cost_points = 208, point_bonus = 0.04, description = 'Cultural center for drama and music. +4% point bonus when active. Requires Library.' WHERE building_name = 'Theater' AND cost_points IN (120, 168, 186)");
+    db.run("UPDATE buildings_ref SET cost_points = 139, point_bonus = 0.02, description = 'Marketplace and civic center. +2% point bonus when active. Requires Town Center.' WHERE building_name = 'Agora' AND cost_points IN (80, 112, 124)");
+    db.run("UPDATE buildings_ref SET cost_points = 260 WHERE building_name = 'Oracle' AND cost_points IN (150, 210, 232)");
+    console.log('✅ Classical buildings: +12% prices, Theater 4%, Agora 2%');
   } catch (e) {
-    console.log('Migration note: Classical building price update -', e.message);
+    console.log('Migration note: V92 Classical building update -', e.message);
   }
 
   // V91 FIX: Reduce Archaic tech bonuses from 10% to 3% (beta year rebalancing)
@@ -1868,16 +1868,16 @@ function seedClassicalData() {
       // Need to get the building IDs for prerequisites
       // Town Center = 1, Library = 2, House = 3, Wooden Wall = 4, Stone Wall = 5, Dock = 6
       const classicalBuildings = [
-        // Transport Ship: 308 pts (was 220, +55% V91 rebalance), requires Dock (6), Poseidon themed
-        ['Transport Ship', 341, 6, 'Poseidon', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Ocean-going vessel for trade and exploration. Requires Dock. Enables Classical trade routes.'],
-        // Armory: 420 pts (was 300, +55% V91 rebalance), requires Library (2), Hephaestus themed, +150 battle bonus
-        ['Armory', 465, 2, 'Hephaestus', 0, 1, 'Classical', 150, 0, 0, 0, 1, 0, 'Weapons and armor forge. +150 battle bonus. Always active. Requires Library.'],
-        // Theater: 168 pts (was 120, +55% V91 rebalance), requires Library (2), Apollo themed, +8% points
-        ['Theater', 186, 2, 'Apollo', 0, 1, 'Classical', 0, 0.08, 48, 72, 0, 0, 'Cultural center for drama and music. +8% point bonus when active. Requires Library.'],
-        // Agora: 112 pts (was 80, +55% V91 rebalance), requires Town Center (1), Hermes themed
-        ['Agora', 124, 1, 'Hermes', 0, 1, 'Classical', 0, 0.05, 48, 48, 0, 0, 'Marketplace and civic center. +5% point bonus when active. Requires Town Center.'],
-        // Oracle: 210 pts (was 150, +55% V91 rebalance), requires Stone Wall (5), Apollo themed
-        ['Oracle', 232, 5, 'Apollo', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Sacred prophecy site. Grants 1 free fate re-spin per week. Requires Stone Wall.']
+        // Transport Ship: 382 pts (was 220, +55% +12% rebalance), requires Dock (6), Poseidon themed
+        ['Transport Ship', 382, 6, 'Poseidon', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Ocean-going vessel for trade and exploration. Requires Dock. Enables Classical trade routes.'],
+        // Armory: 521 pts (was 300, +55% +12% rebalance), requires Library (2), Hephaestus themed, +150 battle bonus
+        ['Armory', 521, 2, 'Hephaestus', 0, 1, 'Classical', 150, 0, 0, 0, 1, 0, 'Weapons and armor forge. +150 battle bonus. Always active. Requires Library.'],
+        // Theater: 208 pts (was 120, +55% +12% rebalance), requires Library (2), Apollo themed, +4% points (was 8%, V92 nerf)
+        ['Theater', 208, 2, 'Apollo', 0, 1, 'Classical', 0, 0.04, 48, 72, 0, 0, 'Cultural center for drama and music. +4% point bonus when active. Requires Library.'],
+        // Agora: 139 pts (was 80, +55% +12% rebalance), requires Town Center (1), Hermes themed, +2% (was 5%, V92 nerf)
+        ['Agora', 139, 1, 'Hermes', 0, 1, 'Classical', 0, 0.02, 48, 48, 0, 0, 'Marketplace and civic center. +2% point bonus when active. Requires Town Center.'],
+        // Oracle: 260 pts (was 150, +55% +12% rebalance), requires Stone Wall (5), Apollo themed
+        ['Oracle', 260, 5, 'Apollo', 0, 1, 'Classical', 0, 0, 0, 0, 0, 0, 'Sacred prophecy site. Grants 1 free fate re-spin per week. Requires Stone Wall.']
       ];
 
       classicalBuildings.forEach(b => {

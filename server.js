@@ -4394,6 +4394,13 @@ function getAllianceBuildingBonus(alliance_id) {
     }
   });
   
+  // V92: Cap total building bonus at 15% to prevent compounding inflation
+  const MAX_BUILDING_BONUS = 0.15;
+  if (totalBonus > MAX_BUILDING_BONUS) {
+    console.log(`⚠️ Building bonus capped: ${Math.round(totalBonus * 100)}% → ${Math.round(MAX_BUILDING_BONUS * 100)}% for alliance ${alliance_id}`);
+    totalBonus = MAX_BUILDING_BONUS;
+  }
+  
   return totalBonus;
 }
 
