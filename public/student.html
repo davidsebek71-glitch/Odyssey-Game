@@ -2656,35 +2656,38 @@
                 <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Extra Credit</div>
                 <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #fbbf24;">Earn Bonus Points ⚡</div>
             </div>
-            <div id="classical-bonus-card" onclick="openClassicalBonusPortal()" style="
+            <div id="classical-bonus-card" style="
                 display: none;
-                background: linear-gradient(135deg, rgba(106,27,154,0.25), rgba(156,39,176,0.2));
-                border: 2px solid rgba(186,104,200,0.4);
+                background: linear-gradient(135deg, rgba(106,27,154,0.15), rgba(156,39,176,0.1));
+                border: 2px solid rgba(186,104,200,0.2);
                 border-radius: 16px;
                 padding: 18px 20px;
                 text-align: center;
-                cursor: pointer;
-                transition: all 0.3s ease;
-            " onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='rgba(186,104,200,0.8)'; this.style.boxShadow='0 6px 20px rgba(156,39,176,0.4)';"
-               onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(186,104,200,0.4)'; this.style.boxShadow='none';">
+                cursor: not-allowed;
+                opacity: 0.5;
+                position: relative;
+            ">
+                <div style="position: absolute; top: 8px; right: 10px; font-size: 10px; color: rgba(186,104,200,0.6); font-weight: 700; letter-spacing: 1px;">🔒 LOCKED</div>
                 <div style="font-size: 28px; margin-bottom: 6px;">🏛️</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Creative Forge</div>
-                <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #ce93d8;">Pick Your Path ⚡</div>
-                <div id="classical-bonus-progress-mini" style="margin-top: 6px; font-size: 12px; color: rgba(206,147,216,0.8);"></div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Creative Forge</div>
+                <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: rgba(206,147,216,0.5);">Pick Your Path ⚡</div>
+                <div style="margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.3);">Coming Soon</div>
             </div>
-            <div onclick="openSideQuestPortal()" style="
-                background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(109,40,217,0.25));
-                border: 2px solid rgba(167,139,250,0.4);
+            <div style="
+                background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(109,40,217,0.12));
+                border: 2px solid rgba(167,139,250,0.2);
                 border-radius: 16px;
                 padding: 18px 20px;
                 text-align: center;
-                cursor: pointer;
-                transition: all 0.3s ease;
-            " onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='rgba(167,139,250,0.8)'; this.style.boxShadow='0 6px 20px rgba(139,92,246,0.4)';"
-               onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(167,139,250,0.4)'; this.style.boxShadow='none';">
+                cursor: not-allowed;
+                opacity: 0.5;
+                position: relative;
+            ">
+                <div style="position: absolute; top: 8px; right: 10px; font-size: 10px; color: rgba(167,139,250,0.6); font-weight: 700; letter-spacing: 1px;">🔒 LOCKED</div>
                 <div style="font-size: 28px; margin-bottom: 6px;">🗺️</div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Side Quests</div>
-                <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #a78bfa;">Earn Special Rewards 🪓</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Side Quests</div>
+                <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: rgba(167,139,250,0.5);">Earn Special Rewards 🪓</div>
+                <div style="margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.3);">Coming Soon</div>
             </div>
             <div id="trade-portal-card" onclick="openTradePortal()" style="
                 display: none;
@@ -3010,55 +3013,6 @@
         </div>
     </div>
 
-    <!-- Classical Age Bonus Portal Modal -->
-    <div id="classical-bonus-modal" class="modal">
-        <div class="modal-content" style="max-width: 950px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #0a0a1f 0%, #1a1030 100%);">
-            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-family: 'Cinzel', serif;">🏛️ Creative Forge — Pick Your Path</span>
-                <button onclick="closeClassicalBonusPortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
-            </div>
-            
-            <!-- Progress Bar -->
-            <div style="margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="color: rgba(255,255,255,0.7); font-size: 13px;">Progress toward 100 pts</span>
-                    <span id="cb-progress-text" style="color: #ce93d8; font-weight: 700; font-size: 14px;">0 / 100</span>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 14px; overflow: hidden;">
-                    <div id="cb-progress-bar" style="height: 100%; background: linear-gradient(90deg, #7c3aed, #ce93d8); border-radius: 10px; transition: width 0.5s ease; width: 0%;"></div>
-                </div>
-            </div>
-
-            <!-- View Toggle -->
-            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-                <button id="cb-view-pathways" onclick="setClassicalBonusView('pathways')" style="flex: 1; padding: 10px; background: rgba(156,39,176,0.3); border: 2px solid rgba(186,104,200,0.6); border-radius: 10px; color: #ce93d8; font-weight: 700; font-size: 13px; cursor: pointer; font-family: 'Cinzel', serif;">🛤️ Pathways</button>
-                <button id="cb-view-all" onclick="setClassicalBonusView('all')" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.15); border-radius: 10px; color: rgba(255,255,255,0.6); font-weight: 700; font-size: 13px; cursor: pointer; font-family: 'Cinzel', serif;">📋 All Assignments</button>
-            </div>
-
-            <!-- Pathways View -->
-            <div id="cb-pathways-view">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;" id="cb-pathways-grid"></div>
-            </div>
-
-            <!-- All Assignments View -->
-            <div id="cb-all-view" style="display: none;">
-                <div id="cb-all-assignments-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Classical Bonus Detail Modal -->
-    <div id="classical-bonus-detail-modal" class="modal" style="z-index: 1250;">
-        <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #0a0a1f 0%, #1a1030 100%);">
-            <div class="modal-title" id="cb-detail-title">Assignment Details</div>
-            <div id="cb-detail-content">Loading...</div>
-            <div class="modal-buttons" style="margin-top: 20px;">
-                <button class="btn btn-secondary" onclick="closeClassicalBonusDetail()">← Back</button>
-                <button class="btn btn-primary" id="cb-submit-btn" onclick="submitClassicalBonusWork()">Submit for Review</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Side Quest Portal Modal -->
     <div id="side-quest-portal-modal" class="modal">
         <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
@@ -3336,7 +3290,6 @@
                     const grid = document.getElementById('bonus-quest-grid');
                     if (grid) grid.style.gridTemplateColumns = '1fr 1fr 1fr';
                     loadMythPortals();
-                    loadClassicalBonusProgress();
                     loadTradePortalMini();
                 } else {
                     classicalSection.style.display = 'none';
@@ -5933,272 +5886,6 @@
                 alert('Failed to submit bonus work');
             }
         }
-
-        // ====================
-        // CLASSICAL AGE BONUS PORTAL
-        // ====================
-
-        const MYTH_ICONS = {
-            'Pandora': '🏺', 'Phaethon': '☀️', 'Orpheus': '🎵',
-            'Echo and Narcissus': '🪞', 'Icarus': '🪶',
-            'Eros and Psyche': '🦋', 'Constellations': '⭐',
-            'Morals': '📜', 'Cross-Myth': '📜'
-        };
-
-        const CLASSICAL_PATHWAYS = [
-            {
-                id: 'big-project',
-                name: 'The Big Project',
-                emoji: '📦',
-                color: '#e53935',
-                desc: 'Anchored by the Pandora\'s Box 2026 major creative project. Combine it with a few shorter pieces to reach 100.',
-                assignments: ['Pandora\'s Box 2026', 'Orpheus New Ending', 'Constellation Story', 'Morals', 'Phaethon\'s Caution']
-            },
-            {
-                id: 'writer',
-                name: 'The Writer',
-                emoji: '✍️',
-                color: '#43a047',
-                desc: 'Original retellings, new endings, and first-person narratives. Tell the myths your way through creative writing.',
-                assignments: ['Pandora Retelling', 'Orpheus New Ending', 'I, Icarus', 'Constellation Story', 'Phaethon\'s Caution', 'Morals']
-            },
-            {
-                id: 'cautionary-poet',
-                name: 'The Cautionary Poet',
-                emoji: '⚠️',
-                color: '#f9a825',
-                desc: 'Write cautionary tales inspired by each myth\'s lesson. Warn readers about hubris, self-obsession, and trust.',
-                assignments: ['Phaethon\'s Caution', 'Narcissus Cautionary Tale', 'Icarus Cautionary Tale', 'Eros and Psyche Cautionary Tale', 'I, Icarus', 'Constellation Story']
-            },
-            {
-                id: 'analyst',
-                name: 'The Analyst',
-                emoji: '🔍',
-                color: '#1e88e5',
-                desc: 'Character studies, moral analysis, and three-word descriptions. Break down the myths through close reading and reasoning.',
-                assignments: ['Eros and Psyche Character Study', 'Three Word Description', 'Eros and Psyche Morals', 'Echo and Narcissus Metamorphosis', 'Pandora Retelling', 'Constellation Story', 'Morals']
-            }
-        ];
-
-        let classicalBonusData = [];
-        let currentClassicalBonus = null;
-
-        async function loadClassicalBonusProgress() {
-            try {
-                const response = await fetch(`${API_URL}/student/classical-bonus-assignments`, { headers });
-                classicalBonusData = await response.json();
-                const earned = classicalBonusData.filter(a => a.status === 'completed').reduce((sum, a) => sum + (a.points_earned || 0), 0);
-                const pending = classicalBonusData.filter(a => a.status === 'pending').length;
-                const mini = document.getElementById('classical-bonus-progress-mini');
-                if (mini) {
-                    const target = Math.min(earned, 100);
-                    mini.textContent = earned > 0 ? `${target}/100 pts${pending ? ` (${pending} pending)` : ''}` : '';
-                }
-            } catch (err) {
-                console.error('Classical bonus progress error:', err);
-            }
-        }
-
-        async function openClassicalBonusPortal() {
-            document.getElementById('classical-bonus-modal').classList.add('show');
-            try {
-                const response = await fetch(`${API_URL}/student/classical-bonus-assignments`, { headers });
-                classicalBonusData = await response.json();
-                renderClassicalBonusProgress();
-                setClassicalBonusView('pathways');
-            } catch (err) {
-                console.error('Classical bonus portal error:', err);
-            }
-        }
-
-        function closeClassicalBonusPortal() {
-            document.getElementById('classical-bonus-modal').classList.remove('show');
-        }
-
-        function renderClassicalBonusProgress() {
-            const earned = classicalBonusData.filter(a => a.status === 'completed').reduce((sum, a) => sum + (a.points_earned || 0), 0);
-            const target = 100;
-            const pct = Math.min((earned / target) * 100, 100);
-            document.getElementById('cb-progress-bar').style.width = pct + '%';
-            document.getElementById('cb-progress-text').textContent = `${Math.min(earned, target)} / ${target}` + (earned > target ? ` (${earned} total!)` : '');
-            if (pct >= 100) {
-                document.getElementById('cb-progress-bar').style.background = 'linear-gradient(90deg, #4ade80, #22c55e)';
-            }
-        }
-
-        function setClassicalBonusView(view) {
-            const pathBtn = document.getElementById('cb-view-pathways');
-            const allBtn = document.getElementById('cb-view-all');
-            const pathView = document.getElementById('cb-pathways-view');
-            const allView = document.getElementById('cb-all-view');
-            if (view === 'pathways') {
-                pathBtn.style.background = 'rgba(156,39,176,0.3)';
-                pathBtn.style.borderColor = 'rgba(186,104,200,0.6)';
-                pathBtn.style.color = '#ce93d8';
-                allBtn.style.background = 'rgba(255,255,255,0.05)';
-                allBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-                allBtn.style.color = 'rgba(255,255,255,0.6)';
-                pathView.style.display = '';
-                allView.style.display = 'none';
-                renderPathwayCards();
-            } else {
-                allBtn.style.background = 'rgba(156,39,176,0.3)';
-                allBtn.style.borderColor = 'rgba(186,104,200,0.6)';
-                allBtn.style.color = '#ce93d8';
-                pathBtn.style.background = 'rgba(255,255,255,0.05)';
-                pathBtn.style.borderColor = 'rgba(255,255,255,0.15)';
-                pathBtn.style.color = 'rgba(255,255,255,0.6)';
-                pathView.style.display = 'none';
-                allView.style.display = '';
-                renderAllClassicalBonuses();
-            }
-        }
-
-        function renderPathwayCards() {
-            const grid = document.getElementById('cb-pathways-grid');
-            grid.innerHTML = CLASSICAL_PATHWAYS.map(pathway => {
-                const relevant = classicalBonusData.filter(a => pathway.assignments.includes(a.display_name));
-                const completed = relevant.filter(a => a.status === 'completed');
-                const pathPts = completed.reduce((sum, a) => sum + (a.points_earned || 0), 0);
-                const available = relevant.reduce((sum, a) => sum + a.max_points, 0);
-                
-                const assignmentList = relevant.map(a => {
-                    const icon = a.status === 'completed' ? '✅' : (a.status === 'pending' ? '⏳' : '○');
-                    const nameColor = a.status === 'completed' ? '#4ade80' : (a.status === 'pending' ? '#fbbf24' : 'rgba(255,255,255,0.7)');
-                    return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <span style="color: ${nameColor}; font-size: 12px; cursor: pointer;" onclick="viewClassicalBonusDetail(${a.assignment_id})">${icon} ${a.display_name}</span>
-                        <span style="color: rgba(255,255,255,0.4); font-size: 11px;">${a.status === 'completed' ? a.points_earned : a.max_points} pts</span>
-                    </div>`;
-                }).join('');
-
-                return `<div style="background: rgba(255,255,255,0.04); border: 2px solid ${pathway.color}33; border-radius: 14px; padding: 18px; transition: all 0.3s;" onmouseover="this.style.borderColor='${pathway.color}88'" onmouseout="this.style.borderColor='${pathway.color}33'">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <span style="font-size: 28px;">${pathway.emoji}</span>
-                        <div>
-                            <div style="font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; color: ${pathway.color};">${pathway.name}</div>
-                            <div style="font-size: 11px; color: rgba(255,255,255,0.5);">${pathPts} / ${available} pts earned</div>
-                        </div>
-                    </div>
-                    <p style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.5; margin-bottom: 12px;">${pathway.desc}</p>
-                    <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-                        ${assignmentList || '<div style="color: rgba(255,255,255,0.4); font-size: 12px;">No assignments loaded</div>'}
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function renderAllClassicalBonuses() {
-            const grid = document.getElementById('cb-all-assignments-grid');
-            grid.innerHTML = classicalBonusData.map(a => {
-                const icon = MYTH_ICONS[a.myth_god] || '🏛️';
-                let statusBadge = '', cardBorder = 'rgba(255,255,255,0.15)', buttonHtml = '';
-                if (a.status === 'completed') {
-                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold;">✓ ${a.points_earned}/${a.max_points}</span>`;
-                    cardBorder = '#4ade80';
-                } else if (a.status === 'pending') {
-                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold;">⏳ PENDING</span>`;
-                    cardBorder = '#fbbf24';
-                } else {
-                    statusBadge = `<span style="background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 10px; font-size: 10px;">○ Available</span>`;
-                    buttonHtml = `<button style="width: 100%; margin-top: 8px; padding: 7px; background: linear-gradient(135deg, #7c3aed, #9333ea); border: none; border-radius: 8px; color: #fff; font-weight: 600; font-size: 12px; cursor: pointer;" onclick="viewClassicalBonusDetail(${a.assignment_id})">View Assignment</button>`;
-                }
-                return `<div style="background: rgba(255,255,255,0.04); border: 1px solid ${cardBorder}; border-radius: 12px; padding: 14px; ${a.status === 'completed' ? 'opacity: 0.7;' : ''}">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                        <span style="font-size: 26px;">${icon}</span>
-                        <div style="text-align: right;">
-                            <div style="color: #ce93d8; font-weight: bold; font-size: 16px;">${a.max_points} pts</div>
-                            ${statusBadge}
-                        </div>
-                    </div>
-                    <div style="font-weight: bold; font-size: 14px; margin-bottom: 3px; color: #e2d8c8;">${a.display_name}</div>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 2px;">${a.myth_god}</div>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.4; max-height: 44px; overflow: hidden;">${a.description.substring(0, 100)}...</div>
-                    ${buttonHtml}
-                </div>`;
-            }).join('');
-        }
-
-        async function viewClassicalBonusDetail(assignmentId) {
-            const a = classicalBonusData.find(b => b.assignment_id === assignmentId);
-            if (!a) return;
-            currentClassicalBonus = a;
-            const icon = MYTH_ICONS[a.myth_god] || '🏛️';
-            document.getElementById('cb-detail-title').innerHTML = `${icon} ${a.display_name} (${a.max_points} pts)`;
-
-            let resourcesHtml = '';
-            if (a.resource_links) {
-                try {
-                    const links = JSON.parse(a.resource_links);
-                    if (Array.isArray(links) && links.length > 0) {
-                        resourcesHtml = `<div style="background: rgba(124,58,237,0.1); padding: 14px; border-radius: 10px; border: 1px solid rgba(124,58,237,0.3); margin-top: 15px;">
-                            <h4 style="color: #a78bfa; margin-bottom: 8px;">📚 Resources</h4>
-                            ${links.map(link => link.url
-                                ? `<a href="${link.url}" target="_blank" style="color: #a78bfa; text-decoration: none; padding: 6px 10px; background: rgba(124,58,237,0.2); border-radius: 6px; display: inline-block; margin: 3px 0;">🔗 ${link.label}</a>`
-                                : `<span style="color: rgba(255,255,255,0.6); padding: 6px 10px; background: rgba(255,255,255,0.05); border-radius: 6px; display: inline-block; margin: 3px 0;">📖 ${link.label}</span>`
-                            ).join('')}
-                        </div>`;
-                    }
-                } catch(e) {}
-            }
-
-            document.getElementById('cb-detail-content').innerHTML = `
-                <div style="color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 8px;">${a.myth_god}</div>
-                <div style="color: rgba(255,255,255,0.85); line-height: 1.7; font-size: 15px;">${a.description}</div>
-                ${resourcesHtml}
-                ${a.status === 'completed' ? '<div style="margin-top: 15px; padding: 12px; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); border-radius: 10px; text-align: center; color: #4ade80; font-weight: 700;">✅ Completed — ' + a.points_earned + '/' + a.max_points + ' pts</div>' : ''}
-                ${a.status === 'pending' ? '<div style="margin-top: 15px; padding: 12px; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: 10px; text-align: center; color: #fbbf24; font-weight: 700;">⏳ Pending Teacher Review</div>' : ''}
-            `;
-
-            const submitBtn = document.getElementById('cb-submit-btn');
-            submitBtn.style.display = (a.status === 'completed' || a.status === 'pending') ? 'none' : '';
-
-            document.getElementById('classical-bonus-detail-modal').classList.add('show');
-        }
-
-        function closeClassicalBonusDetail() {
-            document.getElementById('classical-bonus-detail-modal').classList.remove('show');
-        }
-
-        async function submitClassicalBonusWork() {
-            if (!currentClassicalBonus) return;
-            if (!dashboardData || !dashboardData.student.alliance_id) {
-                alert('You must be in an alliance to submit work!');
-                return;
-            }
-            const pointsEarned = prompt(`How many points did you earn? (Max: ${currentClassicalBonus.max_points})`);
-            if (!pointsEarned) return;
-            const points = parseInt(pointsEarned);
-            if (isNaN(points) || points < 1 || points > currentClassicalBonus.max_points) {
-                alert(`Please enter a valid number between 1 and ${currentClassicalBonus.max_points}`);
-                return;
-            }
-            try {
-                const response = await fetch(`${API_URL}/student/submit-points`, {
-                    method: 'POST', headers,
-                    body: JSON.stringify({
-                        points_claimed: points,
-                        max_points: currentClassicalBonus.max_points,
-                        category: 'bonus',
-                        myth_god: currentClassicalBonus.myth_god,
-                        section: 'bonus',
-                        description: `${currentClassicalBonus.display_name}`
-                    })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    alert('Bonus work submitted for teacher approval!');
-                    closeClassicalBonusDetail();
-                    openClassicalBonusPortal();
-                    loadGrades();
-                    loadSubmissions();
-                } else {
-                    alert(data.error || 'Failed to submit');
-                }
-            } catch (err) {
-                alert('Failed to submit bonus work');
-            }
-        }
-
         // ====================
         // SIDE QUEST PORTAL
         // ====================
