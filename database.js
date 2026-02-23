@@ -1074,6 +1074,11 @@ function runMigrations() {
       db.run('ALTER TABLE students ADD COLUMN classical_entered INTEGER DEFAULT 0');
     }
     
+    if (!studentColNames.includes('scout_status')) {
+      console.log('  Adding scout_status column to students...');
+      db.run("ALTER TABLE students ADD COLUMN scout_status TEXT DEFAULT NULL");
+    }
+    
     console.log('✅ Classical Age migrations complete');
   } catch (err) {
     console.log('Classical Age migration note:', err.message);

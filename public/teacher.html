@@ -5556,12 +5556,26 @@
                 `;
                 
                 students.forEach(student => {
+                    const scoutBadge = student.scout_status ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
+                    const allianceAge = student.alliance_age || 'Archaic';
+                    const isArchaicAlliance = allianceAge === 'Archaic';
+                    const scoutBtn = isArchaicAlliance ? 
+                        (student.scout_status ? 
+                            `<button onclick="toggleScoutStatus(${student.student_id}, null, '${(student.name || '').replace(/'/g, "\\'")}')" 
+                                style="background: rgba(234,179,8,0.3); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
+                                🏹 Remove Scout
+                            </button>` :
+                            `<button onclick="toggleScoutStatus(${student.student_id}, 'Classical', '${(student.name || '').replace(/'/g, "\\'")}')" 
+                                style="background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); color: rgba(234,179,8,0.7); padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
+                                🏹 Scout
+                            </button>`) : '';
                     html += `
                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <td style="padding: 10px; color: white; font-weight: 500;">${student.name || '<em style="color: rgba(255,255,255,0.4);">No name</em>'}</td>
+                            <td style="padding: 10px; color: white; font-weight: 500;">${student.name || '<em style="color: rgba(255,255,255,0.4);">No name</em>'}${scoutBadge}</td>
                             <td style="padding: 10px; color: rgba(255,255,255,0.7); font-size: 13px;">${student.email}</td>
                             <td style="padding: 10px; color: rgba(255,255,255,0.7); font-size: 13px;">${student.alliance_name || '<em style="color: rgba(255,255,255,0.4);">None</em>'}</td>
                             <td style="padding: 10px; text-align: center;">
+                                ${scoutBtn}
                                 <button onclick="openEditStudentModal(${student.student_id}, '${(student.name || '').replace(/'/g, "\\'")}', '${student.class_period || ''}', ${student.alliance_id || 'null'})" 
                                     style="background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.5); color: #93c5fd; padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
                                     ✏️ Edit
@@ -5584,6 +5598,27 @@
             });
             
             content.innerHTML = html;
+        }
+        
+        async function toggleScoutStatus(studentId, scoutAge, studentName) {
+            const action = scoutAge ? `Grant ${studentName} Scout status for ${scoutAge} Age?` : `Remove Scout status from ${studentName}?`;
+            if (!confirm(action)) return;
+            try {
+                const response = await fetch(`${API_URL}/teacher/student/scout-status`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_id: studentId, scout_age: scoutAge })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(data.message);
+                    openStudentManagementModal(); // refresh the list
+                } else {
+                    alert(data.error || 'Failed to update scout status');
+                }
+            } catch (err) {
+                alert('Failed to update scout status');
+            }
         }
         
         async function openEditStudentModal(studentId, name, period, allianceId) {

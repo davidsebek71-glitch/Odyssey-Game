@@ -3248,6 +3248,11 @@
             }
             
             document.getElementById('age-stat').textContent = student.current_age || 'Archaic';
+            
+            // Show scout banner if applicable
+            if (student.is_scout) {
+                document.getElementById('age-stat').innerHTML = `${student.current_age} <span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 4px;">🏹 SCOUT</span>`;
+            }
 
             // Age view override: ?view=archaic lets Classical players see Archaic dashboard
             const urlParams = new URLSearchParams(window.location.search);

@@ -896,7 +896,9 @@ app.get('/api/teacher/students', authenticateToken, (req, res) => {
         s.email,
         s.class_period,
         s.alliance_id,
-        a.alliance_name
+        s.scout_status,
+        a.alliance_name,
+        a.current_age as alliance_age
       FROM students s
       LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
       ORDER BY s.class_period, a.alliance_name, s.name
@@ -1168,6 +1170,7 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       SELECT 
         s.student_id, s.name, s.class_period, s.alliance_id, s.civilization_name,
         s.technologies_unlocked, s.badges_earned, s.is_ghost, s.classical_entered,
+        s.scout_status,
         a.alliance_name,
         a.total_points as alliance_points,
         a.current_age,
@@ -1181,6 +1184,16 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
     
     if (!student) {
       return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    // Scout status override: if student is a scout for a higher age, use that age
+    if (student.scout_status) {
+      const allianceAge = student.current_age || 'Archaic';
+      const ageOrder = { 'Archaic': 0, 'Classical': 1, 'Heroic': 2 };
+      if ((ageOrder[student.scout_status] || 0) > (ageOrder[allianceAge] || 0)) {
+        student.current_age = student.scout_status;
+        student.is_scout = true;
+      }
     }
     
     // Parse side quest rewards for display
@@ -2334,6 +2347,32 @@ app.put('/api/teacher/student/:student_id', authenticateToken, async (req, res) 
   }
 });
 
+// Teacher: Toggle scout status for a student
+app.post('/api/teacher/student/scout-status', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const { student_id, scout_age } = req.body;
+    // scout_age = 'Classical', 'Heroic', or null (to remove scout status)
+    
+    const student = query('SELECT s.*, a.current_age as alliance_age FROM students s LEFT JOIN alliances a ON s.alliance_id = a.alliance_id WHERE s.student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    if (scout_age) {
+      run('UPDATE students SET scout_status = ? WHERE student_id = ?', [scout_age, student_id]);
+      console.log(`🏹 Scout status granted: ${student.name} → ${scout_age} (alliance still ${student.alliance_age || 'Archaic'})`);
+      res.json({ success: true, message: `${student.name} is now a Scout for ${scout_age} Age` });
+    } else {
+      run('UPDATE students SET scout_status = NULL WHERE student_id = ?', [student_id]);
+      console.log(`🏹 Scout status removed: ${student.name}`);
+      res.json({ success: true, message: `Scout status removed for ${student.name}` });
+    }
+    saveDatabase();
+  } catch (err) {
+    console.error('Scout status error:', err);
+    res.status(500).json({ error: 'Failed to update scout status' });
+  }
+});
+
 // Teacher: Delete a student
 app.delete('/api/teacher/student/:student_id', authenticateToken, (req, res) => {
   try {
@@ -2959,6 +2998,17 @@ app.post('/api/alliance/kick-ghost', authenticateToken, (req, res) => {
 app.get('/api/student/invitations', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
+    
+    // If student is already in an alliance, auto-cancel all pending invitations
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (student && student.alliance_id) {
+      const stale = query('SELECT COUNT(*) as count FROM alliance_invitations WHERE invited_student_id = ? AND status = ?', [student_id, 'pending'])[0].count;
+      if (stale > 0) {
+        run("UPDATE alliance_invitations SET status = 'cancelled' WHERE invited_student_id = ? AND status = 'pending'", [student_id]);
+        console.log(`🧹 Auto-cancelled ${stale} stale invitations for student ${student_id} (already in alliance ${student.alliance_id})`);
+      }
+      return res.json([]);
+    }
     
     const invitations = query(`
       SELECT 
@@ -7560,15 +7610,17 @@ app.get('/api/student/classical-status', authenticateToken, (req, res) => {
     const ageGate = query('SELECT * FROM age_gates WHERE class_period = ?', [student.class_period])[0];
     const gateOpen = ageGate ? ageGate.classical_unlocked === 1 : false;
     
-    // Can access if: gate is open AND alliance is Classical or Heroic age
+    // Can access if: (gate is open AND alliance is Classical or Heroic) OR student is a scout for Classical+
     const allianceAge = alliance ? alliance.current_age : 'Archaic';
-    const canAccess = gateOpen && (allianceAge === 'Classical' || allianceAge === 'Heroic');
+    const isScout = student.scout_status && (student.scout_status === 'Classical' || student.scout_status === 'Heroic');
+    const canAccess = (gateOpen && (allianceAge === 'Classical' || allianceAge === 'Heroic')) || isScout;
     
     res.json({
       gateOpen,
-      allianceAge,
+      allianceAge: isScout && allianceAge === 'Archaic' ? student.scout_status : allianceAge,
       canAccess,
-      classicalEntered: student.classical_entered === 1
+      classicalEntered: student.classical_entered === 1,
+      isScout: isScout || false
     });
   } catch (err) {
     console.error('Classical status error:', err);
