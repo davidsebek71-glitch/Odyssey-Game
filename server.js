@@ -2461,7 +2461,12 @@ const BUILDING_ICONS = {
   'Dock': '/buildings/dock.png',
   'Fishing Ship': '/buildings/fishing_boat.png',
   'Granary': '/buildings/granary.png',
-  'Storehouse': '/buildings/storehouse.png'
+  'Storehouse': '/buildings/storehouse.png',
+  'Transport Ship': '/buildings/transport_ship.png',
+  'Armory': '/buildings/armory.png',
+  'Theater': '/buildings/theater.png',
+  'Agora': '/buildings/agora.png',
+  'Oracle': '/buildings/oracle.png'
 };
 
 // Student: Upload map
