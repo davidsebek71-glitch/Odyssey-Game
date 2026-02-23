@@ -9787,32 +9787,46 @@
             rightCol.innerHTML = rightPortals.map(renderVirtueSlot).join('');
 
             const count = virtuesEarned || 0;
-            const opacitySteps = [0.05, 0.20, 0.35, 0.50, 0.65, 0.78, 0.90, 1.0];
-            const brightnessSteps = [0.15, 0.35, 0.50, 0.60, 0.72, 0.82, 0.92, 1.0];
+            
+            // Exponential reveal curve: 0→1→2→4→8→20→65→100 (percentage)
+            // Slow burn early, dramatic acceleration late
+            const opacitySteps =    [0.00, 0.01, 0.02, 0.04, 0.08, 0.20, 0.65, 1.0];
+            const brightnessSteps = [0.00, 0.08, 0.12, 0.18, 0.28, 0.45, 0.75, 1.0];
+            
+            // Matching exponential glow curve
+            const glowInner =   [0, 3,  4,  6,  10, 18, 30, 45];   // inner glow radius
+            const glowOuter =   [0, 0,  0,  2,  5,  12, 25, 40];   // outer glow radius
+            const glowAlpha =   [0, 0.02, 0.03, 0.05, 0.10, 0.18, 0.30, 0.50]; // glow opacity
 
             if (avatarImg) {
-                avatarImg.style.display = 'block';
-                avatarImg.style.opacity = opacitySteps[count] || 0.05;
-                avatarImg.style.filter = `brightness(${brightnessSteps[count] || 0.15})`;
+                if (count === 0) {
+                    avatarImg.style.display = 'none';
+                } else {
+                    avatarImg.style.display = 'block';
+                    avatarImg.style.opacity = opacitySteps[count];
+                    avatarImg.style.filter = `brightness(${brightnessSteps[count]})`;
+                }
             }
             if (avatarPlaceholder) {
-                avatarPlaceholder.style.display = 'none';
+                avatarPlaceholder.style.display = count === 0 ? 'block' : 'none';
             }
             if (avatarGlow) {
                 if (count === 7) {
-                    avatarGlow.style.boxShadow = 'inset 0 0 30px rgba(255,215,0,0.3), 0 0 20px rgba(255,215,0,0.2)';
+                    // Full reveal: blazing golden aura + pulsing animation
+                    avatarGlow.style.boxShadow = `inset 0 0 ${glowInner[7]}px rgba(255,215,0,${glowAlpha[7]}), 0 0 ${glowOuter[7]}px rgba(255,215,0,${glowAlpha[7] * 0.6})`;
                     avatarFrame.classList.add('complete');
                 } else if (count >= 1) {
-                    const glowIntensity = 0.06 + (count * 0.04);
-                    avatarGlow.style.boxShadow = `inset 0 0 ${8 + count * 3}px rgba(255,215,0,${glowIntensity}), 0 0 ${count * 3}px rgba(255,215,0,${glowIntensity * 0.5})`;
+                    avatarGlow.style.boxShadow = `inset 0 0 ${glowInner[count]}px rgba(255,215,0,${glowAlpha[count]}), 0 0 ${glowOuter[count]}px rgba(255,215,0,${glowAlpha[count] * 0.5})`;
                 } else {
-                    avatarGlow.style.boxShadow = 'inset 0 0 8px rgba(255,215,0,0.04)';
+                    avatarGlow.style.boxShadow = 'none';
                 }
             }
             if (progressText) {
                 if (count === 7) { progressText.textContent = '✨ Avatar Revealed — The Gods See You ✨'; progressText.style.color = '#ffd700'; }
-                else if (count === 0) { progressText.textContent = '0 / 7 Virtues — Earn Virtues to Reveal Your Warrior'; progressText.style.color = 'rgba(74,144,217,0.5)'; }
-                else { progressText.textContent = `${count} / 7 Virtues Earned`; progressText.style.color = 'rgba(74,144,217,0.8)'; }
+                else if (count === 0) { progressText.textContent = '0 / 7 Virtues — Earn Virtues to Reveal Your Warrior'; progressText.style.color = 'rgba(74,144,217,0.3)'; }
+                else if (count <= 2) { progressText.textContent = `${count} / 7 Virtues — Something stirs...`; progressText.style.color = 'rgba(74,144,217,0.4)'; }
+                else if (count <= 4) { progressText.textContent = `${count} / 7 Virtues — The warrior takes shape...`; progressText.style.color = 'rgba(74,144,217,0.6)'; }
+                else if (count <= 6) { progressText.textContent = `${count} / 7 Virtues — Almost revealed...`; progressText.style.color = 'rgba(255,215,0,0.6)'; }
             }
         }
 
@@ -10054,6 +10068,10 @@
                 // Close the quiz modal
                 document.getElementById('myth-quiz-modal').classList.remove('show');
                 
+                // Hide the claim banner so it doesn't show through
+                const banner = document.getElementById('virtue-claim-banner');
+                if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+                
                 // Show the dramatic virtue reveal
                 showVirtueReveal(data.virtue, data.total_virtues);
             } catch (err) {
@@ -10068,10 +10086,10 @@
             overlay.id = 'virtue-reveal-overlay';
             overlay.style.cssText = `
                 position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                background: #000000;
+                background-color: #000000;
                 z-index: 100000; display: flex; flex-direction: column;
                 align-items: center; justify-content: center;
-                opacity: 0; transition: opacity 0.8s;
+                opacity: 1;
             `;
             
             overlay.innerHTML = `
@@ -10107,9 +10125,8 @@
             
             document.body.appendChild(overlay);
             
-            // Staggered reveal sequence
-            setTimeout(() => overlay.style.opacity = '1', 50);
-            setTimeout(() => { const el = document.getElementById('vr-emoji'); if(el) { el.style.opacity = '1'; el.style.transform = 'scale(1)'; } }, 1000);
+            // Staggered reveal sequence (overlay is already fully black)
+            setTimeout(() => { const el = document.getElementById('vr-emoji'); if(el) { el.style.opacity = '1'; el.style.transform = 'scale(1)'; } }, 800);
             setTimeout(() => { const el = document.getElementById('vr-greek'); if(el) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; } }, 2000);
             setTimeout(() => { const el = document.getElementById('vr-english'); if(el) { el.style.opacity = '1'; el.style.transform = 'scale(1)'; } }, 2800);
             setTimeout(() => { const el = document.getElementById('vr-desc'); if(el) { el.style.opacity = '1'; } }, 3600);
