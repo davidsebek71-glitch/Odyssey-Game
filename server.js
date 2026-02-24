@@ -3994,6 +3994,19 @@ app.get('/api/student/age-progress', authenticateToken, (req, res) => {
     
     const readiness = calculateAgeReadiness(alliance);
     
+    // Auto-advance if ready and gate is open (handles case where gate opened before alliance was ready)
+    if (readiness.isReady && alliance.current_age === 'Archaic' && ageGate.classical_unlocked === 1) {
+      run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance.alliance_id]);
+      alliance.current_age = 'Classical';
+      saveDatabase();
+      console.log(`Auto-advanced alliance ${alliance.alliance_id} (${alliance.alliance_name}) to Classical Age via age-progress poll`);
+    } else if (readiness.isReady && alliance.current_age === 'Classical' && ageGate.heroic_unlocked === 1) {
+      run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Heroic', alliance.alliance_id]);
+      alliance.current_age = 'Heroic';
+      saveDatabase();
+      console.log(`Auto-advanced alliance ${alliance.alliance_id} (${alliance.alliance_name}) to Heroic Age via age-progress poll`);
+    }
+    
     res.json({
       hasAlliance: true,
       currentAge: alliance.current_age,
