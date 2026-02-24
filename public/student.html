@@ -5902,8 +5902,16 @@
             document.getElementById('side-quests-grid').innerHTML = 'Loading...';
             
             try {
-                const response = await fetch(`${API_URL}/student/side-quests`, { headers });
-                const data = await response.json();
+                // Fetch both side quest data and FA status in parallel
+                const [sqResponse, faResponse] = await Promise.all([
+                    fetch(`${API_URL}/student/side-quests`, { headers }),
+                    fetch(`${API_URL}/student/forbidden-archive-status`, { headers }).catch(() => null)
+                ]);
+                const data = await sqResponse.json();
+                
+                if (faResponse && faResponse.ok) {
+                    faStatus = await faResponse.json();
+                }
                 
                 if (!data.hasAlliance) {
                     document.getElementById('side-quests-grid').innerHTML = `
@@ -5961,101 +5969,174 @@
             'The Three Seeds': '🌾'
         };
         
+        let faStatus = null;
+        
+        async function loadFAStatus() {
+            try {
+                const response = await fetch(`${API_URL}/student/forbidden-archive-status`, { headers });
+                if (response.ok) faStatus = await response.json();
+            } catch (e) { console.log('FA status load failed'); }
+        }
+        
         function renderSideQuests(data) {
             const grid = document.getElementById('side-quests-grid');
             
             grid.innerHTML = data.quests.map(quest => {
-                const icon = SIDE_QUEST_ICONS[quest.quest_name] || GOD_ICONS[quest.god_associated] || '🏛️';
+                const icon = SIDE_QUEST_ICONS[quest.quest_name] || GOD_ICONS[quest.god_associated] || '\u{1F3DB}';
+                
+                if (quest.quest_name === 'The Forbidden Archive') {
+                    return renderFACard(quest);
+                }
+                
                 let statusBadge = '';
                 let cardStyle = '';
                 let buttonHtml = '';
-                let progressHtml = '';
-                
-                // Progress display
-                progressHtml = `
+                let progressHtml = `
                     <div style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
                         <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 5px;">Alliance Progress: ${quest.completed_count}/${quest.member_count} members</div>
                         <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
                             <div style="background: ${quest.all_complete ? '#4ade80' : '#fbbf24'}; height: 100%; width: ${(quest.completed_count/quest.member_count)*100}%;"></div>
                         </div>
-                        ${quest.completed_members.length > 0 ? `<div style="font-size: 10px; color: #4ade80; margin-top: 4px;">✓ ${quest.completed_members.join(', ')}</div>` : ''}
-                        ${quest.pending_members.length > 0 ? `<div style="font-size: 10px; color: #fbbf24; margin-top: 2px;">⏳ ${quest.pending_members.join(', ')}</div>` : ''}
-                    </div>
-                `;
+                        ${quest.completed_members.length > 0 ? `<div style="font-size: 10px; color: #4ade80; margin-top: 4px;">\u2713 ${quest.completed_members.join(', ')}</div>` : ''}
+                        ${quest.pending_members.length > 0 ? `<div style="font-size: 10px; color: #fbbf24; margin-top: 2px;">\u23F3 ${quest.pending_members.join(', ')}</div>` : ''}
+                    </div>`;
                 
                 if (quest.reward_earned) {
-                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">🏆 REWARD EARNED!</span>`;
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">\u{1F3C6} REWARD EARNED!</span>`;
                     cardStyle = 'border-color: #4ade80; background: rgba(74,222,128,0.1);';
                 } else if (quest.my_status === 'approved') {
-                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">✓ YOU COMPLETED</span>`;
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">\u2713 YOU COMPLETED</span>`;
                     cardStyle = 'border-color: #4ade80;';
                 } else if (quest.my_status === 'pending') {
-                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">⏳ PENDING APPROVAL</span>`;
+                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">\u23F3 PENDING APPROVAL</span>`;
                     cardStyle = 'border-color: #fbbf24;';
                 } else {
-                    statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">○ Not Started</span>`;
-                    // Escape apostrophes in quest name for onclick handler
-                    const escapedQuestName = quest.quest_name.replace(/'/g, "\\'");
+                    statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">\u25CB Not Started</span>`;
+                    const escapedQuestName = quest.quest_name.replace(/'/g, "\\\'");
                     buttonHtml = `
-                        <a href="${quest.form_url}" target="_blank" class="btn btn-secondary" style="width: 48%; margin-top: 10px; padding: 8px; text-align: center; text-decoration: none; display: inline-block;">▶ Start Quest</a>
-                        <button class="btn btn-primary" style="width: 48%; margin-top: 10px; padding: 8px;" onclick="submitSideQuest(${quest.quest_id}, '${escapedQuestName}')">✓ I Completed It</button>
-                    `;
+                        <a href="${quest.form_url}" target="_blank" class="btn btn-secondary" style="width: 48%; margin-top: 10px; padding: 8px; text-align: center; text-decoration: none; display: inline-block;">\u25B6 Start Quest</a>
+                        <button class="btn btn-primary" style="width: 48%; margin-top: 10px; padding: 8px;" onclick="submitSideQuest(${quest.quest_id}, '${escapedQuestName}')">\u2713 I Completed It</button>`;
                 }
                 
                 return `
                     <div style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 15px; ${cardStyle}">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                             <div style="font-size: 36px;">${SIDE_QUEST_ICONS[quest.quest_name] || quest.icon || icon}</div>
-                            <div style="text-align: right;">
-                                ${statusBadge}
-                            </div>
+                            <div style="text-align: right;">${statusBadge}</div>
                         </div>
                         <div style="font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 5px;">${quest.quest_name}</div>
                         <div style="font-size: 12px; color: #ffd700; margin-bottom: 8px;">${quest.god_associated}</div>
                         <div style="font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 10px; line-height: 1.4;">${quest.description}</div>
-                        
                         <div style="background: rgba(74,222,128,0.1); padding: 8px; border-radius: 6px; margin-bottom: 10px;">
                             <div style="font-size: 11px; color: rgba(255,255,255,0.6);">Reward:</div>
                             <div style="font-size: 14px; color: #4ade80; font-weight: bold;">${quest.reward_name}</div>
                             <div style="font-size: 11px; color: rgba(255,255,255,0.7);">${quest.reward_description}</div>
                         </div>
-                        
                         ${progressHtml}
-                        
-                        <div style="display: flex; justify-content: space-between; gap: 4%;">
-                            ${buttonHtml}
-                        </div>
-                    </div>
-                `;
+                        <div style="display: flex; justify-content: space-between; gap: 4%;">${buttonHtml}</div>
+                    </div>`;
             }).join('');
+        }
+        
+        function renderFACard(quest) {
+            const fa = faStatus;
+            if (!fa || !fa.unlocked) {
+                const memberRows = fa && fa.memberProgress ? fa.memberProgress.map(m => {
+                    const p = m.pandora ? '\u2705' : '\u274C';
+                    const ph = m.phaethon ? '\u2705' : '\u274C';
+                    const ic = m.icarus ? '\u2705' : '\u274C';
+                    return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                        <span style="color:rgba(255,255,255,0.8)">${m.name}</span>
+                        <span>${p} ${ph} ${ic}</span></div>`;
+                }).join('') : '';
+                return `
+                    <div style="background: rgba(255,255,255,0.03); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; opacity: 0.7;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <div style="font-size: 36px;">\u{1F512}</div>
+                            <span style="background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 10px; font-size: 11px; color: rgba(255,255,255,0.5);">LOCKED</span>
+                        </div>
+                        <div style="font-size: 16px; font-weight: bold; color: rgba(255,255,255,0.5); margin-bottom: 5px;">\u{1F989} The Forbidden Archive</div>
+                        <div style="font-size: 12px; color: rgba(255,215,0,0.5); margin-bottom: 8px;">Athena</div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 10px; line-height: 1.4;">All alliance members must pass the Pandora, Phaethon, and Icarus quizzes to unlock this quest.</div>
+                        ${memberRows ? `<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px;margin-bottom:10px">
+                            <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:6px;display:flex;justify-content:space-between"><span>Member</span><span>\u{1F3FA} \u2600 \u{1FAB6}</span></div>
+                            ${memberRows}</div>` : ''}
+                        <div style="background: rgba(255,215,0,0.05); padding: 8px; border-radius: 6px;">
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.4);">Reward:</div>
+                            <div style="font-size: 14px; color: rgba(74,222,128,0.5); font-weight: bold;">\u{1F504} Reverse Card</div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.4);">Cancels one negative Fate. Requires ALL members to complete.</div>
+                        </div>
+                    </div>`;
+            }
+            let statusBadge = '';
+            let cardStyle = '';
+            let buttonHtml = '';
+            if (fa.allianceComplete) {
+                statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">\u{1F3C6} REVERSE CARD EARNED!</span>`;
+                cardStyle = 'border-color: #4ade80; background: rgba(74,222,128,0.1);';
+            } else if (fa.myCompletion && fa.myCompletion.status === 'approved') {
+                statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">\u2713 YOU COMPLETED</span>`;
+                cardStyle = 'border-color: #4ade80;';
+            } else if (fa.myCompletion && fa.myCompletion.status === 'pending') {
+                statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">\u23F3 PENDING APPROVAL</span>`;
+                cardStyle = 'border-color: #fbbf24;';
+            } else {
+                statusBadge = `<span style="background: rgba(168,85,247,0.3); padding: 3px 8px; border-radius: 10px; font-size: 11px; color: #c084fc;">\u26A1 UNLOCKED</span>`;
+                cardStyle = 'border-color: rgba(168,85,247,0.4); background: rgba(168,85,247,0.05);';
+                const token = localStorage.getItem('token');
+                buttonHtml = `<a href="/forbidden-archive.html?token=${encodeURIComponent(token)}" target="_blank" class="btn btn-primary" style="width: 100%; margin-top: 10px; padding: 10px; text-align: center; text-decoration: none; display: block; background: linear-gradient(135deg, #7c3aed, #6d28d9); font-size: 14px;">\u{1F989} Enter the Forbidden Archive</a>`;
+            }
+            const progressHtml = `
+                <div style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 5px;">Alliance Progress: ${quest.completed_count}/${quest.member_count} members</div>
+                    <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
+                        <div style="background: ${quest.all_complete ? '#4ade80' : '#c084fc'}; height: 100%; width: ${(quest.completed_count/quest.member_count)*100}%;"></div>
+                    </div>
+                    ${quest.completed_members.length > 0 ? `<div style="font-size: 10px; color: #4ade80; margin-top: 4px;">\u2713 ${quest.completed_members.join(', ')}</div>` : ''}
+                    ${quest.pending_members.length > 0 ? `<div style="font-size: 10px; color: #fbbf24; margin-top: 2px;">\u23F3 ${quest.pending_members.join(', ')}</div>` : ''}
+                </div>`;
+            return `
+                <div style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 15px; ${cardStyle}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                        <div style="font-size: 36px;">\u{1F989}</div>
+                        <div style="text-align: right;">${statusBadge}</div>
+                    </div>
+                    <div style="font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 5px;">The Forbidden Archive</div>
+                    <div style="font-size: 12px; color: #ffd700; margin-bottom: 8px;">A Quest of Athena</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 10px; line-height: 1.4;">${quest.description}</div>
+                    <div style="background: rgba(74,222,128,0.1); padding: 8px; border-radius: 6px; margin-bottom: 10px;">
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.6);">Alliance Reward:</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: bold;">\u{1F504} Reverse Card</div>
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.7);">Cancels one negative Fate and lets your alliance spin again.</div>
+                    </div>
+                    ${progressHtml}
+                    ${buttonHtml}
+                </div>`;
         }
 
         async function submitSideQuest(questId, questName) {
             if (!confirm(`Have you completed the "${questName}" quest?\n\nMake sure you finished the entire Google Form before submitting!`)) {
                 return;
             }
-            
             try {
                 const response = await fetch(`${API_URL}/student/submit-side-quest`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({ quest_id: questId })
                 });
-                
                 const data = await response.json();
-                
                 if (data.success) {
-                    alert('✅ ' + data.message);
-                    openSideQuestPortal(); // Refresh
+                    alert('\u2705 ' + data.message);
+                    openSideQuestPortal();
                 } else {
-                    alert('❌ ' + (data.error || 'Failed to submit'));
+                    alert('\u274C ' + (data.error || 'Failed to submit'));
                 }
             } catch (err) {
                 alert('Failed to submit side quest completion');
             }
         }
 
-        // ====================
+
         // SUBMISSION FORM UPDATES (V42)
         // ====================
 

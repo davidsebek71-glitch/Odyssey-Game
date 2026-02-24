@@ -1152,6 +1152,30 @@ function runMigrations() {
       );
       console.log('✅ Sacred Flame technology seeded');
     }
+    
+    // Seed Forbidden Archive side quest if not exists
+    const faCheck = db.exec("SELECT COUNT(*) FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'");
+    const faExists = faCheck[0] && faCheck[0].values[0][0] > 0;
+    if (!faExists) {
+      console.log('  Seeding Forbidden Archive side quest...');
+      db.run(`INSERT INTO side_quests_ref (quest_name, god_associated, description, reward_type, reward_name, reward_description, form_url, icon, age) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['The Forbidden Archive', 'Athena', 'Beneath Mount Olympus lies a hidden archive sealed by Zeus himself. Three chambers, three stories he never wanted you to learn. Athena believes you are ready to discover what the gods have hidden.', 'alliance_reward', 'Reverse Card', 'Cancels one negative Fate and lets your alliance spin again. Requires ALL alliance members to complete the quest.', 'IN_GAME', '🦉', 'Classical']
+      );
+      console.log('✅ Forbidden Archive seeded');
+    }
+    
+    // Add forbidden_archive_complete column to side_quest_completions if needed
+    try {
+      const sqcCols = db.exec("PRAGMA table_info(side_quest_completions)");
+      const sqcColNames = sqcCols[0] ? sqcCols[0].values.map(c => c[1]) : [];
+      if (!sqcColNames.includes('journey_data')) {
+        db.run("ALTER TABLE side_quest_completions ADD COLUMN journey_data TEXT DEFAULT NULL");
+        console.log('  Added journey_data column to side_quest_completions');
+      }
+    } catch (e) {
+      console.log('journey_data column note:', e.message);
+    }
   } catch (err) {
     console.log('Side quest migration note:', err.message);
   }
