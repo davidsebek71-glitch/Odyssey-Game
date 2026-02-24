@@ -1137,10 +1137,12 @@ function runMigrations() {
       console.log('  Seeding Hearth of Hestia side quest...');
       db.run(`INSERT INTO side_quests_ref (quest_name, god_associated, description, reward_type, reward_name, reward_description, form_url, icon, age) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['Hearth of Hestia', 'Hestia', 'Hestia, goddess of the hearth, has let her sacred flame grow dim. Without it, your city-state has no center — no warmth, no unity, no home. Journey to rekindle the flame and prove your alliance is worthy of her blessing.', 'technology', 'Sacred Flame', '+8% alliance point bonus (always active)', 'https://forms.gle/Sbz9rVbHXRJExtPd6', '🔥', 'Classical']
+        ['Hearth of Hestia', 'Hestia', 'Hestia, goddess of the hearth, has let her sacred flame grow dim. Without it, your city-state has no center — no warmth, no unity, no home. Journey to rekindle the flame and prove your alliance is worthy of her blessing.', 'technology', 'Sacred Flame', '+1% bonus to each house building your alliance owns. Requires ALL alliance members to complete.', 'https://forms.gle/Sbz9rVbHXRJExtPd6', '🔥', 'Classical']
       );
       console.log('✅ Hearth of Hestia seeded');
     }
+    // Update Hestia reward description if it still has old text
+    db.run(`UPDATE side_quests_ref SET reward_description = '+1% bonus to each house building your alliance owns. Requires ALL alliance members to complete.' WHERE quest_name = 'Hearth of Hestia' AND reward_description LIKE '%8%'`);
     
     // Seed Sacred Flame technology if not exists
     const sacredFlameCheck = db.exec("SELECT COUNT(*) FROM technologies_ref WHERE tech_name = 'Sacred Flame'");
@@ -1148,7 +1150,7 @@ function runMigrations() {
     if (!sacredFlameExists) {
       db.run(`INSERT INTO technologies_ref (tech_name, bonus_type, bonus_value, specific_assignment_type, cost_description, god_associated, age_available, description) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['Sacred Flame', 'earning_multiplier', 0.08, null, 'Complete Hestia side quest', 'Hestia', 'Classical', 'Hestia\'s sacred flame warms your city-state. +8% alliance point bonus.']
+        ['Sacred Flame', 'house_bonus', 0.01, null, 'Complete Hestia side quest', 'Hestia', 'Classical', 'Hestia\'s sacred flame blesses your homes. +1% bonus to each house building.']
       );
       console.log('✅ Sacred Flame technology seeded');
     }
