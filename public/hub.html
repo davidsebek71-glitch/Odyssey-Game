@@ -21,6 +21,7 @@
             content: '';
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
             background: 
                 radial-gradient(ellipse at 20% 50%, rgba(139, 69, 19, 0.15) 0%, transparent 50%),
                 radial-gradient(ellipse at 80% 50%, rgba(30, 58, 138, 0.15) 0%, transparent 50%),
@@ -390,7 +391,7 @@
                     };
                 }
                 
-                classicalStatus = await apiFetch('/api/student/classical-status');
+                classicalStatus = await apiFetch('/api/student/classical-status').catch(function() { return null; });
 
                 if (allianceData) {
                     document.getElementById('allianceName').textContent = 
