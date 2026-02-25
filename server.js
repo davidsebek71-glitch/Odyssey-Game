@@ -417,6 +417,8 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
         if (questId === 1) return '🔨';
         if (questId === 2) return '🏹';
         if (questId === 3) return '🌾';
+        if (questId === 4) return '🏠';
+        if (questId === 5) return '🦉';
         return '';
       }).join('');
     });
@@ -1206,6 +1208,8 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       if (questId === 1) return '🔨';
       if (questId === 2) return '🏹';
       if (questId === 3) return '🌾';
+        if (questId === 4) return '🏠';
+        if (questId === 5) return '🦉';
       return '';
     }).join('');
     
@@ -1314,6 +1318,8 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         if (questId === 1) return '🔨';
         if (questId === 2) return '🏹';
         if (questId === 3) return '🌾';
+        if (questId === 4) return '🏠';
+        if (questId === 5) return '🦉';
         return '';
       }).join('');
       
@@ -4779,6 +4785,189 @@ app.post('/api/teacher/use-reverse-card/:alliance_id', authenticateToken, (req, 
   }
 });
 
+// ==================== FORBIDDEN ARCHIVE ENDPOINTS ====================
+
+// Get FA unlock status and progress for student's alliance
+app.get('/api/student/forbidden-archive-status', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const student = query('SELECT alliance_id, name FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student || !student.alliance_id) {
+      return res.json({ unlocked: false, error: 'Not in an alliance' });
+    }
+    
+    const members = query(
+      `SELECT s.student_id, s.name FROM students s 
+       WHERE s.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
+      [student.alliance_id]
+    );
+    
+    const requiredPortals = [1, 2, 5];
+    
+    const memberProgress = members.map(m => {
+      const quizzes = query(
+        `SELECT DISTINCT portal_id FROM myth_quiz_attempts 
+         WHERE student_id = ? AND portal_id IN (1, 2, 5) AND passed = 1`,
+        [m.student_id]
+      );
+      const passedPortals = quizzes.map(q => q.portal_id);
+      return {
+        student_id: m.student_id,
+        name: m.name,
+        pandora: passedPortals.includes(1),
+        phaethon: passedPortals.includes(2),
+        icarus: passedPortals.includes(5),
+        allPassed: requiredPortals.every(p => passedPortals.includes(p))
+      };
+    });
+    
+    const unlocked = memberProgress.every(m => m.allPassed);
+    
+    const faQuest = query("SELECT quest_id FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'")[0];
+    let myCompletion = null;
+    let allianceComplete = false;
+    let reverseCards = 0;
+    let savedProgress = null;
+    
+    if (faQuest) {
+      myCompletion = query(
+        'SELECT status, journey_data FROM side_quest_completions WHERE student_id = ? AND quest_id = ?',
+        [student_id, faQuest.quest_id]
+      )[0] || null;
+      
+      const approvedCount = query(
+        `SELECT COUNT(*) as count FROM side_quest_completions 
+         WHERE quest_id = ? AND alliance_id = ? AND status = 'approved'`,
+        [faQuest.quest_id, student.alliance_id]
+      )[0].count;
+      
+      allianceComplete = approvedCount >= members.length && members.length > 0;
+      
+      const alliance = query('SELECT reverse_cards FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+      reverseCards = alliance ? (alliance.reverse_cards || 0) : 0;
+      
+      if (myCompletion && myCompletion.journey_data) {
+        try { savedProgress = JSON.parse(myCompletion.journey_data); } catch(e) {}
+      }
+    }
+    
+    res.json({
+      unlocked,
+      memberProgress,
+      myCompletion: myCompletion ? { status: myCompletion.status } : null,
+      allianceComplete,
+      reverseCards,
+      savedProgress,
+      questId: faQuest ? faQuest.quest_id : null
+    });
+  } catch (err) {
+    console.error('FA status error:', err);
+    res.status(500).json({ error: 'Failed to check Forbidden Archive status' });
+  }
+});
+
+// Save FA journey progress
+app.post('/api/student/forbidden-archive-save', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { journeyData } = req.body;
+    
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    const faQuest = query("SELECT quest_id FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'")[0];
+    if (!faQuest) return res.status(404).json({ error: 'Quest not found' });
+    
+    const existing = query(
+      'SELECT completion_id, status FROM side_quest_completions WHERE student_id = ? AND quest_id = ?',
+      [student_id, faQuest.quest_id]
+    )[0];
+    
+    if (existing) {
+      run('UPDATE side_quest_completions SET journey_data = ? WHERE completion_id = ?',
+        [JSON.stringify(journeyData), existing.completion_id]);
+    } else {
+      run(`INSERT INTO side_quest_completions (student_id, quest_id, alliance_id, status, journey_data)
+           VALUES (?, ?, ?, 'in_progress', ?)`,
+        [student_id, faQuest.quest_id, student.alliance_id, JSON.stringify(journeyData)]);
+    }
+    
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('FA save error:', err);
+    res.status(500).json({ error: 'Failed to save progress' });
+  }
+});
+
+// Complete FA (all 3 journeys done)
+app.post('/api/student/forbidden-archive-complete', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { journeyData } = req.body;
+    
+    const student = query('SELECT alliance_id, name FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    const faQuest = query("SELECT quest_id FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'")[0];
+    if (!faQuest) return res.status(404).json({ error: 'Quest not found' });
+    
+    if (!journeyData || !journeyData.pandora || !journeyData.phaethon || !journeyData.icarus) {
+      return res.status(400).json({ error: 'All three journeys must be completed' });
+    }
+    if (!journeyData.pandora.done || !journeyData.phaethon.done || !journeyData.icarus.done) {
+      return res.status(400).json({ error: 'All three journeys must be marked complete' });
+    }
+    
+    const existing = query(
+      'SELECT completion_id, status FROM side_quest_completions WHERE student_id = ? AND quest_id = ?',
+      [student_id, faQuest.quest_id]
+    )[0];
+    
+    if (existing) {
+      if (existing.status === 'approved') {
+        return res.json({ success: true, message: 'Already approved', alreadyComplete: true });
+      }
+      run(`UPDATE side_quest_completions SET status = 'pending', journey_data = ? WHERE completion_id = ?`,
+        [JSON.stringify(journeyData), existing.completion_id]);
+    } else {
+      run(`INSERT INTO side_quest_completions (student_id, quest_id, alliance_id, status, journey_data)
+           VALUES (?, ?, ?, 'pending', ?)`,
+        [student_id, faQuest.quest_id, student.alliance_id, JSON.stringify(journeyData)]);
+    }
+    
+    saveDatabase();
+    console.log(`🦉 ${student.name} completed The Forbidden Archive!`);
+    res.json({ success: true, message: 'Quest completion submitted for approval!' });
+  } catch (err) {
+    console.error('FA complete error:', err);
+    res.status(500).json({ error: 'Failed to submit completion' });
+  }
+});
+
+// Student: Use a Reverse Card (from Fate spinner)
+app.post('/api/student/use-reverse-card', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    const alliance = query('SELECT reverse_cards FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    if (!alliance || !alliance.reverse_cards || alliance.reverse_cards <= 0) {
+      return res.status(400).json({ error: 'No Reverse Cards available' });
+    }
+    
+    run('UPDATE alliances SET reverse_cards = reverse_cards - 1 WHERE alliance_id = ?', [student.alliance_id]);
+    saveDatabase();
+    
+    console.log(`🔄 Alliance ${student.alliance_id} used a Reverse Card`);
+    res.json({ success: true, remainingCards: alliance.reverse_cards - 1 });
+  } catch (err) {
+    console.error('Use reverse card error:', err);
+    res.status(500).json({ error: 'Failed to use Reverse Card' });
+  }
+});
+
 app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
   try {
     const { alliance_id, fate_id } = req.body;
@@ -5429,7 +5618,19 @@ app.post('/api/teacher/approve-side-quest', authenticateToken, (req, res) => {
     
     let message = `Approved ${student.name}'s completion of ${quest.quest_name}`;
     if (allComplete) {
-      message += ` — ALL members of ${alliance.alliance_name} are now approved! Go to Grant God Assignments to grant the reward.`;
+      message += ` — ALL members of ${alliance.alliance_name} are now approved!`;
+      
+      // Auto-grant Reverse Card for Forbidden Archive
+      if (quest.quest_name === 'The Forbidden Archive') {
+        const currentCards = query('SELECT reverse_cards FROM alliances WHERE alliance_id = ?', [completion.alliance_id])[0];
+        const cardsNow = currentCards ? (currentCards.reverse_cards || 0) : 0;
+        run('UPDATE alliances SET reverse_cards = ? WHERE alliance_id = ?', [cardsNow + 1, completion.alliance_id]);
+        saveDatabase();
+        message += ` 🔄 Reverse Card awarded to ${alliance.alliance_name}!`;
+        console.log(`🔄 Reverse Card awarded to alliance ${completion.alliance_id} (${alliance.alliance_name})`);
+      } else {
+        message += ` Go to Grant God Assignments to grant the reward.`;
+      }
     } else {
       message += ` (${approvedCompletions.length}/${allianceMembers.length} members approved)`;
     }
