@@ -2102,8 +2102,8 @@
             100% { transform: translateY(-120px) rotate(360deg); opacity: 0; }
         }
         .hall-badge-slot {
-            width: 70px; height: 70px;
-            border-radius: 14px;
+            width: 90px; height: 90px;
+            border-radius: 16px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             position: relative; cursor: pointer;
             transition: all 0.3s ease;
@@ -2119,6 +2119,15 @@
             transform: scale(1.1);
             box-shadow: 0 0 20px rgba(255,215,0,0.4);
         }
+        .hall-badge-slot.unclaimed {
+            background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(184,134,11,0.1));
+            border-color: rgba(255,215,0,0.35);
+            animation: badgeCardGlow 2.5s ease-in-out infinite;
+            cursor: pointer;
+        }
+        .hall-badge-slot.unclaimed:hover {
+            transform: scale(1.1);
+        }
         .hall-badge-slot.locked {
             opacity: 0.3;
             cursor: default;
@@ -2128,9 +2137,10 @@
             border-style: dashed;
             cursor: default;
         }
-        .hall-badge-slot .badge-icon { font-size: 28px; line-height: 1; }
+        .hall-badge-slot .badge-icon { font-size: 34px; line-height: 1; }
         .hall-badge-slot.earned .badge-icon { filter: none; }
-        .hall-badge-slot:not(.earned):not(.empty) .badge-icon { filter: grayscale(100%); opacity: 0.4; }
+        .hall-badge-slot.unclaimed .badge-icon { filter: none; opacity: 0.7; }
+        .hall-badge-slot:not(.earned):not(.empty):not(.unclaimed) .badge-icon { filter: grayscale(100%); opacity: 0.4; }
         .hall-badge-slot .ring-indicator {
             position: absolute; bottom: -2px; right: -2px;
             width: 18px; height: 18px; border-radius: 50%;
@@ -3117,7 +3127,7 @@
 
     <!-- Hall of Honor Modal -->
     <div id="hall-of-honor-modal" class="modal" style="z-index: 1100;">
-        <div class="modal-content" style="max-width: 620px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #0d0a1a 0%, #1a1028 50%, #0d0a1a 100%); border-color: rgba(255,215,0,0.4);">
+        <div class="modal-content" style="max-width: 720px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #0d0a1a 0%, #1a1028 50%, #0d0a1a 100%); border-color: rgba(255,215,0,0.4);">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <span>🏆 Hall of Honor</span>
                 <button onclick="closeHallOfHonor()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
@@ -11173,13 +11183,13 @@
                         // Locked heroic
                         slot.classList.add('locked');
                         slot.innerHTML = `<div class="badge-icon">🔒</div>`;
-                        slot.title = badge.badge_name + ' — Heroic Age';
+                        slot.title = badge.badge_name + '\n' + badge.description;
                         slot.onclick = () => showBadgeDetail(badge);
-                    } else if (badge.earned) {
-                        // Earned
+                    } else if (badge.earned && badge.claimed) {
+                        // Earned AND claimed — full gold glow
                         slot.classList.add('earned');
                         slot.innerHTML = `<div class="badge-icon">${badge.icon}</div>`;
-                        slot.title = badge.badge_name;
+                        slot.title = badge.badge_name + ' ✅\n' + badge.description;
                         slot.onclick = () => showBadgeDetail(badge);
                         
                         // Ring indicator
@@ -11187,16 +11197,46 @@
                             const ringClass = badge.ring_level >= 2 ? 'ring-gold' : 'ring-bronze';
                             slot.innerHTML += `<div class="ring-indicator ${ringClass}">${badge.ring_level >= 2 ? '★' : '●'}</div>`;
                         }
+                    } else if (badge.earned && !badge.claimed) {
+                        // Earned but NOT claimed — pulsing glow, tap to claim
+                        slot.classList.add('unclaimed');
+                        slot.innerHTML = `<div class="badge-icon">${badge.icon}</div><div style="font-size:9px;color:rgba(255,215,0,0.8);margin-top:2px;">TAP!</div>`;
+                        slot.title = badge.badge_name + ' — Tap to claim!\n' + badge.description;
+                        slot.onclick = () => claimBadgeFromGrid(badge);
                     } else {
                         // Not earned yet
                         slot.innerHTML = `<div class="badge-icon">${badge.icon}</div>`;
-                        slot.title = badge.badge_name + ' — Not earned';
+                        slot.title = badge.badge_name + '\n' + badge.description;
                         slot.onclick = () => showBadgeDetail(badge);
                     }
                     
                     rowGrid.appendChild(slot);
                 }
             }
+        }
+        
+        // Claim a badge directly from the grid
+        async function claimBadgeFromGrid(badge) {
+            if (celebrationActive) return;
+            celebrationActive = true;
+            
+            // Close the Hall of Honor modal
+            closeHallOfHonor();
+            
+            // Tell server this badge is claimed
+            try {
+                await fetch(`${API_URL}/student/claim-badge`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ badge_id: badge.badge_id })
+                });
+            } catch (e) { console.log('Claim note:', e.message); }
+            
+            // Remove from unclaimed queue if present
+            unclaimedQueue = unclaimedQueue.filter(b => b.badge_id !== badge.badge_id);
+            
+            // Show celebration
+            showBadgeCelebration(badge);
         }
         
         function showBadgeDetail(badge) {
