@@ -10207,8 +10207,35 @@ app.listen(PORT, () => {
   // Run cleanup after server starts (database is ready)
   setTimeout(cleanupStuckBattles, 1000);
   
-  // Run retroactive badge awards (one-time, skips if badges already exist)
-  // Retroactive badge awards - DISABLED for now, will run manually
-  // setTimeout(retroactivelyAwardBadges, 10000);
-  console.log('🏅 Retroactive badge migration disabled - badges will be earned going forward');
+  // Run retroactive badge scan 5 seconds after startup
+  setTimeout(() => {
+    try {
+      console.log('🏅 Running retroactive badge scan...');
+      const students = query('SELECT student_id, name FROM students');
+      let totalAwarded = 0;
+      const results = [];
+      
+      for (const student of students) {
+        const newBadges = scanForBadges(student.student_id);
+        for (const badge of newBadges) {
+          try {
+            run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+                 VALUES (?, ?, 0, 0, 'system')`, [student.student_id, badge.badge_id]);
+            totalAwarded++;
+            results.push(`${student.name}: ${badge.badge_name}`);
+          } catch (e) { /* already exists */ }
+        }
+      }
+      
+      if (totalAwarded > 0) {
+        saveDatabase();
+        console.log(`🏅 Retroactive badge scan complete: ${totalAwarded} badges awarded`);
+        results.forEach(r => console.log(`  🏅 ${r}`));
+      } else {
+        console.log('🏅 Retroactive badge scan: no new badges to award');
+      }
+    } catch (err) {
+      console.error('Retroactive badge scan error:', err);
+    }
+  }, 5000);
 });
