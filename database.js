@@ -1410,6 +1410,9 @@ function seedReferenceData() {
   // This must be ABOVE the early return so it runs even when Archaic data exists
   seedClassicalData();
   
+  // Always run badge seeding — has its own internal guard
+  seedBadges();
+  
   if (buildingsExist && choicesExist && sideQuestsExist) {
     console.log('✅ Database already fully seeded');
     return;
@@ -1983,9 +1986,6 @@ function seedReferenceData() {
   }
 
   console.log('✅ Reference data seeded successfully');
-
-  // ==================== HALL OF HONOR BADGES ====================
-  seedBadges();
 }
 
 function seedBadges() {
