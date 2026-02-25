@@ -718,6 +718,57 @@ async function initDatabase() {
     )
   `);
 
+  // ==================== HALL OF HONOR BADGE SYSTEM ====================
+
+  // Badge definitions (37 badges across 7 rows)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS badges_ref (
+      badge_id TEXT PRIMARY KEY,
+      badge_name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      category TEXT NOT NULL,
+      row_number INTEGER NOT NULL,
+      col_number INTEGER NOT NULL,
+      icon TEXT DEFAULT '🏅',
+      unlock_type TEXT NOT NULL,
+      unlock_value TEXT,
+      age_available TEXT DEFAULT 'archaic',
+      is_ring_badge INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Student badge awards
+  db.run(`
+    CREATE TABLE IF NOT EXISTS student_badges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      badge_id TEXT NOT NULL,
+      ring_level INTEGER DEFAULT 0,
+      claimed INTEGER DEFAULT 0,
+      awarded_by TEXT DEFAULT 'system',
+      earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      claimed_at DATETIME,
+      FOREIGN KEY (student_id) REFERENCES students(student_id),
+      FOREIGN KEY (badge_id) REFERENCES badges_ref(badge_id),
+      UNIQUE(student_id, badge_id)
+    )
+  `);
+
+  // Hall of Fame tier tracking
+  db.run(`
+    CREATE TABLE IF NOT EXISTS hall_of_fame_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      tier TEXT NOT NULL,
+      badge_count INTEGER NOT NULL,
+      achieved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(student_id),
+      UNIQUE(student_id, tier)
+    )
+  `);
+
   // Run migrations for existing databases
   runMigrations();
   
@@ -1932,6 +1983,79 @@ function seedReferenceData() {
   }
 
   console.log('✅ Reference data seeded successfully');
+
+  // ==================== HALL OF HONOR BADGES ====================
+  seedBadges();
+}
+
+function seedBadges() {
+  const badgeCount = db.exec('SELECT COUNT(*) FROM badges_ref');
+  const count = badgeCount[0] ? badgeCount[0].values[0][0] : 0;
+  
+  if (count > 0) {
+    console.log(`✅ Hall of Honor badges already exist (${count} badges)`);
+    return;
+  }
+
+  console.log('🏅 Seeding Hall of Honor badges...');
+
+  // [badge_id, name, description, category, row, col, icon, unlock_type, unlock_value, age, is_ring]
+  const badges = [
+    // Row 1: Curriculum Foundations
+    ['found_pantheon', 'Pantheon', 'Unlock all 13 gods in the Archaic Age.', 'foundations', 1, 1, '🏛️', 'god_unlock_count', '13', 'archaic', 0],
+    ['found_cartographer', 'Cartographer', 'Upload a hand-drawn map of your civilization.', 'foundations', 1, 2, '🗺️', 'map_uploaded', '1', 'archaic', 0],
+    ['found_scholar', 'Scholar', 'Earn 45 or more points in Membean.', 'foundations', 1, 3, '📖', 'membean_points', '45', 'archaic', 1],
+    ['found_developer', 'Developer', 'Build every building available in your current Age.', 'foundations', 1, 4, '🔨', 'building_count', 'all_archaic', 'archaic', 1],
+    ['found_adventurer', 'Adventurer', 'Complete the Hephaestus, Artemis, and Demeter side quests.', 'foundations', 1, 5, '🧭', 'side_quest_count', 'archaic_all', 'archaic', 1],
+    ['found_citizen', 'Citizen', 'Receive a citizenship award from your teacher for outstanding character.', 'foundations', 1, 6, '🏅', 'manual', 'teacher', 'any', 0],
+
+    // Row 2: Olympian Mastery I
+    ['god_zeus', 'Zeus', 'Complete the Zeus bonus assignment.', 'olympian_1', 2, 1, '⚡', 'god_bonus', 'zeus', 'archaic', 0],
+    ['god_poseidon', 'Poseidon', 'Complete the Poseidon bonus assignment.', 'olympian_1', 2, 2, '🔱', 'god_bonus', 'poseidon', 'archaic', 0],
+    ['god_hera', 'Hera', 'Complete the Hera bonus assignment.', 'olympian_1', 2, 3, '👑', 'god_bonus', 'hera', 'archaic', 0],
+    ['god_athena', 'Athena', 'Complete the Athena bonus assignment.', 'olympian_1', 2, 4, '🦉', 'god_bonus', 'athena', 'archaic', 0],
+    ['god_apollo', 'Apollo', 'Complete the Apollo bonus assignment.', 'olympian_1', 2, 5, '☀️', 'god_bonus', 'apollo', 'archaic', 0],
+    ['god_artemis', 'Artemis', 'Complete the Artemis bonus assignment.', 'olympian_1', 2, 6, '🏹', 'god_bonus', 'artemis', 'archaic', 0],
+
+    // Row 3: Olympian Mastery II
+    ['god_ares', 'Ares', 'Complete the Ares bonus assignment.', 'olympian_2', 3, 1, '⚔️', 'god_bonus', 'ares', 'archaic', 0],
+    ['god_aphrodite', 'Aphrodite', 'Complete the Aphrodite bonus assignment.', 'olympian_2', 3, 2, '🐚', 'god_bonus', 'aphrodite', 'archaic', 0],
+    ['god_hephaestus', 'Hephaestus', 'Complete the Hephaestus bonus assignment.', 'olympian_2', 3, 3, '🔨', 'god_bonus', 'hephaestus', 'archaic', 0],
+    ['god_hermes', 'Hermes', 'Complete the Hermes bonus assignment.', 'olympian_2', 3, 4, '👟', 'god_bonus', 'hermes', 'archaic', 0],
+    ['god_demeter', 'Demeter', 'Complete the Demeter bonus assignment.', 'olympian_2', 3, 5, '🌾', 'god_bonus', 'demeter', 'archaic', 0],
+    ['god_hades', 'Hades', 'Complete the Hades bonus assignment.', 'olympian_2', 3, 6, '💀', 'god_bonus', 'hades', 'archaic', 0],
+
+    // Row 4: Classical Age Content (Prometheus + Trader active, 4 open)
+    ['god_prometheus', 'Prometheus', 'Complete the Prometheus bonus assignment.', 'classical', 4, 1, '🔥', 'god_bonus', 'prometheus', 'archaic', 0],
+    ['class_trader', 'Trader', 'Complete a trade in the Trade System.', 'classical', 4, 6, '⚖️', 'trade_completed', '1', 'classical', 1],
+
+    // Row 5: Battle Arena Glory
+    ['battle_warrior', 'Warrior', 'Win your first battle in the Arena.', 'battle', 5, 1, '🗡️', 'battle_wins', '1', 'archaic', 0],
+    ['battle_champion', 'Champion', 'Win 5 battles in the Arena.', 'battle', 5, 2, '⚔️', 'battle_wins', '5', 'archaic', 0],
+    ['battle_gladiator', 'Gladiator', 'Win 10 battles in the Arena.', 'battle', 5, 3, '🪖', 'battle_wins', '10', 'archaic', 0],
+    ['battle_sudden_death', 'Sudden Death Victor', 'Win a sudden death round in the Arena.', 'battle', 5, 4, '⚡', 'battle_sudden_death', '1', 'archaic', 0],
+    ['battle_comeback', 'Comeback Kid', 'Win a battle after falling behind 0-2.', 'battle', 5, 5, '🔥', 'battle_comeback', '1', 'archaic', 0],
+    ['battle_streak', 'Streak Master', 'Win 5 battles in a row without losing.', 'battle', 5, 6, '🔥', 'battle_streak', '5', 'archaic', 0],
+
+    // Row 6: Heroes & Legends
+    ['hero_theseus', 'Theseus', 'Locked — Heroic Age content.', 'heroes', 6, 1, '🏛️', 'heroic_content', 'theseus', 'heroic', 0],
+    ['hero_perseus', 'Perseus', 'Locked — Heroic Age content.', 'heroes', 6, 2, '🐍', 'heroic_content', 'perseus', 'heroic', 0],
+    ['hero_jason', 'Jason', 'Locked — Heroic Age content.', 'heroes', 6, 3, '✨', 'heroic_content', 'jason', 'heroic', 0],
+    ['hero_hercules', 'Hercules', 'Locked — Heroic Age content.', 'heroes', 6, 4, '🦁', 'heroic_content', 'hercules', 'heroic', 0],
+    ['special_pioneer', 'Pioneer', 'Be the first student in your class period to reach the Classical Age.', 'heroes', 6, 5, '🚩', 'first_to_classical', '1', 'archaic', 0],
+    ['special_legend', 'Legend', 'Earn all other badges in the Hall of Honor.', 'heroes', 6, 6, '👑', 'all_badges', 'all', 'any', 0],
+
+    // Row 7: Honors & Distinctions
+    ['honor_fate_breaker', 'Fate Breaker', 'Your alliance uses a Reverse Card to cancel a negative Fate.', 'honors', 7, 1, '🔄', 'reverse_card_used', '1', 'any', 0],
+  ];
+
+  const stmt = 'INSERT INTO badges_ref (badge_id, badge_name, description, category, row_number, col_number, icon, unlock_type, unlock_value, age_available, is_ring_badge) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  
+  badges.forEach(b => {
+    db.run(stmt, b);
+  });
+
+  console.log(`✅ Hall of Honor badges seeded (${badges.length} badges)`);
 }
 
 function seedClassicalData() {
@@ -2060,6 +2184,8 @@ function seedClassicalData() {
         [2, 'Phaethon\'s father felt ______________ when he realized the promise he agreed to would kill Phaethon. p.71', 'Joy', 'Envy', 'Regret', 'Pride', 'c'],
         [2, 'Which of these describes the horses that pull the sun chariot? p.71', 'Jet black with hot yellow eyes', 'Giant fire white with golden manes and golden hooves', 'Gray with black smoke from their noses', 'Small brown ponies with silver wings', 'b'],
         [2, 'What color are the nostrils of the chariot horses? p.71', 'Golden', 'Fire red', 'Ice blue', 'Jet black', 'b'],
+        [2, 'What was Apollo\'s reaction to Phaethon\'s request to drive the chariot? p.70', 'He laughed and agreed', 'He yelled that it was impossible', 'He calmly said no', 'He offered to teach him first', 'b'],
+        [2, 'What was the job of Apollo\'s birds? p.68', 'To pull the sun chariot', 'To guard the palace gates', 'To gather gossip', 'To deliver messages to Zeus', 'c'],
 
         // ==================== ORPHEUS (portal_id = 3) — 5 questions ====================
         [3, 'Orpheus was gifted and lucky to know some great mentors. What was he famous for? p.77', 'Singing and dancing', 'Music and poetry', 'Running and athletics', 'Mathematics and science', 'b'],
