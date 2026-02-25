@@ -9650,6 +9650,466 @@ app.get('/api/admin/repair-buildings', authenticateToken, (req, res) => {
   }
 });
 
+// ==================== HALL OF HONOR BADGE SYSTEM ====================
+
+// Badge scanner — checks all criteria for a student, returns unclaimed qualified badges
+function scanForBadges(studentId) {
+  const newBadges = [];
+  
+  try {
+    // Get all badge definitions
+    const allBadges = query('SELECT * FROM badges_ref WHERE is_active = 1');
+    
+    // Get already-earned badge IDs
+    const earned = new Set(
+      query('SELECT badge_id FROM student_badges WHERE student_id = ?', [studentId])
+        .map(b => b.badge_id)
+    );
+    
+    // Get student data
+    const student = query(`
+      SELECT s.*, a.buildings_owned, a.current_age, a.alliance_id, a.reverse_cards,
+             a.total_points, a.side_quest_rewards
+      FROM students s 
+      LEFT JOIN alliances a ON s.alliance_id = a.alliance_id 
+      WHERE s.student_id = ?
+    `, [studentId])[0];
+    if (!student) return [];
+    
+    // Get achievement progress
+    const progress = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [studentId])[0] || {};
+    
+    // Get battle stats
+    const battleStats = query('SELECT * FROM arena_battle_stats WHERE student_id = ?', [studentId])[0] || {};
+    
+    // Get side quest completions
+    const sideQuests = query(`
+      SELECT sq.quest_name, sqc.status 
+      FROM side_quest_completions sqc
+      JOIN side_quests_ref sq ON sqc.quest_id = sq.quest_id
+      WHERE sqc.student_id = ? AND sqc.status = 'approved'
+    `, [studentId]);
+    const completedQuests = new Set(sideQuests.map(sq => sq.quest_name));
+    
+    // Get trade count
+    const tradeCount = query(`
+      SELECT COUNT(*) as count FROM trades 
+      WHERE (buyer_alliance_id = ? OR seller_alliance_id = ?) AND status = 'completed'
+    `, [student.alliance_id, student.alliance_id])[0]?.count || 0;
+    
+    // Parse buildings
+    let buildings = [];
+    try { buildings = JSON.parse(student.buildings_owned || '[]'); } catch(e) {}
+    
+    for (const badge of allBadges) {
+      if (earned.has(badge.badge_id)) continue;
+      
+      // Skip heroic age badges
+      if (badge.age_available === 'heroic') continue;
+      
+      let qualified = false;
+      
+      switch (badge.unlock_type) {
+        case 'god_bonus': {
+          const godName = badge.unlock_value;
+          qualified = progress[`pantheon_${godName}_bonus_seen`] === 1;
+          break;
+        }
+        
+        case 'god_unlock_count': {
+          const required = parseInt(badge.unlock_value);
+          const pantheonGods = ['zeus', 'hera', 'poseidon', 'athena', 'apollo', 'artemis', 'aphrodite', 'ares', 'hephaestus', 'hermes', 'demeter', 'prometheus', 'hades'];
+          const unlocked = pantheonGods.filter(g => progress[`pantheon_${g}_unlocked`] === 1).length;
+          qualified = unlocked >= required;
+          break;
+        }
+        
+        case 'map_uploaded': {
+          const hasMap = query('SELECT map_image FROM students WHERE student_id = ? AND map_image IS NOT NULL', [studentId])[0];
+          qualified = !!hasMap;
+          break;
+        }
+        
+        case 'membean_points': {
+          const required = parseInt(badge.unlock_value);
+          // Check membean points from grade_records
+          const membeanResult = query(`
+            SELECT SUM(points_earned) as total FROM grade_records gr
+            JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+            WHERE gr.student_id = ? AND ar.assignment_type = 'reading_pages'
+          `, [studentId])[0];
+          qualified = (membeanResult?.total || 0) >= required;
+          break;
+        }
+        
+        case 'building_count': {
+          if (badge.unlock_value === 'all_archaic') {
+            // Need: Town Center, Library, House (x1 min), Wooden Wall, Stone Wall, Dock, Granary, Storehouse, Fishing Boat
+            const requiredBuildings = ['Town Center', 'Library', 'House', 'Wooden Wall', 'Stone Wall', 'Dock', 'Granary', 'Storehouse', 'Fishing Boat'];
+            qualified = requiredBuildings.every(b => buildings.includes(b));
+          }
+          break;
+        }
+        
+        case 'side_quest_count': {
+          if (badge.unlock_value === 'archaic_all') {
+            // The Ring of Many (Hephaestus), Panacea's Remedy (Artemis), The Three Seeds (Demeter)
+            const archQuests = ['The Ring of Many', "Panacea's Remedy", 'The Three Seeds'];
+            qualified = archQuests.every(q => completedQuests.has(q));
+          }
+          break;
+        }
+        
+        case 'battle_wins': {
+          const required = parseInt(badge.unlock_value);
+          qualified = (battleStats.wins || 0) >= required;
+          break;
+        }
+        
+        case 'battle_streak': {
+          const required = parseInt(badge.unlock_value);
+          qualified = (battleStats.best_streak || 0) >= required;
+          break;
+        }
+        
+        case 'battle_sudden_death': {
+          // Check if student has won any battle that went to sudden death (round 6+)
+          const sdWin = query(`
+            SELECT b.battle_id FROM arena_battles b
+            JOIN arena_battle_rounds r ON b.battle_id = r.battle_id
+            WHERE b.winner_id = ? AND r.round_number >= 6
+            LIMIT 1
+          `, [studentId])[0];
+          qualified = !!sdWin;
+          break;
+        }
+        
+        case 'battle_comeback': {
+          // Check if student ever won after being down 0-2
+          const wonBattles = query(`
+            SELECT battle_id FROM arena_battles 
+            WHERE winner_id = ? AND status = 'completed'
+          `, [studentId]);
+          for (const battle of wonBattles) {
+            const rounds = query(
+              'SELECT round_winner_id FROM arena_battle_rounds WHERE battle_id = ? ORDER BY round_number',
+              [battle.battle_id]
+            );
+            let myScore = 0, oppScore = 0, wasDown2 = false;
+            for (const round of rounds) {
+              if (round.round_winner_id === studentId) myScore++;
+              else if (round.round_winner_id) oppScore++;
+              if (oppScore - myScore >= 2) wasDown2 = true;
+            }
+            if (wasDown2) { qualified = true; break; }
+          }
+          break;
+        }
+        
+        case 'trade_completed': {
+          const required = parseInt(badge.unlock_value);
+          qualified = tradeCount >= required;
+          break;
+        }
+        
+        case 'first_to_classical': {
+          // Check if this student was the first in their period to enter Classical
+          if (student.classical_entered) {
+            const earlier = query(`
+              SELECT COUNT(*) as count FROM students 
+              WHERE class_period = ? AND classical_entered = 1 
+              AND student_id != ? AND student_id < ?
+            `, [student.class_period, studentId, studentId]);
+            // Simple check: if they entered classical, check if anyone entered before them
+            const firstCheck = query(`
+              SELECT s.student_id FROM students s
+              WHERE s.class_period = ? AND s.classical_entered = 1
+              ORDER BY s.student_id ASC LIMIT 1
+            `, [student.class_period])[0];
+            qualified = firstCheck && firstCheck.student_id === studentId;
+          }
+          break;
+        }
+        
+        case 'reverse_card_used': {
+          // This is awarded by the Fate system when a reverse card is used — skip auto-scan
+          break;
+        }
+        
+        case 'manual': {
+          // Teacher awards — skip auto-scan
+          break;
+        }
+        
+        case 'all_badges': {
+          // Legend badge — check if all other active non-heroic badges earned
+          const totalActive = query(`
+            SELECT COUNT(*) as count FROM badges_ref 
+            WHERE is_active = 1 AND age_available != 'heroic' AND badge_id != 'special_legend'
+          `)[0]?.count || 0;
+          const totalEarned = earned.size;
+          qualified = totalEarned >= totalActive;
+          break;
+        }
+        
+        case 'heroic_content': {
+          // Not yet available
+          break;
+        }
+      }
+      
+      if (qualified) {
+        newBadges.push(badge);
+      }
+    }
+  } catch (err) {
+    console.error('Badge scan error:', err);
+  }
+  
+  return newBadges;
+}
+
+// GET /api/student/badges — Get all badges + earned status + unclaimed queue
+app.get('/api/student/badges', authenticateToken, (req, res) => {
+  try {
+    const studentId = req.user.id;
+    
+    // Scan for new badges and auto-award them (unclaimed)
+    const newBadges = scanForBadges(studentId);
+    for (const badge of newBadges) {
+      try {
+        run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by) 
+             VALUES (?, ?, 0, 0, 'system')`, [studentId, badge.badge_id]);
+        console.log(`🏅 Badge qualified: ${badge.badge_name} for student ${studentId}`);
+      } catch (e) { /* already exists */ }
+    }
+    
+    // Check ring upgrades for ring badges
+    checkRingUpgrades(studentId);
+    
+    // Get all badge definitions
+    const allBadges = query('SELECT * FROM badges_ref WHERE is_active = 1 ORDER BY row_number, col_number');
+    
+    // Get student's earned badges
+    const earnedBadges = query('SELECT * FROM student_badges WHERE student_id = ?', [studentId]);
+    const earnedMap = {};
+    earnedBadges.forEach(b => { earnedMap[b.badge_id] = b; });
+    
+    // Get unclaimed badges (earned but not yet claimed by clicking)
+    const unclaimed = earnedBadges.filter(b => !b.claimed);
+    
+    // Build response
+    const badges = allBadges.map(b => ({
+      ...b,
+      earned: !!earnedMap[b.badge_id],
+      claimed: earnedMap[b.badge_id]?.claimed === 1,
+      ring_level: earnedMap[b.badge_id]?.ring_level || 0,
+      earned_at: earnedMap[b.badge_id]?.earned_at || null,
+      awarded_by: earnedMap[b.badge_id]?.awarded_by || null
+    }));
+    
+    // Tier calculation
+    const earnedCount = earnedBadges.length;
+    let tier = 'none';
+    if (earnedCount >= 35) tier = 'legendary';
+    else if (earnedCount >= 28) tier = 'gold';
+    else if (earnedCount >= 24) tier = 'silver';
+    else if (earnedCount >= 20) tier = 'bronze';
+    
+    res.json({
+      badges,
+      total_earned: earnedCount,
+      total_claimed: earnedBadges.filter(b => b.claimed).length,
+      unclaimed_count: unclaimed.length,
+      unclaimed_badges: unclaimed.map(u => {
+        const def = allBadges.find(b => b.badge_id === u.badge_id);
+        return {
+          badge_id: u.badge_id,
+          badge_name: def?.badge_name,
+          description: def?.description,
+          icon: def?.icon,
+          category: def?.category,
+          awarded_by: u.awarded_by
+        };
+      }),
+      tier,
+      next_tier: tier === 'none' ? 'bronze' : tier === 'bronze' ? 'silver' : tier === 'silver' ? 'gold' : tier === 'gold' ? 'legendary' : null,
+      badges_to_next: tier === 'none' ? 20 - earnedCount : tier === 'bronze' ? 24 - earnedCount : tier === 'silver' ? 28 - earnedCount : tier === 'gold' ? 35 - earnedCount : 0
+    });
+  } catch (err) {
+    console.error('Get badges error:', err);
+    res.status(500).json({ error: 'Failed to get badges' });
+  }
+});
+
+// POST /api/student/claim-badge — Student claims (clicks) a badge to see celebration
+app.post('/api/student/claim-badge', authenticateToken, (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const { badge_id } = req.body;
+    
+    if (!badge_id) return res.status(400).json({ error: 'badge_id required' });
+    
+    // Verify badge exists and is earned but unclaimed
+    const badge = query(
+      'SELECT * FROM student_badges WHERE student_id = ? AND badge_id = ? AND claimed = 0',
+      [studentId, badge_id]
+    )[0];
+    
+    if (!badge) {
+      return res.status(400).json({ error: 'Badge not found or already claimed' });
+    }
+    
+    run('UPDATE student_badges SET claimed = 1, claimed_at = CURRENT_TIMESTAMP WHERE student_id = ? AND badge_id = ?',
+      [studentId, badge_id]);
+    
+    // Get badge definition for response
+    const def = query('SELECT * FROM badges_ref WHERE badge_id = ?', [badge_id])[0];
+    
+    console.log(`🏅 Badge claimed: ${def?.badge_name} by student ${studentId}`);
+    
+    res.json({ 
+      success: true, 
+      badge: {
+        badge_id: def.badge_id,
+        badge_name: def.badge_name,
+        description: def.description,
+        icon: def.icon,
+        category: def.category,
+        ring_level: badge.ring_level
+      }
+    });
+  } catch (err) {
+    console.error('Claim badge error:', err);
+    res.status(500).json({ error: 'Failed to claim badge' });
+  }
+});
+
+// POST /api/teacher/award-badge — Teacher manually awards Citizen badge
+app.post('/api/teacher/award-badge', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const { student_id, badge_id } = req.body;
+    if (!student_id || !badge_id) return res.status(400).json({ error: 'student_id and badge_id required' });
+    
+    // Verify badge exists
+    const badge = query('SELECT * FROM badges_ref WHERE badge_id = ?', [badge_id])[0];
+    if (!badge) return res.status(404).json({ error: 'Badge not found' });
+    
+    // Award it (unclaimed — student will see it flash)
+    try {
+      run(`INSERT INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+           VALUES (?, ?, 0, 0, 'teacher')`, [student_id, badge_id]);
+    } catch (e) {
+      return res.status(400).json({ error: 'Badge already awarded to this student' });
+    }
+    
+    const studentName = query('SELECT name FROM students WHERE student_id = ?', [student_id])[0]?.name;
+    console.log(`🏅 Teacher awarded ${badge.badge_name} to ${studentName} (${student_id})`);
+    
+    saveDatabase();
+    res.json({ success: true, message: `${badge.badge_name} awarded to ${studentName}` });
+  } catch (err) {
+    console.error('Award badge error:', err);
+    res.status(500).json({ error: 'Failed to award badge' });
+  }
+});
+
+// POST /api/teacher/award-fate-breaker — Award Fate Breaker to all alliance members
+app.post('/api/teacher/award-fate-breaker', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const { alliance_id } = req.body;
+    if (!alliance_id) return res.status(400).json({ error: 'alliance_id required' });
+    
+    const members = query('SELECT student_id, name FROM students WHERE alliance_id = ?', [alliance_id]);
+    let awarded = 0;
+    
+    for (const member of members) {
+      try {
+        run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+             VALUES (?, 'honor_fate_breaker', 0, 0, 'system')`, [member.student_id]);
+        awarded++;
+        console.log(`🔄 Fate Breaker badge → ${member.name}`);
+      } catch (e) { /* already has it */ }
+    }
+    
+    saveDatabase();
+    res.json({ success: true, awarded, total_members: members.length });
+  } catch (err) {
+    console.error('Award fate breaker error:', err);
+    res.status(500).json({ error: 'Failed to award Fate Breaker' });
+  }
+});
+
+// Ring upgrade checker for ring badges
+function checkRingUpgrades(studentId) {
+  try {
+    const student = query(`
+      SELECT s.*, a.buildings_owned, a.alliance_id 
+      FROM students s LEFT JOIN alliances a ON s.alliance_id = a.alliance_id 
+      WHERE s.student_id = ?
+    `, [studentId])[0];
+    if (!student) return;
+    
+    // Trader ring upgrades: bronze at 3, gold at 5
+    const traderBadge = query('SELECT * FROM student_badges WHERE student_id = ? AND badge_id = ?', [studentId, 'class_trader'])[0];
+    if (traderBadge) {
+      const tradeCount = query(`
+        SELECT COUNT(*) as count FROM trades 
+        WHERE (buyer_alliance_id = ? OR seller_alliance_id = ?) AND status = 'completed'
+      `, [student.alliance_id, student.alliance_id])[0]?.count || 0;
+      
+      let newRing = 0;
+      if (tradeCount >= 5) newRing = 2;
+      else if (tradeCount >= 3) newRing = 1;
+      
+      if (newRing > traderBadge.ring_level) {
+        run('UPDATE student_badges SET ring_level = ? WHERE student_id = ? AND badge_id = ?',
+          [newRing, studentId, 'class_trader']);
+        console.log(`💍 Trader ring upgrade → level ${newRing} for student ${studentId}`);
+      }
+    }
+    
+    // Developer and Adventurer ring upgrades would go here when Classical/Heroic building lists are finalized
+    
+  } catch (err) {
+    console.error('Ring upgrade check error:', err);
+  }
+}
+
+// Admin endpoint: retroactively scan all students for badges
+app.post('/api/admin/scan-all-badges', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const students = query('SELECT student_id, name FROM students');
+    let totalAwarded = 0;
+    const results = [];
+    
+    for (const student of students) {
+      const newBadges = scanForBadges(student.student_id);
+      for (const badge of newBadges) {
+        try {
+          run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+               VALUES (?, ?, 0, 0, 'system')`, [student.student_id, badge.badge_id]);
+          totalAwarded++;
+          results.push(`${student.name}: ${badge.badge_name}`);
+        } catch (e) { /* already exists */ }
+      }
+    }
+    
+    saveDatabase();
+    console.log(`🏅 Retroactive badge scan complete: ${totalAwarded} badges awarded`);
+    res.json({ success: true, total_awarded: totalAwarded, details: results });
+  } catch (err) {
+    console.error('Scan all badges error:', err);
+    res.status(500).json({ error: 'Failed to scan badges' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
