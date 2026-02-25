@@ -10110,6 +10110,91 @@ app.post('/api/admin/scan-all-badges', authenticateToken, (req, res) => {
   }
 });
 
+// GET version for easy browser testing
+app.get('/api/admin/scan-all-badges', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const students = query('SELECT student_id, name FROM students');
+    let totalAwarded = 0;
+    const results = [];
+    
+    for (const student of students) {
+      const newBadges = scanForBadges(student.student_id);
+      for (const badge of newBadges) {
+        try {
+          run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+               VALUES (?, ?, 0, 0, 'system')`, [student.student_id, badge.badge_id]);
+          totalAwarded++;
+          results.push(`${student.name}: ${badge.badge_name}`);
+        } catch (e) { /* already exists */ }
+      }
+    }
+    
+    saveDatabase();
+    res.json({ success: true, total_awarded: totalAwarded, details: results });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to scan badges' });
+  }
+});
+
+// Debug: Check what a specific student qualifies for
+app.get('/api/admin/debug-badges/:studentId', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const studentId = parseInt(req.params.studentId);
+    const student = query('SELECT * FROM students WHERE student_id = ?', [studentId])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    const progress = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [studentId])[0] || {};
+    const battleStats = query('SELECT * FROM arena_battle_stats WHERE student_id = ?', [studentId])[0] || {};
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0] || {};
+    const hasMap = query('SELECT student_id FROM students WHERE student_id = ? AND map_image IS NOT NULL', [studentId])[0];
+    
+    const sideQuests = query(`
+      SELECT sq.quest_name, sqc.status 
+      FROM side_quest_completions sqc
+      JOIN side_quests_ref sq ON sqc.quest_id = sq.quest_id
+      WHERE sqc.student_id = ? AND sqc.status = 'approved'
+    `, [studentId]);
+    
+    // God bonus status
+    const gods = ['zeus', 'hera', 'poseidon', 'athena', 'apollo', 'artemis', 'aphrodite', 'ares', 'hephaestus', 'hermes', 'demeter', 'prometheus', 'hades'];
+    const godBonuses = {};
+    const godUnlocks = {};
+    gods.forEach(g => {
+      godBonuses[g] = progress[`pantheon_${g}_bonus_seen`] === 1;
+      godUnlocks[g] = progress[`pantheon_${g}_unlocked`] === 1;
+    });
+    
+    let buildings = [];
+    try { buildings = JSON.parse(alliance.buildings_owned || '[]'); } catch(e) {}
+    
+    const newBadges = scanForBadges(studentId);
+    const earnedBadges = query('SELECT badge_id FROM student_badges WHERE student_id = ?', [studentId]);
+    
+    res.json({
+      student: student.name,
+      student_id: studentId,
+      alliance: alliance.alliance_name,
+      has_map: !!hasMap,
+      buildings,
+      god_bonuses: godBonuses,
+      god_unlocks: godUnlocks,
+      gods_unlocked_count: Object.values(godUnlocks).filter(v => v).length,
+      battle_stats: { wins: battleStats.wins || 0, best_streak: battleStats.best_streak || 0, total: battleStats.total_battles || 0 },
+      side_quests_completed: sideQuests.map(sq => sq.quest_name),
+      classical_entered: !!student.classical_entered,
+      already_earned: earnedBadges.map(b => b.badge_id),
+      newly_qualified: newBadges.map(b => ({ badge_id: b.badge_id, name: b.badge_name }))
+    });
+  } catch (err) {
+    console.error('Debug badges error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
