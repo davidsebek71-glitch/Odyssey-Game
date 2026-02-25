@@ -9156,6 +9156,67 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
 });
 
 // Start server
+// --- Admin: Diagnose and repair buildings_owned from building_activations ---
+app.get('/api/admin/repair-buildings', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const dryRun = req.query.fix !== 'true';
+    
+    // Get all alliances
+    const alliances = query('SELECT alliance_id, alliance_name, buildings_owned FROM alliances WHERE is_disbanded = 0');
+    
+    // Get all building activations
+    const activations = query('SELECT alliance_id, building_name FROM building_activations ORDER BY alliance_id, activation_id');
+    
+    // Build expected buildings_owned from activations
+    const expectedByAlliance = {};
+    activations.forEach(ba => {
+      if (!expectedByAlliance[ba.alliance_id]) expectedByAlliance[ba.alliance_id] = [];
+      expectedByAlliance[ba.alliance_id].push(ba.building_name);
+    });
+    
+    const report = [];
+    let repaired = 0;
+    
+    alliances.forEach(a => {
+      const currentOwned = JSON.parse(a.buildings_owned || '[]');
+      const expected = expectedByAlliance[a.alliance_id] || [];
+      const mismatch = JSON.stringify(currentOwned.sort()) !== JSON.stringify([...expected].sort());
+      
+      if (mismatch || expected.length > 0) {
+        const entry = {
+          alliance: a.alliance_name,
+          current_buildings_owned: currentOwned,
+          activations_show: expected,
+          mismatch
+        };
+        
+        if (mismatch && !dryRun) {
+          run('UPDATE alliances SET buildings_owned = ? WHERE alliance_id = ?', 
+            [JSON.stringify(expected), a.alliance_id]);
+          entry.repaired = true;
+          repaired++;
+        }
+        
+        report.push(entry);
+      }
+    });
+    
+    if (!dryRun) saveDatabase();
+    
+    res.json({
+      mode: dryRun ? 'DRY RUN - add ?fix=true to repair' : 'REPAIRED',
+      total_alliances: alliances.length,
+      total_activations: activations.length,
+      repaired,
+      report
+    });
+  } catch (err) {
+    console.error('Repair buildings error:', err);
+    res.status(500).json({ error: 'Failed to run repair' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
