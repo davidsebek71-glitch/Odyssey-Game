@@ -1311,11 +1311,15 @@
                 📋 Quest & Bonus Tracker
                 <button onclick="closeQuestBonusTrackerModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 15px;">✕</button>
             </div>
-            <div style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8);">
+            <div id="tracker-legend" style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8);">
                 <strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea's Remedy | 🌾 Three Seeds<br>
                 <strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)
             </div>
-            <div style="margin-bottom: 10px;">
+            <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
+                <div style="display: flex; border: 2px solid rgba(255,215,0,0.3); border-radius: 8px; overflow: hidden;">
+                    <button id="tracker-age-archaic" onclick="switchTrackerAge('Archaic')" style="padding: 8px 16px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; background: rgba(255,215,0,0.3); color: #ffd700;">🏺 Archaic</button>
+                    <button id="tracker-age-classical" onclick="switchTrackerAge('Classical')" style="padding: 8px 16px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; background: transparent; color: rgba(255,255,255,0.5);">🏛️ Classical</button>
+                </div>
                 <select id="tracker-period-select" onchange="loadQuestBonusTracker()" style="padding: 10px 14px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 6px; color: white; font-size: 15px;">
                     <option value="all">All Periods</option>
                     <option value="1st">1st Period</option>
@@ -2679,6 +2683,8 @@
         // QUEST & BONUS TRACKER
         // ==================
         
+        let trackerAge = 'Archaic';
+        
         async function openQuestBonusTrackerModal() {
             document.getElementById('quest-bonus-tracker-modal').classList.add('show');
             loadQuestBonusTracker();
@@ -2688,13 +2694,39 @@
             document.getElementById('quest-bonus-tracker-modal').classList.remove('show');
         }
         
+        function switchTrackerAge(age) {
+            trackerAge = age;
+            // Update toggle button styles
+            const arcBtn = document.getElementById('tracker-age-archaic');
+            const clsBtn = document.getElementById('tracker-age-classical');
+            if (age === 'Archaic') {
+                arcBtn.style.background = 'rgba(255,215,0,0.3)';
+                arcBtn.style.color = '#ffd700';
+                clsBtn.style.background = 'transparent';
+                clsBtn.style.color = 'rgba(255,255,255,0.5)';
+            } else {
+                arcBtn.style.background = 'transparent';
+                arcBtn.style.color = 'rgba(255,255,255,0.5)';
+                clsBtn.style.background = 'rgba(59,130,246,0.3)';
+                clsBtn.style.color = '#60a5fa';
+            }
+            // Update legend
+            const legend = document.getElementById('tracker-legend');
+            if (age === 'Archaic') {
+                legend.innerHTML = '<strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea\'s Remedy | 🌾 Three Seeds<br><strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)';
+            } else {
+                legend.innerHTML = '<strong>Side Quests:</strong> 🔥 Hearth of Hestia<br><strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)';
+            }
+            loadQuestBonusTracker();
+        }
+        
         async function loadQuestBonusTracker() {
             const period = document.getElementById('tracker-period-select').value;
             const content = document.getElementById('quest-bonus-tracker-content');
             content.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
             
             try {
-                const response = await fetch(`${API_URL}/teacher/quest-bonus-tracker?period=${period}`, { headers });
+                const response = await fetch(`${API_URL}/teacher/quest-bonus-tracker?period=${period}&age=${trackerAge}`, { headers });
                 const data = await response.json();
                 
                 if (data.students.length === 0) {

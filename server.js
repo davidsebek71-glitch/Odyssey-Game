@@ -5584,7 +5584,8 @@ app.post('/api/teacher/grant-side-quest-reward', authenticateToken, (req, res) =
 // Teacher: Quest & Bonus Tracker - shows completion grid for side quests and bonus assignments
 app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
   try {
-    const { period } = req.query;
+    const { period, age } = req.query;
+    const trackerAge = age || 'Archaic'; // Default to Archaic
     
     // Get students, optionally filtered by period (exclude ghosts from student grid)
     let studentsQuery = `
@@ -5599,15 +5600,15 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       students = students.filter(s => s.class_period === period);
     }
     
-    // Get ALL side quests (Archaic + Classical) for the tracker
-    const sideQuests = query("SELECT * FROM side_quests_ref ORDER BY age, quest_id");
+    // Get side quests filtered by age
+    const sideQuests = query("SELECT * FROM side_quests_ref WHERE age = ? ORDER BY quest_id", [trackerAge]);
     
-    // Get all bonus assignments
+    // Get bonus assignments filtered by age
     const bonusAssignments = query(`
       SELECT * FROM assignments_ref 
-      WHERE section = 'bonus' 
+      WHERE section = 'bonus' AND age = ?
       ORDER BY assignment_id
-    `);
+    `, [trackerAge]);
     
     // Get all approved side quest completions
     const allSideQuestCompletions = query(`
