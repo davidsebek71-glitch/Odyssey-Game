@@ -5604,7 +5604,8 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
     const sideQuests = query("SELECT * FROM side_quests_ref WHERE age = ? ORDER BY quest_id", [trackerAge]);
     
     // Get bonus assignments filtered by age
-    const bonusAssignments = query(`
+    // Classical bonuses are excluded — they now live inside myth portals as post-quiz creative work
+    const bonusAssignments = trackerAge === 'Classical' ? [] : query(`
       SELECT * FROM assignments_ref 
       WHERE section = 'bonus' AND age = ?
       ORDER BY assignment_id
@@ -8010,10 +8011,10 @@ app.get('/api/student/quiz/:portal_id', authenticateToken, (req, res) => {
     const safeQuestions = questions.map(q => ({
       question_id: q.question_id,
       question_text: q.question_text,
-      option_a: q.answer_a,
-      option_b: q.answer_b,
-      option_c: q.answer_c,
-      option_d: q.answer_d,
+      option_a: q.option_a || q.answer_a,
+      option_b: q.option_b || q.answer_b,
+      option_c: q.option_c || q.answer_c,
+      option_d: q.option_d || q.answer_d,
       correct_answer: q.correct_answer
     }));
     

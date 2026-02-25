@@ -2046,7 +2046,7 @@ function seedClassicalData() {
       ];
 
       quizQuestions.forEach(q => {
-        db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, answer_a, answer_b, answer_c, answer_d, correct_answer)
+        db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
       });
       console.log('✅ Myth quiz questions seeded (' + quizQuestions.length + ' questions)');
