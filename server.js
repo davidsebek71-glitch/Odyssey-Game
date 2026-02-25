@@ -8624,6 +8624,14 @@ app.get('/api/trade/assignments', authenticateToken, (req, res) => {
       ORDER BY a.class_period, a.alliance_name
     `);
     
+    // Debug: log buildings_owned for each alliance to help diagnose Ship column issue
+    data.forEach(a => {
+      const owned = JSON.parse(a.buildings_owned || '[]');
+      if (owned.length > 0) {
+        console.log(`Trade assignments - ${a.alliance_name}: buildings_owned = ${a.buildings_owned}, hasTransport = ${owned.includes('Transport Ship')}`);
+      }
+    });
+    
     const windows = query('SELECT * FROM trade_window');
     
     res.json({ alliances: data, trade_windows: windows });
