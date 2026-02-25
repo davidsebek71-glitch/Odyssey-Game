@@ -1124,14 +1124,11 @@
                         <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Side Quest</label>
                         <select id="side-quest-select" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; color: white;" onchange="loadEligibleAlliances()">
                             <option value="">Choose side quest...</option>
-                            <optgroup label="Archaic Age">
-                                <option value="1">🔨 Ring of Many (-10% building costs)</option>
-                                <option value="2">🏹 Panacea's Remedy (+5% point bonus)</option>
-                                <option value="3">🌾 Three Seeds (Granary unlock)</option>
-                            </optgroup>
-                            <optgroup label="Classical Age">
-                                <option value="4">🔥 Hearth of Hestia (+8% alliance point bonus)</option>
-                            </optgroup>
+                            <option value="1">🔨 Ring of Many (-10% building costs)</option>
+                            <option value="2">🏹 Panacea's Remedy (+5% point bonus)</option>
+                            <option value="3">🌾 Three Seeds (Granary unlock)</option>
+                            <option disabled>── Classical Age ──</option>
+                            <option value="4">🔥 Hearth of Hestia (+1% house bonus)</option>
                         </select>
                     </div>
                     <div>
@@ -2715,7 +2712,7 @@
             if (age === 'Archaic') {
                 legend.innerHTML = '<strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea\'s Remedy | 🌾 Three Seeds<br><strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)';
             } else {
-                legend.innerHTML = '<strong>Side Quests:</strong> 🔥 Hearth of Hestia<br><strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)';
+                legend.innerHTML = '<strong>Side Quests:</strong> 🔥 Hearth of Hestia (+1% house bonus)<br><strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)';
             }
             loadQuestBonusTracker();
         }
@@ -2787,9 +2784,9 @@
                     rowsHtml += `</tr>`;
                 });
                 
-                // Build Alliance God Bonus Progress grid from same data
+                // Build Alliance God Bonus Progress grid - only for Archaic view
                 let godGridHtml = '';
-                if (data.alliance_god_status) {
+                if (data.alliance_god_status && trackerAge === 'Archaic') {
                     const gods = ['Athena', 'Ares', 'Poseidon'];
                     const godEmojis = { 'Athena': '🦉', 'Ares': '⚔️', 'Poseidon': '🔱' };
                     const godBuildings = { 'Athena': 'Library', 'Ares': 'Wooden Wall', 'Poseidon': 'Dock' };

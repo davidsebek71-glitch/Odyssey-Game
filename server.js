@@ -5649,9 +5649,11 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       bonuses: bonusLookup[s.student_id] || {}
     }));
     
-    // Build alliance-level god bonus tracking (for Athena, Ares, Poseidon building unlocks)
-    const buildingGods = ['Athena', 'Ares', 'Poseidon'];
-    const allianceGodStatus = {};
+    // Build alliance-level god bonus tracking (for Athena, Ares, Poseidon building unlocks) - Archaic only
+    let allianceGodStatus = null;
+    if (trackerAge === 'Archaic') {
+      const buildingGods = ['Athena', 'Ares', 'Poseidon'];
+      allianceGodStatus = {};
     
     // Get all alliances
     const allAlliances = query(`
@@ -5696,6 +5698,7 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
         };
       }
     }
+    } // end Archaic-only god status block
     
     res.json({
       students: studentsWithStatus,

@@ -1137,12 +1137,10 @@ function runMigrations() {
       console.log('  Seeding Hearth of Hestia side quest...');
       db.run(`INSERT INTO side_quests_ref (quest_name, god_associated, description, reward_type, reward_name, reward_description, form_url, icon, age) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['Hearth of Hestia', 'Hestia', 'Hestia, goddess of the hearth, has let her sacred flame grow dim. Without it, your city-state has no center — no warmth, no unity, no home. Journey to rekindle the flame and prove your alliance is worthy of her blessing.', 'technology', 'Sacred Flame', '+1% bonus to each house building your alliance owns. Requires ALL alliance members to complete.', 'https://forms.gle/Sbz9rVbHXRJExtPd6', '🔥', 'Classical']
+        ['Hearth of Hestia', 'Hestia', 'Hestia, goddess of the hearth, has let her sacred flame grow dim. Without it, your city-state has no center — no warmth, no unity, no home. Journey to rekindle the flame and prove your alliance is worthy of her blessing.', 'technology', 'Sacred Flame', '+1% house bonus (always active)', 'https://forms.gle/Sbz9rVbHXRJExtPd6', '🔥', 'Classical']
       );
       console.log('✅ Hearth of Hestia seeded');
     }
-    // Update Hestia reward description if it still has old text
-    db.run(`UPDATE side_quests_ref SET reward_description = '+1% bonus to each house building your alliance owns. Requires ALL alliance members to complete.' WHERE quest_name = 'Hearth of Hestia' AND reward_description LIKE '%8%'`);
     
     // Seed Sacred Flame technology if not exists
     const sacredFlameCheck = db.exec("SELECT COUNT(*) FROM technologies_ref WHERE tech_name = 'Sacred Flame'");
@@ -1150,34 +1148,17 @@ function runMigrations() {
     if (!sacredFlameExists) {
       db.run(`INSERT INTO technologies_ref (tech_name, bonus_type, bonus_value, specific_assignment_type, cost_description, god_associated, age_available, description) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['Sacred Flame', 'house_bonus', 0.01, null, 'Complete Hestia side quest', 'Hestia', 'Classical', 'Hestia\'s sacred flame blesses your homes. +1% bonus to each house building.']
+        ['Sacred Flame', 'earning_multiplier', 0.01, null, 'Complete Hestia side quest', 'Hestia', 'Classical', 'Hestia\'s sacred flame warms your city-state. +1% house bonus.']
       );
       console.log('✅ Sacred Flame technology seeded');
     }
     
-    // Seed Forbidden Archive side quest if not exists
-    const faCheck = db.exec("SELECT COUNT(*) FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'");
-    const faExists = faCheck[0] && faCheck[0].values[0][0] > 0;
-    if (!faExists) {
-      console.log('  Seeding Forbidden Archive side quest...');
-      db.run(`INSERT INTO side_quests_ref (quest_name, god_associated, description, reward_type, reward_name, reward_description, form_url, icon, age) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['The Forbidden Archive', 'Athena', 'Beneath Mount Olympus lies a hidden archive sealed by Zeus himself. Three chambers, three stories he never wanted you to learn. Athena believes you are ready to discover what the gods have hidden.', 'alliance_reward', 'Reverse Card', 'Cancels one negative Fate and lets your alliance spin again. Requires ALL alliance members to complete the quest.', 'IN_GAME', '🦉', 'Classical']
-      );
-      console.log('✅ Forbidden Archive seeded');
-    }
-    
-    // Add forbidden_archive_complete column to side_quest_completions if needed
+    // Migration: Update existing Hestia reward from 8% to 1% house bonus
     try {
-      const sqcCols = db.exec("PRAGMA table_info(side_quest_completions)");
-      const sqcColNames = sqcCols[0] ? sqcCols[0].values.map(c => c[1]) : [];
-      if (!sqcColNames.includes('journey_data')) {
-        db.run("ALTER TABLE side_quest_completions ADD COLUMN journey_data TEXT DEFAULT NULL");
-        console.log('  Added journey_data column to side_quest_completions');
-      }
-    } catch (e) {
-      console.log('journey_data column note:', e.message);
-    }
+      db.run("UPDATE side_quests_ref SET reward_description = '+1% house bonus (always active)' WHERE quest_name = 'Hearth of Hestia' AND reward_description LIKE '%8%'");
+      db.run("UPDATE technologies_ref SET bonus_value = 0.01, description = 'Hestia''s sacred flame warms your city-state. +1% house bonus.' WHERE tech_name = 'Sacred Flame' AND bonus_value = 0.08");
+    } catch(e) {}
+    
   } catch (err) {
     console.log('Side quest migration note:', err.message);
   }
