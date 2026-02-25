@@ -8625,12 +8625,25 @@ app.get('/api/trade/assignments', authenticateToken, (req, res) => {
       ORDER BY a.class_period, a.alliance_name
     `);
     
-    // Debug: log buildings_owned for each alliance to help diagnose Ship column issue
-    data.forEach(a => {
-      const owned = JSON.parse(a.buildings_owned || '[]');
-      if (owned.length > 0) {
-        console.log(`Trade assignments - ${a.alliance_name}: buildings_owned = ${a.buildings_owned}, hasTransport = ${owned.includes('Transport Ship')}`);
+    // Pull buildings from building_activations as authoritative source
+    const activations = query(`
+      SELECT alliance_id, building_name, COUNT(*) as count
+      FROM building_activations
+      GROUP BY alliance_id, building_name
+    `);
+    
+    // Build a map of alliance_id -> [building names]
+    const buildingsByAlliance = {};
+    activations.forEach(ba => {
+      if (!buildingsByAlliance[ba.alliance_id]) buildingsByAlliance[ba.alliance_id] = [];
+      for (let i = 0; i < ba.count; i++) {
+        buildingsByAlliance[ba.alliance_id].push(ba.building_name);
       }
+    });
+    
+    // Attach to each alliance (prefer activations table over JSON column)
+    data.forEach(a => {
+      a.buildings_from_activations = buildingsByAlliance[a.alliance_id] || [];
     });
     
     const windows = query('SELECT * FROM trade_window');

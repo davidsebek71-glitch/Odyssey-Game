@@ -5240,8 +5240,8 @@
                             <tbody>
                                 ${periodAlliances.map((a, idx) => {
                                     const res = a.native_resource;
-                                    const owned = JSON.parse(a.buildings_owned || '[]');
-                                    const hasShip = owned.includes('Transport Ship');
+                                    const buildings = a.buildings_from_activations || JSON.parse(a.buildings_owned || '[]');
+                                    const hasShip = buildings.includes('Transport Ship');
                                     return `<tr style="background: ${idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
                                         <td style="padding: 10px 12px; font-weight: 500;">${a.alliance_name}</td>
                                         <td style="text-align: center; padding: 10px 12px;">
