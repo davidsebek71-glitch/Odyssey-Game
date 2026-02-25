@@ -9691,11 +9691,11 @@ function scanForBadges(studentId) {
     `, [studentId]);
     const completedQuests = new Set(sideQuests.map(sq => sq.quest_name));
     
-    // Get trade count
+    // Get trade count (trades use initiator_id/partner_id referencing students)
     const tradeCount = query(`
       SELECT COUNT(*) as count FROM trades 
-      WHERE (buyer_alliance_id = ? OR seller_alliance_id = ?) AND status = 'completed'
-    `, [student.alliance_id, student.alliance_id])[0]?.count || 0;
+      WHERE (initiator_id = ? OR partner_id = ?) AND status = 'completed'
+    `, [studentId, studentId])[0]?.count || 0;
     
     // Parse buildings
     let buildings = [];
@@ -10059,8 +10059,8 @@ function checkRingUpgrades(studentId) {
     if (traderBadge) {
       const tradeCount = query(`
         SELECT COUNT(*) as count FROM trades 
-        WHERE (buyer_alliance_id = ? OR seller_alliance_id = ?) AND status = 'completed'
-      `, [student.alliance_id, student.alliance_id])[0]?.count || 0;
+        WHERE (initiator_id = ? OR partner_id = ?) AND status = 'completed'
+      `, [studentId, studentId])[0]?.count || 0;
       
       let newRing = 0;
       if (tradeCount >= 5) newRing = 2;
