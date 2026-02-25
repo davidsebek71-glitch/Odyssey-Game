@@ -976,6 +976,27 @@ function runMigrations() {
       console.log('  Adding prometheus_used_date column to arena_battle_stats...');
       db.run('ALTER TABLE arena_battle_stats ADD COLUMN prometheus_used_date DATE');
     }
+
+    // V93: Hecatoncheires scramble columns on arena_battle_rounds
+    if (!roundColNames.includes('challenger_scramble_used')) {
+      console.log('  Adding scramble columns to arena_battle_rounds...');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN challenger_scramble_used INTEGER DEFAULT 0');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN defender_scramble_used INTEGER DEFAULT 0');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN scramble_active_until DATETIME DEFAULT NULL');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN scramble_used_by INTEGER DEFAULT NULL'); // student_id of who used it
+    }
+
+    // V93: Cerberus block log — tracks when Gate of Erebus blocks an offensive god
+    try {
+      db.exec(`CREATE TABLE IF NOT EXISTS cerberus_block_log (
+        log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        battle_id INTEGER NOT NULL,
+        round_id INTEGER NOT NULL,
+        blocked_player_id INTEGER NOT NULL,
+        roll REAL NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+    } catch (e) { console.log('Migration note: cerberus_block_log -', e.message); }
     
     // Add god cooldowns and deployment tracking to arena_battles
     const battleCols = db.exec("PRAGMA table_info(arena_battles)");
@@ -1077,6 +1098,12 @@ function runMigrations() {
     if (!studentColNames.includes('scout_status')) {
       console.log('  Adding scout_status column to students...');
       db.run("ALTER TABLE students ADD COLUMN scout_status TEXT DEFAULT NULL");
+    }
+
+    // V93: Hecatoncheires cards — earned by completing Constellations (portal 7), used in Battle Arena
+    if (!studentColNames.includes('hecatoncheires_cards')) {
+      console.log('  Adding hecatoncheires_cards column to students...');
+      db.run('ALTER TABLE students ADD COLUMN hecatoncheires_cards INTEGER DEFAULT 0');
     }
     
     console.log('✅ Classical Age migrations complete');
@@ -1245,6 +1272,21 @@ function seedReferenceData() {
     console.log('✅ Classical buildings: +12% prices, Theater 4%, Agora 2%');
   } catch (e) {
     console.log('Migration note: V92 Classical building update -', e.message);
+  }
+
+  // V93 ADD: Gate of Erebus — Classical building, unlocks Cerberus arena block (requires Orpheus completion)
+  try {
+    const erebusExists = db.exec("SELECT COUNT(*) as count FROM buildings_ref WHERE building_name = 'Gate of Erebus'");
+    if (!erebusExists[0] || erebusExists[0].values[0][0] === 0) {
+      // Prerequisite: Stone Wall (building_id = 5)
+      db.run(`INSERT INTO buildings_ref 
+        (building_name, cost_points, prerequisite_building_id, god_associated, requires_god_assignment, max_per_alliance, age_available, battle_bonus, point_bonus, active_duration_hours, cooldown_hours, always_active, required_for_age, description) 
+        VALUES ('Gate of Erebus', 275, 5, 'Hades', 0, 1, 'Classical', 0, 0, 0, 0, 1, 0, 
+        'The boundary between the living and the dead. Cerberus guards your alliance — 33% chance to block the opponent''s first god power each Battle Arena round. Requires Orpheus myth completion. Requires Stone Wall.')`);
+      console.log('✅ Gate of Erebus building added');
+    }
+  } catch (e) {
+    console.log('Migration note: Gate of Erebus -', e.message);
   }
 
   // V91 FIX: Reduce Archaic tech bonuses from 10% to 3% (beta year rebalancing)

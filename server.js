@@ -3473,6 +3473,53 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
       if (!hasGranaryUnlock) {
         return res.status(400).json({ error: 'Requires Demeter Side Quest completion' });
       }
+    } else if (building.building_name === 'Gate of Erebus') {
+      // Requires ALL members of the alliance to have completed Orpheus:
+      //   1. Reading Guide (comp_conn graded for Orpheus in classical section)
+      //   2. Quiz passed (myth_quiz_attempts portal_id = 3, passed = 1)
+      //   3. Writing assignment approved (student_myth_completion portal_id = 3, teacher_approved = 1)
+      const allianceMembers = query('SELECT student_id FROM students WHERE alliance_id = ?', [alliance_id]);
+      if (allianceMembers.length === 0) {
+        return res.status(400).json({ error: 'No alliance members found' });
+      }
+      for (const member of allianceMembers) {
+        const sid = member.student_id;
+        // 1. Reading Guide: comp_conn graded for Orpheus & Eurydice myth in classical section
+        const hasReadingGuide = query(
+          `SELECT 1 FROM grade_records 
+           WHERE student_id = ? AND assignment_type = 'comp_conn' 
+           AND myth_god = 'Orpheus & Eurydice' AND section = 'classical' AND points_earned > 0 LIMIT 1`,
+          [sid]
+        );
+        if (!hasReadingGuide.length) {
+          const memberInfo = query('SELECT name FROM students WHERE student_id = ?', [sid])[0];
+          return res.status(400).json({ 
+            error: `Gate of Erebus requires all members to complete Orpheus. ${memberInfo ? memberInfo.name : 'A member'} has not submitted the Orpheus Reading Guide.`
+          });
+        }
+        // 2. Quiz passed (portal_id = 3 is Orpheus)
+        const quizPassed = query(
+          'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 3 AND passed = 1 LIMIT 1',
+          [sid]
+        );
+        if (!quizPassed.length) {
+          const memberInfo = query('SELECT name FROM students WHERE student_id = ?', [sid])[0];
+          return res.status(400).json({ 
+            error: `Gate of Erebus requires all members to complete Orpheus. ${memberInfo ? memberInfo.name : 'A member'} has not passed the Orpheus quiz.`
+          });
+        }
+        // 3. Writing assignment teacher-approved (portal_id = 3)
+        const writingApproved = query(
+          'SELECT 1 FROM student_myth_completion WHERE student_id = ? AND portal_id = 3 AND teacher_approved = 1 LIMIT 1',
+          [sid]
+        );
+        if (!writingApproved.length) {
+          const memberInfo = query('SELECT name FROM students WHERE student_id = ?', [sid])[0];
+          return res.status(400).json({ 
+            error: `Gate of Erebus requires all members to complete Orpheus. ${memberInfo ? memberInfo.name : 'A member'} has not had their Orpheus writing approved.`
+          });
+        }
+      }
     } else if (building.requires_god_assignment) {
       const hasAssignment = query(
         'SELECT * FROM god_assignments WHERE alliance_id = ? AND god_name = ?',
@@ -4054,13 +4101,45 @@ app.get('/api/student/available-buildings', authenticateToken, (req, res) => {
       ORDER BY cost_points ASC
     `, [alliance.current_age]);
     
+    // For Gate of Erebus: check if all alliance members have completed Orpheus
+    let orpheusUnlocked = false;
+    if (alliance.current_age === 'Classical') {
+      try {
+        const allianceMembers = query('SELECT student_id FROM students WHERE alliance_id = ?', [student.alliance_id]);
+        orpheusUnlocked = allianceMembers.length > 0 && allianceMembers.every(member => {
+          const sid = member.student_id;
+          const hasReadingGuide = query(
+            `SELECT 1 FROM grade_records WHERE student_id = ? AND assignment_type = 'comp_conn' 
+             AND myth_god = 'Orpheus & Eurydice' AND section = 'classical' AND points_earned > 0 LIMIT 1`, [sid]
+          ).length > 0;
+          const quizPassed = query(
+            'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 3 AND passed = 1 LIMIT 1', [sid]
+          ).length > 0;
+          const writingApproved = query(
+            'SELECT 1 FROM student_myth_completion WHERE student_id = ? AND portal_id = 3 AND teacher_approved = 1 LIMIT 1', [sid]
+          ).length > 0;
+          return hasReadingGuide && quizPassed && writingApproved;
+        });
+      } catch (e) {
+        orpheusUnlocked = false;
+      }
+    }
+    
     // Count owned buildings
     const buildingsWithOwned = buildings.map(b => {
       const owned = buildingsOwned.filter(name => name === b.building_name).length;
+      let locked = false;
+      let lockReason = null;
+      if (b.building_name === 'Gate of Erebus' && !orpheusUnlocked) {
+        locked = true;
+        lockReason = 'All alliance members must complete Orpheus & Eurydice (Reading Guide + Quiz + Writing) to unlock this building.';
+      }
       return {
         ...b,
         owned,
-        icon: BUILDING_ICONS[b.building_name] || '🏛️'
+        icon: BUILDING_ICONS[b.building_name] || '🏛️',
+        locked,
+        lock_reason: lockReason
       };
     });
     
@@ -6922,6 +7001,23 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
        WHERE battle_id = ? AND ${myDeployCol} = 'prometheus'`,
       [battle_id]
     )[0];
+
+    // V93: Hecatoncheires scramble state
+    const myScrambleUsedCol = isChallenger ? 'challenger_scramble_used' : 'defender_scramble_used';
+    const oppScrambleUsedCol = isChallenger ? 'defender_scramble_used' : 'challenger_scramble_used';
+    const myScrambleUsedThisRound = currentRound ? currentRound[myScrambleUsedCol] === 1 : false;
+    const myHecatoncheiresCards = query('SELECT hecatoncheires_cards FROM students WHERE student_id = ?', [student_id])[0];
+
+    // Is a scramble currently active against ME? (opponent used it, it's still within the active window)
+    let opponentScrambleActive = false;
+    let scrambleEndsAt = null;
+    if (currentRound && currentRound.scramble_active_until && currentRound[oppScrambleUsedCol] === 1) {
+      const activeUntil = new Date(currentRound.scramble_active_until);
+      if (activeUntil > new Date()) {
+        opponentScrambleActive = true;
+        scrambleEndsAt = currentRound.scramble_active_until;
+      }
+    }
     
     res.json({
       battle_id: battle.battle_id,
@@ -6944,7 +7040,12 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       my_cooldowns: myCooldowns,
       available_gods: availableGods,
       apollo_used_by_me: apolloUsedByMe && apolloUsedByMe.cnt > 0,
-      prometheus_used_by_me: prometheusUsedByMe && prometheusUsedByMe.cnt > 0
+      prometheus_used_by_me: prometheusUsedByMe && prometheusUsedByMe.cnt > 0,
+      // V93: Hecatoncheires scramble
+      hecatoncheires_cards: myHecatoncheiresCards ? (myHecatoncheiresCards.hecatoncheires_cards || 0) : 0,
+      my_scramble_used_this_round: myScrambleUsedThisRound,
+      opponent_scramble_active: opponentScrambleActive,
+      scramble_ends_at: scrambleEndsAt
     });
   } catch (err) {
     console.error('Get battle error:', err);
@@ -7055,6 +7156,50 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
         }
       }
       
+      // === CERBERUS BLOCK (Gate of Erebus building) ===
+      // If a player deployed an offensive god and it wasn't already blocked by a defensive god,
+      // check if the OPPONENT owns Gate of Erebus — if so, 33% chance Cerberus blocks it.
+      try {
+        // Re-fetch the round in case a counter block was just written above
+        const roundAfterCounters = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
+        
+        const challengerAllianceBuildings = JSON.parse(
+          query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [battle.challenger_alliance_id])[0]?.buildings_owned || '[]'
+        );
+        const defenderAllianceBuildings = JSON.parse(
+          query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [battle.defender_alliance_id])[0]?.buildings_owned || '[]'
+        );
+        const challengerHasErebus = challengerAllianceBuildings.includes('Gate of Erebus');
+        const defenderHasErebus = defenderAllianceBuildings.includes('Gate of Erebus');
+        
+        // Challenger deployed an offensive god → check if DEFENDER has Erebus to block it
+        if (challengerGod && GOD_POWERS[challengerGod] && GOD_POWERS[challengerGod].type === 'offensive' 
+            && !roundAfterCounters.challenger_god_blocked && defenderHasErebus) {
+          const roll = Math.random();
+          if (roll < 0.33) {
+            run('UPDATE arena_battle_rounds SET challenger_god_blocked = 1 WHERE round_id = ?', [currentRound.round_id]);
+            run(`INSERT OR IGNORE INTO cerberus_block_log (battle_id, round_id, blocked_player_id, roll) VALUES (?, ?, ?, ?)`,
+              [battle_id, currentRound.round_id, battle.challenger_id, roll]);
+            console.log(`🐕 CERBERUS BLOCKED challenger's ${challengerGod}! Roll: ${roll.toFixed(2)}`);
+          }
+        }
+        
+        // Defender deployed an offensive god → check if CHALLENGER has Erebus to block it
+        if (defenderGod && GOD_POWERS[defenderGod] && GOD_POWERS[defenderGod].type === 'offensive'
+            && !roundAfterCounters.defender_god_blocked && challengerHasErebus) {
+          const roll = Math.random();
+          if (roll < 0.33) {
+            run('UPDATE arena_battle_rounds SET defender_god_blocked = 1 WHERE round_id = ?', [currentRound.round_id]);
+            run(`INSERT OR IGNORE INTO cerberus_block_log (battle_id, round_id, blocked_player_id, roll) VALUES (?, ?, ?, ?)`,
+              [battle_id, currentRound.round_id, battle.defender_id, roll]);
+            console.log(`🐕 CERBERUS BLOCKED defender's ${defenderGod}! Roll: ${roll.toFixed(2)}`);
+          }
+        }
+      } catch (cerberusErr) {
+        // Non-fatal — Cerberus block is a bonus effect, don't let it break the battle
+        console.log('Cerberus block check error (non-fatal):', cerberusErr.message);
+      }
+      
       // Move to question phase - question won't show until BOTH clients call /question-ready
       // Set phase_ends_at with extra time to account for sync wait
       const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.QUESTION_PHASE + 10000).toISOString();
@@ -7104,6 +7249,80 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Deploy god error:', err);
     res.status(500).json({ error: 'Failed to deploy god' });
+  }
+});
+
+// === V93: Use Hecatoncheires scramble card ===
+// Called by a student during the question phase to scramble their opponent's answers for 2 seconds.
+// Requires Constellations virtue to be claimed (enforced at award time, not here).
+app.post('/api/arena/use-scramble', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { battle_id } = req.body;
+
+    if (!battle_id) return res.status(400).json({ error: 'Missing battle_id' });
+
+    // 1. Verify the battle is in_progress and the student is in it
+    const battle = query("SELECT * FROM arena_battles WHERE battle_id = ? AND status = 'in_progress'", [battle_id])[0];
+    if (!battle) return res.status(404).json({ error: 'Battle not found or not in progress' });
+
+    const isChallenger = battle.challenger_id === student_id;
+    const isDefender = battle.defender_id === student_id;
+    if (!isChallenger && !isDefender) return res.status(403).json({ error: 'You are not in this battle' });
+
+    // 2. Verify the current round is in question phase (scramble fires during answering, not deploy)
+    const currentRound = query(
+      "SELECT * FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?",
+      [battle_id, battle.current_round]
+    )[0];
+    if (!currentRound) return res.status(400).json({ error: 'No active round found' });
+    if (currentRound.phase !== 'question') {
+      return res.status(400).json({ error: 'Scramble can only be used during the question phase' });
+    }
+
+    // 3. Check student has a card
+    const student = query('SELECT hecatoncheires_cards FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student || (student.hecatoncheires_cards || 0) < 1) {
+      return res.status(400).json({ error: 'No Hecatoncheires cards available' });
+    }
+
+    // 4. Check this student hasn't already used scramble this round
+    const myScrambleCol = isChallenger ? 'challenger_scramble_used' : 'defender_scramble_used';
+    if (currentRound[myScrambleCol] === 1) {
+      return res.status(400).json({ error: 'Already used scramble this round' });
+    }
+
+    // 5. Check scramble isn't already active from a previous use this round
+    if (currentRound.scramble_active_until) {
+      const activeUntil = new Date(currentRound.scramble_active_until);
+      if (activeUntil > new Date()) {
+        return res.status(400).json({ error: 'A scramble is already active this round' });
+      }
+    }
+
+    // 6. Deduct the card and activate the scramble
+    run('UPDATE students SET hecatoncheires_cards = hecatoncheires_cards - 1 WHERE student_id = ? AND hecatoncheires_cards > 0', [student_id]);
+
+    // Scramble lasts 2500ms (2s effect + 500ms buffer for polling lag)
+    const scrambleActiveUntil = new Date(Date.now() + 2500).toISOString();
+    run(`UPDATE arena_battle_rounds 
+         SET ${myScrambleCol} = 1, scramble_active_until = ?, scramble_used_by = ?
+         WHERE round_id = ?`,
+      [scrambleActiveUntil, student_id, currentRound.round_id]);
+
+    saveDatabase();
+    console.log(`⚡ HECATONCHEIRES SCRAMBLE used by student ${student_id} in battle ${battle_id} round ${battle.current_round}. Active until ${scrambleActiveUntil}`);
+
+    const remainingCards = query('SELECT hecatoncheires_cards FROM students WHERE student_id = ?', [student_id])[0];
+    res.json({
+      success: true,
+      scramble_active_until: scrambleActiveUntil,
+      cards_remaining: remainingCards ? remainingCards.hecatoncheires_cards : 0
+    });
+
+  } catch (err) {
+    console.error('Use scramble error:', err);
+    res.status(500).json({ error: 'Failed to use scramble' });
   }
 });
 
@@ -7876,6 +8095,18 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
     // Count total virtues earned
     const totalVirtues = query('SELECT COUNT(*) as count FROM student_myth_completion WHERE student_id = ? AND virtue_claimed = 1', [student_id])[0].count;
     
+    // === V93: Award Hecatoncheires card for completing Constellations (portal 7) ===
+    let hecatoncheiresAwarded = false;
+    if (parseInt(portal_id) === 7) {
+      // Only award if student doesn't already have one (idempotent — safe if claimed twice somehow)
+      const currentCards = query('SELECT hecatoncheires_cards FROM students WHERE student_id = ?', [student_id])[0];
+      if (currentCards && (currentCards.hecatoncheires_cards || 0) === 0) {
+        run('UPDATE students SET hecatoncheires_cards = 1 WHERE student_id = ?', [student_id]);
+        hecatoncheiresAwarded = true;
+        console.log(`⚡ Hecatoncheires card awarded to student ${student_id} (Constellations virtue claimed)`);
+      }
+    }
+    
     res.json({
       success: true,
       virtue: {
@@ -7887,7 +8118,8 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
         virtue_emoji: portal.virtue_emoji,
         glow_color: portal.glow_color
       },
-      total_virtues: totalVirtues
+      total_virtues: totalVirtues,
+      hecatoncheires_awarded: hecatoncheiresAwarded  // client can show a bonus celebration if true
     });
   } catch (err) {
     console.error('Claim virtue error:', err);
