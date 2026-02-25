@@ -1124,9 +1124,14 @@
                         <label style="display: block; color: #c9a0dc; font-size: 14px; margin-bottom: 8px;">Select Side Quest</label>
                         <select id="side-quest-select" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; color: white;" onchange="loadEligibleAlliances()">
                             <option value="">Choose side quest...</option>
-                            <option value="1">🔨 Ring of Many (-10% building costs)</option>
-                            <option value="2">🏹 Panacea's Remedy (+5% point bonus)</option>
-                            <option value="3">🌾 Three Seeds (Granary unlock)</option>
+                            <optgroup label="Archaic Age">
+                                <option value="1">🔨 Ring of Many (-10% building costs)</option>
+                                <option value="2">🏹 Panacea's Remedy (+5% point bonus)</option>
+                                <option value="3">🌾 Three Seeds (Granary unlock)</option>
+                            </optgroup>
+                            <optgroup label="Classical Age">
+                                <option value="4">🔥 Hearth of Hestia (+8% alliance point bonus)</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div>
@@ -4238,7 +4243,7 @@
 
             modal.classList.add('show');
 
-            // If points are NEGATIVE, check for Reverse Card
+            // If points are NEGATIVE, check for Reverse Card, then Oracle
             if (result.pointsChange < 0) {
                 checkAndOfferReverseCard(result);
             } else {
@@ -4251,6 +4256,100 @@
                 }
             }
         }
+
+        // Check if alliance has Oracle re-spin available
+        function checkAndOfferOracle(result) {
+            if (result.oracleAvailable) {
+                showOracleOffer(result);
+            } else {
+                attachApplyFateButton();
+            }
+        }
+        
+        // Show Oracle re-spin offer popup
+        function showOracleOffer(result) {
+            const popup = document.createElement('div');
+            popup.id = 'oracle-offer';
+            popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #0a1628 0%, #1a2744 100%); padding: 40px; border-radius: 20px; border: 3px solid #3b82f6; z-index: 10003; text-align: center; min-width: 450px; box-shadow: 0 0 50px rgba(59, 130, 246, 0.5);';
+            popup.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 15px;">🏛️</div>
+                <div style="font-size: 24px; color: #60a5fa; font-weight: 800; margin-bottom: 15px;">
+                    THE ORACLE SPEAKS!
+                </div>
+                <div style="font-size: 16px; color: rgba(255,255,255,0.8); margin-bottom: 10px;">
+                    <strong>${selectedAllianceName}</strong> may consult the Oracle to change fate!
+                </div>
+                <div style="font-size: 16px; color: rgba(255,255,255,0.7); margin-bottom: 10px;">
+                    Current result: <strong style="color: #ef4444;">${result.pointsChange} points</strong>
+                </div>
+                <div style="font-size: 18px; color: #60a5fa; margin-bottom: 25px;">
+                    The Oracle will nullify this fate — <strong>0 points lost</strong>
+                </div>
+                <div style="font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 20px;">
+                    (1 re-spin per week — this will use it)
+                </div>
+                <div style="display: flex; gap: 20px; justify-content: center;">
+                    <button id="oracle-yes-btn" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 30px; border-radius: 10px; cursor: pointer;">
+                        🏛️ CONSULT THE ORACLE
+                    </button>
+                    <button id="oracle-no-btn" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 30px; border-radius: 10px; cursor: pointer;">
+                        ❌ NO, ACCEPT FATE
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(popup);
+            
+            document.getElementById('oracle-yes-btn').addEventListener('click', async () => {
+                try {
+                    const resp = await fetch(`${API_URL}/teacher/oracle-respin`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            alliance_id: selectedAllianceId,
+                            original_points_change: result.pointsChange
+                        })
+                    });
+                    const data = await resp.json();
+                    
+                    if (resp.ok) {
+                        popup.innerHTML = `
+                            <div style="font-size: 64px; margin-bottom: 15px;">🏛️✨</div>
+                            <div style="font-size: 28px; color: #60a5fa; font-weight: 800; margin-bottom: 15px;">
+                                THE ORACLE HAS SPOKEN!
+                            </div>
+                            <div style="font-size: 20px; color: #4ade80; margin-bottom: 15px;">
+                                Fate has been nullified! ${Math.abs(result.pointsChange)} points restored!
+                            </div>
+                            <div style="font-size: 16px; color: rgba(255,255,255,0.6);">
+                                New total: <strong style="color: #fbbf24;">${data.updatedAlliance.total_points} pts</strong>
+                            </div>
+                        `;
+                        
+                        // Update the result display to show 0 change
+                        result.pointsChange = 0;
+                        result.updatedAlliance = data.updatedAlliance;
+                        
+                        setTimeout(() => {
+                            popup.remove();
+                            attachApplyFateButton();
+                        }, 3000);
+                    } else {
+                        alert('Oracle error: ' + (data.error || 'Unknown error'));
+                        popup.remove();
+                        attachApplyFateButton();
+                    }
+                } catch (err) {
+                    console.error('Oracle respin error:', err);
+                    popup.remove();
+                    attachApplyFateButton();
+                }
+            });
+            
+            document.getElementById('oracle-no-btn').addEventListener('click', () => {
+                popup.remove();
+                attachApplyFateButton();
+            });
+        }
         
         // Check if alliance has Reverse Card and offer it
         async function checkAndOfferReverseCard(result) {
@@ -4262,12 +4361,12 @@
                     // Show Reverse Card offer popup
                     showReverseCardOffer(result, data.cardCount);
                 } else {
-                    // No card available, just attach button
-                    attachApplyFateButton();
+                    // No Reverse Card — check for Oracle re-spin
+                    checkAndOfferOracle(result);
                 }
             } catch (err) {
                 console.error('Error checking reverse card:', err);
-                attachApplyFateButton();
+                checkAndOfferOracle(result);
             }
         }
         
@@ -4307,10 +4406,10 @@
                 await applyReverseCard(result);
             };
             
-            // NO button - keep card, proceed normally
+            // NO button - keep card, check for Oracle re-spin next
             document.getElementById('reverse-no-btn').onclick = () => {
                 popup.remove();
-                attachApplyFateButton();
+                checkAndOfferOracle(result);
             };
         }
         

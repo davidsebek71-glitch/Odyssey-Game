@@ -417,8 +417,6 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
         if (questId === 1) return '🔨';
         if (questId === 2) return '🏹';
         if (questId === 3) return '🌾';
-        if (questId === 4) return '🏠';
-        if (questId === 5) return '🦉';
         return '';
       }).join('');
     });
@@ -486,8 +484,12 @@ app.post('/api/teacher/award-points', authenticateToken, (req, res) => {
     let buildingBonus = 0;
     let achievementBonus = 0;
     
-    // Only apply bonuses to positive point awards
-    if (amount > 0) {
+    // Categories exempt from all multipliers — a bonus is a reward in itself
+    const EXEMPT_CATEGORIES = ['bonus_work', 'extra_credit', 'citizenship'];
+    const isExempt = EXEMPT_CATEGORIES.includes(category);
+    
+    // Only apply bonuses to positive point awards that aren't exempt
+    if (amount > 0 && !isExempt) {
       // Track achievement progress if student specified
       if (student_id && category) {
         updateAchievementProgress(student_id, category, amount, max_points || null);
@@ -1204,8 +1206,6 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       if (questId === 1) return '🔨';
       if (questId === 2) return '🏹';
       if (questId === 3) return '🌾';
-        if (questId === 4) return '🏠';
-        if (questId === 5) return '🦉';
       return '';
     }).join('');
     
@@ -1314,8 +1314,6 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         if (questId === 1) return '🔨';
         if (questId === 2) return '🏹';
         if (questId === 3) return '🌾';
-        if (questId === 4) return '🏠';
-        if (questId === 5) return '🦉';
         return '';
       }).join('');
       
@@ -4805,6 +4803,31 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?)`, 
         [alliance_id, fate_id, fate.fate_name, fate.fate_type, result.pointsChange, teacher_id]);
     
+    // Check if alliance owns Oracle building (grants 1 free re-spin per week on negative fates)
+    const buildingsOwned = JSON.parse(alliance.buildings_owned || '[]');
+    const hasOracle = buildingsOwned.includes('Oracle');
+    let oracleAvailable = false;
+    
+    if (hasOracle && result.pointsChange < 0) {
+      // Check if Oracle re-spin was used this week (Sunday-Saturday)
+      const now = new Date();
+      const dayOfWeek = now.getDay(); // 0=Sunday
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - dayOfWeek);
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const respinUsed = query(
+        `SELECT COUNT(*) as count FROM fate_spins 
+         WHERE alliance_id = ? AND fate_name = 'Oracle Re-spin' AND spun_at >= ?`,
+        [alliance_id, startOfWeek.toISOString()]
+      )[0].count;
+      
+      oracleAvailable = respinUsed === 0;
+    }
+    
+    result.oracleAvailable = oracleAvailable;
+    result.hasOracle = hasOracle;
+    
     // Get updated alliance
     const updatedAlliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
     result.updatedAlliance = updatedAlliance;
@@ -4813,6 +4836,66 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Spin fate error:', err);
     res.status(500).json({ error: 'Failed to spin fate' });
+  }
+});
+
+// Oracle Re-spin: Undo a negative fate and re-spin (1 per week per alliance)
+app.post('/api/teacher/oracle-respin', authenticateToken, (req, res) => {
+  try {
+    const { alliance_id, original_spin_id, original_points_change } = req.body;
+    const teacher_id = req.user.id;
+    
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+    
+    const buildingsOwned = JSON.parse(alliance.buildings_owned || '[]');
+    if (!buildingsOwned.includes('Oracle')) {
+      return res.status(400).json({ error: 'Alliance does not own an Oracle' });
+    }
+    
+    // Check weekly usage
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - dayOfWeek);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const respinUsed = query(
+      `SELECT COUNT(*) as count FROM fate_spins 
+       WHERE alliance_id = ? AND fate_name = 'Oracle Re-spin' AND spun_at >= ?`,
+      [alliance_id, startOfWeek.toISOString()]
+    )[0].count;
+    
+    if (respinUsed > 0) {
+      return res.status(400).json({ error: 'Oracle re-spin already used this week' });
+    }
+    
+    // Reverse the negative fate points
+    const reverseAmount = Math.abs(original_points_change);
+    run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
+        [reverseAmount, alliance_id]);
+    
+    run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
+         VALUES (?, ?, ?, ?, ?)`, 
+        [alliance_id, reverseAmount, 'fate', 'Oracle Re-spin: reversed negative fate', teacher_id]);
+    
+    // Log the re-spin usage
+    run(`INSERT INTO fate_spins (alliance_id, fate_id, fate_name, result_type, points_change, teacher_id) 
+         VALUES (?, ?, ?, ?, ?, ?)`, 
+        [alliance_id, 0, 'Oracle Re-spin', 'special', reverseAmount, teacher_id]);
+    
+    saveDatabase();
+    
+    const updatedAlliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    
+    res.json({ 
+      success: true, 
+      message: `The Oracle's prophecy has changed fate! ${reverseAmount} points restored.`,
+      updatedAlliance
+    });
+  } catch (err) {
+    console.error('Oracle respin error:', err);
+    res.status(500).json({ error: 'Failed to use Oracle re-spin' });
   }
 });
 
@@ -5267,19 +5350,7 @@ app.post('/api/teacher/approve-side-quest', authenticateToken, (req, res) => {
     
     let message = `Approved ${student.name}'s completion of ${quest.quest_name}`;
     if (allComplete) {
-      message += ` — ALL members of ${alliance.alliance_name} are now approved!`;
-      
-      // Auto-grant Reverse Card for Forbidden Archive
-      if (quest.quest_name === 'The Forbidden Archive') {
-        const currentCards = query('SELECT reverse_cards FROM alliances WHERE alliance_id = ?', [completion.alliance_id])[0];
-        const cardsNow = currentCards ? (currentCards.reverse_cards || 0) : 0;
-        run('UPDATE alliances SET reverse_cards = ? WHERE alliance_id = ?', [cardsNow + 1, completion.alliance_id]);
-        saveDatabase();
-        message += ` 🔄 Reverse Card awarded to ${alliance.alliance_name}!`;
-        console.log(`🔄 Reverse Card awarded to alliance ${completion.alliance_id} (${alliance.alliance_name})`);
-      } else {
-        message += ` Go to Grant God Assignments to grant the reward.`;
-      }
+      message += ` — ALL members of ${alliance.alliance_name} are now approved! Go to Grant God Assignments to grant the reward.`;
     } else {
       message += ` (${approvedCompletions.length}/${allianceMembers.length} members approved)`;
     }
@@ -5357,209 +5428,6 @@ app.post('/api/teacher/unapprove-side-quest', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Unapprove side quest error:', err);
     res.status(500).json({ error: 'Failed to unapprove side quest' });
-  }
-});
-
-// ==================== FORBIDDEN ARCHIVE ENDPOINTS ====================
-
-// Get FA unlock status and progress for student's alliance
-app.get('/api/student/forbidden-archive-status', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const student = query('SELECT alliance_id, name FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student || !student.alliance_id) {
-      return res.json({ unlocked: false, error: 'Not in an alliance' });
-    }
-    
-    // Get all non-ghost alliance members
-    const members = query(
-      `SELECT s.student_id, s.name FROM students s 
-       WHERE s.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
-      [student.alliance_id]
-    );
-    
-    // Required portal IDs: 1=Pandora, 2=Phaethon, 5=Icarus
-    const requiredPortals = [1, 2, 5];
-    const portalNames = { 1: 'Pandora', 2: 'Phaethon', 5: 'Icarus' };
-    
-    // Check each member's quiz completion
-    const memberProgress = members.map(m => {
-      const quizzes = query(
-        `SELECT DISTINCT portal_id FROM myth_quiz_attempts 
-         WHERE student_id = ? AND portal_id IN (1, 2, 5) AND passed = 1`,
-        [m.student_id]
-      );
-      const passedPortals = quizzes.map(q => q.portal_id);
-      return {
-        student_id: m.student_id,
-        name: m.name,
-        pandora: passedPortals.includes(1),
-        phaethon: passedPortals.includes(2),
-        icarus: passedPortals.includes(5),
-        allPassed: requiredPortals.every(p => passedPortals.includes(p))
-      };
-    });
-    
-    const unlocked = memberProgress.every(m => m.allPassed);
-    
-    // Check if THIS student has completed the FA
-    const faQuest = query("SELECT quest_id FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'")[0];
-    let myCompletion = null;
-    let allianceComplete = false;
-    let reverseCards = 0;
-    
-    if (faQuest) {
-      myCompletion = query(
-        'SELECT status, journey_data FROM side_quest_completions WHERE student_id = ? AND quest_id = ?',
-        [student_id, faQuest.quest_id]
-      )[0] || null;
-      
-      // Check if all alliance members have approved completions
-      const approvedCount = query(
-        `SELECT COUNT(*) as count FROM side_quest_completions 
-         WHERE quest_id = ? AND alliance_id = ? AND status = 'approved'`,
-        [faQuest.quest_id, student.alliance_id]
-      )[0].count;
-      
-      allianceComplete = approvedCount >= members.length && members.length > 0;
-      
-      // Get current reverse cards
-      const alliance = query('SELECT reverse_cards FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-      reverseCards = alliance ? (alliance.reverse_cards || 0) : 0;
-    }
-    
-    // Check saved progress for this student
-    let savedProgress = null;
-    if (faQuest) {
-      const saved = query(
-        'SELECT journey_data FROM side_quest_completions WHERE student_id = ? AND quest_id = ? AND journey_data IS NOT NULL',
-        [student_id, faQuest.quest_id]
-      )[0];
-      if (saved && saved.journey_data) {
-        try { savedProgress = JSON.parse(saved.journey_data); } catch(e) {}
-      }
-    }
-    
-    res.json({
-      unlocked,
-      memberProgress,
-      myCompletion: myCompletion ? { status: myCompletion.status } : null,
-      allianceComplete,
-      reverseCards,
-      savedProgress,
-      questId: faQuest ? faQuest.quest_id : null
-    });
-  } catch (err) {
-    console.error('FA status error:', err);
-    res.status(500).json({ error: 'Failed to check Forbidden Archive status' });
-  }
-});
-
-// Save FA journey progress (called periodically by the game)
-app.post('/api/student/forbidden-archive-save', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const { journeyData } = req.body;
-    
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-    
-    const faQuest = query("SELECT quest_id FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'")[0];
-    if (!faQuest) return res.status(404).json({ error: 'Quest not found' });
-    
-    // Check if record exists
-    const existing = query(
-      'SELECT completion_id, status FROM side_quest_completions WHERE student_id = ? AND quest_id = ?',
-      [student_id, faQuest.quest_id]
-    )[0];
-    
-    if (existing) {
-      // Update journey data (don't overwrite if already approved)
-      run('UPDATE side_quest_completions SET journey_data = ? WHERE completion_id = ?',
-        [JSON.stringify(journeyData), existing.completion_id]);
-    } else {
-      // Create new record with in_progress status
-      run(`INSERT INTO side_quest_completions (student_id, quest_id, alliance_id, status, journey_data)
-           VALUES (?, ?, ?, 'in_progress', ?)`,
-        [student_id, faQuest.quest_id, student.alliance_id, JSON.stringify(journeyData)]);
-    }
-    
-    saveDatabase();
-    res.json({ success: true });
-  } catch (err) {
-    console.error('FA save error:', err);
-    res.status(500).json({ error: 'Failed to save progress' });
-  }
-});
-
-// Complete FA (called when all 3 journeys done)
-app.post('/api/student/forbidden-archive-complete', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const { journeyData } = req.body;
-    
-    const student = query('SELECT alliance_id, name FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-    
-    const faQuest = query("SELECT quest_id FROM side_quests_ref WHERE quest_name = 'The Forbidden Archive'")[0];
-    if (!faQuest) return res.status(404).json({ error: 'Quest not found' });
-    
-    // Validate journey data — all 3 must be done
-    if (!journeyData || !journeyData.pandora || !journeyData.phaethon || !journeyData.icarus) {
-      return res.status(400).json({ error: 'All three journeys must be completed' });
-    }
-    if (!journeyData.pandora.done || !journeyData.phaethon.done || !journeyData.icarus.done) {
-      return res.status(400).json({ error: 'All three journeys must be marked complete' });
-    }
-    
-    // Upsert completion
-    const existing = query(
-      'SELECT completion_id, status FROM side_quest_completions WHERE student_id = ? AND quest_id = ?',
-      [student_id, faQuest.quest_id]
-    )[0];
-    
-    if (existing) {
-      if (existing.status === 'approved') {
-        return res.json({ success: true, message: 'Already approved', alreadyComplete: true });
-      }
-      run(`UPDATE side_quest_completions SET status = 'pending', journey_data = ? WHERE completion_id = ?`,
-        [JSON.stringify(journeyData), existing.completion_id]);
-    } else {
-      run(`INSERT INTO side_quest_completions (student_id, quest_id, alliance_id, status, journey_data)
-           VALUES (?, ?, ?, 'pending', ?)`,
-        [student_id, faQuest.quest_id, student.alliance_id, JSON.stringify(journeyData)]);
-    }
-    
-    saveDatabase();
-    
-    console.log(`🦉 ${student.name} completed The Forbidden Archive!`);
-    res.json({ success: true, message: 'Quest completion submitted for approval!' });
-  } catch (err) {
-    console.error('FA complete error:', err);
-    res.status(500).json({ error: 'Failed to submit completion' });
-  }
-});
-
-// Use a Reverse Card (called from Fate spinner)
-app.post('/api/student/use-reverse-card', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-    
-    const alliance = query('SELECT reverse_cards FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-    if (!alliance || !alliance.reverse_cards || alliance.reverse_cards <= 0) {
-      return res.status(400).json({ error: 'No Reverse Cards available' });
-    }
-    
-    run('UPDATE alliances SET reverse_cards = reverse_cards - 1 WHERE alliance_id = ?', [student.alliance_id]);
-    saveDatabase();
-    
-    console.log(`🔄 Alliance ${student.alliance_id} used a Reverse Card`);
-    res.json({ success: true, remainingCards: alliance.reverse_cards - 1 });
-  } catch (err) {
-    console.error('Use reverse card error:', err);
-    res.status(500).json({ error: 'Failed to use Reverse Card' });
   }
 });
 
@@ -5731,8 +5599,8 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       students = students.filter(s => s.class_period === period);
     }
     
-    // Get Archaic side quests only (Classical quests like Hearth of Hestia excluded)
-    const sideQuests = query("SELECT * FROM side_quests_ref WHERE age = 'Archaic' ORDER BY quest_id");
+    // Get ALL side quests (Archaic + Classical) for the tracker
+    const sideQuests = query("SELECT * FROM side_quests_ref ORDER BY age, quest_id");
     
     // Get all bonus assignments
     const bonusAssignments = query(`
