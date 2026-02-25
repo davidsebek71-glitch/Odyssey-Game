@@ -9712,7 +9712,40 @@ function scanForBadges(studentId) {
       switch (badge.unlock_type) {
         case 'god_bonus': {
           const godName = badge.unlock_value;
-          qualified = progress[`pantheon_${godName}_bonus_seen`] === 1;
+          // Must have bonus_seen AND scored 70%+ on the bonus assignment
+          if (progress[`pantheon_${godName}_bonus_seen`] === 1) {
+            // Look up grade for this god's bonus assignment
+            const godNameCap = godName.charAt(0).toUpperCase() + godName.slice(1);
+            const gradeCheck = query(`
+              SELECT gr.points_earned, gr.points_possible 
+              FROM grade_records gr
+              JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+              WHERE gr.student_id = ? 
+                AND ar.section = 'bonus' 
+                AND ar.is_bonus = 1
+                AND LOWER(ar.myth_god) = ?
+              ORDER BY gr.points_earned DESC LIMIT 1
+            `, [studentId, godName])[0];
+            
+            if (gradeCheck && gradeCheck.points_possible > 0) {
+              const pct = gradeCheck.points_earned / gradeCheck.points_possible;
+              qualified = pct >= 0.70;
+            } else {
+              // No grade record found — check if teacher manually marked (Apollo/Artemis)
+              // bonus_seen alone counts for gods without in-game bonus assignments
+              const hasAssignment = query(`
+                SELECT COUNT(*) as count FROM assignments_ref 
+                WHERE section = 'bonus' AND is_bonus = 1 AND LOWER(myth_god) = ?
+              `, [godName])[0]?.count || 0;
+              
+              if (hasAssignment === 0) {
+                // No bonus assignment exists for this god (e.g. Apollo, Artemis)
+                // bonus_seen was set manually by teacher — trust it
+                qualified = true;
+              }
+              // else: assignment exists but no grade recorded yet — not qualified
+            }
+          }
           break;
         }
         
@@ -10016,6 +10049,34 @@ app.post('/api/teacher/award-badge', authenticateToken, (req, res) => {
   }
 });
 
+// POST /api/teacher/mark-bonus-complete — Manually mark a god bonus as complete for a student
+app.post('/api/teacher/mark-bonus-complete', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    
+    const { student_id, god } = req.body;
+    if (!student_id || !god) return res.status(400).json({ error: 'student_id and god required' });
+    
+    const validGods = ['zeus', 'hera', 'poseidon', 'athena', 'apollo', 'artemis', 'aphrodite', 'ares', 'hephaestus', 'hermes', 'demeter', 'prometheus', 'hades'];
+    const godLower = god.toLowerCase();
+    if (!validGods.includes(godLower)) return res.status(400).json({ error: 'Invalid god name' });
+    
+    // Set bonus_seen = 1 for this student
+    run(`UPDATE student_achievement_progress 
+         SET pantheon_${godLower}_bonus_seen = 1
+         WHERE student_id = ?`, [student_id]);
+    
+    const studentName = query('SELECT name FROM students WHERE student_id = ?', [student_id])[0]?.name;
+    console.log(`🏅 Teacher marked ${god} bonus complete for ${studentName} (${student_id})`);
+    
+    saveDatabase();
+    res.json({ success: true, message: `${god} bonus marked complete for ${studentName}` });
+  } catch (err) {
+    console.error('Mark bonus complete error:', err);
+    res.status(500).json({ error: 'Failed to mark bonus complete' });
+  }
+});
+
 // POST /api/teacher/award-fate-breaker — Award Fate Breaker to all alliance members
 app.post('/api/teacher/award-fate-breaker', authenticateToken, (req, res) => {
   try {
@@ -10159,12 +10220,22 @@ app.get('/api/admin/debug-badges/:studentId', authenticateToken, (req, res) => {
       WHERE sqc.student_id = ? AND sqc.status = 'approved'
     `, [studentId]);
     
-    // God bonus status
+    // God bonus status with grades
     const gods = ['zeus', 'hera', 'poseidon', 'athena', 'apollo', 'artemis', 'aphrodite', 'ares', 'hephaestus', 'hermes', 'demeter', 'prometheus', 'hades'];
     const godBonuses = {};
     const godUnlocks = {};
     gods.forEach(g => {
-      godBonuses[g] = progress[`pantheon_${g}_bonus_seen`] === 1;
+      const bonusSeen = progress[`pantheon_${g}_bonus_seen`] === 1;
+      // Check grade
+      const grade = query(`
+        SELECT gr.points_earned, gr.points_possible 
+        FROM grade_records gr
+        JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+        WHERE gr.student_id = ? AND ar.section = 'bonus' AND ar.is_bonus = 1 AND LOWER(ar.myth_god) = ?
+        ORDER BY gr.points_earned DESC LIMIT 1
+      `, [studentId, g])[0];
+      const pct = grade ? Math.round((grade.points_earned / grade.points_possible) * 100) : null;
+      godBonuses[g] = { bonus_seen: bonusSeen, grade_pct: pct, meets_70: pct !== null ? pct >= 70 : 'no_grade' };
       godUnlocks[g] = progress[`pantheon_${g}_unlocked`] === 1;
     });
     
