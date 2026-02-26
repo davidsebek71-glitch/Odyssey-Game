@@ -1292,7 +1292,7 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
     }
   } catch (err) {
     console.error('Review submission error:', err);
-    res.status(500).json({ error: 'Failed to review submission' });
+    res.status(500).json({ error: 'Failed to review submission: ' + err.message });
   }
 });
 
