@@ -32,6 +32,16 @@
             from { transform: translateY(-10px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
+        @keyframes pandoraGlow {
+            0%, 100% { box-shadow: 0 0 8px rgba(255, 215, 0, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 170, 0, 0.2); }
+        }
+        @keyframes pandoraReveal {
+            0% { box-shadow: 0 0 0 rgba(255, 215, 0, 0); border-color: rgba(255,255,255,0.2); }
+            20% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.8), inset 0 0 15px rgba(255, 215, 0, 0.3); border-color: #ffd700; }
+            80% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.8), inset 0 0 15px rgba(255, 215, 0, 0.3); border-color: #ffd700; }
+            100% { box-shadow: 0 0 0 rgba(255, 215, 0, 0); border-color: rgba(255,255,255,0.2); }
+        }
 
         @keyframes bonusPulse {
             0%, 100% { box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255,255,255,0.2); }
@@ -8475,7 +8485,7 @@
                         <div style="text-align: center; padding: 30px;">
                             <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
                             <h3 style="color: #ffd700;">Waiting for opponent to choose their god...</h3>
-                            <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed || 'No Power'}</p>
+                            <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed === 'pandora_box' ? '🏺 Hope Remains' : (roundData.my_god_deployed || 'No Power')}</p>
                         </div>
                     `;
                 } else {
@@ -8525,6 +8535,32 @@
                         <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                             ${godsHTML}
                         </div>
+                        ${(data.pandora_box_eligible && !data.pandora_box_used && myScore === 0 && oppScore === 2) ? `
+                        <div style="text-align: center; margin-bottom: 15px;">
+                            <div style="
+                                background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,170,0,0.1));
+                                border: 2px solid rgba(255,215,0,0.5);
+                                border-radius: 12px;
+                                padding: 15px 20px;
+                                display: inline-block;
+                                animation: pandoraGlow 2s ease-in-out infinite;
+                            ">
+                                <p style="color: #ffd700; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">🏺 Pandora's Box</p>
+                                <button onclick="deployGod('pandora_box')" style="
+                                    background: linear-gradient(135deg, #ffd700, #ff8c00);
+                                    border: none;
+                                    color: #1a1a2e;
+                                    padding: 10px 25px;
+                                    border-radius: 8px;
+                                    font-weight: bold;
+                                    font-size: 14px;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">✨ Hope Remains ✨</button>
+                                <p style="color: rgba(255,215,0,0.7); font-size: 10px; margin: 6px 0 0 0;">Reveals the correct answer briefly · Cannot be blocked · Once per battle</p>
+                            </div>
+                        </div>
+                        ` : ''}
                         <div style="text-align: center;">
                             <button onclick="deployGod(null)" style="
                                 background: rgba(100,100,100,0.3);
@@ -8616,9 +8652,15 @@
                 // FIX 6: Check if MY god is blocked (was checking both players — wrong logic)
                 const myBlockedForBanner = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                 if (roundData.my_god_deployed && !myBlockedForBanner) {
-                    effectsHTML = `<div style="background: rgba(34,197,94,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                        <span style="color: #22c55e;">Your ${roundData.my_god_deployed} power is active!</span>
-                    </div>`;
+                    if (roundData.my_god_deployed === 'pandora_box') {
+                        effectsHTML = `<div style="background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,170,0,0.1)); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 1px solid rgba(255,215,0,0.3);">
+                            <span style="color: #ffd700;">🏺 Hope Remains — the correct answer will glow gold briefly!</span>
+                        </div>`;
+                    } else {
+                        effectsHTML = `<div style="background: rgba(34,197,94,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                            <span style="color: #22c55e;">Your ${roundData.my_god_deployed} power is active!</span>
+                        </div>`;
+                    }
                 }
                 if (roundData.opponent_god_deployed && roundData.my_god_deployed) {
                     // Check for blocks
@@ -8664,10 +8706,12 @@
                         const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
                         godInfoHTML = '<div style="margin-top: 20px; font-size: 16px;">';
                         if (myGod) {
-                            godInfoHTML += `<p style="color: ${myBlocked ? '#ff6b6b' : '#22c55e'};">Your ${myGod}${myBlocked ? ' was BLOCKED!' : ' is active!'}</p>`;
+                            const myGodDisplay = myGod === 'pandora_box' ? '🏺 Hope Remains' : myGod;
+                            godInfoHTML += `<p style="color: ${myBlocked ? '#ff6b6b' : (myGod === 'pandora_box' ? '#ffd700' : '#22c55e')};">${myGod === 'pandora_box' ? myGodDisplay + ' is active!' : 'Your ' + myGodDisplay + (myBlocked ? ' was BLOCKED!' : ' is active!')}</p>`;
                         }
                         if (oppGod) {
-                            godInfoHTML += `<p style="color: ${oppBlocked ? '#22c55e' : '#ff6b6b'};">Opponent deployed ${oppGod}${oppBlocked ? ' (BLOCKED!)' : ''}</p>`;
+                            const oppGodDisplay = oppGod === 'pandora_box' ? '🏺 Hope Remains' : oppGod;
+                            godInfoHTML += `<p style="color: ${oppBlocked ? '#22c55e' : '#ff6b6b'};">Opponent deployed ${oppGodDisplay}${oppBlocked ? ' (BLOCKED!)' : ''}</p>`;
                         }
                         godInfoHTML += '</div>';
                     }
@@ -8833,6 +8877,27 @@
                         activeAphrodite = (myGod === 'aphrodite');
                     } else {
                         activeAphrodite = false;
+                    }
+                    
+                    // PANDORA'S BOX: "Hope Remains" golden glow on correct answer
+                    if (roundData.pandora_box_active) {
+                        const buttons = content.querySelectorAll('button[onclick^="submitAnswer"]');
+                        if (data.question && data.question.shuffled_answers) {
+                            data.question.shuffled_answers.forEach((ans, idx) => {
+                                if (ans.isCorrect && buttons[idx]) {
+                                    buttons[idx].style.animation = 'pandoraReveal 1.5s ease-in-out';
+                                    buttons[idx].style.borderColor = '#ffd700';
+                                    // After 1.5s, reset to normal
+                                    setTimeout(() => {
+                                        if (buttons[idx]) {
+                                            buttons[idx].style.animation = '';
+                                            buttons[idx].style.borderColor = 'rgba(255,255,255,0.2)';
+                                            buttons[idx].style.boxShadow = '';
+                                        }
+                                    }, 1500);
+                                }
+                            });
+                        }
                     }
                 }
                 // On subsequent polls, DON'T rebuild HTML - just return

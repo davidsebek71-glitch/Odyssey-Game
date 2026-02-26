@@ -7369,6 +7369,11 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           roundData.prometheus_preview_duration = (promHasBonus ? GOD_POWERS.prometheus.bonusEffect : GOD_POWERS.prometheus.baseEffect) * 1000;
         }
       }
+      
+      // PANDORA'S BOX: Flag if active this round (deployed and not blocked — though it can't be blocked)
+      if (myDeployedGod === 'pandora_box' && currentRound.phase === 'question') {
+        roundData.pandora_box_active = true;
+      }
     }
     
     const myAnswer = currentRound ? (isChallenger ? currentRound.challenger_answer : currentRound.defender_answer) : null;
@@ -7410,6 +7415,51 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         scrambleEndsAt = currentRound.scramble_active_until;
       }
     }
+
+    // PANDORA'S BOX: "Hope Remains" - check eligibility
+    // Requires 33+ total points on Pandora portal (portal_id = 1)
+    // guide (12) + quiz (10) + assignment (15) = 37 max
+    let pandoraBoxEligible = false;
+    let pandoraBoxUsed = false;
+    try {
+      // Check Pandora portal score
+      const pandoraCompletion = query(
+        'SELECT points_earned, teacher_approved FROM student_myth_completion WHERE student_id = ? AND portal_id = 1',
+        [student_id]
+      )[0];
+      const pandoraAssignmentPts = (pandoraCompletion && pandoraCompletion.teacher_approved) ? (pandoraCompletion.points_earned || 15) : 0;
+      
+      // Get reading guide score
+      const pandoraGuide = query(
+        `SELECT gr.points_earned FROM grade_records gr
+         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+         WHERE gr.student_id = ? AND ar.myth_god = 'Pandora' AND ar.assignment_type = 'comp_conn' AND ar.section = 'classical'`,
+        [student_id]
+      )[0];
+      const pandoraGuidePts = pandoraGuide ? pandoraGuide.points_earned : 0;
+      
+      // Get quiz score
+      const pandoraQuiz = query(
+        'SELECT score FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 1 AND passed = 1 ORDER BY score DESC LIMIT 1',
+        [student_id]
+      )[0];
+      const pandoraQuizPts = pandoraQuiz ? pandoraQuiz.score : 0;
+      
+      const pandoraTotalScore = pandoraGuidePts + pandoraQuizPts + pandoraAssignmentPts;
+      pandoraBoxEligible = pandoraTotalScore >= 33;
+      
+      // Check if already used this battle
+      if (pandoraBoxEligible) {
+        const pandoraUsedCheck = query(
+          `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+           WHERE battle_id = ? AND ${myDeployCol} = 'pandora_box'`,
+          [battle_id]
+        )[0];
+        pandoraBoxUsed = pandoraUsedCheck && pandoraUsedCheck.cnt > 0;
+      }
+    } catch (pandoraErr) {
+      console.error('Pandora box check error:', pandoraErr.message);
+    }
     
     res.json({
       battle_id: battle.battle_id,
@@ -7437,7 +7487,10 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       hecatoncheires_cards: myHecatoncheiresCards ? (myHecatoncheiresCards.hecatoncheires_cards || 0) : 0,
       my_scramble_used_this_round: myScrambleUsedThisRound,
       opponent_scramble_active: opponentScrambleActive,
-      scramble_ends_at: scrambleEndsAt
+      scramble_ends_at: scrambleEndsAt,
+      // Pandora's Box: Hope Remains
+      pandora_box_eligible: pandoraBoxEligible,
+      pandora_box_used: pandoraBoxUsed
     });
   } catch (err) {
     console.error('Get battle error:', err);
@@ -7477,49 +7530,75 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
     
     // Validate god selection
     if (god_name) {
-      // Check if god is in player's selected gods
-      const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
-      const godNames = myGods.map(g => typeof g === 'string' ? g : g.name);
-      if (!godNames.includes(god_name)) {
-        return res.status(400).json({ error: 'You did not select this god for battle' });
-      }
-      
-      // A5: Apollo once-per-battle limit
-      if (god_name === 'apollo') {
-        const myDeployCol = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
-        const apolloUsed = query(
-          `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
-           WHERE battle_id = ? AND ${myDeployCol} = 'apollo' AND round_number < ?`,
-          [battle_id, battle.current_round]
-        )[0];
-        if (apolloUsed && apolloUsed.cnt > 0) {
-          return res.status(400).json({ error: 'Apollo can only be used once per battle' });
+      // PANDORA'S BOX: "Hope Remains" - special artifact, not a god
+      if (god_name === 'pandora_box') {
+        const myScore = isChallenger ? battle.challenger_score : battle.defender_score;
+        const oppScore = isChallenger ? battle.defender_score : battle.challenger_score;
+        
+        // Must be down 0-2
+        if (myScore !== 0 || oppScore !== 2) {
+          return res.status(400).json({ error: 'Pandora\'s Box can only be used when down 0-2' });
         }
-      }
-      
-      // FIX 8: Prometheus once-per-battle limit (same pattern as Apollo)
-      if (god_name === 'prometheus') {
-        const myDeployCol = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
-        const prometheusUsed = query(
+        
+        // Check if already used this battle
+        const myDeployCol2 = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
+        const pandoraUsed = query(
           `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
-           WHERE battle_id = ? AND ${myDeployCol} = 'prometheus' AND round_number < ?`,
-          [battle_id, battle.current_round]
+           WHERE battle_id = ? AND ${myDeployCol2} = 'pandora_box'`,
+          [battle_id]
         )[0];
-        if (prometheusUsed && prometheusUsed.cnt > 0) {
-          return res.status(400).json({ error: 'Prometheus can only be used once per battle' });
+        if (pandoraUsed && pandoraUsed.cnt > 0) {
+          return res.status(400).json({ error: 'Pandora\'s Box can only be used once per battle' });
         }
+        
+        // No cooldown for pandora_box - it's once per battle, skip to deploy
+        console.log(`🏺 PANDORA'S BOX deployed by student ${student_id} in battle ${battle_id} (down 0-2)`);
+      } else {
+        // Regular god validation
+        // Check if god is in player's selected gods
+        const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
+        const godNames = myGods.map(g => typeof g === 'string' ? g : g.name);
+        if (!godNames.includes(god_name)) {
+          return res.status(400).json({ error: 'You did not select this god for battle' });
+        }
+        
+        // A5: Apollo once-per-battle limit
+        if (god_name === 'apollo') {
+          const myDeployCol = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
+          const apolloUsed = query(
+            `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+             WHERE battle_id = ? AND ${myDeployCol} = 'apollo' AND round_number < ?`,
+            [battle_id, battle.current_round]
+          )[0];
+          if (apolloUsed && apolloUsed.cnt > 0) {
+            return res.status(400).json({ error: 'Apollo can only be used once per battle' });
+          }
+        }
+        
+        // FIX 8: Prometheus once-per-battle limit (same pattern as Apollo)
+        if (god_name === 'prometheus') {
+          const myDeployCol = isChallenger ? 'challenger_god_deployed' : 'defender_god_deployed';
+          const prometheusUsed = query(
+            `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+             WHERE battle_id = ? AND ${myDeployCol} = 'prometheus' AND round_number < ?`,
+            [battle_id, battle.current_round]
+          )[0];
+          if (prometheusUsed && prometheusUsed.cnt > 0) {
+            return res.status(400).json({ error: 'Prometheus can only be used once per battle' });
+          }
+        }
+        
+        // Check cooldown
+        const myCooldowns = JSON.parse(isChallenger ? (battle.challenger_god_cooldowns || '{}') : (battle.defender_god_cooldowns || '{}'));
+        if (myCooldowns[god_name] && myCooldowns[god_name] > 0) {
+          return res.status(400).json({ error: `${god_name} is on cooldown for ${myCooldowns[god_name]} more round(s)` });
+        }
+        
+        // Set cooldown (2 rounds)
+        const cooldownCol = isChallenger ? 'challenger_god_cooldowns' : 'defender_god_cooldowns';
+        myCooldowns[god_name] = 2;
+        run(`UPDATE arena_battles SET ${cooldownCol} = ? WHERE battle_id = ?`, [JSON.stringify(myCooldowns), battle_id]);
       }
-      
-      // Check cooldown
-      const myCooldowns = JSON.parse(isChallenger ? (battle.challenger_god_cooldowns || '{}') : (battle.defender_god_cooldowns || '{}'));
-      if (myCooldowns[god_name] && myCooldowns[god_name] > 0) {
-        return res.status(400).json({ error: `${god_name} is on cooldown for ${myCooldowns[god_name]} more round(s)` });
-      }
-      
-      // Set cooldown (2 rounds)
-      const cooldownCol = isChallenger ? 'challenger_god_cooldowns' : 'defender_god_cooldowns';
-      myCooldowns[god_name] = 2;
-      run(`UPDATE arena_battles SET ${cooldownCol} = ? WHERE battle_id = ?`, [JSON.stringify(myCooldowns), battle_id]);
     }
     
     // Deploy the god and mark as ready
