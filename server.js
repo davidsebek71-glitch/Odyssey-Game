@@ -8383,12 +8383,35 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       // Virtue earned: only after student has claimed it
       const virtueEarned = virtueClaimed ? 1 : 0;
       
+      // Get actual grade scores for this myth
+      const guideGrade = gradeRecords.find(g => 
+        g.assignment_type === 'comp_conn' && 
+        g.myth_god === portal.myth_name && 
+        g.section === 'classical'
+      );
+      const guideEarned = guideGrade ? guideGrade.points_earned : 0;
+      const guidePossible = guideGrade ? guideGrade.points_possible : 12;
+      
+      // Get assignment grade (from various bonus types or creative work)
+      const assignmentGrade = gradeRecords.find(g => 
+        g.myth_god === portal.myth_name && 
+        (g.section === 'bonus' || g.section === 'classical_creative') &&
+        (g.assignment_type !== 'comp_conn' && g.assignment_type !== 'quiz')
+      );
+      const assignmentEarned = assignmentApproved ? (assignmentGrade ? assignmentGrade.points_earned : 15) : 0;
+      const assignmentPossible = assignmentGrade ? assignmentGrade.points_possible : 15;
+      
       return {
         ...portal,
         has_reading_guide: hasReadingGuide ? 1 : 0,
+        guide_earned: guideEarned,
+        guide_possible: guidePossible,
         quiz_passed: quizPassed,
+        quiz_score: quizResult ? quizResult.score : 0,
         has_creative: hasCreative ? 1 : 0,
         assignment_approved: assignmentApproved ? 1 : 0,
+        assignment_earned: assignmentEarned,
+        assignment_possible: assignmentPossible,
         assignment_path: assignmentPath,
         virtue_earned: virtueEarned,
         virtue_ready: virtueReady,

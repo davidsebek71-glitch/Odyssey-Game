@@ -5574,7 +5574,7 @@
                     const mythColors = { 'Pandora': '#FFD700', 'Phaethon': '#FF8C00', 'Orpheus & Eurydice': '#8B5CF6', 'Echo & Narcissus': '#EC4899', 'Icarus & Daedalus': '#3B82F6', 'Eros & Psyche': '#EF4444', 'Constellations': '#C0C0C0' };
                     
                     let totalEarned = 0;
-                    let totalPossible = portals.length * 37;
+                    let totalPossible = 0;
                     
                     let mythCards = portals.map(portal => {
                         const quizPassed = portal.quiz_passed === 1;
@@ -5583,29 +5583,35 @@
                         const claimed = portal.virtue_claimed === 1;
                         const col = portal.glow_color || '#4a90d9';
                         
-                        let earned = 0;
-                        if (hasGuide) earned += 12;
-                        if (quizPassed) earned += 10;
-                        if (approved) earned += 15;
-                        totalEarned += earned;
+                        // Use actual grade scores
+                        const guideEarned = portal.guide_earned || 0;
+                        const guidePossible = portal.guide_possible || 12;
+                        const quizScore = quizPassed ? (portal.quiz_score || 10) : 0;
+                        const assignEarned = portal.assignment_earned || 0;
+                        const assignPossible = portal.assignment_possible || 15;
                         
-                        const pct = Math.round((earned / 37) * 100);
-                        const complete = earned === 37;
+                        let earned = guideEarned + quizScore + assignEarned;
+                        let possible = guidePossible + 10 + assignPossible;
+                        totalEarned += earned;
+                        totalPossible += possible;
+                        
+                        const pct = possible > 0 ? Math.round((earned / possible) * 100) : 0;
+                        const complete = hasGuide && quizPassed && approved;
                         const barColor = complete ? '#4ade80' : (earned > 0 ? '#fbbf24' : 'rgba(255,255,255,0.1)');
                         
                         return `<div style="background: rgba(255,255,255,0.04); border: 1px solid ${complete ? '#4ade8044' : 'rgba(255,255,255,0.08)'}; border-radius: 10px; padding: 12px;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                                 <span style="font-size: 20px;">${portal.virtue_emoji || '📜'}</span>
                                 <span style="font-weight: 700; color: ${col}; font-size: 14px;">${portal.myth_name}</span>
-                                <span style="margin-left: auto; font-weight: 700; color: ${complete ? '#4ade80' : 'rgba(255,255,255,0.6)'}; font-size: 14px;">${earned}/37</span>
+                                <span style="margin-left: auto; font-weight: 700; color: ${complete ? '#4ade80' : 'rgba(255,255,255,0.6)'}; font-size: 14px;">${earned}/${possible}</span>
                             </div>
                             <div style="background: rgba(255,255,255,0.1); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 8px;">
                                 <div style="background: ${barColor}; height: 100%; width: ${pct}%; transition: width 0.5s;"></div>
                             </div>
                             <div style="display: flex; gap: 12px; font-size: 12px;">
-                                <span style="color: ${hasGuide ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${hasGuide ? '✅' : '○'} Guide (12)</span>
-                                <span style="color: ${quizPassed ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${quizPassed ? '✅' : '○'} Quiz (10)</span>
-                                <span style="color: ${approved ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${approved ? '✅' : '○'} Assignment (15)</span>
+                                <span style="color: ${hasGuide ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${hasGuide ? '✅' : '○'} Guide (${guideEarned}/${guidePossible})</span>
+                                <span style="color: ${quizPassed ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${quizPassed ? '✅' : '○'} Quiz (${quizScore}/10)</span>
+                                <span style="color: ${approved ? '#4ade80' : 'rgba(255,255,255,0.3)'};">${approved ? '✅' : '○'} Assignment (${assignEarned}/${assignPossible})</span>
                             </div>
                             ${claimed ? '<div style="font-size: 11px; color: #ffd700; margin-top: 6px;">✨ Virtue: ' + (portal.virtue_english || '') + '</div>' : ''}
                         </div>`;
