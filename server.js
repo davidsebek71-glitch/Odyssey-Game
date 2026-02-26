@@ -8377,29 +8377,21 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const assignmentApproved = mythCompletion ? mythCompletion.teacher_approved === 1 : false;
       const virtueClaimed = mythCompletion ? mythCompletion.virtue_claimed === 1 : false;
       const assignmentPath = mythCompletion ? mythCompletion.assignment_path : null;
+      const assignmentPoints = mythCompletion ? (mythCompletion.points_earned || 15) : 0;
       
-      // Virtue ready to claim: quiz passed + assignment approved (but not yet claimed)
-      const virtueReady = quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
-      // Virtue earned: only after student has claimed it
-      const virtueEarned = virtueClaimed ? 1 : 0;
-      
-      // Get actual grade scores for this myth
+      // Get actual reading guide score from grade_records
       const guideGrade = gradeRecords.find(g => 
         g.assignment_type === 'comp_conn' && 
         g.myth_god === portal.myth_name && 
         g.section === 'classical'
       );
-      const guideEarned = guideGrade ? guideGrade.points_earned : 0;
+      const guideEarned = guideGrade ? guideGrade.points_earned : (hasReadingGuide ? 12 : 0);
       const guidePossible = guideGrade ? guideGrade.points_possible : 12;
       
-      // Get assignment grade (from various bonus types or creative work)
-      const assignmentGrade = gradeRecords.find(g => 
-        g.myth_god === portal.myth_name && 
-        (g.section === 'bonus' || g.section === 'classical_creative') &&
-        (g.assignment_type !== 'comp_conn' && g.assignment_type !== 'quiz')
-      );
-      const assignmentEarned = assignmentApproved ? (assignmentGrade ? assignmentGrade.points_earned : 15) : 0;
-      const assignmentPossible = assignmentGrade ? assignmentGrade.points_possible : 15;
+      // Virtue ready to claim: quiz passed + assignment approved (but not yet claimed)
+      const virtueReady = quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
+      // Virtue earned: only after student has claimed it
+      const virtueEarned = virtueClaimed ? 1 : 0;
       
       return {
         ...portal,
@@ -8410,8 +8402,8 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         quiz_score: quizResult ? quizResult.score : 0,
         has_creative: hasCreative ? 1 : 0,
         assignment_approved: assignmentApproved ? 1 : 0,
-        assignment_earned: assignmentEarned,
-        assignment_possible: assignmentPossible,
+        assignment_earned: assignmentApproved ? assignmentPoints : 0,
+        assignment_possible: 15,
         assignment_path: assignmentPath,
         virtue_earned: virtueEarned,
         virtue_ready: virtueReady,
@@ -8489,35 +8481,44 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
 app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) => {
   try {
     if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
-    const { student_id, portal_id, assignment_path } = req.body;
+    const { student_id, portal_id, assignment_path, points } = req.body;
     if (!student_id || !portal_id || !assignment_path) {
       return res.status(400).json({ error: 'Missing student_id, portal_id, or assignment_path' });
     }
     
-    // Upsert the completion record
+    // Default to 15 if no score provided (backward compatible)
+    const pointsEarned = (points !== undefined && points !== null && points !== '') ? parseInt(points) : 15;
+    
+    // Upsert the completion record with score
     const existing = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
     if (existing.length > 0) {
-      run('UPDATE student_myth_completion SET assignment_path = ?, teacher_approved = 1, approved_at = CURRENT_TIMESTAMP WHERE student_id = ? AND portal_id = ?',
-        [assignment_path, student_id, portal_id]);
+      run('UPDATE student_myth_completion SET assignment_path = ?, teacher_approved = 1, approved_at = CURRENT_TIMESTAMP, points_earned = ? WHERE student_id = ? AND portal_id = ?',
+        [assignment_path, pointsEarned, student_id, portal_id]);
     } else {
-      run('INSERT INTO student_myth_completion (student_id, portal_id, assignment_path, teacher_approved, approved_at) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)',
-        [student_id, portal_id, assignment_path]);
+      run('INSERT INTO student_myth_completion (student_id, portal_id, assignment_path, teacher_approved, approved_at, points_earned) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, ?)',
+        [student_id, portal_id, assignment_path, pointsEarned]);
     }
     
-    // Award points for the portal assignment
+    // Award points to the alliance
     const student = query('SELECT s.name, s.alliance_id, a.alliance_name FROM students s LEFT JOIN alliances a ON s.alliance_id = a.alliance_id WHERE s.student_id = ?', [student_id])[0];
     const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
     
-    // Award 15 points to the alliance
     if (student && student.alliance_id) {
-      run('UPDATE alliances SET total_points = total_points + 15 WHERE alliance_id = ?', [student.alliance_id]);
-      run('INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, 15, ?, ?, ?)',
-        [student.alliance_id, 'assignment', `Myth Portal: ${portal.myth_name} (${assignment_path} path) - ${student.name}`, req.user.id]);
+      // Check if this is a re-approval (already had points awarded)
+      const previousPoints = (existing.length > 0 && existing[0].teacher_approved === 1) ? (existing[0].points_earned || 15) : 0;
+      const pointsDiff = pointsEarned - previousPoints;
+      
+      if (pointsDiff !== 0) {
+        run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', [pointsDiff, student.alliance_id]);
+        run('INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)',
+          [student.alliance_id, pointsDiff, 'assignment', `Myth Portal: ${portal ? portal.myth_name : 'myth'} (${assignment_path} path) - ${student.name}${previousPoints > 0 ? ' (rescored)' : ''}`, req.user.id]);
+      }
     }
     
+    saveDatabase();
     res.json({ 
       success: true, 
-      message: `Approved ${student ? student.name : 'student'}'s ${assignment_path} path for ${portal ? portal.myth_name : 'myth'} (+15 pts)` 
+      message: `Approved ${student ? student.name : 'student'}'s ${assignment_path} path for ${portal ? portal.myth_name : 'myth'} (${pointsEarned}/15 pts)` 
     });
   } catch (err) {
     console.error('Approve myth assignment error:', err);

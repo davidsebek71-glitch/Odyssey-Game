@@ -628,6 +628,7 @@ async function initDatabase() {
       approved_at DATETIME,
       virtue_claimed INTEGER DEFAULT 0,
       virtue_claimed_at DATETIME,
+      points_earned INTEGER DEFAULT 15,
       UNIQUE(student_id, portal_id)
     )
   `);
@@ -1013,6 +1014,16 @@ function runMigrations() {
     }
     
     console.log('✅ Migrations complete');
+    
+    // Add points_earned to student_myth_completion if missing
+    try {
+      const mythCompCols = db.exec("PRAGMA table_info(student_myth_completion)");
+      const mythCompColNames = mythCompCols[0] ? mythCompCols[0].values.map(c => c[1]) : [];
+      if (!mythCompColNames.includes('points_earned')) {
+        db.run("ALTER TABLE student_myth_completion ADD COLUMN points_earned INTEGER DEFAULT 15");
+        console.log('✅ Added points_earned column to student_myth_completion');
+      }
+    } catch(e) { console.log('Myth completion migration note:', e.message); }
   } catch (err) {
     console.log('Migration note:', err.message);
   }
