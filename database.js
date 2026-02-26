@@ -2247,22 +2247,39 @@ function seedClassicalData() {
       // Check for missing questions and add them (handles new questions added after initial seed)
       console.log(`📝 Quiz questions exist (${quizCount}), checking for missing questions...`);
       
+      // Detect column names (live DB may use answer_a vs option_a)
+      let colA = 'option_a', colB = 'option_b', colC = 'option_c', colD = 'option_d';
+      try {
+        const tableInfo = db.exec("PRAGMA table_info(myth_quiz_questions)");
+        const colNames = tableInfo[0] ? tableInfo[0].values.map(r => r[1]) : [];
+        if (colNames.includes('answer_a')) {
+          colA = 'answer_a'; colB = 'answer_b'; colC = 'answer_c'; colD = 'answer_d';
+          console.log('  Using answer_a/b/c/d column names');
+        } else {
+          console.log('  Using option_a/b/c/d column names');
+        }
+      } catch(e) { console.log('  Column detection fallback:', e.message); }
+      
       const allExpectedQuestions = [
         // Phaethon Q9 & Q10 (added Feb 25)
-        [2, 'What was Apollo\'s reaction to Phaethon\'s request to drive the chariot? p.70', 'He laughed and agreed', 'He yelled that it was impossible', 'He calmly said no', 'He offered to teach him first', 'b'],
-        [2, 'What was the job of Apollo\'s birds? p.68', 'To pull the sun chariot', 'To guard the palace gates', 'To gather gossip', 'To deliver messages to Zeus', 'c'],
+        [2, "What was Apollo's reaction to Phaethon's request to drive the chariot? p.70", 'He laughed and agreed', 'He yelled that it was impossible', 'He calmly said no', 'He offered to teach him first', 'b'],
+        [2, "What was the job of Apollo's birds? p.68", 'To pull the sun chariot', 'To guard the palace gates', 'To gather gossip', 'To deliver messages to Zeus', 'c'],
       ];
       
       let added = 0;
       allExpectedQuestions.forEach(q => {
-        // Check if question already exists by matching portal_id + question_text
-        const exists = db.exec(`SELECT COUNT(*) FROM myth_quiz_questions WHERE portal_id = ${q[0]} AND question_text = '${q[1].replace(/'/g, "''")}'`);
-        const count = exists[0] ? exists[0].values[0][0] : 0;
-        if (count === 0) {
-          db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer)
-                  VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
-          added++;
-          console.log(`  + Added missing question for portal ${q[0]}: "${q[1].substring(0, 50)}..."`);
+        const qText = q[1].replace(/'/g, "''");
+        try {
+          const exists = db.exec(`SELECT COUNT(*) FROM myth_quiz_questions WHERE portal_id = ${q[0]} AND question_text = '${qText}'`);
+          const count = exists[0] ? exists[0].values[0][0] : 0;
+          if (count === 0) {
+            db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, ${colA}, ${colB}, ${colC}, ${colD}, correct_answer)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
+            added++;
+            console.log(`  + Added missing question for portal ${q[0]}: "${q[1].substring(0, 50)}..."`);
+          }
+        } catch(e) {
+          console.log(`  Quiz question insert error: ${e.message}`);
         }
       });
       if (added > 0) console.log(`✅ Added ${added} missing quiz questions`);
