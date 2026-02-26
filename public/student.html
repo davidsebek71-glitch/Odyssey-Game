@@ -8490,10 +8490,10 @@
                 const myDeployReady = roundData.my_deploy_ready;
                 
                 if (myDeployReady) {
-                    // Already deployed, waiting for opponent - render once only
+                    // Already deployed, waiting for opponent — render once only
                     if (!deployWaitingRendered) {
                         deployWaitingRendered = true;
-                        deploySelectionRendered = false; // selection no longer showing
+                        deploySelectionRendered = false;
                         content.innerHTML = `
                             ${scoreboardHTML}
                             <div style="text-align: center; padding: 30px;">
@@ -8503,11 +8503,9 @@
                             </div>
                         `;
                     }
-                    // else: already rendered, skip - polling will detect phase change
                 } else {
-                    // Show god deployment selection - render once only to prevent img tag accumulation
+                    // Show god deployment selection — render once, update countdown in place
                     if (deploySelectionRendered) {
-                        // Already rendered - just update the countdown text in place
                         const cdEl = document.getElementById('deploy-phase-countdown');
                         if (cdEl) cdEl.textContent = `Time remaining: ${roundData.phase_time_remaining || 12}s`;
                     } else {
@@ -8594,7 +8592,7 @@
                             ">Skip (No Power)</button>
                         </div>
                     `;
-                    } // end if (!deploySelectionRendered)
+                    } // end !deploySelectionRendered
                 }
                 return;
             }
@@ -8654,7 +8652,6 @@
             
             // QUESTION PHASE
             if (phase === 'question' && data.question) {
-                // Reset deploy render guards for next round
                 deploySelectionRendered = false;
                 deployWaitingRendered = false;
                 // Check if we already answered
@@ -9477,8 +9474,8 @@
         let activeAphrodite = false; // Track if Aphrodite retry is available this round
         let godEffectsAppliedThisRound = false; // Prevent re-applying effects on every poll
         let questionReadySignaled = false; // Track if we've signaled ready for current question
-        let deploySelectionRendered = false; // Prevent re-rendering god grid (img tags) on every poll
-        let deployWaitingRendered = false; // Prevent re-rendering waiting screen on every poll
+        let deploySelectionRendered = false; // Prevent re-rendering god img cards every poll
+        let deployWaitingRendered = false;   // Prevent re-rendering waiting screen every poll
         
         async function submitAnswer(answerIndex) {
             // Prevent duplicate submissions (but allow Aphrodite retry)
@@ -9638,8 +9635,8 @@
             questionReadySignaled = false; // Reset ready signal
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
-            deploySelectionRendered = false; // Reset deploy selection render guard
-            deployWaitingRendered = false; // Reset deploy waiting render guard
+            deploySelectionRendered = false;
+            deployWaitingRendered = false;
             
             // Clear any god effects
             clearGodPowerEffects();
