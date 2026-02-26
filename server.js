@@ -1194,20 +1194,9 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         }
         
         // Apply building/tech bonuses
-        let buildingBonus = 0, achievementBonus = 0, handaxeBonus = 0;
-        const activeBuildings = query(`
-          SELECT b.point_bonus FROM building_instances bi 
-          JOIN buildings_ref b ON bi.building_id = b.building_id 
-          WHERE bi.alliance_id = ? AND bi.is_active = 1 AND b.point_bonus > 0`,
-          [submission.alliance_id]);
-        activeBuildings.forEach(b => { buildingBonus += b.point_bonus; });
-        
-        const achievements = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [submission.student_id])[0];
-        if (achievements) {
-          const countCol = `${submission.category}_count`;
-          if (achievements[countCol] >= 3) achievementBonus = 0.03;
-          if (achievements[countCol] >= 6) achievementBonus = 0.05;
-        }
+        let buildingBonus = getAllianceBuildingBonus(submission.alliance_id);
+        let achievementBonus = getAchievementBonus(submission.student_id, submission.category);
+        let handaxeBonus = 0;
         
         if (student && student.technologies_unlocked) {
           try {
