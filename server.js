@@ -7417,48 +7417,60 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
     }
 
     // PANDORA'S BOX: "Hope Remains" - check eligibility
-    // Requires 33+ total points on Pandora portal (portal_id = 1)
-    // guide (12) + quiz (10) + assignment (15) = 37 max
+    // Only check during deploy phase when player is actually down 0-2 (performance optimization)
     let pandoraBoxEligible = false;
     let pandoraBoxUsed = false;
-    try {
-      // Check Pandora portal score
-      const pandoraCompletion = query(
-        'SELECT points_earned, teacher_approved FROM student_myth_completion WHERE student_id = ? AND portal_id = 1',
-        [student_id]
-      )[0];
-      const pandoraAssignmentPts = (pandoraCompletion && pandoraCompletion.teacher_approved) ? (pandoraCompletion.points_earned || 15) : 0;
-      
-      // Get reading guide score
-      const pandoraGuide = query(
-        `SELECT gr.points_earned FROM grade_records gr
-         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-         WHERE gr.student_id = ? AND ar.myth_god = 'Pandora' AND ar.assignment_type = 'comp_conn' AND ar.section = 'classical'`,
-        [student_id]
-      )[0];
-      const pandoraGuidePts = pandoraGuide ? pandoraGuide.points_earned : 0;
-      
-      // Get quiz score
-      const pandoraQuiz = query(
-        'SELECT score FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 1 AND passed = 1 ORDER BY score DESC LIMIT 1',
-        [student_id]
-      )[0];
-      const pandoraQuizPts = pandoraQuiz ? pandoraQuiz.score : 0;
-      
-      const pandoraTotalScore = pandoraGuidePts + pandoraQuizPts + pandoraAssignmentPts;
-      pandoraBoxEligible = pandoraTotalScore >= 33;
-      
-      // Check if already used this battle
-      if (pandoraBoxEligible) {
+    const myScoreForPandora = isChallenger ? (battle.challenger_score || 0) : (battle.defender_score || 0);
+    const oppScoreForPandora = isChallenger ? (battle.defender_score || 0) : (battle.challenger_score || 0);
+    const pandoraRelevant = (currentRound && currentRound.phase === 'deploy' && myScoreForPandora === 0 && oppScoreForPandora === 2);
+    
+    if (pandoraRelevant) {
+      try {
+        // Check Pandora portal score (only when conditions are met)
+        const pandoraCompletion = query(
+          'SELECT points_earned, teacher_approved FROM student_myth_completion WHERE student_id = ? AND portal_id = 1',
+          [student_id]
+        )[0];
+        const pandoraAssignmentPts = (pandoraCompletion && pandoraCompletion.teacher_approved) ? (pandoraCompletion.points_earned || 15) : 0;
+        
+        const pandoraGuide = query(
+          `SELECT gr.points_earned FROM grade_records gr
+           JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+           WHERE gr.student_id = ? AND ar.myth_god = 'Pandora' AND ar.assignment_type = 'comp_conn' AND ar.section = 'classical'`,
+          [student_id]
+        )[0];
+        const pandoraGuidePts = pandoraGuide ? pandoraGuide.points_earned : 0;
+        
+        const pandoraQuiz = query(
+          'SELECT score FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 1 AND passed = 1 ORDER BY score DESC LIMIT 1',
+          [student_id]
+        )[0];
+        const pandoraQuizPts = pandoraQuiz ? pandoraQuiz.score : 0;
+        
+        const pandoraTotalScore = pandoraGuidePts + pandoraQuizPts + pandoraAssignmentPts;
+        pandoraBoxEligible = pandoraTotalScore >= 33;
+        
+        if (pandoraBoxEligible) {
+          const pandoraUsedCheck = query(
+            `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
+             WHERE battle_id = ? AND ${myDeployCol} = 'pandora_box'`,
+            [battle_id]
+          )[0];
+          pandoraBoxUsed = pandoraUsedCheck && pandoraUsedCheck.cnt > 0;
+        }
+      } catch (pandoraErr) {
+        console.error('Pandora box check error:', pandoraErr.message);
+      }
+    } else {
+      // Outside deploy phase, just check if pandora was used (for display purposes)
+      try {
         const pandoraUsedCheck = query(
           `SELECT COUNT(*) as cnt FROM arena_battle_rounds 
            WHERE battle_id = ? AND ${myDeployCol} = 'pandora_box'`,
           [battle_id]
         )[0];
         pandoraBoxUsed = pandoraUsedCheck && pandoraUsedCheck.cnt > 0;
-      }
-    } catch (pandoraErr) {
-      console.error('Pandora box check error:', pandoraErr.message);
+      } catch (e) { /* non-critical */ }
     }
     
     res.json({
