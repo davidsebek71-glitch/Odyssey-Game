@@ -8491,7 +8491,10 @@
                 
                 if (myDeployReady) {
                     // Already deployed, waiting for opponent
-                    content.innerHTML = `
+                    // GUARD: Only render once - prevents pandoraGlow infinite animation accumulation on repeated polls
+                    if (!deployWaitingRendered) {
+                        deployWaitingRendered = true;
+                        content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
                             <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
@@ -8499,6 +8502,8 @@
                             <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed === 'pandora_box' ? '🏺 Hope Remains' : (roundData.my_god_deployed || 'No Power')}</p>
                         </div>
                     `;
+                    }
+                    // Already rendered - just return and wait for next poll
                 } else {
                     // Show god deployment selection
                     const godsHTML = availableGods.length === 0 ? 
@@ -8554,7 +8559,7 @@
                                 border-radius: 12px;
                                 padding: 15px 20px;
                                 display: inline-block;
-                                animation: pandoraGlow 2s ease-in-out infinite;
+                                animation: pandoraGlow 2s ease-in-out 3;
                             ">
                                 <p style="color: #ffd700; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">🏺 Pandora's Box</p>
                                 <button onclick="deployGod('pandora_box')" style="
@@ -8642,6 +8647,7 @@
             
             // QUESTION PHASE
             if (phase === 'question' && data.question) {
+                deployWaitingRendered = false; // Reset for next time we're in deploy phase (new round)
                 // Check if we already answered
                 if (data.my_answer) {
                     const isCorrect = data.my_answer === 'correct';
@@ -9462,6 +9468,7 @@
         let activeAphrodite = false; // Track if Aphrodite retry is available this round
         let godEffectsAppliedThisRound = false; // Prevent re-applying effects on every poll
         let questionReadySignaled = false; // Track if we've signaled ready for current question
+        let deployWaitingRendered = false; // Prevent re-rendering deploy waiting screen on every poll (FIX: pandoraGlow infinite loop)
         
         async function submitAnswer(answerIndex) {
             // Prevent duplicate submissions (but allow Aphrodite retry)
@@ -9619,6 +9626,7 @@
             activeAphrodite = false; // Reset Aphrodite availability
             godEffectsAppliedThisRound = false; // Reset effects flag
             questionReadySignaled = false; // Reset ready signal
+            deployWaitingRendered = false; // Reset deploy waiting screen guard
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
