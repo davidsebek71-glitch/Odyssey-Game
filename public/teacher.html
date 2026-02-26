@@ -1633,7 +1633,7 @@
                             <button class="btn-approve" onclick="reviewSubmission(${s.submission_id}, true)">
                                 ✓ Approve
                             </button>
-                            <button class="btn-reject" onclick="reviewSubmission(${s.submission_id}, false)">
+                            <button class="btn-reject" onclick="reviewSubmission(${s.submission_id}, false, ${s.points_claimed}, ${s.max_points || s.points_claimed})">
                                 ✗ Reject
                             </button>
                         </div>
@@ -1644,9 +1644,29 @@
             }
         }
 
-        async function reviewSubmission(submission_id, approve) {
-            // Only prompt for rejection reason, not for approval
-            const teacher_notes = approve ? '' : (prompt('Reason for rejection (optional):') || '');
+        async function reviewSubmission(submission_id, approve, pointsClaimed, maxPoints) {
+            let teacher_notes = '';
+            let partial_points = null;
+            
+            if (approve) {
+                // Approve — no prompt needed
+            } else {
+                // Reject — ask if partial credit should be awarded
+                const response = prompt(
+                    `Reject with partial credit?\n\nStudent claimed: ${pointsClaimed}/${maxPoints}\n\nEnter points to award (or leave blank/0 to reject with no points):`,
+                    ''
+                );
+                
+                if (response === null) return; // User cancelled
+                
+                const parsed = parseFloat(response);
+                if (!isNaN(parsed) && parsed > 0) {
+                    partial_points = parsed;
+                    teacher_notes = prompt('Note for student (optional):', `Partial credit: ${partial_points}/${maxPoints}`) || `Partial credit: ${partial_points}/${maxPoints}`;
+                } else {
+                    teacher_notes = prompt('Reason for rejection (optional):') || '';
+                }
+            }
             
             try {
                 const response = await fetch(`${API_URL}/teacher/review-submission`, {
@@ -1655,14 +1675,18 @@
                     body: JSON.stringify({ 
                         submission_id, 
                         approve,
-                        teacher_notes
+                        teacher_notes,
+                        partial_points
                     })
                 });
 
                 const result = await response.json();
                 
                 if (response.ok) {
-                    // Silently refresh - no alert needed for approval
+                    // Show confirmation for partial credit so teacher sees the result
+                    if (partial_points > 0) {
+                        alert(result.message);
+                    }
                     loadPendingSubmissions();
                     loadLeaderboard();
                     loadTransactions();

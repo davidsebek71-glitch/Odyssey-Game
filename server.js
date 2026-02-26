@@ -1147,14 +1147,115 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
       
       res.json({ success: true, message: `Approved! ${finalAmount} points awarded${bonusInfo}.${riteNote}`, finalAmount });
     } else {
-      // Reject
-      run(`UPDATE point_submissions 
-           SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP, 
-               reviewed_by_teacher_id = ?, teacher_notes = ?
-           WHERE submission_id = ?`, 
-          [teacher_id, teacher_notes || '', submission_id]);
+      // Reject — with optional partial points
+      const partialPoints = req.body.partial_points !== undefined && req.body.partial_points !== null && req.body.partial_points !== '' 
+        ? parseFloat(req.body.partial_points) : null;
       
-      res.json({ success: true, message: 'Submission rejected' });
+      if (partialPoints !== null && partialPoints > 0) {
+        // PARTIAL CREDIT: Award reduced points and create grade record
+        const student = query('SELECT technologies_unlocked FROM students WHERE student_id = ?', [submission.student_id])[0];
+        
+        // Apply building/tech bonuses to partial points (same as approval flow)
+        let buildingBonus = 0, achievementBonus = 0, handaxeBonus = 0;
+        const activeBuildings = query(`
+          SELECT b.point_bonus FROM building_instances bi 
+          JOIN buildings_ref b ON bi.building_id = b.building_id 
+          WHERE bi.alliance_id = ? AND bi.is_active = 1 AND b.point_bonus > 0`,
+          [submission.alliance_id]);
+        activeBuildings.forEach(b => { buildingBonus += b.point_bonus; });
+        
+        const achievements = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [submission.student_id])[0];
+        if (achievements) {
+          const countCol = `${submission.category}_count`;
+          const totalCol = `${submission.category}_total_points`;
+          if (achievements[countCol] >= 3) achievementBonus = 0.03;
+          if (achievements[countCol] >= 6) achievementBonus = 0.05;
+        }
+        
+        if (student && student.technologies_unlocked) {
+          try {
+            const techs = JSON.parse(student.technologies_unlocked);
+            if (techs.includes('Handaxe')) handaxeBonus = 0.05;
+          } catch(e) {}
+        }
+        
+        const totalBonus = 1 + buildingBonus + achievementBonus + handaxeBonus;
+        const finalAmount = Math.round(partialPoints * totalBonus);
+        
+        // Award partial points to alliance
+        if (finalAmount > 0) {
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
+            [finalAmount, submission.alliance_id]);
+          
+          const godName = submission.myth_god || '';
+          const assignmentType = submission.category === 'comp_conn' ? 'Reading Notes' : 
+                                 submission.category === 'quiz' ? 'Quiz' :
+                                 submission.category === 'mural' ? 'Mural' :
+                                 submission.category;
+          const assignmentName = godName ? `${godName} ${assignmentType}` : assignmentType;
+          
+          run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason, teacher_id) 
+               VALUES (?, ?, ?, ?, ?, ?)`, 
+              [submission.alliance_id, submission.student_id, finalAmount, submission.category, 
+               `${assignmentName} (partial credit)`, teacher_id]);
+        }
+        
+        // Update achievement tracking with partial points
+        updateAchievementProgress(submission.student_id, submission.category, partialPoints, submission.max_points);
+        
+        // Create grade record with partial score
+        if (submission.myth_god && submission.section) {
+          const assignment = query(`
+            SELECT assignment_id, display_name FROM assignments_ref 
+            WHERE section = ? AND myth_god = ? AND assignment_type = ?
+          `, [submission.section, submission.myth_god, submission.category])[0];
+          
+          if (assignment) {
+            const existingRecord = query(`
+              SELECT record_id FROM grade_records 
+              WHERE student_id = ? AND assignment_id = ?
+            `, [submission.student_id, assignment.assignment_id])[0];
+            
+            if (existingRecord) {
+              run(`UPDATE grade_records 
+                   SET points_earned = ?, points_possible = ?, submission_id = ?, completed_at = CURRENT_TIMESTAMP
+                   WHERE record_id = ?`,
+                  [partialPoints, submission.max_points || submission.points_claimed, submission_id, existingRecord.record_id]);
+            } else {
+              run(`INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible, submission_id)
+                   VALUES (?, ?, ?, ?, ?)`,
+                  [submission.student_id, assignment.assignment_id, partialPoints, submission.max_points || submission.points_claimed, submission_id]);
+            }
+            console.log(`📝 Partial credit grade record: ${partialPoints}/${submission.max_points || submission.points_claimed} for ${assignment.display_name}`);
+          }
+        }
+        
+        // Mark as partial
+        run(`UPDATE point_submissions 
+             SET status = 'partial', reviewed_at = CURRENT_TIMESTAMP, 
+                 reviewed_by_teacher_id = ?, teacher_notes = ?,
+                 points_claimed = ?
+             WHERE submission_id = ?`, 
+            [teacher_id, teacher_notes || '', partialPoints, submission_id]);
+        
+        let bonusInfo = '';
+        if (buildingBonus > 0) bonusInfo += ` +${Math.round(buildingBonus * 100)}% building`;
+        if (achievementBonus > 0) bonusInfo += ` +${Math.round(achievementBonus * 100)}% power-up`;
+        if (handaxeBonus > 0) bonusInfo += ` +5% Handaxe`;
+        if (bonusInfo) bonusInfo = ` (includes${bonusInfo})`;
+        
+        saveDatabase();
+        res.json({ success: true, message: `Partial credit: ${finalAmount} points awarded (${partialPoints}/${submission.max_points || submission.points_claimed})${bonusInfo}` });
+      } else {
+        // Full rejection — no points
+        run(`UPDATE point_submissions 
+             SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP, 
+                 reviewed_by_teacher_id = ?, teacher_notes = ?
+             WHERE submission_id = ?`, 
+            [teacher_id, teacher_notes || '', submission_id]);
+        
+        res.json({ success: true, message: 'Submission rejected' });
+      }
     }
   } catch (err) {
     console.error('Review submission error:', err);
