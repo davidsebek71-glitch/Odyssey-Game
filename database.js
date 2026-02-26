@@ -2243,6 +2243,30 @@ function seedClassicalData() {
                 VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
       });
       console.log('✅ Myth quiz questions seeded (' + quizQuestions.length + ' questions)');
+    } else {
+      // Check for missing questions and add them (handles new questions added after initial seed)
+      console.log(`📝 Quiz questions exist (${quizCount}), checking for missing questions...`);
+      
+      const allExpectedQuestions = [
+        // Phaethon Q9 & Q10 (added Feb 25)
+        [2, 'What was Apollo\'s reaction to Phaethon\'s request to drive the chariot? p.70', 'He laughed and agreed', 'He yelled that it was impossible', 'He calmly said no', 'He offered to teach him first', 'b'],
+        [2, 'What was the job of Apollo\'s birds? p.68', 'To pull the sun chariot', 'To guard the palace gates', 'To gather gossip', 'To deliver messages to Zeus', 'c'],
+      ];
+      
+      let added = 0;
+      allExpectedQuestions.forEach(q => {
+        // Check if question already exists by matching portal_id + question_text
+        const exists = db.exec(`SELECT COUNT(*) FROM myth_quiz_questions WHERE portal_id = ${q[0]} AND question_text = '${q[1].replace(/'/g, "''")}'`);
+        const count = exists[0] ? exists[0].values[0][0] : 0;
+        if (count === 0) {
+          db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
+          added++;
+          console.log(`  + Added missing question for portal ${q[0]}: "${q[1].substring(0, 50)}..."`);
+        }
+      });
+      if (added > 0) console.log(`✅ Added ${added} missing quiz questions`);
+      else console.log('✅ All quiz questions up to date');
     }
   } catch (err) {
     console.log('Quiz questions seed note:', err.message);

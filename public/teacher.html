@@ -1651,19 +1651,22 @@
             if (approve) {
                 // Approve — no prompt needed
             } else {
-                // Reject — ask if partial credit should be awarded
+                // Reject — ask what score to give
                 const response = prompt(
-                    `Reject with partial credit?\n\nStudent claimed: ${pointsClaimed}/${maxPoints}\n\nEnter points to award (or leave blank/0 to reject with no points):`,
-                    ''
+                    `Score to award? (out of ${maxPoints})\n\nStudent claimed: ${pointsClaimed}\n\nEnter score (0 to reject with no credit):`,
+                    '0'
                 );
                 
                 if (response === null) return; // User cancelled
                 
                 const parsed = parseFloat(response);
-                if (!isNaN(parsed) && parsed > 0) {
+                if (isNaN(parsed) || parsed < 0) return; // Invalid input
+                
+                if (parsed > 0) {
                     partial_points = parsed;
-                    teacher_notes = prompt('Note for student (optional):', `Partial credit: ${partial_points}/${maxPoints}`) || `Partial credit: ${partial_points}/${maxPoints}`;
+                    teacher_notes = prompt('Note for student (optional):', '') || '';
                 } else {
+                    // 0 = full rejection
                     teacher_notes = prompt('Reason for rejection (optional):') || '';
                 }
             }

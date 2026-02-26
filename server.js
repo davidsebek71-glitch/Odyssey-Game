@@ -1155,7 +1155,34 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         // PARTIAL CREDIT: Award reduced points and create grade record
         const student = query('SELECT technologies_unlocked FROM students WHERE student_id = ?', [submission.student_id])[0];
         
-        // Apply building/tech bonuses to partial points (same as approval flow)
+        // Check for resubmission (existing grade record)
+        let isResubmission = false;
+        let previousPoints = 0;
+        if (submission.myth_god && submission.section) {
+          const assignmentCheck = query(`
+            SELECT ar.assignment_id FROM assignments_ref ar
+            WHERE ar.section = ? AND ar.myth_god = ? AND ar.assignment_type = ?
+          `, [submission.section, submission.myth_god, submission.category])[0];
+          
+          if (assignmentCheck) {
+            const existingGrade = query(`
+              SELECT points_earned FROM grade_records 
+              WHERE student_id = ? AND assignment_id = ?
+            `, [submission.student_id, assignmentCheck.assignment_id])[0];
+            
+            if (existingGrade) {
+              isResubmission = true;
+              previousPoints = existingGrade.points_earned;
+              // Only award if new score is higher
+              if (partialPoints <= previousPoints) {
+                saveDatabase();
+                return res.json({ success: true, message: `Score ${partialPoints} is not higher than existing ${previousPoints}. No change made.` });
+              }
+            }
+          }
+        }
+        
+        // Apply building/tech bonuses
         let buildingBonus = 0, achievementBonus = 0, handaxeBonus = 0;
         const activeBuildings = query(`
           SELECT b.point_bonus FROM building_instances bi 
@@ -1167,7 +1194,6 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         const achievements = query('SELECT * FROM student_achievement_progress WHERE student_id = ?', [submission.student_id])[0];
         if (achievements) {
           const countCol = `${submission.category}_count`;
-          const totalCol = `${submission.category}_total_points`;
           if (achievements[countCol] >= 3) achievementBonus = 0.03;
           if (achievements[countCol] >= 6) achievementBonus = 0.05;
         }
@@ -1180,9 +1206,12 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         }
         
         const totalBonus = 1 + buildingBonus + achievementBonus + handaxeBonus;
-        const finalAmount = Math.round(partialPoints * totalBonus);
         
-        // Award partial points to alliance
+        // For resubmissions, only award the DIFFERENCE
+        const pointsToAward = isResubmission ? (partialPoints - previousPoints) : partialPoints;
+        const finalAmount = Math.round(pointsToAward * totalBonus);
+        
+        // Award points to alliance
         if (finalAmount > 0) {
           run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
             [finalAmount, submission.alliance_id]);
@@ -1197,13 +1226,17 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
           run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason, teacher_id) 
                VALUES (?, ?, ?, ?, ?, ?)`, 
               [submission.alliance_id, submission.student_id, finalAmount, submission.category, 
-               `${assignmentName} (partial credit)`, teacher_id]);
+               `${assignmentName} (${isResubmission ? 'resubmit partial' : 'partial credit'})`, teacher_id]);
         }
         
-        // Update achievement tracking with partial points
-        updateAchievementProgress(submission.student_id, submission.category, partialPoints, submission.max_points);
+        // Update achievement tracking
+        if (isResubmission) {
+          updateAchievementProgressForResubmission(submission.student_id, submission.category, pointsToAward, 0);
+        } else {
+          updateAchievementProgress(submission.student_id, submission.category, partialPoints, submission.max_points);
+        }
         
-        // Create grade record with partial score
+        // Create/update grade record with partial score
         if (submission.myth_god && submission.section) {
           const assignment = query(`
             SELECT assignment_id, display_name FROM assignments_ref 
@@ -1226,17 +1259,16 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
                    VALUES (?, ?, ?, ?, ?)`,
                   [submission.student_id, assignment.assignment_id, partialPoints, submission.max_points || submission.points_claimed, submission_id]);
             }
-            console.log(`📝 Partial credit grade record: ${partialPoints}/${submission.max_points || submission.points_claimed} for ${assignment.display_name}`);
+            console.log(`📝 Partial credit grade record: ${partialPoints}/${submission.max_points || submission.points_claimed} for ${assignment.display_name}${isResubmission ? ' (resubmit, prev: ' + previousPoints + ')' : ''}`);
           }
         }
         
         // Mark as partial
         run(`UPDATE point_submissions 
              SET status = 'partial', reviewed_at = CURRENT_TIMESTAMP, 
-                 reviewed_by_teacher_id = ?, teacher_notes = ?,
-                 points_claimed = ?
+                 reviewed_by_teacher_id = ?, teacher_notes = ?
              WHERE submission_id = ?`, 
-            [teacher_id, teacher_notes || '', partialPoints, submission_id]);
+            [teacher_id, teacher_notes || '', submission_id]);
         
         let bonusInfo = '';
         if (buildingBonus > 0) bonusInfo += ` +${Math.round(buildingBonus * 100)}% building`;
@@ -1244,8 +1276,9 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         if (handaxeBonus > 0) bonusInfo += ` +5% Handaxe`;
         if (bonusInfo) bonusInfo = ` (includes${bonusInfo})`;
         
+        const resubNote = isResubmission ? ` (upgraded from ${previousPoints})` : '';
         saveDatabase();
-        res.json({ success: true, message: `Partial credit: ${finalAmount} points awarded (${partialPoints}/${submission.max_points || submission.points_claimed})${bonusInfo}` });
+        res.json({ success: true, message: `Partial credit: ${finalAmount} points awarded (${partialPoints}/${submission.max_points || submission.points_claimed})${resubNote}${bonusInfo}` });
       } else {
         // Full rejection — no points
         run(`UPDATE point_submissions 
