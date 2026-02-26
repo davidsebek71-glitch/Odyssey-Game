@@ -8506,6 +8506,15 @@
                     // Already rendered - just return and wait for next poll
                 } else {
                     // Show god deployment selection
+                    // GUARD: Only build the full DOM once - god images were loading on every 2s poll, causing crash
+                    if (deploySelectionRendered) {
+                        // Just update the countdown text in-place, don't rebuild DOM
+                        const countdownEl = document.getElementById('deploy-countdown');
+                        if (countdownEl) countdownEl.textContent = `Time remaining: ${roundData.phase_time_remaining || 12}s`;
+                        return;
+                    }
+                    deploySelectionRendered = true;
+
                     const godsHTML = availableGods.length === 0 ? 
                         '<p style="color: rgba(255,255,255,0.5); text-align: center;">No gods available</p>' :
                         availableGods.map(g => {
@@ -8546,7 +8555,7 @@
                         ${scoreboardHTML}
                         <div style="text-align: center; margin-bottom: 15px;">
                             <span style="font-size: 24px; color: #ffd700;">⚔️ Deploy a God Power!</span>
-                            <p style="color: rgba(255,255,255,0.6); font-size: 14px;">Time remaining: ${roundData.phase_time_remaining || 12}s</p>
+                            <p id="deploy-countdown" style="color: rgba(255,255,255,0.6); font-size: 14px;">Time remaining: ${roundData.phase_time_remaining || 12}s</p>
                         </div>
                         <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                             ${godsHTML}
@@ -8648,6 +8657,7 @@
             // QUESTION PHASE
             if (phase === 'question' && data.question) {
                 deployWaitingRendered = false; // Reset for next time we're in deploy phase (new round)
+                deploySelectionRendered = false; // Reset for next time we're in deploy phase (new round)
                 // Check if we already answered
                 if (data.my_answer) {
                     const isCorrect = data.my_answer === 'correct';
@@ -9469,6 +9479,7 @@
         let godEffectsAppliedThisRound = false; // Prevent re-applying effects on every poll
         let questionReadySignaled = false; // Track if we've signaled ready for current question
         let deployWaitingRendered = false; // Prevent re-rendering deploy waiting screen on every poll (FIX: pandoraGlow infinite loop)
+        let deploySelectionRendered = false; // Prevent re-rendering god selection grid on every poll (FIX: image load accumulation crash)
         
         async function submitAnswer(answerIndex) {
             // Prevent duplicate submissions (but allow Aphrodite retry)
@@ -9627,6 +9638,7 @@
             godEffectsAppliedThisRound = false; // Reset effects flag
             questionReadySignaled = false; // Reset ready signal
             deployWaitingRendered = false; // Reset deploy waiting screen guard
+            deploySelectionRendered = false; // Reset deploy selection screen guard
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
