@@ -5129,36 +5129,21 @@
         }
         
         async function approveMythAssignment(studentId, portalId, studentName, mythName) {
-            // Ask which path and score
-            const pathDiv = document.createElement('div');
-            pathDiv.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 100001; display: flex; align-items: center; justify-content: center;';
-            pathDiv.innerHTML = `
-                <div style="background: #1a1a2e; border: 2px solid rgba(168,85,247,0.5); border-radius: 12px; padding: 24px; max-width: 400px; text-align: center;">
-                    <div style="font-size: 14px; color: #fff; margin-bottom: 6px; font-weight: 700;">Approve ${studentName}</div>
-                    <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 12px;">${mythName} — Which path did they complete?</div>
-                    <div style="margin-bottom: 16px;">
-                        <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">Score (out of 15):</label>
-                        <input type="number" id="myth-score-input" value="15" min="0" max="15" style="width: 80px; padding: 6px 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(168,85,247,0.4); border-radius: 6px; color: #fff; font-size: 16px; text-align: center; font-weight: 700;">
-                    </div>
-                    <div style="display: flex; gap: 12px; justify-content: center;">
-                        <button onclick="confirmMythApproval(${studentId}, ${portalId}, 'analytical', this.closest('[style*=fixed]'))" style="padding: 10px 20px; background: rgba(96,165,250,0.2); border: 2px solid #60a5fa; border-radius: 8px; color: #93c5fd; cursor: pointer; font-size: 13px; font-weight: 600;">📜 Scholar's Path</button>
-                        <button onclick="confirmMythApproval(${studentId}, ${portalId}, 'creative', this.closest('[style*=fixed]'))" style="padding: 10px 20px; background: rgba(245,158,11,0.2); border: 2px solid #f59e0b; border-radius: 8px; color: #fcd34d; cursor: pointer; font-size: 13px; font-weight: 600;">🎨 Creator's Path</button>
-                    </div>
-                    <button onclick="this.closest('[style*=fixed]').remove()" style="margin-top: 12px; padding: 6px 16px; background: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 12px;">Cancel</button>
-                </div>`;
-            document.body.appendChild(pathDiv);
-        }
-        
-        async function confirmMythApproval(studentId, portalId, path, overlayEl) {
-            // Get score from input before removing overlay
-            const scoreInput = document.getElementById('myth-score-input');
-            const points = scoreInput ? parseInt(scoreInput.value) : 15;
-            if (overlayEl) overlayEl.remove();
+            // Simple confirmation - the score already exists from the graded submission
+            const score = prompt(`Approve ${studentName}'s ${mythName} assignment?\n\nScore out of 15 (the grade from their submission):`, '15');
+            if (score === null) return;
+            
+            const points = parseInt(score) || 15;
+            const path = prompt('Which path?\n1 = Scholar\'s (analytical)\n2 = Creator\'s (creative)', '1');
+            if (path === null) return;
+            
+            const assignmentPath = path === '2' ? 'creative' : 'analytical';
+            
             try {
                 const res = await fetch(`${API_URL}/teacher/approve-myth-assignment`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: path, points: points })
+                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: assignmentPath, points: points })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -5172,7 +5157,7 @@
                 alert('Failed to approve');
             }
         }
-
+        
         // ==================== TRADE SYSTEM MANAGEMENT ====================
 
         async function openTradeManagementModal() {

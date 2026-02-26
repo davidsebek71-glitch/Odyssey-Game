@@ -949,6 +949,56 @@ app.get('/api/teacher/pending-submissions', authenticateToken, (req, res) => {
   }
 });
 
+// Helper: Bridge a graded submission to the myth portal system
+// When a Classical myth assignment is graded (approved or partial), update student_myth_completion
+const MYTH_GOD_TO_PORTAL = {
+  'Pandora': 1, 'Phaethon': 2, 'Orpheus': 3, 
+  'Echo and Narcissus': 4, 'Echo & Narcissus': 4,
+  'Icarus': 5, 'Eros and Psyche': 6, 'Eros & Psyche': 6, 
+  'Constellations': 7
+};
+
+function bridgeSubmissionToMythPortal(submission, pointsAwarded, teacherId) {
+  // Only bridge Classical myth assignments (not Archaic bonuses)
+  const portalId = MYTH_GOD_TO_PORTAL[submission.myth_god];
+  if (!portalId) return; // Not a Classical myth
+  
+  // Only bridge portal-assignment categories (cer, creative, bonus creative work)
+  // NOT comp_conn (reading guides) or quiz (handled separately)
+  const isPortalAssignment = (
+    submission.section === 'bonus' && submission.category !== 'comp_conn' && submission.category !== 'quiz'
+  ) || (
+    submission.section === 'classical_creative'
+  );
+  
+  if (!isPortalAssignment) return;
+  
+  try {
+    // Determine path from category
+    const path = (submission.category === 'cer' || submission.category === 'bonus_retelling') ? 'analytical' : 'creative';
+    
+    const existing = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', 
+      [submission.student_id, portalId]);
+    
+    if (existing.length > 0) {
+      // Update existing - set approved with score
+      run(`UPDATE student_myth_completion 
+           SET assignment_path = ?, teacher_approved = 1, approved_at = CURRENT_TIMESTAMP, points_earned = ?
+           WHERE student_id = ? AND portal_id = ?`,
+        [path, pointsAwarded, submission.student_id, portalId]);
+    } else {
+      // Create new
+      run(`INSERT INTO student_myth_completion (student_id, portal_id, assignment_path, teacher_approved, approved_at, points_earned)
+           VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, ?)`,
+        [submission.student_id, portalId, path, pointsAwarded]);
+    }
+    
+    console.log(`🏛️ Bridged to myth portal: student ${submission.student_id}, portal ${portalId} (${submission.myth_god}), ${pointsAwarded} pts, ${path} path`);
+  } catch (err) {
+    console.error('Bridge to myth portal error:', err.message);
+  }
+}
+
 // Approve/Reject Point Submission
 app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
   try {
@@ -1130,6 +1180,10 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
       
       // Check if this is a Rite of Passage submission - mark alliance as complete
       console.log('📋 APPROVE: grade record section done');
+      
+      // Bridge to myth portal system for Classical assignments
+      bridgeSubmissionToMythPortal(submission, submission.points_claimed, teacher_id);
+      
       if (submission.category === 'rite_of_passage') {
         run('UPDATE alliances SET rite_of_passage_complete = 1 WHERE alliance_id = ?', 
             [submission.alliance_id]);
@@ -1262,6 +1316,9 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
             console.log(`📝 Partial credit grade record: ${partialPoints}/${submission.max_points || submission.points_claimed} for ${assignment.display_name}${isResubmission ? ' (resubmit, prev: ' + previousPoints + ')' : ''}`);
           }
         }
+        
+        // Bridge to myth portal system for Classical assignments
+        bridgeSubmissionToMythPortal(submission, partialPoints, teacher_id);
         
         // Mark as partial
         run(`UPDATE point_submissions 
