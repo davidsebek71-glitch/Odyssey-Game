@@ -8317,7 +8317,27 @@
             battlePollInterval = setInterval(loadBattleState, 2000);
         }
         
+        // ========== CRASH DIAGNOSTIC LOG ==========
+        let _diagCount = 0;
+        function diagLog(msg) {
+            _diagCount++;
+            const ts = (performance.now()/1000).toFixed(1);
+            const line = `[${ts}s #${_diagCount}] ${msg}`;
+            console.log('🔍 ' + line);
+            let box = document.getElementById('_diag_box');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = '_diag_box';
+                box.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:180px;overflow-y:auto;background:rgba(0,0,0,0.92);color:#0f0;font:11px monospace;z-index:99999;padding:4px;pointer-events:none;';
+                document.body.appendChild(box);
+            }
+            box.innerHTML += line + '<br>';
+            box.scrollTop = box.scrollHeight;
+        }
+        // ========== END CRASH DIAGNOSTIC LOG ==========
+
         async function loadBattleState() {
+            diagLog(`poll | aphrodite=${aphroditeRetryActive} | id=${currentBattleId}`);
             // Skip UI refresh during Aphrodite retry window
             if (aphroditeRetryActive) {
                 console.log('💕 Skipping loadBattleState - Aphrodite retry active');
@@ -8460,6 +8480,7 @@
             
             // DEPLOY PHASE
             if (phase === 'deploy' && !isSuddenDeath) {
+                diagLog(`DEPLOY | ready=${roundData.my_deploy_ready} | pandora_elig=${data.pandora_box_eligible} | score=${myScore}-${oppScore}`);
                 // Clear question timer if running
                 if (battleTimer) {
                     clearInterval(battleTimer);
@@ -8491,10 +8512,7 @@
                 
                 if (myDeployReady) {
                     // Already deployed, waiting for opponent
-                    // GUARD: Only render once - prevents pandoraGlow infinite animation accumulation on repeated polls
-                    if (!deployWaitingRendered) {
-                        deployWaitingRendered = true;
-                        content.innerHTML = `
+                    content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
                             <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
@@ -8502,19 +8520,8 @@
                             <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed === 'pandora_box' ? '🏺 Hope Remains' : (roundData.my_god_deployed || 'No Power')}</p>
                         </div>
                     `;
-                    }
-                    // Already rendered - just return and wait for next poll
                 } else {
                     // Show god deployment selection
-                    // GUARD: Only build the full DOM once - god images were loading on every 2s poll, causing crash
-                    if (deploySelectionRendered) {
-                        // Just update the countdown text in-place, don't rebuild DOM
-                        const countdownEl = document.getElementById('deploy-countdown');
-                        if (countdownEl) countdownEl.textContent = `Time remaining: ${roundData.phase_time_remaining || 12}s`;
-                        return;
-                    }
-                    deploySelectionRendered = true;
-
                     const godsHTML = availableGods.length === 0 ? 
                         '<p style="color: rgba(255,255,255,0.5); text-align: center;">No gods available</p>' :
                         availableGods.map(g => {
@@ -8555,7 +8562,7 @@
                         ${scoreboardHTML}
                         <div style="text-align: center; margin-bottom: 15px;">
                             <span style="font-size: 24px; color: #ffd700;">⚔️ Deploy a God Power!</span>
-                            <p id="deploy-countdown" style="color: rgba(255,255,255,0.6); font-size: 14px;">Time remaining: ${roundData.phase_time_remaining || 12}s</p>
+                            <p style="color: rgba(255,255,255,0.6); font-size: 14px;">Time remaining: ${roundData.phase_time_remaining || 12}s</p>
                         </div>
                         <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                             ${godsHTML}
@@ -8568,7 +8575,7 @@
                                 border-radius: 12px;
                                 padding: 15px 20px;
                                 display: inline-block;
-                                animation: pandoraGlow 2s ease-in-out 3;
+                                animation: pandoraGlow 2s ease-in-out infinite;
                             ">
                                 <p style="color: #ffd700; font-size: 12px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">🏺 Pandora's Box</p>
                                 <button onclick="deployGod('pandora_box')" style="
@@ -8656,8 +8663,7 @@
             
             // QUESTION PHASE
             if (phase === 'question' && data.question) {
-                deployWaitingRendered = false; // Reset for next time we're in deploy phase (new round)
-                deploySelectionRendered = false; // Reset for next time we're in deploy phase (new round)
+                diagLog(`Q-PHASE | pandora_active=${roundData.pandora_box_active} | godEffects=${godEffectsAppliedThisRound} | qid=${data.question.question_id}`);
                 // Check if we already answered
                 if (data.my_answer) {
                     const isCorrect = data.my_answer === 'correct';
@@ -8708,6 +8714,7 @@
                 // Track current question to detect changes
                 const questionChanged = !currentQuestion || currentQuestion.question_id !== data.question.question_id;
                 if (questionChanged) {
+                    diagLog(`Q-CHANGED old=${currentQuestion?.question_id} new=${data.question.question_id}`);
                     godEffectsAppliedThisRound = false; // Reset effects flag for new question
                     questionReadySignaled = false; // Reset ready signal for new question
                     questionReadyRetries = 0; // FIX 3: Reset retry counter for new question
@@ -8819,6 +8826,7 @@
                 // This prevents destroying DOM-based god effects (Poseidon wobble, Athena removal, Apollo glow, etc.)
                 if (!godEffectsAppliedThisRound) {
                     godEffectsAppliedThisRound = true;
+                    diagLog(`BUILD-DOM | timerWasRunning=${!!battleTimer} | pandora=${roundData.pandora_box_active}`);
                     
                     // Start timer
                     if (battleTimer) clearInterval(battleTimer);
@@ -9478,8 +9486,6 @@
         let activeAphrodite = false; // Track if Aphrodite retry is available this round
         let godEffectsAppliedThisRound = false; // Prevent re-applying effects on every poll
         let questionReadySignaled = false; // Track if we've signaled ready for current question
-        let deployWaitingRendered = false; // Prevent re-rendering deploy waiting screen on every poll (FIX: pandoraGlow infinite loop)
-        let deploySelectionRendered = false; // Prevent re-rendering god selection grid on every poll (FIX: image load accumulation crash)
         
         async function submitAnswer(answerIndex) {
             // Prevent duplicate submissions (but allow Aphrodite retry)
@@ -9637,8 +9643,6 @@
             activeAphrodite = false; // Reset Aphrodite availability
             godEffectsAppliedThisRound = false; // Reset effects flag
             questionReadySignaled = false; // Reset ready signal
-            deployWaitingRendered = false; // Reset deploy waiting screen guard
-            deploySelectionRendered = false; // Reset deploy selection screen guard
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
