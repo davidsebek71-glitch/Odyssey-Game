@@ -952,11 +952,13 @@ app.get('/api/teacher/pending-submissions', authenticateToken, (req, res) => {
 // Approve/Reject Point Submission
 app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
   try {
+    console.log('📋 Review submission request:', JSON.stringify(req.body));
     const { submission_id, approve, teacher_notes } = req.body;
     const teacher_id = req.user.id;
     
     // Get submission
     const submission = query('SELECT * FROM point_submissions WHERE submission_id = ?', [submission_id])[0];
+    console.log('📋 Found submission:', submission ? submission.submission_id : 'NOT FOUND');
     
     if (!submission) {
       return res.status(404).json({ error: 'Submission not found' });
@@ -967,6 +969,7 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
     }
     
     if (approve) {
+      console.log('📋 APPROVE path - starting...');
       // Check if this is a resubmission (grade record already exists)
       let isResubmission = false;
       let previousPoints = 0;
@@ -993,6 +996,8 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         }
       }
       
+      console.log('📋 APPROVE: resubmission check done, isResubmission:', isResubmission);
+      
       // Update achievement tracking (handle resubmissions by passing difference)
       if (isResubmission) {
         // For resubmissions, update with the DIFFERENCE in points
@@ -1004,6 +1009,8 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         // New submission - add full points and increment count
         updateAchievementProgress(submission.student_id, submission.category, submission.points_claimed, submission.max_points);
       }
+      
+      console.log('📋 APPROVE: achievement tracking done');
       
       // Approve - add points to alliance with technology, building, AND achievement bonuses
       const student = query('SELECT technologies_unlocked FROM students WHERE student_id = ?', [submission.student_id])[0];
@@ -1037,6 +1044,8 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
       ).map(t => t.tech_name);
       const hasHandaxe = allianceTechs.includes('Handaxe');
       const handaxeBonus = hasHandaxe ? 0.05 : 0;
+      
+      console.log('📋 APPROVE: bonuses calculated - building:', buildingBonus, 'achievement:', achievementBonus, 'handaxe:', handaxeBonus);
       
       // Calculate final: base * tech * (1 + building) * (1 + achievement) * (1 + handaxe)
       // For resubmissions, only award the DIFFERENCE in points
@@ -1120,6 +1129,7 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
       }
       
       // Check if this is a Rite of Passage submission - mark alliance as complete
+      console.log('📋 APPROVE: grade record section done');
       if (submission.category === 'rite_of_passage') {
         run('UPDATE alliances SET rite_of_passage_complete = 1 WHERE alliance_id = ?', 
             [submission.alliance_id]);
@@ -1145,6 +1155,7 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         riteNote = ' (Alliance Rite of Passage requirement fulfilled!)';
       }
       
+      console.log('📋 APPROVE: sending response, finalAmount:', finalAmount);
       res.json({ success: true, message: `Approved! ${finalAmount} points awarded${bonusInfo}.${riteNote}`, finalAmount });
     } else {
       // Reject — with optional partial points
