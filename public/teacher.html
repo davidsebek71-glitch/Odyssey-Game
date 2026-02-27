@@ -3153,6 +3153,8 @@
 
         let fateAllianceData = []; // Store alliance data for age lookup
         let currentFateAge = 'Archaic'; // Track selected fate age
+        let lastFateData = null;       // For back button on dice roll screen
+        let lastFateChoices = null;    // For back button on dice roll screen
         
         async function openFateWheelModal() {
             // Reset to selection step (ensure fullscreen is cleared)
@@ -3784,6 +3786,8 @@
         }
 
         function showFateChoices(fate, choices) {
+            lastFateData = fate;
+            lastFateChoices = choices;
             document.getElementById('fate-reveal-overlay').className = '';
             const modal = document.getElementById('fate-choices-modal');
             const content = document.getElementById('fate-choices-content');
@@ -3964,6 +3968,11 @@
                     <button id="roll-dice-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 22px; font-weight: 900; padding: 15px 40px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,215,0,0.5); transition: all 0.3s;">
                         🎲 ROLL THE DICE! 🎲
                     </button>
+                    <div style="margin-top: 20px;">
+                        <button id="back-to-choices-btn" style="background: none; border: 1px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.6); font-size: 14px; padding: 8px 24px; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                            ← Change Choice
+                        </button>
+                    </div>
                 `;
                 document.body.appendChild(readyDiv);
                 
@@ -3971,6 +3980,17 @@
                 const rollBtn = document.getElementById('roll-dice-btn');
                 rollBtn.onmouseover = () => rollBtn.style.transform = 'scale(1.05)';
                 rollBtn.onmouseout = () => rollBtn.style.transform = 'scale(1)';
+                
+                // Back button — return to choice selection
+                const backBtn = document.getElementById('back-to-choices-btn');
+                backBtn.onmouseover = () => { backBtn.style.color = '#fff'; backBtn.style.borderColor = '#fff'; };
+                backBtn.onmouseout = () => { backBtn.style.color = 'rgba(255,255,255,0.6)'; backBtn.style.borderColor = 'rgba(255,255,255,0.3)'; };
+                backBtn.onclick = () => {
+                    document.body.removeChild(readyDiv);
+                    if (lastFateData && lastFateChoices) {
+                        showFateChoices(lastFateData, lastFateChoices);
+                    }
+                };
                 
                 // Wait for button click
                 rollBtn.onclick = async () => {
