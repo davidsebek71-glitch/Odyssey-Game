@@ -8374,8 +8374,15 @@
                 // - question phase and we just answered (need to show "answer locked")
                 // - something about our state changed
                 if (currentPhase === 'deploy' && !myDeployReady) return; // Still picking, timer running — skip
+                if (currentPhase === 'deploy' && myDeployReady) return; // Waiting for opponent, timer running — skip
                 if (currentPhase === 'question' && !myAnswer && godEffectsAppliedThisRound) return; // Question visible, timer running — skip
+                if (currentPhase === 'question' && myAnswer) return; // Already answered, waiting — skip
                 if (currentPhase === 'results') return; // Results timer running — skip
+            }
+            // Also skip if no timer but we're in a stable waiting state (prevents DOM thrash)
+            if (data.status !== 'completed' && v2LastRenderedPhase === currentPhase && v2LastRenderedRound === currentRound) {
+                if (currentPhase === 'deploy' && myDeployReady) return; // Waiting for opponent, no timer needed
+                if (currentPhase === 'question' && myAnswer && !aphroditeRetryActive) return; // Answered, waiting for opponent
             }
             v2LastRenderedPhase = currentPhase;
             v2LastRenderedRound = currentRound;

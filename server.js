@@ -7263,8 +7263,13 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           }
           const timeoutRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
           if (timeoutRound && !timeoutRound.completed_at && timeoutRound.challenger_answer && timeoutRound.defender_answer) {
-            console.log(`⏱️ V2 Question timeout - scoring round ${currentRound.round_number}`);
-            scoreRound(battle_id, currentRound.round_id);
+            // V2: Don't score if Aphrodite retry is pending
+            if (isAphroditeRetryPending(timeoutRound)) {
+              console.log(`💕 V2 Question timeout - Aphrodite retry pending, skipping score`);
+            } else {
+              console.log(`⏱️ V2 Question timeout - scoring round ${currentRound.round_number}`);
+              scoreRound(battle_id, currentRound.round_id);
+            }
           }
         } else if (currentRound.phase === 'results') {
           // V2: Results timeout — create next round with deploy_deadline
@@ -7809,6 +7814,19 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
 });
 
 // Score a completed round - extracted for Aphrodite retry delayed scoring
+// V2: Check if Aphrodite retry is pending (used by auto-advance and cleanup to avoid premature scoring)
+function isAphroditeRetryPending(round) {
+  if (!round || !round.challenger_answer || !round.defender_answer) return false;
+  if (round.completed_at) return false;
+  
+  const challengerNeedsRetry = round.challenger_answer === 'wrong' && 
+    round.challenger_god_deployed === 'aphrodite' && !round.challenger_god_blocked;
+  const defenderNeedsRetry = round.defender_answer === 'wrong' && 
+    round.defender_god_deployed === 'aphrodite' && !round.defender_god_blocked;
+  
+  return challengerNeedsRetry || defenderNeedsRetry;
+}
+
 function scoreRound(battle_id, round_id) {
   try {
     const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [round_id])[0];
@@ -10749,8 +10767,13 @@ app.listen(PORT, () => {
           }
           const check = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [fresh.round_id])[0];
           if (check && !check.completed_at && check.challenger_answer && check.defender_answer) {
-            console.log(`🔧 V2 Cleanup: Question timeout for round ${fresh.round_id}, scoring now`);
-            scoreRound(staleRound.battle_id, fresh.round_id);
+            // V2: Don't score if Aphrodite retry is pending
+            if (isAphroditeRetryPending(check)) {
+              console.log(`💕 V2 Cleanup: Aphrodite retry pending for round ${fresh.round_id}, skipping score`);
+            } else {
+              console.log(`🔧 V2 Cleanup: Question timeout for round ${fresh.round_id}, scoring now`);
+              scoreRound(staleRound.battle_id, fresh.round_id);
+            }
           }
         } else if (fresh.phase === 'results' && fresh.results_deadline && fresh.results_deadline < now) {
           // Results expired — this will be caught on next poll by either client, 
