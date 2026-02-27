@@ -3799,9 +3799,11 @@
             const isSteal = fate.fate_type === 'steal_choice';
 
             // For steal fates, we need alliance count to show total math
-            // Use fateAllianceData which is already loaded for the current period
+            // Must filter by SAME CLASS PERIOD (not just age) to match server logic
+            const selectedAllianceData = fateAllianceData.find(a => a.alliance_id === selectedAllianceId);
+            const selectedPeriod = selectedAllianceData ? selectedAllianceData.class_period : null;
             const periodAlliances = fateAllianceData.filter(a => 
-                (a.current_age || 'Archaic') === currentFateAge && a.alliance_id !== selectedAllianceId
+                a.class_period === selectedPeriod && a.alliance_id !== selectedAllianceId && !a.is_disbanded
             );
             const allianceCount = periodAlliances.length;
             
