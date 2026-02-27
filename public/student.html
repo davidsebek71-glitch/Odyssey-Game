@@ -8318,7 +8318,7 @@
             
             // Start polling - reduced frequency to prevent memory issues
             if (battlePollInterval) clearInterval(battlePollInterval);
-            battlePollInterval = setInterval(loadBattleState, 3000); // V2: 3s poll (deadline-based, less critical)
+            battlePollInterval = setInterval(loadBattleState, 1500); // V2: 1.5s poll — skip guard prevents unnecessary renders
         }
         
         let battleStateLoading = false; // V2: concurrency guard
@@ -8703,10 +8703,21 @@
                 }
                 currentQuestion = data.question;
                 
-                // SYNC GATE: V2 — server sets question_starts_at immediately after both deploy.
-                // Use question_starts_at for countdown, question_deadline for answer timer.
+                // V2: Use question_starts_at for countdown, with minimum display guarantee.
+                // When client first discovers the transition, ensure at least 2s of countdown
+                // so both players always see a meaningful "3... 2... 1..." experience.
                 const questionDisplayTime = roundData.question_starts_at || roundData.question_display_time;
-                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                let displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                
+                // V2: Minimum countdown guarantee — if we just discovered the question phase
+                // and less than 2 seconds remain, extend the local display time
+                if (displayTimeMs && v2LastRenderedPhase !== 'question') {
+                    const remaining = displayTimeMs - Date.now();
+                    if (remaining < 2000) {
+                        displayTimeMs = Date.now() + 2000; // Guarantee 2-second countdown
+                    }
+                }
+                
                 const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
                 // V2: If no display time yet, show a brief "Get Ready" (server cleanup will advance shortly)
@@ -8965,7 +8976,16 @@
                 
                 // V2: Same deadline-based sync as normal rounds
                 const questionDisplayTime = roundData.question_starts_at || roundData.question_display_time;
-                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                let displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
+                
+                // V2: Minimum countdown guarantee for sudden death too
+                if (displayTimeMs && v2LastRenderedPhase !== 'question') {
+                    const remaining = displayTimeMs - Date.now();
+                    if (remaining < 2000) {
+                        displayTimeMs = Date.now() + 2000;
+                    }
+                }
+                
                 const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
                 // V2: No display time yet — show Sudden Death intro
@@ -9091,6 +9111,11 @@
         
         // Deploy god function
         async function deployGod(godName) {
+            // V2: Don't send if deploy phase already expired (prevents 400 errors)
+            if (v2LastRenderedPhase !== 'deploy') {
+                console.log('Deploy phase already ended, skipping');
+                return;
+            }
             try {
                 const response = await fetch(`${API_URL}/arena/deploy-god`, {
                     method: 'POST',
@@ -9477,6 +9502,11 @@
                 console.log('Answer already submitting, ignoring');
                 return;
             }
+            // V2: Don't send if question phase already ended (prevents 400 errors on timer expiry)
+            if (v2LastRenderedPhase !== 'question' && !aphroditeRetryActive) {
+                console.log('Question phase already ended, skipping answer submission');
+                return;
+            }
             
             // If this is an Aphrodite retry submission, clear the retry state first
             if (aphroditeRetryActive) {
@@ -9494,8 +9524,10 @@
             }
             
             // Calculate time_ms using actual start time for accuracy
-            const timeMs = questionActualStartTime ? (Date.now() - questionActualStartTime) : ((18 - timeRemaining) * 1000);
-            console.log(`⏱️ Answer submitted after ${timeMs}ms (questionActualStartTime: ${questionActualStartTime})`);
+            const timeMs = questionActualStartTime ? Math.max(0, Date.now() - questionActualStartTime) : (Math.max(0, 20 - timeRemaining) * 1000);
+            if (answerIndex >= 0) {
+                console.log(`⏱️ Answer submitted after ${timeMs}ms`);
+            }
             
             try {
                 const response = await fetch(`${API_URL}/arena/answer`, {
