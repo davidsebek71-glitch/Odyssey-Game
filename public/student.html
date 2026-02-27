@@ -3236,6 +3236,7 @@
         let selectedGods = [];
         let currentBattleId = null;
         let battlePollInterval = null;
+        let battleFastPoll = null; // V2: 500ms poll during "waiting for opponent" states
         let currentQuestion = null;
         let battleTimer = null;
         let timeRemaining = 15;
@@ -8369,10 +8370,6 @@
             const myAnswer = data.my_answer;
             
             if (data.status !== 'completed' && v2LastRenderedPhase === currentPhase && v2LastRenderedRound === currentRound && battleTimer) {
-                // Phase hasn't changed and a timer is running — skip re-render UNLESS:
-                // - deploy phase and we just deployed (need to show "waiting for opponent")
-                // - question phase and we just answered (need to show "answer locked")
-                // - something about our state changed
                 if (currentPhase === 'deploy' && !myDeployReady) return; // Still picking, timer running — skip
                 if (currentPhase === 'deploy' && myDeployReady) return; // Waiting for opponent, timer running — skip
                 if (currentPhase === 'question' && !myAnswer && godEffectsAppliedThisRound) return; // Question visible, timer running — skip
@@ -8384,6 +8381,17 @@
                 if (currentPhase === 'deploy' && myDeployReady) return; // Waiting for opponent, no timer needed
                 if (currentPhase === 'question' && myAnswer && !aphroditeRetryActive) return; // Answered, waiting for opponent
             }
+            
+            // V2: Fast poll management — 500ms polling when waiting for opponent
+            const isWaitingState = (currentPhase === 'deploy' && myDeployReady) || 
+                                   (currentPhase === 'question' && myAnswer && !aphroditeRetryActive);
+            if (isWaitingState && !battleFastPoll) {
+                battleFastPoll = setInterval(loadBattleState, 500);
+            } else if (!isWaitingState && battleFastPoll) {
+                clearInterval(battleFastPoll);
+                battleFastPoll = null;
+            }
+            
             v2LastRenderedPhase = currentPhase;
             v2LastRenderedRound = currentRound;
             
@@ -8703,21 +8711,9 @@
                 }
                 currentQuestion = data.question;
                 
-                // V2: Use question_starts_at for countdown, with minimum display guarantee.
-                // When client first discovers the transition, ensure at least 2s of countdown
-                // so both players always see a meaningful "3... 2... 1..." experience.
+                // V2: Use question_starts_at for countdown, question_deadline for answer timer.
                 const questionDisplayTime = roundData.question_starts_at || roundData.question_display_time;
-                let displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
-                
-                // V2: Minimum countdown guarantee — if we just discovered the question phase
-                // and less than 2 seconds remain, extend the local display time
-                if (displayTimeMs && v2LastRenderedPhase !== 'question') {
-                    const remaining = displayTimeMs - Date.now();
-                    if (remaining < 2000) {
-                        displayTimeMs = Date.now() + 2000; // Guarantee 2-second countdown
-                    }
-                }
-                
+                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
                 const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
                 // V2: If no display time yet, show a brief "Get Ready" (server cleanup will advance shortly)
@@ -8976,16 +8972,7 @@
                 
                 // V2: Same deadline-based sync as normal rounds
                 const questionDisplayTime = roundData.question_starts_at || roundData.question_display_time;
-                let displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
-                
-                // V2: Minimum countdown guarantee for sudden death too
-                if (displayTimeMs && v2LastRenderedPhase !== 'question') {
-                    const remaining = displayTimeMs - Date.now();
-                    if (remaining < 2000) {
-                        displayTimeMs = Date.now() + 2000;
-                    }
-                }
-                
+                const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
                 const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
                 // V2: No display time yet — show Sudden Death intro
@@ -9508,6 +9495,33 @@
                 return;
             }
             
+            // V2: IMMEDIATE visual lock — highlight selected answer and disable all buttons
+            // This happens BEFORE the server request so the student sees instant feedback
+            if (answerIndex >= 0) {
+                const allBtns = document.querySelectorAll('#battle-content button[onclick^="submitAnswer"]');
+                allBtns.forEach((btn, idx) => {
+                    btn.disabled = true;
+                    btn.style.cursor = 'default';
+                    btn.style.pointerEvents = 'none';
+                    btn.removeAttribute('onmouseover');
+                    btn.removeAttribute('onmouseout');
+                    if (idx === answerIndex) {
+                        // Highlight selected answer
+                        btn.style.background = 'rgba(99, 102, 241, 0.4)';
+                        btn.style.borderColor = '#6366f1';
+                        btn.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.3)';
+                    } else {
+                        // Dim other answers
+                        btn.style.opacity = '0.4';
+                    }
+                });
+                // Show "Answer Locked" indicator
+                const timerEl = document.getElementById('battle-timer');
+                if (timerEl) {
+                    timerEl.parentElement.innerHTML = '<span style="color: #6366f1; font-size: 28px; font-weight: bold;">🔒 Answer Locked!</span>';
+                }
+            }
+            
             // If this is an Aphrodite retry submission, clear the retry state first
             if (aphroditeRetryActive) {
                 console.log('💕 Aphrodite retry answer submitted');
@@ -9662,6 +9676,7 @@
             v2LastRenderedPhase = null; // V2: Reset render tracking
             v2LastRenderedRound = 0;
             battleStateLoading = false; // V2: Reset concurrency guard
+            if (battleFastPoll) { clearInterval(battleFastPoll); battleFastPoll = null; }
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
