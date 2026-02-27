@@ -8460,8 +8460,8 @@
             const oppScore = data.is_challenger ? data.defender_score : data.challenger_score;
             const myName = data.is_challenger ? data.challenger_name : data.defender_name;
             const oppName = data.is_challenger ? data.defender_name : data.challenger_name;
-            const roundData = data.round_data || {};
-            const phase = roundData.phase || 'deploy';
+            // roundData, currentPhase already declared in V2 skip guard above
+            const phase = currentPhase;
             const isSuddenDeath = data.current_round > 5;
             
             // Scoreboard HTML (used in all phases)
@@ -8511,7 +8511,7 @@
                 }
                 
                 const availableGods = data.available_gods || [];
-                const myDeployReady = roundData.my_deploy_ready;
+                // myDeployReady already declared in V2 skip guard
                 
                 if (myDeployReady) {
                     // Already deployed, waiting for opponent
