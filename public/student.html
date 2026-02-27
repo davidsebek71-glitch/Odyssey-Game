@@ -10514,7 +10514,11 @@
             stopTradePoll(); // Stop polling when portal closes
         }
         
+        let tradePortalLoading = false; // Guard against concurrent reloads
+        
         async function loadTradePortalData() {
+            if (tradePortalLoading) return; // Skip if already loading
+            tradePortalLoading = true;
             try {
                 const [myRes, marketRes] = await Promise.all([
                     fetch(`${API_URL}/trade/my-data`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -10523,6 +10527,9 @@
                 tradePortalData = await myRes.json();
                 tradeMarketData = await marketRes.json();
                 renderTradePortal();
+                // Sync poll fingerprint so next poll doesn't re-trigger
+                const currentPending = tradePortalData.pending_trades || [];
+                tradePollLastIds = currentPending.map(t => `${t.trade_id}`).join(',');
                 // Load sparkline charts and init sell previews after DOM is rendered
                 setTimeout(() => {
                     loadDockSparklines();
@@ -10535,6 +10542,7 @@
             } catch (err) {
                 document.getElementById('trade-portal-body').innerHTML = '<div style="color: #f87171; padding: 20px;">Failed to load trade data</div>';
             }
+            tradePortalLoading = false;
         }
         
         let selectedTradePartner = null;
@@ -11203,13 +11211,27 @@
                 const newIds = pending.map(t => `${t.trade_id}`).join(',');
                 
                 if (newIds !== tradePollLastIds) {
-                    // Something changed — update only the pending section
+                    // Something changed
+                    const oldIds = tradePollLastIds;
                     tradePollLastIds = newIds;
-                    const section = document.getElementById('tp-pending-section');
-                    if (section) {
-                        section.innerHTML = renderPendingTrades(pending, data.student_id);
+                    tradePollInactiveCount = 0;
+                    
+                    // If a trade disappeared (completed/rejected/countered), do a full reload
+                    // so wallet and inventory update for both players
+                    const oldSet = new Set(oldIds.split(',').filter(Boolean));
+                    const newSet = new Set(newIds.split(',').filter(Boolean));
+                    const tradesRemoved = [...oldSet].some(id => !newSet.has(id));
+                    
+                    if (tradesRemoved) {
+                        // Full reload — resources likely changed
+                        await loadTradePortalData();
+                    } else {
+                        // New trade appeared — just update the pending section
+                        const section = document.getElementById('tp-pending-section');
+                        if (section) {
+                            section.innerHTML = renderPendingTrades(pending, data.student_id);
+                        }
                     }
-                    tradePollInactiveCount = 0; // Reset inactivity
                 } else {
                     tradePollInactiveCount++;
                     if (tradePollInactiveCount >= TRADE_POLL_MAX_INACTIVE) {
