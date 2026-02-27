@@ -6190,13 +6190,15 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
 
 // BATTLE TIMING CONSTANTS (in milliseconds)
 const BATTLE_TIMING = {
-  DEPLOY_PHASE: 12000,    // God selection phase: 12 seconds
+  DEPLOY_PHASE: 15000,    // God selection phase: 15 seconds (was 12)
+  COUNTDOWN: 3000,        // 3-2-1 countdown before question
   QUESTION_PHASE: 20000,  // Question answering phase: 20 seconds
   RESULTS_PHASE: 5000,    // Results display phase: 5 seconds
   ANSWER_FEEDBACK: 3000,  // Time to show correct/wrong after answering: 3 seconds
-  SYNC_DELAY: 2000,       // Delay after both ready before showing question/results: 2 seconds
-  SUDDEN_DEATH_DEPLOY: 12000,  // Sudden death god selection
-  SUDDEN_DEATH_INTRO: 30000    // Sudden death intro screen timeout: 30 seconds
+  SYNC_DELAY: 2000,       // Legacy — kept for backward compat, no longer primary
+  SUDDEN_DEATH_DEPLOY: 15000,  // Sudden death god selection
+  SUDDEN_DEATH_INTRO: 30000,   // Sudden death intro screen timeout: 30 seconds
+  APHRODITE_RETRY: 6000   // Aphrodite retry window: 6 seconds
 };
 
 // Get a random question, excluding already-used IDs (Fisher-Yates shuffle)
@@ -7156,16 +7158,17 @@ app.post('/api/arena/select-gods', authenticateToken, (req, res) => {
       const question = getAdaptiveBattleQuestion(updated.challenger_id, updated.defender_id, []);
       
       if (question) {
-        // Set synchronized start time - 1 second from now for both players
+        // V2: Set deploy deadline — both players have 15 seconds to pick a god
         const roundStartsAt = new Date(Date.now() + 1000).toISOString();
-        const phaseEndsAt = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
+        const deployDeadline = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
+        const phaseEndsAt = deployDeadline; // backward compat
         
         run("UPDATE arena_battles SET status = 'in_progress', started_at = CURRENT_TIMESTAMP, current_round = 1 WHERE battle_id = ?", [battle_id]);
-        run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, started_at) 
-             VALUES (?, 1, ?, 'deploy', ?, ?)`,
-          [battle_id, question.question_id, phaseEndsAt, roundStartsAt]);
+        run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, deploy_deadline, started_at) 
+             VALUES (?, 1, ?, 'deploy', ?, ?, ?)`,
+          [battle_id, question.question_id, phaseEndsAt, deployDeadline, roundStartsAt]);
         
-        console.log(`⏱️ Round 1 created - starts at ${roundStartsAt}, question_id: ${question.question_id}`);
+        console.log(`⏱️ V2 Round 1 created - deploy_deadline: ${deployDeadline}`);
       }
       
       saveDatabase();
@@ -7218,31 +7221,38 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         if (!freshRound || freshRound.phase !== currentRound.phase) {
           console.log(`⚠️ Phase already transitioned (was ${currentRound.phase}, now ${freshRound?.phase}). Skipping double-transition.`);
         } else if (currentRound.phase === 'deploy') {
-          // Deploy timeout - move to question phase with sync delay
-          // Set question_display_time so the sync gate works correctly
-          const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
-          const newPhaseEnds = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-          run("UPDATE arena_battle_rounds SET phase = 'question', question_display_time = ?, phase_ends_at = ? WHERE round_id = ?", 
-            [questionDisplayTime, newPhaseEnds, currentRound.round_id]);
-          // Also mark both as question-ready since they had their chance during deploy
-          run("UPDATE arena_battle_rounds SET challenger_question_ready = 1, defender_question_ready = 1 WHERE round_id = ?",
-            [currentRound.round_id]);
+          // V2: Deploy timeout — auto-assign random gods for anyone who hasn't picked, then transition
+          if (!currentRound.challenger_deploy_ready) {
+            run("UPDATE arena_battle_rounds SET challenger_deploy_ready = 1 WHERE round_id = ?", [currentRound.round_id]);
+            console.log(`⏱️ Deploy timeout - challenger auto-skipped (no god power)`);
+          }
+          if (!currentRound.defender_deploy_ready) {
+            run("UPDATE arena_battle_rounds SET defender_deploy_ready = 1 WHERE round_id = ?", [currentRound.round_id]);
+            console.log(`⏱️ Deploy timeout - defender auto-skipped (no god power)`);
+          }
+          // Transition to question with V2 deadlines
+          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
+          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'question', question_starts_at = ?, question_display_time = ?,
+               question_deadline = ?, phase_ends_at = ? WHERE round_id = ?`, 
+            [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, currentRound.round_id]);
           currentRound.phase = 'question';
-          currentRound.question_display_time = questionDisplayTime;
-          currentRound.phase_ends_at = newPhaseEnds;
-          console.log(`⏱️ Deploy timeout - Question display at ${questionDisplayTime}`);
+          currentRound.question_starts_at = questionStartsAt;
+          currentRound.question_display_time = questionStartsAt;
+          currentRound.question_deadline = questionDeadline;
+          currentRound.phase_ends_at = questionDeadline;
+          console.log(`⏱️ V2 Deploy timeout - question starts ${questionStartsAt}, deadline ${questionDeadline}`);
         } else if (currentRound.phase === 'sudden_death_intro') {
-          // Sudden death intro timeout (30s) - auto-transition to question
-          const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
-          const newPhaseEnds = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-          run(`UPDATE arena_battle_rounds SET phase = 'question', question_display_time = ?, phase_ends_at = ? WHERE round_id = ?`,
-            [questionDisplayTime, newPhaseEnds, currentRound.round_id]);
-          currentRound.phase = 'question';
-          currentRound.question_display_time = questionDisplayTime;
-          currentRound.phase_ends_at = newPhaseEnds;
-          console.log(`⚡ Sudden death intro timeout - auto-transitioning to question`);
+          // Sudden death intro timeout — transition to deploy phase for sudden death round
+          const deployDeadline = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_DEPLOY).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'deploy', deploy_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
+            [deployDeadline, deployDeadline, currentRound.round_id]);
+          currentRound.phase = 'deploy';
+          currentRound.deploy_deadline = deployDeadline;
+          currentRound.phase_ends_at = deployDeadline;
+          console.log(`⚡ V2 Sudden death intro timeout - deploy phase, deadline ${deployDeadline}`);
         } else if (currentRound.phase === 'question') {
-          // Time's up - auto-submit wrong answers for anyone who hasn't answered
+          // V2: Question timeout — auto-submit timeout for anyone who hasn't answered
           if (!currentRound.challenger_answer) {
             run("UPDATE arena_battle_rounds SET challenger_answer = 'timeout', challenger_time_ms = ? WHERE round_id = ?", 
               [BATTLE_TIMING.QUESTION_PHASE, currentRound.round_id]);
@@ -7251,25 +7261,22 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
             run("UPDATE arena_battle_rounds SET defender_answer = 'timeout', defender_time_ms = ? WHERE round_id = ?", 
               [BATTLE_TIMING.QUESTION_PHASE, currentRound.round_id]);
           }
-          // FIX 1: Score the round after filling timeout answers (previously missing — caused stuck battles)
           const timeoutRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
           if (timeoutRound && !timeoutRound.completed_at && timeoutRound.challenger_answer && timeoutRound.defender_answer) {
-            console.log(`⏱️ Question timeout - scoring round ${currentRound.round_number} now`);
+            console.log(`⏱️ V2 Question timeout - scoring round ${currentRound.round_number}`);
             scoreRound(battle_id, currentRound.round_id);
           }
         } else if (currentRound.phase === 'results') {
-          // Results phase ended - create next round
+          // V2: Results timeout — create next round with deploy_deadline
           const nextRoundNum = battle.current_round + 1;
           
-          // FIX 2b: Check if next round already exists (prevents duplicate from concurrent poll race condition)
           const existingNextRound = query('SELECT round_id FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
             [battle_id, nextRoundNum])[0];
           if (existingNextRound) {
-            console.log(`⚠️ Round ${nextRoundNum} already exists (round_id: ${existingNextRound.round_id}), skipping duplicate creation`);
+            console.log(`⚠️ Round ${nextRoundNum} already exists, skipping duplicate creation`);
             battle.current_round = nextRoundNum;
             run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
           } else if (nextRoundNum <= 5 || (battle.challenger_score === battle.defender_score)) {
-            // Get unused questions using adaptive pool (Archaic + unlocked Classical myths)
             const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
             const usedIds = usedQuestions.map(q => q.question_id);
             const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, battle.defender_id, usedIds);
@@ -7278,26 +7285,22 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
               const isSuddenDeath = nextRoundNum > 5;
               
               if (isSuddenDeath) {
-                // Sudden death rounds go through sudden_death_intro phase first
                 const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
                 run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
-                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
-                     challenger_question_ready, defender_question_ready, started_at) 
-                     VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, CURRENT_TIMESTAMP)`,
-                  [battle_id, nextRoundNum, nextQ.question_id, phaseEndsAt]);
-                console.log(`⚡ SUDDEN DEATH Round ${nextRoundNum} created - phase: sudden_death_intro`);
-              } else {
-                // Normal round - deploy phase
-                const roundStartsAt = new Date(Date.now() + 1000).toISOString();
-                const newPhaseEnds = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
-                run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
                 run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, started_at) 
-                     VALUES (?, ?, ?, 'deploy', ?, ?)`,
-                  [battle_id, nextRoundNum, nextQ.question_id, newPhaseEnds, roundStartsAt]);
-                console.log(`⏱️ Round ${nextRoundNum} created - starts at ${roundStartsAt}`);
+                     VALUES (?, ?, ?, 'sudden_death_intro', ?, CURRENT_TIMESTAMP)`,
+                  [battle_id, nextRoundNum, nextQ.question_id, phaseEndsAt]);
+                console.log(`⚡ V2 SUDDEN DEATH Round ${nextRoundNum} created`);
+              } else {
+                // V2: Normal next round — deploy phase with deadline
+                const deployDeadline = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
+                run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
+                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, deploy_deadline, started_at) 
+                     VALUES (?, ?, ?, 'deploy', ?, ?, CURRENT_TIMESTAMP)`,
+                  [battle_id, nextRoundNum, nextQ.question_id, deployDeadline, deployDeadline]);
+                console.log(`⏱️ V2 Round ${nextRoundNum} created - deploy_deadline: ${deployDeadline}`);
               }
               
-              // Re-query to get the new round
               battle.current_round = nextRoundNum;
               saveDatabase();
             }
@@ -7338,7 +7341,13 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         round_number: currentRound.round_number,
         phase: currentRound.phase || 'deploy',
         phase_time_remaining: phaseTimeRemaining,
+        // V2 deadline timestamps — clients count down from these
+        deploy_deadline: currentRound.deploy_deadline || null,
         question_starts_at: currentRound.question_starts_at || null,
+        question_deadline: currentRound.question_deadline || null,
+        results_deadline: currentRound.results_deadline || null,
+        round_resolved_at: currentRound.round_resolved_at || null,
+        // Legacy fields kept for backward compat
         question_display_time: currentRound.question_display_time || null,
         round_started_at: currentRound.started_at || null,
         challenger_god_deployed: currentRound.challenger_god_deployed,
@@ -7593,14 +7602,17 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
         console.log('Cerberus block check error (non-fatal):', cerberusErr.message);
       }
       
-      // Move to question phase - question won't show until BOTH clients call /question-ready
-      // Set phase_ends_at with extra time to account for sync wait
-      const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.QUESTION_PHASE + 10000).toISOString();
+      // V2: Move to question phase with fixed deadlines — no question-ready handshake needed
+      const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
+      const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+      const phaseEndsAt = questionDeadline; // Keep phase_ends_at for backward compat
       
-      run("UPDATE arena_battle_rounds SET phase = 'question', phase_ends_at = ? WHERE round_id = ?", 
-        [phaseEndsAt, currentRound.round_id]);
+      run(`UPDATE arena_battle_rounds SET phase = 'question', phase_ends_at = ?, 
+           question_starts_at = ?, question_deadline = ?, question_display_time = ?
+           WHERE round_id = ?`, 
+        [phaseEndsAt, questionStartsAt, questionDeadline, questionStartsAt, currentRound.round_id]);
       
-      console.log(`⏱️ BOTH DEPLOYED! Waiting for clients to sync via /question-ready`);
+      console.log(`⏱️ V2 BOTH DEPLOYED! Question starts at ${questionStartsAt}, deadline ${questionDeadline}`);
       
       // A4: Check if this player deployed Prometheus and it wasn't blocked
       let prometheusPreview = null;
@@ -7627,10 +7639,12 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
       
       saveDatabase();
       
-      // Tell this player to refresh - they'll see question phase and call /question-ready
+      // Tell this player the question is coming — no /question-ready needed
       return res.json({ 
         success: true, 
         both_ready: true,
+        question_starts_at: questionStartsAt,
+        question_deadline: questionDeadline,
         prometheus_preview: prometheusPreview,
         prometheus_preview_duration: prometheusPreviewDuration
       });
@@ -7722,15 +7736,11 @@ app.post('/api/arena/use-scramble', authenticateToken, (req, res) => {
 // Signal ready for question - both clients must call this before question displays
 app.post('/api/arena/question-ready', authenticateToken, (req, res) => {
   try {
-    const student_id = req.user.id;
     const { battle_id } = req.body;
     
     const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battle_id])[0];
-    if (!battle) {
-      return res.status(404).json({ error: 'Battle not found' });
-    }
+    if (!battle) return res.status(404).json({ error: 'Battle not found' });
     
-    const isChallenger = battle.challenger_id === student_id;
     const currentRound = query('SELECT * FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
       [battle_id, battle.current_round])[0];
     
@@ -7738,42 +7748,15 @@ app.post('/api/arena/question-ready', authenticateToken, (req, res) => {
       return res.json({ success: false, not_ready: true });
     }
     
-    // Mark this player as ready
-    const readyCol = isChallenger ? 'challenger_question_ready' : 'defender_question_ready';
-    run(`UPDATE arena_battle_rounds SET ${readyCol} = 1 WHERE round_id = ?`, [currentRound.round_id]);
-    
-    // Check if BOTH are now ready
-    const updatedRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
-    
-    if (updatedRound.challenger_question_ready === 1 && updatedRound.defender_question_ready === 1) {
-      // BOTH ready - set display time 2 seconds in the future so both clients
-      // pick it up on their next poll cycle simultaneously
-      if (!updatedRound.question_display_time) {
-        const displayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
-        run('UPDATE arena_battle_rounds SET question_display_time = ? WHERE round_id = ?', 
-          [displayTime, currentRound.round_id]);
-        console.log(`⏱️ BOTH CLIENTS READY! Question will display at ${displayTime} (${BATTLE_TIMING.SYNC_DELAY}ms from now)`);
-        saveDatabase();
-        return res.json({ 
-          success: true, 
-          both_ready: true, 
-          show_question: true,
-          display_time: displayTime
-        });
-      } else {
-        // Already set - return it
-        return res.json({ 
-          success: true, 
-          both_ready: true, 
-          show_question: true,
-          display_time: updatedRound.question_display_time
-        });
-      }
-    }
-    
-    // Waiting for other player
-    saveDatabase();
-    res.json({ success: true, waiting_for_opponent: true });
+    // V2: No handshake needed — deadlines are already set by deploy-god or auto-advance.
+    // Just return the existing timestamps so the client can sync its countdown.
+    return res.json({ 
+      success: true, 
+      both_ready: true, 
+      show_question: true,
+      display_time: currentRound.question_starts_at || currentRound.question_display_time,
+      question_deadline: currentRound.question_deadline
+    });
     
   } catch (err) {
     console.error('Question ready error:', err);
@@ -7788,16 +7771,11 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
     const { battle_id } = req.body;
     
     const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battle_id])[0];
-    if (!battle) {
-      return res.status(404).json({ error: 'Battle not found' });
-    }
+    if (!battle) return res.status(404).json({ error: 'Battle not found' });
     
     const isChallenger = battle.challenger_id === student_id;
     const isDefender = battle.defender_id === student_id;
-    
-    if (!isChallenger && !isDefender) {
-      return res.status(403).json({ error: 'You are not part of this battle' });
-    }
+    if (!isChallenger && !isDefender) return res.status(403).json({ error: 'You are not part of this battle' });
     
     const currentRound = query('SELECT * FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
       [battle_id, battle.current_round])[0];
@@ -7806,25 +7784,18 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Not in sudden death intro phase' });
     }
     
-    // Mark this player as ready
+    // V2: Mark ready. When both ready, go to deploy phase (not directly to question).
     const readyCol = isChallenger ? 'challenger_question_ready' : 'defender_question_ready';
     run(`UPDATE arena_battle_rounds SET ${readyCol} = 1 WHERE round_id = ?`, [currentRound.round_id]);
     
-    // Check if both ready
     const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
     
     if (updated.challenger_question_ready === 1 && updated.defender_question_ready === 1) {
-      // Both ready - transition to question phase with 3-second sync delay
-      // Extra second helps account for polling interval differences between clients
-      const questionDisplayTime = new Date(Date.now() + 3000).toISOString();
-      const phaseEndsAt = new Date(Date.now() + 3000 + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-      
-      run(`UPDATE arena_battle_rounds 
-           SET phase = 'question', question_display_time = ?, phase_ends_at = ?
-           WHERE round_id = ?`,
-        [questionDisplayTime, phaseEndsAt, currentRound.round_id]);
-      
-      console.log(`⚡ SUDDEN DEATH - Both ready! Question reveals at ${questionDisplayTime}`);
+      // V2: Both ready — transition to deploy phase with deadline
+      const deployDeadline = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_DEPLOY).toISOString();
+      run(`UPDATE arena_battle_rounds SET phase = 'deploy', deploy_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
+        [deployDeadline, deployDeadline, currentRound.round_id]);
+      console.log(`⚡ V2 SUDDEN DEATH - Both ready! Deploy phase, deadline: ${deployDeadline}`);
       saveDatabase();
       return res.json({ success: true, both_ready: true });
     }
@@ -7979,10 +7950,11 @@ function scoreRound(battle_id, round_id) {
       }
       saveDatabase();
     } else {
-      // Results phase
+      // V2: Results phase with explicit deadline
       const resultsEndsAt = new Date(Date.now() + BATTLE_TIMING.ANSWER_FEEDBACK + BATTLE_TIMING.RESULTS_PHASE).toISOString();
-      run("UPDATE arena_battle_rounds SET phase = 'results', phase_ends_at = ? WHERE round_id = ?",
-        [resultsEndsAt, round_id]);
+      run(`UPDATE arena_battle_rounds SET phase = 'results', phase_ends_at = ?, 
+           results_deadline = ?, round_resolved_at = CURRENT_TIMESTAMP WHERE round_id = ?`,
+        [resultsEndsAt, resultsEndsAt, round_id]);
       saveDatabase();
     }
   } catch (err) {
@@ -10726,6 +10698,78 @@ app.listen(PORT, () => {
   
   // Run cleanup after server starts (database is ready)
   setTimeout(cleanupStuckBattles, 1000);
+  
+  // V2: Battle deadline enforcement — runs every 5 seconds
+  // Catches any phase transitions that client polls missed
+  setInterval(() => {
+    try {
+      const now = new Date().toISOString();
+      
+      // Find in-progress battles with expired phases
+      const activeBattles = query(`
+        SELECT r.*, b.battle_id as b_id, b.challenger_id, b.defender_id, 
+               b.challenger_score, b.defender_score, b.current_round,
+               b.challenger_gods, b.defender_gods, b.challenger_god_cooldowns, b.defender_god_cooldowns,
+               b.challenger_alliance_id, b.defender_alliance_id
+        FROM arena_battle_rounds r 
+        JOIN arena_battles b ON r.battle_id = b.battle_id
+        WHERE b.status = 'in_progress' AND r.round_number = b.current_round
+          AND r.phase_ends_at IS NOT NULL AND r.phase_ends_at < ?
+      `, [now]);
+      
+      for (const staleRound of activeBattles) {
+        // Double-check it hasn't been transitioned by a concurrent request
+        const fresh = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [staleRound.round_id])[0];
+        if (!fresh || fresh.phase !== staleRound.phase) continue;
+        
+        if (fresh.phase === 'deploy') {
+          // Auto-skip deploy for anyone who hasn't picked
+          if (!fresh.challenger_deploy_ready) {
+            run("UPDATE arena_battle_rounds SET challenger_deploy_ready = 1 WHERE round_id = ?", [fresh.round_id]);
+          }
+          if (!fresh.defender_deploy_ready) {
+            run("UPDATE arena_battle_rounds SET defender_deploy_ready = 1 WHERE round_id = ?", [fresh.round_id]);
+          }
+          const qStart = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
+          const qDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'question', question_starts_at = ?, question_display_time = ?,
+               question_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
+            [qStart, qStart, qDeadline, qDeadline, fresh.round_id]);
+          console.log(`🔧 V2 Cleanup: Deploy timeout for round ${fresh.round_id}, question starts ${qStart}`);
+          saveDatabase();
+        } else if (fresh.phase === 'question' && !fresh.round_resolved_at) {
+          // Auto-timeout anyone who hasn't answered
+          if (!fresh.challenger_answer) {
+            run("UPDATE arena_battle_rounds SET challenger_answer = 'timeout', challenger_time_ms = ? WHERE round_id = ?",
+              [BATTLE_TIMING.QUESTION_PHASE, fresh.round_id]);
+          }
+          if (!fresh.defender_answer) {
+            run("UPDATE arena_battle_rounds SET defender_answer = 'timeout', defender_time_ms = ? WHERE round_id = ?",
+              [BATTLE_TIMING.QUESTION_PHASE, fresh.round_id]);
+          }
+          const check = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [fresh.round_id])[0];
+          if (check && !check.completed_at && check.challenger_answer && check.defender_answer) {
+            console.log(`🔧 V2 Cleanup: Question timeout for round ${fresh.round_id}, scoring now`);
+            scoreRound(staleRound.battle_id, fresh.round_id);
+          }
+        } else if (fresh.phase === 'results' && fresh.results_deadline && fresh.results_deadline < now) {
+          // Results expired — this will be caught on next poll by either client, 
+          // but the cleanup logs it for visibility
+          console.log(`🔧 V2 Cleanup: Results expired for round ${fresh.round_id}`);
+        } else if (fresh.phase === 'sudden_death_intro') {
+          const deployDeadline = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_DEPLOY).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'deploy', deploy_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
+            [deployDeadline, deployDeadline, fresh.round_id]);
+          console.log(`🔧 V2 Cleanup: Sudden death intro timeout for round ${fresh.round_id}`);
+          saveDatabase();
+        }
+      }
+    } catch (err) {
+      // Non-fatal — cleanup is a safety net
+      console.error('V2 battle cleanup error:', err.message);
+    }
+  }, 5000);
+  console.log('⏱️ V2 Battle deadline enforcement running (every 5s)');
   
   // Run retroactive badge scan 5 seconds after startup
   setTimeout(() => {

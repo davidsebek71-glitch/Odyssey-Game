@@ -1144,6 +1144,15 @@ function runMigrations() {
       db.run('ALTER TABLE arena_battles ADD COLUMN defender_gods_ready INTEGER DEFAULT 0');
     }
     
+    // V2 Deadline-based sync columns
+    if (!roundColNames.includes('deploy_deadline')) {
+      console.log('  Adding V2 deadline columns to arena_battle_rounds...');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN deploy_deadline DATETIME');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN question_deadline DATETIME');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN results_deadline DATETIME');
+      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN round_resolved_at DATETIME');
+    }
+    
     console.log('✅ Battle Arena migrations complete');
   } catch (err) {
     console.log('Battle Arena migration note:', err.message);
