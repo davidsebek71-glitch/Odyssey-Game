@@ -9197,6 +9197,19 @@ function getMarketValues(period) {
   return values;
 }
 
+// Helper: Record a market snapshot for sparkline history
+function recordMarketSnapshot(period, eventType) {
+  try {
+    const values = getMarketValues(period);
+    TRADE_RESOURCES.forEach(r => {
+      run(`INSERT INTO market_history (period, resource, market_value, event_type) VALUES (?, ?, ?, ?)`,
+        [period, r, values[r], eventType]);
+    });
+  } catch (err) {
+    console.log('Market snapshot note:', err.message);
+  }
+}
+
 // --- Teacher: Assign native resources to alliances ---
 app.post('/api/trade/assign-resources', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
@@ -9326,6 +9339,11 @@ app.post('/api/trade/window/:action', authenticateToken, (req, res) => {
     }
     
     saveDatabase();
+    
+    // Record market snapshot on window open/close
+    recordMarketSnapshot(period, action === 'open' ? 'window_open' : 'window_close');
+    saveDatabase();
+    
     res.json({ success: true, period, is_open: action === 'open' });
   } catch (err) {
     console.error('Trade window error:', err);
@@ -9490,6 +9508,8 @@ app.post('/api/trade/buy', authenticateToken, (req, res) => {
       [student.alliance_id, student_id, -points_to_spend, `Bought ${units} ${TRADE_RESOURCE_LABELS[resource]} for ${points_to_spend} pts`]);
     
     saveDatabase();
+    recordMarketSnapshot(student.class_period, 'buy');
+    saveDatabase();
     res.json({ 
       success: true, 
       resource,
@@ -9649,6 +9669,8 @@ app.post('/api/trade/confirm/:tradeId', authenticateToken, (req, res) => {
     
     run("UPDATE trades SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE trade_id = ?", [trade_id]);
     saveDatabase();
+    recordMarketSnapshot(trade.period, 'trade');
+    saveDatabase();
     res.json({ success: true, message: 'Trade completed!' });
   } catch (err) {
     console.error('Confirm trade error:', err);
@@ -9801,6 +9823,129 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Trade overview error:', err);
     res.status(500).json({ error: 'Failed to get trade overview' });
+  }
+});
+
+// --- Student: Sell resources at Merchant's Dock ---
+app.post('/api/trade/sell', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { resource, amount } = req.body;
+    
+    if (!resource || !TRADE_RESOURCES.includes(resource)) return res.status(400).json({ error: 'Invalid resource' });
+    if (!amount || amount < 10 || amount % 10 !== 0) return res.status(400).json({ error: 'Amount must be a multiple of 10 (minimum 10)' });
+    
+    const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
+    
+    // Check trade window is open
+    const tradeWindow = query('SELECT is_open FROM trade_window WHERE period = ?', [student.class_period])[0];
+    if (!tradeWindow || tradeWindow.is_open !== 1) {
+      return res.status(400).json({ error: 'The market is currently closed.' });
+    }
+    
+    // Check Transport Ship prerequisite
+    const alliance = query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    const buildings = JSON.parse(alliance?.buildings_owned || '[]');
+    if (!buildings.includes('Transport Ship')) {
+      return res.status(400).json({ error: 'Your alliance needs a Transport Ship to sell at the Merchant\'s Dock.' });
+    }
+    
+    // Check student has enough of the resource
+    ensureStudentResources(student_id);
+    const inventory = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
+    if (!inventory || (inventory[resource] || 0) < amount) {
+      return res.status(400).json({ error: `You only have ${inventory?.[resource] || 0} ${TRADE_RESOURCE_LABELS[resource]}` });
+    }
+    
+    // Calculate sell value: (units / 10) × market_value × 0.90
+    const values = getMarketValues(student.class_period);
+    const marketValue = values[resource];
+    const grossPoints = (amount / 10) * marketValue;
+    const fee = Math.round(grossPoints * 0.10);
+    const netPoints = Math.round(grossPoints - fee);
+    
+    if (netPoints < 1) return res.status(400).json({ error: 'Sale amount too small to earn any points after the 10% dock fee.' });
+    
+    // Deduct from personal inventory
+    run(`UPDATE student_resources SET ${resource} = ${resource} - ? WHERE student_id = ?`, [amount, student_id]);
+    
+    // Add points to alliance
+    run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', [netPoints, student.alliance_id]);
+    
+    // Log the sellback
+    run(`INSERT INTO resource_sellbacks (student_id, alliance_id, resource_type, amount, market_value, points_earned)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      [student_id, student.alliance_id, resource, amount, marketValue, netPoints]);
+    
+    // Log transaction
+    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+         VALUES (?, ?, ?, 'resource_sell', ?)`,
+      [student.alliance_id, student_id, netPoints, 
+       `Sold ${amount} ${TRADE_RESOURCE_LABELS[resource]} at market value ${marketValue} (${netPoints} pts after 10% dock fee)`]);
+    
+    saveDatabase();
+    recordMarketSnapshot(student.class_period, 'sell');
+    saveDatabase();
+    
+    res.json({
+      success: true,
+      resource,
+      amount,
+      market_value: marketValue,
+      gross_points: Math.round(grossPoints),
+      fee,
+      net_points: netPoints,
+      message: `Sold ${amount} ${TRADE_RESOURCE_LABELS[resource]} for ${netPoints} alliance points (${fee} pt dock fee)`
+    });
+  } catch (err) {
+    console.error('Sell resource error:', err);
+    res.status(500).json({ error: 'Failed to sell resource' });
+  }
+});
+
+// --- Student: Get market price history for sparkline charts ---
+app.get('/api/trade/market-history', authenticateToken, (req, res) => {
+  try {
+    const student = query('SELECT class_period FROM students WHERE student_id = ?', [req.user.id])[0];
+    if (!student) return res.status(400).json({ error: 'Student not found' });
+    
+    // Get last 10 snapshots per resource (each snapshot = 1 event with all 4 resources)
+    // Group by recorded_at to get distinct time points, then take last 10
+    const timepoints = query(`
+      SELECT DISTINCT recorded_at FROM market_history 
+      WHERE period = ? ORDER BY recorded_at DESC LIMIT 10
+    `, [student.class_period]);
+    
+    if (timepoints.length === 0) return res.json({ history: {} });
+    
+    const oldest = timepoints[timepoints.length - 1].recorded_at;
+    
+    const rows = query(`
+      SELECT resource, market_value, event_type, recorded_at 
+      FROM market_history 
+      WHERE period = ? AND recorded_at >= ?
+      ORDER BY recorded_at ASC
+    `, [student.class_period, oldest]);
+    
+    // Group by resource for easy sparkline rendering
+    const history = {};
+    TRADE_RESOURCES.forEach(r => { history[r] = []; });
+    
+    rows.forEach(row => {
+      if (history[row.resource]) {
+        history[row.resource].push({
+          value: row.market_value,
+          event: row.event_type,
+          time: row.recorded_at
+        });
+      }
+    });
+    
+    res.json({ history });
+  } catch (err) {
+    console.error('Market history error:', err);
+    res.status(500).json({ error: 'Failed to get market history' });
   }
 });
 

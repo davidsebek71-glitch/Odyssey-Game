@@ -10509,6 +10509,15 @@
                 tradePortalData = await myRes.json();
                 tradeMarketData = await marketRes.json();
                 renderTradePortal();
+                // Load sparkline charts and init sell previews after DOM is rendered
+                setTimeout(() => {
+                    loadDockSparklines();
+                    if (tradeMarketData?.market_values) {
+                        ['olive','grape','iron','grain'].forEach(r => {
+                            updateSellPreview(r, tradeMarketData.market_values[r] || 10);
+                        });
+                    }
+                }, 100);
             } catch (err) {
                 document.getElementById('trade-portal-body').innerHTML = '<div style="color: #f87171; padding: 20px;">Failed to load trade data</div>';
             }
@@ -10604,6 +10613,70 @@
                     </div>` : `<div style="color:rgba(255,255,255,0.35);font-style:italic;font-size:13px;">No budget remaining. Earn more points!</div>`}
                 </div>
             </div>`;
+            
+            // ===== SECTION 1.5: MERCHANT'S DOCK (Sell Resources) =====
+            if (hasShip && windowOpen) {
+                const sellValues = {};
+                const sellRates = {};
+                ['olive','grape','iron','grain'].forEach(r => {
+                    const mv = values[r] || 10;
+                    const gross = (100 / 10) * mv;
+                    sellRates[r] = Math.round(gross * 0.90);
+                    sellValues[r] = mv;
+                });
+                
+                html += `<div style="margin-bottom: 24px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#a78bfa;letter-spacing:1px;">⚓ Merchant's Dock</div>
+                        <div style="flex:1;height:1px;background:rgba(167,139,250,0.2);"></div>
+                        <div style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(167,139,250,0.12);color:#a78bfa;">10% dock fee</div>
+                    </div>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px;">
+                        Sell resources back to the market. Prices change based on supply and demand.
+                    </div>
+                    <div id="dock-sparklines" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        ${['olive','grape','iron','grain'].map(r => {
+                            const mv = sellValues[r];
+                            const rate = sellRates[r];
+                            const held = res[r] || 0;
+                            const aboveBase = mv > 10;
+                            const belowBase = mv < 10;
+                            const borderColor = aboveBase ? 'rgba(74,222,128,0.3)' : belowBase ? 'rgba(239,68,68,0.2)' : 'rgba(167,139,250,0.2)';
+                            const bgTint = aboveBase ? 'rgba(74,222,128,0.03)' : belowBase ? 'rgba(239,68,68,0.02)' : 'rgba(167,139,250,0.03)';
+                            const priceColor = aboveBase ? '#4ade80' : belowBase ? '#f87171' : '#a78bfa';
+                            const arrow = aboveBase ? '↑' : belowBase ? '↓' : '→';
+                            return `<div style="background:${bgTint};border:2px solid ${borderColor};border-radius:12px;padding:14px;position:relative;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-size:22px;">${TRADE_ICONS[r]}</span>
+                                        <div>
+                                            <div style="font-size:13px;font-weight:700;color:#e2e8f0;">${TRADE_NAMES[r]}</div>
+                                            <div style="font-size:10px;color:rgba(255,255,255,0.3);">You have: ${held}</div>
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-size:18px;font-weight:900;color:${priceColor};">${arrow} ${mv}</div>
+                                        <div style="font-size:9px;color:rgba(255,255,255,0.3);">market value</div>
+                                    </div>
+                                </div>
+                                <canvas id="spark-${r}" width="220" height="40" style="width:100%;height:40px;margin-bottom:8px;border-radius:4px;background:rgba(0,0,0,0.15);"></canvas>
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                                    <div style="font-size:11px;color:rgba(255,255,255,0.5);">
+                                        <strong style="color:${priceColor};">${rate} pts</strong> per 100 units
+                                    </div>
+                                    ${held >= 10 ? `
+                                        <div style="display:flex;align-items:center;gap:6px;">
+                                            <input type="number" id="sell-amt-${r}" min="10" max="${Math.floor(held / 10) * 10}" step="10" value="${Math.min(100, Math.floor(held / 10) * 10)}" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:5px 6px;border-radius:6px;width:58px;font-size:13px;font-weight:700;text-align:center;outline:none;" oninput="updateSellPreview('${r}', ${mv})">
+                                            <button onclick="confirmSell('${r}', ${mv})" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Sell</button>
+                                        </div>
+                                    ` : `<div style="font-size:10px;color:rgba(255,255,255,0.25);">Need 10+ to sell</div>`}
+                                </div>
+                                ${held >= 10 ? `<div id="sell-preview-${r}" style="font-size:10px;color:rgba(255,255,255,0.35);text-align:right;margin-top:4px;"></div>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+            }
             
             // ===== SECTION 2: TRADE PARTNERS =====
             html += `<div style="margin-bottom: 24px;">
@@ -10965,6 +11038,159 @@
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to reject trade'); }
         }
+
+        // ===== MERCHANT'S DOCK FUNCTIONS =====
+        
+        function updateSellPreview(resource, marketValue) {
+            const input = document.getElementById(`sell-amt-${resource}`);
+            const preview = document.getElementById(`sell-preview-${resource}`);
+            if (!input || !preview) return;
+            const amt = parseInt(input.value) || 0;
+            if (amt < 10 || amt % 10 !== 0) {
+                preview.textContent = 'Must be a multiple of 10';
+                preview.style.color = '#f87171';
+                return;
+            }
+            const gross = (amt / 10) * marketValue;
+            const fee = Math.round(gross * 0.10);
+            const net = Math.round(gross - fee);
+            preview.innerHTML = `→ <strong style="color:#a78bfa;">${net} pts</strong> to alliance <span style="opacity:0.5;">(${fee} pt fee)</span>`;
+            preview.style.color = 'rgba(255,255,255,0.45)';
+        }
+        
+        function confirmSell(resource, marketValue) {
+            const input = document.getElementById(`sell-amt-${resource}`);
+            const amt = parseInt(input?.value) || 0;
+            if (amt < 10 || amt % 10 !== 0) { alert('Amount must be a multiple of 10 (minimum 10)'); return; }
+            
+            const gross = (amt / 10) * marketValue;
+            const fee = Math.round(gross * 0.10);
+            const net = Math.round(gross - fee);
+            
+            const ok = confirm(
+                `⚓ Merchant's Dock — Sell Confirmation\n\n` +
+                `Selling: ${amt} ${TRADE_NAMES[resource]}\n` +
+                `Market value: ${marketValue} per unit\n` +
+                `Gross value: ${Math.round(gross)} pts\n` +
+                `Dock fee (10%): -${fee} pts\n` +
+                `━━━━━━━━━━━━━━━━━━━━\n` +
+                `Alliance receives: ${net} pts\n\n` +
+                `Proceed with sale?`
+            );
+            if (!ok) return;
+            executeSell(resource, amt);
+        }
+        
+        async function executeSell(resource, amount) {
+            try {
+                const response = await fetch(`${API_URL}/trade/sell`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ resource, amount })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    // Show success briefly
+                    alert(`✅ Sold ${data.amount} ${TRADE_NAMES[resource]}!\n\n${data.net_points} points added to your alliance treasury.\n(${data.fee} pt dock fee applied)`);
+                    await loadTradePortalData();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to sell'));
+                }
+            } catch (err) {
+                alert('Failed to sell resource');
+            }
+        }
+        
+        async function loadDockSparklines() {
+            try {
+                const response = await fetch(`${API_URL}/trade/market-history`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!data.history) return;
+                
+                ['olive','grape','iron','grain'].forEach(r => {
+                    const canvas = document.getElementById(`spark-${r}`);
+                    if (!canvas) return;
+                    const points = data.history[r] || [];
+                    drawSparkline(canvas, points.map(p => p.value));
+                });
+            } catch (err) {
+                console.log('Sparkline load note:', err.message);
+            }
+        }
+        
+        function drawSparkline(canvas, values) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            
+            if (values.length < 2) {
+                // Not enough data — draw baseline
+                ctx.strokeStyle = 'rgba(167,139,250,0.3)';
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, h / 2);
+                ctx.lineTo(w, h / 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Awaiting market data...', w / 2, h / 2 + 4);
+                return;
+            }
+            
+            const min = Math.min(5, ...values);
+            const max = Math.max(15, ...values);
+            const range = max - min || 1;
+            const padding = 4;
+            const plotH = h - padding * 2;
+            const plotW = w - padding * 2;
+            
+            // Draw baseline at value 10 (break-even)
+            const baseY = padding + plotH - ((10 - min) / range) * plotH;
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(0, baseY);
+            ctx.lineTo(w, baseY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw the sparkline with gradient coloring
+            const step = plotW / (values.length - 1);
+            
+            // Fill area under/over baseline
+            for (let i = 0; i < values.length - 1; i++) {
+                const x1 = padding + i * step;
+                const x2 = padding + (i + 1) * step;
+                const y1 = padding + plotH - ((values[i] - min) / range) * plotH;
+                const y2 = padding + plotH - ((values[i + 1] - min) / range) * plotH;
+                const midVal = (values[i] + values[i + 1]) / 2;
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = midVal >= 10 ? '#4ade80' : '#f87171';
+                ctx.stroke();
+            }
+            
+            // Draw current value dot
+            const lastX = padding + (values.length - 1) * step;
+            const lastY = padding + plotH - ((values[values.length - 1] - min) / range) * plotH;
+            const lastColor = values[values.length - 1] >= 10 ? '#4ade80' : '#f87171';
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = lastColor;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        
         // ==================== HALL OF HONOR BADGE SYSTEM ====================
         
         let badgeData = null; // Cached badge data

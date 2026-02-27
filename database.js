@@ -719,6 +719,18 @@ async function initDatabase() {
     )
   `);
 
+  // Market price history for sparkline charts (recorded on buys, sells, window open/close)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      market_value REAL NOT NULL,
+      event_type TEXT DEFAULT 'snapshot',
+      recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // ==================== HALL OF HONOR BADGE SYSTEM ====================
 
   // Badge definitions (37 badges across 7 rows)
