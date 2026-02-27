@@ -8321,15 +8321,22 @@
             battlePollInterval = setInterval(loadBattleState, 3000); // V2: 3s poll (deadline-based, less critical)
         }
         
+        let battleStateLoading = false; // V2: concurrency guard
         async function loadBattleState() {
+            // V2: Prevent concurrent calls — this is the #1 cause of timer stacking and DOM thrashing
+            if (battleStateLoading) return;
+            battleStateLoading = true;
+            
             // Skip UI refresh during Aphrodite retry window
             if (aphroditeRetryActive) {
                 console.log('💕 Skipping loadBattleState - Aphrodite retry active');
+                battleStateLoading = false;
                 return;
             }
             // Guard against null battle ID (prevents requests to /arena/battle/null)
             if (!currentBattleId) {
                 if (battlePollInterval) { clearInterval(battlePollInterval); battlePollInterval = null; }
+                battleStateLoading = false;
                 return;
             }
             try {
@@ -8338,6 +8345,7 @@
                 
                 if (data.error) {
                     document.getElementById('battle-content').innerHTML = `<div style="color: #ff6b6b; text-align: center;">${data.error}</div>`;
+                    battleStateLoading = false;
                     return;
                 }
                 
@@ -8345,6 +8353,7 @@
             } catch (err) {
                 console.error('Battle load error:', err);
             }
+            battleStateLoading = false;
         }
         
         async function renderBattle(data) {
@@ -8775,6 +8784,7 @@
                     `;
                     
                     // V2: Local countdown timer ticking down to question_starts_at
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     battleTimer = setInterval(() => {
                         const remaining = Math.max(0, Math.ceil((displayTimeMs - Date.now()) / 1000));
                         const el = document.getElementById('countdown-number');
@@ -8798,7 +8808,7 @@
                     godEffectsAppliedThisRound = true;
                     
                     // V2: Timer counts down from question_deadline (server timestamp)
-                    if (battleTimer) clearInterval(battleTimer);
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     const questionDeadlineMs = roundData.question_deadline ? new Date(roundData.question_deadline).getTime() : (Date.now() + 20000);
                     timeRemaining = Math.max(1, Math.ceil((questionDeadlineMs - Date.now()) / 1000));
                     questionActualStartTime = Date.now();
@@ -8999,6 +9009,7 @@
                             </h2>
                         </div>
                     `;
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     battleTimer = setInterval(() => {
                         const remaining = Math.max(0, Math.ceil((displayTimeMs - Date.now()) / 1000));
                         const el = document.getElementById('sd-countdown-number');
@@ -9019,6 +9030,7 @@
                     questionActualStartTime = Date.now();
                     console.log(`📝 V2 Sudden Death question displayed at ${questionActualStartTime}`);
                     
+                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     battleTimer = setInterval(() => {
                         timeRemaining = Math.max(0, Math.ceil((sdDeadlineMs - Date.now()) / 1000));
                         const timerEl = document.getElementById('battle-timer');
@@ -9610,6 +9622,7 @@
             questionReadySignaled = false; // Reset ready signal
             v2LastRenderedPhase = null; // V2: Reset render tracking
             v2LastRenderedRound = 0;
+            battleStateLoading = false; // V2: Reset concurrency guard
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
