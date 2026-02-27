@@ -8490,26 +8490,6 @@
                     battleTimer = null;
                 }
                 
-                // Check if we need to wait for round to start (synchronization)
-                const roundStartedAt = roundData.round_started_at ? new Date(roundData.round_started_at).getTime() : null;
-                const now = Date.now();
-                const waitForRoundStart = roundStartedAt ? Math.max(0, roundStartedAt - now) : 0;
-                
-                if (waitForRoundStart > 100) {
-                    // Show "Next Round" countdown while waiting
-                    content.innerHTML = `
-                        ${scoreboardHTML}
-                        <div style="text-align: center; padding: 40px;">
-                            <div style="font-size: 60px; margin-bottom: 15px;">⚔️</div>
-                            <h3 style="color: #ffd700; font-size: 28px;">Round ${roundData.round_number}</h3>
-                            <p style="color: rgba(255,255,255,0.6);">Starting in ${Math.ceil(waitForRoundStart / 1000)} second${waitForRoundStart > 1000 ? 's' : ''}...</p>
-                        </div>
-                    `;
-                    // Wait then reload
-                    setTimeout(() => loadBattleState(), waitForRoundStart);
-                    return;
-                }
-                
                 const availableGods = data.available_gods || [];
                 // myDeployReady already declared in V2 skip guard
                 
