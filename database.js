@@ -1051,6 +1051,10 @@ function runMigrations() {
       db.run('ALTER TABLE arena_battle_stats ADD COLUMN prometheus_used_date DATE');
     }
 
+    // Get arena_battle_rounds columns ONCE for all migration checks below
+    const roundCols = db.exec("PRAGMA table_info(arena_battle_rounds)");
+    const roundColNames = roundCols[0] ? roundCols[0].values.map(c => c[1]) : [];
+
     // V93: Hecatoncheires scramble columns on arena_battle_rounds
     if (!roundColNames.includes('challenger_scramble_used')) {
       console.log('  Adding scramble columns to arena_battle_rounds...');
@@ -1086,8 +1090,7 @@ function runMigrations() {
     }
     
     // Add god deployment tracking to arena_battle_rounds
-    const roundCols = db.exec("PRAGMA table_info(arena_battle_rounds)");
-    const roundColNames = roundCols[0] ? roundCols[0].values.map(c => c[1]) : [];
+    // roundColNames already declared above (before scramble check)
     
     if (!roundColNames.includes('challenger_god_deployed')) {
       console.log('  Adding challenger_god_deployed column to arena_battle_rounds...');
