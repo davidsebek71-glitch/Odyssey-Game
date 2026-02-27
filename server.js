@@ -9597,6 +9597,16 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
     if (initiator.class_period !== partner.class_period) return res.status(400).json({ error: 'Must be in the same period' });
     if (initiator.alliance_id === partner.alliance_id) return res.status(400).json({ error: 'Cannot trade within your own alliance' });
     
+    // Block if pending trade already exists between these two (either direction)
+    const existingTrade = query(`
+      SELECT trade_id FROM trades 
+      WHERE status = 'pending' 
+        AND ((initiator_id = ? AND partner_id = ?) OR (initiator_id = ? AND partner_id = ?))
+    `, [student_id, partner_id, partner_id, student_id])[0];
+    if (existingTrade) {
+      return res.status(400).json({ error: 'You already have a pending trade with this player. Accept, counter, or decline it first.' });
+    }
+    
     // Check trade window
     const window = query('SELECT is_open FROM trade_window WHERE period = ?', [initiator.class_period])[0];
     if (!window || window.is_open !== 1) return res.status(400).json({ error: 'Trade window is closed' });
@@ -9696,6 +9706,84 @@ app.post('/api/trade/reject/:tradeId', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Reject trade error:', err);
     res.status(500).json({ error: 'Failed to reject trade' });
+  }
+});
+
+// --- Student: Lightweight pending trades poll (minimal data) ---
+app.get('/api/trade/pending-only', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const pendingTrades = query(`
+      SELECT t.trade_id, t.initiator_id, t.partner_id, 
+             t.give_resource, t.give_amount, t.receive_resource, t.receive_amount,
+             t.flagged, t.created_at,
+             si.name as initiator_name, sp.name as partner_name
+      FROM trades t
+      JOIN students si ON t.initiator_id = si.student_id
+      JOIN students sp ON t.partner_id = sp.student_id
+      WHERE (t.initiator_id = ? OR t.partner_id = ?) AND t.status = 'pending'
+      ORDER BY t.created_at DESC
+    `, [student_id, student_id]);
+    res.json({ pending_trades: pendingTrades, student_id });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed' });
+  }
+});
+
+// --- Student: Counter-offer a trade (cancel original + propose new) ---
+app.post('/api/trade/counter/:tradeId', authenticateToken, (req, res) => {
+  try {
+    const trade_id = parseInt(req.params.tradeId);
+    const student_id = req.user.id;
+    const { give_resource, give_amount, receive_resource, receive_amount } = req.body;
+    
+    if (!give_resource || !give_amount || !receive_resource || !receive_amount) {
+      return res.status(400).json({ error: 'All trade fields required' });
+    }
+    if (give_resource === receive_resource) return res.status(400).json({ error: 'Cannot trade same resource' });
+    
+    // Get original trade
+    const original = query("SELECT * FROM trades WHERE trade_id = ? AND status = 'pending'", [trade_id])[0];
+    if (!original) return res.status(404).json({ error: 'Original trade not found or no longer pending' });
+    if (original.partner_id !== student_id) return res.status(403).json({ error: 'Only the trade partner can counter-offer' });
+    
+    // Cancel the original
+    run("UPDATE trades SET status = 'countered' WHERE trade_id = ?", [trade_id]);
+    
+    // Check trade window
+    const window = query('SELECT is_open FROM trade_window WHERE period = ?', [original.period])[0];
+    if (!window || window.is_open !== 1) return res.status(400).json({ error: 'Trade window is closed' });
+    
+    // Check Transport Ship
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    const alliance = query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    const owned = JSON.parse(alliance?.buildings_owned || '[]');
+    if (!owned.includes('Transport Ship')) return res.status(400).json({ error: 'Your alliance needs a Transport Ship to trade' });
+    
+    // Check student has enough of what they're offering
+    ensureStudentResources(student_id);
+    const myRes = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
+    if (myRes[give_resource] < give_amount) {
+      return res.status(400).json({ error: `You only have ${myRes[give_resource]} ${TRADE_RESOURCE_LABELS[give_resource]}` });
+    }
+    
+    // Auto-flag 3:1 ratio
+    const ratio = Math.max(give_amount / receive_amount, receive_amount / give_amount);
+    const flagged = ratio > 3 ? 1 : 0;
+    const status = flagged ? 'flagged' : 'pending';
+    
+    // Create counter-offer (roles are reversed — the partner becomes the initiator)
+    run(`INSERT INTO trades (period, initiator_id, partner_id, give_resource, give_amount, receive_resource, receive_amount, status, flagged, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [original.period, student_id, original.initiator_id, give_resource, give_amount, receive_resource, receive_amount, status, flagged]);
+    
+    const newTradeId = query('SELECT last_insert_rowid() as id')[0].id;
+    saveDatabase();
+    
+    res.json({ success: true, trade_id: newTradeId, status, message: flagged ? 'Counter-offer flagged for teacher review' : 'Counter-offer sent!' });
+  } catch (err) {
+    console.error('Counter trade error:', err);
+    res.status(500).json({ error: 'Failed to counter trade' });
   }
 });
 

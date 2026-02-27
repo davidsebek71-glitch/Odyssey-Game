@@ -2157,6 +2157,18 @@
             height: 100%; border-radius: 4px; transition: width 0.8s ease;
             background: linear-gradient(90deg, #cd7f32, #ffd700);
         }
+        @keyframes tradePulseBorder {
+            0%, 100% { border-color: rgba(192,132,252,0.35); box-shadow: 0 0 0 rgba(192,132,252,0); }
+            50% { border-color: rgba(192,132,252,0.7); box-shadow: 0 0 20px rgba(192,132,252,0.15); }
+        }
+        @keyframes tradePulseText {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes tradeShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
     </style>
 </head>
 <body>
@@ -10494,10 +10506,12 @@
             }
             document.getElementById('trade-portal-modal').classList.add('show');
             await loadTradePortalData();
+            startTradePoll(); // Begin lightweight pending trade polling
         }
         
         function closeTradePortal() {
             document.getElementById('trade-portal-modal').classList.remove('show');
+            stopTradePoll(); // Stop polling when portal closes
         }
         
         async function loadTradePortalData() {
@@ -10783,31 +10797,8 @@
             
             // ===== SECTION 3: PENDING TRADES =====
             const pending = d.pending_trades || [];
-            if (pending.length > 0) {
-                html += `<div style="margin-bottom: 24px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
-                        <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
-                        <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>
-                    </div>`;
-                pending.forEach(t => {
-                    const isInitiator = t.initiator_id === d.student_id;
-                    html += `<div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                        <div style="font-size:13px;line-height:1.5;">
-                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
-                            <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
-                            <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
-                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
-                            <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
-                        </div>
-                        <div style="display:flex;gap:6px;flex-shrink:0;">
-                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
-                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
-                        </div>
-                    </div>`;
-                });
-                html += `</div>`;
-            }
+            // Pending trades section — rendered into a dedicated div for polling updates
+            html += `<div id="tp-pending-section">${renderPendingTrades(pending, d.student_id)}</div>`;
             
             body.innerHTML = html;
             
@@ -11040,6 +11031,196 @@
         }
 
         // ===== MERCHANT'S DOCK FUNCTIONS =====
+        
+        function renderPendingTrades(pending, myStudentId) {
+            if (!pending || pending.length === 0) return '';
+            
+            let html = `<div style="margin-bottom: 24px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">⚡ Pending Trades</div>
+                    <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
+                    <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;animation:tradePulseText 2s ease-in-out infinite;">${pending.length} waiting</div>
+                </div>`;
+            
+            pending.forEach(t => {
+                const isInitiator = t.initiator_id === myStudentId;
+                const otherName = isInitiator ? t.partner_name : t.initiator_name;
+                
+                html += `<div style="background:linear-gradient(135deg, rgba(192,132,252,0.06), rgba(139,92,246,0.03));border:2px solid rgba(192,132,252,0.35);border-radius:16px;padding:20px;margin-bottom:12px;animation:tradePulseBorder 3s ease-in-out infinite;position:relative;overflow:hidden;">
+                    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,rgba(192,132,252,0.6),transparent);animation:tradeShimmer 2s linear infinite;"></div>
+                    
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(192,132,252,0.7);">
+                            ${isInitiator ? '📤 You proposed to ' + otherName : '📥 ' + otherName + ' wants to trade with you'}
+                        </div>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:8px;align-items:center;margin-bottom:16px;">
+                        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#f87171;margin-bottom:4px;">${isInitiator ? 'You give' : otherName + ' gives'}</div>
+                            <div style="font-size:28px;margin-bottom:2px;">${TRADE_ICONS[t.give_resource]}</div>
+                            <div style="font-size:22px;font-weight:900;color:#fbbf24;">${t.give_amount}</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.35);">${TRADE_NAMES[t.give_resource]}</div>
+                        </div>
+                        <div style="text-align:center;font-size:22px;color:rgba(192,132,252,0.5);">⇄</div>
+                        <div style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#4ade80;margin-bottom:4px;">${isInitiator ? otherName + ' gives' : 'You give'}</div>
+                            <div style="font-size:28px;margin-bottom:2px;">${TRADE_ICONS[t.receive_resource]}</div>
+                            <div style="font-size:22px;font-weight:900;color:#fbbf24;">${t.receive_amount}</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.35);">${TRADE_NAMES[t.receive_resource]}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                        ${!isInitiator ? `
+                            <button onclick="confirmTrade(${t.trade_id})" style="flex:1;min-width:100px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;padding:12px 20px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(34,197,94,0.3);transition:all 0.2s;letter-spacing:0.5px;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                ✓ ACCEPT
+                            </button>
+                            <button onclick="openCounterOffer(${t.trade_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount}, '${otherName}')" style="flex:1;min-width:100px;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;padding:12px 20px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(217,119,6,0.3);transition:all 0.2s;letter-spacing:0.5px;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                ⚖️ COUNTER
+                            </button>
+                            <button onclick="rejectTrade(${t.trade_id})" style="flex:1;min-width:100px;background:rgba(239,68,68,0.1);color:#f87171;border:2px solid rgba(239,68,68,0.3);padding:12px 20px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                ✕ DECLINE
+                            </button>
+                        ` : `
+                            <div style="flex:1;text-align:center;font-size:12px;color:rgba(192,132,252,0.6);font-style:italic;padding:6px 0;">Waiting for ${otherName} to respond...</div>
+                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.1);color:#f87171;border:2px solid rgba(239,68,68,0.3);padding:10px 24px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                                ✕ Cancel Trade
+                            </button>
+                        `}
+                    </div>
+                </div>`;
+            });
+            
+            html += `</div>`;
+            return html;
+        }
+        
+        function openCounterOffer(tradeId, theirGiveResource, theirGiveAmount, theirReceiveResource, theirReceiveAmount, otherName) {
+            // They proposed: they give X, you give Y
+            // Counter: pre-fill with their values, let student adjust
+            const overlay = document.createElement('div');
+            overlay.id = 'counter-offer-overlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.8);z-index:10010;display:flex;align-items:center;justify-content:center;';
+            
+            overlay.innerHTML = `
+                <div style="background:linear-gradient(135deg,#1a1025,#0f0a1a);border:2px solid rgba(217,119,6,0.4);border-radius:20px;padding:28px;width:90%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+                    <div style="text-align:center;margin-bottom:20px;">
+                        <div style="font-size:28px;margin-bottom:6px;">⚖️</div>
+                        <div style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:#d97706;">Counter-Offer</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px;">Adjust the terms and send back to ${otherName}</div>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:1fr 30px 1fr;gap:10px;align-items:start;margin-bottom:18px;">
+                        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#f87171;margin-bottom:6px;">📤 You Give</div>
+                            <select id="counter-give-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px;border-radius:7px;font-size:12px;margin-bottom:6px;outline:none;">
+                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}" ${r === theirReceiveResource ? 'selected' : ''}>${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                            </select>
+                            <input type="number" id="counter-give-amt" value="${theirReceiveAmount}" min="10" step="10" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px;border-radius:7px;font-size:18px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:center;padding-top:30px;font-size:16px;color:rgba(255,255,255,0.15);">⇄</div>
+                        <div style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#4ade80;margin-bottom:6px;">📥 You Get</div>
+                            <select id="counter-recv-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px;border-radius:7px;font-size:12px;margin-bottom:6px;outline:none;">
+                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}" ${r === theirGiveResource ? 'selected' : ''}>${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                            </select>
+                            <input type="number" id="counter-recv-amt" value="${theirGiveAmount}" min="10" step="10" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px;border-radius:7px;font-size:18px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="submitCounterOffer(${tradeId})" style="flex:1;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;">⚖️ Send Counter</button>
+                        <button onclick="document.getElementById('counter-offer-overlay').remove()" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.1);padding:12px 20px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;">Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+        }
+        
+        async function submitCounterOffer(originalTradeId) {
+            const giveRes = document.getElementById('counter-give-res').value;
+            const giveAmt = parseInt(document.getElementById('counter-give-amt').value) || 0;
+            const recvRes = document.getElementById('counter-recv-res').value;
+            const recvAmt = parseInt(document.getElementById('counter-recv-amt').value) || 0;
+            
+            if (giveAmt < 10 || recvAmt < 10) { alert('Amounts must be at least 10'); return; }
+            if (giveRes === recvRes) { alert('Cannot trade the same resource'); return; }
+            
+            try {
+                const response = await fetch(`${API_URL}/trade/counter/${originalTradeId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ give_resource: giveRes, give_amount: giveAmt, receive_resource: recvRes, receive_amount: recvAmt })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('counter-offer-overlay')?.remove();
+                    alert(data.message);
+                    await loadTradePortalData();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed'));
+                }
+            } catch (err) {
+                alert('Failed to send counter-offer');
+            }
+        }
+        
+        // ===== TRADE PORTAL POLLING (lightweight, safe) =====
+        let tradePollInterval = null;
+        let tradePollFetching = false;
+        let tradePollLastIds = '';
+        let tradePollInactiveCount = 0;
+        const TRADE_POLL_MS = 8000;
+        const TRADE_POLL_MAX_INACTIVE = 75; // 75 × 8s = 10 minutes
+        
+        function startTradePoll() {
+            stopTradePoll(); // Clear any existing
+            tradePollInactiveCount = 0;
+            tradePollInterval = setInterval(pollPendingTrades, TRADE_POLL_MS);
+        }
+        
+        function stopTradePoll() {
+            if (tradePollInterval) {
+                clearInterval(tradePollInterval);
+                tradePollInterval = null;
+            }
+            tradePollFetching = false;
+        }
+        
+        async function pollPendingTrades() {
+            if (tradePollFetching) return; // Guard against overlapping fetches
+            tradePollFetching = true;
+            try {
+                const response = await fetch(`${API_URL}/trade/pending-only`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                const pending = data.pending_trades || [];
+                
+                // Build a fingerprint to detect changes
+                const newIds = pending.map(t => `${t.trade_id}`).join(',');
+                
+                if (newIds !== tradePollLastIds) {
+                    // Something changed — update only the pending section
+                    tradePollLastIds = newIds;
+                    const section = document.getElementById('tp-pending-section');
+                    if (section) {
+                        section.innerHTML = renderPendingTrades(pending, data.student_id);
+                    }
+                    tradePollInactiveCount = 0; // Reset inactivity
+                } else {
+                    tradePollInactiveCount++;
+                    if (tradePollInactiveCount >= TRADE_POLL_MAX_INACTIVE) {
+                        stopTradePoll(); // Auto-stop after 10 min inactive
+                    }
+                }
+            } catch (err) {
+                // Silent fail — don't interrupt user experience
+            }
+            tradePollFetching = false;
+        }
         
         function updateSellPreview(resource, marketValue) {
             const input = document.getElementById(`sell-amt-${resource}`);
