@@ -1273,6 +1273,37 @@ function runMigrations() {
       console.log('journey_data column note:', e.message);
     }
     
+    // === STEAL-CHOICE FATE VALUES MIGRATION ===
+    // Fixes stale fate_choices values for the 4 steal_choice fates (runs every startup, idempotent)
+    try {
+      const stealFates = [
+        { fateNum: 21, name: 'Artemis Forest Fires',  choices: { conservative: [-5, -10], moderate: [0, -12], aggressive: [8, -15] } },
+        { fateNum: 28, name: 'Constellation Blessing', choices: { conservative: [8, -4],  moderate: [12, -6], aggressive: [18, -12] } },
+        { fateNum: 35, name: 'Dionysus Drought',       choices: { conservative: [-6, -12], moderate: [-3, -15], aggressive: [5, -18] } },
+        { fateNum: 44, name: "Pandora's Echo",          choices: { conservative: [8, -4],  moderate: [12, -6], aggressive: [18, -12] } }
+      ];
+      let fixedCount = 0;
+      stealFates.forEach(sf => {
+        const fateRow = db.exec(`SELECT fate_id FROM fates_ref WHERE fate_number = ${sf.fateNum}`);
+        if (!fateRow[0]) return;
+        const fateId = fateRow[0].values[0][0];
+        Object.entries(sf.choices).forEach(([risk, [successPts, failurePts]]) => {
+          const check = db.exec(`SELECT choice_id, success_points, failure_points FROM fate_choices WHERE fate_id = ${fateId} AND risk_level = '${risk}'`);
+          if (!check[0]) return;
+          const [choiceId, curSuccess, curFailure] = check[0].values[0];
+          if (curSuccess !== successPts || curFailure !== failurePts) {
+            db.run(`UPDATE fate_choices SET success_points = ${successPts}, failure_points = ${failurePts} WHERE choice_id = ${choiceId}`);
+            console.log(`  ~ Fixed ${sf.name} ${risk}: [${curSuccess},${curFailure}] → [${successPts},${failurePts}]`);
+            fixedCount++;
+          }
+        });
+      });
+      if (fixedCount > 0) console.log(`✅ Fixed ${fixedCount} steal-choice fate values`);
+      else console.log('✅ Steal-choice fate values already correct');
+    } catch (err) {
+      console.log('Steal-choice migration note:', err.message);
+    }
+    
   } catch (err) {
     console.log('Side quest migration note:', err.message);
   }

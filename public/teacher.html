@@ -4067,7 +4067,8 @@
                                     document.body.removeChild(processingDiv);
                                 }
                                 // If steal_choice fate, show dramatic transfer screen first
-                                if (result.stealDetails) {
+                                // Skip the dramatic sequence if perAlliance is 0 (no actual transfer)
+                                if (result.stealDetails && result.stealDetails.perAlliance !== 0) {
                                     showStealTransferSequence(result);
                                 } else {
                                     showChoiceResult(result);
