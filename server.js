@@ -6192,6 +6192,7 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
 const BATTLE_TIMING = {
   DEPLOY_PHASE: 15000,    // God selection phase: 15 seconds (was 12)
   COUNTDOWN: 3000,        // 3-2-1 countdown before question
+  SD_COUNTDOWN: 4000,     // Sudden death countdown: 4 seconds (extra buffer for poll sync)
   QUESTION_PHASE: 20000,  // Question answering phase: 20 seconds
   RESULTS_PHASE: 5000,    // Results display phase: 5 seconds
   ANSWER_FEEDBACK: 3000,  // Time to show correct/wrong after answering: 3 seconds
@@ -7244,8 +7245,8 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           console.log(`⏱️ V2 Deploy timeout - question starts ${questionStartsAt}, deadline ${questionDeadline}`);
         } else if (currentRound.phase === 'sudden_death_intro') {
           // V2: Sudden death intro timeout — skip deploy (no gods), go straight to question
-          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
-          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN).toISOString();
+          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
           run(`UPDATE arena_battle_rounds SET phase = 'question', 
                question_starts_at = ?, question_display_time = ?,
                question_deadline = ?, phase_ends_at = ?,
@@ -7380,7 +7381,7 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       // A4: Include Prometheus preview in battle state if player deployed Prometheus
       const myDeployedGod = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
       const myGodBlocked = isChallenger ? currentRound.challenger_god_blocked : currentRound.defender_god_blocked;
-      if (myDeployedGod === 'prometheus' && !myGodBlocked && currentRound.phase === 'question') {
+      if (myDeployedGod === 'prometheus' && !myGodBlocked && (currentRound.phase === 'question' || currentRound.phase === 'deploy')) {
         const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', [currentRound.question_id])[0];
         if (previewQ) {
           const promGodData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
@@ -7662,7 +7663,23 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
     }
     
     saveDatabase();
-    res.json({ success: true, god_deployed: god_name, waiting_for_opponent: true });
+    // If Prometheus was deployed, include preview immediately (before opponent deploys)
+    let earlyPreview = null;
+    let earlyPreviewDuration = null;
+    if (god_name === 'prometheus') {
+      const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', 
+        [currentRound.question_id])[0];
+      if (previewQ) {
+        const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
+        const promData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
+        const hasBonus = promData && typeof promData === 'object' && promData.hasBonus;
+        earlyPreview = previewQ.question_text;
+        earlyPreviewDuration = (hasBonus ? GOD_POWERS.prometheus.bonusEffect : GOD_POWERS.prometheus.baseEffect) * 1000;
+        console.log(`🔥 Prometheus early preview for student ${student_id}: ${earlyPreviewDuration}ms`);
+      }
+    }
+    
+    res.json({ success: true, god_deployed: god_name, waiting_for_opponent: true, prometheus_preview: earlyPreview, prometheus_preview_duration: earlyPreviewDuration });
     
   } catch (err) {
     console.error('Deploy god error:', err);
@@ -7803,8 +7820,8 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
     
     if (updated.challenger_question_ready === 1 && updated.defender_question_ready === 1) {
       // V2: Both ready — skip deploy (no gods in SD), go straight to question with countdown
-      const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
-      const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+      const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN).toISOString();
+      const questionDeadline = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
       run(`UPDATE arena_battle_rounds SET phase = 'question', 
            question_starts_at = ?, question_display_time = ?,
            question_deadline = ?, phase_ends_at = ?,
@@ -10791,8 +10808,8 @@ app.listen(PORT, () => {
           console.log(`🔧 V2 Cleanup: Results expired for round ${fresh.round_id}`);
         } else if (fresh.phase === 'sudden_death_intro') {
           // V2: Skip deploy for SD — go straight to question
-          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
-          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN).toISOString();
+          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
           run(`UPDATE arena_battle_rounds SET phase = 'question', 
                question_starts_at = ?, question_display_time = ?,
                question_deadline = ?, phase_ends_at = ?,

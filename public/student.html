@@ -8524,12 +8524,25 @@
                 
                 if (myDeployReady) {
                     // Already deployed, waiting for opponent
+                    // Build Prometheus preview for waiting screen
+                    let waitPrometheusHTML = '';
+                    if (roundData.prometheus_preview && roundData.my_god_deployed && 
+                        roundData.my_god_deployed.toLowerCase() === 'prometheus') {
+                        waitPrometheusHTML = `
+                            <div style="background: rgba(255, 100, 0, 0.15); border: 2px solid rgba(255, 100, 0, 0.4); border-radius: 12px; padding: 20px; margin-top: 20px; max-width: 500px; margin-left: auto; margin-right: auto;">
+                                <p style="color: #ff6400; font-size: 14px; margin-bottom: 8px;">🔥 PROMETHEUS PREVIEW</p>
+                                <p style="color: white; font-size: 18px; line-height: 1.5;">${roundData.prometheus_preview}</p>
+                            </div>
+                        `;
+                    }
+                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
                             <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
                             <h3 style="color: #ffd700;">Waiting for opponent to choose their god...</h3>
                             <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed || 'No Power'}</p>
+                            ${waitPrometheusHTML}
                         </div>
                     `;
                 } else {
@@ -9156,11 +9169,18 @@
                     }
                 } else if (data.both_ready) {
                     // BOTH players deployed - refresh to enter question sync flow
-                    // Prometheus preview will show in the Get Ready screen
                     console.log('⏱️ Both deployed! Refreshing to start question sync...');
+                    // Show Prometheus preview overlay if available
+                    if (data.prometheus_preview && data.prometheus_preview_duration) {
+                        showPrometheusPreview(data.prometheus_preview, data.prometheus_preview_duration);
+                    }
                     loadBattleState();
                 } else {
-                    loadBattleState(); // Refresh immediately
+                    // Waiting for opponent — show Prometheus preview immediately if available
+                    if (data.prometheus_preview) {
+                        showPrometheusPreview(data.prometheus_preview, data.prometheus_preview_duration || 5000);
+                    }
+                    loadBattleState();
                 }
             } catch (err) {
                 console.error('Error deploying god:', err);
