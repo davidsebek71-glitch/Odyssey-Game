@@ -9617,6 +9617,28 @@
                             console.log('💕 Aphrodite retry activated!');
                             aphroditeRetryActive = true;
                             answerSubmitting = false; // Allow next submission
+                            
+                            // V2: Re-enable answer buttons that the visual lock disabled
+                            // The wrong answer stays locked, others become clickable again
+                            const retryBtns = document.querySelectorAll('#battle-content button[onclick^="submitAnswer"]');
+                            retryBtns.forEach((btn, idx) => {
+                                if (idx !== answerIndex) {
+                                    btn.disabled = false;
+                                    btn.style.cursor = 'pointer';
+                                    btn.style.pointerEvents = 'auto';
+                                    btn.style.opacity = '1';
+                                    btn.style.background = 'rgba(255,255,255,0.1)';
+                                    btn.style.borderColor = 'rgba(255,255,255,0.2)';
+                                    btn.style.boxShadow = 'none';
+                                }
+                            });
+                            // Restore the timer area to show retry countdown
+                            const timerParent = document.querySelector('#battle-content div[style*="text-align: center"]');
+                            const lockedEl = document.querySelector('#battle-content span[style*="Answer Locked"]');
+                            if (lockedEl) {
+                                lockedEl.innerHTML = '<span style="color: #ff69b4; font-size: 28px; font-weight: bold;">💕 Pick again! 4s...</span>';
+                            }
+                            
                             showAphroditeRetryBanner(answerIndex);
                             
                             // Auto-expire after 4 seconds
