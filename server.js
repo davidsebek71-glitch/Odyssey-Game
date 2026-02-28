@@ -6289,8 +6289,8 @@ const GOD_POWERS = {
     type: 'special',
     name: 'Gift of Fire',
     description: 'See question early (once per day)',
-    baseEffect: 2, // seconds early
-    bonusEffect: 3,
+    baseEffect: 5, // seconds early (readable for 6th graders)
+    bonusEffect: 7,
     counteredBy: null, // cannot be blocked
     emoji: '🔥',
     oncePerDay: true
