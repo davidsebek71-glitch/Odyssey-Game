@@ -2580,43 +2580,55 @@ function seedClassicalData() {
   }
 
   // Sync Classical battle questions from myth_quiz_questions
+  // ALWAYS re-sync to ensure battle_questions stays current
   try {
     const classicalBattleCheck = db.exec("SELECT COUNT(*) FROM battle_questions WHERE age = 'Classical'");
     const classicalBattleCount = classicalBattleCheck[0] ? classicalBattleCheck[0].values[0][0] : 0;
     
-    // Get current myth quiz count to detect if new questions were added
     const quizCountCheck = db.exec("SELECT COUNT(*) FROM myth_quiz_questions");
     const totalQuizQuestions = quizCountCheck[0] ? quizCountCheck[0].values[0][0] : 0;
     
-    if (classicalBattleCount !== totalQuizQuestions) {
-      if (classicalBattleCount > 0) {
-        console.log(`⚠️ Classical battle questions (${classicalBattleCount}) != quiz questions (${totalQuizQuestions}), re-syncing...`);
-        db.run("DELETE FROM battle_questions WHERE age = 'Classical'");
-      }
-      
+    console.log(`📊 Classical sync check: ${classicalBattleCount} battle Qs, ${totalQuizQuestions} quiz Qs`);
+    
+    // Always delete and re-sync to ensure accuracy
+    if (classicalBattleCount > 0) {
+      db.run("DELETE FROM battle_questions WHERE age = 'Classical'");
+      console.log(`🔄 Cleared ${classicalBattleCount} old Classical battle questions for re-sync`);
+    }
+    
+    if (totalQuizQuestions === 0) {
+      console.log('⚠️ No myth_quiz_questions found — Classical battle questions cannot be synced');
+    } else {
       // Portal ID to myth name mapping
       const portalNames = {
         1: 'Pandora', 2: 'Phaethon', 3: 'Orpheus', 4: 'Echo & Narcissus',
         5: 'Icarus', 6: 'Eros & Psyche', 7: 'Constellations'
       };
       
-      // Get all quiz questions
       // Detect column names (live DB may use answer_a vs option_a)
       let syncColA = 'option_a', syncColB = 'option_b', syncColC = 'option_c', syncColD = 'option_d';
       try {
         const tableInfo = db.exec("PRAGMA table_info(myth_quiz_questions)");
         const colNames = tableInfo[0] ? tableInfo[0].values.map(r => r[1]) : [];
+        console.log(`📊 myth_quiz_questions columns: ${colNames.join(', ')}`);
         if (colNames.includes('answer_a')) {
           syncColA = 'answer_a'; syncColB = 'answer_b'; syncColC = 'answer_c'; syncColD = 'answer_d';
+          console.log('📊 Using answer_a/b/c/d column names for sync');
+        } else {
+          console.log('📊 Using option_a/b/c/d column names for sync');
         }
-      } catch(e) { /* use defaults */ }
+      } catch(e) { 
+        console.log('📊 Column detection error, using defaults:', e.message);
+      }
       
       const quizRows = db.exec(`SELECT portal_id, question_text, ${syncColA}, ${syncColB}, ${syncColC}, ${syncColD}, correct_answer FROM myth_quiz_questions`);
       if (quizRows[0]) {
         let inserted = 0;
+        const mythCounts = {};
         quizRows[0].values.forEach(row => {
           const [portalId, questionText, optA, optB, optC, optD, correctLetter] = row;
           const mythName = portalNames[portalId] || 'Unknown';
+          mythCounts[mythName] = (mythCounts[mythName] || 0) + 1;
           
           // Convert letter answer to actual text values for battle format
           const answers = { a: optA, b: optB, c: optC, d: optD };
@@ -2632,11 +2644,12 @@ function seedClassicalData() {
             [mythName, questionText, correctAnswer, wrongAnswers[0], wrongAnswers[1], wrongAnswers[2], mythName]);
           inserted++;
         });
-        console.log(`✅ Classical battle questions synced (${inserted} questions from ${Object.keys(portalNames).length} myths)`);
+        console.log(`✅ Classical battle questions synced: ${inserted} total`);
+        console.log(`📊 By myth: ${Object.entries(mythCounts).map(([k,v]) => `${k}=${v}`).join(', ')}`);
+      } else {
+        console.log('⚠️ db.exec returned no rows from myth_quiz_questions despite count > 0');
       }
       saveDatabaseNow();
-    } else {
-      console.log(`✅ Classical battle questions already synced (${classicalBattleCount} questions)`);
     }
   } catch (err) {
     console.error('❌ Classical battle questions sync error:', err.message);

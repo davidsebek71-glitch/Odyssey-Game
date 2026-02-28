@@ -6102,12 +6102,11 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       WHERE ar.section = 'bonus' AND gr.points_earned > 0
     `);
     
-    // Build a lookup: { student_id: { assignment_id: true } } - only if 80%+ threshold met
+    // Build a lookup: { student_id: { assignment_id: true } } - any points earned = complete
     const bonusLookup = {};
     allBonusRecords.forEach(r => {
       if (!bonusLookup[r.student_id]) bonusLookup[r.student_id] = {};
-      const threshold = Math.ceil(r.max_points * 0.8);
-      bonusLookup[r.student_id][r.assignment_id] = r.points_earned >= threshold;
+      bonusLookup[r.student_id][r.assignment_id] = r.points_earned > 0;
     });
     
     // Build student response objects
@@ -8645,7 +8644,7 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
 app.get('/api/student/quiz/:portal_id', authenticateToken, (req, res) => {
   try {
     const portalId = parseInt(req.params.portal_id);
-    const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ? AND is_active = 1', [portalId]);
+    const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ?', [portalId]);
     
     if (questions.length === 0) {
       return res.json({ questions: [], message: 'No quiz questions available for this myth yet. Quiz is submitted via Google Classroom.' });
@@ -8691,7 +8690,7 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
     const { portal_id, answers } = req.body;
     if (!portal_id || !answers) return res.status(400).json({ error: 'Missing portal_id or answers' });
     
-    const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ? AND is_active = 1', [portal_id]);
+    const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ?', [portal_id]);
     if (questions.length === 0) return res.status(400).json({ error: 'No questions for this portal' });
     
     // Grade the quiz - answers can be array of {question_id, selected_answer} or object keyed by question_id
@@ -8848,9 +8847,11 @@ app.get('/api/student/myth-assignments/:portal_id', authenticateToken, (req, res
         quiz_passed: true,
         creative_done: baselineAssignments.some(a => a.assignment_type === 'word_cloud' && completedIds.has(a.assignment_id)) ||
                        pixtonAssignment.some(a => completedIds.has(a.assignment_id)),
+        bonus_done: bonusAssignments.some(a => completedIds.has(a.assignment_id)),
         virtue_earned: baselineAssignments.some(a => a.assignment_type === 'comp_conn' && completedIds.has(a.assignment_id)) &&
                        (baselineAssignments.some(a => a.assignment_type === 'word_cloud' && completedIds.has(a.assignment_id)) ||
-                        pixtonAssignment.some(a => completedIds.has(a.assignment_id)))
+                        pixtonAssignment.some(a => completedIds.has(a.assignment_id))) &&
+                       bonusAssignments.some(a => completedIds.has(a.assignment_id))
       }
     });
   } catch (err) {
@@ -9023,6 +9024,7 @@ function getAdaptiveBattleQuestion(challengerId, defenderId, excludeIds = []) {
   const defender = defenderId ? query('SELECT class_period FROM students WHERE student_id = ?', [defenderId])[0] : null;
   
   if (!challenger || !challenger.class_period) {
+    console.log(`⚠️ BQ: No class_period for challenger ${challengerId}, falling back to random`);
     return getRandomQuestion(excludeIds);
   }
   
@@ -9031,6 +9033,8 @@ function getAdaptiveBattleQuestion(challengerId, defenderId, excludeIds = []) {
     'SELECT mp.portal_id, mp.myth_name FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id WHERE mps.class_period = ? AND mps.activated = 1',
     [challenger.class_period]
   );
+  
+  console.log(`📊 BQ: Period ${challenger.class_period}, unlocked portals: ${unlockedPortals.map(p => p.myth_name).join(', ') || 'NONE'}`);
   
   // Filter to only myths BOTH students have passed the quiz for
   let sharedMyths = [];
@@ -9054,9 +9058,13 @@ function getAdaptiveBattleQuestion(challengerId, defenderId, excludeIds = []) {
       
       if (challengerPassed.length > 0 && defenderPassed.length > 0) {
         sharedMyths.push(portal.myth_name);
+      } else {
+        console.log(`📊 BQ: ${portal.myth_name} — challenger passed: ${challengerPassed.length > 0}, defender passed: ${defenderPassed.length > 0}`);
       }
     }
   }
+  
+  console.log(`📊 BQ: Shared myths (both passed): ${sharedMyths.join(', ') || 'NONE'}`);
   
   // Build exclude clause
   const excludeClause = excludeIds.length > 0 
@@ -9078,6 +9086,8 @@ function getAdaptiveBattleQuestion(challengerId, defenderId, excludeIds = []) {
       [...sharedMyths, ...excludeParams]
     );
   }
+  
+  console.log(`📊 BQ: Archaic pool: ${archaicQuestions.length}, Classical pool: ${classicalQuestions.length}`);
   
   // 70/30 weighting: if Classical questions exist, 70% chance of Classical, 30% Archaic
   let pool;
@@ -9111,6 +9121,39 @@ function getAdaptiveBattleQuestion(challengerId, defenderId, excludeIds = []) {
 // applyAggressivePenalty removed V91 — fate outcomes apply exactly as written
 
 // ====================
+// BATTLE QUESTION DIAGNOSTIC (teacher only — remove after debugging)
+app.get('/api/diag/battle-questions', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  try {
+    const allQuestions = query('SELECT question_id, god_associated, age, myth_name, is_active, substr(question_text, 1, 60) as preview FROM battle_questions ORDER BY age, myth_name');
+    const byAge = {};
+    allQuestions.forEach(q => {
+      const key = `${q.age || 'NULL'}_${q.is_active ? 'active' : 'inactive'}`;
+      byAge[key] = (byAge[key] || 0) + 1;
+    });
+    
+    const portals = query('SELECT mp.portal_id, mp.myth_name, mps.class_period, mps.activated FROM myth_portal_status mps JOIN myth_portals mp ON mps.portal_id = mp.portal_id ORDER BY mps.class_period, mp.portal_id');
+    
+    const quizAttempts = query('SELECT portal_id, COUNT(DISTINCT student_id) as students_passed FROM myth_quiz_attempts WHERE passed = 1 GROUP BY portal_id');
+    
+    const quizQuestionCount = query('SELECT COUNT(*) as cnt FROM myth_quiz_questions')[0];
+    const classicalBattleCount = query("SELECT COUNT(*) as cnt FROM battle_questions WHERE age = 'Classical'")[0];
+    
+    res.json({
+      summary: byAge,
+      total_questions: allQuestions.length,
+      quiz_questions_in_db: quizQuestionCount?.cnt || 0,
+      classical_battle_questions: classicalBattleCount?.cnt || 0,
+      portal_activation: portals,
+      quiz_passes_by_portal: quizAttempts,
+      sample_classical: allQuestions.filter(q => q.age === 'Classical').slice(0, 5),
+      sample_archaic: allQuestions.filter(q => q.age === 'Archaic' && q.is_active).slice(0, 3)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // HEALTH CHECK
 // ====================
 
