@@ -6192,7 +6192,7 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
 const BATTLE_TIMING = {
   DEPLOY_PHASE: 15000,    // God selection phase: 15 seconds (was 12)
   COUNTDOWN: 3000,        // 3-2-1 countdown before question
-  SD_COUNTDOWN: 4000,     // Sudden death countdown: 4 seconds (extra buffer for poll sync)
+  SD_COUNTDOWN: 5000,     // Sudden death countdown: 5 seconds (extra buffer for poll sync + deliberate feel)
   QUESTION_PHASE: 20000,  // Question answering phase: 20 seconds
   RESULTS_PHASE: 5000,    // Results display phase: 5 seconds
   ANSWER_FEEDBACK: 3000,  // Time to show correct/wrong after answering: 3 seconds

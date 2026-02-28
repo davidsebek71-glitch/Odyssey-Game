@@ -1331,6 +1331,24 @@ function runMigrations() {
   } catch (err) {
     console.log('Side quest migration note:', err.message);
   }
+  
+  // Deactivate Ares battle questions (myth was never read in class)
+  try {
+    const aresCount = db.prepare("SELECT COUNT(*) as cnt FROM battle_questions WHERE god_associated = 'Ares' AND is_active = 1").get();
+    if (aresCount && aresCount.cnt > 0) {
+      db.run("UPDATE battle_questions SET is_active = 0 WHERE god_associated = 'Ares'");
+      console.log(`⚔️ Deactivated ${aresCount.cnt} Ares battle questions (myth not read)`);
+    }
+  } catch (err) {
+    console.log('Ares deactivation migration note:', err.message);
+  }
+  
+  // Fix vague Poseidon question text
+  try {
+    db.run("UPDATE battle_questions SET question_text = 'The main idea of the Poseidon myth is to show...' WHERE question_text = 'The main idea of this myth is to show...' AND god_associated = 'Poseidon'");
+  } catch (err) {
+    console.log('Poseidon question fix note:', err.message);
+  }
 }
 
 function seedReferenceData() {
@@ -1982,7 +2000,7 @@ function seedReferenceData() {
       ['Poseidon', 'How was the newly won empire split between the three sons of Cronus?', 'They played dice', 'Zeus was the youngest so he was able to choose first', 'They threw darts', 'Zeus divided it based on each brother\'s strengths', 'medium'],
       ['Poseidon', 'How do we know that Poseidon was a difficult god to deal with?', 'He was changeful and quarrelsome and did bear grudges', 'He would not leave Demeter alone', 'He was a world traveler and had many children', 'He liked to startle nymphs with monsters', 'medium'],
       ['Poseidon', 'What line from the text suggests that Hades may not have been happy with his winning the Underworld?', 'Hades, who was unlucky, had to take the underworld', 'The earth was held as a commonwealth and left to the goddesses to manage', 'Poseidon chose the sea', 'Zeus gave his brothers the realms they deserved', 'hard'],
-      ['Poseidon', 'The main idea of this myth is to show...', 'examples of Poseidon\'s behavior', 'how the gods divided up their responsibilities', 'how horses were created', 'the relationship of the gods with man', 'medium'],
+      ['Poseidon', 'The main idea of the Poseidon myth is to show...', 'examples of Poseidon\'s behavior', 'how the gods divided up their responsibilities', 'how horses were created', 'the relationship of the gods with man', 'medium'],
       ['Hera', 'How long did the gods reign on Mount Olympus?', '3,000 years', '10,000 years', '100 years', '1,000 years', 'easy'],
       ['Hera', 'Zeus was tied down. How come he could not break free?', 'The other gods had stolen his thunderbolt', 'The straps were made of a special material created by Hephaestus', 'He could not untie the knots that Hephaestus had tied', 'Poseidon had bound him with enchanted chains from the sea', 'medium'],
       ['Hera', 'Who set Zeus free?', 'Briareus, a hundred handed man', 'Hermes', 'The cyclops', 'Uranus', 'medium'],
@@ -2637,7 +2655,17 @@ function seedClassicalData() {
       };
       
       // Get all quiz questions
-      const quizRows = db.exec("SELECT portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer FROM myth_quiz_questions");
+      // Detect column names (live DB may use answer_a vs option_a)
+      let syncColA = 'option_a', syncColB = 'option_b', syncColC = 'option_c', syncColD = 'option_d';
+      try {
+        const tableInfo = db.exec("PRAGMA table_info(myth_quiz_questions)");
+        const colNames = tableInfo[0] ? tableInfo[0].values.map(r => r[1]) : [];
+        if (colNames.includes('answer_a')) {
+          syncColA = 'answer_a'; syncColB = 'answer_b'; syncColC = 'answer_c'; syncColD = 'answer_d';
+        }
+      } catch(e) { /* use defaults */ }
+      
+      const quizRows = db.exec(`SELECT portal_id, question_text, ${syncColA}, ${syncColB}, ${syncColC}, ${syncColD}, correct_answer FROM myth_quiz_questions`);
       if (quizRows[0]) {
         let inserted = 0;
         quizRows[0].values.forEach(row => {
