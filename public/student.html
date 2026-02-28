@@ -4027,7 +4027,7 @@
             
             categorySelect.innerHTML = '';
             if (!isClassical) {
-                // Archaic Age options (unchanged)
+                // Archaic Age options (original format)
                 categorySelect.innerHTML = `
                     <option value="quiz">Quiz</option>
                     <option value="comp_conn">Reading Notes / Comp Conn</option>
@@ -4038,24 +4038,14 @@
                     <option value="citizenship">Citizenship</option>
                 `;
             } else {
-                // Classical Age options + Archaic optgroup for old assignments
+                // Classical Age options
                 categorySelect.innerHTML = `
-                    <optgroup label="— Classical Age —">
-                        <option value="comp_conn">Reading Guide</option>
-                        <option value="creative">Creative Assignment</option>
-                        <option value="cer">CER (Claim-Evidence-Reasoning)</option>
-                        <option value="bonus">Student Created Bonus</option>
-                    </optgroup>
-                    <optgroup label="— General —">
-                        <option value="membean">Membean</option>
-                        <option value="citizenship">Citizenship</option>
-                    </optgroup>
-                    <optgroup label="— Archaic Age —">
-                        <option value="quiz">Quiz (Archaic)</option>
-                        <option value="archaic_comp_conn">Reading Notes / Comp Conn (Archaic)</option>
-                        <option value="mural">Mural/Comic (Archaic)</option>
-                        <option value="reading">Independent Reading (Archaic)</option>
-                    </optgroup>
+                    <option value="comp_conn">Reading Guide</option>
+                    <option value="creative">Creative Assignment</option>
+                    <option value="cer">CER (Claim-Evidence-Reasoning)</option>
+                    <option value="bonus">Student Created Bonus</option>
+                    <option value="membean">Membean</option>
+                    <option value="citizenship">Citizenship</option>
                 `;
             }
             
@@ -6525,9 +6515,10 @@
                 'Constellations': '#C0C0C0'
             };
             
-            // Determine student's current age
+            // Determine which view the student is on (respect ?view=archaic override)
             const currentAge = (dashboardData && dashboardData.student && dashboardData.student.current_age) || 'Archaic';
-            const isClassical = currentAge === 'Classical' || currentAge === 'Heroic';
+            const viewParam = new URLSearchParams(window.location.search).get('view');
+            const isClassical = (currentAge === 'Classical' || currentAge === 'Heroic') && viewParam !== 'archaic';
             
             // Classical sections
             const classicalSections = ['classical', 'classical_creative'];
