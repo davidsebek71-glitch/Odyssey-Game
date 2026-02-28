@@ -522,11 +522,34 @@
             errorDiv.classList.add('hidden');
         }
 
-        // Check if already logged in
-        if (localStorage.getItem('token')) {
-            const userType = localStorage.getItem('userType');
-            window.location.href = userType === 'teacher' ? '/teacher.html' : '/hub.html';
-        }
+        // Check if already logged in — validate token before redirecting
+        // This prevents stale teacher tokens from sending students to teacher.html
+        // (e.g. when teacher and student share the same browser/device)
+        (async function checkExistingSession() {
+            const token = localStorage.getItem('token');
+            const savedUserType = localStorage.getItem('userType');
+            if (!token || !savedUserType) return; // No session, show login
+
+            try {
+                // Verify the token is still valid by hitting the appropriate dashboard endpoint
+                const checkUrl = savedUserType === 'teacher' 
+                    ? '/api/teacher/leaderboard' 
+                    : '/api/student/dashboard';
+                const res = await fetch(checkUrl, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    // Token is valid and matches the saved user type — redirect
+                    window.location.href = savedUserType === 'teacher' ? '/teacher.html' : '/hub.html';
+                } else {
+                    // Token expired or invalid — clear and show login
+                    localStorage.clear();
+                }
+            } catch (err) {
+                // Network error — clear stale session to be safe
+                localStorage.clear();
+            }
+        })();
     </script>
 </body>
 </html>
