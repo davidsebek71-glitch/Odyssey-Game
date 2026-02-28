@@ -3244,6 +3244,7 @@
         let arenaCountdownInterval = null;
         let v2LastRenderedPhase = null; // V2: tracks phase+round to skip redundant re-renders
         let v2LastRenderedRound = 0;
+        let v2CountdownActive = false; // V2: prevents flicker during 3-2-1 countdown
         
         // God configuration - MUST be declared before loadPantheon is called
         const GOD_CONFIG = {
@@ -8380,11 +8381,15 @@
             if (data.status !== 'completed' && v2LastRenderedPhase === currentPhase && v2LastRenderedRound === currentRound) {
                 if (currentPhase === 'deploy' && myDeployReady) return; // Waiting for opponent, no timer needed
                 if (currentPhase === 'question' && myAnswer && !aphroditeRetryActive) return; // Answered, waiting for opponent
+                if (currentPhase === 'question' && !myAnswer && v2CountdownActive) return; // 3-2-1 countdown running — skip
+                if (currentPhase === 'sudden_death_intro' && roundData.my_sd_ready) return; // SD waiting for opponent — skip
             }
             
             // V2: Fast poll management — 500ms polling when waiting for opponent
+            const sdWaiting = currentPhase === 'sudden_death_intro' && roundData.my_sd_ready && !roundData.opponent_sd_ready;
             const isWaitingState = (currentPhase === 'deploy' && myDeployReady) || 
-                                   (currentPhase === 'question' && myAnswer && !aphroditeRetryActive);
+                                   (currentPhase === 'question' && myAnswer && !aphroditeRetryActive) ||
+                                   sdWaiting;
             if (isWaitingState && !battleFastPoll) {
                 battleFastPoll = setInterval(loadBattleState, 500);
             } else if (!isWaitingState && battleFastPoll) {
@@ -8768,6 +8773,7 @@
                 
                 // V2 STEP 2: Countdown phase (3-2-1) — question_starts_at is in the future
                 if (!displayTimeReached) {
+                    v2CountdownActive = true; // Prevent flicker from polls during countdown
                     if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
                     const secsLeft = Math.max(1, Math.ceil((displayTimeMs - Date.now()) / 1000));
@@ -8815,6 +8821,7 @@
                 }
                 
                 // V2 STEP 3: Display time reached - SHOW THE QUESTION
+                v2CountdownActive = false;
                 
                 // Only build question HTML ONCE - subsequent polls just update timer
                 // This prevents destroying DOM-based god effects (Poseidon wobble, Athena removal, Apollo glow, etc.)
@@ -9012,6 +9019,7 @@
                 
                 // V2: Countdown to question
                 if (!displayTimeReached) {
+                    v2CountdownActive = true;
                     if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     const secsLeft = Math.max(1, Math.ceil((displayTimeMs - Date.now()) / 1000));
                     content.innerHTML = `
@@ -9037,6 +9045,7 @@
                 }
                 
                 // V2: Question display — count down from question_deadline
+                v2CountdownActive = false;
                 if (!battleTimer) {
                     const sdDeadlineMs = roundData.question_deadline ? new Date(roundData.question_deadline).getTime() : (Date.now() + 20000);
                     timeRemaining = Math.max(1, Math.ceil((sdDeadlineMs - Date.now()) / 1000));
@@ -9103,6 +9112,31 @@
                 console.log('Deploy phase already ended, skipping');
                 return;
             }
+            
+            // V2: IMMEDIATE visual lock — highlight selected god, disable all buttons
+            const allGodBtns = document.querySelectorAll('#battle-content button[onclick^="deployGod"]');
+            allGodBtns.forEach(btn => {
+                btn.disabled = true;
+                btn.style.cursor = 'default';
+                btn.style.pointerEvents = 'none';
+                btn.removeAttribute('onmouseover');
+                btn.removeAttribute('onmouseout');
+                const isSelected = btn.getAttribute('onclick') === `deployGod('${godName}')` || 
+                                   (godName === null && btn.getAttribute('onclick') === 'deployGod(null)');
+                if (isSelected) {
+                    btn.style.borderColor = '#22c55e';
+                    btn.style.background = 'rgba(34, 197, 94, 0.3)';
+                    btn.style.boxShadow = '0 0 15px rgba(34, 197, 94, 0.3)';
+                } else {
+                    btn.style.opacity = '0.3';
+                }
+            });
+            // Update timer text to show selection
+            const timerText = document.getElementById('deploy-timer-text');
+            if (timerText) {
+                timerText.innerHTML = `<span style="color: #22c55e;">✓ ${godName ? godName.charAt(0).toUpperCase() + godName.slice(1) : 'No Power'} selected! Waiting for opponent...</span>`;
+            }
+            
             try {
                 const response = await fetch(`${API_URL}/arena/deploy-god`, {
                     method: 'POST',
@@ -9228,6 +9262,16 @@
         // Signal sudden death ready
         async function signalSuddenDeathReady() {
             if (!currentBattleId) return;
+            
+            // Immediate visual lock on the READY button
+            const readyBtn = document.querySelector('#battle-content button[onclick="signalSuddenDeathReady()"]');
+            if (readyBtn) {
+                readyBtn.disabled = true;
+                readyBtn.style.pointerEvents = 'none';
+                readyBtn.style.background = '#4ade80';
+                readyBtn.textContent = '✓ READY!';
+            }
+            
             try {
                 const response = await fetch(`${API_URL}/arena/sudden-death-ready`, {
                     method: 'POST',
@@ -9238,7 +9282,7 @@
                 if (data.error) {
                     console.error('Sudden death ready error:', data.error);
                 }
-                // UI will update on next poll cycle
+                loadBattleState(); // Refresh immediately instead of waiting for poll
             } catch (err) {
                 console.error('Failed to signal sudden death ready:', err);
             }
@@ -9675,6 +9719,7 @@
             questionReadySignaled = false; // Reset ready signal
             v2LastRenderedPhase = null; // V2: Reset render tracking
             v2LastRenderedRound = 0;
+            v2CountdownActive = false;
             battleStateLoading = false; // V2: Reset concurrency guard
             if (battleFastPoll) { clearInterval(battleFastPoll); battleFastPoll = null; }
             questionActualStartTime = null; // Reset timing

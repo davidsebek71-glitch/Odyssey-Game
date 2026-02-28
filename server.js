@@ -7243,14 +7243,20 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
           currentRound.phase_ends_at = questionDeadline;
           console.log(`⏱️ V2 Deploy timeout - question starts ${questionStartsAt}, deadline ${questionDeadline}`);
         } else if (currentRound.phase === 'sudden_death_intro') {
-          // Sudden death intro timeout — transition to deploy phase for sudden death round
-          const deployDeadline = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_DEPLOY).toISOString();
-          run(`UPDATE arena_battle_rounds SET phase = 'deploy', deploy_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
-            [deployDeadline, deployDeadline, currentRound.round_id]);
-          currentRound.phase = 'deploy';
-          currentRound.deploy_deadline = deployDeadline;
-          currentRound.phase_ends_at = deployDeadline;
-          console.log(`⚡ V2 Sudden death intro timeout - deploy phase, deadline ${deployDeadline}`);
+          // V2: Sudden death intro timeout — skip deploy (no gods), go straight to question
+          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
+          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'question', 
+               question_starts_at = ?, question_display_time = ?,
+               question_deadline = ?, phase_ends_at = ?,
+               deploy_deadline = NULL WHERE round_id = ?`,
+            [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, currentRound.round_id]);
+          currentRound.phase = 'question';
+          currentRound.question_starts_at = questionStartsAt;
+          currentRound.question_display_time = questionStartsAt;
+          currentRound.question_deadline = questionDeadline;
+          currentRound.phase_ends_at = questionDeadline;
+          console.log(`⚡ V2 Sudden death intro timeout - skipping deploy, question starts ${questionStartsAt}`);
         } else if (currentRound.phase === 'question') {
           // V2: Question timeout — auto-submit timeout for anyone who hasn't answered
           if (!currentRound.challenger_answer) {
@@ -7796,11 +7802,15 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
     const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
     
     if (updated.challenger_question_ready === 1 && updated.defender_question_ready === 1) {
-      // V2: Both ready — transition to deploy phase with deadline
-      const deployDeadline = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_DEPLOY).toISOString();
-      run(`UPDATE arena_battle_rounds SET phase = 'deploy', deploy_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
-        [deployDeadline, deployDeadline, currentRound.round_id]);
-      console.log(`⚡ V2 SUDDEN DEATH - Both ready! Deploy phase, deadline: ${deployDeadline}`);
+      // V2: Both ready — skip deploy (no gods in SD), go straight to question with countdown
+      const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
+      const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+      run(`UPDATE arena_battle_rounds SET phase = 'question', 
+           question_starts_at = ?, question_display_time = ?,
+           question_deadline = ?, phase_ends_at = ?,
+           deploy_deadline = NULL WHERE round_id = ?`,
+        [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, currentRound.round_id]);
+      console.log(`⚡ V2 SUDDEN DEATH - Both ready! Skipping deploy, question starts ${questionStartsAt}`);
       saveDatabase();
       return res.json({ success: true, both_ready: true });
     }
@@ -10780,10 +10790,15 @@ app.listen(PORT, () => {
           // but the cleanup logs it for visibility
           console.log(`🔧 V2 Cleanup: Results expired for round ${fresh.round_id}`);
         } else if (fresh.phase === 'sudden_death_intro') {
-          const deployDeadline = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_DEPLOY).toISOString();
-          run(`UPDATE arena_battle_rounds SET phase = 'deploy', deploy_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
-            [deployDeadline, deployDeadline, fresh.round_id]);
-          console.log(`🔧 V2 Cleanup: Sudden death intro timeout for round ${fresh.round_id}`);
+          // V2: Skip deploy for SD — go straight to question
+          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
+          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'question', 
+               question_starts_at = ?, question_display_time = ?,
+               question_deadline = ?, phase_ends_at = ?,
+               deploy_deadline = NULL WHERE round_id = ?`,
+            [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, fresh.round_id]);
+          console.log(`🔧 V2 Cleanup: SD intro timeout for round ${fresh.round_id}, skipping deploy`);
           saveDatabase();
         }
       }
