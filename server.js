@@ -4163,13 +4163,16 @@ function calculateAgeReadiness(alliance) {
     'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) AND map_image IS NOT NULL AND map_image != ""',
     [alliance.alliance_id]
   )[0].count;
-  const allMapsComplete = membersWithMap >= memberCount && memberCount > 0;
+  const allMapsUploaded = membersWithMap >= memberCount && memberCount > 0;
   
-  // Update alliance map status if it changed
-  if (allMapsComplete && !alliance.civilization_map_complete) {
+  // Respect teacher's manual override: if civilization_map_complete is already 1, keep it.
+  // Only auto-MARK when all students upload maps, never auto-UNMARK a teacher override.
+  const mapManuallyMarked = alliance.civilization_map_complete === 1;
+  const allMapsComplete = mapManuallyMarked || allMapsUploaded;
+  
+  // Auto-mark if all students uploaded (but never auto-unmark)
+  if (allMapsUploaded && !alliance.civilization_map_complete) {
     run('UPDATE alliances SET civilization_map_complete = 1 WHERE alliance_id = ?', [alliance.alliance_id]);
-  } else if (!allMapsComplete && alliance.civilization_map_complete) {
-    run('UPDATE alliances SET civilization_map_complete = 0 WHERE alliance_id = ?', [alliance.alliance_id]);
   }
   
   // Calculate progress
