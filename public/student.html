@@ -8814,6 +8814,7 @@
                         }
                         if (remaining <= 0) {
                             clearInterval(battleTimer); battleTimer = null;
+                            v2CountdownActive = false; // Must clear before loadBattleState or skip guard blocks
                             loadBattleState(); // Will now show the question
                         }
                     }, 200);
@@ -9038,6 +9039,7 @@
                         if (el) el.textContent = remaining > 0 ? remaining : '⚔️';
                         if (remaining <= 0) {
                             clearInterval(battleTimer); battleTimer = null;
+                            v2CountdownActive = false;
                             loadBattleState();
                         }
                     }, 200);
@@ -9649,6 +9651,9 @@
                                     activeAphrodite = false;
                                     const retryBanner = document.getElementById('aphrodite-retry-banner');
                                     if (retryBanner) retryBanner.remove();
+                                    // Force full re-render by resetting skip guard tracking
+                                    v2LastRenderedPhase = null;
+                                    v2LastRenderedRound = 0;
                                     loadBattleState(); // Resume normal flow
                                 }
                             }, 4000);
