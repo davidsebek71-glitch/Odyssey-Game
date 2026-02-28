@@ -719,18 +719,6 @@ async function initDatabase() {
     )
   `);
 
-  // Market price history for sparkline charts (recorded on buys, sells, window open/close)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      resource TEXT NOT NULL,
-      market_value REAL NOT NULL,
-      event_type TEXT DEFAULT 'snapshot',
-      recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
   // ==================== HALL OF HONOR BADGE SYSTEM ====================
 
   // Badge definitions (37 badges across 7 rows)
@@ -1051,10 +1039,6 @@ function runMigrations() {
       db.run('ALTER TABLE arena_battle_stats ADD COLUMN prometheus_used_date DATE');
     }
 
-    // Get arena_battle_rounds columns ONCE for all migration checks below
-    const roundCols = db.exec("PRAGMA table_info(arena_battle_rounds)");
-    const roundColNames = roundCols[0] ? roundCols[0].values.map(c => c[1]) : [];
-
     // V93: Hecatoncheires scramble columns on arena_battle_rounds
     if (!roundColNames.includes('challenger_scramble_used')) {
       console.log('  Adding scramble columns to arena_battle_rounds...');
@@ -1090,7 +1074,8 @@ function runMigrations() {
     }
     
     // Add god deployment tracking to arena_battle_rounds
-    // roundColNames already declared above (before scramble check)
+    const roundCols = db.exec("PRAGMA table_info(arena_battle_rounds)");
+    const roundColNames = roundCols[0] ? roundCols[0].values.map(c => c[1]) : [];
     
     if (!roundColNames.includes('challenger_god_deployed')) {
       console.log('  Adding challenger_god_deployed column to arena_battle_rounds...');
@@ -1145,15 +1130,6 @@ function runMigrations() {
       console.log('  Adding gods ready columns to arena_battles...');
       db.run('ALTER TABLE arena_battles ADD COLUMN challenger_gods_ready INTEGER DEFAULT 0');
       db.run('ALTER TABLE arena_battles ADD COLUMN defender_gods_ready INTEGER DEFAULT 0');
-    }
-    
-    // V2 Deadline-based sync columns
-    if (!roundColNames.includes('deploy_deadline')) {
-      console.log('  Adding V2 deadline columns to arena_battle_rounds...');
-      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN deploy_deadline DATETIME');
-      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN question_deadline DATETIME');
-      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN results_deadline DATETIME');
-      db.run('ALTER TABLE arena_battle_rounds ADD COLUMN round_resolved_at DATETIME');
     }
     
     console.log('✅ Battle Arena migrations complete');
@@ -1297,47 +1273,17 @@ function runMigrations() {
       console.log('journey_data column note:', e.message);
     }
     
-    // === STEAL-CHOICE FATE VALUES MIGRATION ===
-    // Fixes stale fate_choices values for the 4 steal_choice fates (runs every startup, idempotent)
-    try {
-      const stealFates = [
-        { fateNum: 21, name: 'Artemis Forest Fires',  choices: { conservative: [-5, -10], moderate: [0, -12], aggressive: [8, -15] } },
-        { fateNum: 28, name: 'Constellation Blessing', choices: { conservative: [8, -4],  moderate: [12, -6], aggressive: [18, -12] } },
-        { fateNum: 35, name: 'Dionysus Drought',       choices: { conservative: [-6, -12], moderate: [-3, -15], aggressive: [5, -18] } },
-        { fateNum: 44, name: "Pandora's Echo",          choices: { conservative: [8, -4],  moderate: [12, -6], aggressive: [18, -12] } }
-      ];
-      let fixedCount = 0;
-      stealFates.forEach(sf => {
-        const fateRow = db.exec(`SELECT fate_id FROM fates_ref WHERE fate_number = ${sf.fateNum}`);
-        if (!fateRow[0]) return;
-        const fateId = fateRow[0].values[0][0];
-        Object.entries(sf.choices).forEach(([risk, [successPts, failurePts]]) => {
-          const check = db.exec(`SELECT choice_id, success_points, failure_points FROM fate_choices WHERE fate_id = ${fateId} AND risk_level = '${risk}'`);
-          if (!check[0]) return;
-          const [choiceId, curSuccess, curFailure] = check[0].values[0];
-          if (curSuccess !== successPts || curFailure !== failurePts) {
-            db.run(`UPDATE fate_choices SET success_points = ${successPts}, failure_points = ${failurePts} WHERE choice_id = ${choiceId}`);
-            console.log(`  ~ Fixed ${sf.name} ${risk}: [${curSuccess},${curFailure}] → [${successPts},${failurePts}]`);
-            fixedCount++;
-          }
-        });
-      });
-      if (fixedCount > 0) console.log(`✅ Fixed ${fixedCount} steal-choice fate values`);
-      else console.log('✅ Steal-choice fate values already correct');
-    } catch (err) {
-      console.log('Steal-choice migration note:', err.message);
-    }
-    
   } catch (err) {
     console.log('Side quest migration note:', err.message);
   }
   
   // Deactivate Ares battle questions (myth was never read in class)
   try {
-    const aresCount = db.prepare("SELECT COUNT(*) as cnt FROM battle_questions WHERE god_associated = 'Ares' AND is_active = 1").get();
-    if (aresCount && aresCount.cnt > 0) {
+    const aresCheck = db.exec("SELECT COUNT(*) FROM battle_questions WHERE god_associated = 'Ares' AND is_active = 1");
+    const aresCount = aresCheck[0] ? aresCheck[0].values[0][0] : 0;
+    if (aresCount > 0) {
       db.run("UPDATE battle_questions SET is_active = 0 WHERE god_associated = 'Ares'");
-      console.log(`⚔️ Deactivated ${aresCount.cnt} Ares battle questions (myth not read)`);
+      console.log(`⚔️ Deactivated ${aresCount} Ares battle questions (myth not read)`);
     }
   } catch (err) {
     console.log('Ares deactivation migration note:', err.message);

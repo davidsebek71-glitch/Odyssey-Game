@@ -6190,16 +6190,13 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
 
 // BATTLE TIMING CONSTANTS (in milliseconds)
 const BATTLE_TIMING = {
-  DEPLOY_PHASE: 15000,    // God selection phase: 15 seconds (was 12)
-  COUNTDOWN: 3000,        // 3-2-1 countdown before question
-  SD_COUNTDOWN: 5000,     // Sudden death countdown: 5 seconds (extra buffer for poll sync + deliberate feel)
+  DEPLOY_PHASE: 12000,    // God selection phase: 12 seconds
   QUESTION_PHASE: 20000,  // Question answering phase: 20 seconds
   RESULTS_PHASE: 5000,    // Results display phase: 5 seconds
   ANSWER_FEEDBACK: 3000,  // Time to show correct/wrong after answering: 3 seconds
-  SYNC_DELAY: 2000,       // Legacy — kept for backward compat, no longer primary
-  SUDDEN_DEATH_DEPLOY: 15000,  // Sudden death god selection
-  SUDDEN_DEATH_INTRO: 30000,   // Sudden death intro screen timeout: 30 seconds
-  APHRODITE_RETRY: 6000   // Aphrodite retry window: 6 seconds
+  SYNC_DELAY: 2000,       // Delay after both ready before showing question/results: 2 seconds
+  SUDDEN_DEATH_DEPLOY: 12000,  // Sudden death god selection
+  SUDDEN_DEATH_INTRO: 30000    // Sudden death intro screen timeout: 30 seconds
 };
 
 // Get a random question, excluding already-used IDs (Fisher-Yates shuffle)
@@ -6289,7 +6286,7 @@ const GOD_POWERS = {
     type: 'special',
     name: 'Gift of Fire',
     description: 'See question early (once per day)',
-    baseEffect: 5, // seconds early (readable for 6th graders)
+    baseEffect: 5, // seconds early (increased from 2 for readability)
     bonusEffect: 7,
     counteredBy: null, // cannot be blocked
     emoji: '🔥',
@@ -7159,17 +7156,16 @@ app.post('/api/arena/select-gods', authenticateToken, (req, res) => {
       const question = getAdaptiveBattleQuestion(updated.challenger_id, updated.defender_id, []);
       
       if (question) {
-        // V2: Set deploy deadline — both players have 15 seconds to pick a god
+        // Set synchronized start time - 1 second from now for both players
         const roundStartsAt = new Date(Date.now() + 1000).toISOString();
-        const deployDeadline = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
-        const phaseEndsAt = deployDeadline; // backward compat
+        const phaseEndsAt = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
         
         run("UPDATE arena_battles SET status = 'in_progress', started_at = CURRENT_TIMESTAMP, current_round = 1 WHERE battle_id = ?", [battle_id]);
-        run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, deploy_deadline, started_at) 
-             VALUES (?, 1, ?, 'deploy', ?, ?, ?)`,
-          [battle_id, question.question_id, phaseEndsAt, deployDeadline, roundStartsAt]);
+        run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, started_at) 
+             VALUES (?, 1, ?, 'deploy', ?, ?)`,
+          [battle_id, question.question_id, phaseEndsAt, roundStartsAt]);
         
-        console.log(`⏱️ V2 Round 1 created - deploy_deadline: ${deployDeadline}`);
+        console.log(`⏱️ Round 1 created - starts at ${roundStartsAt}, question_id: ${question.question_id}`);
       }
       
       saveDatabase();
@@ -7222,44 +7218,31 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         if (!freshRound || freshRound.phase !== currentRound.phase) {
           console.log(`⚠️ Phase already transitioned (was ${currentRound.phase}, now ${freshRound?.phase}). Skipping double-transition.`);
         } else if (currentRound.phase === 'deploy') {
-          // V2: Deploy timeout — auto-assign random gods for anyone who hasn't picked, then transition
-          if (!currentRound.challenger_deploy_ready) {
-            run("UPDATE arena_battle_rounds SET challenger_deploy_ready = 1 WHERE round_id = ?", [currentRound.round_id]);
-            console.log(`⏱️ Deploy timeout - challenger auto-skipped (no god power)`);
-          }
-          if (!currentRound.defender_deploy_ready) {
-            run("UPDATE arena_battle_rounds SET defender_deploy_ready = 1 WHERE round_id = ?", [currentRound.round_id]);
-            console.log(`⏱️ Deploy timeout - defender auto-skipped (no god power)`);
-          }
-          // Transition to question with V2 deadlines
-          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
-          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-          run(`UPDATE arena_battle_rounds SET phase = 'question', question_starts_at = ?, question_display_time = ?,
-               question_deadline = ?, phase_ends_at = ? WHERE round_id = ?`, 
-            [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, currentRound.round_id]);
+          // Deploy timeout - move to question phase with sync delay
+          // Set question_display_time so the sync gate works correctly
+          const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
+          const newPhaseEnds = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run("UPDATE arena_battle_rounds SET phase = 'question', question_display_time = ?, phase_ends_at = ? WHERE round_id = ?", 
+            [questionDisplayTime, newPhaseEnds, currentRound.round_id]);
+          // Also mark both as question-ready since they had their chance during deploy
+          run("UPDATE arena_battle_rounds SET challenger_question_ready = 1, defender_question_ready = 1 WHERE round_id = ?",
+            [currentRound.round_id]);
           currentRound.phase = 'question';
-          currentRound.question_starts_at = questionStartsAt;
-          currentRound.question_display_time = questionStartsAt;
-          currentRound.question_deadline = questionDeadline;
-          currentRound.phase_ends_at = questionDeadline;
-          console.log(`⏱️ V2 Deploy timeout - question starts ${questionStartsAt}, deadline ${questionDeadline}`);
+          currentRound.question_display_time = questionDisplayTime;
+          currentRound.phase_ends_at = newPhaseEnds;
+          console.log(`⏱️ Deploy timeout - Question display at ${questionDisplayTime}`);
         } else if (currentRound.phase === 'sudden_death_intro') {
-          // V2: Sudden death intro timeout — skip deploy (no gods), go straight to question
-          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN).toISOString();
-          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-          run(`UPDATE arena_battle_rounds SET phase = 'question', 
-               question_starts_at = ?, question_display_time = ?,
-               question_deadline = ?, phase_ends_at = ?,
-               deploy_deadline = NULL WHERE round_id = ?`,
-            [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, currentRound.round_id]);
+          // Sudden death intro timeout (30s) - auto-transition to question
+          const questionDisplayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
+          const newPhaseEnds = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY + BATTLE_TIMING.QUESTION_PHASE).toISOString();
+          run(`UPDATE arena_battle_rounds SET phase = 'question', question_display_time = ?, phase_ends_at = ? WHERE round_id = ?`,
+            [questionDisplayTime, newPhaseEnds, currentRound.round_id]);
           currentRound.phase = 'question';
-          currentRound.question_starts_at = questionStartsAt;
-          currentRound.question_display_time = questionStartsAt;
-          currentRound.question_deadline = questionDeadline;
-          currentRound.phase_ends_at = questionDeadline;
-          console.log(`⚡ V2 Sudden death intro timeout - skipping deploy, question starts ${questionStartsAt}`);
+          currentRound.question_display_time = questionDisplayTime;
+          currentRound.phase_ends_at = newPhaseEnds;
+          console.log(`⚡ Sudden death intro timeout - auto-transitioning to question`);
         } else if (currentRound.phase === 'question') {
-          // V2: Question timeout — auto-submit timeout for anyone who hasn't answered
+          // Time's up - auto-submit wrong answers for anyone who hasn't answered
           if (!currentRound.challenger_answer) {
             run("UPDATE arena_battle_rounds SET challenger_answer = 'timeout', challenger_time_ms = ? WHERE round_id = ?", 
               [BATTLE_TIMING.QUESTION_PHASE, currentRound.round_id]);
@@ -7268,27 +7251,25 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
             run("UPDATE arena_battle_rounds SET defender_answer = 'timeout', defender_time_ms = ? WHERE round_id = ?", 
               [BATTLE_TIMING.QUESTION_PHASE, currentRound.round_id]);
           }
+          // FIX 1: Score the round after filling timeout answers (previously missing — caused stuck battles)
           const timeoutRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
           if (timeoutRound && !timeoutRound.completed_at && timeoutRound.challenger_answer && timeoutRound.defender_answer) {
-            // V2: Don't score if Aphrodite retry is pending
-            if (isAphroditeRetryPending(timeoutRound)) {
-              console.log(`💕 V2 Question timeout - Aphrodite retry pending, skipping score`);
-            } else {
-              console.log(`⏱️ V2 Question timeout - scoring round ${currentRound.round_number}`);
-              scoreRound(battle_id, currentRound.round_id);
-            }
+            console.log(`⏱️ Question timeout - scoring round ${currentRound.round_number} now`);
+            scoreRound(battle_id, currentRound.round_id);
           }
         } else if (currentRound.phase === 'results') {
-          // V2: Results timeout — create next round with deploy_deadline
+          // Results phase ended - create next round
           const nextRoundNum = battle.current_round + 1;
           
+          // FIX 2b: Check if next round already exists (prevents duplicate from concurrent poll race condition)
           const existingNextRound = query('SELECT round_id FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
             [battle_id, nextRoundNum])[0];
           if (existingNextRound) {
-            console.log(`⚠️ Round ${nextRoundNum} already exists, skipping duplicate creation`);
+            console.log(`⚠️ Round ${nextRoundNum} already exists (round_id: ${existingNextRound.round_id}), skipping duplicate creation`);
             battle.current_round = nextRoundNum;
             run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
           } else if (nextRoundNum <= 5 || (battle.challenger_score === battle.defender_score)) {
+            // Get unused questions using adaptive pool (Archaic + unlocked Classical myths)
             const usedQuestions = query('SELECT question_id FROM arena_battle_rounds WHERE battle_id = ?', [battle_id]);
             const usedIds = usedQuestions.map(q => q.question_id);
             const nextQ = getAdaptiveBattleQuestion(battle.challenger_id, battle.defender_id, usedIds);
@@ -7297,22 +7278,26 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
               const isSuddenDeath = nextRoundNum > 5;
               
               if (isSuddenDeath) {
+                // Sudden death rounds go through sudden_death_intro phase first
                 const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.SUDDEN_DEATH_INTRO).toISOString();
                 run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
-                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, started_at) 
-                     VALUES (?, ?, ?, 'sudden_death_intro', ?, CURRENT_TIMESTAMP)`,
+                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, 
+                     challenger_question_ready, defender_question_ready, started_at) 
+                     VALUES (?, ?, ?, 'sudden_death_intro', ?, 0, 0, CURRENT_TIMESTAMP)`,
                   [battle_id, nextRoundNum, nextQ.question_id, phaseEndsAt]);
-                console.log(`⚡ V2 SUDDEN DEATH Round ${nextRoundNum} created`);
+                console.log(`⚡ SUDDEN DEATH Round ${nextRoundNum} created - phase: sudden_death_intro`);
               } else {
-                // V2: Normal next round — deploy phase with deadline
-                const deployDeadline = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
+                // Normal round - deploy phase
+                const roundStartsAt = new Date(Date.now() + 1000).toISOString();
+                const newPhaseEnds = new Date(Date.now() + 1000 + BATTLE_TIMING.DEPLOY_PHASE).toISOString();
                 run('UPDATE arena_battles SET current_round = ? WHERE battle_id = ?', [nextRoundNum, battle_id]);
-                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, deploy_deadline, started_at) 
-                     VALUES (?, ?, ?, 'deploy', ?, ?, CURRENT_TIMESTAMP)`,
-                  [battle_id, nextRoundNum, nextQ.question_id, deployDeadline, deployDeadline]);
-                console.log(`⏱️ V2 Round ${nextRoundNum} created - deploy_deadline: ${deployDeadline}`);
+                run(`INSERT INTO arena_battle_rounds (battle_id, round_number, question_id, phase, phase_ends_at, started_at) 
+                     VALUES (?, ?, ?, 'deploy', ?, ?)`,
+                  [battle_id, nextRoundNum, nextQ.question_id, newPhaseEnds, roundStartsAt]);
+                console.log(`⏱️ Round ${nextRoundNum} created - starts at ${roundStartsAt}`);
               }
               
+              // Re-query to get the new round
               battle.current_round = nextRoundNum;
               saveDatabase();
             }
@@ -7353,13 +7338,7 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         round_number: currentRound.round_number,
         phase: currentRound.phase || 'deploy',
         phase_time_remaining: phaseTimeRemaining,
-        // V2 deadline timestamps — clients count down from these
-        deploy_deadline: currentRound.deploy_deadline || null,
         question_starts_at: currentRound.question_starts_at || null,
-        question_deadline: currentRound.question_deadline || null,
-        results_deadline: currentRound.results_deadline || null,
-        round_resolved_at: currentRound.round_resolved_at || null,
-        // Legacy fields kept for backward compat
         question_display_time: currentRound.question_display_time || null,
         round_started_at: currentRound.started_at || null,
         challenger_god_deployed: currentRound.challenger_god_deployed,
@@ -7381,7 +7360,7 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
       // A4: Include Prometheus preview in battle state if player deployed Prometheus
       const myDeployedGod = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;
       const myGodBlocked = isChallenger ? currentRound.challenger_god_blocked : currentRound.defender_god_blocked;
-      if (myDeployedGod === 'prometheus' && !myGodBlocked && (currentRound.phase === 'question' || currentRound.phase === 'deploy')) {
+      if (myDeployedGod === 'prometheus' && !myGodBlocked && currentRound.phase === 'question') {
         const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', [currentRound.question_id])[0];
         if (previewQ) {
           const promGodData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
@@ -7614,17 +7593,14 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
         console.log('Cerberus block check error (non-fatal):', cerberusErr.message);
       }
       
-      // V2: Move to question phase with fixed deadlines — no question-ready handshake needed
-      const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
-      const questionDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-      const phaseEndsAt = questionDeadline; // Keep phase_ends_at for backward compat
+      // Move to question phase - question won't show until BOTH clients call /question-ready
+      // Set phase_ends_at with extra time to account for sync wait
+      const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.QUESTION_PHASE + 10000).toISOString();
       
-      run(`UPDATE arena_battle_rounds SET phase = 'question', phase_ends_at = ?, 
-           question_starts_at = ?, question_deadline = ?, question_display_time = ?
-           WHERE round_id = ?`, 
-        [phaseEndsAt, questionStartsAt, questionDeadline, questionStartsAt, currentRound.round_id]);
+      run("UPDATE arena_battle_rounds SET phase = 'question', phase_ends_at = ? WHERE round_id = ?", 
+        [phaseEndsAt, currentRound.round_id]);
       
-      console.log(`⏱️ V2 BOTH DEPLOYED! Question starts at ${questionStartsAt}, deadline ${questionDeadline}`);
+      console.log(`⏱️ BOTH DEPLOYED! Waiting for clients to sync via /question-ready`);
       
       // A4: Check if this player deployed Prometheus and it wasn't blocked
       let prometheusPreview = null;
@@ -7651,35 +7627,17 @@ app.post('/api/arena/deploy-god', authenticateToken, (req, res) => {
       
       saveDatabase();
       
-      // Tell this player the question is coming — no /question-ready needed
+      // Tell this player to refresh - they'll see question phase and call /question-ready
       return res.json({ 
         success: true, 
         both_ready: true,
-        question_starts_at: questionStartsAt,
-        question_deadline: questionDeadline,
         prometheus_preview: prometheusPreview,
         prometheus_preview_duration: prometheusPreviewDuration
       });
     }
     
     saveDatabase();
-    // If Prometheus was deployed, include preview immediately (before opponent deploys)
-    let earlyPreview = null;
-    let earlyPreviewDuration = null;
-    if (god_name === 'prometheus') {
-      const previewQ = query('SELECT question_text FROM battle_questions WHERE question_id = ?', 
-        [currentRound.question_id])[0];
-      if (previewQ) {
-        const myGods = JSON.parse(isChallenger ? (battle.challenger_gods || '[]') : (battle.defender_gods || '[]'));
-        const promData = myGods.find(g => (typeof g === 'string' ? g : g.name) === 'prometheus');
-        const hasBonus = promData && typeof promData === 'object' && promData.hasBonus;
-        earlyPreview = previewQ.question_text;
-        earlyPreviewDuration = (hasBonus ? GOD_POWERS.prometheus.bonusEffect : GOD_POWERS.prometheus.baseEffect) * 1000;
-        console.log(`🔥 Prometheus early preview for student ${student_id}: ${earlyPreviewDuration}ms`);
-      }
-    }
-    
-    res.json({ success: true, god_deployed: god_name, waiting_for_opponent: true, prometheus_preview: earlyPreview, prometheus_preview_duration: earlyPreviewDuration });
+    res.json({ success: true, god_deployed: god_name, waiting_for_opponent: true });
     
   } catch (err) {
     console.error('Deploy god error:', err);
@@ -7764,11 +7722,15 @@ app.post('/api/arena/use-scramble', authenticateToken, (req, res) => {
 // Signal ready for question - both clients must call this before question displays
 app.post('/api/arena/question-ready', authenticateToken, (req, res) => {
   try {
+    const student_id = req.user.id;
     const { battle_id } = req.body;
     
     const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battle_id])[0];
-    if (!battle) return res.status(404).json({ error: 'Battle not found' });
+    if (!battle) {
+      return res.status(404).json({ error: 'Battle not found' });
+    }
     
+    const isChallenger = battle.challenger_id === student_id;
     const currentRound = query('SELECT * FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
       [battle_id, battle.current_round])[0];
     
@@ -7776,15 +7738,42 @@ app.post('/api/arena/question-ready', authenticateToken, (req, res) => {
       return res.json({ success: false, not_ready: true });
     }
     
-    // V2: No handshake needed — deadlines are already set by deploy-god or auto-advance.
-    // Just return the existing timestamps so the client can sync its countdown.
-    return res.json({ 
-      success: true, 
-      both_ready: true, 
-      show_question: true,
-      display_time: currentRound.question_starts_at || currentRound.question_display_time,
-      question_deadline: currentRound.question_deadline
-    });
+    // Mark this player as ready
+    const readyCol = isChallenger ? 'challenger_question_ready' : 'defender_question_ready';
+    run(`UPDATE arena_battle_rounds SET ${readyCol} = 1 WHERE round_id = ?`, [currentRound.round_id]);
+    
+    // Check if BOTH are now ready
+    const updatedRound = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
+    
+    if (updatedRound.challenger_question_ready === 1 && updatedRound.defender_question_ready === 1) {
+      // BOTH ready - set display time 2 seconds in the future so both clients
+      // pick it up on their next poll cycle simultaneously
+      if (!updatedRound.question_display_time) {
+        const displayTime = new Date(Date.now() + BATTLE_TIMING.SYNC_DELAY).toISOString();
+        run('UPDATE arena_battle_rounds SET question_display_time = ? WHERE round_id = ?', 
+          [displayTime, currentRound.round_id]);
+        console.log(`⏱️ BOTH CLIENTS READY! Question will display at ${displayTime} (${BATTLE_TIMING.SYNC_DELAY}ms from now)`);
+        saveDatabase();
+        return res.json({ 
+          success: true, 
+          both_ready: true, 
+          show_question: true,
+          display_time: displayTime
+        });
+      } else {
+        // Already set - return it
+        return res.json({ 
+          success: true, 
+          both_ready: true, 
+          show_question: true,
+          display_time: updatedRound.question_display_time
+        });
+      }
+    }
+    
+    // Waiting for other player
+    saveDatabase();
+    res.json({ success: true, waiting_for_opponent: true });
     
   } catch (err) {
     console.error('Question ready error:', err);
@@ -7799,11 +7788,16 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
     const { battle_id } = req.body;
     
     const battle = query('SELECT * FROM arena_battles WHERE battle_id = ?', [battle_id])[0];
-    if (!battle) return res.status(404).json({ error: 'Battle not found' });
+    if (!battle) {
+      return res.status(404).json({ error: 'Battle not found' });
+    }
     
     const isChallenger = battle.challenger_id === student_id;
     const isDefender = battle.defender_id === student_id;
-    if (!isChallenger && !isDefender) return res.status(403).json({ error: 'You are not part of this battle' });
+    
+    if (!isChallenger && !isDefender) {
+      return res.status(403).json({ error: 'You are not part of this battle' });
+    }
     
     const currentRound = query('SELECT * FROM arena_battle_rounds WHERE battle_id = ? AND round_number = ?',
       [battle_id, battle.current_round])[0];
@@ -7812,22 +7806,26 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Not in sudden death intro phase' });
     }
     
-    // V2: Mark ready. When both ready, go to deploy phase (not directly to question).
+    // Mark this player as ready
     const readyCol = isChallenger ? 'challenger_question_ready' : 'defender_question_ready';
     run(`UPDATE arena_battle_rounds SET ${readyCol} = 1 WHERE round_id = ?`, [currentRound.round_id]);
     
+    // Check if both ready
     const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [currentRound.round_id])[0];
     
     if (updated.challenger_question_ready === 1 && updated.defender_question_ready === 1) {
-      // V2: Both ready — skip deploy (no gods in SD), go straight to question with countdown
-      const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN).toISOString();
-      const questionDeadline = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-      run(`UPDATE arena_battle_rounds SET phase = 'question', 
-           question_starts_at = ?, question_display_time = ?,
-           question_deadline = ?, phase_ends_at = ?,
-           deploy_deadline = NULL WHERE round_id = ?`,
-        [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, currentRound.round_id]);
-      console.log(`⚡ V2 SUDDEN DEATH - Both ready! Skipping deploy, question starts ${questionStartsAt}`);
+      // V3: Both ready - transition to question phase WITHOUT question_display_time.
+      // The /question-ready handshake will set it when both clients signal they're ready.
+      // This ensures BOTH players see the full countdown from the start.
+      const phaseEndsAt = new Date(Date.now() + BATTLE_TIMING.QUESTION_PHASE + 10000).toISOString();
+      
+      run(`UPDATE arena_battle_rounds 
+           SET phase = 'question', phase_ends_at = ?,
+           challenger_question_ready = 0, defender_question_ready = 0
+           WHERE round_id = ?`,
+        [phaseEndsAt, currentRound.round_id]);
+      
+      console.log(`⚡ SUDDEN DEATH - Both ready! Waiting for countdown handshake via /question-ready`);
       saveDatabase();
       return res.json({ success: true, both_ready: true });
     }
@@ -7841,19 +7839,6 @@ app.post('/api/arena/sudden-death-ready', authenticateToken, (req, res) => {
 });
 
 // Score a completed round - extracted for Aphrodite retry delayed scoring
-// V2: Check if Aphrodite retry is pending (used by auto-advance and cleanup to avoid premature scoring)
-function isAphroditeRetryPending(round) {
-  if (!round || !round.challenger_answer || !round.defender_answer) return false;
-  if (round.completed_at) return false;
-  
-  const challengerNeedsRetry = round.challenger_answer === 'wrong' && 
-    round.challenger_god_deployed === 'aphrodite' && !round.challenger_god_blocked;
-  const defenderNeedsRetry = round.defender_answer === 'wrong' && 
-    round.defender_god_deployed === 'aphrodite' && !round.defender_god_blocked;
-  
-  return challengerNeedsRetry || defenderNeedsRetry;
-}
-
 function scoreRound(battle_id, round_id) {
   try {
     const updated = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [round_id])[0];
@@ -7995,11 +7980,10 @@ function scoreRound(battle_id, round_id) {
       }
       saveDatabase();
     } else {
-      // V2: Results phase with explicit deadline
+      // Results phase
       const resultsEndsAt = new Date(Date.now() + BATTLE_TIMING.ANSWER_FEEDBACK + BATTLE_TIMING.RESULTS_PHASE).toISOString();
-      run(`UPDATE arena_battle_rounds SET phase = 'results', phase_ends_at = ?, 
-           results_deadline = ?, round_resolved_at = CURRENT_TIMESTAMP WHERE round_id = ?`,
-        [resultsEndsAt, resultsEndsAt, round_id]);
+      run("UPDATE arena_battle_rounds SET phase = 'results', phase_ends_at = ? WHERE round_id = ?",
+        [resultsEndsAt, round_id]);
       saveDatabase();
     }
   } catch (err) {
@@ -9214,19 +9198,6 @@ function getMarketValues(period) {
   return values;
 }
 
-// Helper: Record a market snapshot for sparkline history
-function recordMarketSnapshot(period, eventType) {
-  try {
-    const values = getMarketValues(period);
-    TRADE_RESOURCES.forEach(r => {
-      run(`INSERT INTO market_history (period, resource, market_value, event_type) VALUES (?, ?, ?, ?)`,
-        [period, r, values[r], eventType]);
-    });
-  } catch (err) {
-    console.log('Market snapshot note:', err.message);
-  }
-}
-
 // --- Teacher: Assign native resources to alliances ---
 app.post('/api/trade/assign-resources', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
@@ -9356,11 +9327,6 @@ app.post('/api/trade/window/:action', authenticateToken, (req, res) => {
     }
     
     saveDatabase();
-    
-    // Record market snapshot on window open/close
-    recordMarketSnapshot(period, action === 'open' ? 'window_open' : 'window_close');
-    saveDatabase();
-    
     res.json({ success: true, period, is_open: action === 'open' });
   } catch (err) {
     console.error('Trade window error:', err);
@@ -9525,8 +9491,6 @@ app.post('/api/trade/buy', authenticateToken, (req, res) => {
       [student.alliance_id, student_id, -points_to_spend, `Bought ${units} ${TRADE_RESOURCE_LABELS[resource]} for ${points_to_spend} pts`]);
     
     saveDatabase();
-    recordMarketSnapshot(student.class_period, 'buy');
-    saveDatabase();
     res.json({ 
       success: true, 
       resource,
@@ -9614,16 +9578,6 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
     if (initiator.class_period !== partner.class_period) return res.status(400).json({ error: 'Must be in the same period' });
     if (initiator.alliance_id === partner.alliance_id) return res.status(400).json({ error: 'Cannot trade within your own alliance' });
     
-    // Block if pending trade already exists between these two (either direction)
-    const existingTrade = query(`
-      SELECT trade_id FROM trades 
-      WHERE status = 'pending' 
-        AND ((initiator_id = ? AND partner_id = ?) OR (initiator_id = ? AND partner_id = ?))
-    `, [student_id, partner_id, partner_id, student_id])[0];
-    if (existingTrade) {
-      return res.status(400).json({ error: 'You already have a pending trade with this player. Accept, counter, or decline it first.' });
-    }
-    
     // Check trade window
     const window = query('SELECT is_open FROM trade_window WHERE period = ?', [initiator.class_period])[0];
     if (!window || window.is_open !== 1) return res.status(400).json({ error: 'Trade window is closed' });
@@ -9696,8 +9650,6 @@ app.post('/api/trade/confirm/:tradeId', authenticateToken, (req, res) => {
     
     run("UPDATE trades SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE trade_id = ?", [trade_id]);
     saveDatabase();
-    recordMarketSnapshot(trade.period, 'trade');
-    saveDatabase();
     res.json({ success: true, message: 'Trade completed!' });
   } catch (err) {
     console.error('Confirm trade error:', err);
@@ -9723,84 +9675,6 @@ app.post('/api/trade/reject/:tradeId', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Reject trade error:', err);
     res.status(500).json({ error: 'Failed to reject trade' });
-  }
-});
-
-// --- Student: Lightweight pending trades poll (minimal data) ---
-app.get('/api/trade/pending-only', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const pendingTrades = query(`
-      SELECT t.trade_id, t.initiator_id, t.partner_id, 
-             t.give_resource, t.give_amount, t.receive_resource, t.receive_amount,
-             t.flagged, t.created_at,
-             si.name as initiator_name, sp.name as partner_name
-      FROM trades t
-      JOIN students si ON t.initiator_id = si.student_id
-      JOIN students sp ON t.partner_id = sp.student_id
-      WHERE (t.initiator_id = ? OR t.partner_id = ?) AND t.status = 'pending'
-      ORDER BY t.created_at DESC
-    `, [student_id, student_id]);
-    res.json({ pending_trades: pendingTrades, student_id });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed' });
-  }
-});
-
-// --- Student: Counter-offer a trade (cancel original + propose new) ---
-app.post('/api/trade/counter/:tradeId', authenticateToken, (req, res) => {
-  try {
-    const trade_id = parseInt(req.params.tradeId);
-    const student_id = req.user.id;
-    const { give_resource, give_amount, receive_resource, receive_amount } = req.body;
-    
-    if (!give_resource || !give_amount || !receive_resource || !receive_amount) {
-      return res.status(400).json({ error: 'All trade fields required' });
-    }
-    if (give_resource === receive_resource) return res.status(400).json({ error: 'Cannot trade same resource' });
-    
-    // Get original trade
-    const original = query("SELECT * FROM trades WHERE trade_id = ? AND status = 'pending'", [trade_id])[0];
-    if (!original) return res.status(404).json({ error: 'Original trade not found or no longer pending' });
-    if (original.partner_id !== student_id) return res.status(403).json({ error: 'Only the trade partner can counter-offer' });
-    
-    // Cancel the original
-    run("UPDATE trades SET status = 'countered' WHERE trade_id = ?", [trade_id]);
-    
-    // Check trade window
-    const window = query('SELECT is_open FROM trade_window WHERE period = ?', [original.period])[0];
-    if (!window || window.is_open !== 1) return res.status(400).json({ error: 'Trade window is closed' });
-    
-    // Check Transport Ship
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    const alliance = query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-    const owned = JSON.parse(alliance?.buildings_owned || '[]');
-    if (!owned.includes('Transport Ship')) return res.status(400).json({ error: 'Your alliance needs a Transport Ship to trade' });
-    
-    // Check student has enough of what they're offering
-    ensureStudentResources(student_id);
-    const myRes = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
-    if (myRes[give_resource] < give_amount) {
-      return res.status(400).json({ error: `You only have ${myRes[give_resource]} ${TRADE_RESOURCE_LABELS[give_resource]}` });
-    }
-    
-    // Auto-flag 3:1 ratio
-    const ratio = Math.max(give_amount / receive_amount, receive_amount / give_amount);
-    const flagged = ratio > 3 ? 1 : 0;
-    const status = flagged ? 'flagged' : 'pending';
-    
-    // Create counter-offer (roles are reversed — the partner becomes the initiator)
-    run(`INSERT INTO trades (period, initiator_id, partner_id, give_resource, give_amount, receive_resource, receive_amount, status, flagged, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [original.period, student_id, original.initiator_id, give_resource, give_amount, receive_resource, receive_amount, status, flagged]);
-    
-    const newTradeId = query('SELECT last_insert_rowid() as id')[0].id;
-    saveDatabase();
-    
-    res.json({ success: true, trade_id: newTradeId, status, message: flagged ? 'Counter-offer flagged for teacher review' : 'Counter-offer sent!' });
-  } catch (err) {
-    console.error('Counter trade error:', err);
-    res.status(500).json({ error: 'Failed to counter trade' });
   }
 });
 
@@ -9928,129 +9802,6 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Trade overview error:', err);
     res.status(500).json({ error: 'Failed to get trade overview' });
-  }
-});
-
-// --- Student: Sell resources at Merchant's Dock ---
-app.post('/api/trade/sell', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const { resource, amount } = req.body;
-    
-    if (!resource || !TRADE_RESOURCES.includes(resource)) return res.status(400).json({ error: 'Invalid resource' });
-    if (!amount || amount < 10 || amount % 10 !== 0) return res.status(400).json({ error: 'Amount must be a multiple of 10 (minimum 10)' });
-    
-    const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
-    
-    // Check trade window is open
-    const tradeWindow = query('SELECT is_open FROM trade_window WHERE period = ?', [student.class_period])[0];
-    if (!tradeWindow || tradeWindow.is_open !== 1) {
-      return res.status(400).json({ error: 'The market is currently closed.' });
-    }
-    
-    // Check Transport Ship prerequisite
-    const alliance = query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-    const buildings = JSON.parse(alliance?.buildings_owned || '[]');
-    if (!buildings.includes('Transport Ship')) {
-      return res.status(400).json({ error: 'Your alliance needs a Transport Ship to sell at the Merchant\'s Dock.' });
-    }
-    
-    // Check student has enough of the resource
-    ensureStudentResources(student_id);
-    const inventory = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
-    if (!inventory || (inventory[resource] || 0) < amount) {
-      return res.status(400).json({ error: `You only have ${inventory?.[resource] || 0} ${TRADE_RESOURCE_LABELS[resource]}` });
-    }
-    
-    // Calculate sell value: (units / 10) × market_value × 0.90
-    const values = getMarketValues(student.class_period);
-    const marketValue = values[resource];
-    const grossPoints = (amount / 10) * marketValue;
-    const fee = Math.round(grossPoints * 0.10);
-    const netPoints = Math.round(grossPoints - fee);
-    
-    if (netPoints < 1) return res.status(400).json({ error: 'Sale amount too small to earn any points after the 10% dock fee.' });
-    
-    // Deduct from personal inventory
-    run(`UPDATE student_resources SET ${resource} = ${resource} - ? WHERE student_id = ?`, [amount, student_id]);
-    
-    // Add points to alliance
-    run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', [netPoints, student.alliance_id]);
-    
-    // Log the sellback
-    run(`INSERT INTO resource_sellbacks (student_id, alliance_id, resource_type, amount, market_value, points_earned)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      [student_id, student.alliance_id, resource, amount, marketValue, netPoints]);
-    
-    // Log transaction
-    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
-         VALUES (?, ?, ?, 'resource_sell', ?)`,
-      [student.alliance_id, student_id, netPoints, 
-       `Sold ${amount} ${TRADE_RESOURCE_LABELS[resource]} at market value ${marketValue} (${netPoints} pts after 10% dock fee)`]);
-    
-    saveDatabase();
-    recordMarketSnapshot(student.class_period, 'sell');
-    saveDatabase();
-    
-    res.json({
-      success: true,
-      resource,
-      amount,
-      market_value: marketValue,
-      gross_points: Math.round(grossPoints),
-      fee,
-      net_points: netPoints,
-      message: `Sold ${amount} ${TRADE_RESOURCE_LABELS[resource]} for ${netPoints} alliance points (${fee} pt dock fee)`
-    });
-  } catch (err) {
-    console.error('Sell resource error:', err);
-    res.status(500).json({ error: 'Failed to sell resource' });
-  }
-});
-
-// --- Student: Get market price history for sparkline charts ---
-app.get('/api/trade/market-history', authenticateToken, (req, res) => {
-  try {
-    const student = query('SELECT class_period FROM students WHERE student_id = ?', [req.user.id])[0];
-    if (!student) return res.status(400).json({ error: 'Student not found' });
-    
-    // Get last 10 snapshots per resource (each snapshot = 1 event with all 4 resources)
-    // Group by recorded_at to get distinct time points, then take last 10
-    const timepoints = query(`
-      SELECT DISTINCT recorded_at FROM market_history 
-      WHERE period = ? ORDER BY recorded_at DESC LIMIT 10
-    `, [student.class_period]);
-    
-    if (timepoints.length === 0) return res.json({ history: {} });
-    
-    const oldest = timepoints[timepoints.length - 1].recorded_at;
-    
-    const rows = query(`
-      SELECT resource, market_value, event_type, recorded_at 
-      FROM market_history 
-      WHERE period = ? AND recorded_at >= ?
-      ORDER BY recorded_at ASC
-    `, [student.class_period, oldest]);
-    
-    // Group by resource for easy sparkline rendering
-    const history = {};
-    TRADE_RESOURCES.forEach(r => { history[r] = []; });
-    
-    rows.forEach(row => {
-      if (history[row.resource]) {
-        history[row.resource].push({
-          value: row.market_value,
-          event: row.event_type,
-          time: row.recorded_at
-        });
-      }
-    });
-    
-    res.json({ history });
-  } catch (err) {
-    console.error('Market history error:', err);
-    res.status(500).json({ error: 'Failed to get market history' });
   }
 });
 
@@ -10743,88 +10494,6 @@ app.listen(PORT, () => {
   
   // Run cleanup after server starts (database is ready)
   setTimeout(cleanupStuckBattles, 1000);
-  
-  // V2: Battle deadline enforcement — runs every 5 seconds
-  // Catches any phase transitions that client polls missed
-  setInterval(() => {
-    try {
-      const now = new Date().toISOString();
-      
-      // Find in-progress battles with expired phases
-      const activeBattles = query(`
-        SELECT r.*, b.battle_id as b_id, b.challenger_id, b.defender_id, 
-               b.challenger_score, b.defender_score, b.current_round,
-               b.challenger_gods, b.defender_gods, b.challenger_god_cooldowns, b.defender_god_cooldowns,
-               b.challenger_alliance_id, b.defender_alliance_id
-        FROM arena_battle_rounds r 
-        JOIN arena_battles b ON r.battle_id = b.battle_id
-        WHERE b.status = 'in_progress' AND r.round_number = b.current_round
-          AND r.phase_ends_at IS NOT NULL AND r.phase_ends_at < ?
-      `, [now]);
-      
-      for (const staleRound of activeBattles) {
-        // Double-check it hasn't been transitioned by a concurrent request
-        const fresh = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [staleRound.round_id])[0];
-        if (!fresh || fresh.phase !== staleRound.phase) continue;
-        
-        if (fresh.phase === 'deploy') {
-          // Auto-skip deploy for anyone who hasn't picked
-          if (!fresh.challenger_deploy_ready) {
-            run("UPDATE arena_battle_rounds SET challenger_deploy_ready = 1 WHERE round_id = ?", [fresh.round_id]);
-          }
-          if (!fresh.defender_deploy_ready) {
-            run("UPDATE arena_battle_rounds SET defender_deploy_ready = 1 WHERE round_id = ?", [fresh.round_id]);
-          }
-          const qStart = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN).toISOString();
-          const qDeadline = new Date(Date.now() + BATTLE_TIMING.COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-          run(`UPDATE arena_battle_rounds SET phase = 'question', question_starts_at = ?, question_display_time = ?,
-               question_deadline = ?, phase_ends_at = ? WHERE round_id = ?`,
-            [qStart, qStart, qDeadline, qDeadline, fresh.round_id]);
-          console.log(`🔧 V2 Cleanup: Deploy timeout for round ${fresh.round_id}, question starts ${qStart}`);
-          saveDatabase();
-        } else if (fresh.phase === 'question' && !fresh.round_resolved_at) {
-          // Auto-timeout anyone who hasn't answered
-          if (!fresh.challenger_answer) {
-            run("UPDATE arena_battle_rounds SET challenger_answer = 'timeout', challenger_time_ms = ? WHERE round_id = ?",
-              [BATTLE_TIMING.QUESTION_PHASE, fresh.round_id]);
-          }
-          if (!fresh.defender_answer) {
-            run("UPDATE arena_battle_rounds SET defender_answer = 'timeout', defender_time_ms = ? WHERE round_id = ?",
-              [BATTLE_TIMING.QUESTION_PHASE, fresh.round_id]);
-          }
-          const check = query('SELECT * FROM arena_battle_rounds WHERE round_id = ?', [fresh.round_id])[0];
-          if (check && !check.completed_at && check.challenger_answer && check.defender_answer) {
-            // V2: Don't score if Aphrodite retry is pending
-            if (isAphroditeRetryPending(check)) {
-              console.log(`💕 V2 Cleanup: Aphrodite retry pending for round ${fresh.round_id}, skipping score`);
-            } else {
-              console.log(`🔧 V2 Cleanup: Question timeout for round ${fresh.round_id}, scoring now`);
-              scoreRound(staleRound.battle_id, fresh.round_id);
-            }
-          }
-        } else if (fresh.phase === 'results' && fresh.results_deadline && fresh.results_deadline < now) {
-          // Results expired — this will be caught on next poll by either client, 
-          // but the cleanup logs it for visibility
-          console.log(`🔧 V2 Cleanup: Results expired for round ${fresh.round_id}`);
-        } else if (fresh.phase === 'sudden_death_intro') {
-          // V2: Skip deploy for SD — go straight to question
-          const questionStartsAt = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN).toISOString();
-          const questionDeadline = new Date(Date.now() + BATTLE_TIMING.SD_COUNTDOWN + BATTLE_TIMING.QUESTION_PHASE).toISOString();
-          run(`UPDATE arena_battle_rounds SET phase = 'question', 
-               question_starts_at = ?, question_display_time = ?,
-               question_deadline = ?, phase_ends_at = ?,
-               deploy_deadline = NULL WHERE round_id = ?`,
-            [questionStartsAt, questionStartsAt, questionDeadline, questionDeadline, fresh.round_id]);
-          console.log(`🔧 V2 Cleanup: SD intro timeout for round ${fresh.round_id}, skipping deploy`);
-          saveDatabase();
-        }
-      }
-    } catch (err) {
-      // Non-fatal — cleanup is a safety net
-      console.error('V2 battle cleanup error:', err.message);
-    }
-  }, 5000);
-  console.log('⏱️ V2 Battle deadline enforcement running (every 5s)');
   
   // Run retroactive badge scan 5 seconds after startup
   setTimeout(() => {

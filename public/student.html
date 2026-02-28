@@ -2157,18 +2157,6 @@
             height: 100%; border-radius: 4px; transition: width 0.8s ease;
             background: linear-gradient(90deg, #cd7f32, #ffd700);
         }
-        @keyframes tradePulseBorder {
-            0%, 100% { border-color: rgba(192,132,252,0.35); box-shadow: 0 0 0 rgba(192,132,252,0); }
-            50% { border-color: rgba(192,132,252,0.7); box-shadow: 0 0 20px rgba(192,132,252,0.15); }
-        }
-        @keyframes tradePulseText {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        @keyframes tradeShimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
     </style>
 </head>
 <body>
@@ -3236,15 +3224,11 @@
         let selectedGods = [];
         let currentBattleId = null;
         let battlePollInterval = null;
-        let battleFastPoll = null; // V2: 500ms poll during "waiting for opponent" states
         let currentQuestion = null;
         let battleTimer = null;
         let timeRemaining = 15;
         let questionActualStartTime = null; // Tracks when question actually started for accurate time_ms calculation
         let arenaCountdownInterval = null;
-        let v2LastRenderedPhase = null; // V2: tracks phase+round to skip redundant re-renders
-        let v2LastRenderedRound = 0;
-        let v2CountdownActive = false; // V2: prevents flicker during 3-2-1 countdown
         
         // God configuration - MUST be declared before loadPantheon is called
         const GOD_CONFIG = {
@@ -8320,25 +8304,18 @@
             
             // Start polling - reduced frequency to prevent memory issues
             if (battlePollInterval) clearInterval(battlePollInterval);
-            battlePollInterval = setInterval(loadBattleState, 1500); // V2: 1.5s poll — skip guard prevents unnecessary renders
+            battlePollInterval = setInterval(loadBattleState, 2000);
         }
         
-        let battleStateLoading = false; // V2: concurrency guard
         async function loadBattleState() {
-            // V2: Prevent concurrent calls — this is the #1 cause of timer stacking and DOM thrashing
-            if (battleStateLoading) return;
-            battleStateLoading = true;
-            
             // Skip UI refresh during Aphrodite retry window
             if (aphroditeRetryActive) {
                 console.log('💕 Skipping loadBattleState - Aphrodite retry active');
-                battleStateLoading = false;
                 return;
             }
             // Guard against null battle ID (prevents requests to /arena/battle/null)
             if (!currentBattleId) {
                 if (battlePollInterval) { clearInterval(battlePollInterval); battlePollInterval = null; }
-                battleStateLoading = false;
                 return;
             }
             try {
@@ -8347,7 +8324,6 @@
                 
                 if (data.error) {
                     document.getElementById('battle-content').innerHTML = `<div style="color: #ff6b6b; text-align: center;">${data.error}</div>`;
-                    battleStateLoading = false;
                     return;
                 }
                 
@@ -8355,50 +8331,11 @@
             } catch (err) {
                 console.error('Battle load error:', err);
             }
-            battleStateLoading = false;
         }
         
         async function renderBattle(data) {
             const content = document.getElementById('battle-content');
             if (!content) return;
-            
-            // V2: Skip re-render if we're in a timer-driven phase and nothing has changed.
-            // This prevents the poll from destroying/recreating DOM elements while countdown timers are running.
-            const roundData = data.round_data || {};
-            const currentPhase = roundData.phase || 'deploy';
-            const currentRound = data.current_round || 0;
-            const myDeployReady = roundData.my_deploy_ready;
-            const myAnswer = data.my_answer;
-            
-            if (data.status !== 'completed' && v2LastRenderedPhase === currentPhase && v2LastRenderedRound === currentRound && battleTimer) {
-                if (currentPhase === 'deploy' && !myDeployReady) return; // Still picking, timer running — skip
-                if (currentPhase === 'deploy' && myDeployReady) return; // Waiting for opponent, timer running — skip
-                if (currentPhase === 'question' && !myAnswer && godEffectsAppliedThisRound) return; // Question visible, timer running — skip
-                if (currentPhase === 'question' && myAnswer) return; // Already answered, waiting — skip
-                if (currentPhase === 'results') return; // Results timer running — skip
-            }
-            // Also skip if no timer but we're in a stable waiting state (prevents DOM thrash)
-            if (data.status !== 'completed' && v2LastRenderedPhase === currentPhase && v2LastRenderedRound === currentRound) {
-                if (currentPhase === 'deploy' && myDeployReady) return; // Waiting for opponent, no timer needed
-                if (currentPhase === 'question' && myAnswer && !aphroditeRetryActive) return; // Answered, waiting for opponent
-                if (currentPhase === 'question' && !myAnswer && v2CountdownActive) return; // 3-2-1 countdown running — skip
-                if (currentPhase === 'sudden_death_intro' && roundData.my_sd_ready) return; // SD waiting for opponent — skip
-            }
-            
-            // V2: Fast poll management — 500ms polling when waiting for opponent
-            const sdWaiting = currentPhase === 'sudden_death_intro' && roundData.my_sd_ready && !roundData.opponent_sd_ready;
-            const isWaitingState = (currentPhase === 'deploy' && myDeployReady) || 
-                                   (currentPhase === 'question' && myAnswer && !aphroditeRetryActive) ||
-                                   sdWaiting;
-            if (isWaitingState && !battleFastPoll) {
-                battleFastPoll = setInterval(loadBattleState, 500);
-            } else if (!isWaitingState && battleFastPoll) {
-                clearInterval(battleFastPoll);
-                battleFastPoll = null;
-            }
-            
-            v2LastRenderedPhase = currentPhase;
-            v2LastRenderedRound = currentRound;
             
             // Remove any lingering banners when rendering battle
             const activeBanner = document.getElementById('active-battle-banner');
@@ -8489,8 +8426,8 @@
             const oppScore = data.is_challenger ? data.defender_score : data.challenger_score;
             const myName = data.is_challenger ? data.challenger_name : data.defender_name;
             const oppName = data.is_challenger ? data.defender_name : data.challenger_name;
-            // roundData, currentPhase already declared in V2 skip guard above
-            const phase = currentPhase;
+            const roundData = data.round_data || {};
+            const phase = roundData.phase || 'deploy';
             const isSuddenDeath = data.current_round > 5;
             
             // Scoreboard HTML (used in all phases)
@@ -8519,30 +8456,37 @@
                     battleTimer = null;
                 }
                 
+                // Check if we need to wait for round to start (synchronization)
+                const roundStartedAt = roundData.round_started_at ? new Date(roundData.round_started_at).getTime() : null;
+                const now = Date.now();
+                const waitForRoundStart = roundStartedAt ? Math.max(0, roundStartedAt - now) : 0;
+                
+                if (waitForRoundStart > 100) {
+                    // Show "Next Round" countdown while waiting
+                    content.innerHTML = `
+                        ${scoreboardHTML}
+                        <div style="text-align: center; padding: 40px;">
+                            <div style="font-size: 60px; margin-bottom: 15px;">⚔️</div>
+                            <h3 style="color: #ffd700; font-size: 28px;">Round ${roundData.round_number}</h3>
+                            <p style="color: rgba(255,255,255,0.6);">Starting in ${Math.ceil(waitForRoundStart / 1000)} second${waitForRoundStart > 1000 ? 's' : ''}...</p>
+                        </div>
+                    `;
+                    // Wait then reload
+                    setTimeout(() => loadBattleState(), waitForRoundStart);
+                    return;
+                }
+                
                 const availableGods = data.available_gods || [];
-                // myDeployReady already declared in V2 skip guard
+                const myDeployReady = roundData.my_deploy_ready;
                 
                 if (myDeployReady) {
                     // Already deployed, waiting for opponent
-                    // Build Prometheus preview for waiting screen
-                    let waitPrometheusHTML = '';
-                    if (roundData.prometheus_preview && roundData.my_god_deployed && 
-                        roundData.my_god_deployed.toLowerCase() === 'prometheus') {
-                        waitPrometheusHTML = `
-                            <div style="background: rgba(255, 100, 0, 0.15); border: 2px solid rgba(255, 100, 0, 0.4); border-radius: 12px; padding: 20px; margin-top: 20px; max-width: 500px; margin-left: auto; margin-right: auto;">
-                                <p style="color: #ff6400; font-size: 14px; margin-bottom: 8px;">🔥 PROMETHEUS PREVIEW</p>
-                                <p style="color: white; font-size: 18px; line-height: 1.5;">${roundData.prometheus_preview}</p>
-                            </div>
-                        `;
-                    }
-                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
                             <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
                             <h3 style="color: #ffd700;">Waiting for opponent to choose their god...</h3>
                             <p style="color: rgba(255,255,255,0.6);">You selected: ${roundData.my_god_deployed || 'No Power'}</p>
-                            ${waitPrometheusHTML}
                         </div>
                     `;
                 } else {
@@ -8587,7 +8531,7 @@
                         ${scoreboardHTML}
                         <div style="text-align: center; margin-bottom: 15px;">
                             <span style="font-size: 24px; color: #ffd700;">⚔️ Deploy a God Power!</span>
-                            <p style="color: rgba(255,255,255,0.6); font-size: 14px;" id="deploy-timer-text">Time remaining: 15s</p>
+                            <p style="color: rgba(255,255,255,0.6); font-size: 14px;">Time remaining: ${roundData.phase_time_remaining || 12}s</p>
                         </div>
                         <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                             ${godsHTML}
@@ -8603,23 +8547,6 @@
                             ">Skip (No Power)</button>
                         </div>
                     `;
-                    // V2: Deploy countdown from server deadline
-                    if (roundData.deploy_deadline) {
-                        if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
-                        const deployDeadlineMs = new Date(roundData.deploy_deadline).getTime();
-                        battleTimer = setInterval(() => {
-                            const secsLeft = Math.max(0, Math.ceil((deployDeadlineMs - Date.now()) / 1000));
-                            const el = document.getElementById('deploy-timer-text');
-                            if (el) {
-                                el.textContent = `Time remaining: ${secsLeft}s`;
-                                el.style.color = secsLeft <= 5 ? '#ff6b6b' : 'rgba(255,255,255,0.6)';
-                            }
-                            if (secsLeft <= 0) {
-                                clearInterval(battleTimer); battleTimer = null;
-                                loadBattleState(); // Server will auto-advance
-                            }
-                        }, 500);
-                    }
                 }
                 return;
             }
@@ -8729,12 +8656,13 @@
                 }
                 currentQuestion = data.question;
                 
-                // V2: Use question_starts_at for countdown, question_deadline for answer timer.
-                const questionDisplayTime = roundData.question_starts_at || roundData.question_display_time;
+                // SYNC GATE: Both players must signal ready, then server sets a future display time
+                // Question only shows when display time is reached
+                const questionDisplayTime = roundData.question_display_time;
                 const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
                 const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
-                // V2: If no display time yet, show a brief "Get Ready" (server cleanup will advance shortly)
+                // STEP 1: No display time yet - signal ready and wait
                 if (!questionDisplayTime) {
                     if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
@@ -8775,21 +8703,44 @@
                         <div style="text-align: center; padding: 40px;">
                             <div style="font-size: 60px; margin-bottom: 15px;">⚡</div>
                             <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
-                            <p style="color: rgba(255,255,255,0.6);">Preparing question...</p>
+                            <p style="color: rgba(255,255,255,0.6);">Waiting for opponent...</p>
                             ${godInfoHTML}
                             ${prometheusHTML}
                         </div>
                     `;
-                    playBattleSound('roundStart', 0.6);
+                    
+                    // Signal ready (only once per question to avoid hammering)
+                    // For Prometheus: delay signal until preview finishes so countdown waits
+                    if (!questionReadySignaled) {
+                        questionReadySignaled = true;
+                        playBattleSound('roundStart', 0.6);
+                        
+                        // Check if Prometheus preview is active — delay ready signal
+                        const hasPrometheusPreview = roundData.prometheus_preview && 
+                            roundData.my_god_deployed && 
+                            roundData.my_god_deployed.toLowerCase() === 'prometheus' &&
+                            !(data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked);
+                        
+                        if (hasPrometheusPreview && roundData.prometheus_preview_duration) {
+                            // Wait for Prometheus preview to finish, THEN signal ready
+                            console.log(`🔥 Prometheus preview active — delaying countdown signal by ${roundData.prometheus_preview_duration}ms`);
+                            setTimeout(() => {
+                                signalQuestionReady();
+                            }, roundData.prometheus_preview_duration);
+                        } else {
+                            signalQuestionReady();
+                        }
+                        // FIX 7: Removed 3-second reset timeout that caused parallel retry chains
+                        // Flag resets properly via questionChanged detection (line 7697) and closeBattle()
+                    }
                     return;
                 }
                 
-                // V2 STEP 2: Countdown phase (3-2-1) — question_starts_at is in the future
+                // STEP 2: Display time exists but hasn't been reached yet - countdown
                 if (!displayTimeReached) {
-                    v2CountdownActive = true; // Prevent flicker from polls during countdown
                     if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
-                    const secsLeft = Math.max(1, Math.ceil((displayTimeMs - Date.now()) / 1000));
+                    const secsLeft = Math.ceil((displayTimeMs - Date.now()) / 1000);
                     
                     // Show Prometheus preview during countdown too
                     let prometheusHTML = '';
@@ -8806,55 +8757,33 @@
                         }
                     }
                     
-                    const countdownColor = isSuddenDeath ? '#ff6b6b' : '#ffd700';
-                    const countdownGlow = isSuddenDeath ? 'rgba(255,107,107,0.6)' : 'rgba(255,215,0,0.6)';
-                    const countdownLabel = isSuddenDeath ? '⚡ SUDDEN DEATH ⚡' : 'GET READY';
-                    
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 40px;">
-                            <div style="font-size: 120px; font-weight: 900; color: ${countdownColor}; text-shadow: 0 0 40px ${countdownGlow}; animation: badgePulse 0.5s ease-in-out;" id="countdown-number">${secsLeft}</div>
-                            <h3 style="color: rgba(255,255,255,0.6); font-size: 20px; letter-spacing: 3px;">${countdownLabel}</h3>
-                            ${effectsHTML}
+                            <div style="font-size: 60px; margin-bottom: 15px;">⚔️</div>
+                            <h3 style="color: #ffd700; font-size: 28px;">Get Ready!</h3>
+                            <p style="color: rgba(255,255,255,0.6);">Question in ${secsLeft}...</p>
                             ${prometheusHTML}
                         </div>
                     `;
-                    
-                    // V2: Local countdown timer ticking down to question_starts_at
-                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
-                    battleTimer = setInterval(() => {
-                        const remaining = Math.max(0, Math.ceil((displayTimeMs - Date.now()) / 1000));
-                        const el = document.getElementById('countdown-number');
-                        if (el) {
-                            el.textContent = remaining > 0 ? remaining : '⚔️';
-                            if (remaining <= 1) el.style.color = '#ef4444';
-                        }
-                        if (remaining <= 0) {
-                            clearInterval(battleTimer); battleTimer = null;
-                            v2CountdownActive = false; // Must clear before loadBattleState or skip guard blocks
-                            loadBattleState(); // Will now show the question
-                        }
-                    }, 200);
                     return;
                 }
                 
-                // V2 STEP 3: Display time reached - SHOW THE QUESTION
-                v2CountdownActive = false;
+                // STEP 3: Display time reached - SHOW THE QUESTION
                 
                 // Only build question HTML ONCE - subsequent polls just update timer
                 // This prevents destroying DOM-based god effects (Poseidon wobble, Athena removal, Apollo glow, etc.)
                 if (!godEffectsAppliedThisRound) {
                     godEffectsAppliedThisRound = true;
                     
-                    // V2: Timer counts down from question_deadline (server timestamp)
-                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
-                    const questionDeadlineMs = roundData.question_deadline ? new Date(roundData.question_deadline).getTime() : (Date.now() + 20000);
-                    timeRemaining = Math.max(1, Math.ceil((questionDeadlineMs - Date.now()) / 1000));
+                    // Start timer
+                    if (battleTimer) clearInterval(battleTimer);
+                    timeRemaining = Math.max(1, roundData.phase_time_remaining || 20);
                     questionActualStartTime = Date.now();
-                    console.log(`📝 V2 Question displayed at ${questionActualStartTime}, deadline in ${timeRemaining}s`);
+                    console.log(`📝 Question displayed at ${questionActualStartTime}`);
                     
                     battleTimer = setInterval(() => {
-                        timeRemaining = Math.max(0, Math.ceil((questionDeadlineMs - Date.now()) / 1000));
+                        timeRemaining--;
                         const timerEl = document.getElementById('battle-timer');
                         if (timerEl) {
                             timerEl.textContent = timeRemaining;
@@ -8865,7 +8794,7 @@
                             battleTimer = null;
                             submitAnswer(-1);
                         }
-                    }, 500); // V2: 500ms tick for smoother countdown
+                    }, 1000);
                     
                     // Build the question HTML (ONCE)
                     content.innerHTML = `
@@ -8965,25 +8894,11 @@
                         <p style="color: ${isWinning ? '#22c55e' : isTied ? '#fbbf24' : '#ef4444'}; font-size: 22px; margin-bottom: 15px;">
                             ${isWinning ? "You're winning!" : isTied ? "It's tied!" : "You're behind!"}
                         </p>
-                        <p style="color: rgba(255,255,255,0.6); font-size: 16px;" id="results-timer-text">
-                            Next round in 5 seconds...
+                        <p style="color: rgba(255,255,255,0.6); font-size: 16px;">
+                            Next round in ${roundData.phase_time_remaining || 5} seconds...
                         </p>
                     </div>
                 `;
-                // V2: Countdown to next round using results_deadline
-                if (roundData.results_deadline) {
-                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
-                    const resultsDeadlineMs = new Date(roundData.results_deadline).getTime();
-                    battleTimer = setInterval(() => {
-                        const secsLeft = Math.max(0, Math.ceil((resultsDeadlineMs - Date.now()) / 1000));
-                        const el = document.getElementById('results-timer-text');
-                        if (el) el.textContent = `Next round in ${secsLeft} seconds...`;
-                        if (secsLeft <= 0) {
-                            clearInterval(battleTimer); battleTimer = null;
-                            loadBattleState();
-                        }
-                    }, 500);
-                }
                 return;
             }
             
@@ -8995,12 +8910,12 @@
                 }
                 currentQuestion = data.question;
                 
-                // V2: Same deadline-based sync as normal rounds
-                const questionDisplayTime = roundData.question_starts_at || roundData.question_display_time;
+                // SYNC GATE: same pattern as normal rounds
+                const questionDisplayTime = roundData.question_display_time;
                 const displayTimeMs = questionDisplayTime ? new Date(questionDisplayTime).getTime() : null;
                 const displayTimeReached = displayTimeMs && displayTimeMs <= Date.now();
                 
-                // V2: No display time yet — show Sudden Death intro
+                // Show Sudden Death intro while waiting for sync
                 if (!questionDisplayTime) {
                     if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     
@@ -9028,53 +8943,46 @@
                                 </p>
                             </div>
                             <p style="color: rgba(255,255,255,0.6); font-size: 16px; margin-top: 20px;">
-                                Preparing question...
+                                Waiting for opponent...
                             </p>
                         </div>
                     `;
+                    
+                    if (!questionReadySignaled) {
+                        // Already signaled above, but call endpoint
+                    }
+                    signalSuddenDeathReady(); // FIX 5: Was calling signalQuestionReady() which rejects sudden_death_intro phase
                     return;
                 }
                 
-                // V2: Countdown to question
+                // Display time exists but not reached - countdown
                 if (!displayTimeReached) {
-                    v2CountdownActive = true;
                     if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
-                    const secsLeft = Math.max(1, Math.ceil((displayTimeMs - Date.now()) / 1000));
+                    const secsLeft = Math.ceil((displayTimeMs - Date.now()) / 1000);
                     content.innerHTML = `
                         ${scoreboardHTML}
                         <div style="text-align: center; padding: 30px;">
-                            <div style="font-size: 120px; font-weight: 900; color: #ff6b6b; text-shadow: 0 0 40px rgba(255,107,107,0.6); animation: badgePulse 0.5s ease-in-out;" id="sd-countdown-number">${secsLeft}</div>
-                            <h2 style="color: #ff6b6b; font-size: 24px; letter-spacing: 3px;">
-                                ⚡ SUDDEN DEATH ⚡
+                            <div style="font-size: 80px; margin-bottom: 15px;">⚔️</div>
+                            <h2 style="color: #ff6b6b; font-size: 36px; text-shadow: 0 0 20px rgba(255,107,107,0.5);">
+                                ⚡ SUDDEN DEATH! ⚡
                             </h2>
+                            <p style="color: white; font-size: 22px;">Question in ${secsLeft}...</p>
                         </div>
                     `;
-                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
-                    battleTimer = setInterval(() => {
-                        const remaining = Math.max(0, Math.ceil((displayTimeMs - Date.now()) / 1000));
-                        const el = document.getElementById('sd-countdown-number');
-                        if (el) el.textContent = remaining > 0 ? remaining : '⚔️';
-                        if (remaining <= 0) {
-                            clearInterval(battleTimer); battleTimer = null;
-                            v2CountdownActive = false;
-                            loadBattleState();
-                        }
-                    }, 200);
                     return;
                 }
                 
-                // V2: Question display — count down from question_deadline
-                v2CountdownActive = false;
+                // Display time reached - show the question
+                
                 if (!battleTimer) {
-                    const sdDeadlineMs = roundData.question_deadline ? new Date(roundData.question_deadline).getTime() : (Date.now() + 20000);
-                    timeRemaining = Math.max(1, Math.ceil((sdDeadlineMs - Date.now()) / 1000));
+                    timeRemaining = roundData.phase_time_remaining || 20;
                     
+                    // Record the actual start time for accurate answer time calculation
                     questionActualStartTime = Date.now();
-                    console.log(`📝 V2 Sudden Death question displayed at ${questionActualStartTime}`);
+                    console.log(`📝 Sudden Death question displayed at ${questionActualStartTime}`);
                     
-                    if (battleTimer) { clearInterval(battleTimer); battleTimer = null; }
                     battleTimer = setInterval(() => {
-                        timeRemaining = Math.max(0, Math.ceil((sdDeadlineMs - Date.now()) / 1000));
+                        timeRemaining--;
                         const timerEl = document.getElementById('battle-timer');
                         if (timerEl) timerEl.textContent = timeRemaining;
                         if (timeRemaining <= 0) {
@@ -9126,36 +9034,6 @@
         
         // Deploy god function
         async function deployGod(godName) {
-            // V2: Don't send if deploy phase already expired (prevents 400 errors)
-            if (v2LastRenderedPhase !== 'deploy') {
-                console.log('Deploy phase already ended, skipping');
-                return;
-            }
-            
-            // V2: IMMEDIATE visual lock — highlight selected god, disable all buttons
-            const allGodBtns = document.querySelectorAll('#battle-content button[onclick^="deployGod"]');
-            allGodBtns.forEach(btn => {
-                btn.disabled = true;
-                btn.style.cursor = 'default';
-                btn.style.pointerEvents = 'none';
-                btn.removeAttribute('onmouseover');
-                btn.removeAttribute('onmouseout');
-                const isSelected = btn.getAttribute('onclick') === `deployGod('${godName}')` || 
-                                   (godName === null && btn.getAttribute('onclick') === 'deployGod(null)');
-                if (isSelected) {
-                    btn.style.borderColor = '#22c55e';
-                    btn.style.background = 'rgba(34, 197, 94, 0.3)';
-                    btn.style.boxShadow = '0 0 15px rgba(34, 197, 94, 0.3)';
-                } else {
-                    btn.style.opacity = '0.3';
-                }
-            });
-            // Update timer text to show selection
-            const timerText = document.getElementById('deploy-timer-text');
-            if (timerText) {
-                timerText.innerHTML = `<span style="color: #22c55e;">✓ ${godName ? godName.charAt(0).toUpperCase() + godName.slice(1) : 'No Power'} selected! Waiting for opponent...</span>`;
-            }
-            
             try {
                 const response = await fetch(`${API_URL}/arena/deploy-god`, {
                     method: 'POST',
@@ -9173,18 +9051,11 @@
                     }
                 } else if (data.both_ready) {
                     // BOTH players deployed - refresh to enter question sync flow
+                    // Prometheus preview will show in the Get Ready screen
                     console.log('⏱️ Both deployed! Refreshing to start question sync...');
-                    // Show Prometheus preview overlay if available
-                    if (data.prometheus_preview && data.prometheus_preview_duration) {
-                        showPrometheusPreview(data.prometheus_preview, data.prometheus_preview_duration);
-                    }
                     loadBattleState();
                 } else {
-                    // Waiting for opponent — show Prometheus preview immediately if available
-                    if (data.prometheus_preview) {
-                        showPrometheusPreview(data.prometheus_preview, data.prometheus_preview_duration || 5000);
-                    }
-                    loadBattleState();
+                    loadBattleState(); // Refresh immediately
                 }
             } catch (err) {
                 console.error('Error deploying god:', err);
@@ -9288,16 +9159,6 @@
         // Signal sudden death ready
         async function signalSuddenDeathReady() {
             if (!currentBattleId) return;
-            
-            // Immediate visual lock on the READY button
-            const readyBtn = document.querySelector('#battle-content button[onclick="signalSuddenDeathReady()"]');
-            if (readyBtn) {
-                readyBtn.disabled = true;
-                readyBtn.style.pointerEvents = 'none';
-                readyBtn.style.background = '#4ade80';
-                readyBtn.textContent = '✓ READY!';
-            }
-            
             try {
                 const response = await fetch(`${API_URL}/arena/sudden-death-ready`, {
                     method: 'POST',
@@ -9308,7 +9169,7 @@
                 if (data.error) {
                     console.error('Sudden death ready error:', data.error);
                 }
-                loadBattleState(); // Refresh immediately instead of waiting for poll
+                // UI will update on next poll cycle
             } catch (err) {
                 console.error('Failed to signal sudden death ready:', err);
             }
@@ -9559,38 +9420,6 @@
                 console.log('Answer already submitting, ignoring');
                 return;
             }
-            // V2: Don't send if question phase already ended (prevents 400 errors on timer expiry)
-            if (v2LastRenderedPhase !== 'question' && !aphroditeRetryActive) {
-                console.log('Question phase already ended, skipping answer submission');
-                return;
-            }
-            
-            // V2: IMMEDIATE visual lock — highlight selected answer and disable all buttons
-            // This happens BEFORE the server request so the student sees instant feedback
-            if (answerIndex >= 0) {
-                const allBtns = document.querySelectorAll('#battle-content button[onclick^="submitAnswer"]');
-                allBtns.forEach((btn, idx) => {
-                    btn.disabled = true;
-                    btn.style.cursor = 'default';
-                    btn.style.pointerEvents = 'none';
-                    btn.removeAttribute('onmouseover');
-                    btn.removeAttribute('onmouseout');
-                    if (idx === answerIndex) {
-                        // Highlight selected answer
-                        btn.style.background = 'rgba(99, 102, 241, 0.4)';
-                        btn.style.borderColor = '#6366f1';
-                        btn.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.3)';
-                    } else {
-                        // Dim other answers
-                        btn.style.opacity = '0.4';
-                    }
-                });
-                // Show "Answer Locked" indicator
-                const timerEl = document.getElementById('battle-timer');
-                if (timerEl) {
-                    timerEl.parentElement.innerHTML = '<span style="color: #6366f1; font-size: 28px; font-weight: bold;">🔒 Answer Locked!</span>';
-                }
-            }
             
             // If this is an Aphrodite retry submission, clear the retry state first
             if (aphroditeRetryActive) {
@@ -9608,10 +9437,8 @@
             }
             
             // Calculate time_ms using actual start time for accuracy
-            const timeMs = questionActualStartTime ? Math.max(0, Date.now() - questionActualStartTime) : (Math.max(0, 20 - timeRemaining) * 1000);
-            if (answerIndex >= 0) {
-                console.log(`⏱️ Answer submitted after ${timeMs}ms`);
-            }
+            const timeMs = questionActualStartTime ? (Date.now() - questionActualStartTime) : ((18 - timeRemaining) * 1000);
+            console.log(`⏱️ Answer submitted after ${timeMs}ms (questionActualStartTime: ${questionActualStartTime})`);
             
             try {
                 const response = await fetch(`${API_URL}/arena/answer`, {
@@ -9643,28 +9470,6 @@
                             console.log('💕 Aphrodite retry activated!');
                             aphroditeRetryActive = true;
                             answerSubmitting = false; // Allow next submission
-                            
-                            // V2: Re-enable answer buttons that the visual lock disabled
-                            // The wrong answer stays locked, others become clickable again
-                            const retryBtns = document.querySelectorAll('#battle-content button[onclick^="submitAnswer"]');
-                            retryBtns.forEach((btn, idx) => {
-                                if (idx !== answerIndex) {
-                                    btn.disabled = false;
-                                    btn.style.cursor = 'pointer';
-                                    btn.style.pointerEvents = 'auto';
-                                    btn.style.opacity = '1';
-                                    btn.style.background = 'rgba(255,255,255,0.1)';
-                                    btn.style.borderColor = 'rgba(255,255,255,0.2)';
-                                    btn.style.boxShadow = 'none';
-                                }
-                            });
-                            // Restore the timer area to show retry countdown
-                            const timerParent = document.querySelector('#battle-content div[style*="text-align: center"]');
-                            const lockedEl = document.querySelector('#battle-content span[style*="Answer Locked"]');
-                            if (lockedEl) {
-                                lockedEl.innerHTML = '<span style="color: #ff69b4; font-size: 28px; font-weight: bold;">💕 Pick again! 4s...</span>';
-                            }
-                            
                             showAphroditeRetryBanner(answerIndex);
                             
                             // Auto-expire after 4 seconds
@@ -9675,9 +9480,6 @@
                                     activeAphrodite = false;
                                     const retryBanner = document.getElementById('aphrodite-retry-banner');
                                     if (retryBanner) retryBanner.remove();
-                                    // Force full re-render by resetting skip guard tracking
-                                    v2LastRenderedPhase = null;
-                                    v2LastRenderedRound = 0;
                                     loadBattleState(); // Resume normal flow
                                 }
                             }, 4000);
@@ -9768,11 +9570,6 @@
             activeAphrodite = false; // Reset Aphrodite availability
             godEffectsAppliedThisRound = false; // Reset effects flag
             questionReadySignaled = false; // Reset ready signal
-            v2LastRenderedPhase = null; // V2: Reset render tracking
-            v2LastRenderedRound = 0;
-            v2CountdownActive = false;
-            battleStateLoading = false; // V2: Reset concurrency guard
-            if (battleFastPoll) { clearInterval(battleFastPoll); battleFastPoll = null; }
             questionActualStartTime = null; // Reset timing
             questionReadyRetries = 0; // Reset question ready retry counter
             
@@ -10713,19 +10510,13 @@
             }
             document.getElementById('trade-portal-modal').classList.add('show');
             await loadTradePortalData();
-            startTradePoll(); // Begin lightweight pending trade polling
         }
         
         function closeTradePortal() {
             document.getElementById('trade-portal-modal').classList.remove('show');
-            stopTradePoll(); // Stop polling when portal closes
         }
         
-        let tradePortalLoading = false; // Guard against concurrent reloads
-        
         async function loadTradePortalData() {
-            if (tradePortalLoading) return; // Skip if already loading
-            tradePortalLoading = true;
             try {
                 const [myRes, marketRes] = await Promise.all([
                     fetch(`${API_URL}/trade/my-data`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -10734,22 +10525,9 @@
                 tradePortalData = await myRes.json();
                 tradeMarketData = await marketRes.json();
                 renderTradePortal();
-                // Sync poll fingerprint so next poll doesn't re-trigger
-                const currentPending = tradePortalData.pending_trades || [];
-                tradePollLastIds = currentPending.map(t => `${t.trade_id}`).join(',');
-                // Load sparkline charts and init sell previews after DOM is rendered
-                setTimeout(() => {
-                    loadDockSparklines();
-                    if (tradeMarketData?.market_values) {
-                        ['olive','grape','iron','grain'].forEach(r => {
-                            updateSellPreview(r, tradeMarketData.market_values[r] || 10);
-                        });
-                    }
-                }, 100);
             } catch (err) {
                 document.getElementById('trade-portal-body').innerHTML = '<div style="color: #f87171; padding: 20px;">Failed to load trade data</div>';
             }
-            tradePortalLoading = false;
         }
         
         let selectedTradePartner = null;
@@ -10842,70 +10620,6 @@
                     </div>` : `<div style="color:rgba(255,255,255,0.35);font-style:italic;font-size:13px;">No budget remaining. Earn more points!</div>`}
                 </div>
             </div>`;
-            
-            // ===== SECTION 1.5: MERCHANT'S DOCK (Sell Resources) =====
-            if (hasShip && windowOpen) {
-                const sellValues = {};
-                const sellRates = {};
-                ['olive','grape','iron','grain'].forEach(r => {
-                    const mv = values[r] || 10;
-                    const gross = (100 / 10) * mv;
-                    sellRates[r] = Math.round(gross * 0.90);
-                    sellValues[r] = mv;
-                });
-                
-                html += `<div style="margin-bottom: 24px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#a78bfa;letter-spacing:1px;">⚓ Merchant's Dock</div>
-                        <div style="flex:1;height:1px;background:rgba(167,139,250,0.2);"></div>
-                        <div style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(167,139,250,0.12);color:#a78bfa;">10% dock fee</div>
-                    </div>
-                    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px;">
-                        Sell resources back to the market. Prices change based on supply and demand.
-                    </div>
-                    <div id="dock-sparklines" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                        ${['olive','grape','iron','grain'].map(r => {
-                            const mv = sellValues[r];
-                            const rate = sellRates[r];
-                            const held = res[r] || 0;
-                            const aboveBase = mv > 10;
-                            const belowBase = mv < 10;
-                            const borderColor = aboveBase ? 'rgba(74,222,128,0.3)' : belowBase ? 'rgba(239,68,68,0.2)' : 'rgba(167,139,250,0.2)';
-                            const bgTint = aboveBase ? 'rgba(74,222,128,0.03)' : belowBase ? 'rgba(239,68,68,0.02)' : 'rgba(167,139,250,0.03)';
-                            const priceColor = aboveBase ? '#4ade80' : belowBase ? '#f87171' : '#a78bfa';
-                            const arrow = aboveBase ? '↑' : belowBase ? '↓' : '→';
-                            return `<div style="background:${bgTint};border:2px solid ${borderColor};border-radius:12px;padding:14px;position:relative;">
-                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                                    <div style="display:flex;align-items:center;gap:8px;">
-                                        <span style="font-size:22px;">${TRADE_ICONS[r]}</span>
-                                        <div>
-                                            <div style="font-size:13px;font-weight:700;color:#e2e8f0;">${TRADE_NAMES[r]}</div>
-                                            <div style="font-size:10px;color:rgba(255,255,255,0.3);">You have: ${held}</div>
-                                        </div>
-                                    </div>
-                                    <div style="text-align:right;">
-                                        <div style="font-size:18px;font-weight:900;color:${priceColor};">${arrow} ${mv}</div>
-                                        <div style="font-size:9px;color:rgba(255,255,255,0.3);">market value</div>
-                                    </div>
-                                </div>
-                                <canvas id="spark-${r}" width="220" height="40" style="width:100%;height:40px;margin-bottom:8px;border-radius:4px;background:rgba(0,0,0,0.15);"></canvas>
-                                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                                    <div style="font-size:11px;color:rgba(255,255,255,0.5);">
-                                        <strong style="color:${priceColor};">${rate} pts</strong> per 100 units
-                                    </div>
-                                    ${held >= 10 ? `
-                                        <div style="display:flex;align-items:center;gap:6px;">
-                                            <input type="number" id="sell-amt-${r}" min="10" max="${Math.floor(held / 10) * 10}" step="10" value="${Math.min(100, Math.floor(held / 10) * 10)}" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:5px 6px;border-radius:6px;width:58px;font-size:13px;font-weight:700;text-align:center;outline:none;" oninput="updateSellPreview('${r}', ${mv})">
-                                            <button onclick="confirmSell('${r}', ${mv})" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Sell</button>
-                                        </div>
-                                    ` : `<div style="font-size:10px;color:rgba(255,255,255,0.25);">Need 10+ to sell</div>`}
-                                </div>
-                                ${held >= 10 ? `<div id="sell-preview-${r}" style="font-size:10px;color:rgba(255,255,255,0.35);text-align:right;margin-top:4px;"></div>` : ''}
-                            </div>`;
-                        }).join('')}
-                    </div>
-                </div>`;
-            }
             
             // ===== SECTION 2: TRADE PARTNERS =====
             html += `<div style="margin-bottom: 24px;">
@@ -11012,8 +10726,31 @@
             
             // ===== SECTION 3: PENDING TRADES =====
             const pending = d.pending_trades || [];
-            // Pending trades section — rendered into a dedicated div for polling updates
-            html += `<div id="tp-pending-section">${renderPendingTrades(pending, d.student_id)}</div>`;
+            if (pending.length > 0) {
+                html += `<div style="margin-bottom: 24px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
+                        <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
+                        <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>
+                    </div>`;
+                pending.forEach(t => {
+                    const isInitiator = t.initiator_id === d.student_id;
+                    html += `<div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <div style="font-size:13px;line-height:1.5;">
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
+                            <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
+                        </div>
+                        <div style="display:flex;gap:6px;flex-shrink:0;">
+                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
+                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
             
             body.innerHTML = html;
             
@@ -11244,363 +10981,6 @@
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to reject trade'); }
         }
-
-        // ===== MERCHANT'S DOCK FUNCTIONS =====
-        
-        function renderPendingTrades(pending, myStudentId) {
-            if (!pending || pending.length === 0) return '';
-            
-            let html = `<div style="margin-bottom: 24px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">⚡ Pending Trades</div>
-                    <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
-                    <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;animation:tradePulseText 2s ease-in-out infinite;">${pending.length} waiting</div>
-                </div>`;
-            
-            pending.forEach(t => {
-                const isInitiator = t.initiator_id === myStudentId;
-                const otherName = isInitiator ? t.partner_name : t.initiator_name;
-                
-                html += `<div style="background:linear-gradient(135deg, rgba(192,132,252,0.06), rgba(139,92,246,0.03));border:2px solid rgba(192,132,252,0.35);border-radius:16px;padding:20px;margin-bottom:12px;animation:tradePulseBorder 3s ease-in-out infinite;position:relative;overflow:hidden;">
-                    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,rgba(192,132,252,0.6),transparent);animation:tradeShimmer 2s linear infinite;"></div>
-                    
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-                        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(192,132,252,0.7);">
-                            ${isInitiator ? '📤 You proposed to ' + otherName : '📥 ' + otherName + ' wants to trade with you'}
-                        </div>
-                    </div>
-                    
-                    <div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:8px;align-items:center;margin-bottom:16px;">
-                        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px;text-align:center;">
-                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#f87171;margin-bottom:4px;">${isInitiator ? 'You give' : otherName + ' gives'}</div>
-                            <div style="font-size:28px;margin-bottom:2px;">${TRADE_ICONS[t.give_resource]}</div>
-                            <div style="font-size:22px;font-weight:900;color:#fbbf24;">${t.give_amount}</div>
-                            <div style="font-size:10px;color:rgba(255,255,255,0.35);">${TRADE_NAMES[t.give_resource]}</div>
-                        </div>
-                        <div style="text-align:center;font-size:22px;color:rgba(192,132,252,0.5);">⇄</div>
-                        <div style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:12px;text-align:center;">
-                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#4ade80;margin-bottom:4px;">${isInitiator ? otherName + ' gives' : 'You give'}</div>
-                            <div style="font-size:28px;margin-bottom:2px;">${TRADE_ICONS[t.receive_resource]}</div>
-                            <div style="font-size:22px;font-weight:900;color:#fbbf24;">${t.receive_amount}</div>
-                            <div style="font-size:10px;color:rgba(255,255,255,0.35);">${TRADE_NAMES[t.receive_resource]}</div>
-                        </div>
-                    </div>
-                    
-                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-                        ${!isInitiator ? `
-                            <button onclick="confirmTrade(${t.trade_id})" style="flex:1;min-width:100px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none;padding:12px 20px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(34,197,94,0.3);transition:all 0.2s;letter-spacing:0.5px;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                ✓ ACCEPT
-                            </button>
-                            <button onclick="openCounterOffer(${t.trade_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount}, '${otherName}')" style="flex:1;min-width:100px;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;padding:12px 20px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(217,119,6,0.3);transition:all 0.2s;letter-spacing:0.5px;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                ⚖️ COUNTER
-                            </button>
-                            <button onclick="rejectTrade(${t.trade_id})" style="flex:1;min-width:100px;background:rgba(239,68,68,0.1);color:#f87171;border:2px solid rgba(239,68,68,0.3);padding:12px 20px;border-radius:10px;font-weight:800;font-size:15px;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                ✕ DECLINE
-                            </button>
-                        ` : `
-                            <div style="flex:1;text-align:center;font-size:12px;color:rgba(192,132,252,0.6);font-style:italic;padding:6px 0;">Waiting for ${otherName} to respond...</div>
-                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.1);color:#f87171;border:2px solid rgba(239,68,68,0.3);padding:10px 24px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                                ✕ Cancel Trade
-                            </button>
-                        `}
-                    </div>
-                </div>`;
-            });
-            
-            html += `</div>`;
-            return html;
-        }
-        
-        function openCounterOffer(tradeId, theirGiveResource, theirGiveAmount, theirReceiveResource, theirReceiveAmount, otherName) {
-            // They proposed: they give X, you give Y
-            // Counter: pre-fill with their values, let student adjust
-            const overlay = document.createElement('div');
-            overlay.id = 'counter-offer-overlay';
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.8);z-index:10010;display:flex;align-items:center;justify-content:center;';
-            
-            overlay.innerHTML = `
-                <div style="background:linear-gradient(135deg,#1a1025,#0f0a1a);border:2px solid rgba(217,119,6,0.4);border-radius:20px;padding:28px;width:90%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-                    <div style="text-align:center;margin-bottom:20px;">
-                        <div style="font-size:28px;margin-bottom:6px;">⚖️</div>
-                        <div style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:#d97706;">Counter-Offer</div>
-                        <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px;">Adjust the terms and send back to ${otherName}</div>
-                    </div>
-                    
-                    <div style="display:grid;grid-template-columns:1fr 30px 1fr;gap:10px;align-items:start;margin-bottom:18px;">
-                        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px;text-align:center;">
-                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#f87171;margin-bottom:6px;">📤 You Give</div>
-                            <select id="counter-give-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px;border-radius:7px;font-size:12px;margin-bottom:6px;outline:none;">
-                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}" ${r === theirReceiveResource ? 'selected' : ''}>${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
-                            </select>
-                            <input type="number" id="counter-give-amt" value="${theirReceiveAmount}" min="10" step="10" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px;border-radius:7px;font-size:18px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
-                        </div>
-                        <div style="display:flex;align-items:center;justify-content:center;padding-top:30px;font-size:16px;color:rgba(255,255,255,0.15);">⇄</div>
-                        <div style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:12px;text-align:center;">
-                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#4ade80;margin-bottom:6px;">📥 You Get</div>
-                            <select id="counter-recv-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px;border-radius:7px;font-size:12px;margin-bottom:6px;outline:none;">
-                                ${['olive','grape','iron','grain'].map(r => `<option value="${r}" ${r === theirGiveResource ? 'selected' : ''}>${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
-                            </select>
-                            <input type="number" id="counter-recv-amt" value="${theirGiveAmount}" min="10" step="10" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px;border-radius:7px;font-size:18px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
-                        </div>
-                    </div>
-                    
-                    <div style="display:flex;gap:8px;">
-                        <button onclick="submitCounterOffer(${tradeId})" style="flex:1;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;">⚖️ Send Counter</button>
-                        <button onclick="document.getElementById('counter-offer-overlay').remove()" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.1);padding:12px 20px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;">Cancel</button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(overlay);
-        }
-        
-        async function submitCounterOffer(originalTradeId) {
-            const giveRes = document.getElementById('counter-give-res').value;
-            const giveAmt = parseInt(document.getElementById('counter-give-amt').value) || 0;
-            const recvRes = document.getElementById('counter-recv-res').value;
-            const recvAmt = parseInt(document.getElementById('counter-recv-amt').value) || 0;
-            
-            if (giveAmt < 10 || recvAmt < 10) { alert('Amounts must be at least 10'); return; }
-            if (giveRes === recvRes) { alert('Cannot trade the same resource'); return; }
-            
-            try {
-                const response = await fetch(`${API_URL}/trade/counter/${originalTradeId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ give_resource: giveRes, give_amount: giveAmt, receive_resource: recvRes, receive_amount: recvAmt })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    document.getElementById('counter-offer-overlay')?.remove();
-                    alert(data.message);
-                    await loadTradePortalData();
-                } else {
-                    alert('Error: ' + (data.error || 'Failed'));
-                }
-            } catch (err) {
-                alert('Failed to send counter-offer');
-            }
-        }
-        
-        // ===== TRADE PORTAL POLLING (lightweight, safe) =====
-        let tradePollInterval = null;
-        let tradePollFetching = false;
-        let tradePollLastIds = '';
-        let tradePollInactiveCount = 0;
-        const TRADE_POLL_MS = 8000;
-        const TRADE_POLL_MAX_INACTIVE = 75; // 75 × 8s = 10 minutes
-        
-        function startTradePoll() {
-            stopTradePoll(); // Clear any existing
-            tradePollInactiveCount = 0;
-            tradePollInterval = setInterval(pollPendingTrades, TRADE_POLL_MS);
-        }
-        
-        function stopTradePoll() {
-            if (tradePollInterval) {
-                clearInterval(tradePollInterval);
-                tradePollInterval = null;
-            }
-            tradePollFetching = false;
-        }
-        
-        async function pollPendingTrades() {
-            if (tradePollFetching) return; // Guard against overlapping fetches
-            tradePollFetching = true;
-            try {
-                const response = await fetch(`${API_URL}/trade/pending-only`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
-                const pending = data.pending_trades || [];
-                
-                // Build a fingerprint to detect changes
-                const newIds = pending.map(t => `${t.trade_id}`).join(',');
-                
-                if (newIds !== tradePollLastIds) {
-                    // Something changed
-                    const oldIds = tradePollLastIds;
-                    tradePollLastIds = newIds;
-                    tradePollInactiveCount = 0;
-                    
-                    // If a trade disappeared (completed/rejected/countered), do a full reload
-                    // so wallet and inventory update for both players
-                    const oldSet = new Set(oldIds.split(',').filter(Boolean));
-                    const newSet = new Set(newIds.split(',').filter(Boolean));
-                    const tradesRemoved = [...oldSet].some(id => !newSet.has(id));
-                    
-                    if (tradesRemoved) {
-                        // Full reload — resources likely changed
-                        await loadTradePortalData();
-                    } else {
-                        // New trade appeared — just update the pending section
-                        const section = document.getElementById('tp-pending-section');
-                        if (section) {
-                            section.innerHTML = renderPendingTrades(pending, data.student_id);
-                        }
-                    }
-                } else {
-                    tradePollInactiveCount++;
-                    if (tradePollInactiveCount >= TRADE_POLL_MAX_INACTIVE) {
-                        stopTradePoll(); // Auto-stop after 10 min inactive
-                    }
-                }
-            } catch (err) {
-                // Silent fail — don't interrupt user experience
-            }
-            tradePollFetching = false;
-        }
-        
-        function updateSellPreview(resource, marketValue) {
-            const input = document.getElementById(`sell-amt-${resource}`);
-            const preview = document.getElementById(`sell-preview-${resource}`);
-            if (!input || !preview) return;
-            const amt = parseInt(input.value) || 0;
-            if (amt < 10 || amt % 10 !== 0) {
-                preview.textContent = 'Must be a multiple of 10';
-                preview.style.color = '#f87171';
-                return;
-            }
-            const gross = (amt / 10) * marketValue;
-            const fee = Math.round(gross * 0.10);
-            const net = Math.round(gross - fee);
-            preview.innerHTML = `→ <strong style="color:#a78bfa;">${net} pts</strong> to alliance <span style="opacity:0.5;">(${fee} pt fee)</span>`;
-            preview.style.color = 'rgba(255,255,255,0.45)';
-        }
-        
-        function confirmSell(resource, marketValue) {
-            const input = document.getElementById(`sell-amt-${resource}`);
-            const amt = parseInt(input?.value) || 0;
-            if (amt < 10 || amt % 10 !== 0) { alert('Amount must be a multiple of 10 (minimum 10)'); return; }
-            
-            const gross = (amt / 10) * marketValue;
-            const fee = Math.round(gross * 0.10);
-            const net = Math.round(gross - fee);
-            
-            const ok = confirm(
-                `⚓ Merchant's Dock — Sell Confirmation\n\n` +
-                `Selling: ${amt} ${TRADE_NAMES[resource]}\n` +
-                `Market value: ${marketValue} per unit\n` +
-                `Gross value: ${Math.round(gross)} pts\n` +
-                `Dock fee (10%): -${fee} pts\n` +
-                `━━━━━━━━━━━━━━━━━━━━\n` +
-                `Alliance receives: ${net} pts\n\n` +
-                `Proceed with sale?`
-            );
-            if (!ok) return;
-            executeSell(resource, amt);
-        }
-        
-        async function executeSell(resource, amount) {
-            try {
-                const response = await fetch(`${API_URL}/trade/sell`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ resource, amount })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    // Show success briefly
-                    alert(`✅ Sold ${data.amount} ${TRADE_NAMES[resource]}!\n\n${data.net_points} points added to your alliance treasury.\n(${data.fee} pt dock fee applied)`);
-                    await loadTradePortalData();
-                } else {
-                    alert('Error: ' + (data.error || 'Failed to sell'));
-                }
-            } catch (err) {
-                alert('Failed to sell resource');
-            }
-        }
-        
-        async function loadDockSparklines() {
-            try {
-                const response = await fetch(`${API_URL}/trade/market-history`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
-                if (!data.history) return;
-                
-                ['olive','grape','iron','grain'].forEach(r => {
-                    const canvas = document.getElementById(`spark-${r}`);
-                    if (!canvas) return;
-                    const points = data.history[r] || [];
-                    drawSparkline(canvas, points.map(p => p.value));
-                });
-            } catch (err) {
-                console.log('Sparkline load note:', err.message);
-            }
-        }
-        
-        function drawSparkline(canvas, values) {
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width;
-            const h = canvas.height;
-            ctx.clearRect(0, 0, w, h);
-            
-            if (values.length < 2) {
-                // Not enough data — draw baseline
-                ctx.strokeStyle = 'rgba(167,139,250,0.3)';
-                ctx.setLineDash([4, 4]);
-                ctx.beginPath();
-                ctx.moveTo(0, h / 2);
-                ctx.lineTo(w, h / 2);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                ctx.font = '10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('Awaiting market data...', w / 2, h / 2 + 4);
-                return;
-            }
-            
-            const min = Math.min(5, ...values);
-            const max = Math.max(15, ...values);
-            const range = max - min || 1;
-            const padding = 4;
-            const plotH = h - padding * 2;
-            const plotW = w - padding * 2;
-            
-            // Draw baseline at value 10 (break-even)
-            const baseY = padding + plotH - ((10 - min) / range) * plotH;
-            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-            ctx.setLineDash([3, 3]);
-            ctx.beginPath();
-            ctx.moveTo(0, baseY);
-            ctx.lineTo(w, baseY);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            // Draw the sparkline with gradient coloring
-            const step = plotW / (values.length - 1);
-            
-            // Fill area under/over baseline
-            for (let i = 0; i < values.length - 1; i++) {
-                const x1 = padding + i * step;
-                const x2 = padding + (i + 1) * step;
-                const y1 = padding + plotH - ((values[i] - min) / range) * plotH;
-                const y2 = padding + plotH - ((values[i + 1] - min) / range) * plotH;
-                const midVal = (values[i] + values[i + 1]) / 2;
-                
-                ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = midVal >= 10 ? '#4ade80' : '#f87171';
-                ctx.stroke();
-            }
-            
-            // Draw current value dot
-            const lastX = padding + (values.length - 1) * step;
-            const lastY = padding + plotH - ((values[values.length - 1] - min) / range) * plotH;
-            const lastColor = values[values.length - 1] >= 10 ? '#4ade80' : '#f87171';
-            ctx.beginPath();
-            ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
-            ctx.fillStyle = lastColor;
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        }
-        
         // ==================== HALL OF HONOR BADGE SYSTEM ====================
         
         let badgeData = null; // Cached badge data
