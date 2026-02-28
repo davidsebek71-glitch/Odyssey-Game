@@ -3782,7 +3782,7 @@ app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req
       return res.status(404).json({ error: `No bonus assignment found for ${god_name}` });
     }
     
-    const threshold = Math.ceil(bonusAssignment.max_points * 0.8);
+    const threshold = 1; // Any points earned counts as complete
     
     // Get all active alliances with member counts (only real members, not ghosts)
     const alliances = query(`
@@ -3805,7 +3805,7 @@ app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req
       
       if (alreadyGranted) continue;
       
-      // Count members who scored 80%+ on this god's bonus
+      // Count members who earned any points on this god's bonus
       const qualifiedCount = query(`
         SELECT COUNT(DISTINCT gr.student_id) as count
         FROM grade_records gr
@@ -3827,7 +3827,7 @@ app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req
     res.json({
       god_name,
       bonus_assignment: bonusAssignment.display_name,
-      threshold: `${threshold}/${bonusAssignment.max_points} (80%)`,
+      threshold: `Any points (${bonusAssignment.max_points} max)`,
       eligible_alliances: eligibleAlliances
     });
   } catch (err) {
@@ -6094,7 +6094,7 @@ app.get('/api/teacher/quest-bonus-tracker', authenticateToken, (req, res) => {
       sqLookup[c.student_id][c.quest_id] = true;
     });
     
-    // Get all bonus grade records with 80% threshold check
+    // Get all bonus grade records — any points earned counts as complete
     const allBonusRecords = query(`
       SELECT gr.student_id, gr.assignment_id, gr.points_earned, ar.max_points
       FROM grade_records gr

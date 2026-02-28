@@ -1075,7 +1075,7 @@
             <div style="background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
                 <h3 style="color: #ffd700; margin-bottom: 10px; font-size: 16px;">🏛️ God Bonus Assignments (Building Unlocks)</h3>
                 <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px; font-size: 13px;">
-                    Grant god bonus assignments when <strong>ALL</strong> alliance members have completed the bonus with 80%+ score. Eligible alliances appear automatically.
+                    Grant god bonus assignments when <strong>ALL</strong> alliance members have completed the bonus with any score. Eligible alliances appear automatically.
                 </p>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
@@ -1310,7 +1310,7 @@
             </div>
             <div id="tracker-legend" style="margin-bottom: 15px; padding: 12px; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; font-size: 15px; color: rgba(255,255,255,0.8);">
                 <strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea's Remedy | 🌾 Three Seeds<br>
-                <strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)
+                <strong>Bonuses:</strong> ✓ = Completed (any score)
             </div>
             <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
                 <div style="display: flex; border: 2px solid rgba(255,215,0,0.3); border-radius: 8px; overflow: hidden;">
@@ -2737,9 +2737,9 @@
             // Update legend
             const legend = document.getElementById('tracker-legend');
             if (age === 'Archaic') {
-                legend.innerHTML = '<strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea\'s Remedy | 🌾 Three Seeds<br><strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)';
+                legend.innerHTML = '<strong>Side Quests:</strong> 🔨 Ring of Many | 🏹 Panacea\'s Remedy | 🌾 Three Seeds<br><strong>Bonuses:</strong> ✓ = Completed (any score)';
             } else {
-                legend.innerHTML = '<strong>Side Quests:</strong> 🔥 Hearth of Hestia (+1% house bonus)<br><strong>Bonuses:</strong> ✓ = Completed with 80%+ score (activates bonus features)';
+                legend.innerHTML = '<strong>Side Quests:</strong> 🔥 Hearth of Hestia (+1% house bonus)<br><strong>Bonuses:</strong> ✓ = Completed (any score)';
             }
             loadQuestBonusTracker();
         }
@@ -2857,7 +2857,7 @@
                         <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(255,215,0,0.3);">
                             <h3 style="color: #ffd700; margin-bottom: 15px; font-size: 18px;">🏛️ Alliance God Bonus Progress (Building Unlocks)</h3>
                             <div style="background: rgba(255,215,0,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: rgba(255,255,255,0.7);">
-                                ✅ = Granted &nbsp;|&nbsp; ⭐ = All members qualified (ready to grant) &nbsp;|&nbsp; X/Y = Members at 80%+ threshold
+                                ✅ = Granted &nbsp;|&nbsp; ⭐ = All members qualified (ready to grant) &nbsp;|&nbsp; X/Y = Members completed
                             </div>
                             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                                 <thead>
