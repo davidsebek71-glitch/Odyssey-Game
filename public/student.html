@@ -3309,6 +3309,16 @@
                     checkArenaEligibility()
                 ]).catch(err => console.warn('Batch 2 load error:', err));
             }, 2000);
+
+            // Auto-open portal if redirected from game (e.g. ?openPortal=5)
+            const pageParams = new URLSearchParams(window.location.search);
+            const autoPortal = pageParams.get('openPortal');
+            if (autoPortal) {
+                // Clean URL without reloading
+                window.history.replaceState({}, '', '/student.html');
+                // Delay to let Classical Age content render
+                setTimeout(() => openMythPortal(parseInt(autoPortal)), 1500);
+            }
         }).catch(err => console.error('Dashboard load failed:', err));
         
         // Start background polling for real-time updates (delayed to avoid initial burst)
