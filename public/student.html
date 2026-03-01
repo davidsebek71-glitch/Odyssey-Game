@@ -9847,6 +9847,38 @@
         let quizAnswered = false;
 
         async function openMythPortal(portalId) {
+            // Portal 5 (Icarus & Daedalus) → Wings of Daedalus escape game
+            if (portalId === 5) {
+                try {
+                    // Check if already passed — show assignments instead of relaunching game
+                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
+                    const statusData = await statusRes.json();
+                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 5) : false;
+
+                    if (hasPassed) {
+                        // Already passed — open modal with assignment panel
+                        currentQuizPortalId = 5;
+                        document.getElementById('myth-quiz-modal').classList.add('show');
+                        document.getElementById('quiz-intro').style.display = 'none';
+                        document.getElementById('quiz-questions').style.display = 'none';
+                        document.getElementById('quiz-results').style.display = 'none';
+                        document.getElementById('myth-assignment-panel').style.display = 'block';
+                        loadMythAssignments(5);
+                        return;
+                    }
+
+                    // Not passed — launch the escape game
+                    const token = localStorage.getItem('odyssey_token');
+                    window.location.href = `/daedalus_escape.html?token=${encodeURIComponent(token)}`;
+                    return;
+                } catch (err) {
+                    console.error('Portal 5 redirect error:', err);
+                    alert('Error loading the Daedalus game. Please try again.');
+                    return;
+                }
+            }
+
+            // All other portals — existing quiz modal flow
             currentQuizPortalId = portalId;
             currentQuestionIndex = 0;
             quizCorrectCount = 0;
@@ -9927,6 +9959,22 @@
                     name: "Phaethon's Caution",
                     description: "Write a cautionary poem about Phaethon's ride across the sky in his father's sun chariot. Warn readers about the dangers of hubris and ignoring wise counsel.",
                     link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ2NDkxNTM2NjE1/details"
+                }
+            },
+            5: { // Icarus & Daedalus
+                analytical: {
+                    title: "The Scholar's Path",
+                    icon: "📜",
+                    name: "Icarus Word Cloud",
+                    description: "Create a word cloud capturing key themes and vocabulary from the Icarus and Daedalus myth. Include words that represent prudence, ambition, creativity, consequence, and the balance between daring and wisdom.",
+                    link: null
+                },
+                creative: {
+                    title: "The Creator's Path",
+                    icon: "🎨",
+                    name: "I, Icarus",
+                    description: "People have always wanted to create magic, to achieve the impossible, and to have special powers. Create a story or poem (at least 350 words) where a character yearns for an impossible gift — power or magic. Show why they want it, compare or contrast those powers to comic book or action characters, and have the character claim to do the impossible. End with either a tragic or heroic ending.",
+                    link: null
                 }
             }
         };

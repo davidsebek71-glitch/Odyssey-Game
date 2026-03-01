@@ -8760,6 +8760,149 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
   }
 });
 
+// --- Student: Complete Wings of Daedalus escape game (replaces quiz for portal 5) ---
+app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { questions, totalTime, flightAttempts, completed } = req.body;
+
+    if (!questions || !Array.isArray(questions)) {
+      return res.status(400).json({ error: 'Missing or invalid questions data' });
+    }
+
+    // Look up student and alliance
+    const student = query('SELECT student_id, name, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
+
+    // Check if already completed — no duplicate points
+    const existing = query(
+      'SELECT result_id FROM daedalus_game_results WHERE student_id = ? AND completed = 1',
+      [student_id]
+    )[0];
+
+    if (existing) {
+      console.log(`⚠️ Daedalus game already completed by student ${student.name} (${student_id})`);
+      return res.json({ 
+        success: true, 
+        alreadyCompleted: true, 
+        message: 'Game already completed — no additional points awarded' 
+      });
+    }
+
+    // Calculate scores
+    const totalQuestions = questions.length;
+    const firstAttemptCorrect = questions.filter(q => q.isCorrect && q.firstAttempt).length;
+    const totalCorrect = questions.filter(q => q.isCorrect).length;
+    const percentage = totalQuestions > 0 ? Math.round((firstAttemptCorrect / totalQuestions) * 100) : 0;
+    const passed = percentage >= 80;
+
+    // 1. Insert game result
+    run(
+      `INSERT INTO daedalus_game_results 
+       (student_id, total_questions, first_attempt_correct, total_correct, total_time_seconds, flight_attempts, completed, alliance_points_awarded)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [student_id, totalQuestions, firstAttemptCorrect, totalCorrect, totalTime || 0, flightAttempts || 0, completed ? 1 : 0, 0]
+    );
+
+    // Get the result_id just inserted
+    const resultRow = query('SELECT last_insert_rowid() as id')[0];
+    const result_id = resultRow ? resultRow.id : null;
+
+    // 2. Insert per-question answers (for teacher monitoring)
+    if (result_id) {
+      questions.forEach(q => {
+        run(
+          `INSERT INTO daedalus_question_answers 
+           (result_id, student_id, stage_number, question_index, question_text, selected_answer, correct_answer, is_correct, is_first_attempt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [result_id, student_id, q.stage || 0, q.index || 0, q.text || '', q.selected || '', q.correct || '', q.isCorrect ? 1 : 0, q.firstAttempt ? 1 : 0]
+        );
+      });
+    }
+
+    // 3. Record in myth_quiz_attempts for portal compatibility
+    //    This ensures portal status checks, dashboard, and virtue claiming all work
+    run(
+      `INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at)
+       VALUES (?, 5, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [student_id, firstAttemptCorrect, totalQuestions, percentage, passed ? 1 : 0]
+    );
+
+    let alliancePointsAwarded = 0;
+    let gradePointsEarned = 0;
+
+    if (passed) {
+      // 4. Record grade for the Icarus quiz assignment
+      try {
+        const quizAssignment = query(
+          "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = 'Icarus'",
+          []
+        )[0];
+
+        if (quizAssignment) {
+          const existingGrade = query(
+            'SELECT record_id FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+            [student_id, quizAssignment.assignment_id]
+          )[0];
+
+          if (!existingGrade) {
+            gradePointsEarned = Math.round((firstAttemptCorrect / totalQuestions) * quizAssignment.max_points);
+            run(
+              `INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
+               VALUES (?, ?, ?, ?)`,
+              [student_id, quizAssignment.assignment_id, gradePointsEarned, quizAssignment.max_points]
+            );
+            console.log(`✅ Daedalus grade recorded: ${student.name} - ${gradePointsEarned}/${quizAssignment.max_points}`);
+          }
+        }
+      } catch (gradeErr) {
+        console.error('Daedalus grade recording error:', gradeErr.message);
+      }
+
+      // 5. Award alliance points (1 per first-attempt correct, max 17)
+      alliancePointsAwarded = firstAttemptCorrect;
+      if (alliancePointsAwarded > 0) {
+        run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
+          [alliancePointsAwarded, student.alliance_id]);
+        run(
+          `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+           VALUES (?, ?, ?, 'quiz', 'Wings of Daedalus — ${firstAttemptCorrect}/${totalQuestions} first-attempt correct')`,
+          [student.alliance_id, student_id, alliancePointsAwarded]
+        );
+        console.log(`✅ Daedalus alliance points: ${student.name} earned ${alliancePointsAwarded} pts for alliance ${student.alliance_id}`);
+      }
+
+      // Update the game result with actual points awarded
+      if (result_id) {
+        run('UPDATE daedalus_game_results SET alliance_points_awarded = ? WHERE result_id = ?',
+          [alliancePointsAwarded, result_id]);
+      }
+    }
+
+    saveDatabase();
+
+    console.log(`🎮 Daedalus complete: ${student.name} — ${firstAttemptCorrect}/${totalQuestions} first-attempt (${percentage}%), ${passed ? 'PASSED' : 'NOT PASSED'}, ${alliancePointsAwarded} alliance pts`);
+
+    res.json({
+      success: true,
+      alreadyCompleted: false,
+      passed,
+      percentage,
+      firstAttemptCorrect,
+      totalCorrect,
+      totalQuestions,
+      gradePointsEarned,
+      alliancePointsAwarded,
+      flightAttempts: flightAttempts || 0
+    });
+
+  } catch (err) {
+    console.error('Daedalus complete error:', err);
+    res.status(500).json({ error: 'Failed to record game completion' });
+  }
+});
+
 // --- Student: Get assignments for a myth portal (after quiz passed) ---
 app.get('/api/student/myth-assignments/:portal_id', authenticateToken, (req, res) => {
   try {
