@@ -1470,6 +1470,16 @@ function seedReferenceData() {
     console.log('Migration note: Prometheus bonus update -', e.message);
   }
 
+  // Icarus scoring update: Reading Guide 12→5, Quiz 10→17, Word Cloud 12→20 (total 34→42)
+  try {
+    run("UPDATE assignments_ref SET max_points = 5 WHERE myth_god = 'Icarus' AND assignment_type = 'comp_conn' AND section = 'classical'");
+    run("UPDATE assignments_ref SET max_points = 17 WHERE myth_god = 'Icarus' AND assignment_type = 'quiz' AND section = 'classical'");
+    run("UPDATE assignments_ref SET max_points = 20 WHERE myth_god = 'Icarus' AND assignment_type = 'word_cloud' AND section = 'classical_creative'");
+    console.log('✅ Icarus scoring updated: Reading Guide=5, Quiz=17, Word Cloud=20 (total 42)');
+  } catch (e) {
+    console.log('Migration note: Icarus scoring update -', e.message);
+  }
+
   // ==================== END MIGRATIONS ====================
   
   // ==================== CLASSICAL AGE SEED DATA ====================
@@ -1839,7 +1849,7 @@ function seedReferenceData() {
       ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
-      ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 5, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
       
@@ -1848,7 +1858,7 @@ function seedReferenceData() {
       ['classical', 'quiz', 'Phaethon', 'Phaethon Quiz', 10, 'Quiz on Phaethon', null, 0, 'Classical'],
       ['classical', 'quiz', 'Orpheus', 'Orpheus Quiz', 10, 'Quiz on Orpheus and Eurydice', null, 0, 'Classical'],
       ['classical', 'quiz', 'Echo and Narcissus', 'Echo and Narcissus Quiz', 10, 'Quiz on Echo and Narcissus', null, 0, 'Classical'],
-      ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 10, 'Quiz on Icarus and Daedalus', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 17, 'Wings of Daedalus escape game — 17 comprehension questions', null, 0, 'Classical'],
       ['classical', 'quiz', 'Eros and Psyche', 'Eros and Psyche Quiz', 10, 'Quiz on Eros and Psyche', null, 0, 'Classical'],
       ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
       
@@ -1866,7 +1876,7 @@ function seedReferenceData() {
       ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
       
@@ -1936,14 +1946,14 @@ function seedReferenceData() {
           ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
-          ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 5, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
           ['classical', 'quiz', 'Pandora', 'Pandora Quiz', 10, 'Quiz on Pandora', null, 0, 'Classical'],
           ['classical', 'quiz', 'Phaethon', 'Phaethon Quiz', 10, 'Quiz on Phaethon', null, 0, 'Classical'],
           ['classical', 'quiz', 'Orpheus', 'Orpheus Quiz', 10, 'Quiz on Orpheus and Eurydice', null, 0, 'Classical'],
           ['classical', 'quiz', 'Echo and Narcissus', 'Echo and Narcissus Quiz', 10, 'Quiz on Echo and Narcissus', null, 0, 'Classical'],
-          ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 10, 'Quiz on Icarus and Daedalus', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 17, 'Wings of Daedalus escape game — 17 comprehension questions', null, 0, 'Classical'],
           ['classical', 'quiz', 'Eros and Psyche', 'Eros and Psyche Quiz', 10, 'Quiz on Eros and Psyche', null, 0, 'Classical'],
           ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
           ['classical_creative', 'mural', 'Phaethon', 'Phaethon Pixton', 16, 'Comic retelling of the Phaethon myth using Pixton', null, 0, 'Classical'],
@@ -1954,7 +1964,7 @@ function seedReferenceData() {
           ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud for Phaethon myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud for Icarus myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud for Icarus myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud for constellation myths', null, 0, 'Classical']
         ];
