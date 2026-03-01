@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Wings of Daedalus — Escape the Myth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
+<link href="https://fonts.cdnfonts.com/css/opendyslexic" rel="stylesheet">
+<style>
+:root {
+  --parchment-bg: #f4e4c1;
+  --parchment-dark: #e8d5a3;
+  --parchment-edge: #c9a96e;
+  --ink-dark: #2c1810;
+  --ink-medium: #4a3728;
+  --ink-light: #6b5344;
+  --gold-accent: #b8860b;
+  --gold-bright: #d4a017;
+  --gold-glow: #ffd700;
+  --red-accent: #8b1a1a;
+  --red-bright: #c0392b;
+  --green-accent: #2d5a27;
+  --green-bright: #27ae60;
+  --blue-accent: #1a3a5c;
+  --blue-bright: #2980b9;
+  --shadow-color: rgba(44, 24, 16, 0.3);
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Crimson Text', serif;
+  --font-accent: 'MedievalSharp', cursive;
+  --font-size-base: 17px;
+  --font-size-large: 20px;
+  --font-size-xl: 24px;
+  --current-font-size: var(--font-size-base);
+  --border-ornate: 3px double var(--parchment-edge);
+}
+.dyslexia-mode {
+  --font-body: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+  --font-display: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+  --font-accent: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+}
+.high-contrast {
+  --parchment-bg: #fff8e7;
+  --ink-dark: #000000;
+  --ink-medium: #1a1a1a;
+  --ink-light: #333333;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font-body);
+  font-size: var(--current-font-size);
+  color: var(--ink-dark);
+  background: var(--parchment-dark);
+  min-height: 100vh;
+  line-height: 1.7;
+}
+.font-large { --current-font-size: var(--font-size-large); }
+.font-xl { --current-font-size: var(--font-size-xl); }
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(201, 169, 110, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(201, 169, 110, 0.1) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 80%, rgba(139, 109, 56, 0.08) 0%, transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HEADER */
+#header-bar {
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(180deg, #3d2b1f 0%, #2c1810 100%);
+  border-bottom: 3px solid var(--gold-accent);
+  padding: 10px 20px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+#header-bar .title-area { display: flex; align-items: center; gap: 12px; }
+#header-bar .game-title {
+  font-family: var(--font-display); color: var(--gold-glow);
+  font-size: 1.1em; font-weight: 700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); letter-spacing: 1px;
+}
+#header-bar .stage-indicator { font-family: var(--font-accent); color: var(--parchment-edge); font-size: 0.85em; }
+.points-display {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(184, 134, 11, 0.15); border: 1px solid var(--gold-accent);
+  border-radius: 20px; padding: 4px 14px;
+  color: var(--gold-glow); font-family: var(--font-display); font-size: 0.95em; font-weight: 600;
+}
+.header-controls { display: flex; align-items: center; gap: 6px; }
+.header-btn {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--parchment-bg); padding: 5px 10px; border-radius: 6px;
+  font-family: var(--font-body); font-size: 0.8em; cursor: pointer; transition: all 0.2s;
+}
+.header-btn:hover, .header-btn:focus { background: rgba(255,255,255,0.15); border-color: var(--gold-accent); color: var(--gold-glow); }
+.header-btn.active { background: var(--gold-accent); color: #fff; border-color: var(--gold-bright); }
+.timer-display { color: var(--parchment-edge); font-family: var(--font-accent); font-size: 0.85em; min-width: 60px; text-align: center; }
+
+/* INVENTORY BAR */
+#inventory-bar {
+  background: linear-gradient(180deg, #1a120c 0%, #2c1810 100%);
+  padding: 8px 20px; display: flex; align-items: center; justify-content: center; gap: 12px;
+  border-bottom: 1px solid rgba(201, 169, 110, 0.2);
+}
+.inv-slot {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 70px; text-align: center;
+}
+.inv-icon {
+  width: 44px; height: 44px; border-radius: 8px;
+  border: 2px solid rgba(201, 169, 110, 0.25);
+  background: rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5em; transition: all 0.5s; position: relative; overflow: hidden;
+}
+.inv-icon.collected {
+  border-color: var(--gold-glow); background: rgba(184, 134, 11, 0.15);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+  animation: invPulse 0.6s ease;
+}
+.inv-icon.empty { opacity: 0.35; filter: grayscale(1); }
+@keyframes invPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.inv-label {
+  font-family: var(--font-accent); font-size: 0.6em;
+  color: var(--parchment-edge); white-space: nowrap;
+}
+.inv-label.collected { color: var(--gold-glow); }
+.inv-img { width: 36px; height: 36px; object-fit: contain; }
+.inv-check { color: var(--green-bright); font-size: 0.55em; min-height: 0.8em; }
+
+/* PROGRESS BAR */
+#progress-bar {
+  background: #2c1810; padding: 8px 20px;
+  display: flex; align-items: center; gap: 4px; justify-content: center;
+  border-bottom: 1px solid rgba(201, 169, 110, 0.3);
+}
+.progress-node { display: flex; align-items: center; gap: 4px; }
+.progress-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--parchment-edge);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 0.7em; font-weight: 700;
+  color: var(--parchment-edge); background: rgba(255,255,255,0.05); transition: all 0.4s;
+}
+.progress-dot.completed { background: var(--green-accent); border-color: var(--green-bright); color: #fff; }
+.progress-dot.current {
+  background: var(--gold-accent); border-color: var(--gold-glow); color: #fff;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4); animation: pulseGlow 2s ease-in-out infinite;
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 215, 0, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+}
+.progress-line { width: 30px; height: 2px; background: var(--parchment-edge); opacity: 0.3; }
+.progress-line.completed { opacity: 1; background: var(--green-bright); }
+
+/* MAIN */
+#game-container { max-width: 820px; margin: 0 auto; padding: 24px 20px 60px; position: relative; z-index: 1; }
+
+/* STAGE CARD */
+.stage-card {
+  background: var(--parchment-bg); border: var(--border-ornate); border-radius: 4px;
+  padding: 32px 28px; margin-bottom: 24px;
+  box-shadow: 0 2px 20px var(--shadow-color), inset 0 0 60px rgba(201, 169, 110, 0.1);
+  position: relative;
+}
+.stage-card::before {
+  content: ''; position: absolute;
+  top: 8px; left: 8px; right: 8px; bottom: 8px;
+  border: 1px solid rgba(201, 169, 110, 0.3); border-radius: 2px; pointer-events: none;
+}
+.stage-header { text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--parchment-edge); }
+.stage-number { font-family: var(--font-accent); color: var(--gold-accent); font-size: 0.85em; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 4px; }
+.stage-title { font-family: var(--font-display); color: var(--ink-dark); font-size: 1.6em; font-weight: 700; letter-spacing: 1px; }
+
+/* Story */
+.story-text {
+  margin-bottom: 28px; padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.35); border-left: 4px solid var(--gold-accent);
+  border-radius: 0 4px 4px 0; max-height: 400px; overflow-y: auto;
+  line-height: 1.85; color: var(--ink-medium); font-size: 1em;
+}
+.story-text p { margin-bottom: 14px; }
+.story-text p:last-child { margin-bottom: 0; }
+.story-text .dialogue { font-style: italic; color: var(--ink-light); padding-left: 16px; border-left: 2px solid rgba(201, 169, 110, 0.4); margin: 12px 0; }
+.story-text::-webkit-scrollbar { width: 8px; }
+.story-text::-webkit-scrollbar-track { background: rgba(201, 169, 110, 0.15); border-radius: 4px; }
+.story-text::-webkit-scrollbar-thumb { background: var(--parchment-edge); border-radius: 4px; }
+
+/* Read aloud */
+.read-aloud-bar {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+  padding: 8px 12px; background: rgba(44, 24, 16, 0.06);
+  border-radius: 6px; border: 1px solid rgba(201, 169, 110, 0.3);
+}
+.read-aloud-bar button {
+  background: var(--ink-dark); color: var(--parchment-bg); border: none;
+  padding: 6px 12px; border-radius: 4px; font-family: var(--font-body); font-size: 0.85em; cursor: pointer; transition: background 0.2s;
+}
+.read-aloud-bar button:hover { background: var(--gold-accent); }
+.read-aloud-bar .label { font-size: 0.8em; color: var(--ink-light); font-style: italic; }
+
+/* Questions */
+.questions-area { display: flex; flex-direction: column; gap: 24px; }
+.question-block { padding: 18px 20px; background: rgba(255,255,255,0.25); border: 1px solid rgba(201, 169, 110, 0.4); border-radius: 6px; }
+.question-number { font-family: var(--font-display); font-size: 0.75em; font-weight: 700; color: var(--gold-accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
+.question-prompt { font-weight: 600; color: var(--ink-dark); margin-bottom: 14px; font-size: 1.02em; line-height: 1.6; }
+.choices-list { display: flex; flex-direction: column; gap: 8px; }
+.choice-btn {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.5); border: 2px solid rgba(201, 169, 110, 0.35);
+  border-radius: 6px; cursor: pointer; transition: all 0.2s; text-align: left;
+  font-family: var(--font-body); font-size: 0.95em; color: var(--ink-medium); line-height: 1.5;
+}
+.choice-btn:hover:not(.eliminated):not(.locked) { border-color: var(--gold-accent); background: rgba(184, 134, 11, 0.08); }
+.choice-btn.selected { border-color: var(--blue-bright); background: rgba(41, 128, 185, 0.1); color: var(--ink-dark); font-weight: 600; }
+.choice-btn.eliminated { opacity: 0.3; text-decoration: line-through; cursor: not-allowed; pointer-events: none; }
+.choice-btn.locked { cursor: default; pointer-events: none; }
+.choice-letter {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--parchment-edge); color: #fff;
+  font-family: var(--font-display); font-size: 0.75em; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+.choice-btn.selected .choice-letter { background: var(--blue-bright); }
+
+/* Hints */
+.hint-area { margin-top: 10px; display: flex; align-items: center; gap: 10px; }
+.hint-btn {
+  background: none; border: 1px dashed var(--gold-accent); color: var(--gold-accent);
+  padding: 4px 12px; border-radius: 4px; font-family: var(--font-body); font-size: 0.8em; cursor: pointer; transition: all 0.2s;
+}
+.hint-btn:hover:not(:disabled) { background: rgba(184, 134, 11, 0.1); }
+.hint-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.hint-text {
+  font-style: italic; color: var(--ink-light); font-size: 0.88em;
+  padding: 8px 12px; background: rgba(184, 134, 11, 0.06);
+  border-left: 3px solid var(--gold-accent); border-radius: 0 4px 4px 0;
+  margin-top: 8px; display: none; animation: fadeIn 0.3s ease;
+}
+.hint-text.visible { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Submit */
+.submit-area { margin-top: 28px; text-align: center; }
+.submit-btn {
+  font-family: var(--font-display); font-size: 1.05em; font-weight: 700;
+  padding: 12px 40px; background: linear-gradient(180deg, var(--gold-accent) 0%, #8b6914 100%);
+  color: #fff; border: 2px solid var(--gold-bright); border-radius: 6px;
+  cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+  transition: all 0.3s; box-shadow: 0 3px 12px rgba(184, 134, 11, 0.3);
+}
+.submit-btn:hover:not(:disabled) { background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold-accent) 100%); box-shadow: 0 4px 20px rgba(184, 134, 11, 0.5); transform: translateY(-1px); }
+.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Feedback */
+.feedback-msg {
+  text-align: center; margin-top: 16px; padding: 12px; border-radius: 6px;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.1em;
+  display: none; animation: fadeIn 0.4s ease;
+}
+.feedback-msg.show { display: block; }
+.feedback-msg.success { background: rgba(39, 174, 96, 0.12); border: 2px solid var(--green-bright); color: var(--green-accent); }
+.feedback-msg.failure { background: rgba(192, 57, 43, 0.1); border: 2px solid var(--red-bright); color: var(--red-accent); }
+.attempts-note { text-align: center; color: var(--ink-light); font-size: 0.85em; font-style: italic; margin-top: 8px; }
+
+/* CHEST */
+.chest-panel {
+  display: none; text-align: center; margin-top: 28px; padding: 28px;
+  background: rgba(44, 24, 16, 0.04); border: var(--border-ornate); border-radius: 6px;
+  animation: fadeIn 0.5s ease;
+}
+.chest-panel.show { display: block; }
+.chest-img { width: 100px; height: auto; margin-bottom: 10px; animation: chestBounce 1s ease infinite; filter: drop-shadow(0 4px 12px rgba(184, 134, 11, 0.5)); }
+@keyframes chestBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.chest-label { font-family: var(--font-display); color: var(--gold-accent); font-size: 1.1em; font-weight: 600; margin-bottom: 6px; }
+.chest-instructions { color: var(--ink-light); font-size: 0.9em; font-style: italic; margin-bottom: 16px; }
+.chest-input-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.chest-code-input {
+  font-family: var(--font-display); font-size: 1.3em; font-weight: 700;
+  text-align: center; text-transform: uppercase; letter-spacing: 6px;
+  padding: 10px 18px; border: 2px solid var(--parchment-edge); border-radius: 6px;
+  background: rgba(255,255,255,0.6); color: var(--ink-dark); width: 180px; outline: none;
+}
+.chest-code-input:focus { border-color: var(--gold-accent); }
+.chest-open-btn {
+  font-family: var(--font-display); font-size: 0.9em; font-weight: 700;
+  padding: 10px 20px; background: var(--gold-accent); color: #fff;
+  border: 2px solid var(--gold-bright); border-radius: 6px; cursor: pointer; text-transform: uppercase;
+}
+.chest-open-btn:hover { background: var(--gold-bright); }
+.chest-feedback { margin-top: 10px; color: var(--red-accent); font-size: 0.9em; font-style: italic; min-height: 1.2em; }
+
+/* ITEM REVEAL CUTSCENE */
+#item-cutscene {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85); z-index: 250;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+#item-cutscene.show { display: flex; }
+.item-reveal-icon {
+  font-size: 5em; opacity: 0;
+  animation: itemFloat 1.5s ease 0.3s forwards;
+  display: flex; align-items: center; justify-content: center;
+  width: 100px; height: 100px;
+}
+.item-reveal-icon img {
+  width: 80px; height: 80px; object-fit: contain;
+  filter: drop-shadow(0 0 16px rgba(255, 215, 0, 0.5));
+}
+@keyframes itemFloat {
+  0% { opacity: 0; transform: translateY(40px) scale(0.5); }
+  60% { opacity: 1; transform: translateY(-10px) scale(1.15); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.item-reveal-title {
+  font-family: var(--font-display); color: var(--gold-glow); font-size: 1.6em; font-weight: 700;
+  margin-top: 16px; opacity: 0; animation: fadeIn 1s ease 1.2s forwards;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+.item-reveal-desc {
+  font-family: var(--font-accent); color: var(--parchment-edge); font-size: 1.1em;
+  margin-top: 8px; max-width: 500px; text-align: center; line-height: 1.6;
+  opacity: 0; animation: fadeIn 1s ease 2s forwards;
+}
+.item-reveal-inventory {
+  margin-top: 24px; display: flex; gap: 16px; opacity: 0;
+  animation: fadeIn 1s ease 2.8s forwards;
+}
+.item-reveal-slot {
+  width: 50px; height: 50px; border-radius: 8px;
+  border: 2px solid rgba(201, 169, 110, 0.3); background: rgba(255,255,255,0.05);
+  display: flex; align-items: center; justify-content: center; font-size: 1.6em;
+  transition: all 0.5s;
+}
+.item-reveal-slot.just-collected {
+  border-color: var(--gold-glow); background: rgba(184, 134, 11, 0.2);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.5);
+  animation: invPulse 0.6s ease 3.2s;
+}
+.item-reveal-slot.collected { border-color: var(--green-bright); background: rgba(39, 174, 96, 0.1); }
+.item-reveal-slot.empty { opacity: 0.25; filter: grayscale(1); }
+.item-continue-btn {
+  margin-top: 28px; font-family: var(--font-display); font-size: 1em; font-weight: 700;
+  padding: 12px 36px; background: linear-gradient(180deg, var(--green-bright) 0%, var(--green-accent) 100%);
+  color: #fff; border: 2px solid var(--green-bright); border-radius: 6px;
+  cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+  opacity: 0; animation: fadeIn 1s ease 3.5s forwards;
+  transition: all 0.3s; box-shadow: 0 3px 12px rgba(39, 174, 96, 0.3);
+}
+.item-continue-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4); }
+
+/* FLIGHT GAME */
+#flight-game-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: #000; z-index: 260; flex-direction: column; align-items: center; justify-content: center;
+}
+#flight-game-overlay.show { display: flex; }
+#flight-canvas { border: 2px solid var(--gold-accent); border-radius: 4px; }
+.flight-ui {
+  color: var(--parchment-bg); font-family: var(--font-display);
+  text-align: center; margin-top: 12px;
+}
+.flight-msg {
+  font-family: var(--font-display); color: var(--gold-glow); font-size: 1.4em;
+  text-align: center; margin-bottom: 12px; min-height: 1.6em;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+.flight-start-btn {
+  font-family: var(--font-display); font-size: 1em; font-weight: 700;
+  padding: 10px 32px; background: var(--gold-accent); color: #fff;
+  border: 2px solid var(--gold-bright); border-radius: 6px;
+  cursor: pointer; text-transform: uppercase; margin-top: 10px;
+}
+.flight-start-btn:hover { background: var(--gold-bright); }
+
+/* CINEMATIC */
+#cinematic-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: #000; z-index: 300; overflow: hidden;
+}
+#cinematic-overlay.show { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#cinematic-overlay canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+.cinematic-content { position: relative; z-index: 2; text-align: center; color: var(--gold-glow); opacity: 0; animation: cinematicFadeIn 2s ease 0.5s forwards; }
+@keyframes cinematicFadeIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+.cinematic-content .escape-text { font-family: var(--font-display); font-size: 3em; font-weight: 700; letter-spacing: 4px; text-shadow: 0 0 40px rgba(255, 215, 0, 0.6), 0 0 80px rgba(255, 215, 0, 0.3); margin-bottom: 12px; }
+.cinematic-content .escape-sub { font-family: var(--font-accent); font-size: 1.3em; color: var(--parchment-edge); opacity: 0; animation: cinematicFadeIn 2s ease 2s forwards; }
+.cinematic-content .escape-wings { font-size: 4em; opacity: 0; animation: wingsReveal 2s ease 3.5s forwards; }
+@keyframes wingsReveal { 0% { opacity: 0; transform: scale(0.3) rotateY(180deg); } 50% { opacity: 1; transform: scale(1.3) rotateY(0deg); } 100% { opacity: 1; transform: scale(1) rotateY(0deg); } }
+.cinematic-content .points-award { font-family: var(--font-display); font-size: 1.4em; color: #fff; margin-top: 20px; opacity: 0; animation: cinematicFadeIn 1.5s ease 5s forwards; }
+.cinematic-content .points-award .big-pts { font-size: 2em; color: var(--gold-glow); text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+.cinematic-continue { position: relative; z-index: 2; margin-top: 30px; opacity: 0; animation: cinematicFadeIn 1s ease 6.5s forwards; }
+.cinematic-continue button {
+  font-family: var(--font-display); font-size: 1.1em; font-weight: 700;
+  padding: 14px 48px; background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold-accent) 100%);
+  color: #fff; border: 2px solid var(--gold-glow); border-radius: 8px;
+  cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+  box-shadow: 0 4px 20px rgba(184, 134, 11, 0.4);
+}
+
+/* WELCOME / END */
+.start-btn {
+  font-family: var(--font-display); font-size: 1.2em; font-weight: 700;
+  padding: 14px 48px; background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold-accent) 100%);
+  color: #fff; border: 2px solid var(--gold-glow); border-radius: 8px;
+  cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+  transition: all 0.3s; box-shadow: 0 4px 20px rgba(184, 134, 11, 0.4);
+}
+.start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(184, 134, 11, 0.6); }
+.results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 400px; margin: 20px auto; }
+.result-card { background: rgba(255,255,255,0.4); border: 1px solid var(--parchment-edge); border-radius: 6px; padding: 14px; text-align: center; }
+.result-card .result-value { font-family: var(--font-display); font-size: 1.6em; font-weight: 700; color: var(--gold-accent); }
+.result-card .result-label { font-size: 0.8em; color: var(--ink-light); text-transform: uppercase; letter-spacing: 1px; }
+.stage-results { max-width: 400px; margin: 16px auto; text-align: left; }
+.stage-result-row { display: flex; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid rgba(201, 169, 110, 0.3); font-size: 0.9em; }
+
+/* MODAL */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 400; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal-box { background: var(--parchment-bg); border: var(--border-ornate); border-radius: 8px; padding: 28px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal-box h2 { font-family: var(--font-display); color: var(--ink-dark); margin-bottom: 16px; font-size: 1.3em; }
+.modal-box h3 { font-family: var(--font-display); color: var(--gold-accent); font-size: 1em; margin: 14px 0 6px; }
+.modal-box p, .modal-box li { color: var(--ink-medium); font-size: 0.9em; line-height: 1.6; margin-bottom: 6px; }
+.modal-close { float: right; background: none; border: none; font-size: 1.5em; cursor: pointer; color: var(--ink-light); }
+
+.stage-entering { animation: stageSlideIn 0.5s ease; }
+@keyframes stageSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 640px) {
+  .stage-card { padding: 20px 16px; }
+  .story-text { padding: 14px 16px; max-height: 300px; }
+  #header-bar { padding: 8px 12px; }
+  .results-grid { grid-template-columns: 1fr; }
+  .chest-input-row { flex-direction: column; }
+  .inv-slot { width: 55px; }
+  .inv-icon { width: 36px; height: 36px; font-size: 1.2em; }
+}
+</style>
+</head>
+<body>
+
+<div id="header-bar">
+  <div class="title-area">
+    <span class="game-title">🪶 Wings of Daedalus</span>
+    <span class="stage-indicator" id="stage-indicator">—</span>
+  </div>
+  <div class="points-display">
+    <span>⚜️</span>
+    <span id="points-value">300</span> AP
+  </div>
+  <div class="timer-display" id="timer-display">0:00</div>
+  <div class="header-controls">
+    <button class="header-btn" id="btn-font-size" title="Toggle font size">Aa</button>
+    <button class="header-btn" id="btn-dyslexia" title="Dyslexia font">Dys</button>
+    <button class="header-btn" id="btn-contrast" title="High contrast">◐</button>
+    <button class="header-btn" id="btn-teacher" style="display:none;">🔑</button>
+  </div>
+</div>
+
+<div id="inventory-bar">
+  <div class="inv-slot" id="inv-1"><div class="inv-icon empty" id="inv-icon-1"><img src="" class="inv-img" id="inv-img-1" alt="Feathers"></div><div class="inv-label" id="inv-lbl-1">Feathers</div><div class="inv-check" id="inv-chk-1"></div></div>
+  <div class="inv-slot" id="inv-2"><div class="inv-icon empty" id="inv-icon-2">🕯️</div><div class="inv-label" id="inv-lbl-2">Wax</div><div class="inv-check" id="inv-chk-2"></div></div>
+  <div class="inv-slot" id="inv-3"><div class="inv-icon empty" id="inv-icon-3"><img src="" class="inv-img" id="inv-img-3" alt="Poles"></div><div class="inv-label" id="inv-lbl-3">Poles</div><div class="inv-check" id="inv-chk-3"></div></div>
+  <div class="inv-slot" id="inv-4"><div class="inv-icon empty" id="inv-icon-4"><img src="" class="inv-img" id="inv-img-4" alt="Wings"></div><div class="inv-label" id="inv-lbl-4">Wings</div><div class="inv-check" id="inv-chk-4"></div></div>
+</div>
+
+<div id="progress-bar"></div>
+
+<div id="game-container">
+  <div id="welcome-screen" class="stage-card" style="text-align:center;padding:40px 28px;">
+    <div style="font-size:4em;margin-bottom:16px;">🏛️</div>
+    <h1 style="font-family:var(--font-display);font-size:2em;letter-spacing:2px;margin-bottom:8px;">The Wings of Daedalus</h1>
+    <div style="font-family:var(--font-accent);color:var(--gold-accent);font-size:1.1em;margin-bottom:24px;">An Escape Through the Myth</div>
+    <div style="max-width:560px;margin:0 auto 28px;color:var(--ink-medium);line-height:1.8;">
+      You are trapped in the tower of King Minos. To escape, you must read the tale of Daedalus and Icarus, answer the questions to unlock supply chests, and <strong>gather the materials to build your wings</strong>. Collect feathers, wax, poles, and assemble the wings — then fly to freedom.
+      <br><br>🪶 <em>Read closely. Think deeply. Escape wisely.</em>
+    </div>
+    <button class="start-btn" id="start-btn">Begin Your Escape</button>
+  </div>
+  <div id="stage-area" style="display:none;"></div>
+  <div id="end-screen" class="stage-card" style="display:none;"></div>
+</div>
+
+<!-- ITEM CUTSCENE OVERLAY -->
+<div id="item-cutscene">
+  <div class="item-reveal-icon" id="item-reveal-icon"></div>
+  <div class="item-reveal-title" id="item-reveal-title"></div>
+  <div class="item-reveal-desc" id="item-reveal-desc"></div>
+  <div class="item-reveal-inventory" id="item-reveal-inv"></div>
+  <button class="item-continue-btn" id="item-continue-btn">Continue</button>
+</div>
+
+<!-- FLIGHT GAME OVERLAY -->
+<div id="flight-game-overlay">
+  <div class="flight-msg" id="flight-msg">Use ↑ and ↓ arrow keys to fly. Stay in the safe zone!</div>
+  <canvas id="flight-canvas" width="700" height="400"></canvas>
+  <div class="flight-ui">
+    <div id="flight-distance">Distance: 0%</div>
+    <button class="flight-start-btn" id="flight-start-btn" onclick="startFlight()">Take Flight!</button>
+  </div>
+</div>
+
+<!-- CINEMATIC ENDING -->
+<div id="cinematic-overlay">
+  <canvas id="particle-canvas"></canvas>
+  <div class="cinematic-content">
+    <div class="escape-text">YOU HAVE ESCAPED</div>
+    <div class="escape-sub">The tale of Daedalus and Icarus is now yours to carry forward.</div>
+    <div class="escape-wings">🪶🏛️🪶</div>
+    <div class="points-award">
+      <div class="big-pts">🏛️ Escape Complete!</div>
+      <div style="font-size:0.7em;margin-top:6px;color:var(--parchment-edge);">Your results are being recorded...</div>
+    </div>
+  </div>
+  <div class="cinematic-continue"><button onclick="closeCinematic()">View Results</button></div>
+</div>
+
+<!-- TEACHER MODAL -->
+<div class="modal-overlay" id="teacher-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="modal-close">&times;</button>
+    <h2>🔑 Teacher Panel</h2>
+    <h3>TEKS Alignment</h3>
+    <ul>
+      <li><strong>6.3(B)</strong> — Vocabulary in context</li>
+      <li><strong>6.6(D)</strong> — Plot elements / structure / suspense / foreshadowing</li>
+      <li><strong>6.6(F)</strong> — Character traits & motivations</li>
+      <li><strong>6.6(G)</strong> — Cause and effect</li>
+      <li><strong>6.7(C)</strong> — Text evidence</li>
+      <li><strong>6.8(A)</strong> — Theme development</li>
+      <li><strong>6.9(D)</strong> — Figurative language</li>
+      <li><strong>6.10(A)</strong> — Author's craft</li>
+    </ul>
+    <h3>Question → TEKS Map</h3>
+    <div id="teks-map"></div>
+    <h3>Reset Game</h3>
+    <p>Type <strong>RESET</strong> below and press the button.</p>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input type="text" id="reset-input" placeholder="Type RESET" style="padding:6px 12px;border:1px solid var(--parchment-edge);border-radius:4px;">
+      <button id="reset-btn" style="padding:6px 16px;background:var(--red-accent);color:#fff;border:none;border-radius:4px;cursor:pointer;">Reset</button>
+    </div>
+    <div id="reset-feedback" style="color:var(--red-accent);font-size:0.85em;margin-top:6px;"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================
+   CONFIG
+   ============================================ */
+const CONFIG = {
+  startingPoints: 300,
+  hintCost: 30,
+  attemptsBeforeHelp: 2,
+};
+
+/* ============================================
+   ODYSSEY SERVER INTEGRATION
+   ============================================ */
+// Read JWT token from URL query string (passed from student.html)
+const urlParams = new URLSearchParams(window.location.search);
+const ODYSSEY_TOKEN = urlParams.get('token');
+const API_BASE = window.location.origin;
+let odysseyStudent = null; // { student_id, name, alliance_id, alliance_name }
+let odysseyHeaders = null;
+let serverResultSent = false;
+let lastQuestionResults = null; // Stored for retry on error
+
+// First-attempt tracking: records whether each question was answered correctly on the FIRST submission of its stage
+let firstAttemptData = {}; // keyed by stage_id, e.g. { 1: { 0: {selected:'b', correct:'b', isCorrect:true, text:'...'}, ... } }
+
+async function connectToOdyssey() {
+  if (!ODYSSEY_TOKEN) {
+    console.log('No Odyssey token — running in standalone mode');
+    return false;
+  }
+  odysseyHeaders = { 'Authorization': `Bearer ${ODYSSEY_TOKEN}`, 'Content-Type': 'application/json' };
+  try {
+    const res = await fetch(`${API_BASE}/api/student/dashboard`, { headers: odysseyHeaders });
+    if (!res.ok) throw new Error(`Dashboard fetch failed: ${res.status}`);
+    const data = await res.json();
+    const s = data.student;
+    if (!s) throw new Error('No student in dashboard response');
+    odysseyStudent = {
+      student_id: s.student_id,
+      name: s.name || 'Student',
+      alliance_id: s.alliance_id,
+      alliance_name: s.alliance_name || 'Unknown Alliance',
+      alliance_points: s.alliance_display_points || s.alliance_points || 0
+    };
+    console.log(`✅ Odyssey connected: ${odysseyStudent.name} (${odysseyStudent.alliance_name}, ${odysseyStudent.alliance_points} pts)`);
+    // Update header with student name and real alliance points
+    const titleEl = document.querySelector('.game-title');
+    if (titleEl) titleEl.textContent = `🪶 Wings of Daedalus — ${odysseyStudent.name}`;
+    document.getElementById('points-value').textContent = odysseyStudent.alliance_points;
+    return true;
+  } catch (err) {
+    console.error('Odyssey connection failed:', err);
+    return false;
+  }
+}
+
+/* INVENTORY ITEMS — per stage reward */
+const INVENTORY = [
+  { id: 1, icon: '🪶', img44: 'data:image/png;base64,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', img80: 'data:image/png;base64,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', name: 'Feathers', title: 'Feathers Gathered!', desc: 'You collected feathers dropped by the birds of Crete. The first material for your escape.' },
+  { id: 2, icon: '🕯️', img44: null, img80: null, name: 'Wax', title: 'Wax Secured!', desc: 'You found the wax to bind the feathers together. The wings begin to take shape.' },
+  { id: 3, icon: '🪵', img44: 'data:image/png;base64,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', img80: 'data:image/png;base64,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', name: 'Wooden Poles', title: 'Poles Crafted!', desc: 'You shaped wooden poles into a frame. The skeleton of your wings is complete.' },
+  { id: 4, icon: '🦅', img44: 'data:image/png;base64,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', img80: 'data:image/png;base64,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', name: 'The Wings', title: 'Wings Assembled!', desc: 'Feathers, wax, and poles — the wings are complete! Now climb to the tower and fly to freedom.' },
+];
+
+const FLIGHT_SPRITE = 'data:image/png;base64,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';
+
+/* CHEST IMAGE (small PNG) */
+const CHEST_IMG = 'data:image/png;base64,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';
+
+/* ============================================
+   SEEDED PRNG
+   ============================================ */
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+function seededShuffle(arr, rng) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* ============================================
+   STAGES DATA
+   ============================================ */
+const STAGES = [
+  {
+    id: 1, title: "Jealousy & Consequences",
+    storyHtml: `<p>Daedalus was the greatest inventor of his day. Not only was he a brilliant architect, but as a sculptor he had the rare gift of carving people and animals that seemed almost alive. Some even said his statues could move. He invented tools such as the axe, the wedge, and the carpenter's level, and his restless mind was always busy with new creations. To his nephew, Perdix, he taught everything he knew.</p><p>Soon it seemed that Perdix might equal — or even surpass — his uncle. One day, while walking along the seashore, the boy picked up the spine of a fish. Studying its jagged edges, he was inspired. He returned home, shaped iron into the same pattern, and invented the saw.</p><p>Instead of celebrating his nephew's cleverness, Daedalus grew jealous. Fearful that Perdix's talent would overshadow his own, Daedalus did the unthinkable. While standing with his nephew atop the Acropolis, he pushed the boy from the heights.</p><p>But the goddess Athena, protector of craftsmen, saw what happened. She saved Perdix by transforming him into a partridge before he struck the ground. Since that day, partridges never fly high, but stay close to the earth.</p><p>For his crime, Daedalus was banished from Athens. He fled to Crete, where King Minos welcomed him. Daedalus quickly gained favor in the royal court by offering his inventions to the people of Crete.</p><p>Over time, Daedalus and Queen Pasiphae became friends. One afternoon, Pasiphae complained bitterly about her husband.</p><p class="dialogue">"Oh, all I ever hear from Minos is talk of the gods," she said. "He speaks only of power and glory. I am weary of being tied to a man who values pride more than partnership."</p><p>Daedalus cautioned her.</p><p class="dialogue">"Careful, Your Majesty. The gods hear more than we think."</p><p>But Pasiphae continued to speak against her marriage. High upon Olympus, Hera — guardian of marriage — heard Pasiphae's words. Angered, Hera decided to punish her. When Pasiphae later gave birth to a son, Hera placed a curse upon the child — transformed into a creature part man, part bull. The people called him the Minotaur.</p><p>King Minos ordered Daedalus to construct an intricate labyrinth — a maze so complex that none who entered could ever escape. Deep within, Minos locked away the Minotaur.</p><p>When Minos learned that Daedalus had known of Pasiphae's discontent and had not warned him, he grew suspicious. To ensure silence, Minos imprisoned Daedalus and his young son, Icarus, in a tall tower overlooking the sea.</p>`,
+    questions: [
+      { id:'q1', prompt:'What motivates Daedalus to push Perdix from the Acropolis?', choices:['Fear that Perdix will disgrace Athens','Jealousy of Perdix\'s growing talent','Anger at Athena for favoring Perdix','Pressure from King Minos to eliminate rivals'], correctIdx:1, hint:'Look for the emotion Daedalus feels right after Perdix invents the saw.', teks:['6.6(F)','6.6(G)'] },
+      { id:'q2', prompt:'Which detail best shows that Daedalus struggles with pride?', choices:['He invents useful tools for craftsmen.','He teaches Perdix everything he knows.','He reacts negatively to the invention of the saw.','He flees to Crete after being banished.'], correctIdx:2, hint:'Focus on how Daedalus responds when someone else creates something impressive.', teks:['6.6(F)','6.7(C)'] },
+      { id:'q3', prompt:'The word "intricate" in this passage most nearly means —', choices:['Beautiful','Confusing','Complicated','Dangerous'], correctIdx:2, hint:'Re-read the sentence where "intricate" appears. Think about what kind of maze would be impossible to escape.', teks:['6.3(B)'] },
+      { id:'q4', prompt:'Why does Minos imprison Daedalus?', choices:['He suspects Daedalus knew about Pasiphae\'s unhappiness and said nothing.','He fears Daedalus will free the Minotaur.','He wants to force Daedalus to build more inventions.','He believes Daedalus angered Hera directly.'], correctIdx:0, hint:'Look at what Minos "learned" about Daedalus. What connection does Minos make?', teks:['6.6(G)','6.7(C)'] }
+    ]
+  },
+  {
+    id: 2, title: "The Plan",
+    storyHtml: `<p>But no prison could contain the mind of Daedalus.</p><p>The sea was watched carefully. Boats were impossible. So Daedalus turned his eyes upward.</p><p class="dialogue">"If Minos controls the land and sea," he said, "he does not control the sky."</p><p>Secretly, he gathered feathers dropped by birds and bound them together with wax, crafting two great pairs of wings. When they were finished, he fastened one pair to his own shoulders and the other to Icarus.</p><p>Before they took flight, Daedalus warned his son.</p><p class="dialogue">"Do not fly too low, or the sea's dampness will weigh the wings down. But do not fly too high, either, or the sun's heat will melt the wax. Stay close to me."</p>`,
+    questions: [
+      { id:'q5', prompt:'What does the line "But no prison could contain the mind of Daedalus" suggest about him?', choices:['He is physically strong enough to break free.','He is mentally determined and inventive.','He is protected by the gods.','He is not afraid of Minos.'], correctIdx:1, hint:'The sentence talks about his "mind," not his body. What quality helps someone escape an impossible prison?', teks:['6.6(F)','6.7(C)'] },
+      { id:'q6', prompt:'Why does Daedalus warn Icarus not to fly too high or too low?', choices:['He doubts Icarus has enough strength.','He wants Icarus to stay close for comfort.','Both extremes create real danger for the wings.','He fears the gods will see them escaping.'], correctIdx:2, hint:'Re-read Daedalus\'s exact warning. What happens to wings near the sea? Near the sun?', teks:['6.6(G)','6.7(C)'] },
+      { id:'q7', prompt:'The wings most clearly symbolize —', choices:['Pride and arrogance','Freedom and innovation','Revenge against Minos','Power over the gods'], correctIdx:1, hint:'Think about what the wings allow them to do. What larger idea do they represent?', teks:['6.9(D)'] },
+      { id:'q8', prompt:'How does this section of the story build suspense?', choices:['By describing the labyrinth again in detail','By emphasizing the risk involved in flight','By introducing a new character to the story','By repeating events from earlier chapters'], correctIdx:1, hint:'Suspense comes from tension. What in Daedalus\'s warnings makes you worry about what happens next?', teks:['6.6(D)','6.10(A)'] }
+    ]
+  },
+  {
+    id: 3, title: "The Flight Begins",
+    storyHtml: `<p>At dawn, when the fair wind rose from the sea, Daedalus fastened the wings carefully to his shoulders and then to Icarus'. He examined every feather, every binding of wax. Though freedom lay before them, his eyes lingered on his son, for the two could not fly hand in hand.</p><p>Up they rose, the boy following after his father.</p><p>The island of Crete fell away beneath them. Shepherds tending their flocks shaded their eyes and stared upward. Fishermen dropped their nets in wonder. Some whispered that they had glimpsed Apollo himself crossing the sky, with a younger god trailing behind.</p><p>At first there was fear within the joy. The wide emptiness of the air made their heads spin. But then a steady wind filled their wings, and they felt themselves lifted and sustained — no longer prisoners of stone towers, but masters of the open sky.</p><p>For Daedalus, each beat of his wings was careful and measured.</p><p>For Icarus, it was pure exhilaration.</p>`,
+    questions: [
+      { id:'q9', prompt:'How does the author create a mood of wonder during the flight?', choices:['By describing Minos chasing after them','By showing villagers reacting in awe below','By focusing on the tower they left behind','By repeating warnings from Daedalus'], correctIdx:1, hint:'Look at how the people on the ground respond. What do the shepherds and fishermen do?', teks:['6.10(A)'] },
+      { id:'q10', prompt:'How are Daedalus and Icarus different during the flight?', choices:['Daedalus is fearful while Icarus is careful.','Daedalus is cautious while Icarus is reckless.','Daedalus is joyful while Icarus is angry.','Daedalus is confident while Icarus is doubtful.'], correctIdx:1, hint:'Compare the last two lines. How is each character\'s flying described differently?', teks:['6.6(F)'] },
+      { id:'q11', prompt:'Which detail best foreshadows the danger ahead?', choices:['Shepherds stare upward at them.','The wind fills their wings steadily.','Icarus forgets the warnings his father gave.','The sea shines below them.'], correctIdx:2, hint:'Foreshadowing is a clue about what will happen later. Which detail hints something bad is coming?', teks:['6.6(D)'] }
+    ]
+  },
+  {
+    id: 4, title: "The Fall",
+    storyHtml: `<p>He felt like a seabird gliding over waves, like a child lifted high by unseen hands. The memory of captivity faded. The warnings faded. Even his father became only a distant shape against the blue.</p><p>He wanted more.</p><p>He stretched his arms wider. He angled upward. The sea below shimmered like emerald and sapphire, but Icarus no longer cared for the water or the earth. He longed for the brilliance above — the golden blaze of the sun itself.</p><p>Higher he climbed. Warmer and warmer grew the air.</p><p>At first, the heat felt comforting. Then it burned. The wax that held the feathers began to soften. One feather loosened and drifted away. Then another. Then many.</p><p>Icarus felt the wings falter.</p><p>He beat his arms desperately, but the feathers fell around him like snowflakes in sunlight.</p><p>In that instant — as terror replaced joy — he remembered.</p><p class="dialogue">"Father!" he cried.</p><p>But his voice was carried away by the rushing wind.</p><p>He fell like a leaf caught in a storm, down through the shining air, until the sea rose up to meet him. The waters swallowed him whole.</p><p>Far ahead, Daedalus heard the cry. He turned. Where his son had been, he saw only feathers floating upon the waves.</p>`,
+    questions: [
+      { id:'q12', prompt:'What theme is most strongly revealed when Icarus ignores the warning?', choices:['Obedience leads to greatness.','Pride can lead to destruction.','The gods control all fate.','Freedom solves all problems.'], correctIdx:1, hint:'Think about what Icarus chose and what happened. What lesson does that teach?', teks:['6.8(A)'] },
+      { id:'q13', prompt:'The comparison of feathers to "snowflakes in sunlight" emphasizes —', choices:['Beauty and fragility','Strength and power','Chaos and disorder','Coldness and winter'], correctIdx:0, hint:'Picture snowflakes in sunlight — delicate and melting away. What does that suggest about this moment?', teks:['6.9(D)'] },
+      { id:'q14', prompt:'What is the turning point of the entire story?', choices:['The building of the labyrinth','The imprisonment in the tower','The wax beginning to melt','The naming of the island Icaria'], correctIdx:2, hint:'A turning point is the moment everything changes. Which event directly causes the tragic outcome?', teks:['6.6(D)'] }
+    ]
+  },
+  {
+    id: 5, title: "Grief & Legacy",
+    storyHtml: `<p>At last he understood.</p><p>With a heart heavy beyond words, Daedalus continued on alone. The nearest island he named Icaria, in memory of the child who had dared to fly too near the sun. The sea where he fell came to bear his name as well.</p><p>In Sicily, Daedalus built a temple to Apollo. There, he hung up the wings as an offering — not in triumph, but in grief.</p><p>Never again did he attempt to fly.</p><p>For though he had conquered the air, he had lost what mattered most.</p><p>And so the tale endures: that brilliance without restraint can become destruction, that freedom without wisdom can turn to ruin, and that even the greatest inventions cannot shield us from the consequences of pride.</p>`,
+    questions: [
+      { id:'q15', prompt:'Why does Daedalus name the island Icaria?', choices:['To honor the gods who watched over them','To remember his son who was lost','To mark the place of his great escape','To hide his shame from the world'], correctIdx:1, hint:'Re-read the sentence about naming the island. "In memory of" whom?', teks:['6.7(C)'] },
+      { id:'q16', prompt:'Why does Daedalus hang up his wings in Apollo\'s temple?', choices:['He wants praise and recognition.','He feels victorious and proud.','He offers them in grief and humility.','He plans to build even better wings.'], correctIdx:2, hint:'Look at how the text describes the offering. "Not in triumph, but in..." what?', teks:['6.6(F)','6.7(C)'] },
+      { id:'q17', prompt:'Which statement best expresses the author\'s overall message?', choices:['Innovation is always dangerous.','Obedience is more important than freedom.','Wisdom must guide ambition.','The gods punish all humans equally.'], correctIdx:2, hint:'Read the very last paragraph. Look for the relationship between "freedom" and "wisdom."', teks:['6.8(A)'] }
+    ]
+  }
+];
+
+/* ============================================
+   STATE
+   ============================================ */
+const STORAGE_KEY = 'daedalus_escape_v2';
+let state = {
+  seed: null, started: false, currentStage: 0,
+  points: CONFIG.startingPoints,
+  stageData: {}, shuffleMaps: {},
+  inventory: [false, false, false, false],
+  flightComplete: false, flightAttempts: 0,
+  timerStart: null, totalTime: 0,
+  fontSize: 'normal', dyslexia: false, highContrast: false
+};
+
+function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {} }
+function loadState() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) { const p = JSON.parse(s); if (p && p.seed) { state = { ...state, ...p }; return true; } }
+  } catch(e) {}
+  return false;
+}
+function resetState() { localStorage.removeItem(STORAGE_KEY); location.reload(); }
+function initSeed() { if (!state.seed) state.seed = Math.floor(Math.random() * 2147483647) + 1; }
+function getStageState(sid) {
+  if (!state.stageData[sid]) state.stageData[sid] = { attempts:0, selections:{}, hintsUsed:[], eliminated:{}, correctLocked:{}, completed:false, chestOpen:false, itemCollected:false };
+  // Migrate old state that doesn't have correctLocked
+  if (!state.stageData[sid].correctLocked) state.stageData[sid].correctLocked = {};
+  return state.stageData[sid];
+}
+function getShuffleMap(si) {
+  const sid = STAGES[si].id;
+  if (!state.shuffleMaps[sid]) {
+    const rng = mulberry32(state.seed * 100 + sid);
+    const qOrder = seededShuffle(STAGES[si].questions.map((_,i) => i), rng);
+    const cOrders = {};
+    STAGES[si].questions.forEach((q,i) => { cOrders[i] = seededShuffle(q.choices.map((_,ci) => ci), rng); });
+    state.shuffleMaps[sid] = { questionOrder: qOrder, choiceOrders: cOrders };
+  }
+  return state.shuffleMaps[sid];
+}
+
+/* TIMER */
+let timerInterval = null;
+function startTimer() { if (!state.timerStart) { state.timerStart = Date.now(); saveState(); } timerInterval = setInterval(updateTimerDisplay, 1000); updateTimerDisplay(); }
+function stopTimer() { if (timerInterval) clearInterval(timerInterval); }
+function getElapsedSeconds() { return state.timerStart ? state.totalTime + Math.floor((Date.now() - state.timerStart) / 1000) : state.totalTime; }
+function updateTimerDisplay() { const s = getElapsedSeconds(); document.getElementById('timer-display').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`; }
+function formatTime(s) { return `${Math.floor(s/60)}m ${s%60}s`; }
+
+/* TTS */
+let currentUtterance = null, speechPaused = false;
+function speakText(text) { stopSpeech(); const c = text.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); currentUtterance = new SpeechSynthesisUtterance(c); currentUtterance.rate = 0.9; currentUtterance.onend = () => { currentUtterance = null; speechPaused = false; }; speechSynthesis.speak(currentUtterance); }
+function pauseSpeech() { if (speechSynthesis.speaking && !speechPaused) { speechSynthesis.pause(); speechPaused = true; } }
+function resumeSpeech() { if (speechPaused) { speechSynthesis.resume(); speechPaused = false; } }
+function stopSpeech() { speechSynthesis.cancel(); currentUtterance = null; speechPaused = false; }
+
+/* ============================================
+   INVENTORY UI
+   ============================================ */
+function updateInventoryBar() {
+  for (let i = 0; i < 4; i++) {
+    const icon = document.getElementById(`inv-icon-${i+1}`);
+    const lbl = document.getElementById(`inv-lbl-${i+1}`);
+    const chk = document.getElementById(`inv-chk-${i+1}`);
+    // Set image sources for items with custom images
+    const item = INVENTORY[i];
+    if (item.img44) {
+      const imgEl = document.getElementById(`inv-img-${i+1}`);
+      if (imgEl) imgEl.src = item.img44;
+    }
+    if (state.inventory[i]) {
+      icon.classList.remove('empty'); icon.classList.add('collected');
+      lbl.classList.add('collected');
+      chk.textContent = '✓';
+    } else {
+      icon.classList.add('empty'); icon.classList.remove('collected');
+      lbl.classList.remove('collected');
+      chk.textContent = '';
+    }
+  }
+}
+
+/* ============================================
+   RENDERING
+   ============================================ */
+function renderProgressBar() {
+  const bar = document.getElementById('progress-bar');
+  let html = '';
+  for (let i = 0; i < STAGES.length; i++) {
+    const sd = state.stageData[STAGES[i].id];
+    const completed = sd && sd.itemCollected;
+    const isCurrent = (i + 1) === state.currentStage;
+    html += `<div class="progress-node"><div class="progress-dot ${completed ? 'completed' : ''} ${isCurrent ? 'current' : ''}">${completed ? '✓' : (i+1)}</div>`;
+    if (i < STAGES.length - 1) html += `<div class="progress-line ${completed ? 'completed' : ''}"></div>`;
+    html += `</div>`;
+  }
+  bar.innerHTML = html;
+}
+
+function updateHeader() {
+  document.getElementById('points-value').textContent = state.points;
+  const si = document.getElementById('stage-indicator');
+  if (state.currentStage >= 1 && state.currentStage <= 5) si.textContent = `Stage ${state.currentStage} of 5`;
+  else if (state.currentStage === 0) si.textContent = '—';
+  else si.textContent = 'Complete!';
+}
+
+function renderStage(stageIdx) {
+  const stage = STAGES[stageIdx];
+  const sd = getStageState(stage.id);
+  const shuffle = getShuffleMap(stageIdx);
+  const area = document.getElementById('stage-area');
+  const letters = ['A','B','C','D'];
+
+  let html = `<div class="stage-card stage-entering">`;
+  html += `<div class="stage-header"><div class="stage-number">Stage ${stage.id}</div><div class="stage-title">${stage.title}</div></div>`;
+  html += `<div class="read-aloud-bar"><span class="label">🔊 Listen:</span><button onclick="speakText(STAGES[${stageIdx}].storyHtml)">Play</button><button onclick="pauseSpeech()">Pause</button><button onclick="resumeSpeech()">Resume</button><button onclick="stopSpeech()">Stop</button></div>`;
+  html += `<div class="story-text">${stage.storyHtml}</div>`;
+  html += `<div class="questions-area">`;
+
+  shuffle.questionOrder.forEach((origQIdx, displayIdx) => {
+    const q = stage.questions[origQIdx];
+    const choiceOrder = shuffle.choiceOrders[origQIdx];
+    const isLocked = sd.completed;
+    const isCorrectLocked = sd.correctLocked[origQIdx] !== undefined;
+
+    if (isCorrectLocked && !isLocked) {
+      // This question was answered correctly — show locked green state
+      const lockedPos = sd.correctLocked[origQIdx];
+      const lockedOrigCIdx = choiceOrder[lockedPos];
+      html += `<div class="question-block" data-qidx="${origQIdx}" style="opacity:0.7;border-left:3px solid var(--green-bright);padding-left:12px;">`;
+      html += `<div class="question-number" style="color:var(--green-accent);">✅ Question ${displayIdx + 1}</div>`;
+      html += `<div class="question-prompt" style="color:var(--ink-light);">${q.prompt}</div>`;
+      html += `<div class="choices-list">`;
+      html += `<button class="choice-btn selected locked" disabled style="border-color:var(--green-bright);background:rgba(39,174,96,0.1);"><span class="choice-letter" style="background:var(--green-accent);color:#fff;">${letters[lockedPos]}</span><span>${q.choices[lockedOrigCIdx]}</span></button>`;
+      html += `</div></div>`;
+    } else {
+      // Normal question rendering (active or fully locked after completion)
+      html += `<div class="question-block" data-qidx="${origQIdx}"><div class="question-number">Question ${displayIdx + 1}</div><div class="question-prompt">${q.prompt}</div><div class="choices-list">`;
+      choiceOrder.forEach((origCIdx, shuffledPos) => {
+        const selected = sd.selections[origQIdx] === shuffledPos;
+        const eliminated = sd.eliminated[origQIdx] && sd.eliminated[origQIdx].includes(shuffledPos);
+        let cls = 'choice-btn';
+        if (selected) cls += ' selected';
+        if (eliminated) cls += ' eliminated';
+        if (isLocked) cls += ' locked';
+        html += `<button class="${cls}" data-stage="${stageIdx}" data-qidx="${origQIdx}" data-spos="${shuffledPos}" ${eliminated || isLocked ? 'disabled' : ''} onclick="selectChoice(${stageIdx},${origQIdx},${shuffledPos})"><span class="choice-letter">${letters[shuffledPos]}</span><span>${q.choices[origCIdx]}</span></button>`;
+      });
+      html += `</div>`;
+      const hintUsed = sd.hintsUsed.includes(origQIdx);
+      if (!isCorrectLocked) {
+        html += `<div class="hint-area"><button class="hint-btn" ${hintUsed||isLocked?'disabled':''} onclick="useHint(${stageIdx},${origQIdx})">${hintUsed?'💡 Hint Used':`💡 Hint (−${CONFIG.hintCost} AP)`}</button></div>`;
+        html += `<div class="hint-text ${hintUsed?'visible':''}" id="hint-${origQIdx}">${hintUsed?q.hint:''}</div>`;
+      }
+      html += `</div>`;
+    }
+  });
+  html += `</div>`;
+
+  if (!sd.completed) {
+    html += `<div class="submit-area"><button class="submit-btn" onclick="submitStage(${stageIdx})">Submit Answers</button></div>`;
+    html += `<div class="feedback-msg" id="feedback-msg"></div>`;
+    if (sd.attempts > 0) html += `<div class="attempts-note">Attempts: ${sd.attempts}${sd.attempts >= CONFIG.attemptsBeforeHelp ? ' — One wrong answer eliminated!' : ''}</div>`;
+  }
+
+  // Chest (only if completed but item not yet collected)
+  html += `<div class="chest-panel ${sd.completed && !sd.chestOpen ? 'show' : ''}" id="chest-panel">
+    <img src="${CHEST_IMG}" alt="Chest" class="chest-img">
+    <div class="chest-label">A Supply Chest Has Appeared!</div>
+    <div class="chest-instructions">Enter the letter code (${stage.questions.length} letters) — the correct answer letters in question order above.</div>
+    <div class="chest-input-row"><input type="text" class="chest-code-input" id="chest-input" maxlength="${stage.questions.length}" placeholder="${'_'.repeat(stage.questions.length)}" autocomplete="off"><button class="chest-open-btn" onclick="openChest(${stageIdx})">Open Chest</button></div>
+    <div class="chest-feedback" id="chest-feedback"></div>
+  </div>`;
+
+  html += `</div>`;
+  area.innerHTML = html;
+  area.style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ============================================
+   GAME ACTIONS
+   ============================================ */
+function selectChoice(stageIdx, qOrigIdx, shuffledPos) {
+  const sd = getStageState(STAGES[stageIdx].id);
+  if (sd.completed) return;
+  if (sd.correctLocked[qOrigIdx] !== undefined) return; // Already correct — locked
+  sd.selections[qOrigIdx] = shuffledPos;
+  saveState();
+  const qBlock = document.querySelector(`.question-block[data-qidx="${qOrigIdx}"]`);
+  if (qBlock) qBlock.querySelectorAll('.choice-btn').forEach(btn => { btn.classList.toggle('selected', parseInt(btn.dataset.spos) === shuffledPos); });
+}
+
+function submitStage(stageIdx) {
+  const stage = STAGES[stageIdx];
+  const sd = getStageState(stage.id);
+  const shuffle = getShuffleMap(stageIdx);
+
+  // Only check unanswered (unlocked) questions
+  const needsAnswer = stage.questions.some((_,i) => !sd.correctLocked[i] && sd.selections[i] === undefined);
+  if (needsAnswer) { showFeedback('Please answer all remaining questions before submitting.', false); return; }
+
+  // Track first-attempt answers (only on the FIRST submission of this stage)
+  const isFirstAttempt = (sd.attempts === 0);
+  if (isFirstAttempt) {
+    firstAttemptData[stage.id] = {};
+  }
+
+  let allCorrect = true;
+  const letters = ['a','b','c','d'];
+  stage.questions.forEach((q, origQIdx) => {
+    // Skip already-locked correct questions
+    if (sd.correctLocked[origQIdx]) return;
+
+    const selectedOrigIdx = shuffle.choiceOrders[origQIdx][sd.selections[origQIdx]];
+    const isCorrect = (selectedOrigIdx === q.correctIdx);
+
+    if (isCorrect) {
+      // Lock this question as correct — won't be shown again
+      sd.correctLocked[origQIdx] = sd.selections[origQIdx]; // store the shuffled position
+    } else {
+      allCorrect = false;
+    }
+
+    // Record this answer for server reporting (first attempt only)
+    if (isFirstAttempt) {
+      firstAttemptData[stage.id][origQIdx] = {
+        stage: stage.id,
+        index: origQIdx,
+        text: q.prompt,
+        selected: letters[selectedOrigIdx] || '',
+        correct: letters[q.correctIdx] || '',
+        isCorrect: isCorrect,
+        firstAttempt: true
+      };
+    }
+  });
+
+  sd.attempts++;
+  if (allCorrect) {
+    sd.completed = true; saveState();
+    showFeedback('🏛️ UNLOCKED! The answers are correct!', true);
+    setTimeout(() => { renderStage(stageIdx); setTimeout(() => { const c = document.getElementById('chest-panel'); if (c) c.scrollIntoView({behavior:'smooth',block:'center'}); }, 100); }, 1200);
+  } else {
+    if (sd.attempts >= CONFIG.attemptsBeforeHelp) eliminateWrongAnswers(stageIdx);
+    // Only clear selections for WRONG questions — correct ones stay locked
+    const newSelections = {};
+    Object.keys(sd.correctLocked).forEach(k => { newSelections[k] = sd.correctLocked[k]; });
+    sd.selections = newSelections;
+    saveState();
+
+    // Count how many are still wrong
+    const wrongCount = stage.questions.filter((_,i) => !sd.correctLocked[i]).length;
+    const rightCount = stage.questions.length - wrongCount;
+    showFeedback(`❌ ${rightCount} correct, ${wrongCount} still need work — try again!`, false);
+    setTimeout(() => { renderStage(stageIdx); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 1800);
+  }
+}
+
+function eliminateWrongAnswers(stageIdx) {
+  const stage = STAGES[stageIdx]; const sd = getStageState(stage.id); const shuffle = getShuffleMap(stageIdx);
+  stage.questions.forEach((q, origQIdx) => {
+    if (sd.correctLocked[origQIdx] !== undefined) return; // Already correct — skip
+    if (sd.eliminated[origQIdx] && sd.eliminated[origQIdx].length > 0) return;
+    const wrongPos = [];
+    shuffle.choiceOrders[origQIdx].forEach((origCIdx, sPos) => { if (origCIdx !== q.correctIdx) wrongPos.push(sPos); });
+    if (wrongPos.length > 0) { const rng = mulberry32(state.seed*1000+stage.id*10+origQIdx); sd.eliminated[origQIdx] = [wrongPos[Math.floor(rng()*wrongPos.length)]]; }
+  });
+}
+
+function showFeedback(msg, success) {
+  const el = document.getElementById('feedback-msg');
+  if (el) { el.textContent = msg; el.className = `feedback-msg show ${success ? 'success' : 'failure'}`; }
+}
+
+function useHint(stageIdx, qOrigIdx) {
+  const sd = getStageState(STAGES[stageIdx].id);
+  if (sd.hintsUsed.includes(qOrigIdx)) return;
+  if (state.points < CONFIG.hintCost) { alert('Not enough Alliance Points for a hint!'); return; }
+  state.points -= CONFIG.hintCost; sd.hintsUsed.push(qOrigIdx); saveState();
+  const hintEl = document.getElementById(`hint-${qOrigIdx}`);
+  if (hintEl) { hintEl.textContent = STAGES[stageIdx].questions[qOrigIdx].hint; hintEl.classList.add('visible'); }
+  updateHeader();
+  const qBlock = document.querySelector(`.question-block[data-qidx="${qOrigIdx}"]`);
+  if (qBlock) { const btn = qBlock.querySelector('.hint-btn'); if (btn) { btn.disabled = true; btn.textContent = '💡 Hint Used'; } }
+}
+
+function openChest(stageIdx) {
+  const stage = STAGES[stageIdx]; const sd = getStageState(stage.id);
+  const shuffle = getShuffleMap(stageIdx);
+  const input = document.getElementById('chest-input');
+  const feedback = document.getElementById('chest-feedback');
+  if (!input || !feedback) return;
+  const entered = input.value.trim().toUpperCase();
+  const letters = ['A','B','C','D'];
+  let expectedCode = '';
+  shuffle.questionOrder.forEach(origQIdx => {
+    const q = stage.questions[origQIdx];
+    expectedCode += letters[shuffle.choiceOrders[origQIdx].indexOf(q.correctIdx)];
+  });
+  if (entered === expectedCode) {
+    sd.chestOpen = true; saveState();
+    // Show item cutscene!
+    showItemCutscene(stageIdx);
+  } else {
+    feedback.textContent = 'Wrong code! Check the letter labels next to each correct answer.';
+  }
+}
+
+/* ============================================
+   ITEM CUTSCENE
+   ============================================ */
+function showItemCutscene(stageIdx) {
+  const item = INVENTORY[stageIdx]; // stages 0-3 get items
+  const overlay = document.getElementById('item-cutscene');
+  const iconEl = document.getElementById('item-reveal-icon');
+  if (item.img80) {
+    iconEl.innerHTML = '<img src="' + item.img80 + '" style="width:80px;height:80px;object-fit:contain;">';
+  } else {
+    iconEl.textContent = item.icon;
+  }
+  document.getElementById('item-reveal-icon').style.animation = 'none';
+  void document.getElementById('item-reveal-icon').offsetHeight; // force reflow
+  document.getElementById('item-reveal-icon').style.animation = '';
+  document.getElementById('item-reveal-title').textContent = item.title;
+  document.getElementById('item-reveal-title').style.animation = 'none';
+  void document.getElementById('item-reveal-title').offsetHeight;
+  document.getElementById('item-reveal-title').style.animation = '';
+  document.getElementById('item-reveal-desc').textContent = item.desc;
+  document.getElementById('item-reveal-desc').style.animation = 'none';
+  void document.getElementById('item-reveal-desc').offsetHeight;
+  document.getElementById('item-reveal-desc').style.animation = '';
+
+  // Build inventory preview
+  let invHtml = '';
+  for (let i = 0; i < 4; i++) {
+    let cls = 'item-reveal-slot';
+    if (i === stageIdx) cls += ' just-collected';
+    else if (state.inventory[i]) cls += ' collected';
+    else cls += ' empty';
+    invHtml += `<div class="${cls}">${INVENTORY[i].img44 ? '<img src="'+INVENTORY[i].img44+'" style="width:36px;height:36px;object-fit:contain;">' : INVENTORY[i].icon}</div>`;
+  }
+  const invEl = document.getElementById('item-reveal-inv');
+  invEl.innerHTML = invHtml;
+  invEl.style.animation = 'none'; void invEl.offsetHeight; invEl.style.animation = '';
+
+  const btn = document.getElementById('item-continue-btn');
+  btn.style.animation = 'none'; void btn.offsetHeight; btn.style.animation = '';
+
+  if (stageIdx < 4) {
+    btn.textContent = stageIdx < 3 ? 'Continue to Next Chapter →' : 'Climb to the Tower! →';
+    btn.onclick = () => collectItemAndAdvance(stageIdx);
+  }
+
+  overlay.classList.add('show');
+}
+
+function collectItemAndAdvance(stageIdx) {
+  const stage = STAGES[stageIdx];
+  const sd = getStageState(stage.id);
+  sd.itemCollected = true;
+  state.inventory[stageIdx] = true;
+  saveState();
+  document.getElementById('item-cutscene').classList.remove('show');
+  updateInventoryBar();
+
+  if (stageIdx < STAGES.length - 1) {
+    state.currentStage = stageIdx + 2;
+    saveState();
+    renderProgressBar(); updateHeader();
+    renderStage(stageIdx + 1);
+  }
+}
+
+/* ============================================
+   FLIGHT GAME (Stage 5 finale)
+   ============================================ */
+let flightActive = false, flightAnimFrame = null;
+
+// Load Daedalus sprite and strip black background via pixel manipulation
+const daedalusImg = new Image();
+let daedalusClean = null; // will hold the cleaned sprite
+daedalusImg.onload = function() {
+  // Draw to offscreen canvas to access pixel data
+  const oc = document.createElement('canvas');
+  oc.width = daedalusImg.width;
+  oc.height = daedalusImg.height;
+  const octx = oc.getContext('2d');
+  octx.drawImage(daedalusImg, 0, 0);
+  const imageData = octx.getImageData(0, 0, oc.width, oc.height);
+  const d = imageData.data;
+  // Make near-black pixels transparent (threshold: R+G+B < 22)
+  for (let i = 0; i < d.length; i += 4) {
+    const sum = d[i] + d[i+1] + d[i+2];
+    if (sum < 22) {
+      d[i+3] = 0; // fully transparent
+    } else if (sum < 50) {
+      d[i+3] = Math.floor((sum - 22) / 28 * 255); // fade edge pixels
+    }
+  }
+  octx.putImageData(imageData, 0, 0);
+  daedalusClean = oc; // store the cleaned canvas as our sprite source
+};
+daedalusImg.src = FLIGHT_SPRITE;
+
+let daedalus = { y: 200, vy: 0 };
+let flightProgress = 0;
+const FLIGHT_DURATION = 1800; // frames (~30 sec at 60fps)
+const GRAVITY = 0.4375; // 25% heavier than 0.35
+const FLAP_POWER = -3.5;
+const SINK_POWER = 2.5;
+let keysDown = {};
+
+function showFlightGame() {
+  document.getElementById('flight-game-overlay').classList.add('show');
+  document.getElementById('flight-msg').textContent = 'Use ↑ and ↓ arrow keys to fly. Stay in the safe zone!';
+  document.getElementById('flight-start-btn').style.display = '';
+  document.getElementById('flight-distance').textContent = 'Distance: 0%';
+
+  // Reset
+  daedalus = { y: 200, vy: 0 };
+  flightProgress = 0;
+  flightActive = false;
+  drawFlightFrame();
+}
+
+function startFlight() {
+  document.getElementById('flight-start-btn').style.display = 'none';
+  document.getElementById('flight-msg').textContent = 'Fly, Daedalus! Stay in the safe zone!';
+  daedalus = { y: 200, vy: 0 };
+  flightProgress = 0;
+  flightActive = true;
+  state.flightAttempts = (state.flightAttempts || 0) + 1;
+  saveState();
+  keysDown = {};
+  flightLoop();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); keysDown[e.key] = true; }
+});
+document.addEventListener('keyup', e => { keysDown[e.key] = false; });
+
+function flightLoop() {
+  if (!flightActive) return;
+
+  // Physics
+  if (keysDown['ArrowUp']) daedalus.vy += FLAP_POWER * 0.15;
+  if (keysDown['ArrowDown']) daedalus.vy += SINK_POWER * 0.15;
+  daedalus.vy += GRAVITY * 0.12; // gentle gravity pull down
+  daedalus.vy *= 0.94; // drag
+  daedalus.y += daedalus.vy;
+
+  flightProgress++;
+  const pct = Math.min(100, Math.floor((flightProgress / FLIGHT_DURATION) * 100));
+  document.getElementById('flight-distance').textContent = `Distance: ${pct}%`;
+
+  // Safe zone with heartbeat pulsing — closes and opens rhythmically, getting tighter
+  const sz = getSafeZone(flightProgress);
+
+  // Collision uses sprite half-height as buffer — wings touching the line = death
+  const spriteHalfH = 22; // sprite is 64px tall, use ~22px from center to wing edge
+  const hitTop = sz.top + spriteHalfH;
+  const hitBottom = sz.bottom - spriteHalfH;
+
+  // Check zones
+  if (daedalus.y < hitTop) {
+    // Too high — sun melts wings!
+    flightActive = false;
+    document.getElementById('flight-msg').textContent = '☀️ Too close to the sun! The wax melts! Try again.';
+    document.getElementById('flight-start-btn').style.display = '';
+    document.getElementById('flight-start-btn').textContent = 'Try Again';
+    drawFlightFrame();
+    return;
+  }
+  if (daedalus.y > hitBottom) {
+    // Too low — ocean!
+    flightActive = false;
+    document.getElementById('flight-msg').textContent = '🌊 Too close to the sea! The waves pull you down! Try again.';
+    document.getElementById('flight-start-btn').style.display = '';
+    document.getElementById('flight-start-btn').textContent = 'Try Again';
+    drawFlightFrame();
+    return;
+  }
+
+  // Win!
+  if (flightProgress >= FLIGHT_DURATION) {
+    flightActive = false;
+    document.getElementById('flight-msg').textContent = '🏛️ You made it to Sicily! FREEDOM!';
+    document.getElementById('flight-start-btn').style.display = 'none';
+    drawFlightFrame();
+    setTimeout(() => completeFlightGame(), 2000);
+    return;
+  }
+
+  drawFlightFrame();
+  flightAnimFrame = requestAnimationFrame(flightLoop);
+}
+
+/* Heartbeat safe zone calculator */
+function getSafeZone(frame) {
+  const t = frame / FLIGHT_DURATION; // 0 to 1 progress
+
+  // Base narrowing: starts at 0, ends at 50px each side (was 65 — too tight)
+  const baseNarrow = t * 50;
+
+  // Heartbeat pulse: rhythmic squeeze and release
+  // Pulse gets stronger as game progresses
+  // ~4 second cycle (240 frames), with a sharp squeeze then release
+  const cycleLen = 240;
+  const cyclePos = (frame % cycleLen) / cycleLen; // 0-1 within each cycle
+  // Sharp squeeze shape: quick tighten then slow release
+  let pulse;
+  if (cyclePos < 0.15) {
+    // Quick squeeze in
+    pulse = cyclePos / 0.15;
+  } else if (cyclePos < 0.3) {
+    // Hold tight
+    pulse = 1;
+  } else if (cyclePos < 0.55) {
+    // Release
+    pulse = 1 - (cyclePos - 0.3) / 0.25;
+  } else {
+    // Rest before next beat
+    pulse = 0;
+  }
+
+  // Pulse strength increases over time: 8px early, up to 28px late (was 10-40 — too harsh)
+  const pulseStrength = 8 + t * 20;
+  const pulseNarrow = pulse * pulseStrength;
+
+  const totalNarrow = baseNarrow + pulseNarrow;
+  return {
+    top: 92 + totalNarrow,
+    bottom: 308 - totalNarrow,
+    pulse: pulse // for visual effects
+  };
+}
+
+function drawFlightFrame() {
+  const canvas = document.getElementById('flight-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const sz = getSafeZone(flightProgress);
+
+  // Sky gradient — 10% darker
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, '#e05a28');    // sun zone - darker orange
+  skyGrad.addColorStop(0.15, '#e0884d');
+  skyGrad.addColorStop(0.25, '#6db8d4'); // safe zone - 10% darker sky blue
+  skyGrad.addColorStop(0.75, '#6db8d4');
+  skyGrad.addColorStop(0.85, '#266e6e');
+  skyGrad.addColorStop(1, '#143d5c');    // ocean - darker
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Sun with heat shimmer
+  const sunPulse = Math.sin(flightProgress * 0.05) * 5;
+  ctx.beginPath();
+  ctx.arc(W - 80, 40, 35 + sunPulse, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFD700';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(W - 80, 40, 55 + sunPulse, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.12)';
+  ctx.fill();
+
+  // Scrolling clouds (parallax layers)
+  ctx.globalAlpha = 0.3;
+  // Far clouds (slow)
+  for (let i = 0; i < 4; i++) {
+    const cx = ((i * 200 + 50) - (flightProgress * 0.4) % (W + 200) + W + 100) % (W + 200) - 100;
+    const cy = 60 + i * 25 + Math.sin(i * 2.5) * 15;
+    drawCloud(ctx, cx, cy, 40 + i * 8);
+  }
+  ctx.globalAlpha = 0.45;
+  // Near clouds (faster)
+  for (let i = 0; i < 3; i++) {
+    const cx = ((i * 280 + 130) - (flightProgress * 1.2) % (W + 300) + W + 150) % (W + 300) - 150;
+    const cy = 100 + i * 50 + Math.sin(i * 3.7) * 20;
+    drawCloud(ctx, cx, cy, 55 + i * 12);
+  }
+  ctx.globalAlpha = 1.0;
+
+  // Scrolling ocean waves
+  const waveScroll = flightProgress * 1.5;
+  // Back wave layer
+  ctx.fillStyle = 'rgba(20, 60, 100, 0.5)';
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 4) {
+    const wy = H - 55 + Math.sin((x + waveScroll * 0.7) * 0.03) * 6 + Math.sin((x + waveScroll * 0.3) * 0.07) * 3;
+    ctx.lineTo(x, wy);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+  // Front wave layer
+  ctx.fillStyle = 'rgba(30, 90, 140, 0.45)';
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 4) {
+    const wy = H - 42 + Math.sin((x + waveScroll) * 0.04) * 8 + Math.sin((x + waveScroll * 0.6) * 0.09) * 4;
+    ctx.lineTo(x, wy);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+  // Foam/whitecaps
+  ctx.fillStyle = 'rgba(200, 230, 255, 0.25)';
+  for (let x = 0; x < W; x += 60) {
+    const fx = (x - waveScroll * 1.1 % 60 + 60) % W;
+    const fy = H - 43 + Math.sin((fx + waveScroll) * 0.04) * 8;
+    ctx.beginPath();
+    ctx.ellipse(fx, fy, 12, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Safe zone boundaries — 20% brighter, glow on pulse
+  const lineAlpha = 0.72 + sz.pulse * 0.28; // brighter during squeeze
+  const lineWidth = 2 + sz.pulse * 1.5;
+  ctx.setLineDash([8, 6]);
+  ctx.strokeStyle = `rgba(255, 255, 255, ${lineAlpha})`;
+  ctx.lineWidth = lineWidth;
+  ctx.beginPath(); ctx.moveTo(0, sz.top); ctx.lineTo(W, sz.top); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, sz.bottom); ctx.lineTo(W, sz.bottom); ctx.stroke();
+  ctx.setLineDash([]);
+  // Danger tint when squeezing
+  if (sz.pulse > 0.3) {
+    ctx.fillStyle = `rgba(255, 50, 0, ${sz.pulse * 0.06})`;
+    ctx.fillRect(0, 0, W, sz.top);
+    ctx.fillStyle = `rgba(0, 50, 150, ${sz.pulse * 0.06})`;
+    ctx.fillRect(0, sz.bottom, W, H - sz.bottom);
+  }
+
+  // Zone labels — bright and bold
+  ctx.font = 'bold 13px MedievalSharp, sans-serif';
+  ctx.fillStyle = '#ff6633';
+  ctx.fillText('☀️ SUN — DANGER', 10, sz.top - 8);
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillText('✓ SAFE ZONE', 10, sz.top + 18);
+  ctx.fillStyle = '#1a3d6b';
+  ctx.fillText('🌊 SEA — DANGER', 10, sz.bottom + 18);
+
+  // Daedalus sprite (black background removed at load time)
+  const dx = 100, dy = daedalus.y;
+  if (daedalusClean) {
+    ctx.drawImage(daedalusClean, dx - 35, dy - 32, 70, 64);
+  } else if (daedalusImg && daedalusImg.complete) {
+    ctx.drawImage(daedalusImg, dx - 35, dy - 32, 70, 64);
+  } else {
+    ctx.beginPath(); ctx.arc(dx, dy, 15, 0, Math.PI * 2); ctx.fillStyle = '#d4a574'; ctx.fill();
+  }
+
+  // Progress bar at top
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(50, 8, W - 100, 10);
+  ctx.fillStyle = '#27ae60';
+  ctx.fillRect(50, 8, (W - 100) * (flightProgress / FLIGHT_DURATION), 10);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.strokeRect(50, 8, W - 100, 10);
+
+  // Sicily island scrolling in from right
+  if (flightProgress > FLIGHT_DURATION * 0.75) {
+    const islandX = W - 20 - ((flightProgress - FLIGHT_DURATION * 0.75) / (FLIGHT_DURATION * 0.25)) * (W - 120);
+    ctx.fillStyle = '#8B7355';
+    ctx.beginPath(); ctx.moveTo(islandX - 30, H - 80); ctx.lineTo(islandX, H - 120); ctx.lineTo(islandX + 30, H - 80); ctx.fill();
+    ctx.fillStyle = '#228B22';
+    ctx.beginPath(); ctx.arc(islandX, H - 120, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '10px MedievalSharp'; ctx.fillText('Sicily', islandX - 15, H - 65);
+  }
+}
+
+/* Draw a simple cloud shape */
+function drawCloud(ctx, x, y, size) {
+  ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.4, 0, Math.PI * 2);
+  ctx.arc(x + size * 0.3, y - size * 0.15, size * 0.35, 0, Math.PI * 2);
+  ctx.arc(x + size * 0.6, y, size * 0.3, 0, Math.PI * 2);
+  ctx.arc(x - size * 0.25, y + size * 0.05, size * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function completeFlightGame() {
+  flightActive = false;
+  if (flightAnimFrame) cancelAnimationFrame(flightAnimFrame);
+  state.flightComplete = true;
+  // Collect last inventory item and mark stage 5
+  const sd = getStageState(5);
+  sd.itemCollected = true;
+  state.inventory[3] = true; // wings were item 4 from stage 4, but we already have them
+  // Mark all as collected
+  for (let i = 0; i < 4; i++) state.inventory[i] = true;
+  state.totalTime = getElapsedSeconds();
+  state.currentStage = 6;
+  stopTimer();
+  saveState();
+  document.getElementById('flight-game-overlay').classList.remove('show');
+  updateInventoryBar(); renderProgressBar(); updateHeader();
+  showCinematic();
+}
+
+/* ============================================
+   STAGE 5 SPECIAL FLOW
+   After chest in stage 5, instead of item cutscene → launch flight game
+   ============================================ */
+// Override: stage 5 (index 4) chest opens → flight game
+const originalOpenChest = openChest;
+
+/* ============================================
+   CINEMATIC
+   ============================================ */
+let particleAnimFrame = null;
+function showCinematic() {
+  const o = document.getElementById('cinematic-overlay'); o.classList.add('show');
+  document.getElementById('stage-area').style.display = 'none';
+  startParticles();
+}
+function closeCinematic() {
+  document.getElementById('cinematic-overlay').classList.remove('show');
+  stopParticles(); renderEndScreen();
+}
+function startParticles() {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const particles = [];
+  for (let i = 0; i < 80; i++) particles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, vx:(Math.random()-0.5)*1.5, vy:-Math.random()*2-0.5, size:Math.random()*4+1, alpha:Math.random()*0.7+0.3, color:Math.random()>0.5?'#ffd700':'#b8860b' });
+  function animate() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.alpha-=0.002; if(p.y<-10||p.alpha<=0){p.y=canvas.height+10;p.x=Math.random()*canvas.width;p.alpha=Math.random()*0.7+0.3;} ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle=p.color;ctx.globalAlpha=p.alpha;ctx.fill(); });
+    ctx.globalAlpha=1; particleAnimFrame=requestAnimationFrame(animate);
+  }
+  animate();
+}
+function stopParticles() { if(particleAnimFrame)cancelAnimationFrame(particleAnimFrame); }
+
+/* ============================================
+   END SCREEN
+   ============================================ */
+function renderEndScreen() {
+  document.getElementById('stage-area').style.display = 'none';
+  const end = document.getElementById('end-screen');
+
+  // Build the flat question array from firstAttemptData for the server
+  const questionResults = [];
+  STAGES.forEach(stage => {
+    const stageFirst = firstAttemptData[stage.id] || {};
+    stage.questions.forEach((q, qIdx) => {
+      if (stageFirst[qIdx]) {
+        questionResults.push(stageFirst[qIdx]);
+      } else {
+        // Stage was completed on first try but question data wasn't recorded (shouldn't happen, but safe fallback)
+        questionResults.push({
+          stage: stage.id, index: qIdx, text: q.prompt,
+          selected: '', correct: '', isCorrect: false, firstAttempt: false
+        });
+      }
+    });
+  });
+
+  const firstAttemptCorrect = questionResults.filter(q => q.firstAttempt && q.isCorrect).length;
+  const totalQuestions = questionResults.length;
+
+  let totalAttempts=0, totalHints=0, stageRows='';
+  STAGES.forEach((stage,i) => {
+    const sd = state.stageData[stage.id] || {attempts:0,hintsUsed:[]};
+    totalAttempts += sd.attempts; totalHints += sd.hintsUsed.length;
+    stageRows += `<div class="stage-result-row"><span>Stage ${stage.id}: ${stage.title}</span><span>${sd.attempts} attempt${sd.attempts!==1?'s':''}, ${sd.hintsUsed.length} hint${sd.hintsUsed.length!==1?'s':''}</span></div>`;
+  });
+
+  // Show initial results (before server response)
+  end.innerHTML = `
+    <div style="text-align:center;">
+      <div style="font-size:4em;margin-bottom:12px;">🏛️🪶</div>
+      <h1 style="font-family:var(--font-display);font-size:1.8em;color:var(--green-accent);margin-bottom:16px;">Escape Complete!</h1>
+      <p style="color:var(--ink-light);font-style:italic;margin-bottom:20px;">The tale of Daedalus and Icarus is now yours to carry forward.</p>
+      <div id="server-result-area" style="margin-bottom:20px;padding:14px;background:rgba(39,174,96,0.1);border:2px solid var(--green-bright);border-radius:8px;">
+        <div style="font-family:var(--font-display);font-size:1.1em;color:var(--gold-accent);font-weight:700;">⏳ Recording results...</div>
+      </div>
+      <div class="results-grid">
+        <div class="result-card"><div class="result-value">${firstAttemptCorrect}/${totalQuestions}</div><div class="result-label">First-Attempt Correct</div></div>
+        <div class="result-card"><div class="result-value">${state.flightAttempts || 1}</div><div class="result-label">Flight Attempts</div></div>
+        <div class="result-card"><div class="result-value">${totalAttempts}</div><div class="result-label">Quiz Attempts</div></div>
+        <div class="result-card"><div class="result-value">${totalHints}</div><div class="result-label">Hints Used</div></div>
+        <div class="result-card" style="grid-column:1/-1;"><div class="result-value">${formatTime(state.totalTime)}</div><div class="result-label">Total Time</div></div>
+      </div>
+      <div class="stage-results"><strong style="font-family:var(--font-display);font-size:0.85em;color:var(--gold-accent);">Stage Breakdown</strong>${stageRows}</div>
+      <div id="assignment-area" style="display:none;margin-top:24px;"></div>
+      <div id="return-area" style="margin-top:20px;">
+        <button class="start-btn" id="return-btn" onclick="proceedToNextPortal()" style="opacity:0.5;pointer-events:none;">⏳ Saving...</button>
+      </div>
+    </div>`;
+  end.style.display = 'block';
+
+  // POST results to Odyssey server
+  sendResultsToServer(questionResults);
+}
+
+async function sendResultsToServer(questionResults) {
+  const resultArea = document.getElementById('server-result-area');
+  const returnBtn = document.getElementById('return-btn');
+  const assignArea = document.getElementById('assignment-area');
+
+  if (!ODYSSEY_TOKEN || !odysseyStudent) {
+    // Standalone mode — no server
+    resultArea.innerHTML = `
+      <div style="font-family:var(--font-display);font-size:1.3em;color:var(--green-accent);font-weight:700;">⚜️ Escape Complete!</div>
+      <div style="font-size:0.9em;color:var(--ink-light);margin-top:4px;">No server connection — launch from Odyssey dashboard for points to be recorded.</div>`;
+    returnBtn.textContent = 'Close Game';
+    returnBtn.style.opacity = '1';
+    returnBtn.style.pointerEvents = 'auto';
+    serverResultSent = false;
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/student/daedalus-complete`, {
+      method: 'POST',
+      headers: odysseyHeaders,
+      body: JSON.stringify({
+        questions: questionResults,
+        totalTime: state.totalTime || 0,
+        flightAttempts: state.flightAttempts || 1,
+        completed: true
+      })
+    });
+
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const data = await res.json();
+    serverResultSent = true;
+
+    if (data.alreadyCompleted) {
+      resultArea.innerHTML = `
+        <div style="font-family:var(--font-display);font-size:1.1em;color:var(--gold-accent);font-weight:700;">✅ Already Completed!</div>
+        <div style="font-size:0.9em;color:var(--ink-light);margin-top:4px;">Your results were already recorded. No additional points awarded.</div>`;
+    } else {
+      const passedMsg = data.passed
+        ? `<div style="color:var(--green-accent);font-weight:700;font-size:1.1em;">✅ PASSED — Portal Unlocked!</div>`
+        : `<div style="color:var(--gold-accent);font-weight:700;font-size:1.1em;">📖 Score recorded — keep studying to unlock the portal!</div>`;
+
+      resultArea.innerHTML = `
+        ${passedMsg}
+        <div style="display:flex;justify-content:center;gap:24px;margin-top:10px;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-family:var(--font-display);font-size:1.5em;color:var(--green-accent);font-weight:700;">⚜️ +${data.alliancePointsAwarded}</div>
+            <div style="font-size:0.8em;color:var(--ink-light);">Alliance Points</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:var(--font-display);font-size:1.5em;color:var(--gold-accent);font-weight:700;">📝 ${data.gradePointsEarned || 0}pts</div>
+            <div style="font-size:0.8em;color:var(--ink-light);">Quiz Grade</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:var(--font-display);font-size:1.5em;color:var(--blue-bright);font-weight:700;">${data.percentage}%</div>
+            <div style="font-size:0.8em;color:var(--ink-light);">First-Attempt Score</div>
+          </div>
+        </div>`;
+
+      // Update header AP to show new total
+      if (data.alliancePointsAwarded > 0 && odysseyStudent) {
+        odysseyStudent.alliance_points = (odysseyStudent.alliance_points || 0) + data.alliancePointsAwarded;
+        document.getElementById('points-value').textContent = odysseyStudent.alliance_points;
+      }
+
+      // Show assignment choices if passed
+      if (data.passed) {
+        assignArea.style.display = 'block';
+        assignArea.innerHTML = `
+          <div style="font-family:var(--font-display);font-size:1em;color:var(--gold-accent);margin-bottom:12px;letter-spacing:1px;">Choose Your Path</div>
+          <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+            <div style="flex:1;min-width:220px;max-width:280px;padding:16px;background:rgba(26,58,92,0.15);border:2px solid var(--blue-accent);border-radius:10px;text-align:center;">
+              <div style="font-size:2em;margin-bottom:8px;">📜</div>
+              <div style="font-family:var(--font-display);font-size:0.9em;color:var(--blue-bright);font-weight:700;">The Scholar's Path</div>
+              <div style="font-size:0.85em;color:var(--ink-medium);margin:8px 0;">Icarus Word Cloud — Capture key themes and vocabulary from the myth.</div>
+            </div>
+            <div style="flex:1;min-width:220px;max-width:280px;padding:16px;background:rgba(184,134,11,0.1);border:2px solid var(--gold-accent);border-radius:10px;text-align:center;">
+              <div style="font-size:2em;margin-bottom:8px;">🎨</div>
+              <div style="font-family:var(--font-display);font-size:0.9em;color:var(--gold-bright);font-weight:700;">The Creator's Path</div>
+              <div style="font-size:0.85em;color:var(--ink-medium);margin:8px 0;">I, Icarus — Write a story or poem (350+ words) about a character yearning for impossible powers.</div>
+            </div>
+          </div>
+          <div style="font-size:0.8em;color:var(--ink-light);margin-top:10px;font-style:italic;">Choose your assignment from the Icarus portal on your dashboard.</div>`;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to send results to server:', err);
+    serverResultSent = false;
+    lastQuestionResults = questionResults; // Store for retry
+    resultArea.innerHTML = `
+      <div style="font-family:var(--font-display);font-size:1.1em;color:var(--red-accent);font-weight:700;">⚠️ Error Saving Results</div>
+      <div style="font-size:0.9em;color:var(--ink-light);margin-top:4px;">Your game data is saved locally. Click below to retry or return to dashboard.</div>
+      <button onclick="retryServerSend()" style="margin-top:10px;padding:8px 20px;background:var(--gold-accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--font-display);">🔄 Retry</button>`;
+  }
+
+  // Enable the return button
+  returnBtn.textContent = ODYSSEY_TOKEN ? 'Return to Odyssey Dashboard →' : 'Close Game';
+  returnBtn.style.opacity = '1';
+  returnBtn.style.pointerEvents = 'auto';
+}
+
+function retryServerSend() {
+  if (lastQuestionResults) sendResultsToServer(lastQuestionResults);
+}
+
+function proceedToNextPortal() {
+  if (ODYSSEY_TOKEN) {
+    // Clear game localStorage since it's been submitted
+    localStorage.removeItem(STORAGE_KEY);
+    // Redirect to student dashboard with a parameter to auto-open Icarus portal
+    window.location.href = '/student.html?openPortal=5';
+  } else {
+    const c = document.getElementById('return-area');
+    if (c) c.innerHTML = '<div style="color:var(--green-accent);font-size:0.85em;">✓ Game complete! (Standalone mode — no server redirect)</div>';
+  }
+}
+
+/* ============================================
+   MODIFIED openChest — stage 5 goes to flight game
+   ============================================ */
+// We need to override the chest behavior for stage 5
+// The openChest function already exists. We modify it to branch:
+const _origOpenChest = window.openChest;
+window.openChest = function(stageIdx) {
+  const stage = STAGES[stageIdx]; const sd = getStageState(stage.id);
+  const shuffle = getShuffleMap(stageIdx);
+  const input = document.getElementById('chest-input');
+  const feedback = document.getElementById('chest-feedback');
+  if (!input || !feedback) return;
+  const entered = input.value.trim().toUpperCase();
+  const letters = ['A','B','C','D'];
+  let expectedCode = '';
+  shuffle.questionOrder.forEach(origQIdx => {
+    const q = stage.questions[origQIdx];
+    expectedCode += letters[shuffle.choiceOrders[origQIdx].indexOf(q.correctIdx)];
+  });
+  if (entered === expectedCode) {
+    sd.chestOpen = true; saveState();
+    if (stageIdx === 4) {
+      // Stage 5: show item cutscene for wings, then launch flight
+      showStage5ItemThenFlight();
+    } else {
+      showItemCutscene(stageIdx);
+    }
+  } else {
+    feedback.textContent = 'Wrong code! Check the letter labels next to each correct answer.';
+  }
+};
+
+function showStage5ItemThenFlight() {
+  // Show final inventory item (wings assembled) then transition to flight
+  const overlay = document.getElementById('item-cutscene');
+  const s5IconEl = document.getElementById('item-reveal-icon');
+  if (INVENTORY[3].img80) {
+    s5IconEl.innerHTML = '<img src="' + INVENTORY[3].img80 + '" style="width:80px;height:80px;object-fit:contain;">';
+  } else {
+    s5IconEl.textContent = '🦅';
+  }
+  document.getElementById('item-reveal-icon').style.animation = 'none';
+  void document.getElementById('item-reveal-icon').offsetHeight;
+  document.getElementById('item-reveal-icon').style.animation = '';
+  document.getElementById('item-reveal-title').textContent = 'All Supplies Gathered!';
+  document.getElementById('item-reveal-title').style.animation = 'none';
+  void document.getElementById('item-reveal-title').offsetHeight;
+  document.getElementById('item-reveal-title').style.animation = '';
+  document.getElementById('item-reveal-desc').textContent = 'Feathers, wax, poles — the wings are ready. You stand at the top of the tower. The sea stretches below, the sun blazes above. Remember Daedalus\'s warning: not too high, not too low.';
+  document.getElementById('item-reveal-desc').style.animation = 'none';
+  void document.getElementById('item-reveal-desc').offsetHeight;
+  document.getElementById('item-reveal-desc').style.animation = '';
+
+  let invHtml = '';
+  for (let i = 0; i < 4; i++) {
+    if (INVENTORY[i].img44) {
+      invHtml += '<div class="item-reveal-slot collected"><img src="' + INVENTORY[i].img44 + '" style="width:36px;height:36px;object-fit:contain;"></div>';
+    } else {
+      invHtml += '<div class="item-reveal-slot collected">' + INVENTORY[i].icon + '</div>';
+    }
+  }
+  const invEl = document.getElementById('item-reveal-inv');
+  invEl.innerHTML = invHtml;
+  invEl.style.animation = 'none'; void invEl.offsetHeight; invEl.style.animation = '';
+
+  const btn = document.getElementById('item-continue-btn');
+  btn.style.animation = 'none'; void btn.offsetHeight; btn.style.animation = '';
+  btn.textContent = '🪶 Take Flight! →';
+  btn.onclick = () => {
+    overlay.classList.remove('show');
+    // Mark inventory
+    for (let i = 0; i < 4; i++) state.inventory[i] = true;
+    updateInventoryBar();
+    saveState();
+    showFlightGame();
+  };
+  overlay.classList.add('show');
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+document.getElementById('btn-font-size').addEventListener('click', () => {
+  const sizes = ['normal','large','xl'], labels = ['Aa','Aa+','Aa++'];
+  const idx = sizes.indexOf(state.fontSize);
+  const next = (idx+1)%sizes.length;
+  state.fontSize = sizes[next];
+  document.body.classList.remove('font-large','font-xl');
+  if (state.fontSize==='large') document.body.classList.add('font-large');
+  if (state.fontSize==='xl') document.body.classList.add('font-xl');
+  document.getElementById('btn-font-size').textContent = labels[next];
+  document.getElementById('btn-font-size').classList.toggle('active', state.fontSize!=='normal');
+  saveState();
+});
+document.getElementById('btn-dyslexia').addEventListener('click', () => {
+  state.dyslexia = !state.dyslexia;
+  document.body.classList.toggle('dyslexia-mode', state.dyslexia);
+  document.getElementById('btn-dyslexia').classList.toggle('active', state.dyslexia);
+  saveState();
+});
+document.getElementById('btn-contrast').addEventListener('click', () => {
+  state.highContrast = !state.highContrast;
+  document.body.classList.toggle('high-contrast', state.highContrast);
+  document.getElementById('btn-contrast').classList.toggle('active', state.highContrast);
+  saveState();
+});
+
+/* TEACHER MODAL */
+document.getElementById('btn-teacher').addEventListener('click', () => { document.getElementById('teacher-modal').classList.add('show'); renderTeksMap(); });
+document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && e.key === 'K') { e.preventDefault(); document.getElementById('teacher-modal').classList.add('show'); renderTeksMap(); } });
+document.getElementById('modal-close').addEventListener('click', () => { document.getElementById('teacher-modal').classList.remove('show'); });
+document.getElementById('teacher-modal').addEventListener('click', (e) => { if (e.target === document.getElementById('teacher-modal')) document.getElementById('teacher-modal').classList.remove('show'); });
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (document.getElementById('reset-input').value.trim() === 'RESET') { resetState(); }
+  else document.getElementById('reset-feedback').textContent = 'Type RESET exactly to confirm.';
+});
+function renderTeksMap() {
+  let html = '<div style="font-size:0.85em;">';
+  STAGES.forEach(stage => { html += `<p style="margin-top:8px;"><strong>Stage ${stage.id}:</strong></p>`; stage.questions.forEach((q,i) => { html += `<p style="padding-left:12px;">Q${i+1}: ${q.teks.join(', ')}</p>`; }); });
+  document.getElementById('teks-map').innerHTML = html + '</div>';
+}
+
+/* ============================================
+   INIT
+   ============================================ */
+async function init() {
+  // Connect to Odyssey server if token is present
+  await connectToOdyssey();
+
+  const resumed = loadState();
+  if (resumed && state.started) {
+    if (state.fontSize==='large') document.body.classList.add('font-large');
+    if (state.fontSize==='xl') document.body.classList.add('font-xl');
+    if (state.dyslexia) { document.body.classList.add('dyslexia-mode'); document.getElementById('btn-dyslexia').classList.add('active'); }
+    if (state.highContrast) { document.body.classList.add('high-contrast'); document.getElementById('btn-contrast').classList.add('active'); }
+    if (state.fontSize==='large') { document.getElementById('btn-font-size').textContent='Aa+'; document.getElementById('btn-font-size').classList.add('active'); }
+    else if (state.fontSize==='xl') { document.getElementById('btn-font-size').textContent='Aa++'; document.getElementById('btn-font-size').classList.add('active'); }
+
+    document.getElementById('welcome-screen').style.display = 'none';
+    updateInventoryBar(); renderProgressBar(); updateHeader();
+
+    if (state.currentStage >= 1 && state.currentStage <= 5) {
+      startTimer();
+      // Check if stage 5 chest was opened but flight not done
+      if (state.currentStage === 5) {
+        const sd5 = state.stageData[5];
+        if (sd5 && sd5.chestOpen && !state.flightComplete) {
+          showFlightGame();
+          startTimer();
+          return;
+        }
+      }
+      renderStage(state.currentStage - 1);
+    } else if (state.currentStage === 6) {
+      renderEndScreen();
+    }
+  } else {
+    renderProgressBar(); updateHeader(); updateInventoryBar();
+  }
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  initSeed(); state.started = true; state.currentStage = 1; saveState();
+  document.getElementById('welcome-screen').style.display = 'none';
+  startTimer(); renderProgressBar(); updateHeader(); renderStage(0);
+});
+
+init();
+</script>
+</body>
+</html>
