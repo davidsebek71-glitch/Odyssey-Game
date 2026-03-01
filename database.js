@@ -633,6 +633,43 @@ async function initDatabase() {
     )
   `);
 
+  // ==================== DAEDALUS ESCAPE GAME TABLES ====================
+
+  // Game completion records (one per completed playthrough)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS daedalus_game_results (
+      result_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      total_questions INTEGER NOT NULL DEFAULT 17,
+      first_attempt_correct INTEGER NOT NULL DEFAULT 0,
+      total_correct INTEGER NOT NULL DEFAULT 0,
+      total_time_seconds INTEGER,
+      flight_attempts INTEGER DEFAULT 0,
+      completed INTEGER DEFAULT 0,
+      alliance_points_awarded INTEGER DEFAULT 0,
+      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(student_id)
+    )
+  `);
+
+  // Per-question answer tracking (for teacher monitoring)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS daedalus_question_answers (
+      answer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      result_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      stage_number INTEGER NOT NULL,
+      question_index INTEGER NOT NULL,
+      question_text TEXT,
+      selected_answer TEXT,
+      correct_answer TEXT,
+      is_correct INTEGER DEFAULT 0,
+      is_first_attempt INTEGER DEFAULT 0,
+      FOREIGN KEY (result_id) REFERENCES daedalus_game_results(result_id),
+      FOREIGN KEY (student_id) REFERENCES students(student_id)
+    )
+  `);
+
   // ==================== TRADE SYSTEM TABLES ====================
 
   // Alliance native resource assignments (no shared pool — students buy directly)
@@ -2232,16 +2269,8 @@ function seedClassicalData() {
         [4, 'What happened to Narcissus?', 'He became king of Athens', 'He married Echo and they lived happily ever after', 'He fell in love with his own reflection and died', 'He was turned into a statue by Athena', 'c'],
 
         // ==================== ICARUS (portal_id = 5) ====================
-        [5, 'Who built the Labyrinth? p.87', 'Zeus', 'Theseus', 'Daedalus', 'Minos', 'c'],
-        [5, 'Why were Daedalus and Icarus imprisoned? p.88', 'They stole from the king', 'King Minos wanted to keep Daedalus\'s genius trapped on Crete', 'They tried to kill the Minotaur', 'They refused to build a temple', 'b'],
-        [5, 'What did Daedalus use to build the wings? p.89', 'Metal and leather', 'Feathers and wax', 'Silk and wood', 'Leaves and clay', 'b'],
-        [5, 'What warning did Daedalus give Icarus? p.89', 'Don\'t fly at night', 'Don\'t fly over the sea', 'Don\'t fly too close to the sun or too close to the sea', 'Don\'t fly faster than the birds', 'c'],
-        [5, 'What happened to Icarus? p.90', 'He made it to safety', 'He flew too high, the wax melted, and he fell into the sea', 'He was caught by King Minos', 'He landed on Mount Olympus', 'b'],
-        [5, 'What was the Minotaur? p.87', 'A giant snake', 'A three-headed dog', 'Half man, half bull', 'A flying horse', 'c'],
-        [5, 'Who was King Minos? p.87', 'King of Athens', 'King of Sparta', 'King of Crete', 'King of Troy', 'c'],
-        [5, 'Why didn\'t Daedalus and Icarus escape by boat? p.88', 'They couldn\'t swim', 'Minos controlled all the ships and searched them', 'The sea was too rough', 'There were sea monsters', 'b'],
-        [5, 'What sea is named after Icarus? p.90', 'The Aegean Sea', 'The Mediterranean Sea', 'The Icarian Sea', 'The Red Sea', 'c'],
-        [5, 'What is the main lesson of Icarus\'s story?', 'Never try to fly', 'Prudence — know the limits and find the wise middle path', 'Always obey your father', 'Technology is dangerous', 'b'],
+        // Portal 5 quiz is handled by the Wings of Daedalus escape game (daedalus_escape.html)
+        // No seeded questions needed — the game has its own 17 built-in questions
 
         // ==================== EROS & PSYCHE (portal_id = 6) ====================
         [6, 'Which goddess was jealous of Psyche?', 'Athena', 'Aphrodite', 'Hera', 'Demeter', 'b'],
