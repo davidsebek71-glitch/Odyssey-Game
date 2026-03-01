@@ -571,6 +571,7 @@ const API_BASE = window.location.origin;
 let odysseyStudent = null; // { student_id, name, alliance_id, alliance_name }
 let odysseyHeaders = null;
 let serverResultSent = false;
+let lastQuestionResults = null; // Stored for retry on error
 
 // First-attempt tracking: records whether each question was answered correctly on the FIRST submission of its stage
 let firstAttemptData = {}; // keyed by stage_id, e.g. { 1: { 0: {selected:'b', correct:'b', isCorrect:true, text:'...'}, ... } }
@@ -585,16 +586,20 @@ async function connectToOdyssey() {
     const res = await fetch(`${API_BASE}/api/student/dashboard`, { headers: odysseyHeaders });
     if (!res.ok) throw new Error(`Dashboard fetch failed: ${res.status}`);
     const data = await res.json();
+    // Find this student's alliance from the alliances array
+    const studentAlliance = data.alliances ? data.alliances.find(a => a.alliance_id === data.student?.alliance_id) : null;
     odysseyStudent = {
       student_id: data.student?.student_id,
       name: data.student?.name || 'Student',
       alliance_id: data.student?.alliance_id,
-      alliance_name: data.alliance?.alliance_name || data.alliance?.name || 'Unknown Alliance'
+      alliance_name: studentAlliance?.alliance_name || 'Unknown Alliance',
+      alliance_points: studentAlliance?.display_points || studentAlliance?.total_points || 0
     };
-    console.log(`✅ Odyssey connected: ${odysseyStudent.name} (${odysseyStudent.alliance_name})`);
-    // Update header with student info
+    console.log(`✅ Odyssey connected: ${odysseyStudent.name} (${odysseyStudent.alliance_name}, ${odysseyStudent.alliance_points} pts)`);
+    // Update header with student name and real alliance points
     const titleEl = document.querySelector('.game-title');
     if (titleEl) titleEl.textContent = `🪶 Wings of Daedalus — ${odysseyStudent.name}`;
+    document.getElementById('points-value').textContent = odysseyStudent.alliance_points;
     return true;
   } catch (err) {
     console.error('Odyssey connection failed:', err);
@@ -713,7 +718,9 @@ function loadState() {
 function resetState() { localStorage.removeItem(STORAGE_KEY); location.reload(); }
 function initSeed() { if (!state.seed) state.seed = Math.floor(Math.random() * 2147483647) + 1; }
 function getStageState(sid) {
-  if (!state.stageData[sid]) state.stageData[sid] = { attempts:0, selections:{}, hintsUsed:[], eliminated:{}, completed:false, chestOpen:false, itemCollected:false };
+  if (!state.stageData[sid]) state.stageData[sid] = { attempts:0, selections:{}, hintsUsed:[], eliminated:{}, correctLocked:{}, completed:false, chestOpen:false, itemCollected:false };
+  // Migrate old state that doesn't have correctLocked
+  if (!state.stageData[sid].correctLocked) state.stageData[sid].correctLocked = {};
   return state.stageData[sid];
 }
 function getShuffleMap(si) {
@@ -811,20 +818,38 @@ function renderStage(stageIdx) {
     const q = stage.questions[origQIdx];
     const choiceOrder = shuffle.choiceOrders[origQIdx];
     const isLocked = sd.completed;
-    html += `<div class="question-block" data-qidx="${origQIdx}"><div class="question-number">Question ${displayIdx + 1}</div><div class="question-prompt">${q.prompt}</div><div class="choices-list">`;
-    choiceOrder.forEach((origCIdx, shuffledPos) => {
-      const selected = sd.selections[origQIdx] === shuffledPos;
-      const eliminated = sd.eliminated[origQIdx] && sd.eliminated[origQIdx].includes(shuffledPos);
-      let cls = 'choice-btn';
-      if (selected) cls += ' selected';
-      if (eliminated) cls += ' eliminated';
-      if (isLocked) cls += ' locked';
-      html += `<button class="${cls}" data-stage="${stageIdx}" data-qidx="${origQIdx}" data-spos="${shuffledPos}" ${eliminated || isLocked ? 'disabled' : ''} onclick="selectChoice(${stageIdx},${origQIdx},${shuffledPos})"><span class="choice-letter">${letters[shuffledPos]}</span><span>${q.choices[origCIdx]}</span></button>`;
-    });
-    html += `</div>`;
-    const hintUsed = sd.hintsUsed.includes(origQIdx);
-    html += `<div class="hint-area"><button class="hint-btn" ${hintUsed||isLocked?'disabled':''} onclick="useHint(${stageIdx},${origQIdx})">${hintUsed?'💡 Hint Used':`💡 Hint (−${CONFIG.hintCost} AP)`}</button></div>`;
-    html += `<div class="hint-text ${hintUsed?'visible':''}" id="hint-${origQIdx}">${hintUsed?q.hint:''}</div></div>`;
+    const isCorrectLocked = sd.correctLocked[origQIdx] !== undefined;
+
+    if (isCorrectLocked && !isLocked) {
+      // This question was answered correctly — show locked green state
+      const lockedPos = sd.correctLocked[origQIdx];
+      const lockedOrigCIdx = choiceOrder[lockedPos];
+      html += `<div class="question-block" data-qidx="${origQIdx}" style="opacity:0.7;border-left:3px solid var(--green-bright);padding-left:12px;">`;
+      html += `<div class="question-number" style="color:var(--green-accent);">✅ Question ${displayIdx + 1}</div>`;
+      html += `<div class="question-prompt" style="color:var(--ink-light);">${q.prompt}</div>`;
+      html += `<div class="choices-list">`;
+      html += `<button class="choice-btn selected locked" disabled style="border-color:var(--green-bright);background:rgba(39,174,96,0.1);"><span class="choice-letter" style="background:var(--green-accent);color:#fff;">${letters[lockedPos]}</span><span>${q.choices[lockedOrigCIdx]}</span></button>`;
+      html += `</div></div>`;
+    } else {
+      // Normal question rendering (active or fully locked after completion)
+      html += `<div class="question-block" data-qidx="${origQIdx}"><div class="question-number">Question ${displayIdx + 1}</div><div class="question-prompt">${q.prompt}</div><div class="choices-list">`;
+      choiceOrder.forEach((origCIdx, shuffledPos) => {
+        const selected = sd.selections[origQIdx] === shuffledPos;
+        const eliminated = sd.eliminated[origQIdx] && sd.eliminated[origQIdx].includes(shuffledPos);
+        let cls = 'choice-btn';
+        if (selected) cls += ' selected';
+        if (eliminated) cls += ' eliminated';
+        if (isLocked) cls += ' locked';
+        html += `<button class="${cls}" data-stage="${stageIdx}" data-qidx="${origQIdx}" data-spos="${shuffledPos}" ${eliminated || isLocked ? 'disabled' : ''} onclick="selectChoice(${stageIdx},${origQIdx},${shuffledPos})"><span class="choice-letter">${letters[shuffledPos]}</span><span>${q.choices[origCIdx]}</span></button>`;
+      });
+      html += `</div>`;
+      const hintUsed = sd.hintsUsed.includes(origQIdx);
+      if (!isCorrectLocked) {
+        html += `<div class="hint-area"><button class="hint-btn" ${hintUsed||isLocked?'disabled':''} onclick="useHint(${stageIdx},${origQIdx})">${hintUsed?'💡 Hint Used':`💡 Hint (−${CONFIG.hintCost} AP)`}</button></div>`;
+        html += `<div class="hint-text ${hintUsed?'visible':''}" id="hint-${origQIdx}">${hintUsed?q.hint:''}</div>`;
+      }
+      html += `</div>`;
+    }
   });
   html += `</div>`;
 
@@ -855,6 +880,7 @@ function renderStage(stageIdx) {
 function selectChoice(stageIdx, qOrigIdx, shuffledPos) {
   const sd = getStageState(STAGES[stageIdx].id);
   if (sd.completed) return;
+  if (sd.correctLocked[qOrigIdx] !== undefined) return; // Already correct — locked
   sd.selections[qOrigIdx] = shuffledPos;
   saveState();
   const qBlock = document.querySelector(`.question-block[data-qidx="${qOrigIdx}"]`);
@@ -865,8 +891,10 @@ function submitStage(stageIdx) {
   const stage = STAGES[stageIdx];
   const sd = getStageState(stage.id);
   const shuffle = getShuffleMap(stageIdx);
-  const allAnswered = stage.questions.every((_,i) => sd.selections[i] !== undefined);
-  if (!allAnswered) { showFeedback('Please answer all questions before submitting.', false); return; }
+
+  // Only check unanswered (unlocked) questions
+  const needsAnswer = stage.questions.some((_,i) => !sd.correctLocked[i] && sd.selections[i] === undefined);
+  if (needsAnswer) { showFeedback('Please answer all remaining questions before submitting.', false); return; }
 
   // Track first-attempt answers (only on the FIRST submission of this stage)
   const isFirstAttempt = (sd.attempts === 0);
@@ -877,11 +905,20 @@ function submitStage(stageIdx) {
   let allCorrect = true;
   const letters = ['a','b','c','d'];
   stage.questions.forEach((q, origQIdx) => {
+    // Skip already-locked correct questions
+    if (sd.correctLocked[origQIdx]) return;
+
     const selectedOrigIdx = shuffle.choiceOrders[origQIdx][sd.selections[origQIdx]];
     const isCorrect = (selectedOrigIdx === q.correctIdx);
-    if (!isCorrect) allCorrect = false;
 
-    // Record this answer for server reporting
+    if (isCorrect) {
+      // Lock this question as correct — won't be shown again
+      sd.correctLocked[origQIdx] = sd.selections[origQIdx]; // store the shuffled position
+    } else {
+      allCorrect = false;
+    }
+
+    // Record this answer for server reporting (first attempt only)
     if (isFirstAttempt) {
       firstAttemptData[stage.id][origQIdx] = {
         stage: stage.id,
@@ -902,11 +939,16 @@ function submitStage(stageIdx) {
     setTimeout(() => { renderStage(stageIdx); setTimeout(() => { const c = document.getElementById('chest-panel'); if (c) c.scrollIntoView({behavior:'smooth',block:'center'}); }, 100); }, 1200);
   } else {
     if (sd.attempts >= CONFIG.attemptsBeforeHelp) eliminateWrongAnswers(stageIdx);
-    // Clear wrong selections so student starts fresh
-    sd.selections = {};
+    // Only clear selections for WRONG questions — correct ones stay locked
+    const newSelections = {};
+    Object.keys(sd.correctLocked).forEach(k => { newSelections[k] = sd.correctLocked[k]; });
+    sd.selections = newSelections;
     saveState();
-    showFeedback('❌ Not quite — try again!', false);
-    // Re-render after delay to show eliminated answers and clear selections
+
+    // Count how many are still wrong
+    const wrongCount = stage.questions.filter((_,i) => !sd.correctLocked[i]).length;
+    const rightCount = stage.questions.length - wrongCount;
+    showFeedback(`❌ ${rightCount} correct, ${wrongCount} still need work — try again!`, false);
     setTimeout(() => { renderStage(stageIdx); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 1800);
   }
 }
@@ -914,6 +956,7 @@ function submitStage(stageIdx) {
 function eliminateWrongAnswers(stageIdx) {
   const stage = STAGES[stageIdx]; const sd = getStageState(stage.id); const shuffle = getShuffleMap(stageIdx);
   stage.questions.forEach((q, origQIdx) => {
+    if (sd.correctLocked[origQIdx] !== undefined) return; // Already correct — skip
     if (sd.eliminated[origQIdx] && sd.eliminated[origQIdx].length > 0) return;
     const wrongPos = [];
     shuffle.choiceOrders[origQIdx].forEach((origCIdx, sPos) => { if (origCIdx !== q.correctIdx) wrongPos.push(sPos); });
@@ -1511,6 +1554,12 @@ async function sendResultsToServer(questionResults) {
           </div>
         </div>`;
 
+      // Update header AP to show new total
+      if (data.alliancePointsAwarded > 0 && odysseyStudent) {
+        odysseyStudent.alliance_points = (odysseyStudent.alliance_points || 0) + data.alliancePointsAwarded;
+        document.getElementById('points-value').textContent = odysseyStudent.alliance_points;
+      }
+
       // Show assignment choices if passed
       if (data.passed) {
         assignArea.style.display = 'block';
@@ -1534,16 +1583,21 @@ async function sendResultsToServer(questionResults) {
   } catch (err) {
     console.error('Failed to send results to server:', err);
     serverResultSent = false;
+    lastQuestionResults = questionResults; // Store for retry
     resultArea.innerHTML = `
       <div style="font-family:var(--font-display);font-size:1.1em;color:var(--red-accent);font-weight:700;">⚠️ Error Saving Results</div>
       <div style="font-size:0.9em;color:var(--ink-light);margin-top:4px;">Your game data is saved locally. Click below to retry or return to dashboard.</div>
-      <button onclick="sendResultsToServer(${JSON.stringify(questionResults).replace(/"/g,'&quot;')})" style="margin-top:10px;padding:8px 20px;background:var(--gold-accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--font-display);">🔄 Retry</button>`;
+      <button onclick="retryServerSend()" style="margin-top:10px;padding:8px 20px;background:var(--gold-accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--font-display);">🔄 Retry</button>`;
   }
 
   // Enable the return button
   returnBtn.textContent = ODYSSEY_TOKEN ? 'Return to Odyssey Dashboard →' : 'Close Game';
   returnBtn.style.opacity = '1';
   returnBtn.style.pointerEvents = 'auto';
+}
+
+function retryServerSend() {
+  if (lastQuestionResults) sendResultsToServer(lastQuestionResults);
 }
 
 function proceedToNextPortal() {
