@@ -2393,11 +2393,18 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
     `);
     
     // === QUIZ ATTEMPTS & MYTH COMPLETIONS (for Classical grading) ===
-    const allQuizAttempts = query('SELECT student_id, portal_id, passed FROM myth_quiz_attempts WHERE passed = 1');
+    const allQuizAttempts = query('SELECT student_id, portal_id, passed, score, total_questions, percentage FROM myth_quiz_attempts WHERE passed = 1');
     let allMythCompletions = [];
     try {
-      allMythCompletions = query('SELECT student_id, portal_id, teacher_approved FROM student_myth_completion WHERE teacher_approved = 1');
+      allMythCompletions = query('SELECT student_id, portal_id, teacher_approved, points_earned, assignment_path FROM student_myth_completion WHERE teacher_approved = 1');
     } catch (e) { /* table may not exist yet */ }
+    
+    // Build a lookup of max_points per myth per assignment_type from assignments_ref
+    const classicalMaxLookup = {};
+    classicalAssignments.forEach(a => {
+      if (!classicalMaxLookup[a.myth_god]) classicalMaxLookup[a.myth_god] = {};
+      classicalMaxLookup[a.myth_god][a.assignment_type] = a.max_points;
+    });
     
     // Calculate grades for each student - return BOTH ages for Classical students
     const studentsWithGrades = students.map(student => {
@@ -2445,21 +2452,35 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
           const portalId = idx + 1;
           const aliases = mythAliases[mythName] || [mythName];
           
-          // Reading guide points (comp_conn for this myth in classical section)
+          // Look up max_points for this myth from assignments_ref
+          const mythMaxLookup = {};
+          aliases.forEach(alias => {
+            if (classicalMaxLookup[alias]) Object.assign(mythMaxLookup, classicalMaxLookup[alias]);
+          });
+          const guideMax = mythMaxLookup['comp_conn'] || 12;
+          const quizMax = mythMaxLookup['quiz'] || 10;
+          
+          // Reading guide points (actual earned from grade_records)
           const guidePoints = studentRecords
             .filter(r => r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
             .reduce((sum, r) => sum + r.points_earned, 0);
           
-          // Quiz points (10 if passed)
-          const quizPassed = studentQuizzes.some(q => q.portal_id === portalId);
-          const quizPoints = quizPassed ? 10 : 0;
+          // Quiz points (actual earned from grade_records, NOT hardcoded)
+          const quizGradePoints = studentRecords
+            .filter(r => r.assignment_type === 'quiz' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
+            .reduce((sum, r) => sum + r.points_earned, 0);
           
-          // Portal assignment points (15 if approved)
+          // Portal assignment points (actual earned from student_myth_completion)
           const completion = studentCompletions.find(c => c.portal_id === portalId);
-          const portalPoints = completion ? 15 : 0;
+          const portalPoints = completion ? (completion.points_earned || 0) : 0;
           
-          const earned = Math.min(guidePoints, 12) + quizPoints + portalPoints;
-          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, 12), quiz: quizPoints, portal: portalPoints };
+          // Word cloud points (actual earned from grade_records)
+          const wordCloudPoints = studentRecords
+            .filter(r => r.assignment_type === 'word_cloud' && r.section === 'classical_creative' && aliases.some(a => r.myth_god === a))
+            .reduce((sum, r) => sum + r.points_earned, 0);
+          
+          const earned = Math.min(guidePoints, guideMax) + Math.min(quizGradePoints, quizMax) + portalPoints + wordCloudPoints;
+          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, guideMax), quiz: quizGradePoints, portal: portalPoints, wordCloud: wordCloudPoints };
         });
         
         const claBonus = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
@@ -8547,8 +8568,8 @@ app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) =
       return res.status(400).json({ error: 'Missing student_id, portal_id, or assignment_path' });
     }
     
-    // Default to 15 if no score provided (backward compatible)
-    const pointsEarned = (points !== undefined && points !== null && points !== '') ? parseInt(points) : 15;
+    // Points: 0 means status-only approval (no alliance points), positive means explicit score
+    const pointsEarned = (points !== undefined && points !== null && points !== '') ? parseInt(points) : 0;
     
     // Upsert the completion record with score
     const existing = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);

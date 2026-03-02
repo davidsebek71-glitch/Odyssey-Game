@@ -4928,9 +4928,9 @@
                                 <tr style="background: rgba(255,255,255,0.05);">
                                     <th style="text-align: left; padding: 8px 10px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 120px; position: sticky; left: 0; background: #1a1a2e; z-index: 1;">Student</th>
                                     ${mythNames.map((m, i) => `<th style="text-align: center; padding: 8px 6px; font-weight: 600; color: rgba(255,255,255,0.7); border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 65px;">
-                                        ${mythEmoji[i]}<br><span style="font-size: 10px;">${mythShort[i]}</span><br><span style="font-size: 9px; font-weight: normal; color: rgba(255,255,255,0.4);">/37</span>
+                                        ${mythEmoji[i]}<br><span style="font-size: 10px;">${mythShort[i]}</span>
                                     </th>`).join('')}
-                                    <th style="text-align: center; padding: 8px 10px; font-weight: 700; color: #60a5fa; border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 70px;">Total<br><span style="font-size: 9px; font-weight: normal; color: rgba(255,255,255,0.4);">/259</span></th>
+                                    <th style="text-align: center; padding: 8px 10px; font-weight: 700; color: #60a5fa; border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 70px;">Total</th>
                                 </tr>
                             </thead>
                             <tbody>`;
@@ -4947,17 +4947,15 @@
                         mythNames.forEach(mythName => {
                             const myth = myths[mythName] || { earned: 0 };
                             totalEarned += myth.earned;
-                            const pct = Math.round((myth.earned / 37) * 100);
-                            const col = myth.earned === 37 ? '#4ade80' : (myth.earned > 0 ? '#fbbf24' : 'rgba(255,255,255,0.25)');
+                            const col = myth.earned > 0 ? '#fbbf24' : 'rgba(255,255,255,0.25)';
                             html += `<td style="text-align: center; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                 <span style="color: ${col}; font-weight: 600;">${myth.earned}</span>
                             </td>`;
                         });
                         
-                        const totalPct = Math.round((totalEarned / 259) * 100);
+                        const totalPct = totalEarned;
                         html += `<td style="text-align: center; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <span style="color: ${getColorForPercent(totalPct)}; font-weight: 700;">${totalEarned}</span>
-                            <span style="color: rgba(255,255,255,0.4); font-size: 10px;"> (${totalPct}%)</span>
+                            <span style="color: ${totalEarned > 0 ? '#60a5fa' : 'rgba(255,255,255,0.25)'}; font-weight: 700;">${totalEarned}</span>
                         </td></tr>`;
                     });
                     
@@ -5098,7 +5096,7 @@
                             cellBg = 'rgba(74,222,128,0.05)';
                         } else if (myth.quiz_passed) {
                             // Quiz passed, needs approval
-                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name}', '${myth.myth_name}')" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
+                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name.replace(/'/g, "\\'")}', '${myth.myth_name.replace(/'/g, "\\'")}')" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
                             cellBg = 'rgba(251,191,36,0.05)';
                         } else {
                             // Quiz not passed
@@ -5129,25 +5127,20 @@
         }
         
         async function approveMythAssignment(studentId, portalId, studentName, mythName) {
-            // Simple confirmation - the score already exists from the graded submission
-            const score = prompt(`Approve ${studentName}'s ${mythName} assignment?\n\nScore out of 15 (the grade from their submission):`, '15');
-            if (score === null) return;
-            
-            const points = parseInt(score) || 15;
-            const path = prompt('Which path?\n1 = Scholar\'s (analytical)\n2 = Creator\'s (creative)', '1');
-            if (path === null) return;
-            
-            const assignmentPath = path === '2' ? 'creative' : 'analytical';
+            // Single-click approval — status change only
+            // Score comes from student's graded submission, not manual input
+            // Pathway comes from student's submission metadata
+            if (!confirm(`Approve ${studentName}'s ${mythName} assignment?\n\nThis marks their submission as approved so they can claim their virtue.`)) return;
             
             try {
                 const res = await fetch(`${API_URL}/teacher/approve-myth-assignment`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: assignmentPath, points: points })
+                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: 'pending', points: 0 })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message);
+                    alert(`✅ ${studentName}'s ${mythName} approved!`);
                     loadMythProgress(mythProgressPeriod);
                 } else {
                     alert(data.error || 'Failed to approve');
