@@ -8641,17 +8641,84 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
     const completions = query(`SELECT smc.* FROM student_myth_completion smc 
       JOIN students s ON smc.student_id = s.student_id WHERE s.class_period = ?`, [period]);
     
+    // Get all grade records for students in this period (joined with assignments_ref)
+    const gradeRecords = query(`
+      SELECT gr.student_id, gr.points_earned, ar.myth_god, ar.assignment_type, ar.section, ar.max_points
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      JOIN students s ON gr.student_id = s.student_id
+      WHERE s.class_period = ? AND ar.section IN ('classical', 'classical_creative')
+    `, [period]);
+    
+    // Get max points per myth per assignment type from assignments_ref
+    const maxPointsRef = query(`
+      SELECT myth_god, assignment_type, section, max_points 
+      FROM assignments_ref 
+      WHERE section IN ('classical', 'classical_creative')
+    `);
+    
+    // Map portal myth_name → assignments_ref myth_god aliases
+    const mythAliases = {
+      'Pandora': ['Pandora'],
+      'Phaethon': ['Phaethon'],
+      'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
+      'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
+      'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
+      'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
+      'Constellations': ['Constellations']
+    };
+    
+    // Build max lookup: { mythAlias: { comp_conn: 12, quiz: 10, word_cloud: 12 } }
+    const maxLookup = {};
+    maxPointsRef.forEach(r => {
+      if (!maxLookup[r.myth_god]) maxLookup[r.myth_god] = {};
+      maxLookup[r.myth_god][r.assignment_type] = r.max_points;
+    });
+    
     const studentData = students.map(s => {
       const mythProgress = portals.map(p => {
         const quizPassed = quizPasses.some(qp => qp.student_id === s.student_id && qp.portal_id === p.portal_id);
         const completion = completions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
+        
+        // Find grade records for this student + myth
+        const aliases = mythAliases[p.myth_name] || [p.myth_name];
+        const studentMythRecords = gradeRecords.filter(r => r.student_id === s.student_id && aliases.some(a => r.myth_god === a));
+        
+        // Look up max points for this myth
+        const mythMax = {};
+        aliases.forEach(a => { if (maxLookup[a]) Object.assign(mythMax, maxLookup[a]); });
+        
+        const guideMax = mythMax['comp_conn'] || 12;
+        const quizMax = mythMax['quiz'] || 10;
+        const creativeMax = mythMax['word_cloud'] || 12;
+        const totalMax = guideMax + quizMax + creativeMax;
+        
+        // Calculate earned per type
+        const guideEarned = studentMythRecords
+          .filter(r => r.assignment_type === 'comp_conn')
+          .reduce((sum, r) => sum + r.points_earned, 0);
+        const quizEarned = studentMythRecords
+          .filter(r => r.assignment_type === 'quiz')
+          .reduce((sum, r) => sum + r.points_earned, 0);
+        const creativeEarned = studentMythRecords
+          .filter(r => r.assignment_type === 'word_cloud')
+          .reduce((sum, r) => sum + r.points_earned, 0);
+        
+        const totalEarned = Math.min(guideEarned, guideMax) + Math.min(quizEarned, quizMax) + Math.min(creativeEarned, creativeMax);
+        const pct = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
+        
         return {
           portal_id: p.portal_id,
           myth_name: p.myth_name,
           quiz_passed: quizPassed,
           assignment_path: completion ? completion.assignment_path : null,
           teacher_approved: completion ? completion.teacher_approved === 1 : false,
-          virtue_claimed: completion ? completion.virtue_claimed === 1 : false
+          virtue_claimed: completion ? completion.virtue_claimed === 1 : false,
+          // Grade breakdown for hover tooltip
+          guide: { earned: Math.min(guideEarned, guideMax), max: guideMax },
+          quiz: { earned: Math.min(quizEarned, quizMax), max: quizMax },
+          creative: { earned: Math.min(creativeEarned, creativeMax), max: creativeMax },
+          total: { earned: totalEarned, max: totalMax, pct }
         };
       });
       return { ...s, myths: mythProgress };

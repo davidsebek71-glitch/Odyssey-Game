@@ -5086,20 +5086,34 @@
                         let cellContent = '';
                         let cellBg = 'transparent';
                         
+                        // Build tooltip showing assignment breakdown
+                        const g = myth.guide || { earned: 0, max: 12 };
+                        const q = myth.quiz || { earned: 0, max: 10 };
+                        const c = myth.creative || { earned: 0, max: 12 };
+                        const t = myth.total || { earned: 0, max: 34, pct: 0 };
+                        const gCheck = g.earned > 0 ? '✅' : '❌';
+                        const qCheck = q.earned > 0 ? '✅' : '❌';
+                        const cCheck = c.earned > 0 ? '✅' : '❌';
+                        const tooltip = `Reading Guide: ${g.earned}/${g.max} ${gCheck}&#10;Quiz: ${q.earned}/${q.max} ${qCheck}&#10;Creative/CER: ${c.earned}/${c.max} ${cCheck}&#10;──────────&#10;Total: ${t.earned}/${t.max} (${t.pct}%)`;
+                        
                         if (myth.virtue_claimed) {
                             // Fully complete
-                            cellContent = '🌟';
+                            cellContent = `<span title="${tooltip}">🌟</span>`;
                             cellBg = 'rgba(74,222,128,0.1)';
                         } else if (myth.teacher_approved) {
                             // Approved, awaiting claim
-                            cellContent = `<span style="color: #4ade80;">✅</span>`;
+                            cellContent = `<span style="color: #4ade80;" title="${tooltip}">✅</span>`;
                             cellBg = 'rgba(74,222,128,0.05)';
-                        } else if (myth.quiz_passed) {
-                            // Quiz passed, needs approval
-                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name.replace(/'/g, "\\'")}', '${myth.myth_name.replace(/'/g, "\\'")}')" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
-                            cellBg = 'rgba(251,191,36,0.05)';
+                        } else if (t.pct >= 80) {
+                            // 80%+ earned — purple Approve button
+                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name.replace(/'/g, "\\'")}', '${myth.myth_name.replace(/'/g, "\\'")}')" title="${tooltip}" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
+                            cellBg = 'rgba(168,85,247,0.05)';
+                        } else if (t.earned > 0) {
+                            // Some progress but below 80% — gray indicator with tooltip
+                            cellContent = `<span title="${tooltip}" style="padding: 3px 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: rgba(255,255,255,0.4); font-size: 11px; cursor: help; display: inline-block;">${t.pct}%</span>`;
+                            cellBg = 'rgba(255,255,255,0.02)';
                         } else {
-                            // Quiz not passed
+                            // No progress
                             cellContent = '<span style="color: rgba(255,255,255,0.15);">—</span>';
                         }
                         
@@ -5113,8 +5127,9 @@
                 
                 // Legend
                 html += `<div style="display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: rgba(255,255,255,0.5); flex-wrap: wrap;">
-                    <span>— = Quiz not passed</span>
-                    <span style="color: #c4b5fd;">Approve = Quiz passed, verify in Classroom</span>
+                    <span>— = No progress</span>
+                    <span style="color: rgba(255,255,255,0.4);">##% = In progress (hover for details)</span>
+                    <span style="color: #c4b5fd;">Approve = 80%+ earned, ready for review</span>
                     <span style="color: #4ade80;">✅ = Approved, student can claim</span>
                     <span>🌟 = Virtue claimed</span>
                 </div>`;
