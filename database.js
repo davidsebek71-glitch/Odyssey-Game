@@ -1480,6 +1480,14 @@ function seedReferenceData() {
     console.log('Migration note: Icarus scoring update -', e.message);
   }
 
+  // Add daily_trade_limit to trade_window
+  try {
+    run("ALTER TABLE trade_window ADD COLUMN daily_trade_limit INTEGER DEFAULT 5");
+    console.log('✅ Added daily_trade_limit to trade_window');
+  } catch (e) {
+    console.log('Migration note: daily_trade_limit -', e.message);
+  }
+
   // ==================== END MIGRATIONS ====================
   
   // ==================== CLASSICAL AGE SEED DATA ====================

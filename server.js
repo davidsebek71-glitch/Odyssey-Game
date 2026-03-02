@@ -9633,6 +9633,28 @@ app.post('/api/trade/set-threshold', authenticateToken, (req, res) => {
   }
 });
 
+// --- Teacher: Set daily trade limit per period ---
+app.post('/api/trade/set-daily-limit', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    const { period, limit } = req.body;
+    if (!period || limit === undefined || limit < 0) return res.status(400).json({ error: 'Valid period and limit required' });
+    
+    const existing = query('SELECT period FROM trade_window WHERE period = ?', [period])[0];
+    if (existing) {
+      run('UPDATE trade_window SET daily_trade_limit = ? WHERE period = ?', [limit, period]);
+    } else {
+      run('INSERT INTO trade_window (period, is_open, daily_trade_limit) VALUES (?, 0, ?)', [period, limit]);
+    }
+    
+    saveDatabase();
+    res.json({ success: true, period, daily_trade_limit: limit });
+  } catch (err) {
+    console.error('Set daily limit error:', err);
+    res.status(500).json({ error: 'Failed to set daily limit' });
+  }
+});
+
 // --- Student: Get my trade data (inventory, spending cap, market) ---
 app.get('/api/trade/my-data', authenticateToken, (req, res) => {
   try {
@@ -9856,8 +9878,20 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
     if (initiator.alliance_id === partner.alliance_id) return res.status(400).json({ error: 'Cannot trade within your own alliance' });
     
     // Check trade window
-    const window = query('SELECT is_open FROM trade_window WHERE period = ?', [initiator.class_period])[0];
+    const window = query('SELECT is_open, daily_trade_limit FROM trade_window WHERE period = ?', [initiator.class_period])[0];
     if (!window || window.is_open !== 1) return res.status(400).json({ error: 'Trade window is closed' });
+    
+    // Check daily trade limit
+    const dailyLimit = window.daily_trade_limit || 5;
+    const todayTradeCount = query(
+      `SELECT COUNT(*) as cnt FROM trades 
+       WHERE initiator_id = ? AND DATE(created_at) = DATE('now') 
+       AND status IN ('pending', 'completed', 'approved', 'flagged')`,
+      [student_id]
+    )[0].cnt;
+    if (todayTradeCount >= dailyLimit) {
+      return res.status(400).json({ error: `You've reached today's trade limit (${dailyLimit}). Mr. Sebek controls the daily limit.` });
+    }
     
     // Check Transport Ship
     const alliance = query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [initiator.alliance_id])[0];
@@ -10051,13 +10085,38 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
     
     const studentInventories = query(`
       SELECT s.student_id, s.name, s.alliance_id, a.alliance_name,
-             sr.olive, sr.grape, sr.iron, sr.grain
+             sr.olive, sr.grape, sr.iron, sr.grain,
+             ar.native_resource
       FROM students s
       JOIN alliances a ON s.alliance_id = a.alliance_id
       LEFT JOIN student_resources sr ON s.student_id = sr.student_id
-      WHERE s.class_period = ? AND a.is_disbanded = 0
+      LEFT JOIN alliance_resources ar ON a.alliance_id = ar.alliance_id
+      WHERE s.class_period = ? AND a.is_disbanded = 0 AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
       ORDER BY a.alliance_name, s.name
     `, [period]);
+    
+    // Per-student completed trade counts (all time + today)
+    const perStudentTrades = query(`
+      SELECT student_id, 
+             COUNT(*) as total_trades,
+             SUM(CASE WHEN DATE(created_at) = DATE('now') THEN 1 ELSE 0 END) as today_trades
+      FROM (
+        SELECT initiator_id as student_id, created_at FROM trades WHERE period = ? AND status IN ('completed', 'approved')
+        UNION ALL
+        SELECT partner_id as student_id, completed_at as created_at FROM trades WHERE period = ? AND status IN ('completed', 'approved')
+      )
+      GROUP BY student_id
+    `, [period, period]);
+    
+    // Attach trade counts to each student
+    studentInventories.forEach(s => {
+      const tc = perStudentTrades.find(t => t.student_id === s.student_id);
+      s.total_trades = tc ? tc.total_trades : 0;
+      s.today_trades = tc ? tc.today_trades : 0;
+      s.total_resources = (s.olive || 0) + (s.grape || 0) + (s.iron || 0) + (s.grain || 0);
+      // Count unique non-zero resources
+      s.unique_resources = [s.olive, s.grape, s.iron, s.grain].filter(v => v > 0).length;
+    });
     
     const tradeCounts = query(`
       SELECT COUNT(*) as total,

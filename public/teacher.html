@@ -5178,6 +5178,8 @@
             document.getElementById('trade-management-modal').classList.remove('show');
         }
         
+        let tradeOverviewData = {}; // Per-period overview cache
+        
         async function loadTradeManagement() {
             try {
                 const [assignRes, flaggedRes] = await Promise.all([
@@ -5191,6 +5193,16 @@
                     return;
                 }
                 tradeData = { ...assignData, flagged: flaggedData.flagged || [] };
+                
+                // Fetch overview for each period that has alliances
+                const periods = [...new Set((tradeData.alliances || []).map(a => a.class_period))];
+                for (const p of periods) {
+                    try {
+                        const ovRes = await fetch(`${API_URL}/trade/overview/${p}`, { headers });
+                        tradeOverviewData[p] = await ovRes.json();
+                    } catch (e) { console.warn('Overview fetch failed for', p); }
+                }
+                
                 renderTradeManagement();
             } catch (err) {
                 document.getElementById('trade-management-content').innerHTML = `<div style="color:#f87171; padding:20px;">Failed to load trade data: ${err.message}</div>`;
@@ -5244,8 +5256,13 @@
                             <strong style="font-size: 17px; color: #fbbf24;">${period} Period</strong>
                             <span style="color: rgba(255,255,255,0.6); margin-left: 12px;">(${periodAlliances.length} alliances)</span>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             ${!allAssigned ? `<button onclick="assignResources('${period}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">🎲 Assign Resources</button>` : ''}
+                            <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                                <span style="font-size: 12px; color: rgba(255,255,255,0.6);">Daily Limit:</span>
+                                <input type="number" id="daily-limit-${period}" value="${windowStatus?.daily_trade_limit || 5}" min="0" max="50" style="width: 45px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fbbf24; text-align: center; padding: 4px; font-size: 13px; font-weight: 700;">
+                                <button onclick="setDailyTradeLimit('${period}')" style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.4); color: #fbbf24; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Set</button>
+                            </div>
                             <button onclick="toggleTradeWindow('${period}', ${isOpen ? 'false' : 'true'})" style="background: ${isOpen ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}; border: 1px solid ${isOpen ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.6)'}; color: ${isOpen ? '#f87171' : '#4ade80'}; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">
                                 ${isOpen ? '🔒 Close Market' : '🔓 Open Market'}
                             </button>
@@ -5281,6 +5298,7 @@
                             </tbody>
                         </table>
                     </div>
+                    ${renderStudentTradeProgress(period)}
                 </div>`;
             });
             
@@ -5289,6 +5307,115 @@
             }
             
             content.innerHTML = html;
+        }
+        
+        function renderStudentTradeProgress(period) {
+            const overview = tradeOverviewData[period];
+            if (!overview || !overview.students || overview.students.length === 0) {
+                return '<div style="padding: 12px 16px; color: rgba(255,255,255,0.3); font-size: 12px;">No student trade data yet.</div>';
+            }
+            
+            const students = overview.students;
+            const dailyLimit = overview.trade_window?.daily_trade_limit || 5;
+            
+            // Group by alliance
+            const alliances = {};
+            students.forEach(s => {
+                if (!alliances[s.alliance_name]) alliances[s.alliance_name] = { native: s.native_resource, students: [] };
+                alliances[s.alliance_name].students.push(s);
+            });
+            
+            let html = `<div style="padding: 0 16px 16px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 8px;">
+                    <span style="font-weight: 600; color: rgba(255,255,255,0.7); font-size: 13px;">📊 Student Trade Progress</span>
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.4);">Daily limit: ${dailyLimit} trades/student</span>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                        <tr style="background: rgba(255,255,255,0.04);">
+                            <th style="text-align: left; padding: 6px 8px; color: rgba(255,255,255,0.6); font-weight: 600;">Student</th>
+                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6);" title="Olive Oil">🫒</th>
+                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6);" title="Grapes">🍇</th>
+                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6);" title="Iron">⚒️</th>
+                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6);" title="Grain">🌾</th>
+                            <th style="text-align: center; padding: 6px 8px; color: rgba(255,255,255,0.6);">Diversity</th>
+                            <th style="text-align: center; padding: 6px 8px; color: rgba(255,255,255,0.6);">Today</th>
+                            <th style="text-align: center; padding: 6px 8px; color: rgba(255,255,255,0.6);">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            Object.entries(alliances).forEach(([allianceName, data]) => {
+                // Alliance header row
+                const nativeIcon = data.native ? (TRADE_RESOURCE_ICONS[data.native] || '') : '';
+                html += `<tr style="background: rgba(234,179,8,0.08);">
+                    <td colspan="8" style="padding: 6px 8px; font-weight: 700; color: #fbbf24; font-size: 12px;">${nativeIcon} ${allianceName}</td>
+                </tr>`;
+                
+                data.students.forEach((s, idx) => {
+                    const o = s.olive || 0, g = s.grape || 0, i = s.iron || 0, gr = s.grain || 0;
+                    const todayUsed = s.today_trades || 0;
+                    const totalTrades = s.total_trades || 0;
+                    const unique = s.unique_resources || 0;
+                    
+                    // Diversity bar: 4 dots, filled for each resource they have
+                    const diversityDots = [
+                        { has: o > 0, icon: '🫒' },
+                        { has: g > 0, icon: '🍇' },
+                        { has: i > 0, icon: '⚒️' },
+                        { has: gr > 0, icon: '🌾' }
+                    ].map(d => d.has ? 
+                        `<span style="font-size: 10px;">${d.icon}</span>` : 
+                        `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.1); margin: 0 1px;"></span>`
+                    ).join('');
+                    
+                    // Today trades color
+                    const todayColor = todayUsed >= dailyLimit ? '#f87171' : (todayUsed > 0 ? '#4ade80' : 'rgba(255,255,255,0.3)');
+                    
+                    // Resource cell styling: native gets a subtle background, non-native with value gets highlight
+                    const resCell = (val, resType) => {
+                        const isNative = resType === data.native;
+                        const bg = isNative ? 'rgba(234,179,8,0.08)' : 'transparent';
+                        const color = val > 0 ? (isNative ? '#fbbf24' : '#4ade80') : 'rgba(255,255,255,0.15)';
+                        return `<td style="text-align: center; padding: 4px; background: ${bg}; color: ${color}; font-weight: ${val > 0 ? '600' : '400'};">${val || '—'}</td>`;
+                    };
+                    
+                    html += `<tr style="background: ${idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <td style="padding: 5px 8px; color: rgba(255,255,255,0.8);">${s.name}</td>
+                        ${resCell(o, 'olive')}
+                        ${resCell(g, 'grape')}
+                        ${resCell(i, 'iron')}
+                        ${resCell(gr, 'grain')}
+                        <td style="text-align: center; padding: 4px 8px;">${diversityDots} <span style="color: ${unique >= 4 ? '#4ade80' : unique >= 2 ? '#fbbf24' : 'rgba(255,255,255,0.4)'}; font-size: 10px; font-weight: 600;">${unique}/4</span></td>
+                        <td style="text-align: center; padding: 4px 8px; color: ${todayColor}; font-weight: 600;">${todayUsed}/${dailyLimit}</td>
+                        <td style="text-align: center; padding: 4px 8px; color: ${totalTrades > 0 ? '#60a5fa' : 'rgba(255,255,255,0.3)'}; font-weight: 600;">${totalTrades}</td>
+                    </tr>`;
+                });
+            });
+            
+            html += '</tbody></table></div>';
+            return html;
+        }
+        
+        async function setDailyTradeLimit(period) {
+            const input = document.getElementById(`daily-limit-${period}`);
+            const limit = parseInt(input.value);
+            if (isNaN(limit) || limit < 0) { alert('Enter a valid number (0+)'); return; }
+            try {
+                const res = await fetch(`${API_URL}/trade/set-daily-limit`, {
+                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period, limit })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`✅ Daily trade limit for ${period} set to ${limit}`);
+                    loadTradeManagement();
+                } else {
+                    alert(data.error || 'Failed to set limit');
+                }
+            } catch (err) {
+                alert('Failed to set daily limit');
+            }
         }
         
         async function assignResources(period) {
