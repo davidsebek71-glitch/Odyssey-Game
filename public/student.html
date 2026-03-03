@@ -10853,6 +10853,7 @@
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0;">
                             ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
+                            ${!isInitiator ? `<button onclick="counterTrade(${t.trade_id}, ${t.initiator_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount})" style="background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.3);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">↩ Counter</button>` : ''}
                             <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
                         </div>
                     </div>`;
@@ -11094,6 +11095,39 @@
                 if (data.success) await loadTradePortalData();
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to reject trade'); }
+        }
+        
+        async function counterTrade(tradeId, partnerId, theirGiveRes, theirGiveAmt, theirRecvRes, theirRecvAmt) {
+            // Reject the original trade first
+            try {
+                await fetch(`${API_URL}/trade/reject/${tradeId}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+            } catch (e) { /* continue even if reject fails */ }
+            
+            // Reload data to clear the pending trade
+            await loadTradePortalData();
+            
+            // Now select the partner and pre-fill the trade desk with counter terms
+            // From OUR perspective: we give what they wanted (theirRecvRes) and want what they offered (theirGiveRes)
+            selectTradePartner(partnerId);
+            
+            // Wait a tick for DOM to update, then fill in the values
+            setTimeout(() => {
+                const giveSelect = document.getElementById('tp-give-res');
+                const recvSelect = document.getElementById('tp-recv-res');
+                const giveAmt = document.getElementById('tp-give-amt');
+                const recvAmt = document.getElementById('tp-recv-amt');
+                
+                if (giveSelect) giveSelect.value = theirRecvRes;
+                if (recvSelect) recvSelect.value = theirGiveRes;
+                if (giveAmt) giveAmt.value = theirRecvAmt;
+                if (recvAmt) recvAmt.value = theirGiveAmt;
+                
+                // Update the fairness display
+                if (typeof updateDeskFairness === 'function') updateDeskFairness();
+                if (typeof updateDeskForm === 'function') updateDeskForm();
+            }, 300);
         }
         
         // ==================== SHARED RESOURCE MARKET (Student) ====================
