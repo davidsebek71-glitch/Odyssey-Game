@@ -10843,7 +10843,7 @@
                     </div>`;
                 pending.forEach(t => {
                     const isInitiator = t.initiator_id === d.student_id;
-                    html += `<div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    html += `<div class="pending-trade-card" data-trade-id="${t.trade_id}" style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                         <div style="font-size:13px;line-height:1.5;">
                             <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
                             <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
@@ -11098,21 +11098,24 @@
         }
         
         async function counterTrade(tradeId, partnerId, theirGiveRes, theirGiveAmt, theirRecvRes, theirRecvAmt) {
-            // Reject the original trade first
+            // Reject the original trade silently (don't reload portal)
             try {
                 await fetch(`${API_URL}/trade/reject/${tradeId}`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
                 });
             } catch (e) { /* continue even if reject fails */ }
             
-            // Reload data to clear the pending trade
-            await loadTradePortalData();
+            // Remove the pending trade card from DOM so it doesn't show stale data
+            const pendingCards = document.querySelectorAll('#trade-portal-body .pending-trade-card');
+            pendingCards.forEach(card => {
+                if (card.dataset.tradeId === String(tradeId)) card.remove();
+            });
             
-            // Now select the partner and pre-fill the trade desk with counter terms
-            // From OUR perspective: we give what they wanted (theirRecvRes) and want what they offered (theirGiveRes)
+            // Select the partner in the trade desk (this opens the desk and populates it)
             selectTradePartner(partnerId);
             
-            // Wait a tick for DOM to update, then fill in the values
+            // After the desk is open, override the smart defaults with counter-offer values
+            // From OUR perspective: we give what they wanted from us (theirRecvRes), we want what they offered (theirGiveRes)
             setTimeout(() => {
                 const giveSelect = document.getElementById('tp-give-res');
                 const recvSelect = document.getElementById('tp-recv-res');
@@ -11124,10 +11127,14 @@
                 if (giveAmt) giveAmt.value = theirRecvAmt;
                 if (recvAmt) recvAmt.value = theirGiveAmt;
                 
-                // Update the fairness display
+                // Update the fairness display and inventory labels
                 if (typeof updateDeskFairness === 'function') updateDeskFairness();
                 if (typeof updateDeskForm === 'function') updateDeskForm();
-            }, 300);
+                
+                // Scroll the trade desk into view
+                const desk = document.getElementById('tp-desk');
+                if (desk) desk.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 150);
         }
         
         // ==================== SHARED RESOURCE MARKET (Student) ====================
