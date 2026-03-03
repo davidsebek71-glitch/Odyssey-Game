@@ -5193,6 +5193,7 @@
         }
         
         let tradeOverviewData = {}; // Per-period overview cache
+        let marketPoolData = {}; // Per-period market pool cache
         
         async function loadTradeManagement() {
             try {
@@ -5208,13 +5209,17 @@
                 }
                 tradeData = { ...assignData, flagged: flaggedData.flagged || [] };
                 
-                // Fetch overview for each period that has alliances
+                // Fetch overview and market pool for each period
                 const periods = [...new Set((tradeData.alliances || []).map(a => a.class_period))];
                 for (const p of periods) {
                     try {
-                        const ovRes = await fetch(`${API_URL}/trade/overview/${p}`, { headers });
+                        const [ovRes, mpRes] = await Promise.all([
+                            fetch(`${API_URL}/trade/overview/${p}`, { headers }),
+                            fetch(`${API_URL}/market/pool/${p}`, { headers })
+                        ]);
                         tradeOverviewData[p] = await ovRes.json();
-                    } catch (e) { console.warn('Overview fetch failed for', p); }
+                        marketPoolData[p] = await mpRes.json();
+                    } catch (e) { console.warn('Overview/market fetch failed for', p); }
                 }
                 
                 renderTradeManagement();
@@ -5313,6 +5318,7 @@
                         </table>
                     </div>
                     ${renderStudentTradeProgress(period)}
+                    ${renderMarketPoolControls(period)}
                 </div>`;
             });
             
@@ -5429,6 +5435,101 @@
                 }
             } catch (err) {
                 alert('Failed to set daily limit');
+            }
+        }
+        
+        function renderMarketPoolControls(period) {
+            const mp = marketPoolData[period];
+            if (!mp) return '';
+            
+            const pool = mp.pool || [];
+            const activeBids = mp.active_bids || [];
+            const recentTrades = mp.recent_trades || [];
+            
+            // Build stock map
+            const stockMap = {};
+            pool.forEach(p => { stockMap[p.resource] = p.stock; });
+            
+            let html = `<div style="padding: 0 16px 16px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 8px;">
+                    <span style="font-weight: 600; color: rgba(255,255,255,0.7); font-size: 13px;">🏛️ Shared Resource Market</span>
+                    <span style="font-size: 11px; color: rgba(255,255,255,0.4);">NPC market pool — set stock levels</span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;">
+                    ${['olive', 'grape', 'iron', 'grain'].map(r => {
+                        const stock = stockMap[r] || 0;
+                        const icon = TRADE_RESOURCE_ICONS[r];
+                        const name = TRADE_RESOURCE_NAMES[r];
+                        return `<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; text-align: center;">
+                            <div style="font-size: 24px; margin-bottom: 4px;">${icon}</div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">${name}</div>
+                            <div style="font-size: 20px; font-weight: 700; color: ${stock > 0 ? '#4ade80' : 'rgba(255,255,255,0.25)'}; margin-bottom: 8px;">${stock}</div>
+                            <div style="display: flex; gap: 4px; justify-content: center;">
+                                <input type="number" id="restock-${period}-${r}" value="${stock}" min="0" style="width: 60px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: #fbbf24; text-align: center; padding: 4px; font-size: 12px; font-weight: 700;">
+                                <button onclick="restockMarket('${period}', '${r}')" style="background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600;">Set</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            
+            // Active auctions
+            if (activeBids.length > 0) {
+                html += `<div style="margin-bottom: 12px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #fbbf24; margin-bottom: 6px;">⏱️ Active Auctions (${activeBids.length})</div>
+                    ${activeBids.map(b => {
+                        const timeLeft = Math.max(0, Math.round((new Date(b.auction_ends_at) - new Date()) / 1000));
+                        return `<div style="background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.2); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                            <div>
+                                <span style="color: #fbbf24;">${b.amount_offered} ${TRADE_RESOURCE_ICONS[b.resource_offered]}</span>
+                                <span style="color: rgba(255,255,255,0.3);"> → </span>
+                                <span style="color: #4ade80;">${b.amount_wanted} ${TRADE_RESOURCE_ICONS[b.resource_wanted]}</span>
+                                <span style="color: rgba(255,255,255,0.4); margin-left: 8px;">Ratio: ${b.ratio.toFixed(2)}</span>
+                            </div>
+                            <span style="color: ${timeLeft < 15 ? '#f87171' : '#fbbf24'}; font-weight: 700;">${timeLeft}s</span>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            }
+            
+            // Recent market trades
+            if (recentTrades.length > 0) {
+                html += `<div>
+                    <div style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: 6px;">📜 Recent Market Trades</div>
+                    ${recentTrades.slice(0, 5).map(t => {
+                        return `<div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                            <div>
+                                <span style="color: #60a5fa; font-weight: 600;">${t.winner_name}</span>
+                                gave <span style="color: #fbbf24;">${t.amount_given} ${TRADE_RESOURCE_ICONS[t.resource_given]}</span>
+                                for <span style="color: #4ade80;">${t.amount_received} ${TRADE_RESOURCE_ICONS[t.resource_received]}</span>
+                                <span style="color: rgba(255,255,255,0.3);">(${t.ratio.toFixed(2)}x${t.total_bidders > 1 ? `, ${t.total_bidders} bidders` : ''})</span>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
+        async function restockMarket(period, resource) {
+            const input = document.getElementById(`restock-${period}-${resource}`);
+            const amount = parseInt(input.value);
+            if (isNaN(amount) || amount < 0) { alert('Enter a valid amount (0+)'); return; }
+            try {
+                const res = await fetch(`${API_URL}/market/restock`, {
+                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period, resource, amount })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadTradeManagement(); // Refresh
+                } else {
+                    alert(data.error || 'Failed to restock');
+                }
+            } catch (err) {
+                alert('Failed to restock market');
             }
         }
         

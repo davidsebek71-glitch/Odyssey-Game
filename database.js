@@ -1488,6 +1488,55 @@ function seedReferenceData() {
     console.log('Migration note: daily_trade_limit -', e.message);
   }
 
+  // ==================== SHARED RESOURCE MARKET ====================
+  
+  // Market pool: NPC stock of resources per period
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_pool (
+      pool_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      stock INTEGER DEFAULT 0,
+      UNIQUE(period, resource)
+    )
+  `);
+
+  // Market bids: competitive bidding auctions
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_bids (
+      bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      resource_wanted TEXT NOT NULL,
+      amount_wanted INTEGER NOT NULL,
+      resource_offered TEXT NOT NULL,
+      amount_offered INTEGER NOT NULL,
+      bidder_id INTEGER NOT NULL,
+      ratio REAL NOT NULL,
+      status TEXT DEFAULT 'active',
+      auction_ends_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      resolved_at DATETIME,
+      FOREIGN KEY (bidder_id) REFERENCES students(student_id)
+    )
+  `);
+
+  // Market trade log: completed market trades for history
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_trades (
+      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      winner_id INTEGER NOT NULL,
+      resource_given TEXT NOT NULL,
+      amount_given INTEGER NOT NULL,
+      resource_received TEXT NOT NULL,
+      amount_received INTEGER NOT NULL,
+      ratio REAL NOT NULL,
+      total_bidders INTEGER DEFAULT 1,
+      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (winner_id) REFERENCES students(student_id)
+    )
+  `);
+
   // ==================== END MIGRATIONS ====================
   
   // ==================== CLASSICAL AGE SEED DATA ====================

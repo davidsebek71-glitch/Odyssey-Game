@@ -10141,6 +10141,304 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
   }
 });
 
+// ==================== SHARED RESOURCE MARKET ====================
+
+// Helper: resolve a single expired market bid
+function resolveMarketBid(bid, now) {
+  try {
+    // Verify market still has stock
+    const poolRow = query('SELECT pool_id, stock FROM market_pool WHERE period = ? AND resource = ?', [bid.period, bid.resource_wanted])[0];
+    if (!poolRow || poolRow.stock < bid.amount_wanted) {
+      run("UPDATE market_bids SET status = 'failed_no_stock', resolved_at = ? WHERE bid_id = ?", [now, bid.bid_id]);
+      return { bid_id: bid.bid_id, status: 'failed_no_stock' };
+    }
+    
+    // Verify bidder still has resources
+    ensureStudentResources(bid.bidder_id);
+    const bidderRes = query('SELECT * FROM student_resources WHERE student_id = ?', [bid.bidder_id])[0];
+    if (!bidderRes || bidderRes[bid.resource_offered] < bid.amount_offered) {
+      run("UPDATE market_bids SET status = 'failed_no_funds', resolved_at = ? WHERE bid_id = ?", [now, bid.bid_id]);
+      return { bid_id: bid.bid_id, status: 'failed_no_funds' };
+    }
+    
+    // Execute the trade
+    run(`UPDATE student_resources SET ${bid.resource_offered} = ${bid.resource_offered} - ? WHERE student_id = ?`, 
+      [bid.amount_offered, bid.bidder_id]);
+    run(`UPDATE student_resources SET ${bid.resource_wanted} = ${bid.resource_wanted} + ? WHERE student_id = ?`, 
+      [bid.amount_wanted, bid.bidder_id]);
+    run('UPDATE market_pool SET stock = stock - ? WHERE period = ? AND resource = ?', 
+      [bid.amount_wanted, bid.period, bid.resource_wanted]);
+    
+    // Market receives the offered resource
+    const offeredPool = query('SELECT pool_id FROM market_pool WHERE period = ? AND resource = ?', [bid.period, bid.resource_offered])[0];
+    if (offeredPool) {
+      run('UPDATE market_pool SET stock = stock + ? WHERE pool_id = ?', [bid.amount_offered, offeredPool.pool_id]);
+    } else {
+      run('INSERT INTO market_pool (period, resource, stock) VALUES (?, ?, ?)', [bid.period, bid.resource_offered, bid.amount_offered]);
+    }
+    
+    // Count bidders for history
+    const totalBidders = query(
+      "SELECT COUNT(*) as cnt FROM market_bids WHERE period = ? AND resource_wanted = ? AND auction_ends_at = ?",
+      [bid.period, bid.resource_wanted, bid.auction_ends_at]
+    )[0].cnt;
+    
+    // Log the trade
+    run(
+      `INSERT INTO market_trades (period, winner_id, resource_given, amount_given, resource_received, amount_received, ratio, total_bidders)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [bid.period, bid.bidder_id, bid.resource_offered, bid.amount_offered, bid.resource_wanted, bid.amount_wanted, bid.ratio, totalBidders]
+    );
+    
+    run("UPDATE market_bids SET status = 'completed', resolved_at = ? WHERE bid_id = ?", [now, bid.bid_id]);
+    console.log(`✅ Market trade resolved: bid ${bid.bid_id} - ${bid.amount_offered} ${bid.resource_offered} for ${bid.amount_wanted} ${bid.resource_wanted}`);
+    return { bid_id: bid.bid_id, status: 'completed', winner_id: bid.bidder_id };
+  } catch (err) {
+    console.error('resolveMarketBid error:', err);
+    return { bid_id: bid.bid_id, status: 'error' };
+  }
+}
+
+// --- Teacher: Get market pool status for a period ---
+app.get('/api/market/pool/:period', authenticateToken, (req, res) => {
+  try {
+    const period = req.params.period;
+    
+    // Auto-resolve any expired auctions first
+    const now = new Date().toISOString();
+    const expiredBids = query("SELECT * FROM market_bids WHERE period = ? AND status = 'active' AND auction_ends_at <= ?", [period, now]);
+    expiredBids.forEach(bid => {
+      resolveMarketBid(bid, now);
+    });
+    if (expiredBids.length > 0) saveDatabase();
+    
+    const pool = query('SELECT * FROM market_pool WHERE period = ?', [period]);
+    const activeBids = query("SELECT * FROM market_bids WHERE period = ? AND status = 'active' ORDER BY auction_ends_at ASC", [period]);
+    const recentTrades = query('SELECT mt.*, s.name as winner_name FROM market_trades mt JOIN students s ON mt.winner_id = s.student_id WHERE mt.period = ? ORDER BY mt.completed_at DESC LIMIT 20', [period]);
+    
+    res.json({ pool, active_bids: activeBids, recent_trades: recentTrades });
+  } catch (err) {
+    console.error('Market pool error:', err);
+    res.status(500).json({ error: 'Failed to load market pool' });
+  }
+});
+
+// --- Teacher: Set market pool stock ---
+app.post('/api/market/restock', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const { period, resource, amount } = req.body;
+    if (!period || !resource || amount === undefined) return res.status(400).json({ error: 'Period, resource, and amount required' });
+    if (!TRADE_RESOURCES.includes(resource)) return res.status(400).json({ error: 'Invalid resource' });
+    if (amount < 0) return res.status(400).json({ error: 'Amount must be non-negative' });
+    
+    const existing = query('SELECT pool_id, stock FROM market_pool WHERE period = ? AND resource = ?', [period, resource])[0];
+    if (existing) {
+      run('UPDATE market_pool SET stock = ? WHERE pool_id = ?', [amount, existing.pool_id]);
+    } else {
+      run('INSERT INTO market_pool (period, resource, stock) VALUES (?, ?, ?)', [period, resource, amount]);
+    }
+    
+    saveDatabase();
+    res.json({ success: true, period, resource, stock: amount });
+  } catch (err) {
+    console.error('Restock error:', err);
+    res.status(500).json({ error: 'Failed to restock' });
+  }
+});
+
+// --- Student: Get market data (pool + active auctions) ---
+app.get('/api/market/status', authenticateToken, (req, res) => {
+  try {
+    const student = query('SELECT student_id, class_period, alliance_id FROM students WHERE student_id = ?', [req.user.id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    // Auto-resolve any expired auctions first
+    const now = new Date().toISOString();
+    const expiredBids = query("SELECT * FROM market_bids WHERE period = ? AND status = 'active' AND auction_ends_at <= ?", [student.class_period, now]);
+    if (expiredBids.length > 0) {
+      expiredBids.forEach(bid => resolveMarketBid(bid, now));
+      saveDatabase();
+    }
+    
+    const pool = query('SELECT resource, stock FROM market_pool WHERE period = ?', [student.class_period]);
+    
+    // Active auctions - anonymize bidder (just show ratio and resource info)
+    const activeBids = query("SELECT bid_id, resource_wanted, amount_wanted, resource_offered, amount_offered, ratio, auction_ends_at, status FROM market_bids WHERE period = ? AND status = 'active' ORDER BY auction_ends_at ASC", [student.class_period]);
+    
+    // This student's own active bid (if any)
+    const myBid = query("SELECT * FROM market_bids WHERE bidder_id = ? AND status = 'active'", [student.student_id])[0];
+    
+    // Today's completed market trades for this student
+    const myMarketTradesToday = query(
+      "SELECT COUNT(*) as cnt FROM market_trades WHERE winner_id = ? AND DATE(completed_at) = DATE('now')",
+      [student.student_id]
+    )[0].cnt;
+    
+    // Daily limit from trade_window
+    const tw = query('SELECT daily_trade_limit FROM trade_window WHERE period = ?', [student.class_period])[0];
+    const dailyLimit = tw ? (tw.daily_trade_limit || 5) : 5;
+    
+    res.json({ 
+      pool, 
+      active_auctions: activeBids, 
+      my_bid: myBid,
+      my_market_trades_today: myMarketTradesToday,
+      daily_limit: dailyLimit
+    });
+  } catch (err) {
+    console.error('Market status error:', err);
+    res.status(500).json({ error: 'Failed to load market status' });
+  }
+});
+
+// --- Student: Place or improve a bid on the market ---
+app.post('/api/market/bid', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { resource_wanted, amount_wanted, resource_offered, amount_offered } = req.body;
+    
+    // Validation
+    if (!resource_wanted || !amount_wanted || !resource_offered || !amount_offered) {
+      return res.status(400).json({ error: 'All bid fields required' });
+    }
+    if (!TRADE_RESOURCES.includes(resource_wanted) || !TRADE_RESOURCES.includes(resource_offered)) {
+      return res.status(400).json({ error: 'Invalid resource type' });
+    }
+    if (resource_wanted === resource_offered) return res.status(400).json({ error: 'Cannot trade same resource' });
+    if (amount_wanted < 1 || amount_offered < 1) return res.status(400).json({ error: 'Amounts must be positive' });
+    if (amount_wanted > 130 || amount_offered > 130) return res.status(400).json({ error: 'Maximum 130 resources per side' });
+    
+    const student = query('SELECT student_id, class_period, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    // Check trade window is open
+    const tw = query('SELECT is_open, daily_trade_limit FROM trade_window WHERE period = ?', [student.class_period])[0];
+    if (!tw || tw.is_open !== 1) return res.status(400).json({ error: 'Market is closed' });
+    
+    // Check daily limit (market trades + regular trades combined)
+    const dailyLimit = tw.daily_trade_limit || 5;
+    const regularTradesToday = query(
+      "SELECT COUNT(*) as cnt FROM trades WHERE initiator_id = ? AND DATE(created_at) = DATE('now') AND status IN ('pending','completed','approved','flagged')",
+      [student_id]
+    )[0].cnt;
+    const marketTradesToday = query(
+      "SELECT COUNT(*) as cnt FROM market_trades WHERE winner_id = ? AND DATE(completed_at) = DATE('now')",
+      [student_id]
+    )[0].cnt;
+    if ((regularTradesToday + marketTradesToday) >= dailyLimit) {
+      return res.status(400).json({ error: `You've reached today's trade limit (${dailyLimit}).` });
+    }
+    
+    // Check market has stock of the wanted resource
+    const poolRow = query('SELECT stock FROM market_pool WHERE period = ? AND resource = ?', [student.class_period, resource_wanted])[0];
+    if (!poolRow || poolRow.stock < amount_wanted) {
+      return res.status(400).json({ error: `Market only has ${poolRow ? poolRow.stock : 0} ${resource_wanted} in stock` });
+    }
+    
+    // Check student has enough of offered resource
+    ensureStudentResources(student_id);
+    const myRes = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
+    if (myRes[resource_offered] < amount_offered) {
+      return res.status(400).json({ error: `You only have ${myRes[resource_offered]} ${resource_offered}` });
+    }
+    
+    // Ratio: what market receives / what market gives (higher = better for market)
+    const newRatio = amount_offered / amount_wanted;
+    
+    // Minimum 1:1 ratio floor
+    if (newRatio < 1.0) {
+      return res.status(400).json({ error: 'You must offer at least as much as you request (1:1 minimum)' });
+    }
+    
+    // Check if there's an active auction for this resource_wanted in this period
+    const activeAuction = query(
+      "SELECT * FROM market_bids WHERE period = ? AND resource_wanted = ? AND status = 'active' ORDER BY ratio DESC LIMIT 1",
+      [student.class_period, resource_wanted]
+    )[0];
+    
+    if (activeAuction) {
+      // Must beat current best ratio by 5%
+      const minRatio = activeAuction.ratio * 1.05;
+      if (newRatio < minRatio) {
+        return res.status(400).json({ 
+          error: `Current best offer ratio is ${activeAuction.ratio.toFixed(2)}. You need at least ${minRatio.toFixed(2)} (5% better). Offer more or request less.` 
+        });
+      }
+      
+      // Cannot outbid yourself
+      if (activeAuction.bidder_id === student_id) {
+        return res.status(400).json({ error: 'You already have the best bid on this auction' });
+      }
+      
+      // Outbid! Mark old bid as outbid
+      run("UPDATE market_bids SET status = 'outbid' WHERE bid_id = ?", [activeAuction.bid_id]);
+      
+      // Snipe protection: if <30s remaining, reset to 30s
+      const endsAt = new Date(activeAuction.auction_ends_at);
+      const now = new Date();
+      const remaining = (endsAt - now) / 1000;
+      const newEndsAt = remaining < 30 
+        ? new Date(now.getTime() + 30000).toISOString()
+        : activeAuction.auction_ends_at;
+      
+      run(
+        `INSERT INTO market_bids (period, resource_wanted, amount_wanted, resource_offered, amount_offered, bidder_id, ratio, status, auction_ends_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+        [student.class_period, resource_wanted, amount_wanted, resource_offered, amount_offered, student_id, newRatio, newEndsAt]
+      );
+      
+      saveDatabase();
+      res.json({ 
+        success: true, 
+        type: 'outbid', 
+        message: `You outbid the previous offer! Auction ${remaining < 30 ? 'extended to 30s' : 'continues'}.`,
+        auction_ends_at: newEndsAt,
+        your_ratio: newRatio
+      });
+    } else {
+      // New auction — 60 second window
+      const endsAt = new Date(Date.now() + 60000).toISOString();
+      
+      run(
+        `INSERT INTO market_bids (period, resource_wanted, amount_wanted, resource_offered, amount_offered, bidder_id, ratio, status, auction_ends_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+        [student.class_period, resource_wanted, amount_wanted, resource_offered, amount_offered, student_id, newRatio, endsAt]
+      );
+      
+      saveDatabase();
+      res.json({ 
+        success: true, 
+        type: 'new_auction', 
+        message: 'Bid placed! 60-second auction started. Other players can try to outbid you.',
+        auction_ends_at: endsAt,
+        your_ratio: newRatio
+      });
+    }
+  } catch (err) {
+    console.error('Market bid error:', err);
+    res.status(500).json({ error: 'Failed to place bid' });
+  }
+});
+
+// --- Server: Resolve expired auctions (called on poll) ---
+app.post('/api/market/resolve', authenticateToken, (req, res) => {
+  try {
+    const now = new Date().toISOString();
+    const expiredBids = query("SELECT * FROM market_bids WHERE status = 'active' AND auction_ends_at <= ?", [now]);
+    
+    const resolved = expiredBids.map(bid => resolveMarketBid(bid, now));
+    
+    if (resolved.length > 0) saveDatabase();
+    res.json({ resolved, count: resolved.length });
+  } catch (err) {
+    console.error('Market resolve error:', err);
+    res.status(500).json({ error: 'Failed to resolve auctions' });
+  }
+});
+
+// ==================== END SHARED RESOURCE MARKET ====================
+
 // Start server
 // --- Admin: Diagnose and repair buildings_owned from building_activations ---
 app.get('/api/admin/repair-buildings', authenticateToken, (req, res) => {
