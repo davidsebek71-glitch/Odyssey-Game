@@ -3961,11 +3961,25 @@
                     <div style="font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 30px;">
                         ${selectedAllianceName} has chosen the ${riskLevel} path!
                     </div>
-                    <button id="roll-dice-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 22px; font-weight: 900; padding: 15px 40px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,215,0,0.5); transition: all 0.3s;">
-                        🎲 ROLL THE DICE! 🎲
-                    </button>
+                    <div style="display: flex; gap: 15px; justify-content: center;">
+                        <button id="back-to-choices-btn" style="background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); font-size: 16px; font-weight: 700; padding: 15px 30px; border-radius: 12px; cursor: pointer; transition: all 0.3s;">
+                            ← Back to Choices
+                        </button>
+                        <button id="roll-dice-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 22px; font-weight: 900; padding: 15px 40px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,215,0,0.5); transition: all 0.3s;">
+                            🎲 ROLL THE DICE! 🎲
+                        </button>
+                    </div>
                 `;
                 document.body.appendChild(readyDiv);
+                
+                // Back button: remove overlay, reopen choices modal
+                const backBtn = document.getElementById('back-to-choices-btn');
+                backBtn.onmouseover = () => backBtn.style.borderColor = 'rgba(255,255,255,0.6)';
+                backBtn.onmouseout = () => backBtn.style.borderColor = 'rgba(255,255,255,0.3)';
+                backBtn.onclick = () => {
+                    document.body.removeChild(readyDiv);
+                    document.getElementById('fate-choices-modal').classList.add('show');
+                };
                 
                 // Add hover effect
                 const rollBtn = document.getElementById('roll-dice-btn');
@@ -4909,7 +4923,7 @@
             
             if (isClassical) {
                 // === CLASSICAL VIEW: Myth-by-myth columns ===
-                const mythNames = ['Pandora', 'Phaethon', 'Orpheus', 'Echo & Narcissus', 'Icarus', 'Eros & Psyche', 'Constellations'];
+                const mythNames = ['Pandora', 'Phaethon', 'Orpheus & Eurydice', 'Echo & Narcissus', 'Icarus & Daedalus', 'Eros & Psyche', 'Constellations'];
                 const mythShort = ['Pan', 'Pha', 'Orp', 'E&N', 'Ica', 'E&P', 'Con'];
                 const mythEmoji = ['🏺', '☀️', '🎵', '🪞', '🪶', '💘', '⭐'];
                 
