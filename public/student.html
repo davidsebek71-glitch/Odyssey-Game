@@ -10574,7 +10574,8 @@
         // TRADE PORTAL
         // ====================
         
-        const TRADE_ICONS = { olive: '🫒', grape: '🍇', iron: '⚒️', grain: '🌾' };
+        const TRADE_ICONS = { olive: '<img src="/images/olive_oil.png" style="width:1em;height:1em;vertical-align:middle;object-fit:contain;" alt="🫒">', grape: '🍇', iron: '⚒️', grain: '🌾' };
+        const TRADE_ICONS_TEXT = { olive: '🫒', grape: '🍇', iron: '⚒️', grain: '🌾' }; // For <option> tags and textContent
         const TRADE_NAMES = { olive: 'Olive Oil', grape: 'Grapes', iron: 'Iron', grain: 'Grain' };
         let tradePortalData = null;
         let tradeMarketData = null;
@@ -10590,7 +10591,7 @@
                     if (data.error) { el.textContent = ''; return; }
                     const r = data.my_resources;
                     const filled = ['olive','grape','iron','grain'].filter(k => r[k] >= 500).length;
-                    el.textContent = `${TRADE_ICONS[data.native_resource]} ${TRADE_NAMES[data.native_resource]} · ${filled}/4 filled`;
+                    el.textContent = `${TRADE_ICONS_TEXT[data.native_resource]} ${TRADE_NAMES[data.native_resource]} · ${filled}/4 filled`;
                 }).catch(() => {});
         }
         
@@ -10702,6 +10703,48 @@
             selectedTradePartner = null;
             let html = '';
             
+            // ===== PERIOD MARKET: Supply & Value Bars =====
+            const supply = m.supply || {};
+            const mktValues = values;
+            
+            html += `<div style="margin-bottom: 24px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#60a5fa;letter-spacing:1px;">📊 Period Market</div>
+                    <div style="flex:1;height:1px;background:rgba(96,165,250,0.2);"></div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4);">Supply across all alliances</div>
+                </div>
+                <div style="background:rgba(96,165,250,0.04);border:2px solid rgba(96,165,250,0.15);border-radius:14px;padding:16px 20px;">
+                    ${['olive','grape','iron','grain'].map(r => {
+                        const s = supply[r] || { held: 0, pct: 0 };
+                        const val = mktValues[r] || 10;
+                        let valueLabel, valueBg, valueColor;
+                        if (val >= 12) { valueLabel = 'High Value'; valueBg = 'rgba(239,68,68,0.15)'; valueColor = '#f87171'; }
+                        else if (val >= 8) { valueLabel = 'Fair Value'; valueBg = 'rgba(234,179,8,0.15)'; valueColor = '#fbbf24'; }
+                        else { valueLabel = 'Low Value'; valueBg = 'rgba(74,222,128,0.12)'; valueColor = '#4ade80'; }
+                        const isNative = r === native;
+                        
+                        return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;${r !== 'grain' ? 'border-bottom:1px solid rgba(255,255,255,0.04);' : ''}">
+                            <div style="width:28px;text-align:center;font-size:16px;">${TRADE_ICONS[r]}</div>
+                            <div style="flex:1;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                                    <div style="font-size:13px;font-weight:600;color:${isNative ? '#fbbf24' : '#e2e8f0'};">${TRADE_NAMES[r]}${isNative ? ' ★' : ''}</div>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-size:11px;color:rgba(255,255,255,0.35);">${s.held.toLocaleString()} held</span>
+                                        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${valueBg};color:${valueColor};">${valueLabel}</span>
+                                    </div>
+                                </div>
+                                <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">
+                                    <div style="height:100%;width:${s.pct}%;background:${val >= 12 ? 'linear-gradient(90deg,#ef4444,#f87171)' : val >= 8 ? 'linear-gradient(90deg,#d97706,#fbbf24)' : 'linear-gradient(90deg,#16a34a,#4ade80)'};border-radius:4px;transition:width 0.5s;"></div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                    <div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.3);text-align:center;">
+                        🔴 Scarce = worth more in trades · 🟢 Abundant = worth less · Bars show supply relative to the most-held resource
+                    </div>
+                </div>
+            </div>`;
+            
             // ===== SECTION 1: BUY YOUR RESOURCE =====
             html += `<div style="margin-bottom: 24px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -10774,7 +10817,7 @@
                                 <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
                                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#f87171;">📤 You Give</div>
                                     <select id="tp-give-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
-                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
                                     <input type="number" id="tp-give-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-give-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
@@ -10783,7 +10826,7 @@
                                 <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
                                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#4ade80;">📥 You Get</div>
                                     <select id="tp-recv-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
-                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
                                     <input type="number" id="tp-recv-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-recv-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
@@ -10935,11 +10978,11 @@
             document.getElementById('tp-desk-active').style.display = 'block';
             
             // Populate desk header
-            document.getElementById('tp-desk-icon').textContent = TRADE_ICONS[p.native_resource];
+            document.getElementById('tp-desk-icon').textContent = TRADE_ICONS_TEXT[p.native_resource];
             document.getElementById('tp-desk-icon').style.background = 'rgba(234,179,8,0.08)';
             document.getElementById('tp-desk-icon').style.border = '1px solid rgba(234,179,8,0.2)';
             document.getElementById('tp-desk-name').textContent = p.name;
-            document.getElementById('tp-desk-sub').textContent = p.alliance_name + ' · ' + TRADE_ICONS[p.native_resource] + ' ' + TRADE_NAMES[p.native_resource] + ' specialist';
+            document.getElementById('tp-desk-sub').textContent = p.alliance_name + ' · ' + TRADE_ICONS_TEXT[p.native_resource] + ' ' + TRADE_NAMES[p.native_resource] + ' specialist';
             
             // Populate compare table
             const pRes = { olive: p.olive || 0, grape: p.grape || 0, iron: p.iron || 0, grain: p.grain || 0 };
@@ -11323,7 +11366,7 @@
                         <div>
                             <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#fbbf24;margin-bottom:4px;">You Offer</div>
                             <select id="market-offer-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:12px;margin-bottom:4px;cursor:pointer;">
-                                ${offerableResources.map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                ${offerableResources.map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                             </select>
                             <input type="number" id="market-offer-amt" value="100" min="1" max="130" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;box-sizing:border-box;">
                         </div>
@@ -11331,7 +11374,7 @@
                         <div>
                             <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#4ade80;margin-bottom:4px;">You Want</div>
                             <select id="market-want-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:12px;margin-bottom:4px;cursor:pointer;">
-                                ${buyableResources.map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                ${buyableResources.map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                             </select>
                             <input type="number" id="market-want-amt" value="100" min="1" max="130" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;box-sizing:border-box;">
                         </div>

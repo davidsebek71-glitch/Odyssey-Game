@@ -9441,6 +9441,27 @@ function getResourceThreshold(period) {
 }
 
 // Helper: Calculate market values for a period
+function getMarketSupply(period) {
+  const alliances = query('SELECT alliance_id FROM alliances WHERE class_period = ? AND is_disbanded = 0', [period]);
+  if (alliances.length === 0) return { olive: { held: 0 }, grape: { held: 0 }, iron: { held: 0 }, grain: { held: 0 } };
+  
+  const allianceIds = alliances.map(a => a.alliance_id);
+  const placeholders = allianceIds.map(() => '?').join(',');
+  
+  const personal = query(`SELECT SUM(sr.olive) as po, SUM(sr.grape) as pg, SUM(sr.iron) as pi, SUM(sr.grain) as pgr
+    FROM student_resources sr JOIN students s ON sr.student_id = s.student_id
+    WHERE s.alliance_id IN (${placeholders})`, allianceIds)[0];
+  
+  const held = { olive: personal?.po || 0, grape: personal?.pg || 0, iron: personal?.pi || 0, grain: personal?.pgr || 0 };
+  const maxHeld = Math.max(1, ...Object.values(held));
+  
+  const supply = {};
+  TRADE_RESOURCES.forEach(r => {
+    supply[r] = { held: held[r], pct: Math.round((held[r] / maxHeld) * 100) };
+  });
+  return supply;
+}
+
 function getMarketValues(period) {
   const alliances = query('SELECT alliance_id FROM alliances WHERE class_period = ? AND is_disbanded = 0', [period]);
   if (alliances.length === 0) return { olive: 10, grape: 10, iron: 10, grain: 10 };
@@ -9846,6 +9867,7 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
       market_values: values,
       trade_window_open: window ? window.is_open === 1 : false,
       resource_threshold: threshold,
+      supply: getMarketSupply(student.class_period),
       partners,
       recent_trades: recentTrades
     });

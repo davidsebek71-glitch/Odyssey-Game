@@ -5042,7 +5042,7 @@
         // TRADE MANAGEMENT
         // ====================
         
-        const TRADE_RESOURCE_ICONS = { olive: '🫒', grape: '🍇', iron: '⚒️', grain: '🌾' };
+        const TRADE_RESOURCE_ICONS = { olive: '<img src="/images/olive_oil.png" style="width:1em;height:1em;vertical-align:middle;object-fit:contain;" alt="🫒">', grape: '🍇', iron: '⚒️', grain: '🌾' };
         const TRADE_RESOURCE_NAMES = { olive: 'Olive Oil', grape: 'Grapes', iron: 'Iron', grain: 'Grain' };
         let tradeData = null;
         let tradeViewPeriod = 'all';
@@ -5182,6 +5182,8 @@
         
         // ==================== TRADE SYSTEM MANAGEMENT ====================
 
+        let tradeAutoRefreshInterval = null;
+        
         async function openTradeManagementModal() {
             document.getElementById('trade-management-modal').classList.add('show');
             document.getElementById('trade-management-content').innerHTML = '<div style="text-align:center; padding:40px; color:rgba(255,255,255,0.5);">Loading trade data...</div>';
@@ -5190,6 +5192,31 @@
         
         function closeTradeManagementModal() {
             document.getElementById('trade-management-modal').classList.remove('show');
+            // Stop auto-refresh when modal closes
+            if (tradeAutoRefreshInterval) {
+                clearInterval(tradeAutoRefreshInterval);
+                tradeAutoRefreshInterval = null;
+            }
+        }
+        
+        function toggleTradeAutoRefresh() {
+            const checkbox = document.getElementById('trade-auto-refresh');
+            if (checkbox && checkbox.checked) {
+                tradeAutoRefreshInterval = setInterval(async () => {
+                    await loadTradeManagement();
+                }, 20000); // 20 seconds
+            } else {
+                if (tradeAutoRefreshInterval) {
+                    clearInterval(tradeAutoRefreshInterval);
+                    tradeAutoRefreshInterval = null;
+                }
+            }
+        }
+        
+        async function refreshTradeManagement() {
+            const btn = document.getElementById('trade-refresh-btn');
+            if (btn) { btn.innerHTML = '⏳ Refreshing...'; btn.style.opacity = '0.6'; }
+            await loadTradeManagement();
         }
         
         let tradeOverviewData = {}; // Per-period overview cache
@@ -5239,6 +5266,17 @@
             const unassigned = alliances.filter(a => !a.native_resource);
             
             let html = '';
+            
+            // Refresh controls
+            html += `<div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:14px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.5);">
+                    <input type="checkbox" id="trade-auto-refresh" onchange="toggleTradeAutoRefresh()" ${tradeAutoRefreshInterval ? 'checked' : ''} style="cursor:pointer;">
+                    Auto-refresh (20s)
+                </label>
+                <button id="trade-refresh-btn" onclick="refreshTradeManagement()" style="display:flex;align-items:center;gap:5px;background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.3);color:#fbbf24;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">
+                    🔄 Refresh
+                </button>
+            </div>`;
             
             // Flagged trades alert
             if (flagged.length > 0) {
