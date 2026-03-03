@@ -10832,34 +10832,38 @@
                 html += `</div></div>`;
             }
             
-            // ===== SECTION 3: PENDING TRADES =====
+            // ===== SECTION 3: PENDING TRADES (always visible with refresh) =====
             const pending = d.pending_trades || [];
-            if (pending.length > 0) {
-                html += `<div style="margin-bottom: 24px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
-                        <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
-                        <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>
-                    </div>`;
-                pending.forEach(t => {
-                    const isInitiator = t.initiator_id === d.student_id;
-                    html += `<div class="pending-trade-card" data-trade-id="${t.trade_id}" style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                        <div style="font-size:13px;line-height:1.5;">
-                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
-                            <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
-                            <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
-                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
-                            <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
-                        </div>
-                        <div style="display:flex;gap:6px;flex-shrink:0;">
-                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
-                            ${!isInitiator ? `<button onclick="counterTrade(${t.trade_id}, ${t.initiator_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount})" style="background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.3);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">↩ Counter</button>` : ''}
-                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
-                        </div>
-                    </div>`;
-                });
-                html += `</div>`;
+            html += `<div style="margin-bottom: 24px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
+                    <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
+                    <button id="tp-refresh-btn" onclick="refreshPendingTrades()" style="display:flex;align-items:center;gap:5px;background:rgba(192,132,252,0.12);border:1px solid rgba(192,132,252,0.3);color:#c084fc;padding:4px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s;">
+                        🔄 Refresh
+                    </button>
+                    ${pending.length > 0 ? `<div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>` : ''}
+                </div>`;
+            if (pending.length === 0) {
+                html += `<div style="text-align:center;padding:16px;color:rgba(255,255,255,0.3);font-size:13px;background:rgba(192,132,252,0.03);border:1px dashed rgba(192,132,252,0.15);border-radius:10px;">No pending trades. Hit Refresh to check for new offers.</div>`;
             }
+            pending.forEach(t => {
+                const isInitiator = t.initiator_id === d.student_id;
+                html += `<div class="pending-trade-card" data-trade-id="${t.trade_id}" style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="font-size:13px;line-height:1.5;">
+                        <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
+                        <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
+                        <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
+                        <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
+                        <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
+                        ${!isInitiator ? `<button onclick="counterTrade(${t.trade_id}, ${t.initiator_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount})" style="background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.3);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">↩ Counter</button>` : ''}
+                        <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
             
             // ===== SECTION 4: SHARED RESOURCE MARKET =====
             html += await renderSharedMarketSection(d);
@@ -10886,6 +10890,14 @@
             
             const res = tradePortalData.my_resources;
             selectedTradePartner = p;
+            
+            // Clear counter-offer state if this is a normal selection (not from counterTrade)
+            // counterTrade sets activeCounterOffer BEFORE calling selectTradePartner
+            // A normal click won't have activeCounterOffer set, so clear any stale banner
+            if (!activeCounterOffer) {
+                const oldBanner = document.getElementById('counter-offer-banner');
+                if (oldBanner) oldBanner.remove();
+            }
             
             // Highlight selected card
             document.querySelectorAll('[id^="tp-pc-"]').forEach(el => {
@@ -10967,7 +10979,9 @@
             giveRes.value = bestGive;
             
             updateDeskForm();
-            document.getElementById('tp-propose-btn').textContent = '⚓ Propose Trade to ' + p.name.split(' ')[0];
+            const proposeBtn = document.getElementById('tp-propose-btn');
+            proposeBtn.textContent = '⚓ Propose Trade to ' + p.name.split(' ')[0];
+            proposeBtn.style.background = 'linear-gradient(135deg,#059669,#047857)';
             
             // Scroll desk into view
             setTimeout(() => {
@@ -10980,6 +10994,10 @@
             document.getElementById('tp-desk-empty').style.display = 'block';
             document.getElementById('tp-desk-active').style.display = 'none';
             selectedTradePartner = null;
+            activeCounterOffer = null;
+            // Remove counter banner if present
+            const banner = document.getElementById('counter-offer-banner');
+            if (banner) banner.remove();
             // Deselect cards
             document.querySelectorAll('[id^="tp-pc-"]').forEach(el => {
                 el.style.borderColor = 'rgba(96,165,250,0.12)';
@@ -11069,7 +11087,14 @@
                     body: JSON.stringify({ partner_id: selectedTradePartner.student_id, give_resource: giveResource, give_amount: giveAmount, receive_resource: receiveResource, receive_amount: receiveAmount })
                 });
                 const data = await res.json();
-                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                if (data.success) { 
+                    const msg = activeCounterOffer 
+                        ? 'Counter-offer sent! They\'ll see it when they refresh their trades.' 
+                        : data.message;
+                    activeCounterOffer = null;
+                    alert(msg); 
+                    await loadTradePortalData(); 
+                }
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to propose trade'); }
         }
@@ -11097,6 +11122,19 @@
             } catch (err) { alert('Failed to reject trade'); }
         }
         
+        async function refreshPendingTrades() {
+            const btn = document.getElementById('tp-refresh-btn');
+            if (btn) {
+                btn.innerHTML = '⏳ Checking...';
+                btn.style.opacity = '0.6';
+                btn.disabled = true;
+            }
+            await loadTradePortalData();
+            // Button is rebuilt by re-render, no need to reset
+        }
+        
+        let activeCounterOffer = null; // Track if we're in counter-offer mode
+        
         async function counterTrade(tradeId, partnerId, theirGiveRes, theirGiveAmt, theirRecvRes, theirRecvAmt) {
             // Reject the original trade silently (don't reload portal)
             try {
@@ -11105,33 +11143,86 @@
                 });
             } catch (e) { /* continue even if reject fails */ }
             
-            // Remove the pending trade card from DOM so it doesn't show stale data
+            // Remove the pending trade card from DOM
             const pendingCards = document.querySelectorAll('#trade-portal-body .pending-trade-card');
             pendingCards.forEach(card => {
                 if (card.dataset.tradeId === String(tradeId)) card.remove();
             });
             
-            // Select the partner in the trade desk (this opens the desk and populates it)
+            // Store counter-offer context so the desk knows we're countering
+            activeCounterOffer = {
+                partnerName: (tradeMarketData.partners || []).find(x => x.student_id === partnerId)?.name || 'them',
+                originalGiveRes: theirGiveRes,
+                originalGiveAmt: theirGiveAmt,
+                originalRecvRes: theirRecvRes,
+                originalRecvAmt: theirRecvAmt
+            };
+            
+            // Select the partner (opens the trade desk)
             selectTradePartner(partnerId);
             
-            // After the desk is open, override the smart defaults with counter-offer values
-            // From OUR perspective: we give what they wanted from us (theirRecvRes), we want what they offered (theirGiveRes)
+            // Pre-fill with a 10% more generous counter: we offer slightly more than they asked for
             setTimeout(() => {
                 const giveSelect = document.getElementById('tp-give-res');
                 const recvSelect = document.getElementById('tp-recv-res');
                 const giveAmt = document.getElementById('tp-give-amt');
                 const recvAmt = document.getElementById('tp-recv-amt');
                 
+                // From our perspective: we give what they wanted (theirRecvRes), we want what they offered (theirGiveRes)
                 if (giveSelect) giveSelect.value = theirRecvRes;
                 if (recvSelect) recvSelect.value = theirGiveRes;
-                if (giveAmt) giveAmt.value = theirRecvAmt;
+                
+                // Pre-fill with 10% improvement: offer 10% more, ask for same amount
+                const improvedOffer = Math.round(theirRecvAmt * 1.1);
+                if (giveAmt) giveAmt.value = improvedOffer;
                 if (recvAmt) recvAmt.value = theirGiveAmt;
                 
-                // Update the fairness display and inventory labels
+                // Update fairness display
                 if (typeof updateDeskFairness === 'function') updateDeskFairness();
                 if (typeof updateDeskForm === 'function') updateDeskForm();
                 
-                // Scroll the trade desk into view
+                // Add counter-offer banner above the trade form
+                const deskActive = document.getElementById('tp-desk-active');
+                if (deskActive) {
+                    // Remove any existing counter banner
+                    const oldBanner = document.getElementById('counter-offer-banner');
+                    if (oldBanner) oldBanner.remove();
+                    
+                    const banner = document.createElement('div');
+                    banner.id = 'counter-offer-banner';
+                    banner.style.cssText = 'background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(126,34,206,0.1));border-bottom:2px solid rgba(168,85,247,0.4);padding:12px 18px;';
+                    banner.innerHTML = `
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span style="font-size:18px;">↩</span>
+                            <span style="font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:#c084fc;">Counter-Offer to ${activeCounterOffer.partnerName.split(' ')[0]}</span>
+                        </div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:8px;">
+                            Their original deal: <span style="color:#fbbf24;">${theirGiveAmt} ${TRADE_ICONS[theirGiveRes]}</span>
+                            <span style="color:rgba(255,255,255,0.2);">→</span>
+                            <span style="color:#fbbf24;">${theirRecvAmt} ${TRADE_ICONS[theirRecvRes]}</span>
+                        </div>
+                        <div style="font-size:12px;color:#a78bfa;font-style:italic;">
+                            💡 Tip: We pre-filled 10% extra to sweeten the deal — offering more makes your counter harder to refuse!
+                        </div>
+                    `;
+                    
+                    // Insert banner after the header, before the compare/form area
+                    const deskHeader = document.getElementById('tp-desk-header');
+                    if (deskHeader && deskHeader.nextSibling) {
+                        deskActive.insertBefore(banner, deskHeader.nextSibling);
+                    } else {
+                        deskActive.prepend(banner);
+                    }
+                }
+                
+                // Rename the propose button
+                const proposeBtn = document.getElementById('tp-propose-btn');
+                if (proposeBtn) {
+                    proposeBtn.textContent = '↩ Send Counter-Offer to ' + activeCounterOffer.partnerName.split(' ')[0];
+                    proposeBtn.style.background = 'linear-gradient(135deg,#9333ea,#7c3aed)';
+                }
+                
+                // Scroll the desk into view
                 const desk = document.getElementById('tp-desk');
                 if (desk) desk.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 150);
