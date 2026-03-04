@@ -409,7 +409,14 @@
                 renderPortals();
             } catch (err) {
                 console.error('Hub load error:', err);
-                document.getElementById('loadingState').textContent = 'Error loading. Please refresh.';
+                document.getElementById('mainContent').innerHTML = 
+                    '<div style="text-align:center;padding:60px 20px;">' +
+                    '<div style="font-size:48px;margin-bottom:16px;">⚠️</div>' +
+                    '<div style="font-family:Cinzel,serif;font-size:1.2rem;color:#fbbf24;margin-bottom:20px;">Connection Error</div>' +
+                    '<div style="color:rgba(255,255,255,0.5);margin-bottom:30px;">Could not load game data. Try these direct links:</div>' +
+                    '<a href="/student.html?view=archaic" style="display:inline-block;background:linear-gradient(135deg,#b8860b,#daa520);color:#1a0a05;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">ARCHAIC DASHBOARD</a>' +
+                    '<a href="/student.html" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4a90d9);color:#fff;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">CLASSICAL DASHBOARD</a>' +
+                    '</div>';
             }
         }
 
@@ -428,7 +435,7 @@
             html += '<div class="portal-age-name">ARCHAIC</div>';
             html += '<div class="portal-age-label">AGE</div>';
             html += '<div class="portal-description">The foundation of your civilization. Build structures, compete in the Battle Arena, and grow your alliance\'s power.</div>';
-            html += '<button class="portal-enter-btn">ENTER</button>';
+            html += '<button class="portal-enter-btn" onclick="event.stopPropagation(); enterArchaic()">ENTER</button>';
             html += '</div>';
 
             // Classical Portal
@@ -446,7 +453,7 @@
             html += '<div class="portal-age-name">CLASSICAL</div>';
             html += '<div class="portal-age-label">AGE</div>';
             html += '<div class="portal-description">The age of myths and legends. Explore Myth Portals, face greater challenges, and ascend toward Olympus.</div>';
-            html += '<button class="portal-enter-btn" ' + (canAccess ? '' : 'disabled') + '>';
+            html += '<button class="portal-enter-btn" ' + (canAccess ? 'onclick="event.stopPropagation(); enterClassical()"' : 'disabled') + '>';
             html += canAccess ? 'ENTER' : 'LOCKED';
             html += '</button></div>';
 
@@ -467,17 +474,43 @@
                 html += '</div>';
             }
 
+            // Fallback direct links (always visible)
+            html += '<div style="margin-top: 40px; text-align: center; font-size: 12px;">';
+            html += '<span style="color: rgba(255,255,255,0.2);">Direct links: </span>';
+            html += '<a href="/student.html?view=archaic" style="color: rgba(184,134,11,0.5); margin: 0 12px; text-decoration: underline;">Archaic Dashboard</a>';
+            if (canAccess) {
+                html += '<a href="/student.html" style="color: rgba(74,144,217,0.5); margin: 0 12px; text-decoration: underline;">Classical Dashboard</a>';
+            }
+            html += '</div>';
+
             main.innerHTML = html;
         }
 
-        function enterArchaic() { window.location.href = '/student.html?view=archaic'; }
+        function enterArchaic() {
+            try {
+                window.location.href = '/student.html?view=archaic';
+            } catch (e) {
+                window.location.assign('/student.html?view=archaic');
+            }
+        }
 
         async function enterClassical() {
-            if (classicalStatus && !classicalStatus.classicalEntered) {
-                await playCinematic();
-                await apiFetch('/api/student/enter-classical', { method: 'POST' });
+            try {
+                // Only play cinematic on first entry — skip if already entered
+                if (classicalStatus && !classicalStatus.classicalEntered) {
+                    try {
+                        await playCinematic();
+                        await apiFetch('/api/student/enter-classical', { method: 'POST' });
+                    } catch (cinematicErr) {
+                        // Cinematic or API failed — still redirect
+                        console.warn('Cinematic error (non-fatal):', cinematicErr);
+                    }
+                }
+                window.location.href = '/student.html';
+            } catch (e) {
+                // Absolute fallback
+                window.location.assign('/student.html');
             }
-            window.location.href = '/student.html';
         }
 
         function playCinematic() {
