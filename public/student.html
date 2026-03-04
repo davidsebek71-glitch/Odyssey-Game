@@ -6491,11 +6491,13 @@
                 return 100;
             }
             if (category === 'comp_conn') {
-                // Classical reading guides are 12 pts, Archaic are 10
+                // Classical reading guides are 12 pts (Icarus is 5), Archaic are 10
+                if (myth === 'Icarus') return 5;
                 return CLASSICAL_MYTHS.includes(myth) ? 12 : 10;
             }
             if (category === 'quiz') {
-                // Classical quizzes are 10 pts, special Archaic quizzes are 10, default Archaic is 5
+                // Classical quizzes are 10 pts (Icarus is 17), special Archaic quizzes are 10, default Archaic is 5
+                if (myth === 'Icarus') return 17;
                 if (CLASSICAL_MYTHS.includes(myth)) return 10;
                 if (myth === 'Nine Muses' || myth === 'Prometheus') return 10;
                 return 5;
@@ -10704,25 +10706,37 @@
             // ===== SECTION 1B: SELL RESOURCES =====
             const sellableResources = ['olive','grape','iron','grain'].filter(r => (res[r] || 0) > 0);
             if (sellableResources.length > 0) {
+                const defaultSellRes = sellableResources[0];
                 html += `<div style="margin-bottom: 24px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
                         <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#f87171;letter-spacing:1px;">Sell Resources</div>
                         <div style="flex:1;height:1px;background:rgba(239,68,68,0.2);"></div>
                         <div style="font-size:10px;color:rgba(255,255,255,0.3);">10% market fee</div>
                     </div>
-                    <div style="background:rgba(239,68,68,0.03);border:2px solid rgba(239,68,68,0.15);border-radius:14px;padding:18px 20px;">
-                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <select id="trade-sell-resource" onchange="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;outline:none;">
-                                ${sellableResources.map(r => 
-                                    `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (${res[r]})</option>`
-                                ).join('')}
-                            </select>
-                            <input type="number" id="trade-sell-amount" min="10" value="50" oninput="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;width:80px;font-size:14px;font-weight:700;text-align:center;outline:none;">
-                            <span style="font-size:11px;color:rgba(255,255,255,0.3);">units →</span>
-                            <span id="trade-sell-return" style="font-size:14px;font-weight:700;color:#f87171;">—</span>
-                            <button onclick="sellResource()" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#f87171;padding:10px 22px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:13px;cursor:pointer;">Sell</button>
+                    <div style="background:rgba(239,68,68,0.04);border:2px solid rgba(239,68,68,0.2);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:200px;">
+                            <div style="font-size:34px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:12px;flex-shrink:0;">
+                                <span id="trade-sell-icon">${TRADE_ICONS[defaultSellRes]}</span>
+                            </div>
+                            <div>
+                                <select id="trade-sell-resource" onchange="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:6px 10px;border-radius:8px;font-size:14px;font-weight:700;font-family:'Cinzel',serif;outline:none;cursor:pointer;">
+                                    ${sellableResources.map(r => 
+                                        `<option value="${r}">${TRADE_NAMES[r]} (${res[r]} units)</option>`
+                                    ).join('')}
+                                </select>
+                                <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;">10 units = 1 pt · <strong style="color:rgba(239,68,68,0.7);">10% market fee</strong></div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">Points return to alliance treasury</div>
+                            </div>
                         </div>
-                        <div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:8px;">10 units = 1 pt, minus 10% market fee. Points return to your alliance treasury.</div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <input type="number" id="trade-sell-amount" min="10" max="${res[defaultSellRes] || 0}" value="${Math.max(10, Math.min(50, res[defaultSellRes] || 0))}" oninput="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;width:72px;font-size:16px;font-weight:700;text-align:center;outline:none;">
+                            <span style="color:rgba(255,255,255,0.25);font-size:11px;">units →</span>
+                            <div style="text-align:center;min-width:70px;">
+                                <div id="trade-sell-return" style="font-size:20px;font-weight:700;color:#f87171;">—</div>
+                                <div style="font-size:10px;color:rgba(255,255,255,0.3);">pts back</div>
+                            </div>
+                            <button onclick="sellResource()" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;padding:12px 28px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap;">Sell</button>
+                        </div>
                     </div>
                 </div>`;
                 setTimeout(() => updateSellPreview(), 50);
@@ -11051,12 +11065,18 @@
         function updateSellPreview() {
             const amtEl = document.getElementById('trade-sell-amount');
             const retEl = document.getElementById('trade-sell-return');
+            const iconEl = document.getElementById('trade-sell-icon');
+            const resEl = document.getElementById('trade-sell-resource');
             if (!amtEl || !retEl) return;
+            // Update icon when resource changes
+            if (iconEl && resEl) {
+                iconEl.textContent = TRADE_ICONS[resEl.value] || '📦';
+            }
             const units = parseInt(amtEl.value) || 0;
             const grossPts = Math.floor(units / 10);
             const fee = Math.ceil(grossPts * 0.10);
             const net = Math.max(0, grossPts - fee);
-            retEl.textContent = net > 0 ? `${net} pts returned (${fee} pt fee)` : '—';
+            retEl.textContent = net > 0 ? `+${net}` : '—';
         }
 
         async function sellResource() {

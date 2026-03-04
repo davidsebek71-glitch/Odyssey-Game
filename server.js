@@ -2441,25 +2441,32 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
         const studentCompletions = allMythCompletions.filter(c => c.student_id === student.student_id && c.teacher_approved === 1);
         
         const classicalMyths = {};
+        // Per-myth max points lookup (most are 12/10, Icarus is 5/17)
+        const guideMax = { 'Icarus & Daedalus': 5 };
+        const quizMax = { 'Icarus & Daedalus': 17 };
+        
         mythNames.forEach((mythName, idx) => {
           const portalId = idx + 1;
           const aliases = mythAliases[mythName] || [mythName];
+          
+          const thisGuideMax = guideMax[mythName] || 12;
+          const thisQuizMax = quizMax[mythName] || 10;
           
           // Reading guide points (comp_conn for this myth in classical section)
           const guidePoints = studentRecords
             .filter(r => r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
             .reduce((sum, r) => sum + r.points_earned, 0);
           
-          // Quiz points (10 if passed)
+          // Quiz points (actual max varies per myth)
           const quizPassed = studentQuizzes.some(q => q.portal_id === portalId);
-          const quizPoints = quizPassed ? 10 : 0;
+          const quizPoints = quizPassed ? thisQuizMax : 0;
           
           // Portal assignment points (15 if approved)
           const completion = studentCompletions.find(c => c.portal_id === portalId);
           const portalPoints = completion ? 15 : 0;
           
-          const earned = Math.min(guidePoints, 12) + quizPoints + portalPoints;
-          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, 12), quiz: quizPoints, portal: portalPoints };
+          const earned = Math.min(guidePoints, thisGuideMax) + quizPoints + portalPoints;
+          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, thisGuideMax), guideMax: thisGuideMax, quiz: quizPoints, quizMax: thisQuizMax, portal: portalPoints };
         });
         
         const claBonus = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
@@ -8496,10 +8503,19 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
 
     // Build enriched portal data
     const enrichedPortals = portals.map(portal => {
+      // Alias mapping: myth_portals.myth_name uses & but assignments_ref/grade_records use 'and' or shorter names
+      const portalAliases = {
+        'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
+        'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
+        'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
+        'Orpheus': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice']
+      };
+      const aliases = portalAliases[portal.myth_name] || [portal.myth_name];
+      
       // Check reading guide completion (comp_conn for this myth in classical section)
       const hasReadingGuide = gradeRecords.some(g => 
         g.assignment_type === 'comp_conn' && 
-        g.myth_god === portal.myth_name && 
+        aliases.some(a => g.myth_god === a) && 
         g.section === 'classical' &&
         g.points_earned > 0
       );
@@ -8508,10 +8524,10 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const quizResult = quizAttempts.find(q => q.portal_id === portal.portal_id);
       const quizPassed = quizResult ? 1 : 0;
       
-      // Check creative work (legacy: word_cloud or mural for this myth)
+      // Check creative work (word_cloud, mural, cer, or any classical_creative for this myth)
       const hasCreative = gradeRecords.some(g => 
-        (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && 
-        g.myth_god === portal.myth_name && 
+        (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural' || g.assignment_type === 'cer' || g.assignment_type === 'creative' || g.assignment_type === 'bonus_retelling') && 
+        aliases.some(a => g.myth_god === a) && 
         g.section === 'classical_creative' &&
         g.points_earned > 0
       );
@@ -8526,16 +8542,16 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       // Get actual reading guide score from grade_records
       const guideGrade = gradeRecords.find(g => 
         g.assignment_type === 'comp_conn' && 
-        g.myth_god === portal.myth_name && 
+        aliases.some(a => g.myth_god === a) && 
         g.section === 'classical'
       );
       const guideEarned = guideGrade ? guideGrade.points_earned : 0;
       const guidePossible = guideGrade ? (guideGrade.assignment_max || guideGrade.points_possible) : 12;
       
-      // Virtue ready to claim: reading guide + quiz passed + creative approved (but not yet claimed)
-      const virtueReady = hasReadingGuide && quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
-      // Virtue earned: only after student has claimed it
-      const virtueEarned = virtueClaimed ? 1 : 0;
+      // Virtue earned automatically: reading guide scored + quiz passed + at least 1 creative/CER scored
+      const virtueEarned = (hasReadingGuide && quizPassed && (hasCreative || assignmentApproved)) ? 1 : 0;
+      // virtueReady kept for backwards compat but same as virtueEarned now
+      const virtueReady = virtueEarned && !virtueClaimed ? 1 : 0;
       
       return {
         ...portal,
@@ -8729,28 +8745,102 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
     const students = query('SELECT student_id, name, alliance_id FROM students WHERE class_period = ? ORDER BY name', [period]);
     const portals = query('SELECT portal_id, myth_name, display_name, virtue_english, virtue_emoji FROM myth_portals ORDER BY myth_number');
     
-    // Get all quiz passes for this period
-    const quizPasses = query(`SELECT mqa.student_id, mqa.portal_id FROM myth_quiz_attempts mqa 
-      JOIN students s ON mqa.student_id = s.student_id WHERE s.class_period = ? AND mqa.passed = 1`, [period]);
+    // Per-myth max points (most are 12/10, Icarus is 5/17)
+    const guideMaxLookup = { 'Icarus': 5 };
+    const quizMaxLookup = { 'Icarus': 17 };
     
-    // Get all myth completions for this period
+    // Alias mapping for myth_portals.myth_name → grade_records.myth_god
+    const mythAliases = {
+      'Pandora': ['Pandora'],
+      'Phaethon': ['Phaethon'],
+      'Orpheus': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
+      'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
+      'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
+      'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
+      'Constellations': ['Constellations']
+    };
+    
+    // Get all quiz attempts for this period (all attempts, not just passes)
+    const quizAttempts = query(`SELECT mqa.student_id, mqa.portal_id, mqa.score, mqa.total_questions, mqa.percentage, mqa.passed
+      FROM myth_quiz_attempts mqa 
+      JOIN students s ON mqa.student_id = s.student_id WHERE s.class_period = ?`, [period]);
+    
+    // Get all grade records for this period (reading guides + creative work)
+    const gradeRecords = query(`SELECT gr.student_id, gr.points_earned, gr.points_possible, ar.assignment_type, ar.section, ar.myth_god, ar.max_points
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      JOIN students s ON gr.student_id = s.student_id
+      WHERE s.class_period = ? AND ar.section IN ('classical', 'classical_creative')`, [period]);
+    
+    // Get all myth completions for this period (legacy approval system)
     const completions = query(`SELECT smc.* FROM student_myth_completion smc 
       JOIN students s ON smc.student_id = s.student_id WHERE s.class_period = ?`, [period]);
     
     const studentData = students.map(s => {
       const mythProgress = portals.map(p => {
-        const quizPassed = quizPasses.some(qp => qp.student_id === s.student_id && qp.portal_id === p.portal_id);
+        const aliases = mythAliases[p.myth_name] || [p.myth_name];
+        // For guideMax/quizMax lookup, use the short name from aliases (first entry is the assignments_ref name)
+        const shortName = aliases[0];
+        const gMax = guideMaxLookup[shortName] || 12;
+        const qMax = quizMaxLookup[shortName] || 10;
+        
+        // Reading guide: comp_conn score for this myth
+        const guideRecords = gradeRecords.filter(g => 
+          g.student_id === s.student_id && g.assignment_type === 'comp_conn' && 
+          g.section === 'classical' && aliases.some(a => g.myth_god === a)
+        );
+        const guideEarned = guideRecords.reduce((sum, r) => sum + r.points_earned, 0);
+        const hasGuide = guideEarned > 0;
+        const guidePct = gMax > 0 ? Math.round((Math.min(guideEarned, gMax) / gMax) * 100) : 0;
+        
+        // Quiz: best attempt
+        const studentQuizzes = quizAttempts.filter(q => q.student_id === s.student_id && q.portal_id === p.portal_id);
+        const bestQuiz = studentQuizzes.sort((a, b) => b.percentage - a.percentage)[0];
+        const quizPassed = studentQuizzes.some(q => q.passed === 1);
+        const quizPct = bestQuiz ? bestQuiz.percentage : 0;
+        const quizScore = bestQuiz ? bestQuiz.score : 0;
+        const quizTotal = bestQuiz ? bestQuiz.total_questions : 0;
+        
+        // Creative work: word_cloud, mural, cer, or any classical_creative for this myth
+        const creativeRecords = gradeRecords.filter(g =>
+          g.student_id === s.student_id &&
+          aliases.some(a => g.myth_god === a) &&
+          g.section === 'classical_creative' &&
+          g.points_earned > 0
+        );
+        const hasCreative = creativeRecords.length > 0;
+        const creativeDetails = creativeRecords.map(r => {
+          const typeLabels = { 'word_cloud': 'Word Cloud', 'mural': 'Pixton', 'cer': 'CER', 'bonus_retelling': 'Retelling', 'creative': 'Creative' };
+          return { type: typeLabels[r.assignment_type] || r.assignment_type, earned: r.points_earned, possible: r.max_points || r.points_possible };
+        });
+        
+        // Check legacy approval system
         const completion = completions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
+        const assignmentApproved = completion ? completion.teacher_approved === 1 : false;
+        
+        // Virtue earned: has all three areas with scores (auto-advance)
+        const virtueEarned = hasGuide && quizPassed && (hasCreative || assignmentApproved);
+        
         return {
           portal_id: p.portal_id,
           myth_name: p.myth_name,
+          guide_earned: Math.min(guideEarned, gMax),
+          guide_max: gMax,
+          guide_pct: guidePct,
+          has_guide: hasGuide,
           quiz_passed: quizPassed,
-          assignment_path: completion ? completion.assignment_path : null,
-          teacher_approved: completion ? completion.teacher_approved === 1 : false,
-          virtue_claimed: completion ? completion.virtue_claimed === 1 : false
+          quiz_score: quizScore,
+          quiz_total: quizTotal,
+          quiz_pct: quizPct,
+          quiz_max: qMax,
+          has_creative: hasCreative,
+          creative_details: creativeDetails,
+          virtue_earned: virtueEarned
         };
       });
-      return { ...s, myths: mythProgress };
+      
+      const virtueCount = mythProgress.filter(m => m.virtue_earned).length;
+      return { ...s, myths: mythProgress, virtue_count: virtueCount };
     });
     
     res.json({ students: studentData, portals });
@@ -8842,9 +8932,17 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
       try {
         const portal = query('SELECT myth_name FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
         if (portal) {
+          // Map portal myth_name to assignments_ref myth_god (they differ for some myths)
+          const mythGodMap = {
+            'Icarus & Daedalus': 'Icarus',
+            'Echo & Narcissus': 'Echo and Narcissus',
+            'Eros & Psyche': 'Eros and Psyche'
+          };
+          const mythGodName = mythGodMap[portal.myth_name] || portal.myth_name;
+          
           const quizAssignment = query(
             "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?",
-            [portal.myth_name]
+            [mythGodName]
           )[0];
           
           if (quizAssignment) {

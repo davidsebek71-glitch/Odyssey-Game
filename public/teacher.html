@@ -5080,6 +5080,7 @@
                             <tr style="border-bottom: 2px solid rgba(168,85,247,0.3);">
                                 <th style="text-align: left; padding: 8px; color: #a78bfa; position: sticky; left: 0; background: #1a1a2e; z-index: 1; min-width: 120px;">Student</th>
                                 ${data.portals.map(p => `<th style="text-align: center; padding: 8px; color: rgba(255,255,255,0.6); min-width: 90px;">${p.virtue_emoji || ''}<br>${p.myth_name}</th>`).join('')}
+                                <th style="text-align: center; padding: 8px; color: #fbbf24; min-width: 60px;">Virtues</th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -5092,25 +5093,54 @@
                         let cellContent = '';
                         let cellBg = 'transparent';
                         
-                        if (myth.virtue_claimed) {
-                            // Fully complete
+                        // Build tooltip content
+                        let tipLines = [];
+                        if (myth.has_guide) {
+                            tipLines.push('📖 Reading Guide: ' + myth.guide_earned + '/' + myth.guide_max + ' (' + myth.guide_pct + '%)');
+                        } else {
+                            tipLines.push('📖 Reading Guide: —');
+                        }
+                        if (myth.quiz_score > 0 || myth.quiz_passed) {
+                            tipLines.push('📝 Quiz: ' + myth.quiz_score + '/' + myth.quiz_total + ' (' + myth.quiz_pct + '%)' + (myth.quiz_passed ? ' ✓' : ''));
+                        } else {
+                            tipLines.push('📝 Quiz: —');
+                        }
+                        if (myth.has_creative && myth.creative_details && myth.creative_details.length > 0) {
+                            myth.creative_details.forEach(function(c) {
+                                const pct = c.possible > 0 ? Math.round((c.earned / c.possible) * 100) : 0;
+                                tipLines.push('🎨 ' + c.type + ': ' + c.earned + '/' + c.possible + ' (' + pct + '%)');
+                            });
+                        } else {
+                            tipLines.push('🎨 Creative: —');
+                        }
+                        
+                        const tooltipText = tipLines.join('&#10;');
+                        
+                        if (myth.virtue_earned) {
+                            // All three areas complete — virtue earned
                             cellContent = '🌟';
                             cellBg = 'rgba(74,222,128,0.1)';
-                        } else if (myth.teacher_approved) {
-                            // Approved, awaiting claim
-                            cellContent = `<span style="color: #4ade80;">✅</span>`;
-                            cellBg = 'rgba(74,222,128,0.05)';
-                        } else if (myth.quiz_passed) {
-                            // Quiz passed, needs approval
-                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name}', '${myth.myth_name}')" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
+                        } else if (myth.has_guide && myth.quiz_passed) {
+                            // Two of three done, missing creative
+                            cellContent = '🟡';
                             cellBg = 'rgba(251,191,36,0.05)';
+                        } else if (myth.has_guide || myth.quiz_passed || myth.has_creative) {
+                            // Some progress
+                            const count = (myth.has_guide ? 1 : 0) + (myth.quiz_passed ? 1 : 0) + (myth.has_creative ? 1 : 0);
+                            cellContent = '<span style="color: rgba(255,255,255,0.4); font-size: 10px;">' + count + '/3</span>';
+                            cellBg = 'rgba(255,255,255,0.02)';
                         } else {
-                            // Quiz not passed
+                            // No progress
                             cellContent = '<span style="color: rgba(255,255,255,0.15);">—</span>';
                         }
                         
-                        html += `<td style="text-align: center; padding: 8px; background: ${cellBg};">${cellContent}</td>`;
+                        html += '<td style="text-align: center; padding: 8px; background: ' + cellBg + '; cursor: default; position: relative;" title="' + tooltipText + '">' + cellContent + '</td>';
                     });
+                    
+                    // Virtue count column
+                    const vc = student.virtue_count || 0;
+                    const vcColor = vc === 7 ? '#fbbf24' : vc > 0 ? '#a78bfa' : 'rgba(255,255,255,0.2)';
+                    html += '<td style="text-align: center; padding: 8px; font-weight: 700; color: ' + vcColor + '; font-size: 14px;">' + vc + '/7</td>';
                     
                     html += '</tr>';
                 });
@@ -5119,46 +5149,17 @@
                 
                 // Legend
                 html += `<div style="display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: rgba(255,255,255,0.5); flex-wrap: wrap;">
-                    <span>— = Quiz not passed</span>
-                    <span style="color: #c4b5fd;">Approve = Quiz passed, verify in Classroom</span>
-                    <span style="color: #4ade80;">✅ = Approved, student can claim</span>
-                    <span>🌟 = Virtue claimed</span>
+                    <span>— = No progress</span>
+                    <span style="color: rgba(255,255,255,0.4);">1/3, 2/3 = Partial (hover for details)</span>
+                    <span style="color: #fbbf24;">🟡 = Guide + Quiz done, needs creative</span>
+                    <span>🌟 = Virtue earned (all 3 complete)</span>
+                    <span style="color: rgba(255,255,255,0.3);">Hover any cell for detailed scores</span>
                 </div>`;
                 
                 content.innerHTML = html;
             } catch (err) {
                 console.error('Load myth progress error:', err);
                 content.innerHTML = '<p style="color: #f87171;">Failed to load progress</p>';
-            }
-        }
-        
-        async function approveMythAssignment(studentId, portalId, studentName, mythName) {
-            // Simple confirmation - the score already exists from the graded submission
-            const score = prompt(`Approve ${studentName}'s ${mythName} assignment?\n\nScore out of 15 (the grade from their submission):`, '15');
-            if (score === null) return;
-            
-            const points = parseInt(score) || 15;
-            const path = prompt('Which path?\n1 = Scholar\'s (analytical)\n2 = Creator\'s (creative)', '1');
-            if (path === null) return;
-            
-            const assignmentPath = path === '2' ? 'creative' : 'analytical';
-            
-            try {
-                const res = await fetch(`${API_URL}/teacher/approve-myth-assignment`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: assignmentPath, points: points })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    loadMythProgress(mythProgressPeriod);
-                } else {
-                    alert(data.error || 'Failed to approve');
-                }
-            } catch (err) {
-                console.error('Approve error:', err);
-                alert('Failed to approve');
             }
         }
         
