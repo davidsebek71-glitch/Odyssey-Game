@@ -2393,18 +2393,11 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
     `);
     
     // === QUIZ ATTEMPTS & MYTH COMPLETIONS (for Classical grading) ===
-    const allQuizAttempts = query('SELECT student_id, portal_id, passed, score, total_questions, percentage FROM myth_quiz_attempts WHERE passed = 1');
+    const allQuizAttempts = query('SELECT student_id, portal_id, passed FROM myth_quiz_attempts WHERE passed = 1');
     let allMythCompletions = [];
     try {
-      allMythCompletions = query('SELECT student_id, portal_id, teacher_approved, points_earned, assignment_path FROM student_myth_completion WHERE teacher_approved = 1');
+      allMythCompletions = query('SELECT student_id, portal_id, teacher_approved FROM student_myth_completion WHERE teacher_approved = 1');
     } catch (e) { /* table may not exist yet */ }
-    
-    // Build a lookup of max_points per myth per assignment_type from assignments_ref
-    const classicalMaxLookup = {};
-    classicalAssignments.forEach(a => {
-      if (!classicalMaxLookup[a.myth_god]) classicalMaxLookup[a.myth_god] = {};
-      classicalMaxLookup[a.myth_god][a.assignment_type] = a.max_points;
-    });
     
     // Calculate grades for each student - return BOTH ages for Classical students
     const studentsWithGrades = students.map(student => {
@@ -2452,35 +2445,21 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
           const portalId = idx + 1;
           const aliases = mythAliases[mythName] || [mythName];
           
-          // Look up max_points for this myth from assignments_ref
-          const mythMaxLookup = {};
-          aliases.forEach(alias => {
-            if (classicalMaxLookup[alias]) Object.assign(mythMaxLookup, classicalMaxLookup[alias]);
-          });
-          const guideMax = mythMaxLookup['comp_conn'] || 12;
-          const quizMax = mythMaxLookup['quiz'] || 10;
-          
-          // Reading guide points (actual earned from grade_records)
+          // Reading guide points (comp_conn for this myth in classical section)
           const guidePoints = studentRecords
             .filter(r => r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
             .reduce((sum, r) => sum + r.points_earned, 0);
           
-          // Quiz points (actual earned from grade_records, NOT hardcoded)
-          const quizGradePoints = studentRecords
-            .filter(r => r.assignment_type === 'quiz' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
-            .reduce((sum, r) => sum + r.points_earned, 0);
+          // Quiz points (10 if passed)
+          const quizPassed = studentQuizzes.some(q => q.portal_id === portalId);
+          const quizPoints = quizPassed ? 10 : 0;
           
-          // Portal assignment points (actual earned from student_myth_completion)
+          // Portal assignment points (15 if approved)
           const completion = studentCompletions.find(c => c.portal_id === portalId);
-          const portalPoints = completion ? (completion.points_earned || 0) : 0;
+          const portalPoints = completion ? 15 : 0;
           
-          // Word cloud points (actual earned from grade_records)
-          const wordCloudPoints = studentRecords
-            .filter(r => r.assignment_type === 'word_cloud' && r.section === 'classical_creative' && aliases.some(a => r.myth_god === a))
-            .reduce((sum, r) => sum + r.points_earned, 0);
-          
-          const earned = Math.min(guidePoints, guideMax) + Math.min(quizGradePoints, quizMax) + portalPoints + wordCloudPoints;
-          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, guideMax), quiz: quizGradePoints, portal: portalPoints, wordCloud: wordCloudPoints };
+          const earned = Math.min(guidePoints, 12) + quizPoints + portalPoints;
+          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, 12), quiz: quizPoints, portal: portalPoints };
         });
         
         const claBonus = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
@@ -3784,88 +3763,6 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
   }
 });
 
-// Student: Sell back a building (returns base cost minus 10% to alliance)
-app.post('/api/alliance/sell-building', authenticateToken, (req, res) => {
-  try {
-    const { building_name } = req.body;
-    const student_id = req.user.id;
-    
-    if (!building_name) return res.status(400).json({ error: 'Building name required' });
-    
-    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
-    
-    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
-    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
-    
-    // Cannot sell Transport Ship
-    if (building_name === 'Transport Ship') {
-      return res.status(400).json({ error: 'Transport Ship cannot be sold back — your alliance depends on it for trade!' });
-    }
-    
-    // Check the building is owned
-    const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
-    const buildingIndex = ownedBuildings.indexOf(building_name);
-    if (buildingIndex === -1) {
-      return res.status(400).json({ error: `Your alliance does not own ${building_name}` });
-    }
-    
-    // Get the building's base cost from buildings_ref
-    const building = query('SELECT building_id, cost_points, age_available FROM buildings_ref WHERE building_name = ?', [building_name])[0];
-    if (!building) return res.status(404).json({ error: 'Building reference not found' });
-    
-    // Cannot sell back buildings from a previous age
-    const currentAge = alliance.current_age || 'Archaic';
-    if (building.age_available !== currentAge && !(currentAge === 'Classical' && building.age_available === 'Classical')) {
-      // If they're in Classical, they can only sell Classical buildings
-      // If they're in Archaic, they can only sell Archaic buildings
-      if (building.age_available !== currentAge) {
-        return res.status(400).json({ error: `Cannot sell back ${building.age_available} Age buildings — you are in the ${currentAge} Age` });
-      }
-    }
-    
-    // Calculate refund: base cost minus 10% realtor fee (always uses base cost, no discounts)
-    const baseCost = building.cost_points;
-    const fee = Math.ceil(baseCost * 0.10);
-    const refund = baseCost - fee;
-    
-    // Remove ONE instance of this building from owned
-    ownedBuildings.splice(buildingIndex, 1);
-    
-    // Refund points to alliance and update buildings_owned
-    run('UPDATE alliances SET total_points = total_points + ?, buildings_owned = ? WHERE alliance_id = ?',
-        [refund, JSON.stringify(ownedBuildings), student.alliance_id]);
-    
-    // Remove the building activation record (most recent instance)
-    const activation = query(
-      'SELECT activation_id FROM building_activations WHERE alliance_id = ? AND building_name = ? ORDER BY activation_id DESC LIMIT 1',
-      [student.alliance_id, building_name]
-    )[0];
-    if (activation) {
-      run('DELETE FROM building_activations WHERE activation_id = ?', [activation.activation_id]);
-    }
-    
-    // Log the transaction
-    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
-         VALUES (?, ?, ?, 'building_sellback', ?)`,
-        [student.alliance_id, null, refund, `Sold ${building_name} for ${refund} pts (${fee} pt realtor fee) — by ${req.user.name}`]);
-    
-    saveDatabase();
-    res.json({ 
-      success: true, 
-      message: `Sold ${building_name}! ${refund} points returned to alliance (${fee} pt realtor fee deducted from ${baseCost} base cost).`,
-      refund,
-      fee,
-      base_cost: baseCost,
-      new_balance: alliance.total_points + refund,
-      buildings_owned: ownedBuildings
-    });
-  } catch (err) {
-    console.error('Sell building error:', err);
-    res.status(500).json({ error: 'Failed to sell building' });
-  }
-});
-
 // Teacher: Get eligible alliances for a god bonus (all members must have 80%+ on that god's bonus assignment)
 app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req, res) => {
   try {
@@ -4352,10 +4249,8 @@ app.get('/api/student/age-progress', authenticateToken, (req, res) => {
     if (readiness.isReady && alliance.current_age === 'Archaic' && ageGate.classical_unlocked === 1) {
       run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance.alliance_id]);
       alliance.current_age = 'Classical';
-      // Clear scout_status for all members — scouting was for Archaic→Classical transition
-      run('UPDATE students SET scout_status = NULL WHERE alliance_id = ?', [alliance.alliance_id]);
       saveDatabase();
-      console.log(`Auto-advanced alliance ${alliance.alliance_id} (${alliance.alliance_name}) to Classical Age via age-progress poll. Scout statuses cleared.`);
+      console.log(`Auto-advanced alliance ${alliance.alliance_id} (${alliance.alliance_name}) to Classical Age via age-progress poll`);
     } else if (readiness.isReady && alliance.current_age === 'Classical' && ageGate.heroic_unlocked === 1) {
       run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Heroic', alliance.alliance_id]);
       alliance.current_age = 'Heroic';
@@ -4518,7 +4413,6 @@ app.post('/api/teacher/open-age-gate', authenticateToken, (req, res) => {
         const readiness = calculateAgeReadiness(alliance);
         if (readiness.isReady) {
           run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance.alliance_id]);
-          run('UPDATE students SET scout_status = NULL WHERE alliance_id = ?', [alliance.alliance_id]);
           advancedCount++;
         }
       });
@@ -4552,7 +4446,6 @@ app.post('/api/teacher/advance-alliance', authenticateToken, (req, res) => {
     
     if (target_age === 'Classical' && alliance.current_age === 'Archaic') {
       run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance_id]);
-      run('UPDATE students SET scout_status = NULL WHERE alliance_id = ?', [alliance_id]);
       
       ensureAgeGate(alliance.class_period);
       run(`UPDATE age_gates SET classical_unlocked = 1, classical_unlocked_at = COALESCE(classical_unlocked_at, CURRENT_TIMESTAMP), classical_unlocked_by = COALESCE(classical_unlocked_by, ?)
@@ -8556,8 +8449,8 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const guideEarned = guideGrade ? guideGrade.points_earned : (hasReadingGuide ? 12 : 0);
       const guidePossible = guideGrade ? guideGrade.points_possible : 12;
       
-      // Virtue ready to claim: quiz passed + assignment approved (but not yet claimed)
-      const virtueReady = quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
+      // Virtue ready to claim: reading guide + quiz passed + creative approved (but not yet claimed)
+      const virtueReady = hasReadingGuide && quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
       // Virtue earned: only after student has claimed it
       const virtueEarned = virtueClaimed ? 1 : 0;
       
@@ -8604,11 +8497,45 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Virtue already claimed' });
     }
     
+    // Get portal data (needed for myth_name in guide check)
+    const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
+    if (!portal) return res.status(404).json({ error: 'Portal not found' });
+    
+    // Check quiz passed
+    const quizCheck = query(
+      'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
+      [student_id, portal_id]
+    );
+    if (!quizCheck.length) {
+      return res.status(400).json({ error: 'You must pass the quiz before claiming this virtue' });
+    }
+    
+    // Check reading guide completed
+    const mythAliases = {
+      'Pandora': ['Pandora'],
+      'Phaethon': ['Phaethon'],
+      'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
+      'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
+      'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
+      'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
+      'Constellations': ['Constellations']
+    };
+    const aliases = mythAliases[portal.myth_name] || [portal.myth_name];
+    const placeholders = aliases.map(() => '?').join(',');
+    const guideCheck = query(
+      `SELECT 1 FROM grade_records gr
+       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+       WHERE gr.student_id = ? AND ar.assignment_type = 'comp_conn' 
+       AND ar.section = 'classical' AND ar.myth_god IN (${placeholders})
+       AND gr.points_earned > 0 LIMIT 1`,
+      [student_id, ...aliases]
+    );
+    if (!guideCheck.length) {
+      return res.status(400).json({ error: 'You must complete the Reading Guide before claiming this virtue' });
+    }
+    
     // Mark virtue as claimed
     run('UPDATE student_myth_completion SET virtue_claimed = 1, virtue_claimed_at = CURRENT_TIMESTAMP WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
-    
-    // Get virtue data for the reveal
-    const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
     
     // Count total virtues earned
     const totalVirtues = query('SELECT COUNT(*) as count FROM student_myth_completion WHERE student_id = ? AND virtue_claimed = 1', [student_id])[0].count;
@@ -8654,8 +8581,8 @@ app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) =
       return res.status(400).json({ error: 'Missing student_id, portal_id, or assignment_path' });
     }
     
-    // Points: 0 means status-only approval (no alliance points), positive means explicit score
-    const pointsEarned = (points !== undefined && points !== null && points !== '') ? parseInt(points) : 0;
+    // Default to 15 if no score provided (backward compatible)
+    const pointsEarned = (points !== undefined && points !== null && points !== '') ? parseInt(points) : 15;
     
     // Upsert the completion record with score
     const existing = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
@@ -8727,84 +8654,17 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
     const completions = query(`SELECT smc.* FROM student_myth_completion smc 
       JOIN students s ON smc.student_id = s.student_id WHERE s.class_period = ?`, [period]);
     
-    // Get all grade records for students in this period (joined with assignments_ref)
-    const gradeRecords = query(`
-      SELECT gr.student_id, gr.points_earned, ar.myth_god, ar.assignment_type, ar.section, ar.max_points
-      FROM grade_records gr
-      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-      JOIN students s ON gr.student_id = s.student_id
-      WHERE s.class_period = ? AND ar.section IN ('classical', 'classical_creative')
-    `, [period]);
-    
-    // Get max points per myth per assignment type from assignments_ref
-    const maxPointsRef = query(`
-      SELECT myth_god, assignment_type, section, max_points 
-      FROM assignments_ref 
-      WHERE section IN ('classical', 'classical_creative')
-    `);
-    
-    // Map portal myth_name → assignments_ref myth_god aliases
-    const mythAliases = {
-      'Pandora': ['Pandora'],
-      'Phaethon': ['Phaethon'],
-      'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
-      'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
-      'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
-      'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
-      'Constellations': ['Constellations']
-    };
-    
-    // Build max lookup: { mythAlias: { comp_conn: 12, quiz: 10, word_cloud: 12 } }
-    const maxLookup = {};
-    maxPointsRef.forEach(r => {
-      if (!maxLookup[r.myth_god]) maxLookup[r.myth_god] = {};
-      maxLookup[r.myth_god][r.assignment_type] = r.max_points;
-    });
-    
     const studentData = students.map(s => {
       const mythProgress = portals.map(p => {
         const quizPassed = quizPasses.some(qp => qp.student_id === s.student_id && qp.portal_id === p.portal_id);
         const completion = completions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
-        
-        // Find grade records for this student + myth
-        const aliases = mythAliases[p.myth_name] || [p.myth_name];
-        const studentMythRecords = gradeRecords.filter(r => r.student_id === s.student_id && aliases.some(a => r.myth_god === a));
-        
-        // Look up max points for this myth
-        const mythMax = {};
-        aliases.forEach(a => { if (maxLookup[a]) Object.assign(mythMax, maxLookup[a]); });
-        
-        const guideMax = mythMax['comp_conn'] || 12;
-        const quizMax = mythMax['quiz'] || 10;
-        const creativeMax = mythMax['word_cloud'] || 12;
-        const totalMax = guideMax + quizMax + creativeMax;
-        
-        // Calculate earned per type
-        const guideEarned = studentMythRecords
-          .filter(r => r.assignment_type === 'comp_conn')
-          .reduce((sum, r) => sum + r.points_earned, 0);
-        const quizEarned = studentMythRecords
-          .filter(r => r.assignment_type === 'quiz')
-          .reduce((sum, r) => sum + r.points_earned, 0);
-        const creativeEarned = studentMythRecords
-          .filter(r => r.assignment_type === 'word_cloud')
-          .reduce((sum, r) => sum + r.points_earned, 0);
-        
-        const totalEarned = Math.min(guideEarned, guideMax) + Math.min(quizEarned, quizMax) + Math.min(creativeEarned, creativeMax);
-        const pct = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
-        
         return {
           portal_id: p.portal_id,
           myth_name: p.myth_name,
           quiz_passed: quizPassed,
           assignment_path: completion ? completion.assignment_path : null,
           teacher_approved: completion ? completion.teacher_approved === 1 : false,
-          virtue_claimed: completion ? completion.virtue_claimed === 1 : false,
-          // Grade breakdown for hover tooltip
-          guide: { earned: Math.min(guideEarned, guideMax), max: guideMax },
-          quiz: { earned: Math.min(quizEarned, quizMax), max: quizMax },
-          creative: { earned: Math.min(creativeEarned, creativeMax), max: creativeMax },
-          total: { earned: totalEarned, max: totalMax, pct }
+          virtue_claimed: completion ? completion.virtue_claimed === 1 : false
         };
       });
       return { ...s, myths: mythProgress };
@@ -8944,19 +8804,17 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid questions data' });
     }
 
-    // Look up student and alliance
     const student = query('SELECT student_id, name, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
 
-    // Check attempt count — max 2 scoring attempts
+    // Max 2 scoring attempts
     const attemptCount = query(
       'SELECT COUNT(*) as cnt FROM daedalus_game_results WHERE student_id = ?',
       [student_id]
     )[0]?.cnt || 0;
 
     if (attemptCount >= 2) {
-      console.log(`⚠️ Daedalus: ${student.name} (${student_id}) already has 2 attempts — ignoring further completions`);
       return res.json({ 
         success: true, 
         alreadyCompleted: true, 
@@ -8964,14 +8822,13 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
       });
     }
 
-    // Calculate scores
     const totalQuestions = questions.length;
     const firstAttemptCorrect = questions.filter(q => q.isCorrect && q.firstAttempt).length;
     const totalCorrect = questions.filter(q => q.isCorrect).length;
     const percentage = totalQuestions > 0 ? Math.round((firstAttemptCorrect / totalQuestions) * 100) : 0;
     const passed = percentage >= 80;
 
-    // 1. Insert game result
+    // Insert game result
     run(
       `INSERT INTO daedalus_game_results 
        (student_id, total_questions, first_attempt_correct, total_correct, total_time_seconds, flight_attempts, completed, alliance_points_awarded)
@@ -8979,11 +8836,10 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
       [student_id, totalQuestions, firstAttemptCorrect, totalCorrect, totalTime || 0, flightAttempts || 0, completed ? 1 : 0, 0]
     );
 
-    // Get the result_id just inserted
     const resultRow = query('SELECT last_insert_rowid() as id')[0];
     const result_id = resultRow ? resultRow.id : null;
 
-    // 2. Insert per-question answers (for teacher monitoring)
+    // Insert per-question answers
     if (result_id) {
       questions.forEach(q => {
         run(
@@ -8995,8 +8851,7 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
       });
     }
 
-    // 3. Record in myth_quiz_attempts for portal compatibility
-    //    This ensures portal status checks, dashboard, and virtue claiming all work
+    // Record in myth_quiz_attempts for portal compatibility
     run(
       `INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at)
        VALUES (?, 5, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
@@ -9007,7 +8862,7 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
     let gradePointsEarned = 0;
 
     if (completed) {
-      // 4. Record grade for the Icarus quiz assignment — ALWAYS, regardless of pass/fail
+      // Record grade — always, regardless of pass/fail
       try {
         const quizAssignment = query(
           "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = 'Icarus'",
@@ -9015,7 +8870,6 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
         )[0];
 
         if (quizAssignment) {
-          // Calculate raw score for this attempt: proportion of first-attempt-correct × max_points
           const thisAttemptScore = Math.round((firstAttemptCorrect / totalQuestions) * quizAssignment.max_points);
           
           const existingGrade = query(
@@ -9024,15 +8878,12 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
           )[0];
 
           if (existingGrade) {
-            // Second attempt: average with first score, round up
+            // Second attempt: average with first, round up
             gradePointsEarned = Math.ceil((existingGrade.points_earned + thisAttemptScore) / 2);
-            run(
-              `UPDATE grade_records SET points_earned = ? WHERE record_id = ?`,
-              [gradePointsEarned, existingGrade.record_id]
-            );
-            console.log(`✅ Daedalus grade AVERAGED: ${student.name} - attempt 1: ${existingGrade.points_earned}, attempt 2: ${thisAttemptScore}, avg: ${gradePointsEarned}/${quizAssignment.max_points}`);
+            run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
+              [gradePointsEarned, existingGrade.record_id]);
+            console.log(`✅ Daedalus grade AVERAGED: ${student.name} - attempt1:${existingGrade.points_earned} attempt2:${thisAttemptScore} avg:${gradePointsEarned}/${quizAssignment.max_points}`);
           } else {
-            // First attempt: record raw score
             gradePointsEarned = thisAttemptScore;
             run(
               `INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
@@ -9046,29 +8897,27 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
         console.error('Daedalus grade recording error:', gradeErr.message);
       }
 
-      // 5. Award alliance points (1 per first-attempt correct, max 17)
-      alliancePointsAwarded = firstAttemptCorrect;
-      if (alliancePointsAwarded > 0) {
-        run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
-          [alliancePointsAwarded, student.alliance_id]);
-        run(
-          `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
-           VALUES (?, ?, ?, 'quiz', 'Wings of Daedalus — ${firstAttemptCorrect}/${totalQuestions} first-attempt correct')`,
-          [student.alliance_id, student_id, alliancePointsAwarded]
-        );
-        console.log(`✅ Daedalus alliance points: ${student.name} earned ${alliancePointsAwarded} pts for alliance ${student.alliance_id}`);
-      }
-
-      // Update the game result with actual points awarded
-      if (result_id) {
-        run('UPDATE daedalus_game_results SET alliance_points_awarded = ? WHERE result_id = ?',
-          [alliancePointsAwarded, result_id]);
+      // Award alliance points if passed
+      if (passed) {
+        alliancePointsAwarded = firstAttemptCorrect;
+        if (alliancePointsAwarded > 0) {
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
+            [alliancePointsAwarded, student.alliance_id]);
+          run(
+            `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+             VALUES (?, ?, ?, 'quiz', ?)`,
+            [student.alliance_id, student_id, alliancePointsAwarded, `Wings of Daedalus — ${firstAttemptCorrect}/${totalQuestions} first-attempt correct`]
+          );
+        }
+        if (result_id) {
+          run('UPDATE daedalus_game_results SET alliance_points_awarded = ? WHERE result_id = ?',
+            [alliancePointsAwarded, result_id]);
+        }
       }
     }
 
     saveDatabase();
-
-    console.log(`🎮 Daedalus complete: ${student.name} — ${firstAttemptCorrect}/${totalQuestions} first-attempt (${percentage}%), ${passed ? 'PASSED' : 'NOT PASSED'}, ${alliancePointsAwarded} alliance pts`);
+    console.log(`🎮 Daedalus: ${student.name} — ${firstAttemptCorrect}/${totalQuestions} (${percentage}%), ${passed ? 'PASSED' : 'NOT PASSED'}, ${alliancePointsAwarded} AP`);
 
     res.json({
       success: true,
@@ -9082,7 +8931,6 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
       alliancePointsAwarded,
       flightAttempts: flightAttempts || 0
     });
-
   } catch (err) {
     console.error('Daedalus complete error:', err);
     res.status(500).json({ error: 'Failed to record game completion' });
@@ -9539,27 +9387,6 @@ function getResourceThreshold(period) {
 }
 
 // Helper: Calculate market values for a period
-function getMarketSupply(period) {
-  const alliances = query('SELECT alliance_id FROM alliances WHERE class_period = ? AND is_disbanded = 0', [period]);
-  if (alliances.length === 0) return { olive: { held: 0 }, grape: { held: 0 }, iron: { held: 0 }, grain: { held: 0 } };
-  
-  const allianceIds = alliances.map(a => a.alliance_id);
-  const placeholders = allianceIds.map(() => '?').join(',');
-  
-  const personal = query(`SELECT SUM(sr.olive) as po, SUM(sr.grape) as pg, SUM(sr.iron) as pi, SUM(sr.grain) as pgr
-    FROM student_resources sr JOIN students s ON sr.student_id = s.student_id
-    WHERE s.alliance_id IN (${placeholders})`, allianceIds)[0];
-  
-  const held = { olive: personal?.po || 0, grape: personal?.pg || 0, iron: personal?.pi || 0, grain: personal?.pgr || 0 };
-  const maxHeld = Math.max(1, ...Object.values(held));
-  
-  const supply = {};
-  TRADE_RESOURCES.forEach(r => {
-    supply[r] = { held: held[r], pct: Math.round((held[r] / maxHeld) * 100) };
-  });
-  return supply;
-}
-
 function getMarketValues(period) {
   const alliances = query('SELECT alliance_id FROM alliances WHERE class_period = ? AND is_disbanded = 0', [period]);
   if (alliances.length === 0) return { olive: 10, grape: 10, iron: 10, grain: 10 };
@@ -9752,28 +9579,6 @@ app.post('/api/trade/set-threshold', authenticateToken, (req, res) => {
   }
 });
 
-// --- Teacher: Set daily trade limit per period ---
-app.post('/api/trade/set-daily-limit', authenticateToken, (req, res) => {
-  try {
-    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
-    const { period, limit } = req.body;
-    if (!period || limit === undefined || limit < 0) return res.status(400).json({ error: 'Valid period and limit required' });
-    
-    const existing = query('SELECT period FROM trade_window WHERE period = ?', [period])[0];
-    if (existing) {
-      run('UPDATE trade_window SET daily_trade_limit = ? WHERE period = ?', [limit, period]);
-    } else {
-      run('INSERT INTO trade_window (period, is_open, daily_trade_limit) VALUES (?, 0, ?)', [period, limit]);
-    }
-    
-    saveDatabase();
-    res.json({ success: true, period, daily_trade_limit: limit });
-  } catch (err) {
-    console.error('Set daily limit error:', err);
-    res.status(500).json({ error: 'Failed to set daily limit' });
-  }
-});
-
 // --- Student: Get my trade data (inventory, spending cap, market) ---
 app.get('/api/trade/my-data', authenticateToken, (req, res) => {
   try {
@@ -9923,6 +9728,55 @@ app.post('/api/trade/buy', authenticateToken, (req, res) => {
   }
 });
 
+// --- Student: Sell resources back (10 units = 1 pt, minus 10% fee) ---
+app.post('/api/trade/sell', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { resource, amount } = req.body;
+    
+    if (!resource || !amount || amount < 1) return res.status(400).json({ error: 'Invalid resource or amount' });
+    if (!['olive', 'grape', 'iron', 'grain'].includes(resource)) return res.status(400).json({ error: 'Invalid resource type' });
+    
+    const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
+    
+    const tradeWindow = query('SELECT is_open FROM trade_window WHERE period = ?', [student.class_period])[0];
+    if (!tradeWindow || tradeWindow.is_open !== 1) {
+      return res.status(400).json({ error: 'Market is currently closed' });
+    }
+    
+    ensureStudentResources(student_id);
+    const resources = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
+    if (!resources || (resources[resource] || 0) < amount) {
+      return res.status(400).json({ error: `You only have ${resources ? resources[resource] || 0 : 0} units of that resource` });
+    }
+    
+    const grossPts = Math.floor(amount / 10);
+    if (grossPts < 1) return res.status(400).json({ error: 'Must sell at least 10 units' });
+    const fee = Math.ceil(grossPts * 0.10);
+    const netPts = grossPts - fee;
+    if (netPts < 1) return res.status(400).json({ error: 'Sale too small — fee exceeds value' });
+    
+    run(`UPDATE student_resources SET ${resource} = ${resource} - ? WHERE student_id = ?`, [amount, student_id]);
+    run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', [netPts, student.alliance_id]);
+    
+    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+         VALUES (?, ?, ?, 'resource_sale', ?)`,
+      [student.alliance_id, student_id, netPts, `Sold ${amount} ${TRADE_RESOURCE_LABELS[resource] || resource} for ${netPts} pts (${fee} pt fee) — by ${req.user.name}`]);
+    
+    saveDatabase();
+    res.json({
+      success: true,
+      message: `Sold ${amount} ${TRADE_RESOURCE_LABELS[resource] || resource}! ${netPts} points returned to alliance (${fee} pt market fee).`,
+      net_points: netPts,
+      fee
+    });
+  } catch (err) {
+    console.error('Sell resource error:', err);
+    res.status(500).json({ error: 'Failed to sell resource' });
+  }
+});
+
 // --- Student: Get market data for their period ---
 app.get('/api/trade/market', authenticateToken, (req, res) => {
   try {
@@ -9965,7 +9819,6 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
       market_values: values,
       trade_window_open: window ? window.is_open === 1 : false,
       resource_threshold: threshold,
-      supply: getMarketSupply(student.class_period),
       partners,
       recent_trades: recentTrades
     });
@@ -9998,20 +9851,8 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
     if (initiator.alliance_id === partner.alliance_id) return res.status(400).json({ error: 'Cannot trade within your own alliance' });
     
     // Check trade window
-    const window = query('SELECT is_open, daily_trade_limit FROM trade_window WHERE period = ?', [initiator.class_period])[0];
+    const window = query('SELECT is_open FROM trade_window WHERE period = ?', [initiator.class_period])[0];
     if (!window || window.is_open !== 1) return res.status(400).json({ error: 'Trade window is closed' });
-    
-    // Check daily trade limit
-    const dailyLimit = window.daily_trade_limit || 5;
-    const todayTradeCount = query(
-      `SELECT COUNT(*) as cnt FROM trades 
-       WHERE initiator_id = ? AND DATE(created_at) = DATE('now') 
-       AND status IN ('pending', 'completed', 'approved', 'flagged')`,
-      [student_id]
-    )[0].cnt;
-    if (todayTradeCount >= dailyLimit) {
-      return res.status(400).json({ error: `You've reached today's trade limit (${dailyLimit}). Mr. Sebek controls the daily limit.` });
-    }
     
     // Check Transport Ship
     const alliance = query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [initiator.alliance_id])[0];
@@ -10205,38 +10046,13 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
     
     const studentInventories = query(`
       SELECT s.student_id, s.name, s.alliance_id, a.alliance_name,
-             sr.olive, sr.grape, sr.iron, sr.grain,
-             ar.native_resource
+             sr.olive, sr.grape, sr.iron, sr.grain
       FROM students s
       JOIN alliances a ON s.alliance_id = a.alliance_id
       LEFT JOIN student_resources sr ON s.student_id = sr.student_id
-      LEFT JOIN alliance_resources ar ON a.alliance_id = ar.alliance_id
-      WHERE s.class_period = ? AND a.is_disbanded = 0 AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+      WHERE s.class_period = ? AND a.is_disbanded = 0
       ORDER BY a.alliance_name, s.name
     `, [period]);
-    
-    // Per-student completed trade counts (all time + today)
-    const perStudentTrades = query(`
-      SELECT student_id, 
-             COUNT(*) as total_trades,
-             SUM(CASE WHEN DATE(created_at) = DATE('now') THEN 1 ELSE 0 END) as today_trades
-      FROM (
-        SELECT initiator_id as student_id, created_at FROM trades WHERE period = ? AND status IN ('completed', 'approved')
-        UNION ALL
-        SELECT partner_id as student_id, completed_at as created_at FROM trades WHERE period = ? AND status IN ('completed', 'approved')
-      )
-      GROUP BY student_id
-    `, [period, period]);
-    
-    // Attach trade counts to each student
-    studentInventories.forEach(s => {
-      const tc = perStudentTrades.find(t => t.student_id === s.student_id);
-      s.total_trades = tc ? tc.total_trades : 0;
-      s.today_trades = tc ? tc.today_trades : 0;
-      s.total_resources = (s.olive || 0) + (s.grape || 0) + (s.iron || 0) + (s.grain || 0);
-      // Count unique non-zero resources
-      s.unique_resources = [s.olive, s.grape, s.iron, s.grain].filter(v => v > 0).length;
-    });
     
     const tradeCounts = query(`
       SELECT COUNT(*) as total,
@@ -10260,313 +10076,6 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
     res.status(500).json({ error: 'Failed to get trade overview' });
   }
 });
-
-// ==================== SHARED RESOURCE MARKET ====================
-
-// Helper: resolve a single expired market bid
-function resolveMarketBid(bid, now) {
-  try {
-    // Verify market still has stock
-    const poolRow = query('SELECT pool_id, stock FROM market_pool WHERE period = ? AND resource = ?', [bid.period, bid.resource_wanted])[0];
-    if (!poolRow || poolRow.stock < bid.amount_wanted) {
-      run("UPDATE market_bids SET status = 'failed_no_stock', resolved_at = ? WHERE bid_id = ?", [now, bid.bid_id]);
-      return { bid_id: bid.bid_id, status: 'failed_no_stock' };
-    }
-    
-    // Verify bidder still has resources
-    ensureStudentResources(bid.bidder_id);
-    const bidderRes = query('SELECT * FROM student_resources WHERE student_id = ?', [bid.bidder_id])[0];
-    if (!bidderRes || bidderRes[bid.resource_offered] < bid.amount_offered) {
-      run("UPDATE market_bids SET status = 'failed_no_funds', resolved_at = ? WHERE bid_id = ?", [now, bid.bid_id]);
-      return { bid_id: bid.bid_id, status: 'failed_no_funds' };
-    }
-    
-    // Execute the trade
-    run(`UPDATE student_resources SET ${bid.resource_offered} = ${bid.resource_offered} - ? WHERE student_id = ?`, 
-      [bid.amount_offered, bid.bidder_id]);
-    run(`UPDATE student_resources SET ${bid.resource_wanted} = ${bid.resource_wanted} + ? WHERE student_id = ?`, 
-      [bid.amount_wanted, bid.bidder_id]);
-    run('UPDATE market_pool SET stock = stock - ? WHERE period = ? AND resource = ?', 
-      [bid.amount_wanted, bid.period, bid.resource_wanted]);
-    
-    // Market receives the offered resource
-    const offeredPool = query('SELECT pool_id FROM market_pool WHERE period = ? AND resource = ?', [bid.period, bid.resource_offered])[0];
-    if (offeredPool) {
-      run('UPDATE market_pool SET stock = stock + ? WHERE pool_id = ?', [bid.amount_offered, offeredPool.pool_id]);
-    } else {
-      run('INSERT INTO market_pool (period, resource, stock) VALUES (?, ?, ?)', [bid.period, bid.resource_offered, bid.amount_offered]);
-    }
-    
-    // Count bidders for history
-    const totalBidders = query(
-      "SELECT COUNT(*) as cnt FROM market_bids WHERE period = ? AND resource_wanted = ? AND auction_ends_at = ?",
-      [bid.period, bid.resource_wanted, bid.auction_ends_at]
-    )[0].cnt;
-    
-    // Log the trade
-    run(
-      `INSERT INTO market_trades (period, winner_id, resource_given, amount_given, resource_received, amount_received, ratio, total_bidders)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [bid.period, bid.bidder_id, bid.resource_offered, bid.amount_offered, bid.resource_wanted, bid.amount_wanted, bid.ratio, totalBidders]
-    );
-    
-    run("UPDATE market_bids SET status = 'completed', resolved_at = ? WHERE bid_id = ?", [now, bid.bid_id]);
-    console.log(`✅ Market trade resolved: bid ${bid.bid_id} - ${bid.amount_offered} ${bid.resource_offered} for ${bid.amount_wanted} ${bid.resource_wanted}`);
-    return { bid_id: bid.bid_id, status: 'completed', winner_id: bid.bidder_id };
-  } catch (err) {
-    console.error('resolveMarketBid error:', err);
-    return { bid_id: bid.bid_id, status: 'error' };
-  }
-}
-
-// --- Teacher: Get market pool status for a period ---
-app.get('/api/market/pool/:period', authenticateToken, (req, res) => {
-  try {
-    const period = req.params.period;
-    
-    // Auto-resolve any expired auctions first
-    const now = new Date().toISOString();
-    const expiredBids = query("SELECT * FROM market_bids WHERE period = ? AND status = 'active' AND auction_ends_at <= ?", [period, now]);
-    expiredBids.forEach(bid => {
-      resolveMarketBid(bid, now);
-    });
-    if (expiredBids.length > 0) saveDatabase();
-    
-    const pool = query('SELECT * FROM market_pool WHERE period = ?', [period]);
-    const activeBids = query("SELECT * FROM market_bids WHERE period = ? AND status = 'active' ORDER BY auction_ends_at ASC", [period]);
-    const recentTrades = query('SELECT mt.*, s.name as winner_name FROM market_trades mt JOIN students s ON mt.winner_id = s.student_id WHERE mt.period = ? ORDER BY mt.completed_at DESC LIMIT 20', [period]);
-    
-    res.json({ pool, active_bids: activeBids, recent_trades: recentTrades });
-  } catch (err) {
-    console.error('Market pool error:', err);
-    res.status(500).json({ error: 'Failed to load market pool' });
-  }
-});
-
-// --- Teacher: Set market pool stock ---
-app.post('/api/market/restock', authenticateToken, (req, res) => {
-  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
-  try {
-    const { period, resource, amount } = req.body;
-    if (!period || !resource || amount === undefined) return res.status(400).json({ error: 'Period, resource, and amount required' });
-    if (!TRADE_RESOURCES.includes(resource)) return res.status(400).json({ error: 'Invalid resource' });
-    if (amount < 0) return res.status(400).json({ error: 'Amount must be non-negative' });
-    
-    const existing = query('SELECT pool_id, stock FROM market_pool WHERE period = ? AND resource = ?', [period, resource])[0];
-    if (existing) {
-      run('UPDATE market_pool SET stock = ? WHERE pool_id = ?', [amount, existing.pool_id]);
-    } else {
-      run('INSERT INTO market_pool (period, resource, stock) VALUES (?, ?, ?)', [period, resource, amount]);
-    }
-    
-    saveDatabase();
-    res.json({ success: true, period, resource, stock: amount });
-  } catch (err) {
-    console.error('Restock error:', err);
-    res.status(500).json({ error: 'Failed to restock' });
-  }
-});
-
-// --- Student: Get market data (pool + active auctions) ---
-app.get('/api/market/status', authenticateToken, (req, res) => {
-  try {
-    const student = query('SELECT student_id, class_period, alliance_id FROM students WHERE student_id = ?', [req.user.id])[0];
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-    
-    // Shared market only for classes with fewer than 4 alliances
-    const allianceCountForPeriod = query(
-      'SELECT COUNT(*) as cnt FROM alliances WHERE class_period = ? AND is_disbanded = 0',
-      [student.class_period]
-    )[0]?.cnt || 0;
-    if (allianceCountForPeriod >= 4) {
-      return res.json({ pool: [], active_auctions: [], my_bid: null, today_market_trades: 0 });
-    }
-    
-    // Auto-resolve any expired auctions first
-    const now = new Date().toISOString();
-    const expiredBids = query("SELECT * FROM market_bids WHERE period = ? AND status = 'active' AND auction_ends_at <= ?", [student.class_period, now]);
-    if (expiredBids.length > 0) {
-      expiredBids.forEach(bid => resolveMarketBid(bid, now));
-      saveDatabase();
-    }
-    
-    const pool = query('SELECT resource, stock FROM market_pool WHERE period = ?', [student.class_period]);
-    
-    // Active auctions - anonymize bidder (just show ratio and resource info)
-    const activeBids = query("SELECT bid_id, resource_wanted, amount_wanted, resource_offered, amount_offered, ratio, auction_ends_at, status FROM market_bids WHERE period = ? AND status = 'active' ORDER BY auction_ends_at ASC", [student.class_period]);
-    
-    // This student's own active bid (if any)
-    const myBid = query("SELECT * FROM market_bids WHERE bidder_id = ? AND status = 'active'", [student.student_id])[0];
-    
-    // Today's completed market trades for this student
-    const myMarketTradesToday = query(
-      "SELECT COUNT(*) as cnt FROM market_trades WHERE winner_id = ? AND DATE(completed_at) = DATE('now')",
-      [student.student_id]
-    )[0].cnt;
-    
-    // Daily limit from trade_window
-    const tw = query('SELECT daily_trade_limit FROM trade_window WHERE period = ?', [student.class_period])[0];
-    const dailyLimit = tw ? (tw.daily_trade_limit || 5) : 5;
-    
-    res.json({ 
-      pool, 
-      active_auctions: activeBids, 
-      my_bid: myBid,
-      my_market_trades_today: myMarketTradesToday,
-      daily_limit: dailyLimit
-    });
-  } catch (err) {
-    console.error('Market status error:', err);
-    res.status(500).json({ error: 'Failed to load market status' });
-  }
-});
-
-// --- Student: Place or improve a bid on the market ---
-app.post('/api/market/bid', authenticateToken, (req, res) => {
-  try {
-    const student_id = req.user.id;
-    const { resource_wanted, amount_wanted, resource_offered, amount_offered } = req.body;
-    
-    // Validation
-    if (!resource_wanted || !amount_wanted || !resource_offered || !amount_offered) {
-      return res.status(400).json({ error: 'All bid fields required' });
-    }
-    if (!TRADE_RESOURCES.includes(resource_wanted) || !TRADE_RESOURCES.includes(resource_offered)) {
-      return res.status(400).json({ error: 'Invalid resource type' });
-    }
-    if (resource_wanted === resource_offered) return res.status(400).json({ error: 'Cannot trade same resource' });
-    if (amount_wanted < 1 || amount_offered < 1) return res.status(400).json({ error: 'Amounts must be positive' });
-    if (amount_wanted > 130 || amount_offered > 130) return res.status(400).json({ error: 'Maximum 130 resources per side' });
-    
-    const student = query('SELECT student_id, class_period, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    if (!student) return res.status(404).json({ error: 'Student not found' });
-    
-    // Check trade window is open
-    const tw = query('SELECT is_open, daily_trade_limit FROM trade_window WHERE period = ?', [student.class_period])[0];
-    if (!tw || tw.is_open !== 1) return res.status(400).json({ error: 'Market is closed' });
-    
-    // Check daily limit (market trades + regular trades combined)
-    const dailyLimit = tw.daily_trade_limit || 5;
-    const regularTradesToday = query(
-      "SELECT COUNT(*) as cnt FROM trades WHERE initiator_id = ? AND DATE(created_at) = DATE('now') AND status IN ('pending','completed','approved','flagged')",
-      [student_id]
-    )[0].cnt;
-    const marketTradesToday = query(
-      "SELECT COUNT(*) as cnt FROM market_trades WHERE winner_id = ? AND DATE(completed_at) = DATE('now')",
-      [student_id]
-    )[0].cnt;
-    if ((regularTradesToday + marketTradesToday) >= dailyLimit) {
-      return res.status(400).json({ error: `You've reached today's trade limit (${dailyLimit}).` });
-    }
-    
-    // Check market has stock of the wanted resource
-    const poolRow = query('SELECT stock FROM market_pool WHERE period = ? AND resource = ?', [student.class_period, resource_wanted])[0];
-    if (!poolRow || poolRow.stock < amount_wanted) {
-      return res.status(400).json({ error: `Market only has ${poolRow ? poolRow.stock : 0} ${resource_wanted} in stock` });
-    }
-    
-    // Check student has enough of offered resource
-    ensureStudentResources(student_id);
-    const myRes = query('SELECT * FROM student_resources WHERE student_id = ?', [student_id])[0];
-    if (myRes[resource_offered] < amount_offered) {
-      return res.status(400).json({ error: `You only have ${myRes[resource_offered]} ${resource_offered}` });
-    }
-    
-    // Ratio: what market receives / what market gives (higher = better for market)
-    const newRatio = amount_offered / amount_wanted;
-    
-    // Minimum 1:1 ratio floor
-    if (newRatio < 1.0) {
-      return res.status(400).json({ error: 'You must offer at least as much as you request (1:1 minimum)' });
-    }
-    
-    // Check if there's an active auction for this resource_wanted in this period
-    const activeAuction = query(
-      "SELECT * FROM market_bids WHERE period = ? AND resource_wanted = ? AND status = 'active' ORDER BY ratio DESC LIMIT 1",
-      [student.class_period, resource_wanted]
-    )[0];
-    
-    if (activeAuction) {
-      // Must beat current best ratio by 5%
-      const minRatio = activeAuction.ratio * 1.05;
-      if (newRatio < minRatio) {
-        return res.status(400).json({ 
-          error: `Current best offer ratio is ${activeAuction.ratio.toFixed(2)}. You need at least ${minRatio.toFixed(2)} (5% better). Offer more or request less.` 
-        });
-      }
-      
-      // Cannot outbid yourself
-      if (activeAuction.bidder_id === student_id) {
-        return res.status(400).json({ error: 'You already have the best bid on this auction' });
-      }
-      
-      // Outbid! Mark old bid as outbid
-      run("UPDATE market_bids SET status = 'outbid' WHERE bid_id = ?", [activeAuction.bid_id]);
-      
-      // Snipe protection: if <30s remaining, reset to 30s
-      const endsAt = new Date(activeAuction.auction_ends_at);
-      const now = new Date();
-      const remaining = (endsAt - now) / 1000;
-      const newEndsAt = remaining < 30 
-        ? new Date(now.getTime() + 30000).toISOString()
-        : activeAuction.auction_ends_at;
-      
-      run(
-        `INSERT INTO market_bids (period, resource_wanted, amount_wanted, resource_offered, amount_offered, bidder_id, ratio, status, auction_ends_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
-        [student.class_period, resource_wanted, amount_wanted, resource_offered, amount_offered, student_id, newRatio, newEndsAt]
-      );
-      
-      saveDatabase();
-      res.json({ 
-        success: true, 
-        type: 'outbid', 
-        message: `You outbid the previous offer! Auction ${remaining < 30 ? 'extended to 30s' : 'continues'}.`,
-        auction_ends_at: newEndsAt,
-        your_ratio: newRatio
-      });
-    } else {
-      // New auction — 60 second window
-      const endsAt = new Date(Date.now() + 60000).toISOString();
-      
-      run(
-        `INSERT INTO market_bids (period, resource_wanted, amount_wanted, resource_offered, amount_offered, bidder_id, ratio, status, auction_ends_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
-        [student.class_period, resource_wanted, amount_wanted, resource_offered, amount_offered, student_id, newRatio, endsAt]
-      );
-      
-      saveDatabase();
-      res.json({ 
-        success: true, 
-        type: 'new_auction', 
-        message: 'Bid placed! 60-second auction started. Other players can try to outbid you.',
-        auction_ends_at: endsAt,
-        your_ratio: newRatio
-      });
-    }
-  } catch (err) {
-    console.error('Market bid error:', err);
-    res.status(500).json({ error: 'Failed to place bid' });
-  }
-});
-
-// --- Server: Resolve expired auctions (called on poll) ---
-app.post('/api/market/resolve', authenticateToken, (req, res) => {
-  try {
-    const now = new Date().toISOString();
-    const expiredBids = query("SELECT * FROM market_bids WHERE status = 'active' AND auction_ends_at <= ?", [now]);
-    
-    const resolved = expiredBids.map(bid => resolveMarketBid(bid, now));
-    
-    if (resolved.length > 0) saveDatabase();
-    res.json({ resolved, count: resolved.length });
-  } catch (err) {
-    console.error('Market resolve error:', err);
-    res.status(500).json({ error: 'Failed to resolve auctions' });
-  }
-});
-
-// ==================== END SHARED RESOURCE MARKET ====================
 
 // Start server
 // --- Admin: Diagnose and repair buildings_owned from building_activations ---

@@ -1273,7 +1273,7 @@
     <div id="trade-management-modal" class="modal">
         <div class="modal-content" style="max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-                🏺 Trade System Management
+                🫒 Trade System Management
                 <button onclick="closeTradeManagementModal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
             </div>
             <div id="trade-management-content" style="flex: 1; overflow-y: auto; min-height: 0;">
@@ -3794,13 +3794,10 @@
             
             const isSteal = fate.fate_type === 'steal_choice';
 
-            // For steal fates, count OTHER alliances in the SAME PERIOD (not all periods)
-            const selectedAlliance = fateAllianceData.find(a => a.alliance_id === selectedAllianceId);
-            const selectedPeriod = selectedAlliance ? selectedAlliance.class_period : null;
+            // For steal fates, we need alliance count to show total math
+            // Use fateAllianceData which is already loaded for the current period
             const periodAlliances = fateAllianceData.filter(a => 
-                a.class_period === selectedPeriod &&
-                (a.current_age || 'Archaic') === currentFateAge && 
-                a.alliance_id !== selectedAllianceId
+                (a.current_age || 'Archaic') === currentFateAge && a.alliance_id !== selectedAllianceId
             );
             const allianceCount = periodAlliances.length;
             
@@ -3964,25 +3961,11 @@
                     <div style="font-size: 18px; color: rgba(255,255,255,0.8); margin-bottom: 30px;">
                         ${selectedAllianceName} has chosen the ${riskLevel} path!
                     </div>
-                    <div style="display: flex; gap: 15px; justify-content: center;">
-                        <button id="back-to-choices-btn" style="background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); font-size: 16px; font-weight: 700; padding: 15px 30px; border-radius: 12px; cursor: pointer; transition: all 0.3s;">
-                            ← Back to Choices
-                        </button>
-                        <button id="roll-dice-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 22px; font-weight: 900; padding: 15px 40px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,215,0,0.5); transition: all 0.3s;">
-                            🎲 ROLL THE DICE! 🎲
-                        </button>
-                    </div>
+                    <button id="roll-dice-btn" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); border: none; color: #000; font-size: 22px; font-weight: 900; padding: 15px 40px; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,215,0,0.5); transition: all 0.3s;">
+                        🎲 ROLL THE DICE! 🎲
+                    </button>
                 `;
                 document.body.appendChild(readyDiv);
-                
-                // Back button: remove overlay, reopen choices modal
-                const backBtn = document.getElementById('back-to-choices-btn');
-                backBtn.onmouseover = () => backBtn.style.borderColor = 'rgba(255,255,255,0.6)';
-                backBtn.onmouseout = () => backBtn.style.borderColor = 'rgba(255,255,255,0.3)';
-                backBtn.onclick = () => {
-                    document.body.removeChild(readyDiv);
-                    document.getElementById('fate-choices-modal').classList.add('show');
-                };
                 
                 // Add hover effect
                 const rollBtn = document.getElementById('roll-dice-btn');
@@ -4926,7 +4909,7 @@
             
             if (isClassical) {
                 // === CLASSICAL VIEW: Myth-by-myth columns ===
-                const mythNames = ['Pandora', 'Phaethon', 'Orpheus & Eurydice', 'Echo & Narcissus', 'Icarus & Daedalus', 'Eros & Psyche', 'Constellations'];
+                const mythNames = ['Pandora', 'Phaethon', 'Orpheus', 'Echo & Narcissus', 'Icarus', 'Eros & Psyche', 'Constellations'];
                 const mythShort = ['Pan', 'Pha', 'Orp', 'E&N', 'Ica', 'E&P', 'Con'];
                 const mythEmoji = ['🏺', '☀️', '🎵', '🪞', '🪶', '💘', '⭐'];
                 
@@ -4945,9 +4928,9 @@
                                 <tr style="background: rgba(255,255,255,0.05);">
                                     <th style="text-align: left; padding: 8px 10px; font-weight: 600; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 120px; position: sticky; left: 0; background: #1a1a2e; z-index: 1;">Student</th>
                                     ${mythNames.map((m, i) => `<th style="text-align: center; padding: 8px 6px; font-weight: 600; color: rgba(255,255,255,0.7); border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 65px;">
-                                        ${mythEmoji[i]}<br><span style="font-size: 10px;">${mythShort[i]}</span>
+                                        ${mythEmoji[i]}<br><span style="font-size: 10px;">${mythShort[i]}</span><br><span style="font-size: 9px; font-weight: normal; color: rgba(255,255,255,0.4);">/37</span>
                                     </th>`).join('')}
-                                    <th style="text-align: center; padding: 8px 10px; font-weight: 700; color: #60a5fa; border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 70px;">Total</th>
+                                    <th style="text-align: center; padding: 8px 10px; font-weight: 700; color: #60a5fa; border-bottom: 1px solid rgba(255,255,255,0.1); min-width: 70px;">Total<br><span style="font-size: 9px; font-weight: normal; color: rgba(255,255,255,0.4);">/259</span></th>
                                 </tr>
                             </thead>
                             <tbody>`;
@@ -4964,15 +4947,17 @@
                         mythNames.forEach(mythName => {
                             const myth = myths[mythName] || { earned: 0 };
                             totalEarned += myth.earned;
-                            const col = myth.earned > 0 ? '#fbbf24' : 'rgba(255,255,255,0.25)';
+                            const pct = Math.round((myth.earned / 37) * 100);
+                            const col = myth.earned === 37 ? '#4ade80' : (myth.earned > 0 ? '#fbbf24' : 'rgba(255,255,255,0.25)');
                             html += `<td style="text-align: center; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                 <span style="color: ${col}; font-weight: 600;">${myth.earned}</span>
                             </td>`;
                         });
                         
-                        const totalPct = totalEarned;
+                        const totalPct = Math.round((totalEarned / 259) * 100);
                         html += `<td style="text-align: center; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <span style="color: ${totalEarned > 0 ? '#60a5fa' : 'rgba(255,255,255,0.25)'}; font-weight: 700;">${totalEarned}</span>
+                            <span style="color: ${getColorForPercent(totalPct)}; font-weight: 700;">${totalEarned}</span>
+                            <span style="color: rgba(255,255,255,0.4); font-size: 10px;"> (${totalPct}%)</span>
                         </td></tr>`;
                     });
                     
@@ -5045,7 +5030,7 @@
         // TRADE MANAGEMENT
         // ====================
         
-        const TRADE_RESOURCE_ICONS = { olive: '🏺', grape: '🍇', iron: '⚒️', grain: '🌾' };
+        const TRADE_RESOURCE_ICONS = { olive: '🫒', grape: '🍇', iron: '⚒️', grain: '🌾' };
         const TRADE_RESOURCE_NAMES = { olive: 'Olive Oil', grape: 'Grapes', iron: 'Iron', grain: 'Grain' };
         let tradeData = null;
         let tradeViewPeriod = 'all';
@@ -5103,34 +5088,20 @@
                         let cellContent = '';
                         let cellBg = 'transparent';
                         
-                        // Build tooltip showing assignment breakdown
-                        const g = myth.guide || { earned: 0, max: 12 };
-                        const q = myth.quiz || { earned: 0, max: 10 };
-                        const c = myth.creative || { earned: 0, max: 12 };
-                        const t = myth.total || { earned: 0, max: 34, pct: 0 };
-                        const gCheck = g.earned > 0 ? '✅' : '❌';
-                        const qCheck = q.earned > 0 ? '✅' : '❌';
-                        const cCheck = c.earned > 0 ? '✅' : '❌';
-                        const tooltip = `Reading Guide: ${g.earned}/${g.max} ${gCheck}&#10;Quiz: ${q.earned}/${q.max} ${qCheck}&#10;Creative/CER: ${c.earned}/${c.max} ${cCheck}&#10;──────────&#10;Total: ${t.earned}/${t.max} (${t.pct}%)`;
-                        
                         if (myth.virtue_claimed) {
                             // Fully complete
-                            cellContent = `<span title="${tooltip}">🌟</span>`;
+                            cellContent = '🌟';
                             cellBg = 'rgba(74,222,128,0.1)';
                         } else if (myth.teacher_approved) {
                             // Approved, awaiting claim
-                            cellContent = `<span style="color: #4ade80;" title="${tooltip}">✅</span>`;
+                            cellContent = `<span style="color: #4ade80;">✅</span>`;
                             cellBg = 'rgba(74,222,128,0.05)';
-                        } else if (t.pct >= 80) {
-                            // 80%+ earned — purple Approve button
-                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name.replace(/'/g, "\\'")}', '${myth.myth_name.replace(/'/g, "\\'")}')" title="${tooltip}" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
-                            cellBg = 'rgba(168,85,247,0.05)';
-                        } else if (t.earned > 0) {
-                            // Some progress but below 80% — gray indicator with tooltip
-                            cellContent = `<span title="${tooltip}" style="padding: 3px 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: rgba(255,255,255,0.4); font-size: 11px; cursor: help; display: inline-block;">${t.pct}%</span>`;
-                            cellBg = 'rgba(255,255,255,0.02)';
+                        } else if (myth.quiz_passed) {
+                            // Quiz passed, needs approval
+                            cellContent = `<button onclick="approveMythAssignment(${student.student_id}, ${myth.portal_id}, '${student.name}', '${myth.myth_name}')" style="padding: 3px 8px; background: rgba(168,85,247,0.3); border: 1px solid rgba(168,85,247,0.5); border-radius: 4px; color: #c4b5fd; cursor: pointer; font-size: 11px;">Approve</button>`;
+                            cellBg = 'rgba(251,191,36,0.05)';
                         } else {
-                            // No progress
+                            // Quiz not passed
                             cellContent = '<span style="color: rgba(255,255,255,0.15);">—</span>';
                         }
                         
@@ -5144,9 +5115,8 @@
                 
                 // Legend
                 html += `<div style="display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: rgba(255,255,255,0.5); flex-wrap: wrap;">
-                    <span>— = No progress</span>
-                    <span style="color: rgba(255,255,255,0.4);">##% = In progress (hover for details)</span>
-                    <span style="color: #c4b5fd;">Approve = 80%+ earned, ready for review</span>
+                    <span>— = Quiz not passed</span>
+                    <span style="color: #c4b5fd;">Approve = Quiz passed, verify in Classroom</span>
                     <span style="color: #4ade80;">✅ = Approved, student can claim</span>
                     <span>🌟 = Virtue claimed</span>
                 </div>`;
@@ -5159,20 +5129,25 @@
         }
         
         async function approveMythAssignment(studentId, portalId, studentName, mythName) {
-            // Single-click approval — status change only
-            // Score comes from student's graded submission, not manual input
-            // Pathway comes from student's submission metadata
-            if (!confirm(`Approve ${studentName}'s ${mythName} assignment?\n\nThis marks their submission as approved so they can claim their virtue.`)) return;
+            // Simple confirmation - the score already exists from the graded submission
+            const score = prompt(`Approve ${studentName}'s ${mythName} assignment?\n\nScore out of 15 (the grade from their submission):`, '15');
+            if (score === null) return;
+            
+            const points = parseInt(score) || 15;
+            const path = prompt('Which path?\n1 = Scholar\'s (analytical)\n2 = Creator\'s (creative)', '1');
+            if (path === null) return;
+            
+            const assignmentPath = path === '2' ? 'creative' : 'analytical';
             
             try {
                 const res = await fetch(`${API_URL}/teacher/approve-myth-assignment`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: 'pending', points: 0 })
+                    body: JSON.stringify({ student_id: studentId, portal_id: portalId, assignment_path: assignmentPath, points: points })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(`✅ ${studentName}'s ${mythName} approved!`);
+                    alert(data.message);
                     loadMythProgress(mythProgressPeriod);
                 } else {
                     alert(data.error || 'Failed to approve');
@@ -5185,8 +5160,6 @@
         
         // ==================== TRADE SYSTEM MANAGEMENT ====================
 
-        let tradeAutoRefreshInterval = null;
-        
         async function openTradeManagementModal() {
             document.getElementById('trade-management-modal').classList.add('show');
             document.getElementById('trade-management-content').innerHTML = '<div style="text-align:center; padding:40px; color:rgba(255,255,255,0.5);">Loading trade data...</div>';
@@ -5195,35 +5168,7 @@
         
         function closeTradeManagementModal() {
             document.getElementById('trade-management-modal').classList.remove('show');
-            // Stop auto-refresh when modal closes
-            if (tradeAutoRefreshInterval) {
-                clearInterval(tradeAutoRefreshInterval);
-                tradeAutoRefreshInterval = null;
-            }
         }
-        
-        function toggleTradeAutoRefresh() {
-            const checkbox = document.getElementById('trade-auto-refresh');
-            if (checkbox && checkbox.checked) {
-                tradeAutoRefreshInterval = setInterval(async () => {
-                    await loadTradeManagement();
-                }, 20000); // 20 seconds
-            } else {
-                if (tradeAutoRefreshInterval) {
-                    clearInterval(tradeAutoRefreshInterval);
-                    tradeAutoRefreshInterval = null;
-                }
-            }
-        }
-        
-        async function refreshTradeManagement() {
-            const btn = document.getElementById('trade-refresh-btn');
-            if (btn) { btn.innerHTML = '⏳ Refreshing...'; btn.style.opacity = '0.6'; }
-            await loadTradeManagement();
-        }
-        
-        let tradeOverviewData = {}; // Per-period overview cache
-        let marketPoolData = {}; // Per-period market pool cache
         
         async function loadTradeManagement() {
             try {
@@ -5238,20 +5183,6 @@
                     return;
                 }
                 tradeData = { ...assignData, flagged: flaggedData.flagged || [] };
-                
-                // Fetch overview and market pool for each period
-                const periods = [...new Set((tradeData.alliances || []).map(a => a.class_period))];
-                for (const p of periods) {
-                    try {
-                        const [ovRes, mpRes] = await Promise.all([
-                            fetch(`${API_URL}/trade/overview/${p}`, { headers }),
-                            fetch(`${API_URL}/market/pool/${p}`, { headers })
-                        ]);
-                        tradeOverviewData[p] = await ovRes.json();
-                        marketPoolData[p] = await mpRes.json();
-                    } catch (e) { console.warn('Overview/market fetch failed for', p); }
-                }
-                
                 renderTradeManagement();
             } catch (err) {
                 document.getElementById('trade-management-content').innerHTML = `<div style="color:#f87171; padding:20px;">Failed to load trade data: ${err.message}</div>`;
@@ -5269,14 +5200,6 @@
             const unassigned = alliances.filter(a => !a.native_resource);
             
             let html = '';
-            
-            // Auto-refresh toggle (compact, top-right)
-            html += `<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;">
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:rgba(255,255,255,0.5);">
-                    <input type="checkbox" id="trade-auto-refresh" onchange="toggleTradeAutoRefresh()" ${tradeAutoRefreshInterval ? 'checked' : ''} style="cursor:pointer;">
-                    Auto-refresh every 20s
-                </label>
-            </div>`;
             
             // Flagged trades alert
             if (flagged.length > 0) {
@@ -5313,20 +5236,14 @@
                             <strong style="font-size: 17px; color: #fbbf24;">${period} Period</strong>
                             <span style="color: rgba(255,255,255,0.6); margin-left: 12px;">(${periodAlliances.length} alliances)</span>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
                             ${!allAssigned ? `<button onclick="assignResources('${period}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">🎲 Assign Resources</button>` : ''}
-                            <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
-                                <span style="font-size: 12px; color: rgba(255,255,255,0.6);">Daily Limit:</span>
-                                <input type="number" id="daily-limit-${period}" value="${windowStatus?.daily_trade_limit || 5}" min="0" max="50" style="width: 45px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fbbf24; text-align: center; padding: 4px; font-size: 13px; font-weight: 700;">
-                                <button onclick="setDailyTradeLimit('${period}')" style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.4); color: #fbbf24; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Set</button>
-                            </div>
                             <button onclick="toggleTradeWindow('${period}', ${isOpen ? 'false' : 'true'})" style="background: ${isOpen ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}; border: 1px solid ${isOpen ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.6)'}; color: ${isOpen ? '#f87171' : '#4ade80'}; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">
                                 ${isOpen ? '🔒 Close Market' : '🔓 Open Market'}
                             </button>
                             <span style="font-size: 12px; padding: 4px 10px; border-radius: 4px; background: ${isOpen ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)'}; color: ${isOpen ? '#4ade80' : 'rgba(255,255,255,0.4)'};">
                                 ${isOpen ? '● Market Open' : '○ Market Closed'}
                             </span>
-                            <button onclick="refreshTradeManagement()" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.3);color:#fbbf24;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;">🔄 Refresh</button>
                         </div>
                     </div>
                     <div style="padding: 16px;">
@@ -5356,8 +5273,6 @@
                             </tbody>
                         </table>
                     </div>
-                    ${renderStudentTradeProgress(period)}
-                    ${renderMarketPoolControls(period)}
                 </div>`;
             });
             
@@ -5366,214 +5281,6 @@
             }
             
             content.innerHTML = html;
-        }
-        
-        function renderStudentTradeProgress(period) {
-            const overview = tradeOverviewData[period];
-            if (!overview || !overview.students || overview.students.length === 0) {
-                return '<div style="padding: 12px 16px; color: rgba(255,255,255,0.3); font-size: 12px;">No student trade data yet.</div>';
-            }
-            
-            const students = overview.students;
-            const dailyLimit = overview.trade_window?.daily_trade_limit || 5;
-            
-            // Group by alliance
-            const alliances = {};
-            students.forEach(s => {
-                if (!alliances[s.alliance_name]) alliances[s.alliance_name] = { native: s.native_resource, students: [] };
-                alliances[s.alliance_name].students.push(s);
-            });
-            
-            let html = `<div style="padding: 0 16px 16px; border-top: 1px solid rgba(255,255,255,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 8px;">
-                    <span style="font-weight: 600; color: rgba(255,255,255,0.7); font-size: 13px;">📊 Student Trade Progress</span>
-                    <span style="font-size: 11px; color: rgba(255,255,255,0.4);">Daily limit: ${dailyLimit} trades/student</span>
-                </div>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                    <thead>
-                        <tr style="background: rgba(255,255,255,0.04);">
-                            <th style="text-align: left; padding: 6px 8px; color: rgba(255,255,255,0.6); font-weight: 600;">Student</th>
-                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6); font-size: 18px;" title="Olive Oil">${TRADE_RESOURCE_ICONS.olive}</th>
-                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6); font-size: 18px;" title="Grapes">${TRADE_RESOURCE_ICONS.grape}</th>
-                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6); font-size: 18px;" title="Iron">${TRADE_RESOURCE_ICONS.iron}</th>
-                            <th style="text-align: center; padding: 6px 4px; color: rgba(255,255,255,0.6); font-size: 18px;" title="Grain">${TRADE_RESOURCE_ICONS.grain}</th>
-                            <th style="text-align: center; padding: 6px 8px; color: rgba(255,255,255,0.6);">Diversity</th>
-                            <th style="text-align: center; padding: 6px 8px; color: rgba(255,255,255,0.6);">Today</th>
-                            <th style="text-align: center; padding: 6px 8px; color: rgba(255,255,255,0.6);">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-            
-            Object.entries(alliances).forEach(([allianceName, data]) => {
-                // Alliance header row
-                const nativeIcon = data.native ? (TRADE_RESOURCE_ICONS[data.native] || '') : '';
-                html += `<tr style="background: rgba(234,179,8,0.08);">
-                    <td colspan="8" style="padding: 6px 8px; font-weight: 700; color: #fbbf24; font-size: 12px;">${nativeIcon} ${allianceName}</td>
-                </tr>`;
-                
-                data.students.forEach((s, idx) => {
-                    const o = s.olive || 0, g = s.grape || 0, i = s.iron || 0, gr = s.grain || 0;
-                    const todayUsed = s.today_trades || 0;
-                    const totalTrades = s.total_trades || 0;
-                    const unique = s.unique_resources || 0;
-                    
-                    // Diversity bar: 4 dots, filled for each resource they have
-                    const diversityDots = [
-                        { has: o > 0, icon: TRADE_RESOURCE_ICONS.olive },
-                        { has: g > 0, icon: TRADE_RESOURCE_ICONS.grape },
-                        { has: i > 0, icon: TRADE_RESOURCE_ICONS.iron },
-                        { has: gr > 0, icon: TRADE_RESOURCE_ICONS.grain }
-                    ].map(d => d.has ? 
-                        `<span style="font-size: 10px;">${d.icon}</span>` : 
-                        `<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.1); margin: 0 1px;"></span>`
-                    ).join('');
-                    
-                    // Today trades color
-                    const todayColor = todayUsed >= dailyLimit ? '#f87171' : (todayUsed > 0 ? '#4ade80' : 'rgba(255,255,255,0.3)');
-                    
-                    // Resource cell styling: native gets a subtle background, non-native with value gets highlight
-                    const resCell = (val, resType) => {
-                        const isNative = resType === data.native;
-                        const bg = isNative ? 'rgba(234,179,8,0.08)' : 'transparent';
-                        const color = val > 0 ? (isNative ? '#fbbf24' : '#4ade80') : 'rgba(255,255,255,0.15)';
-                        return `<td style="text-align: center; padding: 4px; background: ${bg}; color: ${color}; font-weight: ${val > 0 ? '600' : '400'};">${val || '—'}</td>`;
-                    };
-                    
-                    html += `<tr style="background: ${idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.03);">
-                        <td style="padding: 5px 8px; color: rgba(255,255,255,0.8);">${s.name}</td>
-                        ${resCell(o, 'olive')}
-                        ${resCell(g, 'grape')}
-                        ${resCell(i, 'iron')}
-                        ${resCell(gr, 'grain')}
-                        <td style="text-align: center; padding: 4px 8px;">${diversityDots} <span style="color: ${unique >= 4 ? '#4ade80' : unique >= 2 ? '#fbbf24' : 'rgba(255,255,255,0.4)'}; font-size: 10px; font-weight: 600;">${unique}/4</span></td>
-                        <td style="text-align: center; padding: 4px 8px; color: ${todayColor}; font-weight: 600;">${todayUsed}/${dailyLimit}</td>
-                        <td style="text-align: center; padding: 4px 8px; color: ${totalTrades > 0 ? '#60a5fa' : 'rgba(255,255,255,0.3)'}; font-weight: 600;">${totalTrades}</td>
-                    </tr>`;
-                });
-            });
-            
-            html += '</tbody></table></div>';
-            return html;
-        }
-        
-        async function setDailyTradeLimit(period) {
-            const input = document.getElementById(`daily-limit-${period}`);
-            const limit = parseInt(input.value);
-            if (isNaN(limit) || limit < 0) { alert('Enter a valid number (0+)'); return; }
-            try {
-                const res = await fetch(`${API_URL}/trade/set-daily-limit`, {
-                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period, limit })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(`✅ Daily trade limit for ${period} set to ${limit}`);
-                    loadTradeManagement();
-                } else {
-                    alert(data.error || 'Failed to set limit');
-                }
-            } catch (err) {
-                alert('Failed to set daily limit');
-            }
-        }
-        
-        function renderMarketPoolControls(period) {
-            // Only show Shared Market for classes with fewer than 4 alliances
-            const periodAllianceCount = (tradeData?.alliances || []).filter(a => a.class_period === period).length;
-            if (periodAllianceCount >= 4) return '';
-            
-            const mp = marketPoolData[period];
-            if (!mp) return '';
-            
-            const pool = mp.pool || [];
-            const activeBids = mp.active_bids || [];
-            const recentTrades = mp.recent_trades || [];
-            
-            // Build stock map
-            const stockMap = {};
-            pool.forEach(p => { stockMap[p.resource] = p.stock; });
-            
-            let html = `<div style="padding: 0 16px 16px; border-top: 1px solid rgba(255,255,255,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 8px;">
-                    <span style="font-weight: 600; color: rgba(255,255,255,0.7); font-size: 13px;">🏛️ Shared Resource Market</span>
-                    <span style="font-size: 11px; color: rgba(255,255,255,0.4);">NPC market pool — set stock levels</span>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;">
-                    ${['olive', 'grape', 'iron', 'grain'].map(r => {
-                        const stock = stockMap[r] || 0;
-                        const icon = TRADE_RESOURCE_ICONS[r];
-                        const name = TRADE_RESOURCE_NAMES[r];
-                        return `<div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; text-align: center;">
-                            <div style="font-size: 24px; margin-bottom: 4px;">${icon}</div>
-                            <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">${name}</div>
-                            <div style="font-size: 20px; font-weight: 700; color: ${stock > 0 ? '#4ade80' : 'rgba(255,255,255,0.25)'}; margin-bottom: 8px;">${stock}</div>
-                            <div style="display: flex; gap: 4px; justify-content: center;">
-                                <input type="number" id="restock-${period}-${r}" value="${stock}" min="0" style="width: 60px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: #fbbf24; text-align: center; padding: 4px; font-size: 12px; font-weight: 700;">
-                                <button onclick="restockMarket('${period}', '${r}')" style="background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600;">Set</button>
-                            </div>
-                        </div>`;
-                    }).join('')}
-                </div>`;
-            
-            // Active auctions
-            if (activeBids.length > 0) {
-                html += `<div style="margin-bottom: 12px;">
-                    <div style="font-size: 12px; font-weight: 600; color: #fbbf24; margin-bottom: 6px;">⏱️ Active Auctions (${activeBids.length})</div>
-                    ${activeBids.map(b => {
-                        const timeLeft = Math.max(0, Math.round((new Date(b.auction_ends_at) - new Date()) / 1000));
-                        return `<div style="background: rgba(234,179,8,0.06); border: 1px solid rgba(234,179,8,0.2); border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
-                            <div>
-                                <span style="color: #fbbf24;">${b.amount_offered} ${TRADE_RESOURCE_ICONS[b.resource_offered]}</span>
-                                <span style="color: rgba(255,255,255,0.3);"> → </span>
-                                <span style="color: #4ade80;">${b.amount_wanted} ${TRADE_RESOURCE_ICONS[b.resource_wanted]}</span>
-                                <span style="color: rgba(255,255,255,0.4); margin-left: 8px;">Ratio: ${b.ratio.toFixed(2)}</span>
-                            </div>
-                            <span style="color: ${timeLeft < 15 ? '#f87171' : '#fbbf24'}; font-weight: 700;">${timeLeft}s</span>
-                        </div>`;
-                    }).join('')}
-                </div>`;
-            }
-            
-            // Recent market trades
-            if (recentTrades.length > 0) {
-                html += `<div>
-                    <div style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: 6px;">📜 Recent Market Trades</div>
-                    ${recentTrades.slice(0, 5).map(t => {
-                        return `<div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
-                            <div>
-                                <span style="color: #60a5fa; font-weight: 600;">${t.winner_name}</span>
-                                gave <span style="color: #fbbf24;">${t.amount_given} ${TRADE_RESOURCE_ICONS[t.resource_given]}</span>
-                                for <span style="color: #4ade80;">${t.amount_received} ${TRADE_RESOURCE_ICONS[t.resource_received]}</span>
-                                <span style="color: rgba(255,255,255,0.3);">(${t.ratio.toFixed(2)}x${t.total_bidders > 1 ? `, ${t.total_bidders} bidders` : ''})</span>
-                            </div>
-                        </div>`;
-                    }).join('')}
-                </div>`;
-            }
-            
-            html += '</div>';
-            return html;
-        }
-        
-        async function restockMarket(period, resource) {
-            const input = document.getElementById(`restock-${period}-${resource}`);
-            const amount = parseInt(input.value);
-            if (isNaN(amount) || amount < 0) { alert('Enter a valid amount (0+)'); return; }
-            try {
-                const res = await fetch(`${API_URL}/market/restock`, {
-                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period, resource, amount })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    loadTradeManagement(); // Refresh
-                } else {
-                    alert(data.error || 'Failed to restock');
-                }
-            } catch (err) {
-                alert('Failed to restock market');
-            }
         }
         
         async function assignResources(period) {
@@ -5938,10 +5645,16 @@
             
             try {
                 const response = await fetch(`${API_URL}/teacher/students`, { headers });
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`Server ${response.status}: ${errText.substring(0, 200)}`);
+                }
                 const data = await response.json();
                 renderStudentManagement(data);
             } catch (err) {
-                document.getElementById('student-management-content').innerHTML = '<div style="color: #f87171;">Failed to load students</div>';
+                console.error('Student management load error:', err);
+                document.getElementById('student-management-content').innerHTML = 
+                    `<div style="color: #f87171; padding: 20px;">Failed to load students: ${err.message}</div>`;
             }
         }
         
@@ -5996,7 +5709,7 @@
                 `;
                 
                 students.forEach(student => {
-                    const scoutBadge = (student.scout_status && allianceAge === 'Archaic') ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
+                    const scoutBadge = student.scout_status ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
                     const allianceAge = student.alliance_age || 'Archaic';
                     const isArchaicAlliance = allianceAge === 'Archaic';
                     const scoutBtn = isArchaicAlliance ? 

@@ -635,7 +635,6 @@ async function initDatabase() {
 
   // ==================== DAEDALUS ESCAPE GAME TABLES ====================
 
-  // Game completion records (one per completed playthrough)
   db.run(`
     CREATE TABLE IF NOT EXISTS daedalus_game_results (
       result_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -652,7 +651,6 @@ async function initDatabase() {
     )
   `);
 
-  // Per-question answer tracking (for teacher monitoring)
   db.run(`
     CREATE TABLE IF NOT EXISTS daedalus_question_answers (
       answer_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1405,6 +1403,14 @@ function seedReferenceData() {
     )`);
   } catch (e) { console.log('Migration note: resource_buys -', e.message); }
 
+  // Icarus scoring correction: Reading Guide 12→5, Quiz 10→17, Creative→20
+  try {
+    db.run("UPDATE assignments_ref SET max_points = 5 WHERE myth_god = 'Icarus' AND assignment_type = 'comp_conn' AND section = 'classical'");
+    db.run("UPDATE assignments_ref SET max_points = 17 WHERE myth_god = 'Icarus' AND assignment_type = 'quiz' AND section = 'classical'");
+    db.run("UPDATE assignments_ref SET max_points = 20 WHERE myth_god = 'Icarus' AND assignment_type IN ('word_cloud','mural') AND section = 'classical_creative'");
+    console.log('✅ Icarus scoring enforced: Guide=5, Quiz=17, Creative=20');
+  } catch (e) { console.log('Migration note: Icarus scoring -', e.message); }
+
   // V92 FIX: Classical Age building prices +12% and bonus reductions
   try {
     db.run("UPDATE buildings_ref SET cost_points = 382 WHERE building_name = 'Transport Ship' AND cost_points IN (220, 308, 341)");
@@ -1469,118 +1475,6 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: Prometheus bonus update -', e.message);
   }
-
-  // Icarus scoring update: Reading Guide 12→5, Quiz 10→17, Word Cloud 12→20 (total 34→42)
-  // Run EVERY startup to ensure correct values regardless of when DB was created
-  try {
-    run("UPDATE assignments_ref SET max_points = 5 WHERE myth_god = 'Icarus' AND assignment_type = 'comp_conn' AND section = 'classical'");
-    run("UPDATE assignments_ref SET max_points = 17 WHERE myth_god = 'Icarus' AND assignment_type = 'quiz' AND section = 'classical'");
-    run("UPDATE assignments_ref SET max_points = 20 WHERE myth_god = 'Icarus' AND assignment_type = 'word_cloud' AND section = 'classical_creative'");
-    // Also catch 'Icarus and Daedalus' variant just in case
-    run("UPDATE assignments_ref SET max_points = 5 WHERE myth_god = 'Icarus and Daedalus' AND assignment_type = 'comp_conn' AND section = 'classical'");
-    run("UPDATE assignments_ref SET max_points = 17 WHERE myth_god = 'Icarus and Daedalus' AND assignment_type = 'quiz' AND section = 'classical'");
-    run("UPDATE assignments_ref SET max_points = 20 WHERE myth_god = 'Icarus and Daedalus' AND assignment_type = 'word_cloud' AND section = 'classical_creative'");
-    console.log('✅ Icarus scoring enforced: Reading Guide=5, Quiz=17, Word Cloud=20 (total 42)');
-  } catch (e) {
-    console.log('Migration note: Icarus scoring update -', e.message);
-  }
-
-  // Steal-choice fate points: 50% increase (per David's request for Classical Age balance)
-  // Runs every startup to ensure correct values
-  try {
-    // Get fate_ids for steal-choice fates
-    const stealFates = db.exec("SELECT fate_id, fate_number FROM fates_ref WHERE fate_type = 'steal_choice' AND age_available = 'Classical'");
-    if (stealFates[0] && stealFates[0].values.length > 0) {
-      const fateMap = {};
-      stealFates[0].values.forEach(row => { fateMap[row[1]] = row[0]; });
-      
-      const updates = [
-        // Fate 21: Artemis Forest Fires
-        [fateMap[21], 'conservative', -8, -15],
-        [fateMap[21], 'moderate', 0, -18],
-        [fateMap[21], 'aggressive', 12, -23],
-        // Fate 28: Constellation Blessing
-        [fateMap[28], 'conservative', 12, -6],
-        [fateMap[28], 'moderate', 18, -9],
-        [fateMap[28], 'aggressive', 27, -18],
-        // Fate 35: Dionysus Drought
-        [fateMap[35], 'conservative', -9, -18],
-        [fateMap[35], 'moderate', -5, -23],
-        [fateMap[35], 'aggressive', 8, -27],
-        // Fate 44: Pandora's Echo
-        [fateMap[44], 'conservative', 12, -6],
-        [fateMap[44], 'moderate', 18, -9],
-        [fateMap[44], 'aggressive', 27, -18],
-      ];
-      
-      updates.forEach(([fateId, risk, success, failure]) => {
-        if (fateId) {
-          run("UPDATE fate_choices SET success_points = ?, failure_points = ? WHERE fate_id = ? AND risk_level = ?",
-            [success, failure, fateId, risk]);
-        }
-      });
-      console.log('✅ Steal-choice fate points updated (+50% increase)');
-    }
-  } catch (e) {
-    console.log('Migration note: steal fate points -', e.message);
-  }
-
-  // Add daily_trade_limit to trade_window
-  try {
-    run("ALTER TABLE trade_window ADD COLUMN daily_trade_limit INTEGER DEFAULT 5");
-    console.log('✅ Added daily_trade_limit to trade_window');
-  } catch (e) {
-    console.log('Migration note: daily_trade_limit -', e.message);
-  }
-
-  // ==================== SHARED RESOURCE MARKET ====================
-  
-  // Market pool: NPC stock of resources per period
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_pool (
-      pool_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      resource TEXT NOT NULL,
-      stock INTEGER DEFAULT 0,
-      UNIQUE(period, resource)
-    )
-  `);
-
-  // Market bids: competitive bidding auctions
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_bids (
-      bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      resource_wanted TEXT NOT NULL,
-      amount_wanted INTEGER NOT NULL,
-      resource_offered TEXT NOT NULL,
-      amount_offered INTEGER NOT NULL,
-      bidder_id INTEGER NOT NULL,
-      ratio REAL NOT NULL,
-      status TEXT DEFAULT 'active',
-      auction_ends_at DATETIME NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      resolved_at DATETIME,
-      FOREIGN KEY (bidder_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Market trade log: completed market trades for history
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_trades (
-      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      winner_id INTEGER NOT NULL,
-      resource_given TEXT NOT NULL,
-      amount_given INTEGER NOT NULL,
-      resource_received TEXT NOT NULL,
-      amount_received INTEGER NOT NULL,
-      ratio REAL NOT NULL,
-      total_bidders INTEGER DEFAULT 1,
-      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (winner_id) REFERENCES students(student_id)
-    )
-  `);
 
   // ==================== END MIGRATIONS ====================
   
@@ -1951,7 +1845,7 @@ function seedReferenceData() {
       ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
-      ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 5, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+      ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
       ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
       
@@ -1960,7 +1854,7 @@ function seedReferenceData() {
       ['classical', 'quiz', 'Phaethon', 'Phaethon Quiz', 10, 'Quiz on Phaethon', null, 0, 'Classical'],
       ['classical', 'quiz', 'Orpheus', 'Orpheus Quiz', 10, 'Quiz on Orpheus and Eurydice', null, 0, 'Classical'],
       ['classical', 'quiz', 'Echo and Narcissus', 'Echo and Narcissus Quiz', 10, 'Quiz on Echo and Narcissus', null, 0, 'Classical'],
-      ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 17, 'Wings of Daedalus escape game — 17 comprehension questions', null, 0, 'Classical'],
+      ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 10, 'Quiz on Icarus and Daedalus', null, 0, 'Classical'],
       ['classical', 'quiz', 'Eros and Psyche', 'Eros and Psyche Quiz', 10, 'Quiz on Eros and Psyche', null, 0, 'Classical'],
       ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
       
@@ -1978,7 +1872,7 @@ function seedReferenceData() {
       ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
       
@@ -2048,14 +1942,14 @@ function seedReferenceData() {
           ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
-          ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 5, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
           ['classical', 'quiz', 'Pandora', 'Pandora Quiz', 10, 'Quiz on Pandora', null, 0, 'Classical'],
           ['classical', 'quiz', 'Phaethon', 'Phaethon Quiz', 10, 'Quiz on Phaethon', null, 0, 'Classical'],
           ['classical', 'quiz', 'Orpheus', 'Orpheus Quiz', 10, 'Quiz on Orpheus and Eurydice', null, 0, 'Classical'],
           ['classical', 'quiz', 'Echo and Narcissus', 'Echo and Narcissus Quiz', 10, 'Quiz on Echo and Narcissus', null, 0, 'Classical'],
-          ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 17, 'Wings of Daedalus escape game — 17 comprehension questions', null, 0, 'Classical'],
+          ['classical', 'quiz', 'Icarus', 'Icarus and Daedalus Quiz', 10, 'Quiz on Icarus and Daedalus', null, 0, 'Classical'],
           ['classical', 'quiz', 'Eros and Psyche', 'Eros and Psyche Quiz', 10, 'Quiz on Eros and Psyche', null, 0, 'Classical'],
           ['classical', 'quiz', 'Constellations', 'Constellations Quiz', 10, 'Quiz on the constellation myths', null, 0, 'Classical'],
           ['classical_creative', 'mural', 'Phaethon', 'Phaethon Pixton', 16, 'Comic retelling of the Phaethon myth using Pixton', null, 0, 'Classical'],
@@ -2066,7 +1960,7 @@ function seedReferenceData() {
           ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud for Phaethon myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 20, 'Word cloud for Icarus myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud for Icarus myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud for constellation myths', null, 0, 'Classical']
         ];
@@ -2381,8 +2275,16 @@ function seedClassicalData() {
         [4, 'What happened to Narcissus?', 'He became king of Athens', 'He married Echo and they lived happily ever after', 'He fell in love with his own reflection and died', 'He was turned into a statue by Athena', 'c'],
 
         // ==================== ICARUS (portal_id = 5) ====================
-        // Portal 5 quiz is handled by the Wings of Daedalus escape game (daedalus_escape.html)
-        // No seeded questions needed — the game has its own 17 built-in questions
+        [5, 'Who built the Labyrinth? p.87', 'Zeus', 'Theseus', 'Daedalus', 'Minos', 'c'],
+        [5, 'Why were Daedalus and Icarus imprisoned? p.88', 'They stole from the king', 'King Minos wanted to keep Daedalus\'s genius trapped on Crete', 'They tried to kill the Minotaur', 'They refused to build a temple', 'b'],
+        [5, 'What did Daedalus use to build the wings? p.89', 'Metal and leather', 'Feathers and wax', 'Silk and wood', 'Leaves and clay', 'b'],
+        [5, 'What warning did Daedalus give Icarus? p.89', 'Don\'t fly at night', 'Don\'t fly over the sea', 'Don\'t fly too close to the sun or too close to the sea', 'Don\'t fly faster than the birds', 'c'],
+        [5, 'What happened to Icarus? p.90', 'He made it to safety', 'He flew too high, the wax melted, and he fell into the sea', 'He was caught by King Minos', 'He landed on Mount Olympus', 'b'],
+        [5, 'What was the Minotaur? p.87', 'A giant snake', 'A three-headed dog', 'Half man, half bull', 'A flying horse', 'c'],
+        [5, 'Who was King Minos? p.87', 'King of Athens', 'King of Sparta', 'King of Crete', 'King of Troy', 'c'],
+        [5, 'Why didn\'t Daedalus and Icarus escape by boat? p.88', 'They couldn\'t swim', 'Minos controlled all the ships and searched them', 'The sea was too rough', 'There were sea monsters', 'b'],
+        [5, 'What sea is named after Icarus? p.90', 'The Aegean Sea', 'The Mediterranean Sea', 'The Icarian Sea', 'The Red Sea', 'c'],
+        [5, 'What is the main lesson of Icarus\'s story?', 'Never try to fly', 'Prudence — know the limits and find the wise middle path', 'Always obey your father', 'Technology is dangerous', 'b'],
 
         // ==================== EROS & PSYCHE (portal_id = 6) ====================
         [6, 'Which goddess was jealous of Psyche?', 'Athena', 'Aphrodite', 'Hera', 'Demeter', 'b'],

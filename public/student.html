@@ -2851,7 +2851,7 @@
                 transition: all 0.3s ease;
             " onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='rgba(234,179,8,0.8)'; this.style.boxShadow='0 6px 20px rgba(234,179,8,0.4)';"
                onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(234,179,8,0.4)'; this.style.boxShadow='none';">
-                <div style="font-size: 28px; margin-bottom: 6px;">🏺</div>
+                <div style="font-size: 28px; margin-bottom: 6px;">🫒</div>
                 <div style="font-size: 11px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Trade Portal</div>
                 <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #fbbf24;">Trade Portal ⚓</div>
                 <div id="trade-portal-mini-status" style="margin-top: 6px; font-size: 12px; color: rgba(234,179,8,0.7);"></div>
@@ -3309,16 +3309,6 @@
                     checkArenaEligibility()
                 ]).catch(err => console.warn('Batch 2 load error:', err));
             }, 2000);
-
-            // Auto-open portal if redirected from game (e.g. ?openPortal=5)
-            const pageParams = new URLSearchParams(window.location.search);
-            const autoPortal = pageParams.get('openPortal');
-            if (autoPortal) {
-                // Clean URL without reloading
-                window.history.replaceState({}, '', '/student.html');
-                // Delay to let Classical Age content render
-                setTimeout(() => openMythPortal(parseInt(autoPortal)), 1500);
-            }
         }).catch(err => console.error('Dashboard load failed:', err));
         
         // Start background polling for real-time updates (delayed to avoid initial burst)
@@ -4459,12 +4449,6 @@
                             `<button class="btn-purchase" onclick="event.stopPropagation(); purchaseBuilding(${building.building_id})">
                                 Buy Another (${building.owned_count}/${building.max_per_alliance})
                             </button>` : ''}
-                        
-                        ${isOwned && building.building_name !== 'Transport Ship' && building.age_available === ((dashboardData.student && dashboardData.student.current_age) || 'Archaic') ?
-                            `<button onclick="event.stopPropagation(); sellBuilding('${building.building_name.replace(/'/g, "\\'")}', ${building.cost_points})" 
-                                style="display:block;width:100%;margin-top:8px;padding:8px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;">
-                                🏦 Sell Back (−10% fee → ${Math.floor(building.cost_points * 0.9)} pts returned)
-                            </button>` : ''}
                     </div>
                 `;
             }).join('');
@@ -4536,32 +4520,6 @@
                 }
             } catch (err) {
                 alert('Failed to purchase building: ' + err.message);
-            }
-        }
-
-        async function sellBuilding(buildingName, baseCost) {
-            const fee = Math.ceil(baseCost * 0.10);
-            const refund = baseCost - fee;
-            if (!confirm(`Sell ${buildingName} back to the market?\n\nBase cost: ${baseCost} pts\nRealtor fee (10%): −${fee} pts\nReturned to alliance: ${refund} pts\n\nThis cannot be undone.`)) {
-                return;
-            }
-            try {
-                const response = await fetch(`${API_URL}/alliance/sell-building`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ building_name: buildingName })
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    alert(`✅ ${result.message}`);
-                    await loadBuildingMarket();
-                    loadDashboard();
-                    loadAgeProgress();
-                } else {
-                    alert('❌ ' + result.error);
-                }
-            } catch (err) {
-                alert('Failed to sell building: ' + err.message);
             }
         }
 
@@ -9763,7 +9721,7 @@
                 renderAvatarReveal(data.portals, data.virtues_earned, mythPortalGlowColors);
                 
                 // Check for unclaimed virtues and show banner on dashboard
-                const unclaimedVirtues = data.portals.filter(p => p.assignment_approved && !p.virtue_claimed);
+                const unclaimedVirtues = data.portals.filter(p => p.virtue_ready && !p.virtue_claimed);
                 const banner = document.getElementById('virtue-claim-banner');
                 if (banner && unclaimedVirtues.length > 0) {
                     banner.style.display = 'block';
@@ -9889,38 +9847,6 @@
         let quizAnswered = false;
 
         async function openMythPortal(portalId) {
-            // Portal 5 (Icarus & Daedalus) → Wings of Daedalus escape game
-            if (portalId === 5) {
-                try {
-                    // Check if already passed — show assignments instead of relaunching game
-                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
-                    const statusData = await statusRes.json();
-                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 5) : false;
-
-                    if (hasPassed) {
-                        // Already passed — open modal with assignment panel
-                        currentQuizPortalId = 5;
-                        document.getElementById('myth-quiz-modal').classList.add('show');
-                        document.getElementById('quiz-intro').style.display = 'none';
-                        document.getElementById('quiz-questions').style.display = 'none';
-                        document.getElementById('quiz-results').style.display = 'none';
-                        document.getElementById('myth-assignment-panel').style.display = 'block';
-                        loadMythAssignments(5);
-                        return;
-                    }
-
-                    // Not passed — launch the escape game
-                    const token = localStorage.getItem('token');
-                    window.location.href = `/daedalus_escape.html?token=${encodeURIComponent(token)}`;
-                    return;
-                } catch (err) {
-                    console.error('Portal 5 redirect error:', err);
-                    alert('Error loading the Daedalus game. Please try again.');
-                    return;
-                }
-            }
-
-            // All other portals — existing quiz modal flow
             currentQuizPortalId = portalId;
             currentQuestionIndex = 0;
             quizCorrectCount = 0;
@@ -9977,16 +9903,14 @@
                     icon: "📜",
                     name: "CER: Restraint or Hope?",
                     description: "Pandora's myth teaches that some actions cannot be undone. Is the myth's real lesson about having the restraint to stop before you act, or about finding hope after you've already made a mistake? Use evidence from the myth to support your claim.",
-                    link: "https://app.flintk12.com/activities/pandora-s-box-a-e9c111/sessions/new",
-                    points: 15
+                    link: "https://app.flintk12.com/activities/pandora-s-box-a-e9c111/sessions/new"
                 },
                 creative: {
                     title: "The Creator's Path",
                     icon: "🎨",
                     name: "Pandora Retelling",
                     description: "Retell the myth of Pandora from a different character's point of view.",
-                    link: "https://docs.google.com/presentation/d/e/2PACX-1vSUaMWz-ZQ_zoGNe3EZ2yw4qOkNmNbamYnPw-Mq7selnkjrmPAdJVR4kHED6nKp0XyCl83K9ur8nNly/pub?start=true&loop=true&delayms=60000",
-                    points: 15
+                    link: "https://docs.google.com/presentation/d/e/2PACX-1vSUaMWz-ZQ_zoGNe3EZ2yw4qOkNmNbamYnPw-Mq7selnkjrmPAdJVR4kHED6nKp0XyCl83K9ur8nNly/pub?start=true&loop=true&delayms=60000"
                 }
             },
             2: { // Phaethon
@@ -9995,34 +9919,14 @@
                     icon: "📜",
                     name: "CER: Phaethon Analysis",
                     description: "Analyze the myth of Phaethon using Claim, Evidence, and Reasoning. What lesson does this myth teach about the dangers of hubris and ignoring wise counsel?",
-                    link: "https://app.flintk12.com/activities/phaethon-analys-f14d05/sessions/new",
-                    points: 15
+                    link: "https://app.flintk12.com/activities/phaethon-analys-f14d05/sessions/new"
                 },
                 creative: {
                     title: "The Creator's Path",
                     icon: "🎨",
                     name: "Phaethon's Caution",
                     description: "Write a cautionary poem about Phaethon's ride across the sky in his father's sun chariot. Warn readers about the dangers of hubris and ignoring wise counsel.",
-                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ2NDkxNTM2NjE1/details",
-                    points: 15
-                }
-            },
-            5: { // Icarus & Daedalus
-                analytical: {
-                    title: "The Scholar's Path",
-                    icon: "📜",
-                    name: "Icarus Word Cloud",
-                    description: "Create a word cloud capturing key themes and vocabulary from the Icarus and Daedalus myth. Include words that represent prudence, ambition, creativity, consequence, and the balance between daring and wisdom.",
-                    link: null,
-                    points: 20
-                },
-                creative: {
-                    title: "The Creator's Path",
-                    icon: "🎨",
-                    name: "I, Icarus",
-                    description: "People have always wanted to create magic, to achieve the impossible, and to have special powers. Create a story or poem (at least 350 words) where a character yearns for an impossible gift — power or magic. Show why they want it, compare or contrast those powers to comic book or action characters, and have the character claim to do the impossible. End with either a tragic or heroic ending.",
-                    link: null,
-                    points: 20
+                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ2NDkxNTM2NjE1/details"
                 }
             }
         };
@@ -10167,7 +10071,7 @@
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.4; min-height: 36px;">
                         ${assignment.description}
                     </div>
-                    <div style="font-size: 12px; color: #ffd700; margin-top: 8px; font-weight: 600;">${assignment.points || 15} points</div>
+                    <div style="font-size: 12px; color: #ffd700; margin-top: 8px; font-weight: 600;">15 points</div>
                     ${linkBtn}
                 </div>`;
         }
@@ -10606,8 +10510,7 @@
         // TRADE PORTAL
         // ====================
         
-        const TRADE_ICONS = { olive: '🏺', grape: '🍇', iron: '⚒️', grain: '🌾' };
-        const TRADE_ICONS_TEXT = { olive: '🏺', grape: '🍇', iron: '⚒️', grain: '🌾' }; // For <option> tags and textContent
+        const TRADE_ICONS = { olive: '🫒', grape: '🍇', iron: '⚒️', grain: '🌾' };
         const TRADE_NAMES = { olive: 'Olive Oil', grape: 'Grapes', iron: 'Iron', grain: 'Grain' };
         let tradePortalData = null;
         let tradeMarketData = null;
@@ -10623,7 +10526,7 @@
                     if (data.error) { el.textContent = ''; return; }
                     const r = data.my_resources;
                     const filled = ['olive','grape','iron','grain'].filter(k => r[k] >= 500).length;
-                    el.textContent = `${TRADE_ICONS_TEXT[data.native_resource]} ${TRADE_NAMES[data.native_resource]} · ${filled}/4 filled`;
+                    el.textContent = `${TRADE_ICONS[data.native_resource]} ${TRADE_NAMES[data.native_resource]} · ${filled}/4 filled`;
                 }).catch(() => {});
         }
         
@@ -10673,7 +10576,7 @@
         
         let selectedTradePartner = null;
         
-        async function renderTradePortal() {
+        function renderTradePortal() {
             const body = document.getElementById('trade-portal-body');
             const d = tradePortalData;
             const m = tradeMarketData;
@@ -10735,48 +10638,6 @@
             selectedTradePartner = null;
             let html = '';
             
-            // ===== PERIOD MARKET: Supply & Value Bars =====
-            const supply = m.supply || {};
-            const mktValues = values;
-            
-            html += `<div style="margin-bottom: 24px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#60a5fa;letter-spacing:1px;">📊 Period Market</div>
-                    <div style="flex:1;height:1px;background:rgba(96,165,250,0.2);"></div>
-                    <div style="font-size:11px;color:rgba(255,255,255,0.4);">Supply across all alliances</div>
-                </div>
-                <div style="background:rgba(96,165,250,0.04);border:2px solid rgba(96,165,250,0.15);border-radius:14px;padding:16px 20px;">
-                    ${['olive','grape','iron','grain'].map(r => {
-                        const s = supply[r] || { held: 0, pct: 0 };
-                        const val = mktValues[r] || 10;
-                        let valueLabel, valueBg, valueColor;
-                        if (val >= 12) { valueLabel = 'High Value'; valueBg = 'rgba(239,68,68,0.15)'; valueColor = '#f87171'; }
-                        else if (val >= 8) { valueLabel = 'Fair Value'; valueBg = 'rgba(234,179,8,0.15)'; valueColor = '#fbbf24'; }
-                        else { valueLabel = 'Low Value'; valueBg = 'rgba(74,222,128,0.12)'; valueColor = '#4ade80'; }
-                        const isNative = r === native;
-                        
-                        return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;${r !== 'grain' ? 'border-bottom:1px solid rgba(255,255,255,0.04);' : ''}">
-                            <div style="width:28px;text-align:center;font-size:16px;">${TRADE_ICONS[r]}</div>
-                            <div style="flex:1;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                                    <div style="font-size:13px;font-weight:600;color:${isNative ? '#fbbf24' : '#e2e8f0'};">${TRADE_NAMES[r]}${isNative ? ' ★' : ''}</div>
-                                    <div style="display:flex;align-items:center;gap:8px;">
-                                        <span style="font-size:11px;color:rgba(255,255,255,0.35);">${s.held.toLocaleString()} held</span>
-                                        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${valueBg};color:${valueColor};">${valueLabel}</span>
-                                    </div>
-                                </div>
-                                <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">
-                                    <div style="height:100%;width:${s.pct}%;background:${val >= 12 ? 'linear-gradient(90deg,#ef4444,#f87171)' : val >= 8 ? 'linear-gradient(90deg,#d97706,#fbbf24)' : 'linear-gradient(90deg,#16a34a,#4ade80)'};border-radius:4px;transition:width 0.5s;"></div>
-                                </div>
-                            </div>
-                        </div>`;
-                    }).join('')}
-                    <div style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.3);text-align:center;">
-                        🔴 Scarce = worth more in trades · 🟢 Abundant = worth less · Bars show supply relative to the most-held resource
-                    </div>
-                </div>
-            </div>`;
-            
             // ===== SECTION 1: BUY YOUR RESOURCE =====
             html += `<div style="margin-bottom: 24px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -10803,6 +10664,33 @@
                     </div>` : `<div style="color:rgba(255,255,255,0.35);font-style:italic;font-size:13px;">No budget remaining. Earn more points!</div>`}
                 </div>
             </div>`;
+
+            // ===== SECTION 1B: SELL RESOURCES =====
+            const sellableResources = ['olive','grape','iron','grain'].filter(r => (res[r] || 0) > 0);
+            if (sellableResources.length > 0) {
+                html += `<div style="margin-bottom: 24px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#f87171;letter-spacing:1px;">Sell Resources</div>
+                        <div style="flex:1;height:1px;background:rgba(239,68,68,0.2);"></div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);">10% market fee</div>
+                    </div>
+                    <div style="background:rgba(239,68,68,0.03);border:2px solid rgba(239,68,68,0.15);border-radius:14px;padding:18px 20px;">
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <select id="trade-sell-resource" onchange="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;outline:none;">
+                                ${sellableResources.map(r => 
+                                    `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (${res[r]})</option>`
+                                ).join('')}
+                            </select>
+                            <input type="number" id="trade-sell-amount" min="10" value="50" oninput="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;width:80px;font-size:14px;font-weight:700;text-align:center;outline:none;">
+                            <span style="font-size:11px;color:rgba(255,255,255,0.3);">units →</span>
+                            <span id="trade-sell-return" style="font-size:14px;font-weight:700;color:#f87171;">—</span>
+                            <button onclick="sellResource()" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#f87171;padding:10px 22px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:13px;cursor:pointer;">Sell</button>
+                        </div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:8px;">10 units = 1 pt, minus 10% market fee. Points return to your alliance treasury.</div>
+                    </div>
+                </div>`;
+                setTimeout(() => updateSellPreview(), 50);
+            }
             
             // ===== SECTION 2: TRADE PARTNERS =====
             html += `<div style="margin-bottom: 24px;">
@@ -10849,7 +10737,7 @@
                                 <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
                                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#f87171;">📤 You Give</div>
                                     <select id="tp-give-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
-                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
                                     <input type="number" id="tp-give-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-give-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
@@ -10858,7 +10746,7 @@
                                 <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
                                     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#4ade80;">📥 You Get</div>
                                     <select id="tp-recv-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
-                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                                        ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
                                     <input type="number" id="tp-recv-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-recv-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
@@ -10907,46 +10795,35 @@
                 html += `</div></div>`;
             }
             
-            // ===== SECTION 3: PENDING TRADES (always visible with refresh) =====
+            // ===== SECTION 3: PENDING TRADES =====
             const pending = d.pending_trades || [];
-            html += `<div style="margin-bottom: 24px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
-                    <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
-                    <button id="tp-refresh-btn" onclick="refreshPendingTrades()" style="display:flex;align-items:center;gap:5px;background:rgba(192,132,252,0.12);border:1px solid rgba(192,132,252,0.3);color:#c084fc;padding:4px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s;">
-                        🔄 Refresh
-                    </button>
-                    ${pending.length > 0 ? `<div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>` : ''}
-                </div>`;
-            if (pending.length === 0) {
-                html += `<div style="text-align:center;padding:16px;color:rgba(255,255,255,0.3);font-size:13px;background:rgba(192,132,252,0.03);border:1px dashed rgba(192,132,252,0.15);border-radius:10px;">No pending trades. Hit Refresh to check for new offers.</div>`;
+            if (pending.length > 0) {
+                html += `<div style="margin-bottom: 24px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
+                        <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
+                        <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>
+                    </div>`;
+                pending.forEach(t => {
+                    const isInitiator = t.initiator_id === d.student_id;
+                    html += `<div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <div style="font-size:13px;line-height:1.5;">
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
+                            <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
+                        </div>
+                        <div style="display:flex;gap:6px;flex-shrink:0;">
+                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
+                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
             }
-            pending.forEach(t => {
-                const isInitiator = t.initiator_id === d.student_id;
-                html += `<div class="pending-trade-card" data-trade-id="${t.trade_id}" style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                    <div style="font-size:13px;line-height:1.5;">
-                        <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
-                        <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
-                        <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
-                        <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
-                        <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
-                    </div>
-                    <div style="display:flex;gap:6px;flex-shrink:0;">
-                        ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
-                        ${!isInitiator ? `<button onclick="counterTrade(${t.trade_id}, ${t.initiator_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount})" style="background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.3);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">↩ Counter</button>` : ''}
-                        <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
-                    </div>
-                </div>`;
-            });
-            html += `</div>`;
-            
-            // ===== SECTION 4: SHARED RESOURCE MARKET =====
-            html += await renderSharedMarketSection(d);
             
             body.innerHTML = html;
-            
-            // Start auction timer updates
-            startAuctionTimers();
             
             // Buy input listener
             const buyInput = document.getElementById('trade-buy-points');
@@ -10965,14 +10842,6 @@
             
             const res = tradePortalData.my_resources;
             selectedTradePartner = p;
-            
-            // Clear counter-offer state if this is a normal selection (not from counterTrade)
-            // counterTrade sets activeCounterOffer BEFORE calling selectTradePartner
-            // A normal click won't have activeCounterOffer set, so clear any stale banner
-            if (!activeCounterOffer) {
-                const oldBanner = document.getElementById('counter-offer-banner');
-                if (oldBanner) oldBanner.remove();
-            }
             
             // Highlight selected card
             document.querySelectorAll('[id^="tp-pc-"]').forEach(el => {
@@ -11010,11 +10879,11 @@
             document.getElementById('tp-desk-active').style.display = 'block';
             
             // Populate desk header
-            document.getElementById('tp-desk-icon').textContent = TRADE_ICONS_TEXT[p.native_resource];
+            document.getElementById('tp-desk-icon').textContent = TRADE_ICONS[p.native_resource];
             document.getElementById('tp-desk-icon').style.background = 'rgba(234,179,8,0.08)';
             document.getElementById('tp-desk-icon').style.border = '1px solid rgba(234,179,8,0.2)';
             document.getElementById('tp-desk-name').textContent = p.name;
-            document.getElementById('tp-desk-sub').textContent = p.alliance_name + ' · ' + TRADE_ICONS_TEXT[p.native_resource] + ' ' + TRADE_NAMES[p.native_resource] + ' specialist';
+            document.getElementById('tp-desk-sub').textContent = p.alliance_name + ' · ' + TRADE_ICONS[p.native_resource] + ' ' + TRADE_NAMES[p.native_resource] + ' specialist';
             
             // Populate compare table
             const pRes = { olive: p.olive || 0, grape: p.grape || 0, iron: p.iron || 0, grain: p.grain || 0 };
@@ -11054,9 +10923,7 @@
             giveRes.value = bestGive;
             
             updateDeskForm();
-            const proposeBtn = document.getElementById('tp-propose-btn');
-            proposeBtn.textContent = '⚓ Propose Trade to ' + p.name.split(' ')[0];
-            proposeBtn.style.background = 'linear-gradient(135deg,#059669,#047857)';
+            document.getElementById('tp-propose-btn').textContent = '⚓ Propose Trade to ' + p.name.split(' ')[0];
             
             // Scroll desk into view
             setTimeout(() => {
@@ -11069,10 +10936,6 @@
             document.getElementById('tp-desk-empty').style.display = 'block';
             document.getElementById('tp-desk-active').style.display = 'none';
             selectedTradePartner = null;
-            activeCounterOffer = null;
-            // Remove counter banner if present
-            const banner = document.getElementById('counter-offer-banner');
-            if (banner) banner.remove();
             // Deselect cards
             document.querySelectorAll('[id^="tp-pc-"]').forEach(el => {
                 el.style.borderColor = 'rgba(96,165,250,0.12)';
@@ -11148,6 +11011,40 @@
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to buy resource'); }
         }
+
+        function updateSellPreview() {
+            const amtEl = document.getElementById('trade-sell-amount');
+            const retEl = document.getElementById('trade-sell-return');
+            if (!amtEl || !retEl) return;
+            const units = parseInt(amtEl.value) || 0;
+            const grossPts = Math.floor(units / 10);
+            const fee = Math.ceil(grossPts * 0.10);
+            const net = Math.max(0, grossPts - fee);
+            retEl.textContent = net > 0 ? `${net} pts returned (${fee} pt fee)` : '—';
+        }
+
+        async function sellResource() {
+            const resEl = document.getElementById('trade-sell-resource');
+            const amtEl = document.getElementById('trade-sell-amount');
+            if (!resEl || !amtEl) return;
+            const resource = resEl.value;
+            const amount = parseInt(amtEl.value);
+            if (!amount || amount < 10) return alert('Enter at least 10 units to sell');
+            const grossPts = Math.floor(amount / 10);
+            const fee = Math.ceil(grossPts * 0.10);
+            const net = grossPts - fee;
+            if (net < 1) return alert('Must sell enough to return at least 1 point (minimum 20 units)');
+            if (!confirm(`Sell ${amount} ${TRADE_NAMES[resource]}?\n\nGross: ${grossPts} pts\nFee (10%): −${fee} pts\nAlliance receives: ${net} pts`)) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/sell`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resource, amount })
+                });
+                const data = await res.json();
+                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to sell resource'); }
+        }
         
         async function proposeTrade() {
             if (!selectedTradePartner) return alert('Select a trade partner first');
@@ -11162,14 +11059,7 @@
                     body: JSON.stringify({ partner_id: selectedTradePartner.student_id, give_resource: giveResource, give_amount: giveAmount, receive_resource: receiveResource, receive_amount: receiveAmount })
                 });
                 const data = await res.json();
-                if (data.success) { 
-                    const msg = activeCounterOffer 
-                        ? 'Counter-offer sent! They\'ll see it when they refresh their trades.' 
-                        : data.message;
-                    activeCounterOffer = null;
-                    alert(msg); 
-                    await loadTradePortalData(); 
-                }
+                if (data.success) { alert(data.message); await loadTradePortalData(); }
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to propose trade'); }
         }
@@ -11196,305 +11086,6 @@
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to reject trade'); }
         }
-        
-        async function refreshPendingTrades() {
-            const btn = document.getElementById('tp-refresh-btn');
-            if (btn) {
-                btn.innerHTML = '⏳ Checking...';
-                btn.style.opacity = '0.6';
-                btn.disabled = true;
-            }
-            await loadTradePortalData();
-            // Button is rebuilt by re-render, no need to reset
-        }
-        
-        let activeCounterOffer = null; // Track if we're in counter-offer mode
-        
-        async function counterTrade(tradeId, partnerId, theirGiveRes, theirGiveAmt, theirRecvRes, theirRecvAmt) {
-            // Reject the original trade silently (don't reload portal)
-            try {
-                await fetch(`${API_URL}/trade/reject/${tradeId}`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-                });
-            } catch (e) { /* continue even if reject fails */ }
-            
-            // Remove the pending trade card from DOM
-            const pendingCards = document.querySelectorAll('#trade-portal-body .pending-trade-card');
-            pendingCards.forEach(card => {
-                if (card.dataset.tradeId === String(tradeId)) card.remove();
-            });
-            
-            // Store counter-offer context so the desk knows we're countering
-            activeCounterOffer = {
-                partnerName: (tradeMarketData.partners || []).find(x => x.student_id === partnerId)?.name || 'them',
-                originalGiveRes: theirGiveRes,
-                originalGiveAmt: theirGiveAmt,
-                originalRecvRes: theirRecvRes,
-                originalRecvAmt: theirRecvAmt
-            };
-            
-            // Select the partner (opens the trade desk)
-            selectTradePartner(partnerId);
-            
-            // Pre-fill with a 10% more generous counter: we offer slightly more than they asked for
-            setTimeout(() => {
-                const giveSelect = document.getElementById('tp-give-res');
-                const recvSelect = document.getElementById('tp-recv-res');
-                const giveAmt = document.getElementById('tp-give-amt');
-                const recvAmt = document.getElementById('tp-recv-amt');
-                
-                // From our perspective: we give what they wanted (theirRecvRes), we want what they offered (theirGiveRes)
-                if (giveSelect) giveSelect.value = theirRecvRes;
-                if (recvSelect) recvSelect.value = theirGiveRes;
-                
-                // Pre-fill with 10% improvement: offer 10% more, ask for same amount
-                const improvedOffer = Math.round(theirRecvAmt * 1.1);
-                if (giveAmt) giveAmt.value = improvedOffer;
-                if (recvAmt) recvAmt.value = theirGiveAmt;
-                
-                // Update fairness display
-                if (typeof updateDeskFairness === 'function') updateDeskFairness();
-                if (typeof updateDeskForm === 'function') updateDeskForm();
-                
-                // Add counter-offer banner above the trade form
-                const deskActive = document.getElementById('tp-desk-active');
-                if (deskActive) {
-                    // Remove any existing counter banner
-                    const oldBanner = document.getElementById('counter-offer-banner');
-                    if (oldBanner) oldBanner.remove();
-                    
-                    const banner = document.createElement('div');
-                    banner.id = 'counter-offer-banner';
-                    banner.style.cssText = 'background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(126,34,206,0.1));border-bottom:2px solid rgba(168,85,247,0.4);padding:12px 18px;';
-                    banner.innerHTML = `
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                            <span style="font-size:18px;">↩</span>
-                            <span style="font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:#c084fc;">Counter-Offer to ${activeCounterOffer.partnerName.split(' ')[0]}</span>
-                        </div>
-                        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:8px;">
-                            Their original deal: <span style="color:#fbbf24;">${theirGiveAmt} ${TRADE_ICONS[theirGiveRes]}</span>
-                            <span style="color:rgba(255,255,255,0.2);">→</span>
-                            <span style="color:#fbbf24;">${theirRecvAmt} ${TRADE_ICONS[theirRecvRes]}</span>
-                        </div>
-                        <div style="font-size:12px;color:#a78bfa;font-style:italic;">
-                            💡 Tip: We pre-filled 10% extra to sweeten the deal — offering more makes your counter harder to refuse!
-                        </div>
-                    `;
-                    
-                    // Insert banner after the header, before the compare/form area
-                    const deskHeader = document.getElementById('tp-desk-header');
-                    if (deskHeader && deskHeader.nextSibling) {
-                        deskActive.insertBefore(banner, deskHeader.nextSibling);
-                    } else {
-                        deskActive.prepend(banner);
-                    }
-                }
-                
-                // Rename the propose button
-                const proposeBtn = document.getElementById('tp-propose-btn');
-                if (proposeBtn) {
-                    proposeBtn.textContent = '↩ Send Counter-Offer to ' + activeCounterOffer.partnerName.split(' ')[0];
-                    proposeBtn.style.background = 'linear-gradient(135deg,#9333ea,#7c3aed)';
-                }
-                
-                // Scroll the desk into view
-                const desk = document.getElementById('tp-desk');
-                if (desk) desk.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 150);
-        }
-        
-        // ==================== SHARED RESOURCE MARKET (Student) ====================
-        
-        let marketStatusData = null;
-        let auctionTimerInterval = null;
-        
-        async function renderSharedMarketSection(tradeData) {
-            // Fetch market status
-            try {
-                const mRes = await fetch(`${API_URL}/market/status`, { headers: { 'Authorization': `Bearer ${token}` } });
-                marketStatusData = await mRes.json();
-            } catch (e) {
-                return '';
-            }
-            
-            const ms = marketStatusData;
-            if (!ms || !ms.pool || ms.pool.length === 0) return ''; // Market not set up
-            
-            const pool = {};
-            ms.pool.forEach(p => { pool[p.resource] = p.stock; });
-            
-            // Only show if at least one resource has stock
-            const totalStock = Object.values(pool).reduce((s, v) => s + v, 0);
-            if (totalStock === 0) return '';
-            
-            const native = tradeData.native_resource;
-            const windowOpen = tradeData.trade_window_open;
-            const auctions = ms.active_auctions || [];
-            const myBid = ms.my_bid;
-            const tradesToday = ms.my_market_trades_today || 0;
-            const dailyLimit = ms.daily_limit || 5;
-            
-            let html = `<div style="margin-bottom: 24px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">🏛️ Shared Market</div>
-                    <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
-                    <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">Trades today: ${tradesToday}/${dailyLimit}</div>
-                </div>
-                
-                <div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:18px 20px;">
-                    <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:12px;">
-                        The Shared Market is an NPC trader. Place a bid offering your resources — other players have 60 seconds to outbid you. Best offer wins!
-                    </div>
-                    
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">
-                        ${['olive','grape','iron','grain'].map(r => {
-                            const stock = pool[r] || 0;
-                            return `<div style="text-align:center;padding:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;">
-                                <div style="font-size:18px;">${TRADE_ICONS[r]}</div>
-                                <div style="font-size:14px;font-weight:700;color:${stock > 0 ? '#4ade80' : 'rgba(255,255,255,0.2)'};">${stock}</div>
-                                <div style="font-size:9px;color:rgba(255,255,255,0.3);">in stock</div>
-                            </div>`;
-                        }).join('')}
-                    </div>`;
-            
-            // Active auctions display
-            if (auctions.length > 0) {
-                html += `<div style="margin-bottom:14px;">
-                    <div style="font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:6px;">⏱️ Active Auctions</div>
-                    ${auctions.map(a => {
-                        const isMine = myBid && myBid.bid_id === a.bid_id;
-                        return `<div class="auction-timer-row" data-ends="${a.auction_ends_at}" style="background:${isMine ? 'rgba(74,222,128,0.08)' : 'rgba(234,179,8,0.06)'}; border:1px solid ${isMine ? 'rgba(74,222,128,0.3)' : 'rgba(234,179,8,0.2)'}; border-radius:8px; padding:10px 14px; margin-bottom:6px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                                <div style="font-size:13px;">
-                                    Market selling <span style="color:#4ade80;font-weight:700;">${a.amount_wanted} ${TRADE_ICONS[a.resource_wanted]}</span>
-                                </div>
-                                <span class="auction-countdown" style="font-size:13px;font-weight:700;color:#fbbf24;"></span>
-                            </div>
-                            <div style="font-size:11px;color:rgba(255,255,255,0.5);">
-                                Current best offer: <span style="color:#c084fc;font-weight:600;">${a.amount_offered} ${TRADE_ICONS[a.resource_offered]}</span>
-                                (ratio: ${a.ratio.toFixed(2)})
-                                ${isMine ? '<span style="color:#4ade80;font-weight:700;margin-left:6px;">← Your bid!</span>' : ''}
-                            </div>
-                        </div>`;
-                    }).join('')}
-                </div>`;
-            }
-            
-            // Bid form (only if market open and not at daily limit)
-            if (!windowOpen) {
-                html += `<div style="text-align:center;color:rgba(255,255,255,0.35);font-size:13px;padding:10px;">🔒 Market is closed</div>`;
-            } else if (tradesToday >= dailyLimit) {
-                html += `<div style="text-align:center;color:rgba(255,255,255,0.35);font-size:13px;padding:10px;">You've reached today's trade limit.</div>`;
-            } else if (myBid) {
-                html += `<div style="text-align:center;color:#4ade80;font-size:13px;padding:10px;">You have an active bid. Wait for the auction to resolve.</div>`;
-            } else {
-                // Available resources to buy from market (non-zero stock, not native)
-                const buyableResources = ['olive','grape','iron','grain'].filter(r => (pool[r] || 0) > 0);
-                const offerableResources = ['olive','grape','iron','grain'];
-                
-                html += `<div style="background:rgba(0,0,0,0.15);border-radius:10px;padding:14px;">
-                    <div style="font-size:12px;font-weight:700;color:#c084fc;margin-bottom:10px;">Place a Bid</div>
-                    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:end;margin-bottom:10px;">
-                        <div>
-                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#fbbf24;margin-bottom:4px;">You Offer</div>
-                            <select id="market-offer-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:12px;margin-bottom:4px;cursor:pointer;">
-                                ${offerableResources.map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
-                            </select>
-                            <input type="number" id="market-offer-amt" value="100" min="1" max="130" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;box-sizing:border-box;">
-                        </div>
-                        <div style="font-size:18px;color:rgba(255,255,255,0.15);padding-bottom:8px;">→</div>
-                        <div>
-                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#4ade80;margin-bottom:4px;">You Want</div>
-                            <select id="market-want-res" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:12px;margin-bottom:4px;cursor:pointer;">
-                                ${buyableResources.map(r => `<option value="${r}">${TRADE_ICONS_TEXT[r]} ${TRADE_NAMES[r]}</option>`).join('')}
-                            </select>
-                            <input type="number" id="market-want-amt" value="100" min="1" max="130" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;box-sizing:border-box;">
-                        </div>
-                    </div>
-                    <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-bottom:10px;text-align:center;">
-                        Max 130 per side · Must offer ≥ what you request · Other players can outbid you in 60 seconds
-                    </div>
-                    <button onclick="placeMarketBid()" style="width:100%;background:linear-gradient(135deg,#9333ea,#7c3aed);color:#fff;border:none;padding:12px;border-radius:9px;font-family:'Cinzel',serif;font-weight:700;font-size:14px;letter-spacing:0.5px;cursor:pointer;">
-                        🏛️ Place Bid
-                    </button>
-                </div>`;
-            }
-            
-            html += `</div></div>`;
-            return html;
-        }
-        
-        async function placeMarketBid() {
-            const resource_offered = document.getElementById('market-offer-res').value;
-            const amount_offered = parseInt(document.getElementById('market-offer-amt').value);
-            const resource_wanted = document.getElementById('market-want-res').value;
-            const amount_wanted = parseInt(document.getElementById('market-want-amt').value);
-            
-            if (!amount_offered || !amount_wanted || amount_offered < 1 || amount_wanted < 1) {
-                alert('Enter valid amounts'); return;
-            }
-            if (resource_offered === resource_wanted) {
-                alert('Cannot trade the same resource'); return;
-            }
-            
-            try {
-                const res = await fetch(`${API_URL}/market/bid`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ resource_wanted, amount_wanted, resource_offered, amount_offered })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    await loadTradePortalData();
-                } else {
-                    alert('Error: ' + (data.error || 'Failed'));
-                }
-            } catch (err) {
-                alert('Failed to place bid');
-            }
-        }
-        
-        function startAuctionTimers() {
-            if (auctionTimerInterval) clearInterval(auctionTimerInterval);
-            auctionTimerInterval = setInterval(() => {
-                const rows = document.querySelectorAll('.auction-timer-row');
-                let anyActive = false;
-                rows.forEach(row => {
-                    const endsAt = new Date(row.dataset.ends);
-                    const now = new Date();
-                    const remaining = Math.max(0, Math.round((endsAt - now) / 1000));
-                    const countdown = row.querySelector('.auction-countdown');
-                    if (countdown) {
-                        countdown.textContent = remaining > 0 ? `${remaining}s` : 'Resolving...';
-                        countdown.style.color = remaining < 15 ? '#f87171' : '#fbbf24';
-                    }
-                    if (remaining > 0) anyActive = true;
-                    
-                    // If just expired, trigger resolve
-                    if (remaining === 0 && !row.dataset.resolved) {
-                        row.dataset.resolved = 'true';
-                        resolveExpiredAuctions();
-                    }
-                });
-                if (!anyActive && rows.length === 0) {
-                    clearInterval(auctionTimerInterval);
-                    auctionTimerInterval = null;
-                }
-            }, 1000);
-        }
-        
-        async function resolveExpiredAuctions() {
-            try {
-                await fetch(`${API_URL}/market/resolve`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                // Refresh the trade portal to show results
-                setTimeout(() => loadTradePortalData(), 1500);
-            } catch (e) { console.warn('Resolve failed:', e); }
-        }
-        
         // ==================== HALL OF HONOR BADGE SYSTEM ====================
         
         let badgeData = null; // Cached badge data
