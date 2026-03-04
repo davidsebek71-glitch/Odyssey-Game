@@ -2997,7 +2997,7 @@
                 </div>
                 <div class="form-group" id="myth-group">
                     <label>Myth / God</label>
-                    <select id="submit-myth">
+                    <select id="submit-myth" onchange="onMythChange()">
                         <option value="">Select a myth...</option>
                     </select>
                 </div>
@@ -4123,8 +4123,8 @@
                 data.section = getSectionForMyth(category, mythValue); // Auto-determine section
             }
             
-            // Include max_points for quizzes, comp conns, word clouds, murals, and rite of passage - AUTO-CALCULATED
-            if (category === 'quiz' || category === 'comp_conn' || category === 'rite_of_passage' || category === 'word_cloud' || category === 'mural') {
+            // Include max_points for all tracked categories - AUTO-CALCULATED
+            if (category === 'quiz' || category === 'comp_conn' || category === 'rite_of_passage' || category === 'word_cloud' || category === 'mural' || category === 'creative' || category === 'cer') {
                 const myth = data.myth_god || '';
                 data.max_points = getMaxPoints(category, myth);
             }
@@ -6511,6 +6511,7 @@
                 return null;
             }
             if (category === 'creative' || category === 'cer') {
+                if (myth === 'Icarus') return 20;
                 return 15;
             }
             return null; // Other categories don't have max points
@@ -6563,6 +6564,12 @@
         function populateMythDropdown(category) {
             const mythSelect = document.getElementById('submit-myth');
             mythSelect.innerHTML = '<option value="">Select a myth/god...</option>';
+            
+            // Reset points when dropdown repopulates
+            const pointsInput = document.getElementById('submit-points');
+            pointsInput.removeAttribute('max');
+            pointsInput.placeholder = 'Enter points';
+            pointsInput.value = '';
             
             // Color mapping for gods/myths
             const mythColors = {
@@ -6617,6 +6624,25 @@
                     const color = mythColors[opt.myth] || '#ffffff';
                     mythSelect.innerHTML += `<option value="${opt.myth}" style="color: ${color}; background: #1a0b2e;">${opt.myth}</option>`;
                 });
+            }
+        }
+
+        function onMythChange() {
+            const category = document.getElementById('submit-category').value;
+            const myth = document.getElementById('submit-myth').value;
+            const pointsInput = document.getElementById('submit-points');
+            
+            if (!myth || !category) return;
+            
+            const maxPts = getMaxPoints(category, myth);
+            if (maxPts) {
+                pointsInput.max = maxPts;
+                pointsInput.value = maxPts;
+                pointsInput.placeholder = `Max: ${maxPts}`;
+            } else {
+                pointsInput.removeAttribute('max');
+                pointsInput.placeholder = 'Enter points';
+                pointsInput.value = '';
             }
         }
 

@@ -999,6 +999,24 @@ function bridgeSubmissionToMythPortal(submission, pointsAwarded, teacherId) {
   }
 }
 
+// Helper: Find assignment_ref with section fallback for creative/cer
+// Creative/CER submissions might have section as null, undefined, or wrong value
+function findAssignmentRef(section, mythGod, category) {
+  // Try exact match first
+  if (section && mythGod) {
+    const exact = query('SELECT assignment_id, display_name FROM assignments_ref WHERE section = ? AND myth_god = ? AND assignment_type = ?',
+      [section, mythGod, category])[0];
+    if (exact) return exact;
+  }
+  // Fallback: for creative/cer categories, try classical_creative
+  if ((category === 'creative' || category === 'cer') && mythGod) {
+    const fallback = query('SELECT assignment_id, display_name FROM assignments_ref WHERE section = ? AND myth_god = ? AND assignment_type = ?',
+      ['classical_creative', mythGod, category])[0];
+    if (fallback) return fallback;
+  }
+  return null;
+}
+
 // Approve/Reject Point Submission
 app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
   try {
@@ -1025,11 +1043,8 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
       let previousPoints = 0;
       let previousMaxPoints = 0;
       
-      if (submission.myth_god && submission.section) {
-        const assignment = query(`
-          SELECT assignment_id FROM assignments_ref 
-          WHERE section = ? AND myth_god = ? AND assignment_type = ?
-        `, [submission.section, submission.myth_god, submission.category])[0];
+      if (submission.myth_god) {
+        const assignment = findAssignmentRef(submission.section, submission.myth_god, submission.category);
         
         if (assignment) {
           const existingRecord = query(`
@@ -1131,19 +1146,16 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         console.log(`Resubmission: Score decreased from ${previousPoints} to ${submission.points_claimed} - not subtracting points`);
       }
       
-      // Create grade record if myth_god and section are provided
-      if (submission.myth_god && submission.section) {
+      // Create grade record if myth_god is provided
+      if (submission.myth_god) {
         console.log('Creating grade record for:', {
           section: submission.section,
           myth_god: submission.myth_god,
           category: submission.category
         });
         
-        // Find the matching assignment
-        const assignment = query(`
-          SELECT assignment_id, display_name FROM assignments_ref 
-          WHERE section = ? AND myth_god = ? AND assignment_type = ?
-        `, [submission.section, submission.myth_god, submission.category])[0];
+        // Find the matching assignment (with fallback for creative/cer)
+        const assignment = findAssignmentRef(submission.section, submission.myth_god, submission.category);
         
         console.log('Found assignment:', assignment);
         
@@ -1172,7 +1184,7 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
           console.log('WARNING: No matching assignment found for submission');
         }
       } else {
-        console.log('Skipping grade record - no myth_god or section:', {
+        console.log('Skipping grade record - no myth_god:', {
           myth_god: submission.myth_god,
           section: submission.section
         });
@@ -1223,11 +1235,8 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         // Check for resubmission (existing grade record)
         let isResubmission = false;
         let previousPoints = 0;
-        if (submission.myth_god && submission.section) {
-          const assignmentCheck = query(`
-            SELECT ar.assignment_id FROM assignments_ref ar
-            WHERE ar.section = ? AND ar.myth_god = ? AND ar.assignment_type = ?
-          `, [submission.section, submission.myth_god, submission.category])[0];
+        if (submission.myth_god) {
+          const assignmentCheck = findAssignmentRef(submission.section, submission.myth_god, submission.category);
           
           if (assignmentCheck) {
             const existingGrade = query(`
@@ -1291,11 +1300,8 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         }
         
         // Create/update grade record with partial score
-        if (submission.myth_god && submission.section) {
-          const assignment = query(`
-            SELECT assignment_id, display_name FROM assignments_ref 
-            WHERE section = ? AND myth_god = ? AND assignment_type = ?
-          `, [submission.section, submission.myth_god, submission.category])[0];
+        if (submission.myth_god) {
+          const assignment = findAssignmentRef(submission.section, submission.myth_god, submission.category);
           
           if (assignment) {
             const existingRecord = query(`
