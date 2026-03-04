@@ -2693,8 +2693,53 @@ app.get('/api/teacher/student-submissions/:student_id', authenticateToken, (req,
         };
       });
       
+      // Also include myth portal creative approvals from student_myth_completion
+      // These are created by the Myth Portal Progress approve button, which doesn't create point_submissions
+      const mythCompletions = query(`
+        SELECT smc.student_id, smc.portal_id, smc.assignment_path, smc.points_earned, smc.approved_at, smc.teacher_approved,
+               mp.myth_name
+        FROM student_myth_completion smc
+        JOIN myth_portals mp ON smc.portal_id = mp.portal_id
+        WHERE smc.student_id = ? AND smc.teacher_approved = 1
+      `, [student_id]);
+      
+      const mythNameToGod = {
+        'Icarus & Daedalus': 'Icarus',
+        'Echo & Narcissus': 'Echo and Narcissus',
+        'Eros & Psyche': 'Eros and Psyche'
+      };
+      
+      // Only include completions that don't already have a matching point_submission
+      const completionSubmissions = mythCompletions.filter(mc => {
+        const mythGod = mythNameToGod[mc.myth_name] || mc.myth_name;
+        // Check if there's already a point_submission for this myth's creative work
+        const hasSubmission = submissions.some(s => 
+          s.myth_god === mythGod && 
+          ['creative', 'cer', 'word_cloud', 'mural', 'bonus_retelling', 'bonus_caution_poem', 
+           'bonus_new_ending', 'bonus_metamorphosis', 'bonus_i_icarus', 'bonus_char_study', 'bonus_constellation'].includes(s.category) &&
+          (s.status === 'approved' || s.status === 'partial')
+        );
+        return !hasSubmission;
+      }).map(mc => {
+        const mythGod = mythNameToGod[mc.myth_name] || mc.myth_name;
+        const pathLabel = mc.assignment_path === 'analytical' ? 'CER' : 'Creative';
+        return {
+          submission_id: null,
+          category: mc.assignment_path === 'analytical' ? 'cer' : 'creative',
+          section: 'classical_creative',
+          myth_god: mythGod,
+          points_claimed: mc.points_earned || 0,
+          max_points: mc.points_earned || 15,
+          status: 'approved',
+          submitted_at: mc.approved_at,
+          reviewed_at: mc.approved_at,
+          description: `${pathLabel} (approved via Myth Portal)`,
+          is_myth_completion: true
+        };
+      });
+
       // Merge and re-sort by date
-      const allSubmissions = [...submissions, ...quizSubmissions].sort((a, b) => 
+      const allSubmissions = [...submissions, ...quizSubmissions, ...completionSubmissions].sort((a, b) => 
         new Date(b.submitted_at) - new Date(a.submitted_at)
       );
       

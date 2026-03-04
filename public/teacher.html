@@ -5884,7 +5884,7 @@
                 const statusColor = sub.status === 'approved' ? '#4ade80' : (sub.status === 'partial' ? '#f59e0b' : (sub.status === 'pending' ? '#fbbf24' : (sub.status === 'attempted' ? '#f59e0b' : '#f87171')));
                 const escapedCat = (catName || '').replace(/'/g, "\\'");
                 const escapedMyth = (sub.myth_god || '').replace(/'/g, "\\'");
-                const canDelete = !sub.is_quiz_attempt && (sub.status === 'approved' || sub.status === 'partial');
+                const canDelete = !sub.is_quiz_attempt && !sub.is_myth_completion && (sub.status === 'approved' || sub.status === 'partial');
                 const statusLabel = sub.status === 'attempted' ? 'NOT PASSED' : sub.status;
                 
                 return `<tr>
