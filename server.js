@@ -2457,9 +2457,13 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
             .filter(r => r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
             .reduce((sum, r) => sum + r.points_earned, 0);
           
-          // Quiz points (actual max varies per myth)
+          // Quiz points — use actual grade from grade_records if available, else binary pass/fail
+          const quizGrade = studentRecords.find(r => 
+            r.assignment_type === 'quiz' && r.section === 'classical' && aliases.some(a => r.myth_god === a)
+          );
           const quizPassed = studentQuizzes.some(q => q.portal_id === portalId);
-          const quizPoints = quizPassed ? thisQuizMax : 0;
+          const quizPoints = quizGrade ? Math.min(quizGrade.points_earned, thisQuizMax) : 
+            (quizPassed ? thisQuizMax : 0);
           
           // Portal assignment points (15 if approved)
           const completion = studentCompletions.find(c => c.portal_id === portalId);
@@ -8793,13 +8797,23 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
         const hasGuide = guideEarned > 0;
         const guidePct = gMax > 0 ? Math.round((Math.min(guideEarned, gMax) / gMax) * 100) : 0;
         
-        // Quiz: best attempt
+        // Quiz: best attempt from myth_quiz_attempts + check grade_records
         const studentQuizzes = quizAttempts.filter(q => q.student_id === s.student_id && q.portal_id === p.portal_id);
         const bestQuiz = studentQuizzes.sort((a, b) => b.percentage - a.percentage)[0];
         const quizPassed = studentQuizzes.some(q => q.passed === 1);
+        const hasQuiz = studentQuizzes.length > 0; // any attempt at all (even failing)
         const quizPct = bestQuiz ? bestQuiz.percentage : 0;
         const quizScore = bestQuiz ? bestQuiz.score : 0;
         const quizTotal = bestQuiz ? bestQuiz.total_questions : 0;
+        
+        // Also check grade_records for quiz grade (Daedalus game writes here even without quiz pass)
+        const quizGradeRecord = gradeRecords.find(g =>
+          g.student_id === s.student_id && g.assignment_type === 'quiz' && 
+          g.section === 'classical' && aliases.some(a => g.myth_god === a)
+        );
+        const hasQuizGrade = quizGradeRecord ? true : false;
+        const quizGradeEarned = quizGradeRecord ? quizGradeRecord.points_earned : 0;
+        const quizGradeMax = quizGradeRecord ? (quizGradeRecord.max_points || qMax) : qMax;
         
         // Creative work: word_cloud, mural, cer, or any classical_creative for this myth
         const creativeRecords = gradeRecords.filter(g =>
@@ -8829,10 +8843,13 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
           guide_pct: guidePct,
           has_guide: hasGuide,
           quiz_passed: quizPassed,
+          has_quiz: hasQuiz || hasQuizGrade,
           quiz_score: quizScore,
           quiz_total: quizTotal,
           quiz_pct: quizPct,
           quiz_max: qMax,
+          quiz_grade_earned: quizGradeEarned,
+          quiz_grade_max: quizGradeMax,
           has_creative: hasCreative,
           creative_details: creativeDetails,
           virtue_earned: virtueEarned

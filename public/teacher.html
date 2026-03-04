@@ -4913,7 +4913,7 @@
             
             if (isClassical) {
                 // === CLASSICAL VIEW: Myth-by-myth columns ===
-                const mythNames = ['Pandora', 'Phaethon', 'Orpheus', 'Echo & Narcissus', 'Icarus', 'Eros & Psyche', 'Constellations'];
+                const mythNames = ['Pandora', 'Phaethon', 'Orpheus & Eurydice', 'Echo & Narcissus', 'Icarus & Daedalus', 'Eros & Psyche', 'Constellations'];
                 const mythShort = ['Pan', 'Pha', 'Orp', 'E&N', 'Ica', 'E&P', 'Con'];
                 const mythEmoji = ['🏺', '☀️', '🎵', '🪞', '🪶', '💘', '⭐'];
                 
@@ -5100,8 +5100,15 @@
                         } else {
                             tipLines.push('📖 Reading Guide: —');
                         }
-                        if (myth.quiz_score > 0 || myth.quiz_passed) {
-                            tipLines.push('📝 Quiz: ' + myth.quiz_score + '/' + myth.quiz_total + ' (' + myth.quiz_pct + '%)' + (myth.quiz_passed ? ' ✓' : ''));
+                        if (myth.has_quiz) {
+                            if (myth.quiz_score > 0) {
+                                tipLines.push('📝 Quiz: ' + myth.quiz_score + '/' + myth.quiz_total + ' (' + myth.quiz_pct + '%)' + (myth.quiz_passed ? ' ✓' : ''));
+                            } else if (myth.quiz_grade_earned > 0) {
+                                const gPct = myth.quiz_grade_max > 0 ? Math.round((myth.quiz_grade_earned / myth.quiz_grade_max) * 100) : 0;
+                                tipLines.push('📝 Quiz: ' + myth.quiz_grade_earned + '/' + myth.quiz_grade_max + ' (' + gPct + '%)' + (myth.quiz_passed ? ' ✓' : ''));
+                            } else {
+                                tipLines.push('📝 Quiz: attempted');
+                            }
                         } else {
                             tipLines.push('📝 Quiz: —');
                         }
@@ -5121,12 +5128,12 @@
                             cellContent = '🌟';
                             cellBg = 'rgba(74,222,128,0.1)';
                         } else if (myth.has_guide && myth.quiz_passed) {
-                            // Two of three done, missing creative
+                            // Guide + quiz passed, missing creative
                             cellContent = '🟡';
                             cellBg = 'rgba(251,191,36,0.05)';
-                        } else if (myth.has_guide || myth.quiz_passed || myth.has_creative) {
-                            // Some progress
-                            const count = (myth.has_guide ? 1 : 0) + (myth.quiz_passed ? 1 : 0) + (myth.has_creative ? 1 : 0);
+                        } else if (myth.has_guide || myth.has_quiz || myth.has_creative) {
+                            // Some progress (using has_quiz not quiz_passed for progress count)
+                            const count = (myth.has_guide ? 1 : 0) + (myth.has_quiz ? 1 : 0) + (myth.has_creative ? 1 : 0);
                             cellContent = '<span style="color: rgba(255,255,255,0.4); font-size: 10px;">' + count + '/3</span>';
                             cellBg = 'rgba(255,255,255,0.02)';
                         } else {
