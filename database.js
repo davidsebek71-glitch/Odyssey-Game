@@ -815,6 +815,53 @@ async function initDatabase() {
     )
   `);
 
+  // Market auctions (competitive bidding windows for scarce resources)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_auctions (
+      auction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      status TEXT DEFAULT 'active',
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      ends_at DATETIME NOT NULL,
+      resolved_at DATETIME,
+      winner_bid_id INTEGER
+    )
+  `);
+
+  // Bids on market auctions
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_bids (
+      bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      auction_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      offer_resource TEXT NOT NULL,
+      offer_amount INTEGER NOT NULL,
+      request_amount INTEGER NOT NULL,
+      ratio REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (auction_id) REFERENCES market_auctions(auction_id),
+      FOREIGN KEY (student_id) REFERENCES students(student_id)
+    )
+  `);
+
+  // Completed market trades (auction winners)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_trades (
+      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      auction_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      student_gave_resource TEXT NOT NULL,
+      student_gave_amount INTEGER NOT NULL,
+      student_received_resource TEXT NOT NULL,
+      student_received_amount INTEGER NOT NULL,
+      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (auction_id) REFERENCES market_auctions(auction_id),
+      FOREIGN KEY (student_id) REFERENCES students(student_id)
+    )
+  `);
+
   // Run migrations for existing databases
   runMigrations();
   

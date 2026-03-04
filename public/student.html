@@ -10592,10 +10592,12 @@
             }
             document.getElementById('trade-portal-modal').classList.add('show');
             await loadTradePortalData();
+            startMarketAuctionPolling();
         }
         
         function closeTradePortal() {
             document.getElementById('trade-portal-modal').classList.remove('show');
+            stopMarketAuctionPolling();
         }
         
         async function loadTradePortalData() {
@@ -10703,40 +10705,56 @@
                 </div>
             </div>`;
 
-            // ===== SECTION 1A-MARKET: BUY FROM MARKET SUPPLY =====
+            // ===== SECTION 1A-MARKET: SHARED RESOURCE MARKET (AUCTION) =====
             const mktSupply = d.market_supply || {};
             const nativeRes = d.native_resource;
             const availableMarketRes = ['olive','grape','iron','grain'].filter(r => r !== nativeRes && (mktSupply[r] || 0) > 0);
-            if (availableMarketRes.length > 0 && spending.remaining_cap > 0) {
-                const defaultMktRes = availableMarketRes[0];
+            const myOfferableRes = ['olive','grape','iron','grain'].filter(r => (res[r] || 0) > 0);
+            
+            if (availableMarketRes.length > 0 || Object.values(mktSupply).some(v => v > 0)) {
                 html += `<div style="margin-bottom: 24px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">🏪 Market Supply</div>
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">🏪 Shared Market</div>
                         <div style="flex:1;height:1px;background:rgba(168,85,247,0.2);"></div>
-                        <div style="font-size:10px;color:rgba(255,255,255,0.3);">Buy resources from the market</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);">Competitive bidding for scarce resources</div>
                     </div>
                     <div style="background:rgba(168,85,247,0.04);border:2px solid rgba(168,85,247,0.2);border-radius:14px;padding:18px 20px;">
-                        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                            ${availableMarketRes.map(r => `<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:6px 12px;text-align:center;">
+                        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+                            ${['olive','grape','iron','grain'].filter(r => (mktSupply[r] || 0) > 0).map(r => `<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:6px 12px;text-align:center;">
                                 <span style="font-size:16px;">${TRADE_ICONS[r]}</span>
                                 <span style="font-size:11px;color:rgba(255,255,255,0.5);margin-left:4px;">${TRADE_NAMES[r]}</span>
-                                <span style="font-size:12px;font-weight:700;color:#c084fc;margin-left:6px;">${mktSupply[r]} avail</span>
+                                <span style="font-size:12px;font-weight:700;color:#c084fc;margin-left:6px;">${mktSupply[r]} in stock</span>
                             </div>`).join('')}
                         </div>
-                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                            <select id="mkt-buy-resource" onchange="updateMarketBuyPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(168,85,247,0.3);color:#c084fc;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:700;outline:none;cursor:pointer;">
-                                ${availableMarketRes.map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
-                            </select>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <span style="font-size:12px;color:rgba(255,255,255,0.4);">Spend</span>
-                                <input type="number" id="mkt-buy-points" min="1" max="${Math.min(spending.remaining_cap, d.alliance_points)}" value="${Math.min(5, spending.remaining_cap, d.alliance_points)}" oninput="updateMarketBuyPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px;border-radius:8px;width:60px;font-size:14px;font-weight:700;text-align:center;outline:none;">
-                                <span style="font-size:12px;color:rgba(255,255,255,0.4);">pts → </span>
-                                <span id="mkt-buy-units" style="font-size:16px;font-weight:700;color:#c084fc;">${Math.min(5, spending.remaining_cap, d.alliance_points) * 10}</span>
-                                <span style="font-size:12px;color:rgba(255,255,255,0.4);">units</span>
-                            </div>
-                            <button onclick="buyFromMarket()" style="background:linear-gradient(135deg,#9333ea,#7e22ce);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-family:'Cinzel',serif;font-weight:700;font-size:13px;cursor:pointer;">🏪 Buy</button>
+                        
+                        <div id="market-auctions-area" style="margin-bottom:14px;">
+                            <div style="text-align:center;color:rgba(255,255,255,0.3);font-size:12px;padding:8px;">Loading auctions...</div>
                         </div>
-                        <div id="mkt-buy-note" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:8px;"></div>
+                        
+                        ${windowOpen && myOfferableRes.length > 0 && availableMarketRes.length > 0 ? `
+                        <div style="border-top:1px solid rgba(168,85,247,0.15);padding-top:14px;">
+                            <div style="font-size:12px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px;">Place a Bid</div>
+                            <div style="display:grid;grid-template-columns:1fr 36px 1fr;gap:8px;align-items:start;margin-bottom:10px;">
+                                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#f87171;">📤 You Give</div>
+                                    <select id="mkt-offer-res" onchange="updateMarketBidPreview()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
+                                        ${myOfferableRes.map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (${res[r]})</option>`).join('')}
+                                    </select>
+                                    <input type="number" id="mkt-offer-amt" value="50" min="1" max="130" oninput="updateMarketBidPreview()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                </div>
+                                <div style="display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(255,255,255,0.15);padding-top:26px;">⇄</div>
+                                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;text-align:center;">
+                                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;color:#4ade80;">📥 You Get</div>
+                                    <select id="mkt-want-res" onchange="updateMarketBidPreview()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
+                                        ${availableMarketRes.map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (${mktSupply[r]} avail)</option>`).join('')}
+                                    </select>
+                                    <input type="number" id="mkt-want-amt" value="30" min="1" max="130" oninput="updateMarketBidPreview()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                </div>
+                            </div>
+                            <div id="mkt-bid-preview" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:rgba(255,255,255,0.4);text-align:center;">Set amounts to see your ratio</div>
+                            <button onclick="placeMarketBid()" style="width:100%;background:linear-gradient(135deg,#9333ea,#7e22ce);color:#fff;border:none;padding:12px;border-radius:9px;font-family:'Cinzel',serif;font-weight:700;font-size:14px;letter-spacing:0.5px;cursor:pointer;">🏪 Place Bid</button>
+                            <div style="font-size:9px;color:rgba(255,255,255,0.2);margin-top:6px;text-align:center;">Max 130 per side · 1:1 minimum ratio · 5% improvement over best bid · 60s auction window</div>
+                        </div>` : (windowOpen ? '' : `<div style="text-align:center;color:rgba(255,255,255,0.3);font-size:12px;padding:8px;border-top:1px solid rgba(168,85,247,0.15);margin-top:8px;">Market closed — wait for Mr. Sebek to open trading</div>`)}
                     </div>
                 </div>`;
             }
@@ -11100,43 +11118,138 @@
             } catch (err) { alert('Failed to buy resource'); }
         }
 
-        function updateMarketBuyPreview() {
-            const ptsEl = document.getElementById('mkt-buy-points');
-            const unitsEl = document.getElementById('mkt-buy-units');
-            const noteEl = document.getElementById('mkt-buy-note');
-            const resEl = document.getElementById('mkt-buy-resource');
-            if (!ptsEl || !unitsEl) return;
-            const pts = parseInt(ptsEl.value) || 0;
-            const units = pts * 10;
-            unitsEl.textContent = units;
-            if (noteEl && resEl && tradeMarketData) {
-                const supply = tradeMarketData.market_supply || {};
-                const available = supply[resEl.value] || 0;
-                if (units > available) {
-                    noteEl.textContent = `⚠ Only ${available} units available in market`;
-                    noteEl.style.color = '#f87171';
-                } else {
-                    noteEl.textContent = '';
-                }
+        function updateMarketBidPreview() {
+            const preview = document.getElementById('mkt-bid-preview');
+            if (!preview) return;
+            const offerAmt = parseInt(document.getElementById('mkt-offer-amt')?.value) || 0;
+            const wantAmt = parseInt(document.getElementById('mkt-want-amt')?.value) || 0;
+            const offerRes = document.getElementById('mkt-offer-res')?.value;
+            const wantRes = document.getElementById('mkt-want-res')?.value;
+            
+            if (offerAmt <= 0 || wantAmt <= 0) {
+                preview.innerHTML = '<span style="color:rgba(255,255,255,0.3);">Set amounts to see your ratio</span>';
+                return;
+            }
+            if (offerRes === wantRes) {
+                preview.innerHTML = '<span style="color:#f87171;">Cannot offer the same resource you want</span>';
+                return;
+            }
+            const ratio = offerAmt / wantAmt;
+            let color = ratio >= 1.0 ? '#4ade80' : '#f87171';
+            let note = ratio < 1.0 ? '⚠ Below 1:1 minimum — will be rejected' : 
+                       ratio >= 2.0 ? '🔥 Very generous offer — likely to win!' :
+                       ratio >= 1.5 ? '✦ Strong offer' : '● Meets minimum';
+            preview.innerHTML = `<span style="color:${color};font-weight:700;">Ratio: ${ratio.toFixed(2)}</span> <span style="color:rgba(255,255,255,0.4);">· ${note}</span>`;
+        }
+        
+        let marketAuctionInterval = null;
+        
+        function startMarketAuctionPolling() {
+            stopMarketAuctionPolling();
+            loadMarketAuctions();
+            marketAuctionInterval = setInterval(loadMarketAuctions, 3000);
+        }
+        
+        function stopMarketAuctionPolling() {
+            if (marketAuctionInterval) { clearInterval(marketAuctionInterval); marketAuctionInterval = null; }
+        }
+        
+        async function loadMarketAuctions() {
+            const area = document.getElementById('market-auctions-area');
+            if (!area) { stopMarketAuctionPolling(); return; }
+            try {
+                const period = tradePortalData?.class_period;
+                if (!period) return;
+                const res = await fetch(`${API_URL}/trade/market/auctions/${encodeURIComponent(period)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                renderMarketAuctions(area, data);
+            } catch (err) {
+                area.innerHTML = '<div style="color:rgba(255,255,255,0.3);font-size:11px;">Could not load auctions</div>';
             }
         }
         
-        async function buyFromMarket() {
-            const resEl = document.getElementById('mkt-buy-resource');
-            const ptsEl = document.getElementById('mkt-buy-points');
-            if (!resEl || !ptsEl) return alert('Market supply not available');
-            const resource = resEl.value;
-            const pts = parseInt(ptsEl.value);
-            if (!pts || pts < 1) return alert('Enter points to spend');
+        function renderMarketAuctions(area, data) {
+            const { active, recent } = data;
+            let html = '';
+            
+            if (active && active.length > 0) {
+                html += '<div style="font-size:11px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">⚡ Active Auctions</div>';
+                active.forEach(a => {
+                    const now = Date.now();
+                    const endsAt = new Date(a.ends_at).getTime();
+                    const secsLeft = Math.max(0, Math.ceil((endsAt - now) / 1000));
+                    const barPct = Math.min(100, (secsLeft / 60) * 100);
+                    const urgentColor = secsLeft <= 10 ? '#ef4444' : secsLeft <= 30 ? '#f59e0b' : '#c084fc';
+                    
+                    html += `<div style="background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);border-radius:10px;padding:12px;margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <div>
+                                <span style="font-size:18px;">${TRADE_ICONS[a.resource] || '📦'}</span>
+                                <span style="font-weight:700;color:#fff;margin-left:6px;">${TRADE_NAMES[a.resource] || a.resource}</span>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:20px;font-weight:700;color:${urgentColor};">${secsLeft}s</div>
+                                <div style="font-size:9px;color:rgba(255,255,255,0.3);">${a.bid_count || 0} bid${(a.bid_count||0) !== 1 ? 's' : ''}</div>
+                            </div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.3);border-radius:4px;height:6px;margin-bottom:6px;overflow:hidden;">
+                            <div style="background:${urgentColor};height:100%;width:${barPct}%;border-radius:4px;transition:width 1s linear;"></div>
+                        </div>
+                        ${a.best_ratio ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);">Best offer ratio: <span style="color:#fbbf24;font-weight:700;">${a.best_ratio.toFixed(2)}</span> · Need <span style="color:#c084fc;font-weight:600;">${(a.best_ratio * 1.05).toFixed(2)}+</span> to outbid</div>` 
+                        : `<div style="font-size:11px;color:rgba(255,255,255,0.4);">No bids yet — be the first!</div>`}
+                    </div>`;
+                });
+            }
+            
+            if (recent && recent.length > 0) {
+                html += '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.8px;margin-top:12px;margin-bottom:6px;">Recent Results</div>';
+                recent.slice(0, 5).forEach(r => {
+                    if (r.winner_name) {
+                        html += `<div style="font-size:11px;color:rgba(255,255,255,0.4);padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                            ✅ <span style="color:#4ade80;">${r.winner_name}</span> won ${r.student_received_amount} ${TRADE_ICONS[r.student_received_resource] || ''} for ${r.student_gave_amount} ${TRADE_ICONS[r.student_gave_resource] || ''}
+                        </div>`;
+                    } else {
+                        html += `<div style="font-size:11px;color:rgba(255,255,255,0.25);padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                            ⏱ ${TRADE_ICONS[r.resource] || ''} ${TRADE_NAMES[r.resource] || r.resource} auction expired — no bids
+                        </div>`;
+                    }
+                });
+            }
+            
+            if (!html) {
+                html = '<div style="text-align:center;color:rgba(255,255,255,0.25);font-size:12px;padding:8px;">No active auctions. Place a bid to start one!</div>';
+            }
+            
+            area.innerHTML = html;
+        }
+        
+        async function placeMarketBid() {
+            const offerRes = document.getElementById('mkt-offer-res')?.value;
+            const offerAmt = parseInt(document.getElementById('mkt-offer-amt')?.value);
+            const wantRes = document.getElementById('mkt-want-res')?.value;
+            const wantAmt = parseInt(document.getElementById('mkt-want-amt')?.value);
+            
+            if (!offerRes || !wantRes || !offerAmt || !wantAmt) return alert('Fill in all bid fields');
+            if (offerRes === wantRes) return alert('Cannot offer the same resource you want');
+            if (offerAmt < 1 || wantAmt < 1) return alert('Amounts must be positive');
+            if (offerAmt > 130 || wantAmt > 130) return alert('Maximum 130 per side');
+            
+            const ratio = offerAmt / wantAmt;
+            if (ratio < 1.0) return alert('Your offer must be at least 1:1 (offer ≥ request)');
+            
+            if (!confirm(`Bid: Give ${offerAmt} ${TRADE_NAMES[offerRes]} for ${wantAmt} ${TRADE_NAMES[wantRes]} from the market?\n\nRatio: ${ratio.toFixed(2)}\nIf you win, your ${TRADE_NAMES[offerRes]} will be deducted.`)) return;
+            
             try {
-                const res = await fetch(`${API_URL}/trade/buy-from-market`, {
+                const res = await fetch(`${API_URL}/trade/market/bid`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ resource, points_to_spend: pts })
+                    body: JSON.stringify({ resource_wanted: wantRes, request_amount: wantAmt, offer_resource: offerRes, offer_amount: offerAmt })
                 });
                 const data = await res.json();
-                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                if (data.success) { alert(data.message); loadMarketAuctions(); }
                 else alert('Error: ' + (data.error || 'Failed'));
-            } catch (err) { alert('Failed to buy from market'); }
+            } catch (err) { alert('Failed to place bid'); }
         }
 
         function updateSellPreview() {
