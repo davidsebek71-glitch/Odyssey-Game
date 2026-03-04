@@ -5180,7 +5180,16 @@
         
         function closeTradeManagementModal() {
             document.getElementById('trade-management-modal').classList.remove('show');
+            // Stop auto-refresh when modal closes
+            if (tradeAutoRefreshInterval) {
+                clearInterval(tradeAutoRefreshInterval);
+                tradeAutoRefreshInterval = null;
+                tradeAutoRefreshOn = false;
+            }
         }
+        
+        let tradeAutoRefreshInterval = null;
+        let tradeAutoRefreshOn = false;
         
         async function loadTradeManagement() {
             try {
@@ -5195,10 +5204,51 @@
                     return;
                 }
                 tradeData = { ...assignData, flagged: flaggedData.flagged || [] };
+                
+                // Fetch overview data per period for student inventories + market values
+                const alliances = tradeData.alliances || [];
+                const periods = [...new Set(alliances.map(a => a.class_period))].sort();
+                tradeData.overviews = {};
+                await Promise.all(periods.map(async (period) => {
+                    try {
+                        const ovRes = await fetch(`${API_URL}/trade/overview/${encodeURIComponent(period)}`, { headers });
+                        const ovData = await ovRes.json();
+                        if (!ovData.error) tradeData.overviews[period] = ovData;
+                    } catch (e) { /* overview fetch failed for this period, skip */ }
+                }));
+                
                 renderTradeManagement();
             } catch (err) {
                 document.getElementById('trade-management-content').innerHTML = `<div style="color:#f87171; padding:20px;">Failed to load trade data: ${err.message}</div>`;
             }
+        }
+        
+        async function refreshTradePeriod(period) {
+            try {
+                const [ovRes, flaggedRes] = await Promise.all([
+                    fetch(`${API_URL}/trade/overview/${encodeURIComponent(period)}`, { headers }),
+                    fetch(`${API_URL}/trade/flagged`, { headers })
+                ]);
+                const ovData = await ovRes.json();
+                const flaggedData = await flaggedRes.json();
+                if (!ovData.error && tradeData) {
+                    tradeData.overviews[period] = ovData;
+                    tradeData.flagged = flaggedData.flagged || [];
+                    renderTradeManagement();
+                }
+            } catch (e) { /* silent refresh fail */ }
+        }
+        
+        function toggleTradeAutoRefresh() {
+            tradeAutoRefreshOn = !tradeAutoRefreshOn;
+            if (tradeAutoRefreshOn) {
+                tradeAutoRefreshInterval = setInterval(() => loadTradeManagement(), 20000);
+            } else {
+                clearInterval(tradeAutoRefreshInterval);
+                tradeAutoRefreshInterval = null;
+            }
+            // Re-render to update toggle button state
+            renderTradeManagement();
         }
         
         function renderTradeManagement() {
@@ -5208,10 +5258,18 @@
             const alliances = tradeData.alliances || [];
             const windows = tradeData.trade_windows || [];
             const flagged = tradeData.flagged || [];
+            const overviews = tradeData.overviews || {};
             const periods = [...new Set(alliances.map(a => a.class_period))].sort();
-            const unassigned = alliances.filter(a => !a.native_resource);
             
             let html = '';
+            
+            // Auto-refresh toggle bar
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:10px 16px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+                <span style="font-size:13px;color:rgba(255,255,255,0.5);">Auto-refresh every 20 seconds</span>
+                <button onclick="toggleTradeAutoRefresh()" style="background:${tradeAutoRefreshOn ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'};border:1px solid ${tradeAutoRefreshOn ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.15)'};color:${tradeAutoRefreshOn ? '#4ade80' : 'rgba(255,255,255,0.4)'};padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+                    ${tradeAutoRefreshOn ? '● ON' : '○ OFF'}
+                </button>
+            </div>`;
             
             // Flagged trades alert
             if (flagged.length > 0) {
@@ -5241,6 +5299,10 @@
                 const windowStatus = windows.find(w => w.period === period);
                 const isOpen = windowStatus?.is_open === 1;
                 const allAssigned = periodAlliances.every(a => a.native_resource);
+                const overview = overviews[period];
+                const tradeCounts = overview?.trade_counts || {};
+                const marketValues = overview?.market_values || {};
+                const students = overview?.students || [];
                 
                 html += `<div style="margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
                     <div style="background: linear-gradient(135deg, rgba(234,179,8,0.2), rgba(161,98,7,0.15)); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -5249,6 +5311,7 @@
                             <span style="color: rgba(255,255,255,0.6); margin-left: 12px;">(${periodAlliances.length} alliances)</span>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center;">
+                            <button onclick="refreshTradePeriod('${period}')" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;" title="Refresh this period">🔄 Refresh</button>
                             ${!allAssigned ? `<button onclick="assignResources('${period}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">🎲 Assign Resources</button>` : ''}
                             <button onclick="toggleTradeWindow('${period}', ${isOpen ? 'false' : 'true'})" style="background: ${isOpen ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}; border: 1px solid ${isOpen ? 'rgba(239,68,68,0.6)' : 'rgba(34,197,94,0.6)'}; color: ${isOpen ? '#f87171' : '#4ade80'}; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">
                                 ${isOpen ? '🔒 Close Market' : '🔓 Open Market'}
@@ -5257,35 +5320,99 @@
                                 ${isOpen ? '● Market Open' : '○ Market Closed'}
                             </span>
                         </div>
-                    </div>
-                    <div style="padding: 16px;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: rgba(255,255,255,0.05);">
-                                    <th style="text-align: left; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Alliance</th>
-                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Native Resource</th>
-                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">⚓ Ship</th>
-                                    <th style="text-align: center; padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 13px;">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${periodAlliances.map((a, idx) => {
-                                    const res = a.native_resource;
-                                    const buildings = a.buildings_from_activations || JSON.parse(a.buildings_owned || '[]');
-                                    const hasShip = buildings.includes('Transport Ship');
-                                    return `<tr style="background: ${idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
-                                        <td style="padding: 10px 12px; font-weight: 500;">${a.alliance_name}</td>
-                                        <td style="text-align: center; padding: 10px 12px;">
-                                            ${res ? `<span style="background: rgba(234,179,8,0.15); padding: 3px 10px; border-radius: 4px; font-size: 13px;">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]}</span>` : '<span style="color: rgba(255,255,255,0.3);">—</span>'}
-                                        </td>
-                                        <td style="text-align: center; padding: 10px 12px; font-size: 16px;">${hasShip ? '<span style="color: #4ade80;" title="Transport Ship built">⚓</span>' : '<span style="color: rgba(255,255,255,0.2);" title="No Transport Ship">—</span>'}</td>
-                                        <td style="text-align: center; padding: 10px 12px; font-weight: 600; color: #fbbf24;">${a.total_points}</td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>`;
+                    </div>`;
+                
+                // Trade activity stats bar
+                if (tradeCounts.total > 0 || tradeCounts.pending > 0) {
+                    html += `<div style="display:flex;gap:16px;padding:10px 20px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
+                        <span style="color:rgba(255,255,255,0.5);">Trades:</span>
+                        <span style="color:#4ade80;" title="Completed trades">${tradeCounts.completed || 0} completed</span>
+                        <span style="color:#fbbf24;" title="Pending trades">${tradeCounts.pending || 0} pending</span>
+                        <span style="color:#f87171;" title="Flagged trades">${tradeCounts.flagged || 0} flagged</span>
+                        <span style="color:rgba(255,255,255,0.3);">${tradeCounts.total || 0} total</span>
+                    </div>`;
+                }
+                
+                // Market values bar
+                if (Object.keys(marketValues).length > 0) {
+                    html += `<div style="display:flex;gap:12px;padding:10px 20px;background:rgba(255,255,255,0.01);border-bottom:1px solid rgba(255,255,255,0.05);flex-wrap:wrap;">
+                        <span style="font-size:11px;color:rgba(255,255,255,0.4);align-self:center;">Market Values:</span>`;
+                    ['olive','grape','iron','grain'].forEach(res => {
+                        const val = marketValues[res] || 10;
+                        const valColor = val >= 13 ? '#f87171' : (val >= 8 ? '#fbbf24' : '#4ade80');
+                        const valLabel = val >= 13 ? 'High' : (val >= 8 ? 'Fair' : 'Low');
+                        html += `<span style="font-size:12px;padding:3px 10px;border-radius:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+                            ${TRADE_RESOURCE_ICONS[res]} <span style="color:${valColor};font-weight:600;">${val}</span> <span style="color:rgba(255,255,255,0.3);font-size:10px;">${valLabel}</span>
+                        </span>`;
+                    });
+                    html += `</div>`;
+                }
+                
+                html += `<div style="padding: 16px;">`;
+                
+                // Alliance table with expandable student inventories
+                periodAlliances.forEach((a, aIdx) => {
+                    const res = a.native_resource;
+                    const buildings = a.buildings_from_activations || JSON.parse(a.buildings_owned || '[]');
+                    const hasShip = buildings.includes('Transport Ship');
+                    const allianceStudents = students.filter(s => s.alliance_id === a.alliance_id);
+                    const expandId = 'trade-expand-' + period.replace(/\s/g,'') + '-' + a.alliance_id;
+                    
+                    html += `<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;overflow:hidden;">
+                        <div onclick="document.getElementById('${expandId}').style.display = document.getElementById('${expandId}').style.display === 'none' ? 'block' : 'none'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:${aIdx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <span style="font-weight:600;color:#fff;">${a.alliance_name}</span>
+                                ${res ? `<span style="background:rgba(234,179,8,0.15);padding:2px 8px;border-radius:4px;font-size:12px;">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]}</span>` : '<span style="color:rgba(255,255,255,0.3);font-size:12px;">No resource</span>'}
+                                ${hasShip ? '<span style="color:#4ade80;font-size:14px;" title="Transport Ship">⚓</span>' : '<span style="color:rgba(255,255,255,0.15);font-size:12px;" title="No Transport Ship">no ⚓</span>'}
+                            </div>
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <span style="font-weight:600;color:#fbbf24;font-size:13px;">${a.total_points} pts</span>
+                                <span style="color:rgba(255,255,255,0.3);font-size:11px;">${allianceStudents.length} students ▼</span>
+                            </div>
+                        </div>
+                        <div id="${expandId}" style="display:none;padding:8px 14px 12px;background:rgba(0,0,0,0.15);border-top:1px solid rgba(255,255,255,0.04);">`;
+                    
+                    if (allianceStudents.length === 0) {
+                        html += `<span style="color:rgba(255,255,255,0.3);font-size:12px;">No inventory data</span>`;
+                    } else {
+                        const threshold = overview?.resource_threshold || 50;
+                        html += `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+                            <thead><tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                                <th style="text-align:left;padding:4px 8px;color:rgba(255,255,255,0.5);font-weight:500;">Student</th>
+                                <th style="text-align:center;padding:4px 8px;color:rgba(255,255,255,0.5);">🫒 Olive</th>
+                                <th style="text-align:center;padding:4px 8px;color:rgba(255,255,255,0.5);">🍇 Grape</th>
+                                <th style="text-align:center;padding:4px 8px;color:rgba(255,255,255,0.5);">⚒️ Iron</th>
+                                <th style="text-align:center;padding:4px 8px;color:rgba(255,255,255,0.5);">🌾 Grain</th>
+                                <th style="text-align:center;padding:4px 8px;color:rgba(255,255,255,0.5);">Progress</th>
+                            </tr></thead><tbody>`;
+                        
+                        allianceStudents.forEach(st => {
+                            const ol = st.olive || 0, gr = st.grape || 0, ir = st.iron || 0, gn = st.grain || 0;
+                            const filled = [ol, gr, ir, gn].filter(v => v >= threshold).length;
+                            const progressColor = filled === 4 ? '#4ade80' : (filled > 0 ? '#fbbf24' : 'rgba(255,255,255,0.3)');
+                            
+                            function resCell(val) {
+                                const pct = Math.min(100, Math.round((val / threshold) * 100));
+                                const color = val >= threshold ? '#4ade80' : (val > 0 ? '#fbbf24' : 'rgba(255,255,255,0.2)');
+                                return '<td style="text-align:center;padding:4px 8px;">' +
+                                    '<div style="display:inline-block;width:40px;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:4px;">' +
+                                    '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:3px;"></div></div>' +
+                                    '<span style="color:' + color + ';font-weight:500;">' + val + '</span></td>';
+                            }
+                            
+                            html += `<tr>
+                                <td style="padding:4px 8px;color:#fff;font-weight:500;">${st.name}</td>
+                                ${resCell(ol)}${resCell(gr)}${resCell(ir)}${resCell(gn)}
+                                <td style="text-align:center;padding:4px 8px;color:${progressColor};font-weight:600;">${filled}/4</td>
+                            </tr>`;
+                        });
+                        html += `</tbody></table>`;
+                    }
+                    
+                    html += `</div></div>`;
+                });
+                
+                html += `</div></div>`;
             });
             
             if (periods.length === 0) {
