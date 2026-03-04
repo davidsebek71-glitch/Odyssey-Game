@@ -3784,6 +3784,88 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
   }
 });
 
+// Student: Sell back a building (returns base cost minus 10% to alliance)
+app.post('/api/alliance/sell-building', authenticateToken, (req, res) => {
+  try {
+    const { building_name } = req.body;
+    const student_id = req.user.id;
+    
+    if (!building_name) return res.status(400).json({ error: 'Building name required' });
+    
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
+    
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+    
+    // Cannot sell Transport Ship
+    if (building_name === 'Transport Ship') {
+      return res.status(400).json({ error: 'Transport Ship cannot be sold back — your alliance depends on it for trade!' });
+    }
+    
+    // Check the building is owned
+    const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
+    const buildingIndex = ownedBuildings.indexOf(building_name);
+    if (buildingIndex === -1) {
+      return res.status(400).json({ error: `Your alliance does not own ${building_name}` });
+    }
+    
+    // Get the building's base cost from buildings_ref
+    const building = query('SELECT building_id, cost_points, age_available FROM buildings_ref WHERE building_name = ?', [building_name])[0];
+    if (!building) return res.status(404).json({ error: 'Building reference not found' });
+    
+    // Cannot sell back buildings from a previous age
+    const currentAge = alliance.current_age || 'Archaic';
+    if (building.age_available !== currentAge && !(currentAge === 'Classical' && building.age_available === 'Classical')) {
+      // If they're in Classical, they can only sell Classical buildings
+      // If they're in Archaic, they can only sell Archaic buildings
+      if (building.age_available !== currentAge) {
+        return res.status(400).json({ error: `Cannot sell back ${building.age_available} Age buildings — you are in the ${currentAge} Age` });
+      }
+    }
+    
+    // Calculate refund: base cost minus 10% realtor fee (always uses base cost, no discounts)
+    const baseCost = building.cost_points;
+    const fee = Math.ceil(baseCost * 0.10);
+    const refund = baseCost - fee;
+    
+    // Remove ONE instance of this building from owned
+    ownedBuildings.splice(buildingIndex, 1);
+    
+    // Refund points to alliance and update buildings_owned
+    run('UPDATE alliances SET total_points = total_points + ?, buildings_owned = ? WHERE alliance_id = ?',
+        [refund, JSON.stringify(ownedBuildings), student.alliance_id]);
+    
+    // Remove the building activation record (most recent instance)
+    const activation = query(
+      'SELECT activation_id FROM building_activations WHERE alliance_id = ? AND building_name = ? ORDER BY activation_id DESC LIMIT 1',
+      [student.alliance_id, building_name]
+    )[0];
+    if (activation) {
+      run('DELETE FROM building_activations WHERE activation_id = ?', [activation.activation_id]);
+    }
+    
+    // Log the transaction
+    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+         VALUES (?, ?, ?, 'building_sellback', ?)`,
+        [student.alliance_id, null, refund, `Sold ${building_name} for ${refund} pts (${fee} pt realtor fee) — by ${req.user.name}`]);
+    
+    saveDatabase();
+    res.json({ 
+      success: true, 
+      message: `Sold ${building_name}! ${refund} points returned to alliance (${fee} pt realtor fee deducted from ${baseCost} base cost).`,
+      refund,
+      fee,
+      base_cost: baseCost,
+      new_balance: alliance.total_points + refund,
+      buildings_owned: ownedBuildings
+    });
+  } catch (err) {
+    console.error('Sell building error:', err);
+    res.status(500).json({ error: 'Failed to sell building' });
+  }
+});
+
 // Teacher: Get eligible alliances for a god bonus (all members must have 80%+ on that god's bonus assignment)
 app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req, res) => {
   try {
@@ -4270,8 +4352,10 @@ app.get('/api/student/age-progress', authenticateToken, (req, res) => {
     if (readiness.isReady && alliance.current_age === 'Archaic' && ageGate.classical_unlocked === 1) {
       run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance.alliance_id]);
       alliance.current_age = 'Classical';
+      // Clear scout_status for all members — scouting was for Archaic→Classical transition
+      run('UPDATE students SET scout_status = NULL WHERE alliance_id = ?', [alliance.alliance_id]);
       saveDatabase();
-      console.log(`Auto-advanced alliance ${alliance.alliance_id} (${alliance.alliance_name}) to Classical Age via age-progress poll`);
+      console.log(`Auto-advanced alliance ${alliance.alliance_id} (${alliance.alliance_name}) to Classical Age via age-progress poll. Scout statuses cleared.`);
     } else if (readiness.isReady && alliance.current_age === 'Classical' && ageGate.heroic_unlocked === 1) {
       run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Heroic', alliance.alliance_id]);
       alliance.current_age = 'Heroic';
@@ -4434,6 +4518,7 @@ app.post('/api/teacher/open-age-gate', authenticateToken, (req, res) => {
         const readiness = calculateAgeReadiness(alliance);
         if (readiness.isReady) {
           run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance.alliance_id]);
+          run('UPDATE students SET scout_status = NULL WHERE alliance_id = ?', [alliance.alliance_id]);
           advancedCount++;
         }
       });
@@ -4467,6 +4552,7 @@ app.post('/api/teacher/advance-alliance', authenticateToken, (req, res) => {
     
     if (target_age === 'Classical' && alliance.current_age === 'Archaic') {
       run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance_id]);
+      run('UPDATE students SET scout_status = NULL WHERE alliance_id = ?', [alliance_id]);
       
       ensureAgeGate(alliance.class_period);
       run(`UPDATE age_gates SET classical_unlocked = 1, classical_unlocked_at = COALESCE(classical_unlocked_at, CURRENT_TIMESTAMP), classical_unlocked_by = COALESCE(classical_unlocked_by, ?)
@@ -8863,18 +8949,18 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
 
-    // Check if already completed — no duplicate points
-    const existing = query(
-      'SELECT result_id FROM daedalus_game_results WHERE student_id = ? AND completed = 1',
+    // Check attempt count — max 2 scoring attempts
+    const attemptCount = query(
+      'SELECT COUNT(*) as cnt FROM daedalus_game_results WHERE student_id = ?',
       [student_id]
-    )[0];
+    )[0]?.cnt || 0;
 
-    if (existing) {
-      console.log(`⚠️ Daedalus game already completed by student ${student.name} (${student_id})`);
+    if (attemptCount >= 2) {
+      console.log(`⚠️ Daedalus: ${student.name} (${student_id}) already has 2 attempts — ignoring further completions`);
       return res.json({ 
         success: true, 
         alreadyCompleted: true, 
-        message: 'Game already completed — no additional points awarded' 
+        message: 'Maximum attempts reached (2). No additional score recorded.' 
       });
     }
 
@@ -8920,8 +9006,8 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
     let alliancePointsAwarded = 0;
     let gradePointsEarned = 0;
 
-    if (passed) {
-      // 4. Record grade for the Icarus quiz assignment
+    if (completed) {
+      // 4. Record grade for the Icarus quiz assignment — ALWAYS, regardless of pass/fail
       try {
         const quizAssignment = query(
           "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = 'Icarus'",
@@ -8929,19 +9015,31 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
         )[0];
 
         if (quizAssignment) {
+          // Calculate raw score for this attempt: proportion of first-attempt-correct × max_points
+          const thisAttemptScore = Math.round((firstAttemptCorrect / totalQuestions) * quizAssignment.max_points);
+          
           const existingGrade = query(
-            'SELECT record_id FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+            'SELECT record_id, points_earned FROM grade_records WHERE student_id = ? AND assignment_id = ?',
             [student_id, quizAssignment.assignment_id]
           )[0];
 
-          if (!existingGrade) {
-            gradePointsEarned = Math.round((firstAttemptCorrect / totalQuestions) * quizAssignment.max_points);
+          if (existingGrade) {
+            // Second attempt: average with first score, round up
+            gradePointsEarned = Math.ceil((existingGrade.points_earned + thisAttemptScore) / 2);
+            run(
+              `UPDATE grade_records SET points_earned = ? WHERE record_id = ?`,
+              [gradePointsEarned, existingGrade.record_id]
+            );
+            console.log(`✅ Daedalus grade AVERAGED: ${student.name} - attempt 1: ${existingGrade.points_earned}, attempt 2: ${thisAttemptScore}, avg: ${gradePointsEarned}/${quizAssignment.max_points}`);
+          } else {
+            // First attempt: record raw score
+            gradePointsEarned = thisAttemptScore;
             run(
               `INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
                VALUES (?, ?, ?, ?)`,
               [student_id, quizAssignment.assignment_id, gradePointsEarned, quizAssignment.max_points]
             );
-            console.log(`✅ Daedalus grade recorded: ${student.name} - ${gradePointsEarned}/${quizAssignment.max_points}`);
+            console.log(`✅ Daedalus grade recorded: ${student.name} - ${gradePointsEarned}/${quizAssignment.max_points} (attempt 1)`);
           }
         }
       } catch (gradeErr) {
@@ -10274,6 +10372,15 @@ app.get('/api/market/status', authenticateToken, (req, res) => {
   try {
     const student = query('SELECT student_id, class_period, alliance_id FROM students WHERE student_id = ?', [req.user.id])[0];
     if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    // Shared market only for classes with fewer than 4 alliances
+    const allianceCountForPeriod = query(
+      'SELECT COUNT(*) as cnt FROM alliances WHERE class_period = ? AND is_disbanded = 0',
+      [student.class_period]
+    )[0]?.cnt || 0;
+    if (allianceCountForPeriod >= 4) {
+      return res.json({ pool: [], active_auctions: [], my_bid: null, today_market_trades: 0 });
+    }
     
     // Auto-resolve any expired auctions first
     const now = new Date().toISOString();

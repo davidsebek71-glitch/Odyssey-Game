@@ -3794,10 +3794,13 @@
             
             const isSteal = fate.fate_type === 'steal_choice';
 
-            // For steal fates, we need alliance count to show total math
-            // Use fateAllianceData which is already loaded for the current period
+            // For steal fates, count OTHER alliances in the SAME PERIOD (not all periods)
+            const selectedAlliance = fateAllianceData.find(a => a.alliance_id === selectedAllianceId);
+            const selectedPeriod = selectedAlliance ? selectedAlliance.class_period : null;
             const periodAlliances = fateAllianceData.filter(a => 
-                (a.current_age || 'Archaic') === currentFateAge && a.alliance_id !== selectedAllianceId
+                a.class_period === selectedPeriod &&
+                (a.current_age || 'Archaic') === currentFateAge && 
+                a.alliance_id !== selectedAllianceId
             );
             const allianceCount = periodAlliances.length;
             
@@ -5475,6 +5478,10 @@
         }
         
         function renderMarketPoolControls(period) {
+            // Only show Shared Market for classes with fewer than 4 alliances
+            const periodAllianceCount = (tradeData?.alliances || []).filter(a => a.class_period === period).length;
+            if (periodAllianceCount >= 4) return '';
+            
             const mp = marketPoolData[period];
             if (!mp) return '';
             
@@ -5989,7 +5996,7 @@
                 `;
                 
                 students.forEach(student => {
-                    const scoutBadge = student.scout_status ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
+                    const scoutBadge = (student.scout_status && allianceAge === 'Archaic') ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
                     const allianceAge = student.alliance_age || 'Archaic';
                     const isArchaicAlliance = allianceAge === 'Archaic';
                     const scoutBtn = isArchaicAlliance ? 

@@ -1471,13 +1471,58 @@ function seedReferenceData() {
   }
 
   // Icarus scoring update: Reading Guide 12→5, Quiz 10→17, Word Cloud 12→20 (total 34→42)
+  // Run EVERY startup to ensure correct values regardless of when DB was created
   try {
     run("UPDATE assignments_ref SET max_points = 5 WHERE myth_god = 'Icarus' AND assignment_type = 'comp_conn' AND section = 'classical'");
     run("UPDATE assignments_ref SET max_points = 17 WHERE myth_god = 'Icarus' AND assignment_type = 'quiz' AND section = 'classical'");
     run("UPDATE assignments_ref SET max_points = 20 WHERE myth_god = 'Icarus' AND assignment_type = 'word_cloud' AND section = 'classical_creative'");
-    console.log('✅ Icarus scoring updated: Reading Guide=5, Quiz=17, Word Cloud=20 (total 42)');
+    // Also catch 'Icarus and Daedalus' variant just in case
+    run("UPDATE assignments_ref SET max_points = 5 WHERE myth_god = 'Icarus and Daedalus' AND assignment_type = 'comp_conn' AND section = 'classical'");
+    run("UPDATE assignments_ref SET max_points = 17 WHERE myth_god = 'Icarus and Daedalus' AND assignment_type = 'quiz' AND section = 'classical'");
+    run("UPDATE assignments_ref SET max_points = 20 WHERE myth_god = 'Icarus and Daedalus' AND assignment_type = 'word_cloud' AND section = 'classical_creative'");
+    console.log('✅ Icarus scoring enforced: Reading Guide=5, Quiz=17, Word Cloud=20 (total 42)');
   } catch (e) {
     console.log('Migration note: Icarus scoring update -', e.message);
+  }
+
+  // Steal-choice fate points: 50% increase (per David's request for Classical Age balance)
+  // Runs every startup to ensure correct values
+  try {
+    // Get fate_ids for steal-choice fates
+    const stealFates = db.exec("SELECT fate_id, fate_number FROM fates_ref WHERE fate_type = 'steal_choice' AND age_available = 'Classical'");
+    if (stealFates[0] && stealFates[0].values.length > 0) {
+      const fateMap = {};
+      stealFates[0].values.forEach(row => { fateMap[row[1]] = row[0]; });
+      
+      const updates = [
+        // Fate 21: Artemis Forest Fires
+        [fateMap[21], 'conservative', -8, -15],
+        [fateMap[21], 'moderate', 0, -18],
+        [fateMap[21], 'aggressive', 12, -23],
+        // Fate 28: Constellation Blessing
+        [fateMap[28], 'conservative', 12, -6],
+        [fateMap[28], 'moderate', 18, -9],
+        [fateMap[28], 'aggressive', 27, -18],
+        // Fate 35: Dionysus Drought
+        [fateMap[35], 'conservative', -9, -18],
+        [fateMap[35], 'moderate', -5, -23],
+        [fateMap[35], 'aggressive', 8, -27],
+        // Fate 44: Pandora's Echo
+        [fateMap[44], 'conservative', 12, -6],
+        [fateMap[44], 'moderate', 18, -9],
+        [fateMap[44], 'aggressive', 27, -18],
+      ];
+      
+      updates.forEach(([fateId, risk, success, failure]) => {
+        if (fateId) {
+          run("UPDATE fate_choices SET success_points = ?, failure_points = ? WHERE fate_id = ? AND risk_level = ?",
+            [success, failure, fateId, risk]);
+        }
+      });
+      console.log('✅ Steal-choice fate points updated (+50% increase)');
+    }
+  } catch (e) {
+    console.log('Migration note: steal fate points -', e.message);
   }
 
   // Add daily_trade_limit to trade_window

@@ -4459,6 +4459,12 @@
                             `<button class="btn-purchase" onclick="event.stopPropagation(); purchaseBuilding(${building.building_id})">
                                 Buy Another (${building.owned_count}/${building.max_per_alliance})
                             </button>` : ''}
+                        
+                        ${isOwned && building.building_name !== 'Transport Ship' && building.age_available === ((dashboardData.student && dashboardData.student.current_age) || 'Archaic') ?
+                            `<button onclick="event.stopPropagation(); sellBuilding('${building.building_name.replace(/'/g, "\\'")}', ${building.cost_points})" 
+                                style="display:block;width:100%;margin-top:8px;padding:8px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;">
+                                🏦 Sell Back (−10% fee → ${Math.floor(building.cost_points * 0.9)} pts returned)
+                            </button>` : ''}
                     </div>
                 `;
             }).join('');
@@ -4530,6 +4536,32 @@
                 }
             } catch (err) {
                 alert('Failed to purchase building: ' + err.message);
+            }
+        }
+
+        async function sellBuilding(buildingName, baseCost) {
+            const fee = Math.ceil(baseCost * 0.10);
+            const refund = baseCost - fee;
+            if (!confirm(`Sell ${buildingName} back to the market?\n\nBase cost: ${baseCost} pts\nRealtor fee (10%): −${fee} pts\nReturned to alliance: ${refund} pts\n\nThis cannot be undone.`)) {
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/alliance/sell-building`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ building_name: buildingName })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`✅ ${result.message}`);
+                    await loadBuildingMarket();
+                    loadDashboard();
+                    loadAgeProgress();
+                } else {
+                    alert('❌ ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to sell building: ' + err.message);
             }
         }
 
