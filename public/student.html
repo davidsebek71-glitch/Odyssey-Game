@@ -10789,7 +10789,7 @@
                                     <select id="tp-give-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
                                         ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
-                                    <input type="number" id="tp-give-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                    <input type="number" id="tp-give-amt" value="100" min="1" max="999" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-give-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
                                 </div>
                                 <div style="display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(255,255,255,0.15);padding-top:26px;">⇄</div>
@@ -10798,7 +10798,7 @@
                                     <select id="tp-recv-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
                                         ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
-                                    <input type="number" id="tp-recv-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                    <input type="number" id="tp-recv-amt" value="100" min="1" max="999" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-recv-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
                                 </div>
                             </div>
@@ -11108,7 +11108,9 @@
             const giveAmount = parseInt(document.getElementById('tp-give-amt').value);
             const receiveResource = document.getElementById('tp-recv-res').value;
             const receiveAmount = parseInt(document.getElementById('tp-recv-amt').value);
-            if (!giveAmount || !receiveAmount) return alert('Enter valid amounts');
+            if (!giveAmount || !receiveAmount || giveAmount < 1 || receiveAmount < 1) return alert('Enter valid amounts');
+            if (giveAmount > 999 || receiveAmount > 999) return alert('Maximum trade amount is 999 per resource');
+            if (giveResource === receiveResource) return alert('Cannot trade the same resource');
             try {
                 const res = await fetch(`${API_URL}/trade/propose`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },

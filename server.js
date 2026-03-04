@@ -9862,6 +9862,7 @@ app.post('/api/trade/buy', authenticateToken, (req, res) => {
     const { points_to_spend } = req.body;
     
     if (!points_to_spend || points_to_spend < 1) return res.status(400).json({ error: 'Must spend at least 1 point' });
+    if (points_to_spend > 999) return res.status(400).json({ error: 'Maximum purchase is 999 points at a time' });
     
     const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
     if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
@@ -9933,6 +9934,7 @@ app.post('/api/trade/sell', authenticateToken, (req, res) => {
     const { resource, amount } = req.body;
     
     if (!resource || !amount || amount < 1) return res.status(400).json({ error: 'Invalid resource or amount' });
+    if (amount > 9999) return res.status(400).json({ error: 'Maximum sell is 9999 units at a time' });
     if (!['olive', 'grape', 'iron', 'grain'].includes(resource)) return res.status(400).json({ error: 'Invalid resource type' });
     
     const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
@@ -10039,6 +10041,7 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Invalid resource type' });
     }
     if (give_amount < 1 || receive_amount < 1) return res.status(400).json({ error: 'Amounts must be positive' });
+    if (give_amount > 999 || receive_amount > 999) return res.status(400).json({ error: 'Maximum trade amount is 999 per resource' });
     if (give_resource === receive_resource) return res.status(400).json({ error: 'Cannot trade same resource' });
     if (partner_id === student_id) return res.status(400).json({ error: 'Cannot trade with yourself' });
     
