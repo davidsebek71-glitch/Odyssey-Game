@@ -1387,6 +1387,40 @@ function runMigrations() {
   } catch (err) {
     console.log('Poseidon question fix note:', err.message);
   }
+
+  // Ensure creative and cer assignment_ref entries exist for all 7 Classical myths
+  // These were missing from the original seeds, causing grade_records to never be created
+  try {
+    const creativeCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE section = 'classical_creative' AND assignment_type = 'creative'");
+    const creativeExists = creativeCheck[0] && creativeCheck[0].values[0][0] > 0;
+    
+    if (!creativeExists) {
+      console.log('🔧 Adding creative/cer assignment entries...');
+      const entries = [
+        ['classical_creative', 'creative', 'Pandora', 'Pandora Creative', 15, 'Creative project for Pandora', null, 0, 'Classical'],
+        ['classical_creative', 'creative', 'Phaethon', 'Phaethon Creative', 15, 'Creative project for Phaethon', null, 0, 'Classical'],
+        ['classical_creative', 'creative', 'Orpheus', 'Orpheus Creative', 15, 'Creative project for Orpheus', null, 0, 'Classical'],
+        ['classical_creative', 'creative', 'Echo and Narcissus', 'Echo and Narcissus Creative', 15, 'Creative project for Echo and Narcissus', null, 0, 'Classical'],
+        ['classical_creative', 'creative', 'Icarus', 'Icarus Creative', 20, 'Creative project for Icarus', null, 0, 'Classical'],
+        ['classical_creative', 'creative', 'Eros and Psyche', 'Eros and Psyche Creative', 15, 'Creative project for Eros and Psyche', null, 0, 'Classical'],
+        ['classical_creative', 'creative', 'Constellations', 'Constellations Creative', 15, 'Creative project for Constellations', null, 0, 'Classical'],
+        ['classical_creative', 'cer', 'Pandora', 'Pandora CER', 15, 'CER essay for Pandora', null, 0, 'Classical'],
+        ['classical_creative', 'cer', 'Phaethon', 'Phaethon CER', 15, 'CER essay for Phaethon', null, 0, 'Classical'],
+        ['classical_creative', 'cer', 'Orpheus', 'Orpheus CER', 15, 'CER essay for Orpheus', null, 0, 'Classical'],
+        ['classical_creative', 'cer', 'Echo and Narcissus', 'Echo and Narcissus CER', 15, 'CER essay for Echo and Narcissus', null, 0, 'Classical'],
+        ['classical_creative', 'cer', 'Icarus', 'Icarus CER', 20, 'CER essay for Icarus', null, 0, 'Classical'],
+        ['classical_creative', 'cer', 'Eros and Psyche', 'Eros and Psyche CER', 15, 'CER essay for Eros and Psyche', null, 0, 'Classical'],
+        ['classical_creative', 'cer', 'Constellations', 'Constellations CER', 15, 'CER essay for Constellations', null, 0, 'Classical']
+      ];
+      entries.forEach(a => {
+        db.run(`INSERT OR IGNORE INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, a);
+      });
+      console.log('✅ Added ' + entries.length + ' creative/cer assignment entries');
+    }
+  } catch (err) {
+    console.log('Creative/CER migration note:', err.message);
+  }
 }
 
 function seedReferenceData() {

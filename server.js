@@ -11357,12 +11357,12 @@ app.listen(PORT, () => {
   setTimeout(() => {
     try {
       console.log('🔧 Backfilling grade_records for creative/cer submissions...');
+      // Find ALL approved creative/cer submissions with a myth that are missing grade_records
       const missingSubs = query(`
         SELECT ps.* FROM point_submissions ps
         WHERE ps.status = 'approved' 
         AND ps.category IN ('creative', 'cer')
         AND ps.myth_god IS NOT NULL
-        AND ps.section = 'classical_creative'
         AND NOT EXISTS (
           SELECT 1 FROM grade_records gr 
           JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
@@ -11384,6 +11384,8 @@ app.listen(PORT, () => {
           run(`INSERT OR IGNORE INTO grade_records (student_id, assignment_id, points_earned, points_possible, submission_id) VALUES (?, ?, ?, ?, ?)`,
             [sub.student_id, assignment.assignment_id, sub.points_claimed, sub.max_points || sub.points_claimed, sub.submission_id]);
           backfilled++;
+        } else {
+          console.log(`⚠ No assignment_ref found for ${sub.category} / ${sub.myth_god} (submission ${sub.submission_id})`);
         }
       });
       
