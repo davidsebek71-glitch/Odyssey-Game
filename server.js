@@ -2648,7 +2648,62 @@ app.get('/api/teacher/student-submissions/:student_id', authenticateToken, (req,
       ORDER BY submitted_at DESC
     `, [student_id]);
     
-    res.json(submissions);
+    // Also include Classical quiz attempts (these go into myth_quiz_attempts, not point_submissions)
+    try {
+      const quizAttempts = query(`
+        SELECT mqa.attempt_id, mqa.portal_id, mqa.score, mqa.total_questions, mqa.percentage, mqa.passed, mqa.attempted_at,
+               mp.myth_name
+        FROM myth_quiz_attempts mqa
+        JOIN myth_portals mp ON mqa.portal_id = mp.portal_id
+        WHERE mqa.student_id = ?
+        ORDER BY mqa.attempted_at DESC
+      `, [student_id]);
+      
+      // Map myth_name to myth_god format used in submissions
+      const mythNameMap = {
+        'Icarus & Daedalus': 'Icarus',
+        'Echo & Narcissus': 'Echo and Narcissus',
+        'Eros & Psyche': 'Eros and Psyche'
+      };
+      
+      // Get quiz max points from assignments_ref
+      const quizMaxLookup = {};
+      const quizAssignments = query("SELECT myth_god, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz'");
+      quizAssignments.forEach(a => { quizMaxLookup[a.myth_god] = a.max_points; });
+      
+      // Convert quiz attempts to submission-like format for the UI
+      const quizSubmissions = quizAttempts.map(qa => {
+        const mythGod = mythNameMap[qa.myth_name] || qa.myth_name;
+        const maxPts = quizMaxLookup[mythGod] || qa.total_questions;
+        // Scale score: quiz stores correct count, but grade is based on percentage * max_points
+        const pointsEarned = qa.passed ? maxPts : Math.round((qa.percentage / 100) * maxPts);
+        return {
+          submission_id: null,
+          quiz_attempt_id: qa.attempt_id,
+          category: 'quiz',
+          section: 'classical',
+          myth_god: mythGod,
+          points_claimed: pointsEarned,
+          max_points: maxPts,
+          status: qa.passed ? 'approved' : 'attempted',
+          submitted_at: qa.attempted_at,
+          reviewed_at: qa.attempted_at,
+          description: `Quiz: ${qa.score}/${qa.total_questions} (${qa.percentage}%)${qa.passed ? ' ✓ Passed' : ' — Did not pass'}`,
+          is_quiz_attempt: true
+        };
+      });
+      
+      // Merge and re-sort by date
+      const allSubmissions = [...submissions, ...quizSubmissions].sort((a, b) => 
+        new Date(b.submitted_at) - new Date(a.submitted_at)
+      );
+      
+      res.json(allSubmissions);
+    } catch (quizErr) {
+      // If quiz query fails, still return regular submissions
+      console.error('Quiz attempt merge error (non-fatal):', quizErr.message);
+      res.json(submissions);
+    }
   } catch (err) {
     console.error('Get student submissions error:', err);
     res.status(500).json({ error: 'Failed to fetch submissions' });

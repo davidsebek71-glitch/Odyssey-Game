@@ -5862,16 +5862,17 @@
                 const date = new Date(sub.submitted_at).toLocaleDateString();
                 const color = categoryColors[sub.category] || '#9ca3af';
                 const catName = categoryNames[sub.category] || sub.category;
-                const statusColor = sub.status === 'approved' ? '#4ade80' : (sub.status === 'partial' ? '#f59e0b' : (sub.status === 'pending' ? '#fbbf24' : '#f87171'));
+                const statusColor = sub.status === 'approved' ? '#4ade80' : (sub.status === 'partial' ? '#f59e0b' : (sub.status === 'pending' ? '#fbbf24' : (sub.status === 'attempted' ? '#f59e0b' : '#f87171')));
                 const escapedCat = (catName || '').replace(/'/g, "\\'");
                 const escapedMyth = (sub.myth_god || '').replace(/'/g, "\\'");
-                const canDelete = sub.status === 'approved' || sub.status === 'partial';
+                const canDelete = !sub.is_quiz_attempt && (sub.status === 'approved' || sub.status === 'partial');
+                const statusLabel = sub.status === 'attempted' ? 'NOT PASSED' : sub.status;
                 
                 return `<tr>
                     <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.5);font-size:12px;">${date}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);"><span style="color:${color};font-weight:500;font-size:13px;">${catName}</span></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);"><span style="color:${color};font-weight:500;font-size:13px;">${catName}</span>${sub.is_quiz_attempt && sub.description ? `<div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px;">${sub.description}</div>` : ''}</td>
                     <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;font-weight:bold;color:#ffd700;">${sub.points_claimed}${sub.max_points ? `<span style="color:rgba(255,255,255,0.25);font-weight:400;">/${sub.max_points}</span>` : ''}</td>
-                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;"><span style="color:${statusColor};font-size:11px;text-transform:uppercase;">${sub.status}</span></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;"><span style="color:${statusColor};font-size:11px;text-transform:uppercase;" ${sub.description ? `title="${sub.description.replace(/"/g, '&quot;')}"` : ''}>${statusLabel}</span></td>
                     <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;">
                         ${canDelete ? `<button onclick="deleteSubmission(${sub.submission_id}, '${escapedCat}', '${escapedMyth}')" 
                             style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;"
@@ -5885,7 +5886,7 @@
             // Render a group header + its rows
             function renderGroup(title, emoji, subs, headerColor) {
                 if (!subs || subs.length === 0) return '';
-                const approved = subs.filter(s => s.status === 'approved');
+                const approved = subs.filter(s => s.status === 'approved' || s.status === 'partial');
                 const totalEarned = approved.reduce((sum, s) => sum + (s.points_claimed || 0), 0);
                 
                 let g = `<div style="margin-bottom:16px;">
@@ -5968,7 +5969,7 @@
             }
             
             // Totals summary
-            const approved = submissions.filter(s => s.status === 'approved');
+            const approved = submissions.filter(s => s.status === 'approved' || s.status === 'partial');
             const totalPoints = approved.reduce((sum, s) => sum + (s.points_claimed || 0), 0);
             
             html += `<div style="margin-top:20px;padding:14px;background:rgba(255,255,255,0.04);border-radius:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.06);">
