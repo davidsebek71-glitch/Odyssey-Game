@@ -1411,6 +1411,27 @@ function seedReferenceData() {
     console.log('✅ Icarus scoring enforced: Guide=5, Quiz=17, Creative=20');
   } catch (e) { console.log('Migration note: Icarus scoring -', e.message); }
 
+  // Steal fate point values +50% (ceil half-values) — makes outcomes more meaningful per-alliance
+  try {
+    // Fate 21: Artemis Forest Fires — old: (-5/-10), (0/-12), (8/-15)
+    db.run("UPDATE fate_choices SET success_points = -8, failure_points = -15 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 21) AND risk_level = 'conservative'");
+    db.run("UPDATE fate_choices SET success_points = 0, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 21) AND risk_level = 'moderate'");
+    db.run("UPDATE fate_choices SET success_points = 12, failure_points = -23 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 21) AND risk_level = 'aggressive'");
+    // Fate 28: Constellation Blessing — old: (8/-4), (12/-6), (18/-12)
+    db.run("UPDATE fate_choices SET success_points = 12, failure_points = -6 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 28) AND risk_level = 'conservative'");
+    db.run("UPDATE fate_choices SET success_points = 18, failure_points = -9 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 28) AND risk_level = 'moderate'");
+    db.run("UPDATE fate_choices SET success_points = 27, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 28) AND risk_level = 'aggressive'");
+    // Fate 35: Dionysus Drought — old: (-6/-12), (-3/-15), (5/-18)
+    db.run("UPDATE fate_choices SET success_points = -9, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 35) AND risk_level = 'conservative'");
+    db.run("UPDATE fate_choices SET success_points = -5, failure_points = -23 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 35) AND risk_level = 'moderate'");
+    db.run("UPDATE fate_choices SET success_points = 8, failure_points = -27 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 35) AND risk_level = 'aggressive'");
+    // Fate 44: Pandora's Echo — old: (8/-4), (12/-6), (18/-12)
+    db.run("UPDATE fate_choices SET success_points = 12, failure_points = -6 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 44) AND risk_level = 'conservative'");
+    db.run("UPDATE fate_choices SET success_points = 18, failure_points = -9 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 44) AND risk_level = 'moderate'");
+    db.run("UPDATE fate_choices SET success_points = 27, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 44) AND risk_level = 'aggressive'");
+    console.log('✅ Steal fate point values updated +50%');
+  } catch (e) { console.log('Migration note: steal fate points -', e.message); }
+
   // V92 FIX: Classical Age building prices +12% and bonus reductions
   try {
     db.run("UPDATE buildings_ref SET cost_points = 382 WHERE building_name = 'Transport Ship' AND cost_points IN (220, 308, 341)");
@@ -1942,7 +1963,7 @@ function seedReferenceData() {
           ['classical', 'comp_conn', 'Phaethon', 'Phaethon Reading Guide', 12, 'Reading guide on the myth of Phaethon', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Orpheus', 'Orpheus Reading Guide', 12, 'Reading guide on the myth of Orpheus and Eurydice', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Echo and Narcissus', 'Echo and Narcissus Reading Guide', 12, 'Reading guide on the myth of Echo and Narcissus', null, 0, 'Classical'],
-          ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 12, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
+          ['classical', 'comp_conn', 'Icarus', 'Icarus and Daedalus Reading Guide', 5, 'Reading guide on the myth of Icarus and Daedalus', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Eros and Psyche', 'Eros and Psyche Reading Guide', 12, 'Reading guide on the myth of Eros and Psyche', null, 0, 'Classical'],
           ['classical', 'comp_conn', 'Constellations', 'Constellations Reading Guide', 12, 'Reading guide on the constellation myths (Callisto, Orion, Andromeda)', null, 0, 'Classical'],
           ['classical', 'quiz', 'Pandora', 'Pandora Quiz', 10, 'Quiz on Pandora', null, 0, 'Classical'],
@@ -2451,26 +2472,26 @@ function seedClassicalData() {
         
         // Fate 21: Artemis Forest Fires (NEGATIVE steal — you're in trouble, limit the damage)
         // Conservative: safe damage control. Moderate: chance to escape. Aggressive: hero play or disaster.
-        [classicalFateIds[21], 'conservative', "Offer tribute to calm Artemis — limit the damage", 0.85, -5, -10],
-        [classicalFateIds[21], 'moderate', "Rally firefighting crews — might turn the tide", 0.55, 0, -12],
-        [classicalFateIds[21], 'aggressive', "Harness the flames to forge new weapons!", 0.30, 8, -15],
+        [classicalFateIds[21], 'conservative', "Offer tribute to calm Artemis — limit the damage", 0.85, -8, -15],
+        [classicalFateIds[21], 'moderate', "Rally firefighting crews — might turn the tide", 0.55, 0, -18],
+        [classicalFateIds[21], 'aggressive', "Harness the flames to forge new weapons!", 0.30, 12, -23],
         
         // Fate 28: Constellation Blessing (POSITIVE steal — you're blessed, how greedy will you be?)
         // Conservative: safe win. Moderate: bigger haul. Aggressive: massive or painful reversal.
-        [classicalFateIds[28], 'conservative', "Accept the stars' modest gift", 0.85, 8, -4],
-        [classicalFateIds[28], 'moderate', "Claim a greater constellation for your people", 0.55, 12, -6],
-        [classicalFateIds[28], 'aggressive', "Demand the grandest constellation in the heavens!", 0.30, 18, -12],
+        [classicalFateIds[28], 'conservative', "Accept the stars' modest gift", 0.85, 12, -6],
+        [classicalFateIds[28], 'moderate', "Claim a greater constellation for your people", 0.55, 18, -9],
+        [classicalFateIds[28], 'aggressive', "Demand the grandest constellation in the heavens!", 0.30, 27, -18],
         
         // Fate 35: Dionysus Drought (NEGATIVE steal — worse than Artemis, higher stakes)
         // Conservative: contained loss. Moderate: almost escaped. Aggressive: forgiven or catastrophic.
-        [classicalFateIds[35], 'conservative', "Ration remaining wine and pray for rain", 0.85, -6, -12],
-        [classicalFateIds[35], 'moderate', "Send scouts to find hidden springs", 0.55, -3, -15],
-        [classicalFateIds[35], 'aggressive', "Steal wine reserves from neighboring lands!", 0.30, 5, -18],
+        [classicalFateIds[35], 'conservative', "Ration remaining wine and pray for rain", 0.85, -9, -18],
+        [classicalFateIds[35], 'moderate', "Send scouts to find hidden springs", 0.55, -5, -23],
+        [classicalFateIds[35], 'aggressive', "Steal wine reserves from neighboring lands!", 0.30, 8, -27],
         
         // Fate 44: Pandora's Echo (POSITIVE steal — similar to Constellation but different theme)
-        [classicalFateIds[44], 'conservative', "Carefully contain the fragment of Hope", 0.85, 8, -4],
-        [classicalFateIds[44], 'moderate', "Use Hope to inspire your people to greatness", 0.55, 12, -6],
-        [classicalFateIds[44], 'aggressive', "Open the fragment fully and release all of Hope!", 0.30, 18, -12],
+        [classicalFateIds[44], 'conservative', "Carefully contain the fragment of Hope", 0.85, 12, -6],
+        [classicalFateIds[44], 'moderate', "Use Hope to inspire your people to greatness", 0.55, 18, -9],
+        [classicalFateIds[44], 'aggressive', "Open the fragment fully and release all of Hope!", 0.30, 27, -18],
 
         // === STANDARD CHOICE FATES ===
         

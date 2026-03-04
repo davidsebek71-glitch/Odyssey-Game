@@ -3795,9 +3795,13 @@
             const isSteal = fate.fate_type === 'steal_choice';
 
             // For steal fates, we need alliance count to show total math
-            // Use fateAllianceData which is already loaded for the current period
+            // Filter to same class_period AND same age — avoids cross-period contamination
+            const spinningAlliance = fateAllianceData.find(a => a.alliance_id === selectedAllianceId);
+            const spinningPeriod = spinningAlliance ? spinningAlliance.class_period : null;
             const periodAlliances = fateAllianceData.filter(a => 
-                (a.current_age || 'Archaic') === currentFateAge && a.alliance_id !== selectedAllianceId
+                (a.current_age || 'Archaic') === currentFateAge &&
+                a.alliance_id !== selectedAllianceId &&
+                (spinningPeriod ? a.class_period === spinningPeriod : true)
             );
             const allianceCount = periodAlliances.length;
             
@@ -5709,9 +5713,10 @@
                 `;
                 
                 students.forEach(student => {
-                    const scoutBadge = student.scout_status ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
                     const allianceAge = student.alliance_age || 'Archaic';
                     const isArchaicAlliance = allianceAge === 'Archaic';
+                    // Scout badge only relevant for Archaic alliances — Classical alliances have already used their scout
+                    const scoutBadge = (student.scout_status && isArchaicAlliance) ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
                     const scoutBtn = isArchaicAlliance ? 
                         (student.scout_status ? 
                             `<button onclick="toggleScoutStatus(${student.student_id}, null, '${(student.name || '').replace(/'/g, "\\'")}')" 

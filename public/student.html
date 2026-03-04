@@ -4449,6 +4449,12 @@
                             `<button class="btn-purchase" onclick="event.stopPropagation(); purchaseBuilding(${building.building_id})">
                                 Buy Another (${building.owned_count}/${building.max_per_alliance})
                             </button>` : ''}
+                        
+                        ${isOwned && building.age_available === (buildingData.current_age || 'Archaic') && building.building_name !== 'Transport Ship' ? 
+                            `<button onclick="event.stopPropagation(); sellBuilding('${building.building_name.replace(/'/g, "\\'")}', ${Math.floor(building.base_cost * 0.9)})" 
+                                style="width: 100%; margin-top: 8px; padding: 7px; border: 1px solid rgba(239,68,68,0.5); background: rgba(239,68,68,0.15); color: #f87171; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                🏦 Sell Back (+${Math.floor(building.base_cost * 0.9)} pts)
+                            </button>` : ''}
                     </div>
                 `;
             }).join('');
@@ -4522,6 +4528,36 @@
                 alert('Failed to purchase building: ' + err.message);
             }
         }
+
+        async function sellBuilding(buildingName, refundAmount) {
+            if (!confirm(`Sell back ${buildingName} for ${refundAmount} points?\n\n⚠️ The building will be removed from your alliance. This cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/alliance/sell-building`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ building_name: buildingName })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✅ ${result.message}`);
+                    await loadBuildingMarket();
+                    loadDashboard();
+                    loadMapSidebarContent();
+                    loadAgeProgress();
+                    loadMyMap();
+                } else {
+                    alert('❌ ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to sell building: ' + err.message);
+            }
+        }
+
 
         // ==================
         // MAP SYSTEM

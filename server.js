@@ -2025,19 +2025,19 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
         section1: {
           earned: section1Earned, max: section1Max,
           percentage: section1Max > 0 ? Math.round((section1Earned / section1Max) * 100) : 0,
-          completed: section1Completed.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
+          completed: section1Completed.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible, assignment_type: r.assignment_type })),
           missing: section1Missing
         },
         section2: {
           earned: section2Earned, max: section2Max,
           percentage: section2Max > 0 ? Math.round((section2Earned / section2Max) * 100) : 0,
-          completed: section2Completed.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible, assignment_type: r.assignment_type })),
+          completed: section2Completed.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible, assignment_type: r.assignment_type })),
           missing: section2Missing
         },
         bonus: {
           earned: bonusEarned, max: bonusMax,
           percentage: bonusMax > 0 ? Math.round((bonusEarned / bonusMax) * 100) : 0,
-          completed: bonusCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible }))
+          completed: bonusCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible }))
         }
       });
     } else {
@@ -2096,7 +2096,7 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
           if (!completedByMyth[r.myth_god]) completedByMyth[r.myth_god] = [];
           completedByMyth[r.myth_god].push({
             display_name: r.display_name, myth_god: r.myth_god,
-            points_earned: r.points_earned, points_possible: r.points_possible,
+            points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible,
             assignment_type: r.assignment_type, is_pixton: r.assignment_type === 'mural'
           });
         });
@@ -2108,7 +2108,7 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
           pixton_earned: pixtonEarned, pixton_max: pixtonMax,
           completed: completed.map(r => ({
             display_name: r.display_name, myth_god: r.myth_god,
-            points_earned: r.points_earned, points_possible: r.points_possible,
+            points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible,
             assignment_type: r.assignment_type, is_pixton: r.assignment_type === 'mural'
           })),
           completed_by_myth: completedByMyth,
@@ -2152,7 +2152,7 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
         if (!bonusCompletedByMyth[mythKey]) bonusCompletedByMyth[mythKey] = [];
         bonusCompletedByMyth[mythKey].push({
           display_name: r.display_name, myth_god: r.myth_god,
-          points_earned: r.points_earned, points_possible: r.points_possible
+          points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible
         });
       });
 
@@ -2164,7 +2164,7 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
           label: 'EXTRA CREDIT',
           earned: bonusEarned, max: bonusTarget,
           percentage: bonusTarget > 0 ? Math.round((Math.min(bonusEarned, bonusTarget) / bonusTarget) * 100) : 0,
-          completed: bonusRecords.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.points_possible })),
+          completed: bonusRecords.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible })),
           completed_by_myth: bonusCompletedByMyth,
           missing_by_myth: bonusMissingByMyth,
           myth_order: ['Pandora', 'Phaethon', 'Orpheus', 'Echo and Narcissus', 'Icarus', 'Eros and Psyche', 'Constellations', 'Morals']
@@ -3763,7 +3763,90 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
   }
 });
 
-// Teacher: Get eligible alliances for a god bonus (all members must have 80%+ on that god's bonus assignment)
+// Student: Sell back a building (-10% fee from original cost_points, same-age only, no Transport Ship)
+app.post('/api/alliance/sell-building', authenticateToken, (req, res) => {
+  try {
+    const { building_name } = req.body;
+    const student_id = req.user.id;
+
+    if (!building_name) {
+      return res.status(400).json({ error: 'building_name required' });
+    }
+
+    // Cannot sell Transport Ship
+    if (building_name === 'Transport Ship') {
+      return res.status(400).json({ error: 'Transport Ship cannot be sold back' });
+    }
+
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student || !student.alliance_id) {
+      return res.status(400).json({ error: 'You must be in an alliance to sell buildings' });
+    }
+    const alliance_id = student.alliance_id;
+
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+
+    const currentAge = alliance.current_age || 'Archaic';
+    const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
+
+    // Check that the alliance actually owns at least one of this building
+    if (!ownedBuildings.includes(building_name)) {
+      return res.status(400).json({ error: `Your alliance does not own a ${building_name}` });
+    }
+
+    // Get building definition
+    const building = query('SELECT * FROM buildings_ref WHERE building_name = ?', [building_name])[0];
+    if (!building) return res.status(404).json({ error: 'Building not found in reference data' });
+
+    // Can only sell current-age buildings (no selling Archaic buildings after advancing to Classical)
+    if (building.age_available !== currentAge) {
+      return res.status(400).json({ 
+        error: `You can only sell ${currentAge} Age buildings. ${building_name} is an ${building.age_available} Age building.`
+      });
+    }
+
+    // Refund = 90% of original cost_points (not discounted effectiveCost)
+    const refundAmount = Math.floor(building.cost_points * 0.9);
+
+    // Remove one instance of the building from buildings_owned array
+    const idx = ownedBuildings.indexOf(building_name);
+    ownedBuildings.splice(idx, 1);
+
+    // Delete one building_activations record (the most recently inserted for this building+alliance)
+    const activation = query(
+      'SELECT activation_id FROM building_activations WHERE alliance_id = ? AND building_name = ? ORDER BY activation_id DESC LIMIT 1',
+      [alliance_id, building_name]
+    )[0];
+    if (activation) {
+      run('DELETE FROM building_activations WHERE activation_id = ?', [activation.activation_id]);
+    }
+
+    // Return points and update buildings_owned
+    run('UPDATE alliances SET total_points = total_points + ?, buildings_owned = ? WHERE alliance_id = ?',
+        [refundAmount, JSON.stringify(ownedBuildings), alliance_id]);
+
+    // Log transaction
+    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, NULL, ?, ?, ?)`,
+        [alliance_id, refundAmount, 'Building Sellback', `Sold back ${building_name} for ${refundAmount} pts (by ${req.user.name})`]);
+
+    saveDatabase();
+    console.log(`🏦 Sell-back: ${req.user.name} sold ${building_name} for ${refundAmount} pts (alliance ${alliance_id})`);
+
+    res.json({
+      success: true,
+      message: `Sold ${building_name} for ${refundAmount} points`,
+      refund_amount: refundAmount,
+      new_balance: alliance.total_points + refundAmount,
+      buildings_owned: ownedBuildings
+    });
+  } catch (err) {
+    console.error('Sell building error:', err);
+    res.status(500).json({ error: 'Failed to sell building' });
+  }
+});
+
+
 app.get('/api/teacher/eligible-alliances-for-god-bonus', authenticateToken, (req, res) => {
   try {
     const { god_name } = req.query;
@@ -8394,7 +8477,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
 
     // Get student's grade records WITH assignment info for virtue checks
     const gradeRecords = query(`
-      SELECT gr.*, ar.assignment_type, ar.myth_god, ar.section, ar.age
+      SELECT gr.*, ar.assignment_type, ar.myth_god, ar.section, ar.age, ar.max_points as assignment_max
       FROM grade_records gr
       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
       WHERE gr.student_id = ?
@@ -8446,8 +8529,8 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         g.myth_god === portal.myth_name && 
         g.section === 'classical'
       );
-      const guideEarned = guideGrade ? guideGrade.points_earned : (hasReadingGuide ? 12 : 0);
-      const guidePossible = guideGrade ? guideGrade.points_possible : 12;
+      const guideEarned = guideGrade ? guideGrade.points_earned : 0;
+      const guidePossible = guideGrade ? (guideGrade.assignment_max || guideGrade.points_possible) : 12;
       
       // Virtue ready to claim: reading guide + quiz passed + creative approved (but not yet claimed)
       const virtueReady = hasReadingGuide && quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
