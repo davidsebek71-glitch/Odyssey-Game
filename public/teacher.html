@@ -5412,6 +5412,44 @@
                     html += `</div></div>`;
                 });
                 
+                // Market Supply Pool (NPC Merchant)
+                const supply = overview?.market_supply || {};
+                const missing = overview?.missing_resources || [];
+                const hasAnySupply = Object.values(supply).some(v => v > 0);
+                
+                if (missing.length > 0 || hasAnySupply) {
+                    html += `<div style="margin-top:12px;border:1px solid rgba(168,85,247,0.25);border-radius:8px;overflow:hidden;">
+                        <div style="background:rgba(168,85,247,0.12);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <span style="font-weight:600;color:#c084fc;">🏪 Market Supply Pool</span>
+                                ${missing.length > 0 ? `<span style="font-size:11px;color:#f87171;margin-left:10px;">⚠ No producer for: ${missing.map(r => TRADE_RESOURCE_ICONS[r] + ' ' + TRADE_RESOURCE_NAMES[r]).join(', ')}</span>` : ''}
+                            </div>
+                        </div>
+                        <div style="padding:12px 14px;">
+                            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
+                                ${['olive','grape','iron','grain'].map(r => {
+                                    const amt = supply[r] || 0;
+                                    const isMissing = missing.includes(r);
+                                    return `<div style="background:${isMissing ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)'};border:1px solid ${isMissing ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.06)'};border-radius:6px;padding:8px;text-align:center;">
+                                        <div style="font-size:18px;">${TRADE_RESOURCE_ICONS[r]}</div>
+                                        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin:2px 0;">${TRADE_RESOURCE_NAMES[r]}</div>
+                                        <div style="font-size:16px;font-weight:700;color:${amt > 0 ? '#c084fc' : 'rgba(255,255,255,0.2)'};">${amt}</div>
+                                        <div style="font-size:9px;color:rgba(255,255,255,0.3);">units available</div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                <span style="font-size:11px;color:rgba(255,255,255,0.4);">Add supply:</span>
+                                <select id="supply-res-${period.replace(/\s/g,'')}" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:5px 8px;border-radius:5px;font-size:12px;">
+                                    ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_RESOURCE_ICONS[r]} ${TRADE_RESOURCE_NAMES[r]}</option>`).join('')}
+                                </select>
+                                <input type="number" id="supply-amt-${period.replace(/\s/g,'')}" value="500" min="1" max="9999" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:5px 8px;border-radius:5px;width:70px;font-size:12px;text-align:center;">
+                                <button onclick="injectSupply('${period}')" style="background:linear-gradient(135deg,#9333ea,#7e22ce);color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;">🏪 Add to Market</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+                
                 html += `</div></div>`;
             });
             
@@ -5481,6 +5519,30 @@
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) {
                 alert('Failed to reject trade');
+            }
+        }
+        
+        async function injectSupply(period) {
+            const cleanPeriod = period.replace(/\s/g, '');
+            const resource = document.getElementById('supply-res-' + cleanPeriod)?.value;
+            const amount = parseInt(document.getElementById('supply-amt-' + cleanPeriod)?.value);
+            if (!resource || !amount || amount < 1) return alert('Select a resource and enter an amount');
+            if (amount > 9999) return alert('Maximum 9999 units at a time');
+            if (!confirm(`Add ${amount} ${TRADE_RESOURCE_NAMES[resource]} to ${period} period market supply?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/inject-supply`, {
+                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period, resource, amount })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message + '\nNew total: ' + data.new_total + ' units');
+                    await loadTradeManagement();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed'));
+                }
+            } catch (err) {
+                alert('Failed to inject supply');
             }
         }
         

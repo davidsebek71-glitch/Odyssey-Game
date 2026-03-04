@@ -10703,6 +10703,44 @@
                 </div>
             </div>`;
 
+            // ===== SECTION 1A-MARKET: BUY FROM MARKET SUPPLY =====
+            const mktSupply = d.market_supply || {};
+            const nativeRes = d.native_resource;
+            const availableMarketRes = ['olive','grape','iron','grain'].filter(r => r !== nativeRes && (mktSupply[r] || 0) > 0);
+            if (availableMarketRes.length > 0 && spending.remaining_cap > 0) {
+                const defaultMktRes = availableMarketRes[0];
+                html += `<div style="margin-bottom: 24px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">🏪 Market Supply</div>
+                        <div style="flex:1;height:1px;background:rgba(168,85,247,0.2);"></div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);">Buy resources from the market</div>
+                    </div>
+                    <div style="background:rgba(168,85,247,0.04);border:2px solid rgba(168,85,247,0.2);border-radius:14px;padding:18px 20px;">
+                        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                            ${availableMarketRes.map(r => `<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:6px 12px;text-align:center;">
+                                <span style="font-size:16px;">${TRADE_ICONS[r]}</span>
+                                <span style="font-size:11px;color:rgba(255,255,255,0.5);margin-left:4px;">${TRADE_NAMES[r]}</span>
+                                <span style="font-size:12px;font-weight:700;color:#c084fc;margin-left:6px;">${mktSupply[r]} avail</span>
+                            </div>`).join('')}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <select id="mkt-buy-resource" onchange="updateMarketBuyPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(168,85,247,0.3);color:#c084fc;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:700;outline:none;cursor:pointer;">
+                                ${availableMarketRes.map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
+                            </select>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:12px;color:rgba(255,255,255,0.4);">Spend</span>
+                                <input type="number" id="mkt-buy-points" min="1" max="${Math.min(spending.remaining_cap, d.alliance_points)}" value="${Math.min(5, spending.remaining_cap, d.alliance_points)}" oninput="updateMarketBuyPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px;border-radius:8px;width:60px;font-size:14px;font-weight:700;text-align:center;outline:none;">
+                                <span style="font-size:12px;color:rgba(255,255,255,0.4);">pts → </span>
+                                <span id="mkt-buy-units" style="font-size:16px;font-weight:700;color:#c084fc;">${Math.min(5, spending.remaining_cap, d.alliance_points) * 10}</span>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.4);">units</span>
+                            </div>
+                            <button onclick="buyFromMarket()" style="background:linear-gradient(135deg,#9333ea,#7e22ce);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-family:'Cinzel',serif;font-weight:700;font-size:13px;cursor:pointer;">🏪 Buy</button>
+                        </div>
+                        <div id="mkt-buy-note" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:8px;"></div>
+                    </div>
+                </div>`;
+            }
+
             // ===== SECTION 1B: SELL RESOURCES =====
             const sellableResources = ['olive','grape','iron','grain'].filter(r => (res[r] || 0) > 0);
             if (sellableResources.length > 0) {
@@ -11060,6 +11098,45 @@
                 if (data.success) { alert(data.message); await loadTradePortalData(); }
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to buy resource'); }
+        }
+
+        function updateMarketBuyPreview() {
+            const ptsEl = document.getElementById('mkt-buy-points');
+            const unitsEl = document.getElementById('mkt-buy-units');
+            const noteEl = document.getElementById('mkt-buy-note');
+            const resEl = document.getElementById('mkt-buy-resource');
+            if (!ptsEl || !unitsEl) return;
+            const pts = parseInt(ptsEl.value) || 0;
+            const units = pts * 10;
+            unitsEl.textContent = units;
+            if (noteEl && resEl && tradeMarketData) {
+                const supply = tradeMarketData.market_supply || {};
+                const available = supply[resEl.value] || 0;
+                if (units > available) {
+                    noteEl.textContent = `⚠ Only ${available} units available in market`;
+                    noteEl.style.color = '#f87171';
+                } else {
+                    noteEl.textContent = '';
+                }
+            }
+        }
+        
+        async function buyFromMarket() {
+            const resEl = document.getElementById('mkt-buy-resource');
+            const ptsEl = document.getElementById('mkt-buy-points');
+            if (!resEl || !ptsEl) return alert('Market supply not available');
+            const resource = resEl.value;
+            const pts = parseInt(ptsEl.value);
+            if (!pts || pts < 1) return alert('Enter points to spend');
+            try {
+                const res = await fetch(`${API_URL}/trade/buy-from-market`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resource, points_to_spend: pts })
+                });
+                const data = await res.json();
+                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to buy from market'); }
         }
 
         function updateSellPreview() {

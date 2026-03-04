@@ -9825,6 +9825,11 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       ORDER BY t.created_at DESC
     `, [student_id, student_id]);
     
+    // Market supply pool (NPC merchant for missing resources)
+    const supplyRows = query('SELECT resource, amount FROM market_supply WHERE period = ?', [student.class_period]);
+    const marketSupply = { olive: 0, grape: 0, iron: 0, grain: 0 };
+    supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
+    
     res.json({
       student_id,
       alliance_id: student.alliance_id,
@@ -9847,7 +9852,8 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       trade_window_open: window ? window.is_open === 1 : false,
       has_transport_ship: hasTransportShip,
       resource_threshold: threshold,
-      pending_trades: pendingTrades
+      pending_trades: pendingTrades,
+      market_supply: marketSupply
     });
   } catch (err) {
     console.error('Trade my-data error:', err);
@@ -10263,6 +10269,18 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
       FROM trades WHERE period = ?
     `, [period])[0];
     
+    // Get market supply pool levels
+    const supplyRows = query('SELECT resource, amount FROM market_supply WHERE period = ?', [period]);
+    const marketSupply = { olive: 0, grape: 0, iron: 0, grain: 0 };
+    supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
+    
+    // Identify which resources have no producer in this period
+    const periodResources = query(`SELECT ar.native_resource FROM alliance_resources ar 
+      JOIN alliances a ON ar.alliance_id = a.alliance_id 
+      WHERE a.class_period = ? AND a.is_disbanded = 0`, [period]);
+    const producedResources = [...new Set(periodResources.map(r => r.native_resource))];
+    const missingResources = TRADE_RESOURCES.filter(r => !producedResources.includes(r));
+    
     res.json({
       period,
       market_values: values,
@@ -10270,11 +10288,121 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
       resource_threshold: threshold,
       alliances: allianceSummaries,
       students: studentInventories,
-      trade_counts: tradeCounts
+      trade_counts: tradeCounts,
+      market_supply: marketSupply,
+      missing_resources: missingResources
     });
   } catch (err) {
     console.error('Trade overview error:', err);
     res.status(500).json({ error: 'Failed to get trade overview' });
+  }
+});
+
+// --- Teacher: Get market supply levels for a period ---
+app.get('/api/trade/supply/:period', authenticateToken, (req, res) => {
+  try {
+    const period = req.params.period;
+    const supply = query('SELECT resource, amount FROM market_supply WHERE period = ?', [period]);
+    const result = { olive: 0, grape: 0, iron: 0, grain: 0 };
+    supply.forEach(s => { result[s.resource] = s.amount; });
+    res.json({ period, supply: result });
+  } catch (err) {
+    console.error('Get supply error:', err);
+    res.status(500).json({ error: 'Failed to get market supply' });
+  }
+});
+
+// --- Teacher: Inject resources into period market supply pool ---
+app.post('/api/trade/inject-supply', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const { period, resource, amount } = req.body;
+    if (!period || !resource || !amount) return res.status(400).json({ error: 'Period, resource, and amount required' });
+    if (!TRADE_RESOURCES.includes(resource)) return res.status(400).json({ error: 'Invalid resource type' });
+    if (amount < 1 || amount > 9999) return res.status(400).json({ error: 'Amount must be 1-9999' });
+    
+    const existing = query('SELECT amount FROM market_supply WHERE period = ? AND resource = ?', [period, resource])[0];
+    if (existing) {
+      run('UPDATE market_supply SET amount = amount + ? WHERE period = ? AND resource = ?', [amount, period, resource]);
+    } else {
+      run('INSERT INTO market_supply (period, resource, amount) VALUES (?, ?, ?)', [period, resource, amount]);
+    }
+    
+    const newAmount = query('SELECT amount FROM market_supply WHERE period = ? AND resource = ?', [period, resource])[0];
+    saveDatabase();
+    res.json({ success: true, message: `Added ${amount} ${TRADE_RESOURCE_LABELS[resource]} to ${period} period market`, new_total: newAmount.amount });
+  } catch (err) {
+    console.error('Inject supply error:', err);
+    res.status(500).json({ error: 'Failed to inject supply' });
+  }
+});
+
+// --- Student: Buy from market supply pool ---
+app.post('/api/trade/buy-from-market', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { resource, points_to_spend } = req.body;
+    
+    if (!resource || !points_to_spend || points_to_spend < 1) return res.status(400).json({ error: 'Resource and points required' });
+    if (!TRADE_RESOURCES.includes(resource)) return res.status(400).json({ error: 'Invalid resource type' });
+    if (points_to_spend > 999) return res.status(400).json({ error: 'Maximum purchase is 999 points at a time' });
+    
+    const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
+    
+    // Check trade window is open
+    const tradeWindow = query('SELECT is_open FROM trade_window WHERE period = ?', [student.class_period])[0];
+    if (!tradeWindow || tradeWindow.is_open !== 1) {
+      return res.status(400).json({ error: 'The market is currently closed' });
+    }
+    
+    // Check alliance has Transport Ship
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    const owned = JSON.parse(alliance?.buildings_owned || '[]');
+    if (!owned.includes('Transport Ship')) return res.status(400).json({ error: 'Your alliance needs a Transport Ship to use the market' });
+    
+    // Check alliance native resource — cannot buy your OWN native from market supply
+    const allianceRes = query('SELECT native_resource FROM alliance_resources WHERE alliance_id = ?', [student.alliance_id])[0];
+    if (allianceRes && allianceRes.native_resource === resource) {
+      return res.status(400).json({ error: 'You already produce this resource — use Buy to purchase your native resource instead' });
+    }
+    
+    // Check alliance has enough points
+    if (alliance.total_points < points_to_spend) {
+      return res.status(400).json({ error: `Alliance only has ${alliance.total_points} points` });
+    }
+    
+    // Check spending cap
+    const contribution = getStudentContribution(student_id);
+    const alreadySpent = getStudentResourceSpending(student_id);
+    const remaining = contribution - alreadySpent;
+    if (points_to_spend > remaining) {
+      return res.status(400).json({ error: `Your spending cap only allows ${remaining} more points (contributed ${contribution}, spent ${alreadySpent})` });
+    }
+    
+    // Calculate units
+    const units = points_to_spend * RESOURCE_BUY_RATE;
+    
+    // Check supply pool has enough
+    const supply = query('SELECT amount FROM market_supply WHERE period = ? AND resource = ?', [student.class_period, resource])[0];
+    if (!supply || supply.amount < units) {
+      const available = supply ? supply.amount : 0;
+      return res.status(400).json({ error: `Only ${available} units available in market supply (you need ${units})` });
+    }
+    
+    // Execute: deduct alliance points, deduct supply, add to personal inventory, log purchase
+    run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', [points_to_spend, student.alliance_id]);
+    run('UPDATE market_supply SET amount = amount - ? WHERE period = ? AND resource = ?', [units, student.class_period, resource]);
+    ensureStudentResources(student_id);
+    run(`UPDATE student_resources SET ${resource} = ${resource} + ? WHERE student_id = ?`, [units, student_id]);
+    run('INSERT INTO resource_buys (student_id, alliance_id, points_spent, units_received, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
+      [student_id, student.alliance_id, points_to_spend, units]);
+    
+    saveDatabase();
+    res.json({ success: true, message: `Purchased ${units} ${TRADE_RESOURCE_LABELS[resource]} from the market!`, units_bought: units, points_spent: points_to_spend });
+  } catch (err) {
+    console.error('Buy from market error:', err);
+    res.status(500).json({ error: 'Failed to buy from market' });
   }
 });
 

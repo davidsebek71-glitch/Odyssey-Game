@@ -805,6 +805,16 @@ async function initDatabase() {
     )
   `);
 
+  // Market supply pool (teacher-injected resources for periods missing a producer)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_supply (
+      period TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      amount INTEGER DEFAULT 0,
+      PRIMARY KEY (period, resource)
+    )
+  `);
+
   // Run migrations for existing databases
   runMigrations();
   
