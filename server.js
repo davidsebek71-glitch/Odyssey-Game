@@ -10282,27 +10282,19 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
     const producedResources = [...new Set(periodResources.map(r => r.native_resource))];
     const missingResources = TRADE_RESOURCES.filter(r => !producedResources.includes(r));
     
-    res.json({
-      period,
-      market_values: values,
-      trade_window: window || { is_open: 0 },
-      resource_threshold: threshold,
-      alliances: allianceSummaries,
-      students: studentInventories,
-      trade_counts: tradeCounts,
-      market_supply: marketSupply,
-      missing_resources: missingResources,
-      active_auctions: (() => {
-        resolveExpiredAuctions(period);
-        return query(`
-          SELECT ma.*, COUNT(mb.bid_id) as bid_count, MAX(mb.ratio) as best_ratio
-          FROM market_auctions ma
-          LEFT JOIN market_bids mb ON ma.auction_id = mb.auction_id
-          WHERE ma.period = ? AND ma.status = 'active'
-          GROUP BY ma.auction_id
-        `, [period]);
-      })(),
-      recent_auctions: query(`
+    // Auction data — wrapped safely so it can't crash the overview
+    let activeAuctions = [];
+    let recentAuctions = [];
+    try {
+      resolveExpiredAuctions(period);
+      activeAuctions = query(`
+        SELECT ma.*, COUNT(mb.bid_id) as bid_count, MAX(mb.ratio) as best_ratio
+        FROM market_auctions ma
+        LEFT JOIN market_bids mb ON ma.auction_id = mb.auction_id
+        WHERE ma.period = ? AND ma.status = 'active'
+        GROUP BY ma.auction_id
+      `, [period]);
+      recentAuctions = query(`
         SELECT ma.*, COUNT(mb.bid_id) as bid_count,
                mt.student_id as winner_id, s.name as winner_name,
                mt.student_gave_resource, mt.student_gave_amount,
@@ -10313,7 +10305,23 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
         LEFT JOIN students s ON mt.student_id = s.student_id
         WHERE ma.period = ? AND ma.status IN ('completed','expired')
         GROUP BY ma.auction_id ORDER BY ma.resolved_at DESC LIMIT 10
-      `, [period])
+      `, [period]);
+    } catch (auctionErr) {
+      console.error('Auction query error (non-fatal):', auctionErr.message);
+    }
+    
+    res.json({
+      period,
+      market_values: values,
+      trade_window: window || { is_open: 0 },
+      resource_threshold: threshold,
+      alliances: allianceSummaries,
+      students: studentInventories,
+      trade_counts: tradeCounts,
+      market_supply: marketSupply,
+      missing_resources: missingResources,
+      active_auctions: activeAuctions,
+      recent_auctions: recentAuctions
     });
   } catch (err) {
     console.error('Trade overview error:', err);
@@ -10375,6 +10383,7 @@ const MIN_RATIO = 1.0;             // 1:1 floor
 
 // Auto-resolve any expired auctions for a period
 function resolveExpiredAuctions(period) {
+  try {
   const now = new Date().toISOString();
   const expired = query(
     "SELECT * FROM market_auctions WHERE period = ? AND status = 'active' AND ends_at <= ?",
@@ -10434,6 +10443,9 @@ function resolveExpiredAuctions(period) {
     saveDatabase();
     console.log(`🏪 Auction ${auction.auction_id} resolved: ${bestBid.student_name} won ${bestBid.request_amount} ${auction.resource} for ${bestBid.offer_amount} ${bestBid.offer_resource}`);
   });
+  } catch (err) {
+    console.error('resolveExpiredAuctions error (non-fatal):', err.message);
+  }
 }
 
 // --- Get active + recent auctions for a period ---
