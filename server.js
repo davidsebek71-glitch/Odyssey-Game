@@ -999,8 +999,7 @@ function bridgeSubmissionToMythPortal(submission, pointsAwarded, teacherId) {
   }
 }
 
-// Helper: Find assignment_ref with section fallback for creative/cer
-// Creative/CER submissions might have section as null, undefined, or wrong value
+// Helper: Find assignment_ref with section fallback for classical creative work
 function findAssignmentRef(section, mythGod, category) {
   // Try exact match first
   if (section && mythGod) {
@@ -1008,8 +1007,9 @@ function findAssignmentRef(section, mythGod, category) {
       [section, mythGod, category])[0];
     if (exact) return exact;
   }
-  // Fallback: for creative/cer categories, try classical_creative
-  if ((category === 'creative' || category === 'cer') && mythGod) {
+  // Fallback: for any creative-column category, try classical_creative
+  const creativeCategories = ['creative', 'cer', 'word_cloud', 'mural'];
+  if (creativeCategories.includes(category) && mythGod) {
     const fallback = query('SELECT assignment_id, display_name FROM assignments_ref WHERE section = ? AND myth_god = ? AND assignment_type = ?',
       ['classical_creative', mythGod, category])[0];
     if (fallback) return fallback;
@@ -8782,14 +8782,14 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
       JOIN students s ON gr.student_id = s.student_id
       WHERE s.class_period = ? AND ar.section IN ('classical', 'classical_creative')`, [period]);
     
-    // Fallback: also get approved creative/cer submissions directly from point_submissions
-    // This catches cases where grade_records weren't created (missing assignments_ref entries)
+    // Fallback: get ALL approved/partial creative-column submissions from point_submissions
+    // Catches cases where grade_records weren't created (missing assignments_ref, null section, etc.)
     const creativeSubmissions = query(`
       SELECT ps.student_id, ps.category as assignment_type, ps.myth_god, ps.points_claimed as points_earned, 
              ps.max_points, 'classical_creative' as section
       FROM point_submissions ps
       JOIN students s ON ps.student_id = s.student_id
-      WHERE s.class_period = ? AND ps.status = 'approved' AND ps.category IN ('creative', 'cer')
+      WHERE s.class_period = ? AND ps.status IN ('approved', 'partial') AND ps.category IN ('creative', 'cer', 'word_cloud', 'mural')
       AND ps.myth_god IS NOT NULL
     `, [period]);
     
@@ -8850,15 +8850,28 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
         );
         
         const allCreativeRecords = [...creativeFromGrades, ...creativeFromSubs];
-        const hasCreative = allCreativeRecords.length > 0;
-        const creativeDetails = allCreativeRecords.map(r => {
-          const typeLabels = { 'word_cloud': 'Word Cloud', 'mural': 'Pixton', 'cer': 'CER', 'bonus_retelling': 'Retelling', 'creative': 'Creative' };
-          return { type: typeLabels[r.assignment_type] || r.assignment_type, earned: r.points_earned, possible: r.max_points || r.points_possible || r.points_earned };
-        });
         
-        // Check legacy approval system
+        // Check legacy approval system (student_myth_completion)
         const completion = completions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
         const assignmentApproved = completion ? completion.teacher_approved === 1 : false;
+        
+        // If approved via myth completion but no creative records found, use completion data
+        // This catches bonus assignments (retelling, caution poem, etc.) that ARE the creative option
+        if (assignmentApproved && allCreativeRecords.length === 0 && completion) {
+          const pathLabel = completion.assignment_path === 'analytical' ? 'CER' : 'Creative';
+          allCreativeRecords.push({
+            assignment_type: completion.assignment_path || 'creative',
+            points_earned: completion.points_earned || 0,
+            max_points: completion.points_earned || 0,
+            section: 'classical_creative'
+          });
+        }
+        
+        const hasCreative = allCreativeRecords.length > 0;
+        const creativeDetails = allCreativeRecords.map(r => {
+          const typeLabels = { 'word_cloud': 'Word Cloud', 'mural': 'Pixton', 'cer': 'CER', 'bonus_retelling': 'Retelling', 'creative': 'Creative', 'analytical': 'CER' };
+          return { type: typeLabels[r.assignment_type] || r.assignment_type, earned: r.points_earned, possible: r.max_points || r.points_possible || r.points_earned };
+        });
         
         // Virtue earned: has all three areas with scores (auto-advance)
         const virtueEarned = hasGuide && quizPassed && (hasCreative || assignmentApproved);
@@ -11362,12 +11375,12 @@ app.listen(PORT, () => {
   // Backfill grade_records for approved creative/cer submissions that were missing assignment_ref entries
   setTimeout(() => {
     try {
-      console.log('🔧 Backfilling grade_records for creative/cer submissions...');
-      // Find ALL approved creative/cer submissions with a myth that are missing grade_records
+      console.log('🔧 Backfilling grade_records for creative-column submissions...');
+      // Find ALL approved/partial creative-column submissions missing grade_records
       const missingSubs = query(`
         SELECT ps.* FROM point_submissions ps
-        WHERE ps.status = 'approved' 
-        AND ps.category IN ('creative', 'cer')
+        WHERE ps.status IN ('approved', 'partial') 
+        AND ps.category IN ('creative', 'cer', 'word_cloud', 'mural')
         AND ps.myth_god IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM grade_records gr 
