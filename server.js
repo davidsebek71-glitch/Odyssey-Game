@@ -8776,6 +8776,17 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
       JOIN students s ON gr.student_id = s.student_id
       WHERE s.class_period = ? AND ar.section IN ('classical', 'classical_creative')`, [period]);
     
+    // Fallback: also get approved creative/cer submissions directly from point_submissions
+    // This catches cases where grade_records weren't created (missing assignments_ref entries)
+    const creativeSubmissions = query(`
+      SELECT ps.student_id, ps.category as assignment_type, ps.myth_god, ps.points_claimed as points_earned, 
+             ps.max_points, 'classical_creative' as section
+      FROM point_submissions ps
+      JOIN students s ON ps.student_id = s.student_id
+      WHERE s.class_period = ? AND ps.status = 'approved' AND ps.category IN ('creative', 'cer')
+      AND ps.myth_god IS NOT NULL
+    `, [period]);
+    
     // Get all myth completions for this period (legacy approval system)
     const completions = query(`SELECT smc.* FROM student_myth_completion smc 
       JOIN students s ON smc.student_id = s.student_id WHERE s.class_period = ?`, [period]);
@@ -8816,16 +8827,27 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
         const quizGradeMax = quizGradeRecord ? (quizGradeRecord.max_points || qMax) : qMax;
         
         // Creative work: word_cloud, mural, cer, or any classical_creative for this myth
-        const creativeRecords = gradeRecords.filter(g =>
+        const creativeFromGrades = gradeRecords.filter(g =>
           g.student_id === s.student_id &&
           aliases.some(a => g.myth_god === a) &&
           g.section === 'classical_creative' &&
           g.points_earned > 0
         );
-        const hasCreative = creativeRecords.length > 0;
-        const creativeDetails = creativeRecords.map(r => {
+        
+        // Fallback: check point_submissions for creative/cer not yet in grade_records
+        const creativeFromSubs = creativeSubmissions.filter(cs =>
+          cs.student_id === s.student_id &&
+          aliases.some(a => cs.myth_god === a) &&
+          cs.points_earned > 0 &&
+          // Only use fallback if not already covered by grade_records
+          !creativeFromGrades.some(g => g.assignment_type === cs.assignment_type && aliases.some(a => g.myth_god === a))
+        );
+        
+        const allCreativeRecords = [...creativeFromGrades, ...creativeFromSubs];
+        const hasCreative = allCreativeRecords.length > 0;
+        const creativeDetails = allCreativeRecords.map(r => {
           const typeLabels = { 'word_cloud': 'Word Cloud', 'mural': 'Pixton', 'cer': 'CER', 'bonus_retelling': 'Retelling', 'creative': 'Creative' };
-          return { type: typeLabels[r.assignment_type] || r.assignment_type, earned: r.points_earned, possible: r.max_points || r.points_possible };
+          return { type: typeLabels[r.assignment_type] || r.assignment_type, earned: r.points_earned, possible: r.max_points || r.points_possible || r.points_earned };
         });
         
         // Check legacy approval system
