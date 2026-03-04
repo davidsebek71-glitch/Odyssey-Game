@@ -5783,9 +5783,13 @@
                 'bonus': '#f97316',
                 'bonus_retelling': '#f97316',
                 'bonus_box2026': '#f97316',
-                'bonus_caution_poem': '#f97316',
-                'bonus_new_ending': '#f97316',
-                'bonus_i_icarus': '#f97316',
+                'bonus_caution_poem': '#c084fc',
+                'bonus_new_ending': '#c084fc',
+                'bonus_i_icarus': '#c084fc',
+                'bonus_retelling': '#c084fc',
+                'bonus_metamorphosis': '#c084fc',
+                'bonus_char_study': '#c084fc',
+                'bonus_constellation': '#c084fc',
                 'membean': '#22d3d8',
                 'reading': '#818cf8',
                 'citizenship': '#34d399'
@@ -5800,11 +5804,14 @@
                 'cer': 'CER',
                 'rite_of_passage': 'Rite of Passage',
                 'bonus': 'Bonus',
-                'bonus_retelling': 'Bonus Retelling',
+                'bonus_retelling': 'Creative (Retelling)',
                 'bonus_box2026': "Pandora's Box 2026",
-                'bonus_caution_poem': 'Caution Poem',
-                'bonus_new_ending': 'New Ending',
-                'bonus_i_icarus': 'I, Icarus',
+                'bonus_caution_poem': 'Creative (Caution Poem)',
+                'bonus_new_ending': 'Creative (New Ending)',
+                'bonus_i_icarus': 'Creative (I, Icarus)',
+                'bonus_metamorphosis': 'Creative (Metamorphosis)',
+                'bonus_char_study': 'Creative (Character Study)',
+                'bonus_constellation': 'Creative (Constellation Story)',
                 'membean': 'Membean',
                 'reading': 'Independent Reading',
                 'citizenship': 'Citizenship'
@@ -5830,11 +5837,23 @@
             const bonusGroup = [];
             const otherGroups = {};
             
+            // Myth-specific bonus categories that are actually the creative assignment for that myth
+            const mythBonusCategories = ['bonus_retelling', 'bonus_caution_poem', 'bonus_new_ending', 
+                                         'bonus_metamorphosis', 'bonus_i_icarus', 'bonus_char_study', 'bonus_constellation'];
+            
             submissions.forEach(sub => {
                 const myth = sub.myth_god;
                 const cat = sub.category;
                 
-                // Bonus categories always go to bonus group
+                // Myth-specific bonus creative assignments go under their myth, not bonus
+                if (myth && mythBonusCategories.includes(cat)) {
+                    let groupKey = myth;
+                    if (!mythGroups[groupKey]) mythGroups[groupKey] = [];
+                    mythGroups[groupKey].push(sub);
+                    return;
+                }
+                
+                // Generic bonus categories go to bonus group
                 if (cat === 'bonus' || (cat && cat.startsWith('bonus_'))) {
                     bonusGroup.push(sub);
                     return;
