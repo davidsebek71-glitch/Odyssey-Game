@@ -5776,8 +5776,16 @@
                 'quiz': '#60a5fa',
                 'comp_conn': '#4ade80',
                 'mural': '#f472b6',
+                'word_cloud': '#d946ef',
+                'creative': '#c084fc',
+                'cer': '#a78bfa',
                 'rite_of_passage': '#fbbf24',
                 'bonus': '#f97316',
+                'bonus_retelling': '#f97316',
+                'bonus_box2026': '#f97316',
+                'bonus_caution_poem': '#f97316',
+                'bonus_new_ending': '#f97316',
+                'bonus_i_icarus': '#f97316',
                 'membean': '#22d3d8',
                 'reading': '#818cf8',
                 'citizenship': '#34d399'
@@ -5787,73 +5795,185 @@
                 'quiz': 'Quiz',
                 'comp_conn': 'Reading Notes',
                 'mural': 'Mural/Comic',
+                'word_cloud': 'Word Cloud',
+                'creative': 'Creative',
+                'cer': 'CER',
                 'rite_of_passage': 'Rite of Passage',
                 'bonus': 'Bonus',
+                'bonus_retelling': 'Bonus Retelling',
+                'bonus_box2026': "Pandora's Box 2026",
+                'bonus_caution_poem': 'Caution Poem',
+                'bonus_new_ending': 'New Ending',
+                'bonus_i_icarus': 'I, Icarus',
                 'membean': 'Membean',
                 'reading': 'Independent Reading',
                 'citizenship': 'Citizenship'
             };
             
-            let html = `
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: rgba(255,255,255,0.05);">
-                            <th style="text-align: left; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">Date</th>
-                            <th style="text-align: left; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">Category</th>
-                            <th style="text-align: left; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">God/Myth</th>
-                            <th style="text-align: center; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">Points</th>
-                            <th style="text-align: center; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">Status</th>
-                            <th style="text-align: center; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
+            // Classical myths (ordered by portal number)
+            const mythOrder = ['Pandora', 'Phaethon', 'Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice',
+                               'Echo and Narcissus', 'Echo & Narcissus',
+                               'Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus',
+                               'Eros and Psyche', 'Eros & Psyche', 'Constellations'];
             
-            submissions.forEach((sub, idx) => {
+            // Archaic myths
+            const archaicMyths = ['Zeus', 'Poseidon', 'Athena', 'Ares', 'Hermes', 'Aphrodite', 'Apollo', 'Artemis', 'Hephaestus', 'Hera', 'Demeter', 'Dionysus', 'Hades', 'Prometheus', 'Nine Muses'];
+            
+            // Myth assignment types (these get grouped under their myth)
+            const mythCategories = ['comp_conn', 'quiz', 'word_cloud', 'mural', 'creative', 'cer'];
+            
+            // Non-myth categories
+            const nonMythCategories = ['citizenship', 'membean', 'reading', 'rite_of_passage'];
+            
+            // Group submissions
+            const mythGroups = {};
+            const bonusGroup = [];
+            const otherGroups = {};
+            
+            submissions.forEach(sub => {
+                const myth = sub.myth_god;
+                const cat = sub.category;
+                
+                // Bonus categories always go to bonus group
+                if (cat === 'bonus' || (cat && cat.startsWith('bonus_'))) {
+                    bonusGroup.push(sub);
+                    return;
+                }
+                
+                // If it has a myth and is a myth-related category, group under myth
+                if (myth && mythCategories.includes(cat)) {
+                    // Normalize myth name for grouping
+                    let groupKey = myth;
+                    if (!mythGroups[groupKey]) mythGroups[groupKey] = [];
+                    mythGroups[groupKey].push(sub);
+                    return;
+                }
+                
+                // Non-myth categories
+                const groupKey = categoryNames[cat] || cat || 'Other';
+                if (!otherGroups[groupKey]) otherGroups[groupKey] = [];
+                otherGroups[groupKey].push(sub);
+            });
+            
+            let html = '';
+            
+            // Helper to render a submission row
+            function renderRow(sub) {
                 const date = new Date(sub.submitted_at).toLocaleDateString();
                 const color = categoryColors[sub.category] || '#9ca3af';
                 const catName = categoryNames[sub.category] || sub.category;
                 const statusColor = sub.status === 'approved' ? '#4ade80' : (sub.status === 'pending' ? '#fbbf24' : '#f87171');
+                const escapedCat = (catName || '').replace(/'/g, "\\'");
+                const escapedMyth = (sub.myth_god || '').replace(/'/g, "\\'");
                 
-                html += `
-                    <tr style="background: ${idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)'};">
-                        <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); font-size: 13px;">${date}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <span style="color: ${color}; font-weight: 500;">${catName}</span>
-                        </td>
-                        <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.8);">${sub.myth_god || '-'}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; font-weight: bold; color: #ffd700;">${sub.points_claimed}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                            <span style="color: ${statusColor}; font-size: 12px; text-transform: uppercase;">${sub.status}</span>
-                        </td>
-                        <td style="padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                            ${sub.status === 'approved' ? `
-                                <button onclick="deleteSubmission(${sub.submission_id}, '${catName}', '${sub.myth_god || ''}')" 
-                                    style="background: rgba(239,68,68,0.2); border: 1px solid #ef4444; color: #ef4444; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;"
-                                    onmouseover="this.style.background='#ef4444'; this.style.color='white';"
-                                    onmouseout="this.style.background='rgba(239,68,68,0.2)'; this.style.color='#ef4444';">
-                                    ✕ Delete
-                                </button>
-                            ` : `
-                                <span style="color: rgba(255,255,255,0.3); font-size: 12px;">-</span>
-                            `}
-                        </td>
-                    </tr>
-                `;
+                return `<tr>
+                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.5);font-size:12px;">${date}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);"><span style="color:${color};font-weight:500;font-size:13px;">${catName}</span></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;font-weight:bold;color:#ffd700;">${sub.points_claimed}${sub.max_points ? `<span style="color:rgba(255,255,255,0.25);font-weight:400;">/${sub.max_points}</span>` : ''}</td>
+                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;"><span style="color:${statusColor};font-size:11px;text-transform:uppercase;">${sub.status}</span></td>
+                    <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;">
+                        ${sub.status === 'approved' ? `<button onclick="deleteSubmission(${sub.submission_id}, '${escapedCat}', '${escapedMyth}')" 
+                            style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;"
+                            onmouseover="this.style.background='#ef4444';this.style.color='white';"
+                            onmouseout="this.style.background='rgba(239,68,68,0.15)';this.style.color='#ef4444';">✕</button>` 
+                        : '<span style="color:rgba(255,255,255,0.2);">-</span>'}
+                    </td>
+                </tr>`;
+            }
+            
+            // Render a group header + its rows
+            function renderGroup(title, emoji, subs, headerColor) {
+                if (!subs || subs.length === 0) return '';
+                const approved = subs.filter(s => s.status === 'approved');
+                const totalEarned = approved.reduce((sum, s) => sum + (s.points_claimed || 0), 0);
+                
+                let g = `<div style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px 8px 0 0;">
+                        <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:${headerColor};letter-spacing:0.5px;">${emoji} ${title}</div>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.4);">${approved.length}/${subs.length} approved · <span style="color:#ffd700;font-weight:600;">${totalEarned} pts</span></div>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;border:1px solid rgba(255,255,255,0.04);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">
+                        <thead><tr style="background:rgba(255,255,255,0.02);">
+                            <th style="text-align:left;padding:6px 10px;font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.05);">Date</th>
+                            <th style="text-align:left;padding:6px 10px;font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.05);">Type</th>
+                            <th style="text-align:center;padding:6px 10px;font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.05);">Points</th>
+                            <th style="text-align:center;padding:6px 10px;font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.05);">Status</th>
+                            <th style="text-align:center;padding:6px 10px;font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.05);">Action</th>
+                        </tr></thead>
+                        <tbody>`;
+                subs.forEach(sub => { g += renderRow(sub); });
+                g += '</tbody></table></div>';
+                return g;
+            }
+            
+            // === CLASSICAL MYTHS (in portal order) ===
+            const classicalOrder = ['Pandora', 'Phaethon', 'Orpheus', 'Echo and Narcissus', 'Icarus', 'Eros and Psyche', 'Constellations'];
+            const renderedMyths = new Set();
+            
+            // Normalize myth keys to canonical names
+            const mythNormalize = {
+                'Orpheus & Eurydice': 'Orpheus', 'Orpheus and Eurydice': 'Orpheus',
+                'Echo & Narcissus': 'Echo and Narcissus',
+                'Icarus & Daedalus': 'Icarus', 'Icarus and Daedalus': 'Icarus',
+                'Eros & Psyche': 'Eros and Psyche'
+            };
+            
+            // Merge normalized myth groups
+            const normalizedMythGroups = {};
+            Object.keys(mythGroups).forEach(key => {
+                const canonical = mythNormalize[key] || key;
+                if (!normalizedMythGroups[canonical]) normalizedMythGroups[canonical] = [];
+                normalizedMythGroups[canonical].push(...mythGroups[key]);
             });
             
-            html += '</tbody></table>';
+            // Classical myths first (ordered)
+            let hasClassical = false;
+            classicalOrder.forEach(myth => {
+                if (normalizedMythGroups[myth]) {
+                    if (!hasClassical) {
+                        html += '<div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-left:4px;">🏛️ Classical Age Myths</div>';
+                        hasClassical = true;
+                    }
+                    html += renderGroup(myth, '📜', normalizedMythGroups[myth], '#60a5fa');
+                    renderedMyths.add(myth);
+                }
+            });
             
-            // Add totals summary
+            // Archaic myths (any remaining myth groups)
+            let hasArchaic = false;
+            Object.keys(normalizedMythGroups).sort().forEach(myth => {
+                if (renderedMyths.has(myth)) return;
+                if (!hasArchaic) {
+                    html += '<div style="font-size:11px;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:1px;margin:20px 0 8px;padding-left:4px;">🏺 Archaic Age Myths</div>';
+                    hasArchaic = true;
+                }
+                html += renderGroup(myth, '⚡', normalizedMythGroups[myth], '#fbbf24');
+            });
+            
+            // Bonus group
+            if (bonusGroup.length > 0) {
+                html += '<div style="font-size:11px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:1px;margin:20px 0 8px;padding-left:4px;">🌟 Bonus Work</div>';
+                html += renderGroup('Bonus', '🌟', bonusGroup, '#f97316');
+            }
+            
+            // Other categories (Citizenship, Membean, Reading, etc.)
+            const otherKeys = Object.keys(otherGroups).sort();
+            if (otherKeys.length > 0) {
+                html += '<div style="font-size:11px;font-weight:700;color:#34d399;text-transform:uppercase;letter-spacing:1px;margin:20px 0 8px;padding-left:4px;">📋 Other Categories</div>';
+                const otherEmojis = { 'Citizenship': '🏛️', 'Membean': '📖', 'Independent Reading': '📚', 'Rite of Passage': '🔥' };
+                otherKeys.forEach(key => {
+                    html += renderGroup(key, otherEmojis[key] || '📋', otherGroups[key], '#34d399');
+                });
+            }
+            
+            // Totals summary
             const approved = submissions.filter(s => s.status === 'approved');
             const totalPoints = approved.reduce((sum, s) => sum + (s.points_claimed || 0), 0);
             
-            html += `
-                <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="color: rgba(255,255,255,0.7);">Total Approved Submissions: <strong>${approved.length}</strong></span>
-                    <span style="color: #ffd700; font-size: 18px; font-weight: bold;">Total Points: ${totalPoints}</span>
-                </div>
-            `;
+            html += `<div style="margin-top:20px;padding:14px;background:rgba(255,255,255,0.04);border-radius:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.06);">
+                <span style="color:rgba(255,255,255,0.6);">Total Approved: <strong style="color:#fff;">${approved.length}</strong> of ${submissions.length} submissions</span>
+                <span style="color:#ffd700;font-size:18px;font-weight:bold;">Total Points: ${totalPoints}</span>
+            </div>`;
             
             content.innerHTML = html;
         }

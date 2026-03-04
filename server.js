@@ -11331,6 +11331,51 @@ app.listen(PORT, () => {
   // Run cleanup after server starts (database is ready)
   setTimeout(cleanupStuckBattles, 1000);
   
+  // Backfill grade_records for approved creative/cer submissions that were missing assignment_ref entries
+  setTimeout(() => {
+    try {
+      console.log('🔧 Backfilling grade_records for creative/cer submissions...');
+      const missingSubs = query(`
+        SELECT ps.* FROM point_submissions ps
+        WHERE ps.status = 'approved' 
+        AND ps.category IN ('creative', 'cer')
+        AND ps.myth_god IS NOT NULL
+        AND ps.section = 'classical_creative'
+        AND NOT EXISTS (
+          SELECT 1 FROM grade_records gr 
+          JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+          WHERE gr.student_id = ps.student_id 
+          AND ar.myth_god = ps.myth_god 
+          AND ar.assignment_type = ps.category
+          AND ar.section = 'classical_creative'
+        )
+      `);
+      
+      let backfilled = 0;
+      missingSubs.forEach(sub => {
+        const assignment = query(
+          `SELECT assignment_id FROM assignments_ref WHERE section = 'classical_creative' AND myth_god = ? AND assignment_type = ?`,
+          [sub.myth_god, sub.category]
+        )[0];
+        
+        if (assignment) {
+          run(`INSERT OR IGNORE INTO grade_records (student_id, assignment_id, points_earned, points_possible, submission_id) VALUES (?, ?, ?, ?, ?)`,
+            [sub.student_id, assignment.assignment_id, sub.points_claimed, sub.max_points || sub.points_claimed, sub.submission_id]);
+          backfilled++;
+        }
+      });
+      
+      if (backfilled > 0) {
+        saveDatabase();
+        console.log(`✅ Backfilled ${backfilled} creative/cer grade records`);
+      } else {
+        console.log('✅ No creative/cer backfill needed');
+      }
+    } catch (err) {
+      console.error('Creative/CER backfill error (non-fatal):', err.message);
+    }
+  }, 3000);
+  
   // Run retroactive badge scan 5 seconds after startup
   setTimeout(() => {
     try {

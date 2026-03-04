@@ -1954,6 +1954,24 @@ function seedReferenceData() {
       ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the constellation myths', null, 0, 'Classical'],
       
+      // Creative option (alternative to word cloud / pixton)
+      ['classical_creative', 'creative', 'Pandora', 'Pandora Creative', 15, 'Creative project for the Pandora myth', null, 0, 'Classical'],
+      ['classical_creative', 'creative', 'Phaethon', 'Phaethon Creative', 15, 'Creative project for the Phaethon myth', null, 0, 'Classical'],
+      ['classical_creative', 'creative', 'Orpheus', 'Orpheus Creative', 15, 'Creative project for the Orpheus myth', null, 0, 'Classical'],
+      ['classical_creative', 'creative', 'Echo and Narcissus', 'Echo and Narcissus Creative', 15, 'Creative project for the Echo and Narcissus myth', null, 0, 'Classical'],
+      ['classical_creative', 'creative', 'Icarus', 'Icarus Creative', 20, 'Creative project for the Icarus myth', null, 0, 'Classical'],
+      ['classical_creative', 'creative', 'Eros and Psyche', 'Eros and Psyche Creative', 15, 'Creative project for the Eros and Psyche myth', null, 0, 'Classical'],
+      ['classical_creative', 'creative', 'Constellations', 'Constellations Creative', 15, 'Creative project for the Constellations myth', null, 0, 'Classical'],
+      
+      // CER option (Claim-Evidence-Reasoning)
+      ['classical_creative', 'cer', 'Pandora', 'Pandora CER', 15, 'Claim-Evidence-Reasoning essay for the Pandora myth', null, 0, 'Classical'],
+      ['classical_creative', 'cer', 'Phaethon', 'Phaethon CER', 15, 'Claim-Evidence-Reasoning essay for the Phaethon myth', null, 0, 'Classical'],
+      ['classical_creative', 'cer', 'Orpheus', 'Orpheus CER', 15, 'Claim-Evidence-Reasoning essay for the Orpheus myth', null, 0, 'Classical'],
+      ['classical_creative', 'cer', 'Echo and Narcissus', 'Echo and Narcissus CER', 15, 'Claim-Evidence-Reasoning essay for the Echo and Narcissus myth', null, 0, 'Classical'],
+      ['classical_creative', 'cer', 'Icarus', 'Icarus CER', 20, 'Claim-Evidence-Reasoning essay for the Icarus myth', null, 0, 'Classical'],
+      ['classical_creative', 'cer', 'Eros and Psyche', 'Eros and Psyche CER', 15, 'Claim-Evidence-Reasoning essay for the Eros and Psyche myth', null, 0, 'Classical'],
+      ['classical_creative', 'cer', 'Constellations', 'Constellations CER', 15, 'Claim-Evidence-Reasoning essay for the Constellations myth', null, 0, 'Classical'],
+      
       // ==================== CLASSICAL AGE BONUSES ====================
       ['bonus', 'bonus_retelling', 'Pandora', 'Pandora Retelling', 20,
         'Use one of the paintings in the provided link that you find the most expressive and make a retelling of Pandora\'s myth that matches the tone and idea of the painting. Write your story based on the painting you choose.',
@@ -2040,7 +2058,23 @@ function seedReferenceData() {
           ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud for Icarus myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud for constellation myths', null, 0, 'Classical']
+          ['classical_creative', 'word_cloud', 'Constellations', 'Constellations Word Cloud', 12, 'Word cloud for constellation myths', null, 0, 'Classical'],
+          // Creative option
+          ['classical_creative', 'creative', 'Pandora', 'Pandora Creative', 15, 'Creative project for Pandora', null, 0, 'Classical'],
+          ['classical_creative', 'creative', 'Phaethon', 'Phaethon Creative', 15, 'Creative project for Phaethon', null, 0, 'Classical'],
+          ['classical_creative', 'creative', 'Orpheus', 'Orpheus Creative', 15, 'Creative project for Orpheus', null, 0, 'Classical'],
+          ['classical_creative', 'creative', 'Echo and Narcissus', 'Echo and Narcissus Creative', 15, 'Creative project for Echo and Narcissus', null, 0, 'Classical'],
+          ['classical_creative', 'creative', 'Icarus', 'Icarus Creative', 20, 'Creative project for Icarus', null, 0, 'Classical'],
+          ['classical_creative', 'creative', 'Eros and Psyche', 'Eros and Psyche Creative', 15, 'Creative project for Eros and Psyche', null, 0, 'Classical'],
+          ['classical_creative', 'creative', 'Constellations', 'Constellations Creative', 15, 'Creative project for Constellations', null, 0, 'Classical'],
+          // CER option
+          ['classical_creative', 'cer', 'Pandora', 'Pandora CER', 15, 'CER essay for Pandora', null, 0, 'Classical'],
+          ['classical_creative', 'cer', 'Phaethon', 'Phaethon CER', 15, 'CER essay for Phaethon', null, 0, 'Classical'],
+          ['classical_creative', 'cer', 'Orpheus', 'Orpheus CER', 15, 'CER essay for Orpheus', null, 0, 'Classical'],
+          ['classical_creative', 'cer', 'Echo and Narcissus', 'Echo and Narcissus CER', 15, 'CER essay for Echo and Narcissus', null, 0, 'Classical'],
+          ['classical_creative', 'cer', 'Icarus', 'Icarus CER', 20, 'CER essay for Icarus', null, 0, 'Classical'],
+          ['classical_creative', 'cer', 'Eros and Psyche', 'Eros and Psyche CER', 15, 'CER essay for Eros and Psyche', null, 0, 'Classical'],
+          ['classical_creative', 'cer', 'Constellations', 'Constellations CER', 15, 'CER essay for Constellations', null, 0, 'Classical']
         ];
         classicalAssignments.forEach(a => {
           db.run(`INSERT OR IGNORE INTO assignments_ref (section, assignment_type, myth_god, display_name, max_points, description, resource_links, is_bonus, age) 
