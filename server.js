@@ -2667,9 +2667,9 @@ app.delete('/api/teacher/delete-submission/:submission_id', authenticateToken, (
       return res.status(404).json({ error: 'Submission not found' });
     }
     
-    // Only allow deleting approved submissions (pending ones can just be rejected)
-    if (submission.status !== 'approved') {
-      return res.status(400).json({ error: 'Can only delete approved submissions. Reject pending submissions instead.' });
+    // Only allow deleting approved or partial submissions (pending ones can just be rejected)
+    if (submission.status !== 'approved' && submission.status !== 'partial') {
+      return res.status(400).json({ error: 'Can only delete approved or partial submissions. Reject pending submissions instead.' });
     }
     
     const student_id = submission.student_id;

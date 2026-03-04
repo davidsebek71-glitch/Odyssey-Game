@@ -5862,9 +5862,10 @@
                 const date = new Date(sub.submitted_at).toLocaleDateString();
                 const color = categoryColors[sub.category] || '#9ca3af';
                 const catName = categoryNames[sub.category] || sub.category;
-                const statusColor = sub.status === 'approved' ? '#4ade80' : (sub.status === 'pending' ? '#fbbf24' : '#f87171');
+                const statusColor = sub.status === 'approved' ? '#4ade80' : (sub.status === 'partial' ? '#f59e0b' : (sub.status === 'pending' ? '#fbbf24' : '#f87171'));
                 const escapedCat = (catName || '').replace(/'/g, "\\'");
                 const escapedMyth = (sub.myth_god || '').replace(/'/g, "\\'");
+                const canDelete = sub.status === 'approved' || sub.status === 'partial';
                 
                 return `<tr>
                     <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(255,255,255,0.5);font-size:12px;">${date}</td>
@@ -5872,7 +5873,7 @@
                     <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;font-weight:bold;color:#ffd700;">${sub.points_claimed}${sub.max_points ? `<span style="color:rgba(255,255,255,0.25);font-weight:400;">/${sub.max_points}</span>` : ''}</td>
                     <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;"><span style="color:${statusColor};font-size:11px;text-transform:uppercase;">${sub.status}</span></td>
                     <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:center;">
-                        ${sub.status === 'approved' ? `<button onclick="deleteSubmission(${sub.submission_id}, '${escapedCat}', '${escapedMyth}')" 
+                        ${canDelete ? `<button onclick="deleteSubmission(${sub.submission_id}, '${escapedCat}', '${escapedMyth}')" 
                             style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;"
                             onmouseover="this.style.background='#ef4444';this.style.color='white';"
                             onmouseout="this.style.background='rgba(239,68,68,0.15)';this.style.color='#ef4444';">✕</button>` 
