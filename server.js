@@ -8618,7 +8618,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
         'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
         'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
         'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
-        'Orpheus': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice']
+        'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice']
       };
       const aliases = portalAliases[portal.myth_name] || [portal.myth_name];
       
@@ -8863,7 +8863,7 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
     const mythAliases = {
       'Pandora': ['Pandora'],
       'Phaethon': ['Phaethon'],
-      'Orpheus': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
+      'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
       'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
       'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
       'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
