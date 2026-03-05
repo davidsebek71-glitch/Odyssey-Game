@@ -1588,6 +1588,52 @@ function seedReferenceData() {
     console.log('Migration note: Prometheus bonus update -', e.message);
   }
 
+  // V94 FIX: Backfill missing quiz grade_records from myth_quiz_attempts
+  // Bug: submit-quiz was missing Orpheus mapping, so passed quizzes didn't create grade_records
+  try {
+    const portalToMythGod = {
+      1: 'Pandora', 2: 'Phaethon', 3: 'Orpheus',
+      4: 'Echo and Narcissus', 5: 'Icarus', 6: 'Eros and Psyche', 7: 'Constellations'
+    };
+    // Find all passed quiz attempts
+    const passedAttempts = db.prepare(`
+      SELECT student_id, portal_id, MAX(score) as best_score, MAX(total_questions) as total_q
+      FROM myth_quiz_attempts
+      WHERE passed = 1
+      GROUP BY student_id, portal_id
+    `).all();
+    
+    let backfilled = 0;
+    for (const attempt of passedAttempts) {
+      const mythGod = portalToMythGod[attempt.portal_id];
+      if (!mythGod) continue;
+      
+      // Find the quiz assignment_id
+      const quizAssignment = db.prepare(
+        "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?"
+      ).get(mythGod);
+      if (!quizAssignment) continue;
+      
+      // Check if grade_record already exists
+      const existing = db.prepare(
+        'SELECT record_id FROM grade_records WHERE student_id = ? AND assignment_id = ?'
+      ).get(attempt.student_id, quizAssignment.assignment_id);
+      if (existing) continue;
+      
+      // Create the missing grade record
+      const totalQ = attempt.total_q || 10;
+      const pointsEarned = Math.round((attempt.best_score / totalQ) * quizAssignment.max_points);
+      db.prepare(
+        'INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible) VALUES (?, ?, ?, ?)'
+      ).run(attempt.student_id, quizAssignment.assignment_id, pointsEarned, quizAssignment.max_points);
+      backfilled++;
+    }
+    if (backfilled > 0) console.log(`✅ Backfilled ${backfilled} missing quiz grade record(s)`);
+    else console.log('✅ Quiz grade backfill: no missing records found');
+  } catch (e) {
+    console.log('Migration note: Quiz grade backfill -', e.message);
+  }
+
   // ==================== END MIGRATIONS ====================
   
   // ==================== CLASSICAL AGE SEED DATA ====================
