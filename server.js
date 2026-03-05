@@ -9092,6 +9092,7 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
         if (portal) {
           // Map portal myth_name to assignments_ref myth_god (they differ for some myths)
           const mythGodMap = {
+            'Orpheus & Eurydice': 'Orpheus',
             'Icarus & Daedalus': 'Icarus',
             'Echo & Narcissus': 'Echo and Narcissus',
             'Eros & Psyche': 'Eros and Psyche'

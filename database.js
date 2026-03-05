@@ -2483,6 +2483,12 @@ function seedClassicalData() {
         // Phaethon Q9 & Q10 (added Feb 25)
         [2, "What was Apollo's reaction to Phaethon's request to drive the chariot? p.70", 'He laughed and agreed', 'He yelled that it was impossible', 'He calmly said no', 'He offered to teach him first', 'b'],
         [2, "What was the job of Apollo's birds? p.68", 'To pull the sun chariot', 'To guard the palace gates', 'To gather gossip', 'To deliver messages to Zeus', 'c'],
+        // Orpheus Q6-Q10 (added Mar 4)
+        [3, 'What condition did Hades set for Eurydice to leave the Underworld with Orpheus? p.84', 'Orpheus must stay in the Underworld forever', 'Orpheus must not speak to Eurydice until they reach the surface', 'Orpheus must not look back at Eurydice until they reach the upper world', 'Orpheus must give Hades his lyre', 'c'],
+        [3, 'Why does Orpheus decide to go to the Underworld? p.80', 'He wants to become famous and prove he is brave', 'He wants to rescue Eurydice and bring her back from death', 'He is sent there by Zeus to deliver a message', 'He is trying to steal treasure from Hades', 'b'],
+        [3, 'Why did Persephone agree to give Orpheus a chance to bring Eurydice back? p.83', 'She wanted to punish Orpheus with an impossible task', 'Zeus ordered her to release Eurydice', 'She was moved by Orpheus\'s music and what it expressed', 'She felt guilty for Eurydice\'s death', 'c'],
+        [3, 'What did Charon usually require before he would take someone across the river? p.81', 'A penny', 'A golden crown', 'A weapon', 'A written promise never to return', 'a'],
+        [3, 'What happens to Eurydice when Orpheus turns around? p.86', 'She runs ahead of Orpheus and escapes to the upper world', 'She is pulled back by Hades and disappears into the darkness', 'She turns into smoke and fades away', 'She becomes a stone statue on the path', 'c'],
       ];
       
       let added = 0;

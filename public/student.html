@@ -9967,14 +9967,16 @@
                     icon: "📜",
                     name: "CER: Restraint or Hope?",
                     description: "Pandora's myth teaches that some actions cannot be undone. Is the myth's real lesson about having the restraint to stop before you act, or about finding hope after you've already made a mistake? Use evidence from the myth to support your claim.",
-                    link: "https://app.flintk12.com/activities/pandora-s-box-a-e9c111/sessions/new"
+                    link: "https://app.flintk12.com/activities/pandora-s-box-a-e9c111/sessions/new",
+                    points: 15
                 },
                 creative: {
                     title: "The Creator's Path",
                     icon: "🎨",
                     name: "Pandora Retelling",
                     description: "Retell the myth of Pandora from a different character's point of view.",
-                    link: "https://docs.google.com/presentation/d/e/2PACX-1vSUaMWz-ZQ_zoGNe3EZ2yw4qOkNmNbamYnPw-Mq7selnkjrmPAdJVR4kHED6nKp0XyCl83K9ur8nNly/pub?start=true&loop=true&delayms=60000"
+                    link: "https://docs.google.com/presentation/d/e/2PACX-1vSUaMWz-ZQ_zoGNe3EZ2yw4qOkNmNbamYnPw-Mq7selnkjrmPAdJVR4kHED6nKp0XyCl83K9ur8nNly/pub?start=true&loop=true&delayms=60000",
+                    points: 15
                 }
             },
             2: { // Phaethon
@@ -9983,14 +9985,42 @@
                     icon: "📜",
                     name: "CER: Phaethon Analysis",
                     description: "Analyze the myth of Phaethon using Claim, Evidence, and Reasoning. What lesson does this myth teach about the dangers of hubris and ignoring wise counsel?",
-                    link: "https://app.flintk12.com/activities/phaethon-analys-f14d05/sessions/new"
+                    link: "https://app.flintk12.com/activities/phaethon-analys-f14d05/sessions/new",
+                    points: 15
                 },
                 creative: {
                     title: "The Creator's Path",
                     icon: "🎨",
                     name: "Phaethon's Caution",
                     description: "Write a cautionary poem about Phaethon's ride across the sky in his father's sun chariot. Warn readers about the dangers of hubris and ignoring wise counsel.",
-                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ2NDkxNTM2NjE1/details"
+                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ2NDkxNTM2NjE1/details",
+                    points: 15
+                }
+            },
+            3: { // Orpheus
+                analytical: {
+                    title: "The Scholar's Path",
+                    icon: "📜",
+                    name: "CER: Orpheus Analysis",
+                    description: "In Orpheus and Eurydice (Evslin), the myth shows that even powerful love and talent can fail when doubt takes over, and that trust and self-control matter most when one decision carries a permanent consequence.",
+                    link: "https://app.flintk12.com/activities/cer-writing-coa-9b4629/sessions/new",
+                    points: 15
+                },
+                creative: {
+                    title: "The Creator's Path",
+                    icon: "🎨",
+                    name: "Orpheus Creative Story",
+                    description: "Give Orpheus a second chance by changing the outcome of his tragic trip through Tartarus. Write a new ending for Orpheus and Eurydice.",
+                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ5OTEwOTU3Nzg5/details",
+                    points: 15
+                },
+                word_cloud: {
+                    title: "Word Cloud",
+                    icon: "☁️",
+                    name: "Orpheus Word Cloud",
+                    description: "Create a word cloud capturing the key themes, vocabulary, and emotions from the myth of Orpheus and Eurydice.",
+                    link: "https://worditout.com/word-cloud/create",
+                    points: 12
                 }
             }
         };
@@ -10020,6 +10050,10 @@
                 }
                 
                 let html = '';
+                
+                // Reset modal width (3-card portals will widen it below)
+                const modalContent = document.querySelector('#myth-quiz-modal .modal-content');
+                if (modalContent) modalContent.style.maxWidth = '700px';
                 
                 // STATE: Virtue already claimed — show completed view
                 if (portal.virtue_claimed) {
@@ -10067,28 +10101,37 @@
                     return;
                 }
                 
-                // STATE: Quiz passed, not yet approved — show two path cards
+                // STATE: Quiz passed, not yet approved — show path cards
+                const hasThreeOptions = assignments.word_cloud ? true : false;
+                const gridCols = hasThreeOptions ? '1fr 1fr 1fr' : '1fr 1fr';
+                
+                // Widen modal if 3 cards
+                if (hasThreeOptions && modalContent) {
+                    modalContent.style.maxWidth = '920px';
+                }
+                
                 html += `
                     <div style="text-align: center; margin-bottom: 16px;">
                         <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✅ Quiz Passed!</div>
                         <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px; margin-bottom: 4px;">
                             ${portal.virtue_emoji || '🏛️'} Earn the Virtue of <span style="color: #ffd700;">${portal.virtue_english}</span>
                         </div>
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Choose a path and complete on Google Classroom</div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Choose one assignment and complete it</div>
                     </div>
                     
                     <div style="font-family: 'Cinzel', serif; font-size: 15px; color: #ff6b35; text-align: center; font-weight: 700; margin-bottom: 12px;">
                         ⚡ CHOOSE YOUR PATH ⚡
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: ${gridCols}; gap: 12px; margin-bottom: 16px;">
                         ${renderPathCard(assignments.analytical, 'analytical', glowCol, portalId)}
                         ${renderPathCard(assignments.creative, 'creative', glowCol, portalId)}
+                        ${hasThreeOptions ? renderPathCard(assignments.word_cloud, 'word_cloud', glowCol, portalId) : ''}
                     </div>
                     
                     <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.15);">
                         <div style="font-size: 12px; color: rgba(255,255,255,0.5);">
-                            ⏳ After you complete and turn in on Google Classroom, Mr. Sebek will verify and unlock your virtue.
+                            ⏳ After you complete your assignment, Mr. Sebek will verify and unlock your virtue.
                         </div>
                     </div>`;
                 
@@ -10100,9 +10143,18 @@
         }
         
         function renderPathCard(assignment, pathType, glowCol, portalId) {
-            const borderColor = pathType === 'analytical' ? '#60a5fa' : '#f59e0b';
-            const bgColor = pathType === 'analytical' ? 'rgba(96,165,250,0.08)' : 'rgba(245,158,11,0.08)';
-            const labelColor = pathType === 'analytical' ? '#93c5fd' : '#fcd34d';
+            const colorMap = {
+                analytical: { border: '#60a5fa', bg: 'rgba(96,165,250,0.08)', label: '#93c5fd' },
+                creative:   { border: '#f59e0b', bg: 'rgba(245,158,11,0.08)', label: '#fcd34d' },
+                word_cloud: { border: '#a78bfa', bg: 'rgba(167,139,250,0.08)', label: '#c4b5fd' }
+            };
+            const colors = colorMap[pathType] || colorMap.creative;
+            const borderColor = colors.border;
+            const bgColor = colors.bg;
+            const labelColor = colors.label;
+            const pts = assignment.points || 15;
+            
+            const linkLabel = pathType === 'word_cloud' ? '☁️ Create Word Cloud' : '📋 View Directions';
             
             const linkBtn = assignment.link ? `
                 <a href="${assignment.link}" target="_blank" style="
@@ -10112,7 +10164,7 @@
                     font-size: 12px; font-weight: 600; text-decoration: none;
                     transition: all 0.2s;
                 " onmouseover="this.style.background='${borderColor}44'" onmouseout="this.style.background='${borderColor}22'">
-                    📋 View Directions
+                    ${linkLabel}
                 </a>` : `
                 <div style="margin-top: 10px; padding: 6px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 11px; color: rgba(255,255,255,0.4);">
                     Complete on Google Classroom
@@ -10135,7 +10187,7 @@
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.4; min-height: 36px;">
                         ${assignment.description}
                     </div>
-                    <div style="font-size: 12px; color: #ffd700; margin-top: 8px; font-weight: 600;">15 points</div>
+                    <div style="font-size: 12px; color: #ffd700; margin-top: 8px; font-weight: 600;">${pts} points</div>
                     ${linkBtn}
                 </div>`;
         }
