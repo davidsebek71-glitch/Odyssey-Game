@@ -4082,6 +4082,7 @@
                     <option value="comp_conn">Reading Guide</option>
                     <option value="creative">Creative Assignment</option>
                     <option value="cer">CER (Claim-Evidence-Reasoning)</option>
+                    <option value="word_cloud">Word Cloud</option>
                     <option value="bonus">Student Created Bonus</option>
                     <option value="membean">Membean</option>
                     <option value="citizenship">Citizenship</option>
@@ -6503,6 +6504,7 @@
                 return 5;
             }
             if (category === 'word_cloud') {
+                if (myth === 'Orpheus') return 15;
                 return 20;
             }
             if (category === 'mural') {
@@ -10020,7 +10022,7 @@
                     name: "Orpheus Word Cloud",
                     description: "Create a word cloud capturing the key themes, vocabulary, and emotions from the myth of Orpheus and Eurydice.",
                     link: "https://worditout.com/word-cloud/create",
-                    points: 12
+                    points: 15
                 }
             }
         };

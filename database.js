@@ -965,21 +965,21 @@ function runMigrations() {
       }
     }
     
-    // Fix word cloud points: should be 12, not 20
+    // Fix word cloud points: should be 12, not 20 (except Orpheus which is 15)
     try {
-      const wcCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical' AND max_points != 12");
+      const wcCheck = db.exec("SELECT COUNT(*) FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical' AND myth_god != 'Orpheus' AND max_points != 12");
       const wcCount = wcCheck[0] ? wcCheck[0].values[0][0] : 0;
       if (wcCount > 0) {
-        db.run("UPDATE assignments_ref SET max_points = 12 WHERE assignment_type = 'word_cloud' AND age = 'Classical'");
+        db.run("UPDATE assignments_ref SET max_points = 12 WHERE assignment_type = 'word_cloud' AND age = 'Classical' AND myth_god != 'Orpheus'");
         console.log(`✅ Fixed ${wcCount} Classical word cloud assignments → 12 pts`);
       }
-      // Also fix any grade_records that recorded points_possible as 20 for Classical word clouds
+      // Also fix any grade_records that recorded points_possible as 20 for Classical word clouds (except Orpheus)
       const grCheck = db.exec(`SELECT COUNT(*) FROM grade_records WHERE points_possible = 20 AND assignment_id IN 
-        (SELECT assignment_id FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical')`);
+        (SELECT assignment_id FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical' AND myth_god != 'Orpheus')`);
       const grCount = grCheck[0] ? grCheck[0].values[0][0] : 0;
       if (grCount > 0) {
         db.run(`UPDATE grade_records SET points_possible = 12, points_earned = MIN(points_earned, 12) WHERE assignment_id IN 
-          (SELECT assignment_id FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical')`);
+          (SELECT assignment_id FROM assignments_ref WHERE assignment_type = 'word_cloud' AND age = 'Classical' AND myth_god != 'Orpheus')`);
         console.log(`✅ Fixed ${grCount} grade records: word cloud points_possible → 12`);
       }
     } catch (err) {
@@ -1588,6 +1588,15 @@ function seedReferenceData() {
     console.log('Migration note: Prometheus bonus update -', e.message);
   }
 
+  // V94 FIX: Orpheus Word Cloud increased from 12 to 15 points (consistency with CER/Creative paths)
+  try {
+    db.run("UPDATE assignments_ref SET max_points = 15 WHERE myth_god = 'Orpheus' AND assignment_type = 'word_cloud' AND section = 'classical_creative'");
+    db.run(`UPDATE grade_records SET points_possible = 15 WHERE assignment_id IN (SELECT assignment_id FROM assignments_ref WHERE myth_god = 'Orpheus' AND assignment_type = 'word_cloud' AND section = 'classical_creative')`);
+    console.log('✅ Orpheus Word Cloud updated to 15 pts');
+  } catch (e) {
+    console.log('Migration note: Orpheus Word Cloud update -', e.message);
+  }
+
   // V94 FIX: Backfill missing quiz grade_records from myth_quiz_attempts
   // Bug: submit-quiz was missing Orpheus mapping, so passed quizzes didn't create grade_records
   try {
@@ -2028,7 +2037,7 @@ function seedReferenceData() {
       // Word Clouds (12 pts each)
       ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Pandora myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Phaethon myth', null, 0, 'Classical'],
-      ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
+      ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 15, 'Word cloud capturing key themes and vocabulary from the Orpheus myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Echo and Narcissus', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from the Icarus myth', null, 0, 'Classical'],
       ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud capturing key themes and vocabulary from Eros and Psyche', null, 0, 'Classical'],
@@ -2134,7 +2143,7 @@ function seedReferenceData() {
           ['classical_creative', 'mural', 'Constellations', 'Constellations Pixton', 16, 'Comic retelling of a constellation myth using Pixton', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Pandora', 'Pandora Word Cloud', 12, 'Word cloud for Pandora myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Phaethon', 'Phaethon Word Cloud', 12, 'Word cloud for Phaethon myth', null, 0, 'Classical'],
-          ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 12, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
+          ['classical_creative', 'word_cloud', 'Orpheus', 'Orpheus Word Cloud', 15, 'Word cloud for Orpheus myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Echo and Narcissus', 'Echo and Narcissus Word Cloud', 12, 'Word cloud for Echo and Narcissus', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Icarus', 'Icarus Word Cloud', 12, 'Word cloud for Icarus myth', null, 0, 'Classical'],
           ['classical_creative', 'word_cloud', 'Eros and Psyche', 'Eros and Psyche Word Cloud', 12, 'Word cloud for Eros and Psyche', null, 0, 'Classical'],
