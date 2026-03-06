@@ -9717,6 +9717,22 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
     } catch(e) { /* table may not exist yet */ }
     
+    // Recently completed trades (last 5 min) for celebration
+    let recentCompleted = [];
+    try {
+      recentCompleted = query(`
+        SELECT t.trade_id, t.give_resource, t.give_amount, t.receive_resource, t.receive_amount,
+               t.initiator_id, t.partner_id,
+               si.name as initiator_name, sp.name as partner_name
+        FROM trades t
+        JOIN students si ON t.initiator_id = si.student_id
+        JOIN students sp ON t.partner_id = sp.student_id
+        WHERE (t.initiator_id = ? OR t.partner_id = ?) AND t.status = 'completed'
+          AND t.completed_at >= datetime('now', '-5 minutes')
+        ORDER BY t.completed_at DESC
+      `, [student_id, student_id]);
+    } catch(e) { /* non-critical */ }
+    
     res.json({
       student_id,
       class_period: student.class_period,
@@ -9741,6 +9757,7 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       has_transport_ship: hasTransportShip,
       resource_threshold: threshold,
       pending_trades: pendingTrades,
+      recent_completed: recentCompleted,
       market_supply: marketSupply
     });
   } catch (err) {

@@ -10673,6 +10673,8 @@
             stopMarketAuctionPolling();
         }
         
+        const celebratedTradeIds = new Set();
+        
         async function loadTradePortalData() {
             try {
                 const [myRes, marketRes] = await Promise.all([
@@ -10681,6 +10683,17 @@
                 ]);
                 tradePortalData = await myRes.json();
                 tradeMarketData = await marketRes.json();
+                
+                // Check for recently completed trades to celebrate
+                const recent = tradePortalData.recent_completed || [];
+                for (const trade of recent) {
+                    if (!celebratedTradeIds.has(trade.trade_id)) {
+                        celebratedTradeIds.add(trade.trade_id);
+                        showHermesBlessing(trade);
+                        break; // One celebration at a time
+                    }
+                }
+                
                 renderTradePortal();
             } catch (err) {
                 document.getElementById('trade-portal-body').innerHTML = '<div style="color: #f87171; padding: 20px;">Failed to load trade data</div>';
@@ -11278,6 +11291,7 @@
                 const data = await res.json();
                 if (data.success) {
                     if (trade) {
+                        celebratedTradeIds.add(trade.trade_id);
                         showHermesBlessing(trade);
                     } else {
                         alert('Trade completed!');
