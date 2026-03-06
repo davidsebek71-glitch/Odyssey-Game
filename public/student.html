@@ -10691,8 +10691,8 @@
                         const val = values[r] || 10;
                         const pct = Math.round((val / maxVal) * 100);
                         const valLabel = val >= 12 ? 'High Value' : val >= 8 ? 'Fair Value' : 'Low Value';
-                        const valColor = val >= 12 ? '#f87171' : val >= 8 ? '#fbbf24' : '#4ade80';
-                        const barColor = val >= 12 ? 'linear-gradient(to top, #dc2626, #f87171)' : val >= 8 ? 'linear-gradient(to top, #d97706, #fbbf24)' : 'linear-gradient(to top, #16a34a, #4ade80)';
+                        const valColor = val >= 12 ? '#4ade80' : val >= 8 ? '#fbbf24' : '#f87171';
+                        const barColor = val >= 12 ? 'linear-gradient(to top, #16a34a, #4ade80)' : val >= 8 ? 'linear-gradient(to top, #d97706, #fbbf24)' : 'linear-gradient(to top, #dc2626, #f87171)';
                         return `<div style="flex:1;min-width:80px;background:rgba(96,165,250,0.04);border:1px solid rgba(96,165,250,0.12);border-radius:10px;padding:10px 8px;text-align:center;">
                             <div style="font-size:16px;margin-bottom:4px;">${TRADE_ICONS[r]}</div>
                             <div style="width:24px;height:60px;background:rgba(255,255,255,0.06);border-radius:4px;margin:0 auto 6px;position:relative;overflow:hidden;">
@@ -10791,21 +10791,21 @@
             if (sellableResources.length > 0) {
                 html += `<div style="margin-bottom: 24px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#f87171;letter-spacing:1px;">Sell Resources</div>
-                        <div style="flex:1;height:1px;background:rgba(239,68,68,0.2);"></div>
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#60a5fa;letter-spacing:1px;">Sell Resources</div>
+                        <div style="flex:1;height:1px;background:rgba(96,165,250,0.2);"></div>
                         <div style="font-size:10px;color:rgba(255,255,255,0.3);">10% market fee</div>
                     </div>
-                    <div style="background:rgba(239,68,68,0.03);border:2px solid rgba(239,68,68,0.15);border-radius:14px;padding:18px 20px;">
+                    <div style="background:rgba(96,165,250,0.04);border:2px solid rgba(96,165,250,0.2);border-radius:14px;padding:18px 20px;">
                         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                             <select id="trade-sell-resource" onchange="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;outline:none;">
                                 ${sellableResources.map(r => 
                                     `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (${res[r]})</option>`
                                 ).join('')}
                             </select>
-                            <input type="number" id="trade-sell-amount" min="10" value="50" oninput="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;width:80px;font-size:14px;font-weight:700;text-align:center;outline:none;">
-                            <span style="font-size:11px;color:rgba(255,255,255,0.3);">units →</span>
-                            <span id="trade-sell-return" style="font-size:14px;font-weight:700;color:#f87171;">—</span>
-                            <button onclick="sellResource()" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#f87171;padding:10px 22px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:13px;cursor:pointer;">Sell</button>
+                            <input type="number" id="trade-sell-amount" min="10" value="50" oninput="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;width:72px;font-size:16px;font-weight:700;text-align:center;outline:none;">
+                            <span style="color:rgba(255,255,255,0.25);font-size:16px;">→</span>
+                            <span id="trade-sell-return" style="font-size:14px;font-weight:700;color:#60a5fa;">—</span>
+                            <button onclick="sellResource()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:12px 28px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap;">Sell</button>
                         </div>
                         <div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:8px;">10 units = 1 pt, minus 10% market fee. Points return to your alliance treasury.</div>
                     </div>
@@ -10813,7 +10813,38 @@
                 setTimeout(() => updateSellPreview(), 50);
             }
             
-            // ===== SECTION 2: TRADE PARTNERS =====
+            // ===== PENDING TRADES =====
+            const pending = d.pending_trades || [];
+            if (pending.length > 0) {
+                html += `<div style="margin-bottom: 24px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
+                        <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
+                        <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>
+                    </div>`;
+                pending.forEach(t => {
+                    const isInitiator = t.initiator_id === d.student_id;
+                    const isFlagged = t.status === 'flagged';
+                    html += `<div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <div style="font-size:13px;line-height:1.5;">
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
+                            <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
+                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
+                            <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
+                            ${isFlagged ? '<span style="background:#fbbf24;color:#000;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;margin-left:8px;">⏳ TEACHER REVIEW</span>' : ''}
+                        </div>
+                        <div style="display:flex;gap:6px;flex-shrink:0;">
+                            ${!isInitiator && !isFlagged ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
+                            ${!isInitiator && !isFlagged ? `<button onclick="counterTrade(${t.trade_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount}, '${t.initiator_name}')" style="background:rgba(234,179,8,0.12);color:#fbbf24;border:1px solid rgba(234,179,8,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">⚖ Counter</button>` : ''}
+                            ${!isFlagged ? `<button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>` : ''}
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            
+            // ===== TRADE PARTNERS =====
             html += `<div style="margin-bottom: 24px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
                     <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#60a5fa;letter-spacing:1px;">Trade Partners</div>
@@ -10880,17 +10911,17 @@
                 </div>`;
                 
                 // Partner cards grid
-                html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">`;
+                html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">`;
                 partners.forEach(p => {
                     const pRes = { olive: p.olive || 0, grape: p.grape || 0, iron: p.iron || 0, grain: p.grain || 0 };
                     // Has (resources above 200) and Needs (below 100)
                     const hasItems = ['olive','grape','iron','grain'].filter(r => pRes[r] >= 200);
                     const needItems = ['olive','grape','iron','grain'].filter(r => pRes[r] < 150);
                     
-                    html += `<div id="tp-pc-${p.student_id}" onclick="selectTradePartner(${p.student_id})" style="background:rgba(96,165,250,0.03);border:2px solid rgba(96,165,250,0.12);border-radius:12px;padding:14px;cursor:pointer;transition:all 0.2s;position:relative;">
+                    html += `<div id="tp-pc-${p.student_id}" onclick="selectTradePartner(${p.student_id})" style="background:rgba(96,165,250,0.03);border:2px solid rgba(96,165,250,0.12);border-radius:10px;padding:10px;cursor:pointer;transition:all 0.2s;position:relative;">
                         <div style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;" id="tp-check-${p.student_id}">✓</div>
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                            <div style="width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.15);">${TRADE_ICONS[p.native_resource]}</div>
+                            <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.15);">${TRADE_ICONS[p.native_resource]}</div>
                             <div>
                                 <div style="font-size:14px;font-weight:700;color:#e2e8f0;">${p.name}</div>
                                 <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px;">${p.alliance_name}</div>
@@ -10916,35 +10947,8 @@
                 html += `</div></div>`;
             }
             
-            // ===== SECTION 3: PENDING TRADES =====
-            const pending = d.pending_trades || [];
-            if (pending.length > 0) {
-                html += `<div style="margin-bottom: 24px;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                        <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c084fc;letter-spacing:1px;">Pending Trades</div>
-                        <div style="flex:1;height:1px;background:rgba(192,132,252,0.2);"></div>
-                        <div style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:rgba(192,132,252,0.15);color:#c084fc;">${pending.length} waiting</div>
-                    </div>`;
-                pending.forEach(t => {
-                    const isInitiator = t.initiator_id === d.student_id;
-                    html += `<div style="background:rgba(192,132,252,0.04);border:2px solid rgba(192,132,252,0.15);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                        <div style="font-size:13px;line-height:1.5;">
-                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? 'You' : t.initiator_name}</span> give 
-                            <span style="color:#fbbf24;font-weight:700;">${t.give_amount} ${TRADE_ICONS[t.give_resource]}</span>
-                            <span style="color:rgba(255,255,255,0.25);margin:0 4px;">→</span>
-                            <span style="color:#60a5fa;font-weight:600;">${isInitiator ? t.partner_name : 'You'}</span> give 
-                            <span style="color:#fbbf24;font-weight:700;">${t.receive_amount} ${TRADE_ICONS[t.receive_resource]}</span>
-                        </div>
-                        <div style="display:flex;gap:6px;flex-shrink:0;">
-                            ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
-                            ${!isInitiator ? `<button onclick="counterTrade(${t.trade_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount}, '${t.initiator_name}')" style="background:rgba(234,179,8,0.12);color:#fbbf24;border:1px solid rgba(234,179,8,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">⚖ Counter</button>` : ''}
-                            <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
-                        </div>
-                    </div>`;
-                });
-                html += `</div>`;
-            }
             
+
             body.innerHTML = html;
             
             // Buy input listener
@@ -11346,37 +11350,81 @@
 
 
         async function counterTrade(tradeId, theyGiveRes, theyGiveAmt, theyWantRes, theyWantAmt, initiatorName) {
-            const newAmt = prompt(`${initiatorName} offered ${theyGiveAmt} ${theyGiveRes} for ${theyWantAmt} ${theyWantRes}.\n\nEnter your counter-offer amount of ${theyWantRes} you'd give instead:`);
-            if (!newAmt) return;
-            const amt = parseInt(newAmt);
-            if (isNaN(amt) || amt < 1) return alert('Invalid amount');
+            // Show inline counter-offer form
+            const overlay = document.createElement('div');
+            overlay.id = 'counter-overlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            overlay.innerHTML = `
+                <div style="background:#1e1b3a;border:2px solid rgba(192,132,252,0.3);border-radius:16px;padding:24px;max-width:380px;width:90%;color:#fff;">
+                    <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#c084fc;margin-bottom:6px;">Counter Offer</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:16px;">${initiatorName} offered:</div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
+                        <div style="flex:1;text-align:center;">
+                            <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:4px;">They give</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.25);">${TRADE_ICONS[theyGiveRes]} ${TRADE_NAMES[theyGiveRes]}</div>
+                            <div style="font-size:16px;font-weight:700;color:#fbbf24;">${theyGiveAmt}</div>
+                        </div>
+                        <div style="color:rgba(255,255,255,0.2);font-size:18px;">→</div>
+                        <div style="flex:1;text-align:center;">
+                            <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:4px;">They want</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.25);">${TRADE_ICONS[theyWantRes]} ${TRADE_NAMES[theyWantRes]}</div>
+                            <div style="font-size:16px;font-weight:700;color:#fbbf24;">${theyWantAmt}</div>
+                        </div>
+                    </div>
+                    <div style="font-size:13px;font-weight:700;color:#c084fc;margin-bottom:10px;">Your counter:</div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        <div style="flex:1;text-align:center;">
+                            <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:4px;">You want ${TRADE_ICONS[theyGiveRes]}</div>
+                            <input type="number" id="counter-want-amt" value="${theyGiveAmt}" min="1" max="130" style="background:rgba(255,255,255,0.08);border:1px solid rgba(192,132,252,0.3);color:#fff;padding:8px;border-radius:8px;width:80px;font-size:16px;font-weight:700;text-align:center;outline:none;">
+                        </div>
+                        <div style="color:rgba(255,255,255,0.2);font-size:18px;">⚖</div>
+                        <div style="flex:1;text-align:center;">
+                            <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:4px;">You give ${TRADE_ICONS[theyWantRes]}</div>
+                            <input type="number" id="counter-give-amt" value="${theyWantAmt}" min="1" max="130" style="background:rgba(255,255,255,0.08);border:1px solid rgba(192,132,252,0.3);color:#fff;padding:8px;border-radius:8px;width:80px;font-size:16px;font-weight:700;text-align:center;outline:none;">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button id="counter-submit-btn" style="flex:1;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:none;padding:10px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:13px;cursor:pointer;">Send Counter</button>
+                        <button id="counter-cancel-btn" style="flex:1;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.1);padding:10px;border-radius:10px;font-family:'Cinzel',serif;font-weight:600;font-size:13px;cursor:pointer;">Cancel</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
             
-            // Reject original, then propose counter
-            try {
-                await fetch(`${API_URL}/trade/reject/${tradeId}`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-                });
+            document.getElementById('counter-cancel-btn').onclick = () => overlay.remove();
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            
+            document.getElementById('counter-submit-btn').onclick = async () => {
+                const giveAmt = parseInt(document.getElementById('counter-give-amt').value);
+                const wantAmt = parseInt(document.getElementById('counter-want-amt').value);
+                if (isNaN(giveAmt) || giveAmt < 1) { alert('Enter a valid give amount'); return; }
+                if (isNaN(wantAmt) || wantAmt < 1) { alert('Enter a valid want amount'); return; }
                 
-                // Get the initiator's student_id from pending trades
-                const pending = tradePortalData?.pending_trades || [];
-                const orig = pending.find(t => t.trade_id === tradeId);
-                if (!orig) { alert('Could not find original trade'); await loadTradePortalData(); return; }
-                
-                const res = await fetch(`${API_URL}/trade/propose`, {
-                    method: 'POST', 
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        partner_id: orig.initiator_id,
-                        give_resource: theyWantRes,
-                        give_amount: amt,
-                        receive_resource: theyGiveRes,
-                        receive_amount: theyGiveAmt
-                    })
-                });
-                const data = await res.json();
-                if (data.success) { alert('Counter-offer sent!'); await loadTradePortalData(); }
-                else alert('Error: ' + (data.error || 'Failed to send counter'));
-            } catch (err) { alert('Failed to send counter-offer'); }
+                overlay.remove();
+                try {
+                    await fetch(`${API_URL}/trade/reject/${tradeId}`, {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    const pending = tradePortalData?.pending_trades || [];
+                    const orig = pending.find(t => t.trade_id === tradeId);
+                    if (!orig) { alert('Could not find original trade'); await loadTradePortalData(); return; }
+                    
+                    const res = await fetch(`${API_URL}/trade/propose`, {
+                        method: 'POST', 
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            partner_id: orig.initiator_id,
+                            give_resource: theyWantRes,
+                            give_amount: giveAmt,
+                            receive_resource: theyGiveRes,
+                            receive_amount: wantAmt
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success) { alert('Counter-offer sent!'); await loadTradePortalData(); }
+                    else alert('Error: ' + (data.error || 'Failed to send counter'));
+                } catch (err) { alert('Failed to send counter-offer'); }
+            };
         }
 
         // ==================== HALL OF HONOR BADGE SYSTEM ====================

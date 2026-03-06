@@ -9706,7 +9706,7 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       FROM trades t
       JOIN students si ON t.initiator_id = si.student_id
       JOIN students sp ON t.partner_id = sp.student_id
-      WHERE (t.initiator_id = ? OR t.partner_id = ?) AND t.status = 'pending'
+      WHERE (t.initiator_id = ? OR t.partner_id = ?) AND t.status IN ('pending', 'flagged')
       ORDER BY t.created_at DESC
     `, [student_id, student_id]);
     
@@ -9719,6 +9719,7 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
     
     res.json({
       student_id,
+      class_period: student.class_period,
       alliance_id: student.alliance_id,
       alliance_name: alliance.alliance_name,
       alliance_points: alliance.total_points,
