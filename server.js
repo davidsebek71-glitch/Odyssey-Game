@@ -10081,28 +10081,14 @@ app.post('/api/trade/flagged/:tradeId/approve', authenticateToken, (req, res) =>
     const trade = query("SELECT * FROM trades WHERE trade_id = ? AND status = 'flagged'", [trade_id])[0];
     if (!trade) return res.status(404).json({ error: 'Flagged trade not found' });
     
-    const initiatorRes = query('SELECT * FROM student_resources WHERE student_id = ?', [trade.initiator_id])[0];
-    const partnerRes = query('SELECT * FROM student_resources WHERE student_id = ?', [trade.partner_id])[0];
-    
-    if (!initiatorRes || initiatorRes[trade.give_resource] < trade.give_amount) {
-      run("UPDATE trades SET status = 'rejected' WHERE trade_id = ?", [trade_id]);
-      saveDatabase();
-      return res.status(400).json({ error: 'Initiator no longer has enough resources' });
-    }
-    if (!partnerRes || partnerRes[trade.receive_resource] < trade.receive_amount) {
-      run("UPDATE trades SET status = 'rejected' WHERE trade_id = ?", [trade_id]);
-      saveDatabase();
-      return res.status(400).json({ error: 'Partner no longer has enough resources' });
-    }
-    
-    run(`UPDATE student_resources SET ${trade.give_resource} = ${trade.give_resource} - ? WHERE student_id = ?`, [trade.give_amount, trade.initiator_id]);
-    run(`UPDATE student_resources SET ${trade.give_resource} = ${trade.give_resource} + ? WHERE student_id = ?`, [trade.give_amount, trade.partner_id]);
-    run(`UPDATE student_resources SET ${trade.receive_resource} = ${trade.receive_resource} - ? WHERE student_id = ?`, [trade.receive_amount, trade.partner_id]);
-    run(`UPDATE student_resources SET ${trade.receive_resource} = ${trade.receive_resource} + ? WHERE student_id = ?`, [trade.receive_amount, trade.initiator_id]);
-    
-    run("UPDATE trades SET status = 'approved', completed_at = CURRENT_TIMESTAMP WHERE trade_id = ?", [trade_id]);
+    // Teacher approval moves the trade to 'pending' so the partner can accept/decline/counter
+    // This prevents forcing students into trades they don't want
+    run("UPDATE trades SET status = 'pending', flagged = 0 WHERE trade_id = ?", [trade_id]);
     saveDatabase();
-    res.json({ success: true, message: 'Flagged trade approved and executed' });
+    
+    const initiator = query('SELECT name FROM students WHERE student_id = ?', [trade.initiator_id])[0];
+    const partner = query('SELECT name FROM students WHERE student_id = ?', [trade.partner_id])[0];
+    res.json({ success: true, message: `Trade approved for negotiation. ${partner?.name || 'Partner'} can now accept, counter, or decline.` });
   } catch (err) {
     console.error('Approve flagged error:', err);
     res.status(500).json({ error: 'Failed to approve trade' });
