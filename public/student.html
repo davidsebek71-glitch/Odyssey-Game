@@ -74,6 +74,30 @@
             0%, 100% { opacity: 1; text-shadow: 0 0 8px rgba(192,132,252,0.3); }
             50% { opacity: 0.6; text-shadow: 0 0 2px rgba(192,132,252,0.1); }
         }
+        @keyframes hermesAppear {
+            0% { transform: scale(0.5) translateY(30px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes hermesSpin {
+            0% { transform: rotateY(180deg) scale(0.5); opacity: 0; }
+            100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+        }
+        @keyframes hermesSlideLeft {
+            0% { transform: translateX(40px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes hermesSlideRight {
+            0% { transform: translateX(-40px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes hermesFade {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes hermesFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
         @keyframes lightningFlash {
             0% { opacity: 1; }
             8% { opacity: 1; }
@@ -11242,14 +11266,97 @@
         
         async function confirmTrade(tradeId) {
             if (!confirm('Accept this trade? This is final.')) return;
+            
+            // Grab trade details before confirming (so we have them for celebration)
+            const pending = tradePortalData?.pending_trades || [];
+            const trade = pending.find(t => t.trade_id === tradeId);
+            
             try {
                 const res = await fetch(`${API_URL}/trade/confirm/${tradeId}`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data.success) { alert('Trade completed!'); await loadTradePortalData(); }
+                if (data.success) {
+                    if (trade) {
+                        showHermesBlessing(trade);
+                    } else {
+                        alert('Trade completed!');
+                    }
+                    await loadTradePortalData();
+                }
                 else alert('Error: ' + (data.error || 'Failed'));
             } catch (err) { alert('Failed to confirm trade'); }
+        }
+        
+        function showHermesBlessing(trade) {
+            const isInitiator = trade.initiator_id === tradePortalData?.student_id;
+            const youGaveRes = isInitiator ? trade.give_resource : trade.receive_resource;
+            const youGaveAmt = isInitiator ? trade.give_amount : trade.receive_amount;
+            const youGotRes = isInitiator ? trade.receive_resource : trade.give_resource;
+            const youGotAmt = isInitiator ? trade.receive_amount : trade.give_amount;
+            const partnerName = isInitiator ? trade.partner_name : trade.initiator_name;
+            
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10000;opacity:0;transition:opacity 0.4s;';
+            overlay.innerHTML = `
+                <div style="text-align:center;max-width:420px;width:90%;animation:hermesAppear 0.6s ease-out;">
+                    <div style="font-size:64px;margin-bottom:8px;animation:hermesSpin 1s ease-out;">⚚</div>
+                    <div style="font-family:'Cinzel',serif;font-size:22px;color:#ffd700;font-weight:700;letter-spacing:2px;margin-bottom:4px;text-shadow:0 0 20px rgba(255,215,0,0.4);">
+                        HERMES' BLESSING
+                    </div>
+                    <div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:24px;font-style:italic;">
+                        The god of trade smiles upon this exchange
+                    </div>
+                    
+                    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:24px;">
+                        <div style="animation:hermesSlideLeft 0.8s ease-out 0.3s both;">
+                            <div style="font-size:32px;margin-bottom:4px;">${TRADE_ICONS[youGaveRes]}</div>
+                            <div style="font-size:20px;font-weight:700;color:#f87171;">−${youGaveAmt}</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.3);">${TRADE_NAMES[youGaveRes]}</div>
+                        </div>
+                        
+                        <div style="animation:hermesFade 0.6s ease-out 0.5s both;">
+                            <div style="font-size:28px;color:#ffd700;margin:0 8px;">⇄</div>
+                        </div>
+                        
+                        <div style="animation:hermesSlideRight 0.8s ease-out 0.3s both;">
+                            <div style="font-size:32px;margin-bottom:4px;">${TRADE_ICONS[youGotRes]}</div>
+                            <div style="font-size:20px;font-weight:700;color:#4ade80;">+${youGotAmt}</div>
+                            <div style="font-size:10px;color:rgba(255,255,255,0.3);">${TRADE_NAMES[youGotRes]}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:20px;">
+                        Trade with <span style="color:#60a5fa;font-weight:600;">${partnerName}</span>
+                    </div>
+                    
+                    <div id="hermes-particles" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:hidden;"></div>
+                    
+                    <div style="font-size:11px;color:rgba(255,255,255,0.25);animation:hermesFade 1s ease-out 1.5s both;">Tap anywhere to continue</div>
+                </div>`;
+            
+            document.body.appendChild(overlay);
+            requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+            
+            // Spawn gold particles
+            const particleContainer = overlay.querySelector('#hermes-particles');
+            for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div');
+                const x = Math.random() * 100;
+                const delay = Math.random() * 2;
+                const dur = 2 + Math.random() * 2;
+                const size = 4 + Math.random() * 6;
+                p.style.cssText = `position:absolute;left:${x}%;top:-10px;width:${size}px;height:${size}px;background:#ffd700;border-radius:50%;opacity:0;animation:hermesFall ${dur}s ease-in ${delay}s both;`;
+                particleContainer.appendChild(p);
+            }
+            
+            // Dismiss on click or after 5 seconds
+            const dismiss = () => {
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.remove(), 400);
+            };
+            overlay.onclick = dismiss;
+            setTimeout(dismiss, 5000);
         }
         
         async function rejectTrade(tradeId) {
