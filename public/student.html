@@ -3297,6 +3297,16 @@
 
         // Load dashboard first (sets dashboardData needed by other sections), then load rest in parallel
         loadDashboard().then(() => {
+            // Check if returning from Daedalus game or other portal redirect
+            const urlParams = new URLSearchParams(window.location.search);
+            const openPortalId = urlParams.get('openPortal');
+            if (openPortalId) {
+                // Clean the URL
+                window.history.replaceState({}, '', '/student.html');
+                // Open the portal after a short delay to let data load
+                setTimeout(() => openMythPortal(parseInt(openPortalId)), 500);
+            }
+            
             // Stagger parallel loads to avoid overwhelming the browser
             Promise.all([
                 loadInvitations(),
@@ -9887,6 +9897,22 @@
         let quizAnswered = false;
 
         async function openMythPortal(portalId) {
+            // Portal 5 (Icarus) uses the Wings of Daedalus escape game instead of regular quiz
+            if (portalId === 5) {
+                try {
+                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
+                    const statusData = await statusRes.json();
+                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 5) : false;
+                    if (!hasPassed) {
+                        window.location.href = `/daedalus_escape.html?token=${token}`;
+                        return;
+                    }
+                    // If already passed, fall through to show assignments panel
+                } catch (err) {
+                    console.error('Error checking Daedalus status:', err);
+                }
+            }
+            
             currentQuizPortalId = portalId;
             currentQuestionIndex = 0;
             quizCorrectCount = 0;
@@ -10281,7 +10307,7 @@
                 
                 // Header with virtue info
                 html += `<div style="text-align: center; margin-bottom: 16px;">
-                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">✅ Quiz Passed!</div>
+                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">${portalId === 5 ? '✅ Escape Complete!' : '✅ Quiz Passed!'}</div>
                     <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px;">
                         ${portal.virtue_emoji || '🏛️'} Virtue: <span style="color: #ffd700;">${portal.virtue_english}</span>
                         <span style="color: rgba(255,255,255,0.4); font-size: 11px;">(${portal.virtue_greek})</span>
