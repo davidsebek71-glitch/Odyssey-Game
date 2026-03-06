@@ -10686,10 +10686,12 @@
                 
                 // Check for recently completed trades to celebrate
                 const recent = tradePortalData.recent_completed || [];
+                console.log('Recent completed trades:', recent.length, recent.map(t => t.trade_id));
                 for (const trade of recent) {
                     if (!celebratedTradeIds.has(trade.trade_id)) {
                         celebratedTradeIds.add(trade.trade_id);
-                        showHermesBlessing(trade);
+                        // Delay slightly so portal finishes rendering first
+                        setTimeout(() => showHermesBlessing(trade), 300);
                         break; // One celebration at a time
                     }
                 }
@@ -11350,7 +11352,7 @@
                 </div>`;
             
             document.body.appendChild(overlay);
-            requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+            setTimeout(() => { overlay.style.opacity = '1'; }, 50);
             
             // Spawn gold particles
             const particleContainer = overlay.querySelector('#hermes-particles');
