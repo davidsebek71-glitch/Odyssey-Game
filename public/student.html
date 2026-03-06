@@ -2997,7 +2997,7 @@
                 </div>
                 <div class="form-group" id="myth-group">
                     <label>Myth / God</label>
-                    <select id="submit-myth" onchange="onMythChange()">
+                    <select id="submit-myth">
                         <option value="">Select a myth...</option>
                     </select>
                 </div>
@@ -4082,7 +4082,6 @@
                     <option value="comp_conn">Reading Guide</option>
                     <option value="creative">Creative Assignment</option>
                     <option value="cer">CER (Claim-Evidence-Reasoning)</option>
-                    <option value="word_cloud">Word Cloud</option>
                     <option value="bonus">Student Created Bonus</option>
                     <option value="membean">Membean</option>
                     <option value="citizenship">Citizenship</option>
@@ -4124,8 +4123,8 @@
                 data.section = getSectionForMyth(category, mythValue); // Auto-determine section
             }
             
-            // Include max_points for all tracked categories - AUTO-CALCULATED
-            if (category === 'quiz' || category === 'comp_conn' || category === 'rite_of_passage' || category === 'word_cloud' || category === 'mural' || category === 'creative' || category === 'cer') {
+            // Include max_points for quizzes, comp conns, word clouds, murals, and rite of passage - AUTO-CALCULATED
+            if (category === 'quiz' || category === 'comp_conn' || category === 'rite_of_passage' || category === 'word_cloud' || category === 'mural') {
                 const myth = data.myth_god || '';
                 data.max_points = getMaxPoints(category, myth);
             }
@@ -6492,19 +6491,16 @@
                 return 100;
             }
             if (category === 'comp_conn') {
-                // Classical reading guides are 12 pts (Icarus is 5), Archaic are 10
-                if (myth === 'Icarus') return 5;
+                // Classical reading guides are 12 pts, Archaic are 10
                 return CLASSICAL_MYTHS.includes(myth) ? 12 : 10;
             }
             if (category === 'quiz') {
-                // Classical quizzes are 10 pts (Icarus is 17), special Archaic quizzes are 10, default Archaic is 5
-                if (myth === 'Icarus') return 17;
+                // Classical quizzes are 10 pts, special Archaic quizzes are 10, default Archaic is 5
                 if (CLASSICAL_MYTHS.includes(myth)) return 10;
                 if (myth === 'Nine Muses' || myth === 'Prometheus') return 10;
                 return 5;
             }
             if (category === 'word_cloud') {
-                if (myth === 'Orpheus') return 15;
                 return 20;
             }
             if (category === 'mural') {
@@ -6513,7 +6509,6 @@
                 return null;
             }
             if (category === 'creative' || category === 'cer') {
-                if (myth === 'Icarus') return 20;
                 return 15;
             }
             return null; // Other categories don't have max points
@@ -6566,12 +6561,6 @@
         function populateMythDropdown(category) {
             const mythSelect = document.getElementById('submit-myth');
             mythSelect.innerHTML = '<option value="">Select a myth/god...</option>';
-            
-            // Reset points when dropdown repopulates
-            const pointsInput = document.getElementById('submit-points');
-            pointsInput.removeAttribute('max');
-            pointsInput.placeholder = 'Enter points';
-            pointsInput.value = '';
             
             // Color mapping for gods/myths
             const mythColors = {
@@ -6626,25 +6615,6 @@
                     const color = mythColors[opt.myth] || '#ffffff';
                     mythSelect.innerHTML += `<option value="${opt.myth}" style="color: ${color}; background: #1a0b2e;">${opt.myth}</option>`;
                 });
-            }
-        }
-
-        function onMythChange() {
-            const category = document.getElementById('submit-category').value;
-            const myth = document.getElementById('submit-myth').value;
-            const pointsInput = document.getElementById('submit-points');
-            
-            if (!myth || !category) return;
-            
-            const maxPts = getMaxPoints(category, myth);
-            if (maxPts) {
-                pointsInput.max = maxPts;
-                pointsInput.value = maxPts;
-                pointsInput.placeholder = `Max: ${maxPts}`;
-            } else {
-                pointsInput.removeAttribute('max');
-                pointsInput.placeholder = 'Enter points';
-                pointsInput.value = '';
             }
         }
 
@@ -9969,16 +9939,14 @@
                     icon: "📜",
                     name: "CER: Restraint or Hope?",
                     description: "Pandora's myth teaches that some actions cannot be undone. Is the myth's real lesson about having the restraint to stop before you act, or about finding hope after you've already made a mistake? Use evidence from the myth to support your claim.",
-                    link: "https://app.flintk12.com/activities/pandora-s-box-a-e9c111/sessions/new",
-                    points: 15
+                    link: "https://app.flintk12.com/activities/pandora-s-box-a-e9c111/sessions/new"
                 },
                 creative: {
                     title: "The Creator's Path",
                     icon: "🎨",
                     name: "Pandora Retelling",
                     description: "Retell the myth of Pandora from a different character's point of view.",
-                    link: "https://docs.google.com/presentation/d/e/2PACX-1vSUaMWz-ZQ_zoGNe3EZ2yw4qOkNmNbamYnPw-Mq7selnkjrmPAdJVR4kHED6nKp0XyCl83K9ur8nNly/pub?start=true&loop=true&delayms=60000",
-                    points: 15
+                    link: "https://docs.google.com/presentation/d/e/2PACX-1vSUaMWz-ZQ_zoGNe3EZ2yw4qOkNmNbamYnPw-Mq7selnkjrmPAdJVR4kHED6nKp0XyCl83K9ur8nNly/pub?start=true&loop=true&delayms=60000"
                 }
             },
             2: { // Phaethon
@@ -9987,42 +9955,14 @@
                     icon: "📜",
                     name: "CER: Phaethon Analysis",
                     description: "Analyze the myth of Phaethon using Claim, Evidence, and Reasoning. What lesson does this myth teach about the dangers of hubris and ignoring wise counsel?",
-                    link: "https://app.flintk12.com/activities/phaethon-analys-f14d05/sessions/new",
-                    points: 15
+                    link: "https://app.flintk12.com/activities/phaethon-analys-f14d05/sessions/new"
                 },
                 creative: {
                     title: "The Creator's Path",
                     icon: "🎨",
                     name: "Phaethon's Caution",
                     description: "Write a cautionary poem about Phaethon's ride across the sky in his father's sun chariot. Warn readers about the dangers of hubris and ignoring wise counsel.",
-                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ2NDkxNTM2NjE1/details",
-                    points: 15
-                }
-            },
-            3: { // Orpheus
-                analytical: {
-                    title: "The Scholar's Path",
-                    icon: "📜",
-                    name: "CER: Orpheus Analysis",
-                    description: "In Orpheus and Eurydice (Evslin), the myth shows that even powerful love and talent can fail when doubt takes over, and that trust and self-control matter most when one decision carries a permanent consequence.",
-                    link: "https://app.flintk12.com/activities/cer-writing-coa-9b4629/sessions/new",
-                    points: 15
-                },
-                creative: {
-                    title: "The Creator's Path",
-                    icon: "🎨",
-                    name: "Orpheus Creative Story",
-                    description: "Give Orpheus a second chance by changing the outcome of his tragic trip through Tartarus. Write a new ending for Orpheus and Eurydice.",
-                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ5OTEwOTU3Nzg5/details",
-                    points: 15
-                },
-                word_cloud: {
-                    title: "Word Cloud",
-                    icon: "☁️",
-                    name: "Orpheus Word Cloud",
-                    description: "Create a word cloud capturing the key themes, vocabulary, and emotions from the myth of Orpheus and Eurydice.",
-                    link: "https://worditout.com/word-cloud/create",
-                    points: 15
+                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ2NDkxNTM2NjE1/details"
                 }
             }
         };
@@ -10052,10 +9992,6 @@
                 }
                 
                 let html = '';
-                
-                // Reset modal width (3-card portals will widen it below)
-                const modalContent = document.querySelector('#myth-quiz-modal .modal-content');
-                if (modalContent) modalContent.style.maxWidth = '700px';
                 
                 // STATE: Virtue already claimed — show completed view
                 if (portal.virtue_claimed) {
@@ -10103,37 +10039,28 @@
                     return;
                 }
                 
-                // STATE: Quiz passed, not yet approved — show path cards
-                const hasThreeOptions = assignments.word_cloud ? true : false;
-                const gridCols = hasThreeOptions ? '1fr 1fr 1fr' : '1fr 1fr';
-                
-                // Widen modal if 3 cards
-                if (hasThreeOptions && modalContent) {
-                    modalContent.style.maxWidth = '920px';
-                }
-                
+                // STATE: Quiz passed, not yet approved — show two path cards
                 html += `
                     <div style="text-align: center; margin-bottom: 16px;">
                         <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">✅ Quiz Passed!</div>
                         <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px; margin-bottom: 4px;">
                             ${portal.virtue_emoji || '🏛️'} Earn the Virtue of <span style="color: #ffd700;">${portal.virtue_english}</span>
                         </div>
-                        <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Choose one assignment and complete it</div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Choose a path and complete on Google Classroom</div>
                     </div>
                     
                     <div style="font-family: 'Cinzel', serif; font-size: 15px; color: #ff6b35; text-align: center; font-weight: 700; margin-bottom: 12px;">
                         ⚡ CHOOSE YOUR PATH ⚡
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: ${gridCols}; gap: 12px; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
                         ${renderPathCard(assignments.analytical, 'analytical', glowCol, portalId)}
                         ${renderPathCard(assignments.creative, 'creative', glowCol, portalId)}
-                        ${hasThreeOptions ? renderPathCard(assignments.word_cloud, 'word_cloud', glowCol, portalId) : ''}
                     </div>
                     
                     <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.15);">
                         <div style="font-size: 12px; color: rgba(255,255,255,0.5);">
-                            ⏳ Submit your points and Mr. Sebek will confirm your score.
+                            ⏳ After you complete and turn in on Google Classroom, Mr. Sebek will verify and unlock your virtue.
                         </div>
                     </div>`;
                 
@@ -10145,18 +10072,9 @@
         }
         
         function renderPathCard(assignment, pathType, glowCol, portalId) {
-            const colorMap = {
-                analytical: { border: '#60a5fa', bg: 'rgba(96,165,250,0.08)', label: '#93c5fd' },
-                creative:   { border: '#f59e0b', bg: 'rgba(245,158,11,0.08)', label: '#fcd34d' },
-                word_cloud: { border: '#a78bfa', bg: 'rgba(167,139,250,0.08)', label: '#c4b5fd' }
-            };
-            const colors = colorMap[pathType] || colorMap.creative;
-            const borderColor = colors.border;
-            const bgColor = colors.bg;
-            const labelColor = colors.label;
-            const pts = assignment.points || 15;
-            
-            const linkLabel = pathType === 'word_cloud' ? '☁️ Create Word Cloud' : '📋 View Directions';
+            const borderColor = pathType === 'analytical' ? '#60a5fa' : '#f59e0b';
+            const bgColor = pathType === 'analytical' ? 'rgba(96,165,250,0.08)' : 'rgba(245,158,11,0.08)';
+            const labelColor = pathType === 'analytical' ? '#93c5fd' : '#fcd34d';
             
             const linkBtn = assignment.link ? `
                 <a href="${assignment.link}" target="_blank" style="
@@ -10166,7 +10084,7 @@
                     font-size: 12px; font-weight: 600; text-decoration: none;
                     transition: all 0.2s;
                 " onmouseover="this.style.background='${borderColor}44'" onmouseout="this.style.background='${borderColor}22'">
-                    ${linkLabel}
+                    📋 View Directions
                 </a>` : `
                 <div style="margin-top: 10px; padding: 6px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 11px; color: rgba(255,255,255,0.4);">
                     Complete on Google Classroom
@@ -10189,7 +10107,7 @@
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.4; min-height: 36px;">
                         ${assignment.description}
                     </div>
-                    <div style="font-size: 12px; color: #ffd700; margin-top: 8px; font-weight: 600;">${pts} points</div>
+                    <div style="font-size: 12px; color: #ffd700; margin-top: 8px; font-weight: 600;">15 points</div>
                     ${linkBtn}
                 </div>`;
         }
@@ -10661,7 +10579,10 @@
                                 <div style="font-family: 'Cinzel', serif; font-size: 17px; font-weight: 700; color: #fbbf24; letter-spacing: 1.5px;">⚓ TRADE PORTAL</div>
                                 <div id="tp-status-pill" style="display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 600;"></div>
                             </div>
-                            <button onclick="closeTradePortal()" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;">✕</button>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <button onclick="loadTradePortalData()" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;" title="Refresh trade data">🔄</button>
+                                <button onclick="closeTradePortal()" style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;">✕</button>
+                            </div>
                         </div>
                         <div id="tp-wallet" style="display: flex; align-items: stretch; background: #111a30; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;"></div>
                         <div id="trade-portal-body" style="flex: 1; overflow-y: auto; min-height: 0; padding: 20px;">
@@ -10758,6 +10679,33 @@
             selectedTradePartner = null;
             let html = '';
             
+            // ===== MARKET CONDITIONS BAR GRAPH =====
+            const values = m.market_values || {};
+            const maxVal = Math.max(...Object.values(values), 15);
+            html += `<div style="margin-bottom: 18px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <div style="font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:#60a5fa;letter-spacing:1px;">📊 Market Conditions</div>
+                    <div style="flex:1;height:1px;background:rgba(96,165,250,0.2);"></div>
+                </div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    ${['olive','grape','iron','grain'].map(r => {
+                        const val = values[r] || 10;
+                        const pct = Math.round((val / maxVal) * 100);
+                        const valLabel = val >= 12 ? 'High Value' : val >= 8 ? 'Fair Value' : 'Low Value';
+                        const valColor = val >= 12 ? '#f87171' : val >= 8 ? '#fbbf24' : '#4ade80';
+                        const barColor = val >= 12 ? 'linear-gradient(to top, #dc2626, #f87171)' : val >= 8 ? 'linear-gradient(to top, #d97706, #fbbf24)' : 'linear-gradient(to top, #16a34a, #4ade80)';
+                        return `<div style="flex:1;min-width:80px;background:rgba(96,165,250,0.04);border:1px solid rgba(96,165,250,0.12);border-radius:10px;padding:10px 8px;text-align:center;">
+                            <div style="font-size:16px;margin-bottom:4px;">${TRADE_ICONS[r]}</div>
+                            <div style="width:24px;height:60px;background:rgba(255,255,255,0.06);border-radius:4px;margin:0 auto 6px;position:relative;overflow:hidden;">
+                                <div style="position:absolute;bottom:0;width:100%;height:${pct}%;background:${barColor};border-radius:4px;transition:height 0.5s;"></div>
+                            </div>
+                            <div style="font-size:10px;font-weight:700;color:${valColor};">${valLabel}</div>
+                            <div style="font-size:9px;color:rgba(255,255,255,0.25);margin-top:2px;">${TRADE_NAMES[r]}</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+            
             // ===== SECTION 1: BUY YOUR RESOURCE =====
             html += `<div style="margin-bottom: 24px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -10842,37 +10790,25 @@
             // ===== SECTION 1B: SELL RESOURCES =====
             const sellableResources = ['olive','grape','iron','grain'].filter(r => (res[r] || 0) > 0);
             if (sellableResources.length > 0) {
-                const defaultSellRes = sellableResources[0];
                 html += `<div style="margin-bottom: 24px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
                         <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#f87171;letter-spacing:1px;">Sell Resources</div>
                         <div style="flex:1;height:1px;background:rgba(239,68,68,0.2);"></div>
                         <div style="font-size:10px;color:rgba(255,255,255,0.3);">10% market fee</div>
                     </div>
-                    <div style="background:rgba(239,68,68,0.04);border:2px solid rgba(239,68,68,0.2);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-                        <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:200px;">
-                            <div style="font-size:34px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:12px;flex-shrink:0;">
-                                <span id="trade-sell-icon">${TRADE_ICONS[defaultSellRes]}</span>
-                            </div>
-                            <div>
-                                <select id="trade-sell-resource" onchange="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:6px 10px;border-radius:8px;font-size:14px;font-weight:700;font-family:'Cinzel',serif;outline:none;cursor:pointer;">
-                                    ${sellableResources.map(r => 
-                                        `<option value="${r}">${TRADE_NAMES[r]} (${res[r]} units)</option>`
-                                    ).join('')}
-                                </select>
-                                <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;">10 units = 1 pt · <strong style="color:rgba(239,68,68,0.7);">10% market fee</strong></div>
-                                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:3px;">Points return to alliance treasury</div>
-                            </div>
+                    <div style="background:rgba(239,68,68,0.03);border:2px solid rgba(239,68,68,0.15);border-radius:14px;padding:18px 20px;">
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <select id="trade-sell-resource" onchange="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;font-size:13px;outline:none;">
+                                ${sellableResources.map(r => 
+                                    `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]} (${res[r]})</option>`
+                                ).join('')}
+                            </select>
+                            <input type="number" id="trade-sell-amount" min="10" value="50" oninput="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 12px;border-radius:8px;width:80px;font-size:14px;font-weight:700;text-align:center;outline:none;">
+                            <span style="font-size:11px;color:rgba(255,255,255,0.3);">units →</span>
+                            <span id="trade-sell-return" style="font-size:14px;font-weight:700;color:#f87171;">—</span>
+                            <button onclick="sellResource()" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#f87171;padding:10px 22px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:13px;cursor:pointer;">Sell</button>
                         </div>
-                        <div style="display:flex;align-items:center;gap:10px;">
-                            <input type="number" id="trade-sell-amount" min="10" max="${res[defaultSellRes] || 0}" value="${Math.max(10, Math.min(50, res[defaultSellRes] || 0))}" oninput="updateSellPreview()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:10px 12px;border-radius:10px;width:72px;font-size:16px;font-weight:700;text-align:center;outline:none;">
-                            <span style="color:rgba(255,255,255,0.25);font-size:11px;">units →</span>
-                            <div style="text-align:center;min-width:70px;">
-                                <div id="trade-sell-return" style="font-size:20px;font-weight:700;color:#f87171;">—</div>
-                                <div style="font-size:10px;color:rgba(255,255,255,0.3);">pts back</div>
-                            </div>
-                            <button onclick="sellResource()" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;padding:12px 28px;border-radius:10px;font-family:'Cinzel',serif;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap;">Sell</button>
-                        </div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.2);margin-top:8px;">10 units = 1 pt, minus 10% market fee. Points return to your alliance treasury.</div>
                     </div>
                 </div>`;
                 setTimeout(() => updateSellPreview(), 50);
@@ -10925,7 +10861,7 @@
                                     <select id="tp-give-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
                                         ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
-                                    <input type="number" id="tp-give-amt" value="100" min="1" max="999" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                    <input type="number" id="tp-give-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-give-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
                                 </div>
                                 <div style="display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(255,255,255,0.15);padding-top:26px;">⇄</div>
@@ -10934,7 +10870,7 @@
                                     <select id="tp-recv-res" onchange="updateDeskForm()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:12px;margin-bottom:5px;outline:none;cursor:pointer;">
                                         ${['olive','grape','iron','grain'].map(r => `<option value="${r}">${TRADE_ICONS[r]} ${TRADE_NAMES[r]}</option>`).join('')}
                                     </select>
-                                    <input type="number" id="tp-recv-amt" value="100" min="1" max="999" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
+                                    <input type="number" id="tp-recv-amt" value="100" min="1" oninput="updateDeskFairness()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 8px;border-radius:7px;font-size:15px;font-weight:700;text-align:center;outline:none;box-sizing:border-box;">
                                     <div id="tp-recv-have" style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:3px;"></div>
                                 </div>
                             </div>
@@ -11002,6 +10938,7 @@
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0;">
                             ${!isInitiator ? `<button onclick="confirmTrade(${t.trade_id})" style="background:#22c55e;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">✓ Accept</button>` : ''}
+                            ${!isInitiator ? `<button onclick="counterTrade(${t.trade_id}, '${t.give_resource}', ${t.give_amount}, '${t.receive_resource}', ${t.receive_amount}, '${t.initiator_name}')" style="background:rgba(234,179,8,0.12);color:#fbbf24;border:1px solid rgba(234,179,8,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">⚖ Counter</button>` : ''}
                             <button onclick="rejectTrade(${t.trade_id})" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);padding:7px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;">${isInitiator ? 'Cancel' : 'Decline'}</button>
                         </div>
                     </div>`;
@@ -11198,6 +11135,82 @@
             } catch (err) { alert('Failed to buy resource'); }
         }
 
+        function updateSellPreview() {
+            const amtEl = document.getElementById('trade-sell-amount');
+            const retEl = document.getElementById('trade-sell-return');
+            if (!amtEl || !retEl) return;
+            const units = parseInt(amtEl.value) || 0;
+            const grossPts = Math.floor(units / 10);
+            const fee = Math.ceil(grossPts * 0.10);
+            const net = Math.max(0, grossPts - fee);
+            retEl.textContent = net > 0 ? `${net} pts returned (${fee} pt fee)` : '—';
+        }
+
+        async function sellResource() {
+            const resEl = document.getElementById('trade-sell-resource');
+            const amtEl = document.getElementById('trade-sell-amount');
+            if (!resEl || !amtEl) return;
+            const resource = resEl.value;
+            const amount = parseInt(amtEl.value);
+            if (!amount || amount < 10) return alert('Enter at least 10 units to sell');
+            const grossPts = Math.floor(amount / 10);
+            const fee = Math.ceil(grossPts * 0.10);
+            const net = grossPts - fee;
+            if (net < 1) return alert('Must sell enough to return at least 1 point (minimum 20 units)');
+            if (!confirm(`Sell ${amount} ${TRADE_NAMES[resource]}?\n\nGross: ${grossPts} pts\nFee (10%): −${fee} pts\nAlliance receives: ${net} pts`)) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/sell`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resource, amount })
+                });
+                const data = await res.json();
+                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to sell resource'); }
+        }
+        
+        async function proposeTrade() {
+            if (!selectedTradePartner) return alert('Select a trade partner first');
+            const giveResource = document.getElementById('tp-give-res').value;
+            const giveAmount = parseInt(document.getElementById('tp-give-amt').value);
+            const receiveResource = document.getElementById('tp-recv-res').value;
+            const receiveAmount = parseInt(document.getElementById('tp-recv-amt').value);
+            if (!giveAmount || !receiveAmount) return alert('Enter valid amounts');
+            try {
+                const res = await fetch(`${API_URL}/trade/propose`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ partner_id: selectedTradePartner.student_id, give_resource: giveResource, give_amount: giveAmount, receive_resource: receiveResource, receive_amount: receiveAmount })
+                });
+                const data = await res.json();
+                if (data.success) { alert(data.message); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to propose trade'); }
+        }
+        
+        async function confirmTrade(tradeId) {
+            if (!confirm('Accept this trade? This is final.')) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/confirm/${tradeId}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) { alert('Trade completed!'); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to confirm trade'); }
+        }
+        
+        async function rejectTrade(tradeId) {
+            try {
+                const res = await fetch(`${API_URL}/trade/reject/${tradeId}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) await loadTradePortalData();
+                else alert('Error: ' + (data.error || 'Failed'));
+            } catch (err) { alert('Failed to reject trade'); }
+        }
+        
+        // ==================== SHARED MARKET SUPPORT FUNCTIONS ====================
         function updateMarketBidPreview() {
             const preview = document.getElementById('mkt-bid-preview');
             if (!preview) return;
@@ -11332,88 +11345,41 @@
             } catch (err) { alert('Failed to place bid'); }
         }
 
-        function updateSellPreview() {
-            const amtEl = document.getElementById('trade-sell-amount');
-            const retEl = document.getElementById('trade-sell-return');
-            const iconEl = document.getElementById('trade-sell-icon');
-            const resEl = document.getElementById('trade-sell-resource');
-            if (!amtEl || !retEl) return;
-            // Update icon when resource changes
-            if (iconEl && resEl) {
-                iconEl.textContent = TRADE_ICONS[resEl.value] || '📦';
-            }
-            const units = parseInt(amtEl.value) || 0;
-            const grossPts = Math.floor(units / 10);
-            const fee = Math.ceil(grossPts * 0.10);
-            const net = Math.max(0, grossPts - fee);
-            retEl.textContent = net > 0 ? `+${net}` : '—';
+
+        async function counterTrade(tradeId, theyGiveRes, theyGiveAmt, theyWantRes, theyWantAmt, initiatorName) {
+            const newAmt = prompt(`${initiatorName} offered ${theyGiveAmt} ${theyGiveRes} for ${theyWantAmt} ${theyWantRes}.\n\nEnter your counter-offer amount of ${theyWantRes} you'd give instead:`);
+            if (!newAmt) return;
+            const amt = parseInt(newAmt);
+            if (isNaN(amt) || amt < 1) return alert('Invalid amount');
+            
+            // Reject original, then propose counter
+            try {
+                await fetch(`${API_URL}/trade/reject/${tradeId}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                // Get the initiator's student_id from pending trades
+                const pending = tradePortalData?.pending_trades || [];
+                const orig = pending.find(t => t.trade_id === tradeId);
+                if (!orig) { alert('Could not find original trade'); await loadTradePortalData(); return; }
+                
+                const res = await fetch(`${API_URL}/trade/propose`, {
+                    method: 'POST', 
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        partner_id: orig.initiator_id,
+                        give_resource: theyWantRes,
+                        give_amount: amt,
+                        receive_resource: theyGiveRes,
+                        receive_amount: theyGiveAmt
+                    })
+                });
+                const data = await res.json();
+                if (data.success) { alert('Counter-offer sent!'); await loadTradePortalData(); }
+                else alert('Error: ' + (data.error || 'Failed to send counter'));
+            } catch (err) { alert('Failed to send counter-offer'); }
         }
 
-        async function sellResource() {
-            const resEl = document.getElementById('trade-sell-resource');
-            const amtEl = document.getElementById('trade-sell-amount');
-            if (!resEl || !amtEl) return;
-            const resource = resEl.value;
-            const amount = parseInt(amtEl.value);
-            if (!amount || amount < 10) return alert('Enter at least 10 units to sell');
-            const grossPts = Math.floor(amount / 10);
-            const fee = Math.ceil(grossPts * 0.10);
-            const net = grossPts - fee;
-            if (net < 1) return alert('Must sell enough to return at least 1 point (minimum 20 units)');
-            if (!confirm(`Sell ${amount} ${TRADE_NAMES[resource]}?\n\nGross: ${grossPts} pts\nFee (10%): −${fee} pts\nAlliance receives: ${net} pts`)) return;
-            try {
-                const res = await fetch(`${API_URL}/trade/sell`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ resource, amount })
-                });
-                const data = await res.json();
-                if (data.success) { alert(data.message); await loadTradePortalData(); }
-                else alert('Error: ' + (data.error || 'Failed'));
-            } catch (err) { alert('Failed to sell resource'); }
-        }
-        
-        async function proposeTrade() {
-            if (!selectedTradePartner) return alert('Select a trade partner first');
-            const giveResource = document.getElementById('tp-give-res').value;
-            const giveAmount = parseInt(document.getElementById('tp-give-amt').value);
-            const receiveResource = document.getElementById('tp-recv-res').value;
-            const receiveAmount = parseInt(document.getElementById('tp-recv-amt').value);
-            if (!giveAmount || !receiveAmount || giveAmount < 1 || receiveAmount < 1) return alert('Enter valid amounts');
-            if (giveAmount > 999 || receiveAmount > 999) return alert('Maximum trade amount is 999 per resource');
-            if (giveResource === receiveResource) return alert('Cannot trade the same resource');
-            try {
-                const res = await fetch(`${API_URL}/trade/propose`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ partner_id: selectedTradePartner.student_id, give_resource: giveResource, give_amount: giveAmount, receive_resource: receiveResource, receive_amount: receiveAmount })
-                });
-                const data = await res.json();
-                if (data.success) { alert(data.message); await loadTradePortalData(); }
-                else alert('Error: ' + (data.error || 'Failed'));
-            } catch (err) { alert('Failed to propose trade'); }
-        }
-        
-        async function confirmTrade(tradeId) {
-            if (!confirm('Accept this trade? This is final.')) return;
-            try {
-                const res = await fetch(`${API_URL}/trade/confirm/${tradeId}`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (data.success) { alert('Trade completed!'); await loadTradePortalData(); }
-                else alert('Error: ' + (data.error || 'Failed'));
-            } catch (err) { alert('Failed to confirm trade'); }
-        }
-        
-        async function rejectTrade(tradeId) {
-            try {
-                const res = await fetch(`${API_URL}/trade/reject/${tradeId}`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (data.success) await loadTradePortalData();
-                else alert('Error: ' + (data.error || 'Failed'));
-            } catch (err) { alert('Failed to reject trade'); }
-        }
         // ==================== HALL OF HONOR BADGE SYSTEM ====================
         
         let badgeData = null; // Cached badge data

@@ -999,24 +999,6 @@ function bridgeSubmissionToMythPortal(submission, pointsAwarded, teacherId) {
   }
 }
 
-// Helper: Find assignment_ref with section fallback for classical creative work
-function findAssignmentRef(section, mythGod, category) {
-  // Try exact match first
-  if (section && mythGod) {
-    const exact = query('SELECT assignment_id, display_name FROM assignments_ref WHERE section = ? AND myth_god = ? AND assignment_type = ?',
-      [section, mythGod, category])[0];
-    if (exact) return exact;
-  }
-  // Fallback: for any creative-column category, try classical_creative
-  const creativeCategories = ['creative', 'cer', 'word_cloud', 'mural'];
-  if (creativeCategories.includes(category) && mythGod) {
-    const fallback = query('SELECT assignment_id, display_name FROM assignments_ref WHERE section = ? AND myth_god = ? AND assignment_type = ?',
-      ['classical_creative', mythGod, category])[0];
-    if (fallback) return fallback;
-  }
-  return null;
-}
-
 // Approve/Reject Point Submission
 app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
   try {
@@ -1043,8 +1025,11 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
       let previousPoints = 0;
       let previousMaxPoints = 0;
       
-      if (submission.myth_god) {
-        const assignment = findAssignmentRef(submission.section, submission.myth_god, submission.category);
+      if (submission.myth_god && submission.section) {
+        const assignment = query(`
+          SELECT assignment_id FROM assignments_ref 
+          WHERE section = ? AND myth_god = ? AND assignment_type = ?
+        `, [submission.section, submission.myth_god, submission.category])[0];
         
         if (assignment) {
           const existingRecord = query(`
@@ -1146,16 +1131,19 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         console.log(`Resubmission: Score decreased from ${previousPoints} to ${submission.points_claimed} - not subtracting points`);
       }
       
-      // Create grade record if myth_god is provided
-      if (submission.myth_god) {
+      // Create grade record if myth_god and section are provided
+      if (submission.myth_god && submission.section) {
         console.log('Creating grade record for:', {
           section: submission.section,
           myth_god: submission.myth_god,
           category: submission.category
         });
         
-        // Find the matching assignment (with fallback for creative/cer)
-        const assignment = findAssignmentRef(submission.section, submission.myth_god, submission.category);
+        // Find the matching assignment
+        const assignment = query(`
+          SELECT assignment_id, display_name FROM assignments_ref 
+          WHERE section = ? AND myth_god = ? AND assignment_type = ?
+        `, [submission.section, submission.myth_god, submission.category])[0];
         
         console.log('Found assignment:', assignment);
         
@@ -1184,7 +1172,7 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
           console.log('WARNING: No matching assignment found for submission');
         }
       } else {
-        console.log('Skipping grade record - no myth_god:', {
+        console.log('Skipping grade record - no myth_god or section:', {
           myth_god: submission.myth_god,
           section: submission.section
         });
@@ -1235,8 +1223,11 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         // Check for resubmission (existing grade record)
         let isResubmission = false;
         let previousPoints = 0;
-        if (submission.myth_god) {
-          const assignmentCheck = findAssignmentRef(submission.section, submission.myth_god, submission.category);
+        if (submission.myth_god && submission.section) {
+          const assignmentCheck = query(`
+            SELECT ar.assignment_id FROM assignments_ref ar
+            WHERE ar.section = ? AND ar.myth_god = ? AND ar.assignment_type = ?
+          `, [submission.section, submission.myth_god, submission.category])[0];
           
           if (assignmentCheck) {
             const existingGrade = query(`
@@ -1300,8 +1291,11 @@ app.post('/api/teacher/review-submission', authenticateToken, (req, res) => {
         }
         
         // Create/update grade record with partial score
-        if (submission.myth_god) {
-          const assignment = findAssignmentRef(submission.section, submission.myth_god, submission.category);
+        if (submission.myth_god && submission.section) {
+          const assignment = query(`
+            SELECT assignment_id, display_name FROM assignments_ref 
+            WHERE section = ? AND myth_god = ? AND assignment_type = ?
+          `, [submission.section, submission.myth_god, submission.category])[0];
           
           if (assignment) {
             const existingRecord = query(`
@@ -2447,36 +2441,25 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
         const studentCompletions = allMythCompletions.filter(c => c.student_id === student.student_id && c.teacher_approved === 1);
         
         const classicalMyths = {};
-        // Per-myth max points lookup (most are 12/10, Icarus is 5/17)
-        const guideMax = { 'Icarus & Daedalus': 5 };
-        const quizMax = { 'Icarus & Daedalus': 17 };
-        
         mythNames.forEach((mythName, idx) => {
           const portalId = idx + 1;
           const aliases = mythAliases[mythName] || [mythName];
-          
-          const thisGuideMax = guideMax[mythName] || 12;
-          const thisQuizMax = quizMax[mythName] || 10;
           
           // Reading guide points (comp_conn for this myth in classical section)
           const guidePoints = studentRecords
             .filter(r => r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
             .reduce((sum, r) => sum + r.points_earned, 0);
           
-          // Quiz points — use actual grade from grade_records if available, else binary pass/fail
-          const quizGrade = studentRecords.find(r => 
-            r.assignment_type === 'quiz' && r.section === 'classical' && aliases.some(a => r.myth_god === a)
-          );
+          // Quiz points (10 if passed)
           const quizPassed = studentQuizzes.some(q => q.portal_id === portalId);
-          const quizPoints = quizGrade ? Math.min(quizGrade.points_earned, thisQuizMax) : 
-            (quizPassed ? thisQuizMax : 0);
+          const quizPoints = quizPassed ? 10 : 0;
           
           // Portal assignment points (15 if approved)
           const completion = studentCompletions.find(c => c.portal_id === portalId);
           const portalPoints = completion ? 15 : 0;
           
-          const earned = Math.min(guidePoints, thisGuideMax) + quizPoints + portalPoints;
-          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, thisGuideMax), guideMax: thisGuideMax, quiz: quizPoints, quizMax: thisQuizMax, portal: portalPoints };
+          const earned = Math.min(guidePoints, 12) + quizPoints + portalPoints;
+          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, 12), quiz: quizPoints, portal: portalPoints };
         });
         
         const claBonus = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
@@ -2648,107 +2631,7 @@ app.get('/api/teacher/student-submissions/:student_id', authenticateToken, (req,
       ORDER BY submitted_at DESC
     `, [student_id]);
     
-    // Also include Classical quiz attempts (these go into myth_quiz_attempts, not point_submissions)
-    try {
-      const quizAttempts = query(`
-        SELECT mqa.attempt_id, mqa.portal_id, mqa.score, mqa.total_questions, mqa.percentage, mqa.passed, mqa.attempted_at,
-               mp.myth_name
-        FROM myth_quiz_attempts mqa
-        JOIN myth_portals mp ON mqa.portal_id = mp.portal_id
-        WHERE mqa.student_id = ?
-        ORDER BY mqa.attempted_at DESC
-      `, [student_id]);
-      
-      // Map myth_name to myth_god format used in submissions
-      const mythNameMap = {
-        'Icarus & Daedalus': 'Icarus',
-        'Echo & Narcissus': 'Echo and Narcissus',
-        'Eros & Psyche': 'Eros and Psyche'
-      };
-      
-      // Get quiz max points from assignments_ref
-      const quizMaxLookup = {};
-      const quizAssignments = query("SELECT myth_god, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz'");
-      quizAssignments.forEach(a => { quizMaxLookup[a.myth_god] = a.max_points; });
-      
-      // Convert quiz attempts to submission-like format for the UI
-      const quizSubmissions = quizAttempts.map(qa => {
-        const mythGod = mythNameMap[qa.myth_name] || qa.myth_name;
-        const maxPts = quizMaxLookup[mythGod] || qa.total_questions;
-        // Scale score: quiz stores correct count, but grade is based on percentage * max_points
-        const pointsEarned = qa.passed ? maxPts : Math.round((qa.percentage / 100) * maxPts);
-        return {
-          submission_id: null,
-          quiz_attempt_id: qa.attempt_id,
-          category: 'quiz',
-          section: 'classical',
-          myth_god: mythGod,
-          points_claimed: pointsEarned,
-          max_points: maxPts,
-          status: qa.passed ? 'approved' : 'attempted',
-          submitted_at: qa.attempted_at,
-          reviewed_at: qa.attempted_at,
-          description: `Quiz: ${qa.score}/${qa.total_questions} (${qa.percentage}%)${qa.passed ? ' ✓ Passed' : ' — Did not pass'}`,
-          is_quiz_attempt: true
-        };
-      });
-      
-      // Also include myth portal creative approvals from student_myth_completion
-      // These are created by the Myth Portal Progress approve button, which doesn't create point_submissions
-      const mythCompletions = query(`
-        SELECT smc.student_id, smc.portal_id, smc.assignment_path, smc.points_earned, smc.approved_at, smc.teacher_approved,
-               mp.myth_name
-        FROM student_myth_completion smc
-        JOIN myth_portals mp ON smc.portal_id = mp.portal_id
-        WHERE smc.student_id = ? AND smc.teacher_approved = 1
-      `, [student_id]);
-      
-      const mythNameToGod = {
-        'Icarus & Daedalus': 'Icarus',
-        'Echo & Narcissus': 'Echo and Narcissus',
-        'Eros & Psyche': 'Eros and Psyche'
-      };
-      
-      // Only include completions that don't already have a matching point_submission
-      const completionSubmissions = mythCompletions.filter(mc => {
-        const mythGod = mythNameToGod[mc.myth_name] || mc.myth_name;
-        // Check if there's already a point_submission for this myth's creative work
-        const hasSubmission = submissions.some(s => 
-          s.myth_god === mythGod && 
-          ['creative', 'cer', 'word_cloud', 'mural', 'bonus_retelling', 'bonus_caution_poem', 
-           'bonus_new_ending', 'bonus_metamorphosis', 'bonus_i_icarus', 'bonus_char_study', 'bonus_constellation'].includes(s.category) &&
-          (s.status === 'approved' || s.status === 'partial')
-        );
-        return !hasSubmission;
-      }).map(mc => {
-        const mythGod = mythNameToGod[mc.myth_name] || mc.myth_name;
-        const pathLabel = mc.assignment_path === 'analytical' ? 'CER' : 'Creative';
-        return {
-          submission_id: null,
-          category: mc.assignment_path === 'analytical' ? 'cer' : 'creative',
-          section: 'classical_creative',
-          myth_god: mythGod,
-          points_claimed: mc.points_earned || 0,
-          max_points: mc.points_earned || 15,
-          status: 'approved',
-          submitted_at: mc.approved_at,
-          reviewed_at: mc.approved_at,
-          description: `${pathLabel} (approved via Myth Portal)`,
-          is_myth_completion: true
-        };
-      });
-
-      // Merge and re-sort by date
-      const allSubmissions = [...submissions, ...quizSubmissions, ...completionSubmissions].sort((a, b) => 
-        new Date(b.submitted_at) - new Date(a.submitted_at)
-      );
-      
-      res.json(allSubmissions);
-    } catch (quizErr) {
-      // If quiz query fails, still return regular submissions
-      console.error('Quiz attempt merge error (non-fatal):', quizErr.message);
-      res.json(submissions);
-    }
+    res.json(submissions);
   } catch (err) {
     console.error('Get student submissions error:', err);
     res.status(500).json({ error: 'Failed to fetch submissions' });
@@ -2767,9 +2650,9 @@ app.delete('/api/teacher/delete-submission/:submission_id', authenticateToken, (
       return res.status(404).json({ error: 'Submission not found' });
     }
     
-    // Only allow deleting approved or partial submissions (pending ones can just be rejected)
-    if (submission.status !== 'approved' && submission.status !== 'partial') {
-      return res.status(400).json({ error: 'Can only delete approved or partial submissions. Reject pending submissions instead.' });
+    // Only allow deleting approved submissions (pending ones can just be rejected)
+    if (submission.status !== 'approved') {
+      return res.status(400).json({ error: 'Can only delete approved submissions. Reject pending submissions instead.' });
     }
     
     const student_id = submission.student_id;
@@ -8613,19 +8496,10 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
 
     // Build enriched portal data
     const enrichedPortals = portals.map(portal => {
-      // Alias mapping: myth_portals.myth_name uses & but assignments_ref/grade_records use 'and' or shorter names
-      const portalAliases = {
-        'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
-        'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
-        'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
-        'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice']
-      };
-      const aliases = portalAliases[portal.myth_name] || [portal.myth_name];
-      
       // Check reading guide completion (comp_conn for this myth in classical section)
       const hasReadingGuide = gradeRecords.some(g => 
         g.assignment_type === 'comp_conn' && 
-        aliases.some(a => g.myth_god === a) && 
+        g.myth_god === portal.myth_name && 
         g.section === 'classical' &&
         g.points_earned > 0
       );
@@ -8634,10 +8508,10 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const quizResult = quizAttempts.find(q => q.portal_id === portal.portal_id);
       const quizPassed = quizResult ? 1 : 0;
       
-      // Check creative work (word_cloud, mural, cer, or any classical_creative for this myth)
+      // Check creative work (legacy: word_cloud or mural for this myth)
       const hasCreative = gradeRecords.some(g => 
-        (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural' || g.assignment_type === 'cer' || g.assignment_type === 'creative' || g.assignment_type === 'bonus_retelling') && 
-        aliases.some(a => g.myth_god === a) && 
+        (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && 
+        g.myth_god === portal.myth_name && 
         g.section === 'classical_creative' &&
         g.points_earned > 0
       );
@@ -8652,16 +8526,16 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       // Get actual reading guide score from grade_records
       const guideGrade = gradeRecords.find(g => 
         g.assignment_type === 'comp_conn' && 
-        aliases.some(a => g.myth_god === a) && 
+        g.myth_god === portal.myth_name && 
         g.section === 'classical'
       );
       const guideEarned = guideGrade ? guideGrade.points_earned : 0;
       const guidePossible = guideGrade ? (guideGrade.assignment_max || guideGrade.points_possible) : 12;
       
-      // Virtue earned automatically: reading guide scored + quiz passed + at least 1 creative/CER scored
-      const virtueEarned = (hasReadingGuide && quizPassed && (hasCreative || assignmentApproved)) ? 1 : 0;
-      // virtueReady kept for backwards compat but same as virtueEarned now
-      const virtueReady = virtueEarned && !virtueClaimed ? 1 : 0;
+      // Virtue ready to claim: reading guide + quiz passed + creative approved (but not yet claimed)
+      const virtueReady = hasReadingGuide && quizPassed && (assignmentApproved || hasCreative) && !virtueClaimed ? 1 : 0;
+      // Virtue earned: only after student has claimed it
+      const virtueEarned = virtueClaimed ? 1 : 0;
       
       return {
         ...portal,
@@ -8855,150 +8729,28 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
     const students = query('SELECT student_id, name, alliance_id FROM students WHERE class_period = ? ORDER BY name', [period]);
     const portals = query('SELECT portal_id, myth_name, display_name, virtue_english, virtue_emoji FROM myth_portals ORDER BY myth_number');
     
-    // Per-myth max points (most are 12/10, Icarus is 5/17)
-    const guideMaxLookup = { 'Icarus': 5 };
-    const quizMaxLookup = { 'Icarus': 17 };
+    // Get all quiz passes for this period
+    const quizPasses = query(`SELECT mqa.student_id, mqa.portal_id FROM myth_quiz_attempts mqa 
+      JOIN students s ON mqa.student_id = s.student_id WHERE s.class_period = ? AND mqa.passed = 1`, [period]);
     
-    // Alias mapping for myth_portals.myth_name → grade_records.myth_god
-    const mythAliases = {
-      'Pandora': ['Pandora'],
-      'Phaethon': ['Phaethon'],
-      'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
-      'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
-      'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
-      'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
-      'Constellations': ['Constellations']
-    };
-    
-    // Get all quiz attempts for this period (all attempts, not just passes)
-    const quizAttempts = query(`SELECT mqa.student_id, mqa.portal_id, mqa.score, mqa.total_questions, mqa.percentage, mqa.passed
-      FROM myth_quiz_attempts mqa 
-      JOIN students s ON mqa.student_id = s.student_id WHERE s.class_period = ?`, [period]);
-    
-    // Get all grade records for this period (reading guides + creative work)
-    const gradeRecords = query(`SELECT gr.student_id, gr.points_earned, gr.points_possible, ar.assignment_type, ar.section, ar.myth_god, ar.max_points
-      FROM grade_records gr
-      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-      JOIN students s ON gr.student_id = s.student_id
-      WHERE s.class_period = ? AND ar.section IN ('classical', 'classical_creative')`, [period]);
-    
-    // Fallback: get ALL approved/partial creative-column submissions from point_submissions
-    // Catches cases where grade_records weren't created (missing assignments_ref, null section, etc.)
-    const creativeSubmissions = query(`
-      SELECT ps.student_id, ps.category as assignment_type, ps.myth_god, ps.points_claimed as points_earned, 
-             ps.max_points, 'classical_creative' as section
-      FROM point_submissions ps
-      JOIN students s ON ps.student_id = s.student_id
-      WHERE s.class_period = ? AND ps.status IN ('approved', 'partial') AND ps.category IN ('creative', 'cer', 'word_cloud', 'mural')
-      AND ps.myth_god IS NOT NULL
-    `, [period]);
-    
-    // Get all myth completions for this period (legacy approval system)
+    // Get all myth completions for this period
     const completions = query(`SELECT smc.* FROM student_myth_completion smc 
       JOIN students s ON smc.student_id = s.student_id WHERE s.class_period = ?`, [period]);
     
     const studentData = students.map(s => {
       const mythProgress = portals.map(p => {
-        const aliases = mythAliases[p.myth_name] || [p.myth_name];
-        // For guideMax/quizMax lookup, use the short name from aliases (first entry is the assignments_ref name)
-        const shortName = aliases[0];
-        const gMax = guideMaxLookup[shortName] || 12;
-        const qMax = quizMaxLookup[shortName] || 10;
-        
-        // Reading guide: comp_conn score for this myth
-        const guideRecords = gradeRecords.filter(g => 
-          g.student_id === s.student_id && g.assignment_type === 'comp_conn' && 
-          g.section === 'classical' && aliases.some(a => g.myth_god === a)
-        );
-        const guideEarned = guideRecords.reduce((sum, r) => sum + r.points_earned, 0);
-        const hasGuide = guideEarned > 0;
-        const guidePct = gMax > 0 ? Math.round((Math.min(guideEarned, gMax) / gMax) * 100) : 0;
-        
-        // Quiz: best attempt from myth_quiz_attempts + check grade_records
-        const studentQuizzes = quizAttempts.filter(q => q.student_id === s.student_id && q.portal_id === p.portal_id);
-        const bestQuiz = studentQuizzes.sort((a, b) => b.percentage - a.percentage)[0];
-        const quizPassed = studentQuizzes.some(q => q.passed === 1);
-        const hasQuiz = studentQuizzes.length > 0; // any attempt at all (even failing)
-        const quizPct = bestQuiz ? bestQuiz.percentage : 0;
-        const quizScore = bestQuiz ? bestQuiz.score : 0;
-        const quizTotal = bestQuiz ? bestQuiz.total_questions : 0;
-        
-        // Also check grade_records for quiz grade (Daedalus game writes here even without quiz pass)
-        const quizGradeRecord = gradeRecords.find(g =>
-          g.student_id === s.student_id && g.assignment_type === 'quiz' && 
-          g.section === 'classical' && aliases.some(a => g.myth_god === a)
-        );
-        const hasQuizGrade = quizGradeRecord ? true : false;
-        const quizGradeEarned = quizGradeRecord ? quizGradeRecord.points_earned : 0;
-        const quizGradeMax = quizGradeRecord ? (quizGradeRecord.max_points || qMax) : qMax;
-        
-        // Creative work: word_cloud, mural, cer, or any classical_creative for this myth
-        const creativeFromGrades = gradeRecords.filter(g =>
-          g.student_id === s.student_id &&
-          aliases.some(a => g.myth_god === a) &&
-          g.section === 'classical_creative' &&
-          g.points_earned > 0
-        );
-        
-        // Fallback: check point_submissions for creative/cer not yet in grade_records
-        const creativeFromSubs = creativeSubmissions.filter(cs =>
-          cs.student_id === s.student_id &&
-          aliases.some(a => cs.myth_god === a) &&
-          cs.points_earned > 0 &&
-          // Only use fallback if not already covered by grade_records
-          !creativeFromGrades.some(g => g.assignment_type === cs.assignment_type && aliases.some(a => g.myth_god === a))
-        );
-        
-        const allCreativeRecords = [...creativeFromGrades, ...creativeFromSubs];
-        
-        // Check legacy approval system (student_myth_completion)
+        const quizPassed = quizPasses.some(qp => qp.student_id === s.student_id && qp.portal_id === p.portal_id);
         const completion = completions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
-        const assignmentApproved = completion ? completion.teacher_approved === 1 : false;
-        
-        // If approved via myth completion but no creative records found, use completion data
-        // This catches bonus assignments (retelling, caution poem, etc.) that ARE the creative option
-        if (assignmentApproved && allCreativeRecords.length === 0 && completion) {
-          const pathLabel = completion.assignment_path === 'analytical' ? 'CER' : 'Creative';
-          allCreativeRecords.push({
-            assignment_type: completion.assignment_path || 'creative',
-            points_earned: completion.points_earned || 0,
-            max_points: completion.points_earned || 0,
-            section: 'classical_creative'
-          });
-        }
-        
-        const hasCreative = allCreativeRecords.length > 0;
-        const creativeDetails = allCreativeRecords.map(r => {
-          const typeLabels = { 'word_cloud': 'Word Cloud', 'mural': 'Pixton', 'cer': 'CER', 'bonus_retelling': 'Retelling', 'creative': 'Creative', 'analytical': 'CER' };
-          return { type: typeLabels[r.assignment_type] || r.assignment_type, earned: r.points_earned, possible: r.max_points || r.points_possible || r.points_earned };
-        });
-        
-        // Virtue earned: has all three areas with scores (auto-advance)
-        const virtueEarned = hasGuide && quizPassed && (hasCreative || assignmentApproved);
-        
         return {
           portal_id: p.portal_id,
           myth_name: p.myth_name,
-          guide_earned: Math.min(guideEarned, gMax),
-          guide_max: gMax,
-          guide_pct: guidePct,
-          has_guide: hasGuide,
           quiz_passed: quizPassed,
-          has_quiz: hasQuiz || hasQuizGrade,
-          quiz_score: quizScore,
-          quiz_total: quizTotal,
-          quiz_pct: quizPct,
-          quiz_max: qMax,
-          quiz_grade_earned: quizGradeEarned,
-          quiz_grade_max: quizGradeMax,
-          has_creative: hasCreative,
-          creative_details: creativeDetails,
-          virtue_earned: virtueEarned
+          assignment_path: completion ? completion.assignment_path : null,
+          teacher_approved: completion ? completion.teacher_approved === 1 : false,
+          virtue_claimed: completion ? completion.virtue_claimed === 1 : false
         };
       });
-      
-      const virtueCount = mythProgress.filter(m => m.virtue_earned).length;
-      return { ...s, myths: mythProgress, virtue_count: virtueCount };
+      return { ...s, myths: mythProgress };
     });
     
     res.json({ students: studentData, portals });
@@ -9090,18 +8842,9 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
       try {
         const portal = query('SELECT myth_name FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
         if (portal) {
-          // Map portal myth_name to assignments_ref myth_god (they differ for some myths)
-          const mythGodMap = {
-            'Orpheus & Eurydice': 'Orpheus',
-            'Icarus & Daedalus': 'Icarus',
-            'Echo & Narcissus': 'Echo and Narcissus',
-            'Eros & Psyche': 'Eros and Psyche'
-          };
-          const mythGodName = mythGodMap[portal.myth_name] || portal.myth_name;
-          
           const quizAssignment = query(
             "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?",
-            [mythGodName]
+            [portal.myth_name]
           )[0];
           
           if (quizAssignment) {
@@ -9967,14 +9710,15 @@ app.get('/api/trade/my-data', authenticateToken, (req, res) => {
       ORDER BY t.created_at DESC
     `, [student_id, student_id]);
     
-    // Market supply pool (NPC merchant for missing resources)
-    const supplyRows = query('SELECT resource, amount FROM market_supply WHERE period = ?', [student.class_period]);
-    const marketSupply = { olive: 0, grape: 0, iron: 0, grain: 0 };
-    supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
+    // Market supply pool
+    let marketSupply = { olive: 0, grape: 0, iron: 0, grain: 0 };
+    try {
+      const supplyRows = query('SELECT resource, amount FROM market_supply WHERE period = ?', [student.class_period]);
+      supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
+    } catch(e) { /* table may not exist yet */ }
     
     res.json({
       student_id,
-      class_period: student.class_period,
       alliance_id: student.alliance_id,
       alliance_name: alliance.alliance_name,
       alliance_points: alliance.total_points,
@@ -10011,7 +9755,6 @@ app.post('/api/trade/buy', authenticateToken, (req, res) => {
     const { points_to_spend } = req.body;
     
     if (!points_to_spend || points_to_spend < 1) return res.status(400).json({ error: 'Must spend at least 1 point' });
-    if (points_to_spend > 999) return res.status(400).json({ error: 'Maximum purchase is 999 points at a time' });
     
     const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
     if (!student?.alliance_id) return res.status(400).json({ error: 'Not in an alliance' });
@@ -10083,7 +9826,6 @@ app.post('/api/trade/sell', authenticateToken, (req, res) => {
     const { resource, amount } = req.body;
     
     if (!resource || !amount || amount < 1) return res.status(400).json({ error: 'Invalid resource or amount' });
-    if (amount > 9999) return res.status(400).json({ error: 'Maximum sell is 9999 units at a time' });
     if (!['olive', 'grape', 'iron', 'grain'].includes(resource)) return res.status(400).json({ error: 'Invalid resource type' });
     
     const student = query('SELECT alliance_id, class_period FROM students WHERE student_id = ?', [student_id])[0];
@@ -10164,12 +9906,20 @@ app.get('/api/trade/market', authenticateToken, (req, res) => {
       ORDER BY t.completed_at DESC LIMIT 20
     `, [student.class_period]);
     
+    // Market supply pool
+    let marketSupply = { olive: 0, grape: 0, iron: 0, grain: 0 };
+    try {
+      const supplyRows = query('SELECT resource, amount FROM market_supply WHERE period = ?', [student.class_period]);
+      supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
+    } catch(e) {}
+    
     res.json({
       market_values: values,
       trade_window_open: window ? window.is_open === 1 : false,
       resource_threshold: threshold,
       partners,
-      recent_trades: recentTrades
+      recent_trades: recentTrades,
+      market_supply: marketSupply
     });
   } catch (err) {
     console.error('Market data error:', err);
@@ -10190,7 +9940,6 @@ app.post('/api/trade/propose', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Invalid resource type' });
     }
     if (give_amount < 1 || receive_amount < 1) return res.status(400).json({ error: 'Amounts must be positive' });
-    if (give_amount > 999 || receive_amount > 999) return res.status(400).json({ error: 'Maximum trade amount is 999 per resource' });
     if (give_resource === receive_resource) return res.status(400).json({ error: 'Cannot trade same resource' });
     if (partner_id === student_id) return res.status(400).json({ error: 'Cannot trade with yourself' });
     
@@ -10412,23 +10161,25 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
       FROM trades WHERE period = ?
     `, [period])[0];
     
-    // Get market supply pool levels
-    const supplyRows = query('SELECT resource, amount FROM market_supply WHERE period = ?', [period]);
-    const marketSupply = { olive: 0, grape: 0, iron: 0, grain: 0 };
-    supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
+    // Market supply pool
+    let marketSupply = { olive: 0, grape: 0, iron: 0, grain: 0 };
+    try {
+      const supplyRows = query('SELECT resource, amount FROM market_supply WHERE period = ?', [period]);
+      supplyRows.forEach(s => { marketSupply[s.resource] = s.amount; });
+    } catch(e) {}
     
-    // Identify which resources have no producer in this period
+    // Identify missing resources (no alliance produces them)
     const periodResources = query(`SELECT ar.native_resource FROM alliance_resources ar 
       JOIN alliances a ON ar.alliance_id = a.alliance_id 
       WHERE a.class_period = ? AND a.is_disbanded = 0`, [period]);
     const producedResources = [...new Set(periodResources.map(r => r.native_resource))];
     const missingResources = TRADE_RESOURCES.filter(r => !producedResources.includes(r));
     
-    // Auction data — wrapped safely so it can't crash the overview
+    // Auction data — wrapped safely
     let activeAuctions = [];
     let recentAuctions = [];
     try {
-      resolveExpiredAuctions(period);
+      if (typeof resolveExpiredAuctions === 'function') resolveExpiredAuctions(period);
       activeAuctions = query(`
         SELECT ma.*, COUNT(mb.bid_id) as bid_count, MAX(mb.ratio) as best_ratio
         FROM market_auctions ma
@@ -10471,7 +10222,8 @@ app.get('/api/trade/overview/:period', authenticateToken, (req, res) => {
   }
 });
 
-// --- Teacher: Get market supply levels for a period ---
+// ==================== SHARED RESOURCE MARKET — AUCTION SYSTEM ====================
+
 app.get('/api/trade/supply/:period', authenticateToken, (req, res) => {
   try {
     const period = req.params.period;
@@ -10782,6 +10534,7 @@ app.get('/api/trade/market/my-bids', authenticateToken, (req, res) => {
     res.status(500).json({ error: 'Failed to get bids' });
   }
 });
+
 
 // Start server
 // --- Admin: Diagnose and repair buildings_owned from building_activations ---
@@ -11472,53 +11225,6 @@ app.listen(PORT, () => {
   
   // Run cleanup after server starts (database is ready)
   setTimeout(cleanupStuckBattles, 1000);
-  
-  // Backfill grade_records for approved creative/cer submissions that were missing assignment_ref entries
-  setTimeout(() => {
-    try {
-      console.log('🔧 Backfilling grade_records for creative-column submissions...');
-      // Find ALL approved/partial creative-column submissions missing grade_records
-      const missingSubs = query(`
-        SELECT ps.* FROM point_submissions ps
-        WHERE ps.status IN ('approved', 'partial') 
-        AND ps.category IN ('creative', 'cer', 'word_cloud', 'mural')
-        AND ps.myth_god IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM grade_records gr 
-          JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-          WHERE gr.student_id = ps.student_id 
-          AND ar.myth_god = ps.myth_god 
-          AND ar.assignment_type = ps.category
-          AND ar.section = 'classical_creative'
-        )
-      `);
-      
-      let backfilled = 0;
-      missingSubs.forEach(sub => {
-        const assignment = query(
-          `SELECT assignment_id FROM assignments_ref WHERE section = 'classical_creative' AND myth_god = ? AND assignment_type = ?`,
-          [sub.myth_god, sub.category]
-        )[0];
-        
-        if (assignment) {
-          run(`INSERT OR IGNORE INTO grade_records (student_id, assignment_id, points_earned, points_possible, submission_id) VALUES (?, ?, ?, ?, ?)`,
-            [sub.student_id, assignment.assignment_id, sub.points_claimed, sub.max_points || sub.points_claimed, sub.submission_id]);
-          backfilled++;
-        } else {
-          console.log(`⚠ No assignment_ref found for ${sub.category} / ${sub.myth_god} (submission ${sub.submission_id})`);
-        }
-      });
-      
-      if (backfilled > 0) {
-        saveDatabase();
-        console.log(`✅ Backfilled ${backfilled} creative/cer grade records`);
-      } else {
-        console.log('✅ No creative/cer backfill needed');
-      }
-    } catch (err) {
-      console.error('Creative/CER backfill error (non-fatal):', err.message);
-    }
-  }, 3000);
   
   // Run retroactive badge scan 5 seconds after startup
   setTimeout(() => {
