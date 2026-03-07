@@ -4984,6 +4984,27 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
     // Get updated alliance
     const updatedAlliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
 
+    // Check if alliance owns Oracle building (grants 1 free re-spin per week on negative fates)
+    let oracleAvailable = false;
+    let hasOracle = false;
+    try {
+      const buildingsOwned = JSON.parse(updatedAlliance.buildings_owned || '[]');
+      hasOracle = buildingsOwned.includes('Oracle');
+      if (hasOracle && pointsChange < 0) {
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - dayOfWeek);
+        startOfWeek.setHours(0, 0, 0, 0);
+        const respinUsed = query(
+          `SELECT COUNT(*) as count FROM fate_spins 
+           WHERE alliance_id = ? AND fate_name = 'Oracle Re-spin' AND spun_at >= ?`,
+          [alliance_id, startOfWeek.toISOString()]
+        )[0].count;
+        oracleAvailable = respinUsed === 0;
+      }
+    } catch(e) { /* non-critical */ }
+
     res.json({
       success,
       pointsChange,
@@ -4991,7 +5012,9 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       fate,
       updatedAlliance,
       roll: (roll * 100).toFixed(1),
-      stealDetails
+      stealDetails,
+      hasOracle,
+      oracleAvailable
     });
   } catch (err) {
     console.error('Process fate choice error:', err);
