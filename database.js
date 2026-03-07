@@ -1506,7 +1506,7 @@ function seedReferenceData() {
   try {
     // Fate 21: Artemis Forest Fires — old: (-5/-10), (0/-12), (8/-15)
     db.run("UPDATE fate_choices SET success_points = -8, failure_points = -15 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 21) AND risk_level = 'conservative'");
-    db.run("UPDATE fate_choices SET success_points = 0, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 21) AND risk_level = 'moderate'");
+    db.run("UPDATE fate_choices SET success_points = 3, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 21) AND risk_level = 'moderate'");
     db.run("UPDATE fate_choices SET success_points = 12, failure_points = -23 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 21) AND risk_level = 'aggressive'");
     // Fate 28: Constellation Blessing — old: (8/-4), (12/-6), (18/-12)
     db.run("UPDATE fate_choices SET success_points = 12, failure_points = -6 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 28) AND risk_level = 'conservative'");
@@ -1514,7 +1514,7 @@ function seedReferenceData() {
     db.run("UPDATE fate_choices SET success_points = 27, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 28) AND risk_level = 'aggressive'");
     // Fate 35: Dionysus Drought — old: (-6/-12), (-3/-15), (5/-18)
     db.run("UPDATE fate_choices SET success_points = -9, failure_points = -18 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 35) AND risk_level = 'conservative'");
-    db.run("UPDATE fate_choices SET success_points = -5, failure_points = -23 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 35) AND risk_level = 'moderate'");
+    db.run("UPDATE fate_choices SET success_points = 3, failure_points = -23 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 35) AND risk_level = 'moderate'");
     db.run("UPDATE fate_choices SET success_points = 8, failure_points = -27 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 35) AND risk_level = 'aggressive'");
     // Fate 44: Pandora's Echo — old: (8/-4), (12/-6), (18/-12)
     db.run("UPDATE fate_choices SET success_points = 12, failure_points = -6 WHERE fate_id = (SELECT fate_id FROM fates_ref WHERE fate_number = 44) AND risk_level = 'conservative'");
@@ -2659,7 +2659,7 @@ function seedClassicalData() {
         // Fate 21: Artemis Forest Fires (NEGATIVE steal — you're in trouble, limit the damage)
         // Conservative: safe damage control. Moderate: chance to escape. Aggressive: hero play or disaster.
         [classicalFateIds[21], 'conservative', "Offer tribute to calm Artemis — limit the damage", 0.85, -8, -15],
-        [classicalFateIds[21], 'moderate', "Rally firefighting crews — might turn the tide", 0.55, 0, -18],
+        [classicalFateIds[21], 'moderate', "Rally firefighting crews — might turn the tide", 0.55, 3, -18],
         [classicalFateIds[21], 'aggressive', "Harness the flames to forge new weapons!", 0.30, 12, -23],
         
         // Fate 28: Constellation Blessing (POSITIVE steal — you're blessed, how greedy will you be?)
@@ -2671,7 +2671,7 @@ function seedClassicalData() {
         // Fate 35: Dionysus Drought (NEGATIVE steal — worse than Artemis, higher stakes)
         // Conservative: contained loss. Moderate: almost escaped. Aggressive: forgiven or catastrophic.
         [classicalFateIds[35], 'conservative', "Ration remaining wine and pray for rain", 0.85, -9, -18],
-        [classicalFateIds[35], 'moderate', "Send scouts to find hidden springs", 0.55, -5, -23],
+        [classicalFateIds[35], 'moderate', "Send scouts to find hidden springs", 0.55, 3, -23],
         [classicalFateIds[35], 'aggressive', "Steal wine reserves from neighboring lands!", 0.30, 8, -27],
         
         // Fate 44: Pandora's Echo (POSITIVE steal — similar to Constellation but different theme)
