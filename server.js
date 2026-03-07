@@ -3681,11 +3681,12 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
       }
       for (const member of allianceMembers) {
         const sid = member.student_id;
-        // 1. Reading Guide: comp_conn graded for Orpheus & Eurydice myth in classical section
+        // 1. Reading Guide: comp_conn graded for Orpheus in classical section
         const hasReadingGuide = query(
-          `SELECT 1 FROM grade_records 
-           WHERE student_id = ? AND assignment_type = 'comp_conn' 
-           AND myth_god = 'Orpheus & Eurydice' AND section = 'classical' AND points_earned > 0 LIMIT 1`,
+          `SELECT 1 FROM grade_records gr
+           JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+           WHERE gr.student_id = ? AND ar.assignment_type = 'comp_conn' 
+           AND ar.myth_god = 'Orpheus' AND ar.section = 'classical' AND gr.points_earned > 0 LIMIT 1`,
           [sid]
         );
         if (!hasReadingGuide.length) {
@@ -7455,6 +7456,8 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         defender_answered: currentRound.defender_answer !== null,
         challenger_god_blocked: currentRound.challenger_god_blocked === 1,
         defender_god_blocked: currentRound.defender_god_blocked === 1,
+        challenger_blocked_by_cerberus: false,
+        defender_blocked_by_cerberus: false,
         my_god_deployed: isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed,
         opponent_god_deployed: isChallenger ? currentRound.defender_god_deployed : currentRound.challenger_god_deployed,
         my_deploy_ready: myDeployReady === 1,
@@ -7464,6 +7467,20 @@ app.get('/api/arena/battle/:battle_id', authenticateToken, (req, res) => {
         my_sd_ready: isChallenger ? currentRound.challenger_question_ready === 1 : currentRound.defender_question_ready === 1,
         opponent_sd_ready: isChallenger ? currentRound.defender_question_ready === 1 : currentRound.challenger_question_ready === 1
       };
+      
+      // Check if any blocks were from Cerberus (Gate of Erebus)
+      try {
+        if (currentRound.challenger_god_blocked || currentRound.defender_god_blocked) {
+          const cerberusBlocks = query(
+            'SELECT blocked_player_id FROM cerberus_block_log WHERE battle_id = ? AND round_id = ?',
+            [battle_id, currentRound.round_id]
+          );
+          cerberusBlocks.forEach(cb => {
+            if (cb.blocked_player_id === battle.challenger_id) roundData.challenger_blocked_by_cerberus = true;
+            if (cb.blocked_player_id === battle.defender_id) roundData.defender_blocked_by_cerberus = true;
+          });
+        }
+      } catch(e) { /* non-critical */ }
       
       // A4: Include Prometheus preview in battle state if player deployed Prometheus
       const myDeployedGod = isChallenger ? currentRound.challenger_god_deployed : currentRound.defender_god_deployed;

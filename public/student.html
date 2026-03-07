@@ -8749,14 +8749,16 @@
                     // Check for blocks
                     const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                     const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
+                    const myBlockedByCerberus = data.is_challenger ? roundData.challenger_blocked_by_cerberus : roundData.defender_blocked_by_cerberus;
+                    const oppBlockedByCerberus = data.is_challenger ? roundData.defender_blocked_by_cerberus : roundData.challenger_blocked_by_cerberus;
                     if (myBlocked) {
                         effectsHTML = `<div style="background: rgba(239,68,68,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #ff6b6b;">⛔ Your ${roundData.my_god_deployed} was BLOCKED by ${roundData.opponent_god_deployed}!</span>
+                            <span style="color: #ff6b6b;">${myBlockedByCerberus ? '🐕 Cerberus blocked' : '⛔ BLOCKED by ' + roundData.opponent_god_deployed + '!'} Your ${roundData.my_god_deployed} was neutralized!</span>
                         </div>`;
                     }
                     if (oppBlocked) {
                         effectsHTML += `<div style="background: rgba(34,197,94,0.2); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                            <span style="color: #22c55e;">✅ You BLOCKED their ${roundData.opponent_god_deployed}!</span>
+                            <span style="color: #22c55e;">${oppBlockedByCerberus ? '🐕 Cerberus blocked their ' + roundData.opponent_god_deployed + '!' : '✅ You BLOCKED their ' + roundData.opponent_god_deployed + '!'}</span>
                         </div>`;
                     }
                 }
@@ -8787,12 +8789,14 @@
                         const oppGod = roundData.opponent_god_deployed;
                         const myBlocked = data.is_challenger ? roundData.challenger_god_blocked : roundData.defender_god_blocked;
                         const oppBlocked = data.is_challenger ? roundData.defender_god_blocked : roundData.challenger_god_blocked;
+                        const myByCerb = data.is_challenger ? roundData.challenger_blocked_by_cerberus : roundData.defender_blocked_by_cerberus;
+                        const oppByCerb = data.is_challenger ? roundData.defender_blocked_by_cerberus : roundData.challenger_blocked_by_cerberus;
                         godInfoHTML = '<div style="margin-top: 20px; font-size: 16px;">';
                         if (myGod) {
-                            godInfoHTML += `<p style="color: ${myBlocked ? '#ff6b6b' : '#22c55e'};">Your ${myGod}${myBlocked ? ' was BLOCKED!' : ' is active!'}</p>`;
+                            godInfoHTML += `<p style="color: ${myBlocked ? '#ff6b6b' : '#22c55e'};">Your ${myGod}${myBlocked ? (myByCerb ? ' — 🐕 Cerberus blocked!' : ' was BLOCKED!') : ' is active!'}</p>`;
                         }
                         if (oppGod) {
-                            godInfoHTML += `<p style="color: ${oppBlocked ? '#22c55e' : '#ff6b6b'};">Opponent deployed ${oppGod}${oppBlocked ? ' (BLOCKED!)' : ''}</p>`;
+                            godInfoHTML += `<p style="color: ${oppBlocked ? '#22c55e' : '#ff6b6b'};">Opponent deployed ${oppGod}${oppBlocked ? (oppByCerb ? ' (🐕 Cerberus blocked!)' : ' (BLOCKED!)') : ''}</p>`;
                         }
                         godInfoHTML += '</div>';
                     }
