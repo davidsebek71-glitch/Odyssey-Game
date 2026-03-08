@@ -95,16 +95,51 @@ function removeMagenta(img) {
     ctx.drawImage(img, 0, 0);
     const imageData = ctx.getImageData(0, 0, c.width, c.height);
     const d = imageData.data;
+    const w = c.width, h = c.height;
+
+    // Pass 1: Remove magenta pixels
     for (let i = 0; i < d.length; i += 4) {
         const r = d[i], g = d[i+1], b = d[i+2];
-        // Detect magenta-ish pixels: high red, low green, high blue
         if (r > 180 && g < 100 && b > 180) {
-            d[i+3] = 0; // make transparent
+            d[i+3] = 0;
         }
     }
     ctx.putImageData(imageData, 0, 0);
+
+    // Pass 2: Find bounding box of non-transparent pixels (auto-crop)
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            if (d[idx + 3] > 0) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+
+    // If nothing visible found, return a 1x1 transparent image
+    if (maxX < minX || maxY < minY) {
+        const tiny = document.createElement('canvas');
+        tiny.width = 1; tiny.height = 1;
+        const out = new Image();
+        out.src = tiny.toDataURL();
+        return out;
+    }
+
+    // Crop to bounding box
+    const cropW = maxX - minX + 1;
+    const cropH = maxY - minY + 1;
+    const cropped = document.createElement('canvas');
+    cropped.width = cropW;
+    cropped.height = cropH;
+    const cropCtx = cropped.getContext('2d');
+    cropCtx.drawImage(c, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+
     const cleaned = new Image();
-    cleaned.src = c.toDataURL();
+    cleaned.src = cropped.toDataURL();
     return cleaned;
 }
 
