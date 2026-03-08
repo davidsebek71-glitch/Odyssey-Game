@@ -86,7 +86,7 @@ let spritesLoaded = 0;
 const spriteKeys = Object.keys(SPRITE_PATHS);
 
 // Sprites that should NOT have magenta removal (textures/backgrounds)
-const SKIP_MAGENTA_REMOVAL = ['water_texture', 'cave_wall', 'cave_floor', 'throne_floor', 'stalactites', 'rocks'];
+const SKIP_MAGENTA_REMOVAL = ['water_texture', 'cave_wall', 'cave_floor', 'throne_floor'];
 
 function removeMagenta(img) {
     const c = document.createElement('canvas');
