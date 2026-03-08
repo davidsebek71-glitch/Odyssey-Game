@@ -85,13 +85,40 @@ const spriteImages = {};
 let spritesLoaded = 0;
 const spriteKeys = Object.keys(SPRITE_PATHS);
 
+// Sprites that should NOT have magenta removal (textures/backgrounds)
+const SKIP_MAGENTA_REMOVAL = ['water_texture', 'cave_wall', 'cave_floor', 'throne_floor', 'stalactites', 'rocks'];
+
+function removeMagenta(img) {
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, c.width, c.height);
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        // Detect magenta-ish pixels: high red, low green, high blue
+        if (r > 180 && g < 100 && b > 180) {
+            d[i+3] = 0; // make transparent
+        }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    const cleaned = new Image();
+    cleaned.src = c.toDataURL();
+    return cleaned;
+}
+
 function loadSprites(callback) {
     const total = spriteKeys.length;
     document.getElementById('loading-count').textContent = `0 / ${total}`;
     spriteKeys.forEach(key => {
         const img = new Image();
         img.onload = () => {
-            spriteImages[key] = img;
+            if (SKIP_MAGENTA_REMOVAL.includes(key)) {
+                spriteImages[key] = img;
+            } else {
+                spriteImages[key] = removeMagenta(img);
+            }
             spritesLoaded++;
             const pct = Math.round((spritesLoaded / total) * 100);
             document.getElementById('loading-bar').style.width = pct + '%';
