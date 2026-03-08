@@ -120,16 +120,14 @@ function removeMagenta(img) {
         }
     }
 
-    // If nothing visible found, return a 1x1 transparent image
+    // If nothing visible found, return a 1x1 transparent canvas
     if (maxX < minX || maxY < minY) {
         const tiny = document.createElement('canvas');
         tiny.width = 1; tiny.height = 1;
-        const out = new Image();
-        out.src = tiny.toDataURL();
-        return out;
+        return tiny;
     }
 
-    // Crop to bounding box
+    // Crop to bounding box — return canvas directly (drawImage accepts canvas)
     const cropW = maxX - minX + 1;
     const cropH = maxY - minY + 1;
     const cropped = document.createElement('canvas');
@@ -137,10 +135,7 @@ function removeMagenta(img) {
     cropped.height = cropH;
     const cropCtx = cropped.getContext('2d');
     cropCtx.drawImage(c, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
-
-    const cleaned = new Image();
-    cleaned.src = cropped.toDataURL();
-    return cleaned;
+    return cropped;
 }
 
 function loadSprites(callback) {
