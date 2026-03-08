@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Orpheus & the Underworld — Odyssey to Olympus</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a1a; color: #e2d8c8; font-family: Georgia, serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #game-wrapper { position: relative; text-align: center; }
+        canvas { display: block; margin: 0 auto; border-radius: 8px; border: 2px solid rgba(139,92,246,0.3); }
+        #hud { display: flex; justify-content: space-between; align-items: center; width: 680px; margin: 8px auto 0; padding: 0 4px; }
+        #hud-health { color: #ef4444; font-weight: 700; font-size: 14px; }
+        #hud-level { color: #8b5cf6; font-weight: 700; font-size: 14px; }
+        #hud-progress { color: #ffd700; font-size: 13px; }
+        #controls-hint { color: rgba(255,255,255,0.3); font-size: 12px; margin-top: 6px; }
+        #overlay { position: absolute; top: 0; left: 0; width: 680px; height: 650px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(10,10,26,0.92); border-radius: 8px; z-index: 10; }
+        #overlay-title { font-size: 1.6rem; color: #8b5cf6; margin-bottom: 10px; font-weight: 700; }
+        #overlay-text { color: rgba(255,255,255,0.75); font-size: 15px; line-height: 1.6; max-width: 460px; margin-bottom: 20px; text-align: center; }
+        #overlay-btn { padding: 14px 32px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); border: none; border-radius: 10px; color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; font-family: Georgia, serif; }
+        #overlay-btn:hover { filter: brightness(1.1); }
+        #loading-screen { position: absolute; top: 0; left: 0; width: 680px; height: 650px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0a0a1a; border-radius: 8px; z-index: 20; }
+        #loading-bar-bg { width: 300px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 6px; margin-top: 16px; overflow: hidden; }
+        #loading-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #8b5cf6, #c084fc); border-radius: 6px; transition: width 0.2s; }
+    </style>
+</head>
+<body>
+    <div id="game-wrapper">
+        <canvas id="canvas" width="680" height="650"></canvas>
+        <div id="hud">
+            <div id="hud-health">❤️ ██████████</div>
+            <div id="hud-level">Level 1: The River Styx</div>
+            <div id="hud-progress">Hits: 0/5</div>
+        </div>
+        <div id="controls-hint">Arrow Keys: Move &nbsp;|&nbsp; A-G Keys: Play Lyre Notes to Fire</div>
+        <div id="overlay" style="display: none;">
+            <div id="overlay-title"></div>
+            <div id="overlay-text"></div>
+            <button id="overlay-btn">Begin</button>
+        </div>
+        <div id="loading-screen">
+            <div style="font-size: 24px; color: #8b5cf6; font-weight: 700;">🎵 Loading Sprites...</div>
+            <div id="loading-bar-bg"><div id="loading-bar"></div></div>
+            <div id="loading-count" style="color: rgba(255,255,255,0.4); font-size: 13px; margin-top: 8px;">0 / 0</div>
+        </div>
+    </div>
+
+<script>
+// ==================== AUTH ====================
+const urlParams = new URLSearchParams(window.location.search);
+const token = urlParams.get('token');
+if (!token) {
+    document.body.innerHTML = '<div style="text-align:center;padding:60px;color:#f87171;font-size:18px;">No authentication token. Please launch this game from the Myth Portal.</div>';
+}
+const API_URL = window.location.origin + '/api';
+const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+// ==================== SPRITE LOADING (URL-based) ====================
+const SPRITE_PATHS = {
+    orpheus: '/images/classical/Orpheus/Orpheus.png',
+    charon: '/images/classical/Orpheus/Charon.png',
+    charon_boat: '/images/classical/Orpheus/Charon_Boat.png',
+    cerberus_body: '/images/classical/Orpheus/cerberus_body.png',
+    cerberus_head_closed: '/images/classical/Orpheus/cerberus_head_closed.png',
+    cerberus_head_open: '/images/classical/Orpheus/cerberus_head_open.png',
+    cerberus_head_sleeping: '/images/classical/Orpheus/cerberus_head_sleeping.png',
+    cerberus: '/images/classical/Orpheus/Cerberus.png',
+    cerberus_sleeping: '/images/classical/Orpheus/Cerberus_Sleeping.png',
+    hades: '/images/classical/Orpheus/Hades.png',
+    persephone: '/images/classical/Orpheus/Persephone.png',
+    eurydice: '/images/classical/Orpheus/Eurydice.png',
+    musical_note: '/images/classical/Orpheus/Musical_Note.png',
+    musical_note_danger: '/images/classical/Orpheus/Musical_Note_Danger.png',
+    bone: '/images/classical/Orpheus/bone.png',
+    ghost: '/images/classical/Orpheus/ghost.png',
+    water_texture: '/images/classical/Orpheus/Water_Texture.png',
+    cave_wall: '/images/classical/Orpheus/cave_wall.png',
+    cave_floor: '/images/classical/Orpheus/Stone_Floor.png',
+    throne_floor: '/images/classical/Orpheus/Dark_Marble_Underworld_Floor.png',
+    stalactites: '/images/classical/Orpheus/stalactites.png',
+    rocks: '/images/classical/Orpheus/rocks.png',
+};
+
+const spriteImages = {};
+let spritesLoaded = 0;
+const spriteKeys = Object.keys(SPRITE_PATHS);
+
+function loadSprites(callback) {
+    const total = spriteKeys.length;
+    document.getElementById('loading-count').textContent = `0 / ${total}`;
+    spriteKeys.forEach(key => {
+        const img = new Image();
+        img.onload = () => {
+            spriteImages[key] = img;
+            spritesLoaded++;
+            const pct = Math.round((spritesLoaded / total) * 100);
+            document.getElementById('loading-bar').style.width = pct + '%';
+            document.getElementById('loading-count').textContent = `${spritesLoaded} / ${total}`;
+            if (spritesLoaded === total) {
+                document.getElementById('loading-screen').style.display = 'none';
+                callback();
+            }
+        };
+        img.onerror = () => {
+            console.warn('Failed to load sprite:', key, SPRITE_PATHS[key]);
+            spritesLoaded++;
+            const pct = Math.round((spritesLoaded / total) * 100);
+            document.getElementById('loading-bar').style.width = pct + '%';
+            document.getElementById('loading-count').textContent = `${spritesLoaded} / ${total}`;
+            if (spritesLoaded === total) {
+                document.getElementById('loading-screen').style.display = 'none';
+                callback();
+            }
+        };
+        img.src = SPRITE_PATHS[key];
+    });
+}
+
+// ==================== GAME CONSTANTS ====================
+const CW = 680, CH = 650;
+const PANEL_W = 80;
+const W = CW - PANEL_W;
+const H = CH;
+const MAX_HEALTH = 100;
+const NOTE_SPEED = 5;
+const SHOOT_COOLDOWN = 250;
+const ORPHEUS_SPEED = 4;
+const LYRE_KEYS = ['a','b','c','d','e','f','g'];
+const CHARON_HITS_NEEDED = 15;
+const PERSEPHONE_HITS_NEEDED = 12;
+
+// ==================== GAME STATE ====================
+let level = 1, health = MAX_HEALTH, gameActive = false;
+let keys = {}, notes = [], lastShot = 0, animFrame = null;
+
+// Lyre state
+let lyreSequence = [], lyreSeqIndex = 0, lyreHistory = [];
+
+// Level 1
+let charonX = 300, charonDir = 1, charonHits = 0, charonFlash = 0, orpheusFlash = 0;
+let ghosts = [];
+let l1Rocks = [];
+let l1BorderRocks = [];
+
+// Level 2
+let heads = [];
+let bones = [];
+let lastBoneSpawn = 0;
+let cerberusShake = 0;
+let l2Rocks = [];
+
+// Level 3
+let hadesX = 0, hadesY = 0, persephoneX = 300, persephoneY = 120, persephoneHits = 0;
+
+let orpX = 300, orpY = 580, orpFacing = 1;
+
+// ==================== LYRE SEQUENCE SYSTEM ====================
+function generateSequence() {
+    const len = level === 1 ? 1 : level === 2 ? 2 : 3;
+    const seq = [];
+    for (let i = 0; i < len; i++) {
+        seq.push(LYRE_KEYS[Math.floor(Math.random() * LYRE_KEYS.length)]);
+    }
+    lyreSequence = seq;
+    lyreSeqIndex = 0;
+}
+
+function handleLyreKey(key) {
+    if (!gameActive) return;
+    const k = key.toLowerCase();
+    if (!LYRE_KEYS.includes(k)) return;
+    if (lyreSequence.length === 0) return;
+    if (k === lyreSequence[lyreSeqIndex]) {
+        lyreSeqIndex++;
+        if (lyreSeqIndex >= lyreSequence.length) {
+            fireNote();
+            lyreHistory.unshift({ seq: [...lyreSequence], time: performance.now() });
+            if (lyreHistory.length > 5) lyreHistory.pop();
+            generateSequence();
+        }
+    }
+}
+
+function fireNote() {
+    const now = performance.now();
+    if (now - lastShot < SHOOT_COOLDOWN) return;
+    lastShot = now;
+    if (level <= 2) {
+        notes.push({ x: orpX, y: orpY - 20, dx: 0, dy: -NOTE_SPEED, bounced: false });
+    } else {
+        const angle = Math.atan2(persephoneY - orpY, persephoneX - orpX);
+        notes.push({ x: orpX, y: orpY - 20, dx: Math.cos(angle) * NOTE_SPEED, dy: Math.sin(angle) * NOTE_SPEED, bounced: false });
+    }
+}
+
+// ==================== DRAW LYRE PANEL ====================
+function drawLyrePanel(ctx) {
+    const px = W;
+    ctx.fillStyle = 'rgba(20,15,40,0.95)';
+    ctx.fillRect(px, 0, PANEL_W, H);
+    ctx.strokeStyle = 'rgba(139,92,246,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = '#8b5cf6';
+    ctx.textAlign = 'center';
+    ctx.fillText('🎵 LYRE', px + PANEL_W / 2, 20);
+
+    const seqY = 55;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('PLAY:', px + PANEL_W / 2, seqY - 10);
+
+    lyreSequence.forEach((note, i) => {
+        const ny = seqY + i * 65;
+        const isCurrent = i === lyreSeqIndex;
+        const isComplete = i < lyreSeqIndex;
+
+        if (isComplete) {
+            ctx.fillStyle = 'rgba(74,222,128,0.3)';
+        } else if (isCurrent) {
+            const pulse = 0.6 + Math.sin(performance.now() / 200) * 0.2;
+            ctx.fillStyle = `rgba(192,132,252,${pulse})`;
+        } else {
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        }
+        ctx.beginPath();
+        ctx.arc(px + PANEL_W / 2, ny + 15, 24, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (isCurrent) {
+            ctx.strokeStyle = '#c084fc'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(px + PANEL_W / 2, ny + 15, 24, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        ctx.font = isCurrent ? 'bold 26px sans-serif' : '22px sans-serif';
+        ctx.fillStyle = isComplete ? '#4ade80' : isCurrent ? '#fff' : 'rgba(255,255,255,0.3)';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(note.toUpperCase(), px + PANEL_W / 2, ny + 15);
+
+        if (isComplete) {
+            ctx.font = '14px sans-serif'; ctx.fillStyle = '#4ade80';
+            ctx.fillText('✓', px + PANEL_W / 2 + 26, ny + 10);
+        }
+    });
+
+    if (lyreSeqIndex < lyreSequence.length) {
+        const arrowY = seqY + lyreSeqIndex * 65 + 15;
+        ctx.fillStyle = '#ffd700'; ctx.font = '16px sans-serif';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText('▶', px + 8, arrowY);
+    }
+}
+
+// ==================== CHARACTER RENDERERS ====================
+let _orpOffscreen = null;
+let _orpOffCtx = null;
+
+function drawOrpheus(ctx, x, y, facing) {
+    const img = spriteImages['orpheus'];
+    const flashActive = (performance.now() - orpheusFlash) < 300;
+    if (img) {
+        if (flashActive) {
+            if (!_orpOffscreen) {
+                _orpOffscreen = document.createElement('canvas');
+                _orpOffscreen.width = 48; _orpOffscreen.height = 64;
+                _orpOffCtx = _orpOffscreen.getContext('2d');
+            }
+            _orpOffCtx.clearRect(0, 0, 48, 64);
+            _orpOffCtx.drawImage(img, 0, 0, 48, 64);
+            _orpOffCtx.globalCompositeOperation = 'source-atop';
+            _orpOffCtx.fillStyle = 'rgba(255, 40, 40, 0.6)';
+            _orpOffCtx.fillRect(0, 0, 48, 64);
+            _orpOffCtx.globalCompositeOperation = 'source-over';
+            ctx.save();
+            ctx.translate(x, y);
+            if (facing < 0) ctx.scale(-1, 1);
+            ctx.drawImage(_orpOffscreen, -24, -32, 48, 64);
+            ctx.restore();
+        } else {
+            ctx.save();
+            ctx.translate(x, y);
+            if (facing < 0) ctx.scale(-1, 1);
+            ctx.drawImage(img, -24, -32, 48, 64);
+            ctx.restore();
+        }
+    } else { ctx.font = '36px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('\u{1F3B5}', x, y); }
+}
+
+let _charonOffscreen = null;
+let _charonOffCtx = null;
+
+function drawCharon(ctx, x, y, facingDir) {
+    const boat = spriteImages['charon_boat'];
+    if (boat) ctx.drawImage(boat, x - 60, y + 10, 120, 40);
+    const img = spriteImages['charon'];
+    const flashActive = (performance.now() - charonFlash) < 300;
+    if (img) {
+        if (flashActive) {
+            if (!_charonOffscreen) {
+                _charonOffscreen = document.createElement('canvas');
+                _charonOffscreen.width = 48; _charonOffscreen.height = 64;
+                _charonOffCtx = _charonOffscreen.getContext('2d');
+            }
+            _charonOffCtx.clearRect(0, 0, 48, 64);
+            _charonOffCtx.drawImage(img, 0, 0, 48, 64);
+            _charonOffCtx.globalCompositeOperation = 'source-atop';
+            _charonOffCtx.fillStyle = 'rgba(255, 40, 40, 0.6)';
+            _charonOffCtx.fillRect(0, 0, 48, 64);
+            _charonOffCtx.globalCompositeOperation = 'source-over';
+            ctx.save();
+            ctx.translate(x, y);
+            if (facingDir < 0) ctx.scale(-1, 1);
+            ctx.drawImage(_charonOffscreen, -24, -32, 48, 64);
+            ctx.restore();
+        } else {
+            ctx.save();
+            ctx.translate(x, y);
+            if (facingDir < 0) ctx.scale(-1, 1);
+            ctx.drawImage(img, -24, -32, 48, 64);
+            ctx.restore();
+        }
+    } else {
+        ctx.font = '40px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('\u{1F6A3}', x, y);
+    }
+}
+
+function drawCerberus(ctx, centerX, centerY, heads, now) {
+    const sway = Math.sin(now / 1500) * 60;
+    const breathe = Math.sin(now / 800) * 2;
+    const bx = centerX + sway;
+    const by = centerY + breathe;
+
+    const body = spriteImages['cerberus_body'];
+    if (body) {
+        ctx.drawImage(body, bx - 140, by - 30, 280, 170);
+    }
+
+    const headPositions = [
+        { ox: -80, oy: -32, rot: -0.18 },
+        { ox: 0,   oy: -45, rot: 0 },
+        { ox: 80,  oy: -32, rot: 0.18 },
+    ];
+
+    heads.forEach((h, i) => {
+        const pos = headPositions[i];
+        const hx = bx + pos.ox;
+        const hy = by + pos.oy;
+        h.worldX = hx;
+        h.worldY = hy;
+
+        let headImg;
+        if (h.asleep) {
+            headImg = spriteImages['cerberus_head_sleeping'];
+        } else if (h.open) {
+            headImg = spriteImages['cerberus_head_open'];
+        } else {
+            headImg = spriteImages['cerberus_head_closed'];
+        }
+
+        if (headImg) {
+            ctx.save();
+            ctx.translate(hx, hy);
+            ctx.rotate(pos.rot);
+            if (h.asleep) {
+                ctx.translate(0, 15);
+                ctx.rotate(0.1 * (i === 0 ? -1 : i === 2 ? 1 : 0));
+                ctx.globalAlpha = 0.8;
+            }
+            ctx.drawImage(headImg, -45, -45, 90, 90);
+            ctx.restore();
+        }
+
+        if (!h.asleep) {
+            const pct = h.sleepHits / h.hitsNeeded;
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.fillRect(hx - 25, hy + 40, 50, 5);
+            ctx.fillStyle = '#4ade80';
+            ctx.fillRect(hx - 25, hy + 40, 50 * pct, 5);
+        }
+    });
+}
+
+function drawHades(ctx, x, y, facing) {
+    const img = spriteImages['hades'];
+    if (img) {
+        ctx.save();
+        ctx.translate(x, y);
+        if (facing < 0) ctx.scale(-1, 1);
+        ctx.drawImage(img, -28, -36, 56, 72);
+        ctx.restore();
+    } else { ctx.font = '40px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('\u{1F480}', x, y); }
+}
+
+function drawPersephone(ctx, x, y) {
+    const img = spriteImages['persephone'];
+    if (img) ctx.drawImage(img, x - 36, y - 40, 72, 80);
+    else { ctx.font = '40px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('\u{1F451}', x, y); }
+}
+
+function drawEurydice(ctx, x, y) {
+    const img = spriteImages['eurydice'];
+    if (img) ctx.drawImage(img, x - 24, y - 32, 48, 64);
+}
+
+function drawNote(ctx, x, y, bounced) {
+    const key = bounced ? 'musical_note_danger' : 'musical_note';
+    const img = spriteImages[key];
+    if (img) ctx.drawImage(img, x - 12, y - 12, 24, 24);
+    else { ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = bounced ? '#ef4444' : '#c084fc'; ctx.fillText('\u266a', x, y); ctx.fillStyle = '#e2d8c8'; }
+}
+
+// ==================== ENVIRONMENT RENDERERS ====================
+function drawWaterBg(ctx, now) {
+    const img = spriteImages['water_texture'];
+    if (img) {
+        const tw = 256, th = 256;
+        const ox = (now / 50) % tw, oy = (now / 80) % th;
+        for (let x = -tw; x < W + tw; x += tw)
+            for (let y = -th; y < H + th; y += th)
+                ctx.drawImage(img, x + ox, y + oy, tw, th);
+    } else { ctx.fillStyle = '#0d0d2b'; ctx.fillRect(0, 0, W, H); }
+}
+
+function drawTiledFloor(ctx, spriteKey, fallbackColor) {
+    const img = spriteImages[spriteKey];
+    if (img) {
+        const tw = 256, th = 256;
+        for (let x = 0; x < W; x += tw)
+            for (let y = 0; y < H; y += th)
+                ctx.drawImage(img, x, y, tw, th);
+    } else { ctx.fillStyle = fallbackColor; ctx.fillRect(0, 0, W, H); }
+}
+
+function drawTiledRegion(ctx, spriteKey, x0, y0, w, h, fallbackColor) {
+    const img = spriteImages[spriteKey];
+    if (img) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x0, y0, w, h);
+        ctx.clip();
+        const tw = 256, th = 256;
+        for (let x = x0; x < x0 + w; x += tw)
+            for (let y = y0; y < y0 + h; y += th)
+                ctx.drawImage(img, x, y, tw, th);
+        ctx.restore();
+    } else { ctx.fillStyle = fallbackColor; ctx.fillRect(x0, y0, w, h); }
+}
+
+function drawStalactites(ctx, yBase, count) {
+    const img = spriteImages['stalactites'];
+    if (!img) return;
+    const positions = [];
+    const seed = 42;
+    for (let i = 0; i < count; i++) {
+        const px = ((seed * (i + 1) * 137) % 577) / 577;
+        const sc = 0.5 + ((seed * (i + 1) * 251) % 400) / 800;
+        positions.push({ x: px * W, scale: sc });
+    }
+    positions.forEach(p => {
+        const sw = 150 * p.scale, sh = 80 * p.scale;
+        ctx.drawImage(img, p.x - sw / 2, yBase, sw, sh);
+    });
+}
+
+function generateRockPositions(count, yMin, yMax) {
+    const rocks = [];
+    for (let i = 0; i < count; i++) {
+        rocks.push({
+            x: 30 + Math.random() * (W - 60),
+            y: yMin + Math.random() * (yMax - yMin),
+            scale: 0.5 + Math.random() * 0.6,
+            flip: Math.random() > 0.5 ? -1 : 1
+        });
+    }
+    return rocks;
+}
+
+function generateRockBorder(count, yLine) {
+    const rocks = [];
+    const spacing = W / count;
+    for (let i = 0; i < count; i++) {
+        rocks.push({
+            x: spacing * i + spacing * 0.3 + Math.random() * spacing * 0.4,
+            y: yLine + (Math.random() - 0.5) * 16,
+            scale: 0.55 + Math.random() * 0.45,
+            flip: Math.random() > 0.5 ? -1 : 1
+        });
+    }
+    return rocks;
+}
+
+function drawRocksFromList(ctx, rockList) {
+    const img = spriteImages['rocks'];
+    if (!img) return;
+    rockList.forEach(r => {
+        const rw = 60 * r.scale, rh = 30 * r.scale;
+        ctx.save();
+        ctx.translate(r.x, r.y);
+        ctx.scale(r.flip, 1);
+        ctx.drawImage(img, -rw / 2, -rh / 2, rw, rh);
+        ctx.restore();
+    });
+}
+
+// ==================== OVERLAY ====================
+function showOverlay(title, text, btnText, btnAction) {
+    document.getElementById('overlay-title').textContent = title;
+    document.getElementById('overlay-text').innerHTML = text;
+    const btn = document.getElementById('overlay-btn');
+    btn.textContent = btnText; btn.onclick = btnAction;
+    document.getElementById('overlay').style.display = 'flex';
+}
+function hideOverlay() { document.getElementById('overlay').style.display = 'none'; }
+
+// ==================== HUD ====================
+function updateHUD() {
+    const bars = Math.round((health / MAX_HEALTH) * 10);
+    const barStr = '█'.repeat(Math.max(0, bars)) + '░'.repeat(Math.max(0, 10 - bars));
+    const hColor = health > 60 ? '#4ade80' : health > 30 ? '#fbbf24' : '#ef4444';
+    document.getElementById('hud-health').innerHTML = `<span style="color:${hColor}">❤️ ${barStr}</span>`;
+    if (level === 1) {
+        document.getElementById('hud-level').textContent = 'Level 1: The River Styx';
+        document.getElementById('hud-progress').textContent = `Hits: ${charonHits}/${CHARON_HITS_NEEDED}`;
+    } else if (level === 2) {
+        const asleepCount = heads.filter(h => h.asleep).length;
+        document.getElementById('hud-level').textContent = 'Level 2: Cerberus';
+        document.getElementById('hud-progress').textContent = `Heads Asleep: ${asleepCount}/3`;
+    } else if (level === 3) {
+        document.getElementById('hud-level').textContent = 'Level 3: Throne of Hades';
+        document.getElementById('hud-progress').textContent = `Persephone: ${persephoneHits}/${PERSEPHONE_HITS_NEEDED}`;
+    }
+}
+
+// ==================== LEVEL INIT ====================
+function initLevel(lvl) {
+    level = lvl; health = MAX_HEALTH; notes = []; lastShot = 0;
+    lyreHistory = []; generateSequence();
+    if (lvl === 1) {
+        orpX = 300; orpY = 580;
+        charonX = 300; charonDir = 1; charonHits = 0;
+        charonFlash = 0; orpheusFlash = 0;
+        ghosts = spawnGhosts(3);
+        l1Rocks = generateRockPositions(8, 300, 600);
+        l1BorderRocks = generateRockBorder(10, Math.floor(H * 0.35));
+    } else if (lvl === 2) {
+        orpX = 300; orpY = 580; orpheusFlash = 0;
+        heads = [
+            { open: false, timer: 0, interval: 1800, openDur: 800, sleepHits: 0, hitsNeeded: 4, asleep: false, worldX: 0, worldY: 0 },
+            { open: false, timer: 600, interval: 2200, openDur: 700, sleepHits: 0, hitsNeeded: 4, asleep: false, worldX: 0, worldY: 0 },
+            { open: false, timer: 1200, interval: 1500, openDur: 900, sleepHits: 0, hitsNeeded: 4, asleep: false, worldX: 0, worldY: 0 }
+        ];
+        bones = []; lastBoneSpawn = 0; cerberusShake = 0;
+        l2Rocks = generateRockPositions(8, 350, 620);
+    } else if (lvl === 3) {
+        orpX = 300; orpY = 500; orpheusFlash = 0;
+        persephoneX = 300; persephoneY = 120;
+        hadesX = 150; hadesY = 300; persephoneHits = 0;
+    }
+    updateHUD();
+}
+
+function dist(x1, y1, x2, y2) { return Math.sqrt((x1-x2)**2 + (y1-y2)**2); }
+
+function takeDamage(amount) {
+    health -= amount;
+    if (health <= 0) { health = 0; gameOver(); }
+    updateHUD();
+}
+
+function gameOver() {
+    gameActive = false; cancelAnimationFrame(animFrame);
+    showOverlay('💀 Orpheus Falls', 'The Underworld claims another soul... But the music echoes still.', 'Try Again',
+        () => { initLevel(level); startLevel(); });
+}
+
+// ==================== MAIN GAME LOOP ====================
+function gameLoop(now) {
+    if (!gameActive) return;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const spd = ORPHEUS_SPEED;
+    if (level <= 2) {
+        if (keys['ArrowLeft']) { orpX -= spd; orpFacing = -1; }
+        if (keys['ArrowRight']) { orpX += spd; orpFacing = 1; }
+        orpX = Math.max(20, Math.min(W - 20, orpX));
+    } else {
+        if (keys['ArrowLeft']) { orpX -= spd; orpFacing = -1; }
+        if (keys['ArrowRight']) { orpX += spd; orpFacing = 1; }
+        if (keys['ArrowUp']) orpY -= spd;
+        if (keys['ArrowDown']) orpY += spd;
+        orpX = Math.max(20, Math.min(W - 20, orpX));
+        orpY = Math.max(60, Math.min(H - 20, orpY));
+    }
+
+    notes.forEach(n => { n.x += n.dx; n.y += n.dy; });
+
+    if (level === 1) updateLevel1(ctx, now);
+    else if (level === 2) updateLevel2(ctx, now);
+    else if (level === 3) updateLevel3(ctx, now);
+
+    notes = notes.filter(n => n.x > -20 && n.x < W + 20 && n.y > -20 && n.y < H + 20);
+
+    notes = notes.filter(n => {
+        if (n.bounced && dist(n.x, n.y, orpX, orpY) < 25) {
+            takeDamage(8); orpheusFlash = performance.now(); return false;
+        }
+        return true;
+    });
+
+    const ohp = health / MAX_HEALTH;
+    const oBarW = 200, oBarH = 12, oBarX = (W - oBarW) / 2, oBarY = H - 22;
+    ctx.font = '11px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('ORPHEUS', W / 2, oBarY - 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(oBarX, oBarY, oBarW, oBarH);
+    ctx.fillStyle = ohp > 0.5 ? '#4ade80' : ohp > 0.25 ? '#fbbf24' : '#ef4444';
+    ctx.fillRect(oBarX, oBarY, oBarW * ohp, oBarH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(oBarX, oBarY, oBarW, oBarH);
+
+    drawLyrePanel(ctx);
+    updateHUD();
+    animFrame = requestAnimationFrame(gameLoop);
+}
+
+// ==================== GHOSTS ====================
+function spawnGhosts(count) {
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+        const goRight = Math.random() > 0.5;
+        arr.push({
+            x: goRight ? -40 - Math.random() * 200 : W + 40 + Math.random() * 200,
+            y: 200 + Math.random() * 300,
+            speed: (0.4 + Math.random() * 0.6) * (goRight ? 1 : -1),
+            opacity: 0.25 + Math.random() * 0.2,
+            bobPhase: Math.random() * Math.PI * 2,
+            absorbed: 0
+        });
+    }
+    return arr;
+}
+
+function updateGhosts(ctx, now) {
+    ghosts.forEach(g => {
+        g.x += g.speed;
+        const bobY = g.y + Math.sin(now / 800 + g.bobPhase) * 8;
+
+        if (g.speed > 0 && g.x > W + 60) {
+            g.x = -50 - Math.random() * 100;
+            g.y = 180 + Math.random() * 320;
+            g.bobPhase = Math.random() * Math.PI * 2;
+        } else if (g.speed < 0 && g.x < -60) {
+            g.x = W + 50 + Math.random() * 100;
+            g.y = 180 + Math.random() * 320;
+            g.bobPhase = Math.random() * Math.PI * 2;
+        }
+
+        const absorbRadius = 28;
+        notes = notes.filter(n => {
+            if (dist(n.x, n.y, g.x, bobY) < absorbRadius) {
+                g.absorbed = 8;
+                return false;
+            }
+            return true;
+        });
+
+        const alpha = g.absorbed > 0 ? Math.min(0.6, g.opacity + 0.3) : g.opacity;
+        if (g.absorbed > 0) g.absorbed--;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const ghostImg = spriteImages['ghost'];
+        if (ghostImg) {
+            ctx.translate(g.x, bobY);
+            if (g.speed < 0) ctx.scale(-1, 1);
+            if (g.absorbed > 0) { ctx.globalAlpha = Math.min(0.7, alpha + 0.3); }
+            ctx.drawImage(ghostImg, -20, -24, 40, 48);
+        } else {
+            ctx.font = '32px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#8899bb';
+            ctx.fillText('\u{1F47B}', g.x, bobY);
+        }
+        ctx.restore();
+    });
+}
+
+// ==================== LEVEL 1: CHARON ====================
+function updateLevel1(ctx, now) {
+    ctx.clearRect(0, 0, CW, H);
+    const riverH = Math.floor(H * 0.35);
+    drawTiledRegion(ctx, 'cave_wall', 0, riverH, W, H - riverH, '#0a0815');
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, riverH);
+    ctx.clip();
+    drawWaterBg(ctx, now);
+    ctx.restore();
+    drawStalactites(ctx, -5, 7);
+    drawRocksFromList(ctx, l1BorderRocks);
+    drawRocksFromList(ctx, l1Rocks);
+
+    const charonSpeed = 2 + (charonHits / CHARON_HITS_NEEDED) * 4;
+    charonX += charonDir * charonSpeed;
+    if (charonX > W - 40) charonDir = -1;
+    if (charonX < 40) charonDir = 1;
+
+    drawCharon(ctx, charonX, 140, charonDir);
+
+    const chp = 1 - (charonHits / CHARON_HITS_NEEDED);
+    const bW = 200, bH = 12, bX = (W - bW) / 2, bY = 8;
+    ctx.font = '11px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('CHARON', W / 2, bY + bH + 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bX, bY, bW, bH);
+    ctx.fillStyle = chp > 0.5 ? '#4ade80' : chp > 0.25 ? '#fbbf24' : '#ef4444';
+    ctx.fillRect(bX, bY, bW * chp, bH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(bX, bY, bW, bH);
+
+    notes = notes.filter(n => {
+        if (!n.bounced && Math.abs(n.x - charonX) < 60 && Math.abs(n.y - 140) < 40) {
+            charonHits++; charonFlash = performance.now();
+            if (charonHits >= CHARON_HITS_NEEDED) winLevel();
+            return false;
+        }
+        return true;
+    });
+
+    notes.forEach(n => {
+        if (!n.bounced && n.y < 10) {
+            n.dy = NOTE_SPEED * 0.7; n.dx = (Math.random() - 0.5) * 3; n.bounced = true;
+        }
+    });
+
+    updateGhosts(ctx, now);
+    notes.forEach(n => drawNote(ctx, n.x, n.y, n.bounced));
+    drawOrpheus(ctx, orpX, orpY, orpFacing);
+}
+
+// ==================== BONE PROJECTILES ====================
+function spawnBones(cerberusX, cerberusY, now) {
+    const asleepCount = heads.filter(h => h.asleep).length;
+    const interval = [4000, 2500, 1500, 1500][asleepCount];
+    if (now - lastBoneSpawn < interval) return;
+    lastBoneSpawn = now;
+    cerberusShake = 12;
+
+    const count = 1 + asleepCount;
+    for (let i = 0; i < count; i++) {
+        const angle = -0.8 + Math.random() * 1.6 + Math.PI / 2;
+        const speed = 2 + Math.random() * 1.5;
+        bones.push({
+            x: cerberusX + (Math.random() - 0.5) * 100,
+            y: cerberusY + 40,
+            dx: Math.cos(angle) * speed,
+            dy: Math.sin(angle) * speed,
+            rot: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.3,
+            life: 180
+        });
+    }
+}
+
+function updateBones(ctx, now) {
+    bones = bones.filter(b => {
+        b.x += b.dx;
+        b.y += b.dy;
+        b.dy += 0.02;
+        b.rot += b.rotSpeed;
+        b.life--;
+
+        const boneRadius = 18;
+        notes = notes.filter(n => {
+            if (dist(n.x, n.y, b.x, b.y) < boneRadius) {
+                return false;
+            }
+            return true;
+        });
+
+        if (dist(b.x, b.y, orpX, orpY) < 24) {
+            takeDamage(5); orpheusFlash = performance.now();
+            return false;
+        }
+
+        const boneImg = spriteImages['bone'];
+        if (boneImg) {
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.rotate(b.rot);
+            ctx.drawImage(boneImg, -14, -14, 28, 28);
+            ctx.restore();
+        } else {
+            ctx.font = '18px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#d4c9a8';
+            ctx.fillText('\u{1F9B4}', b.x, b.y);
+        }
+
+        return b.life > 0 && b.x > -30 && b.x < W + 30 && b.y < H + 30;
+    });
+}
+
+// ==================== LEVEL 2: CERBERUS ====================
+function updateLevel2(ctx, now) {
+    ctx.clearRect(0, 0, CW, H);
+    drawTiledFloor(ctx, 'cave_wall', '#0a0815');
+    drawStalactites(ctx, -5, 7);
+    drawRocksFromList(ctx, l2Rocks);
+
+    heads.forEach(h => {
+        if (h.asleep) return;
+        h.timer += 16;
+        h.open = (h.timer % (h.interval + h.openDur)) > h.interval;
+    });
+
+    const cerberusX = W / 2 + (cerberusShake > 0 ? (Math.random() - 0.5) * 6 : 0);
+    const cerberusY = 200;
+    if (cerberusShake > 0) cerberusShake--;
+    drawCerberus(ctx, cerberusX, cerberusY, heads, now);
+
+    spawnBones(W / 2, cerberusY, now);
+
+    const totalHits = heads.reduce((s, h) => s + h.sleepHits, 0);
+    const totalNeeded = heads.reduce((s, h) => s + h.hitsNeeded, 0);
+    const chp = 1 - (totalHits / totalNeeded);
+    const bW = 200, bH = 12, bX = (W - bW) / 2, bY = 8;
+    ctx.font = '11px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('CERBERUS', W / 2, bY + bH + 14);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bX, bY, bW, bH);
+    ctx.fillStyle = chp > 0.5 ? '#4ade80' : chp > 0.25 ? '#fbbf24' : '#ef4444';
+    ctx.fillRect(bX, bY, bW * chp, bH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(bX, bY, bW, bH);
+
+    const headHitRadius = 40;
+    notes = notes.filter(n => {
+        if (n.bounced) return true;
+        for (const h of heads) {
+            if (h.asleep) continue;
+            if (dist(n.x, n.y, h.worldX, h.worldY) < headHitRadius) {
+                if (h.open) {
+                    h.sleepHits++;
+                    if (h.sleepHits >= h.hitsNeeded) h.asleep = true;
+                    if (heads.every(hh => hh.asleep)) winLevel();
+                    return false;
+                } else {
+                    n.dy = NOTE_SPEED * 0.8;
+                    n.dx = (Math.random() - 0.5) * 4;
+                    n.bounced = true;
+                    return true;
+                }
+            }
+        }
+        return true;
+    });
+
+    notes.forEach(n => {
+        if (!n.bounced && n.y < 10) { n.dy = NOTE_SPEED * 0.7; n.dx = (Math.random() - 0.5) * 3; n.bounced = true; }
+    });
+
+    updateBones(ctx, now);
+    notes.forEach(n => drawNote(ctx, n.x, n.y, n.bounced));
+    drawOrpheus(ctx, orpX, orpY, orpFacing);
+}
+
+// ==================== LEVEL 3: HADES & PERSEPHONE ====================
+function updateLevel3(ctx, now) {
+    ctx.clearRect(0, 0, CW, H);
+    drawTiledFloor(ctx, 'throne_floor', '#0f0a1a');
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = 'rgba(139,92,246,0.06)'; ctx.fillRect(i * 200 + 20, 0, 30, H); }
+
+    ctx.beginPath();
+    const grd = ctx.createRadialGradient(persephoneX, persephoneY, 10, persephoneX, persephoneY, 80);
+    grd.addColorStop(0, 'rgba(255,215,0,0.08)'); grd.addColorStop(1, 'rgba(255,215,0,0)');
+    ctx.fillStyle = grd; ctx.arc(persephoneX, persephoneY, 80, 0, Math.PI * 2); ctx.fill();
+
+    const blockChance = Math.sin(now / 2000) > 0.3;
+    let tX, tY;
+    if (blockChance) { tX = (orpX + persephoneX) / 2; tY = (orpY + persephoneY) / 2; }
+    else { tX = orpX; tY = orpY; }
+    const hs = 2.2, aT = Math.atan2(tY - hadesY, tX - hadesX);
+    const hadesDx = Math.cos(aT) * hs;
+    hadesX += hadesDx; hadesY += Math.sin(aT) * hs;
+    hadesX = Math.max(20, Math.min(W - 20, hadesX));
+    hadesY = Math.max(20, Math.min(H - 20, hadesY));
+    const hadesFacing = hadesDx >= 0 ? 1 : -1;
+
+    if (dist(hadesX, hadesY, orpX, orpY) < 30) { takeDamage(2); orpheusFlash = performance.now(); }
+
+    notes = notes.filter(n => {
+        if (!n.bounced && dist(n.x, n.y, persephoneX, persephoneY) < 35) {
+            persephoneHits++; if (persephoneHits >= PERSEPHONE_HITS_NEEDED) winLevel(); return false;
+        }
+        if (!n.bounced && dist(n.x, n.y, hadesX, hadesY) < 28) {
+            n.dx = -n.dx + (Math.random() - 0.5) * 2; n.dy = -n.dy + (Math.random() - 0.5) * 2;
+            n.bounced = true; return true;
+        }
+        return true;
+    });
+
+    notes.forEach(n => {
+        if (n.x < 5 || n.x > W - 5) { n.dx = -n.dx; n.bounced = true; }
+        if (n.y < 5 || n.y > H - 5) { n.dy = -n.dy; n.bounced = true; }
+    });
+
+    drawPersephone(ctx, persephoneX, persephoneY);
+    const pPct = persephoneHits / PERSEPHONE_HITS_NEEDED;
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3; ctx.beginPath();
+    ctx.arc(persephoneX, persephoneY, 32, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * pPct)); ctx.stroke();
+
+    drawHades(ctx, hadesX, hadesY, hadesFacing);
+    notes.forEach(n => drawNote(ctx, n.x, n.y, n.bounced));
+    drawOrpheus(ctx, orpX, orpY, orpFacing);
+}
+
+// ==================== LEVEL WIN ====================
+function winLevel() {
+    gameActive = false; cancelAnimationFrame(animFrame);
+    if (level === 1) {
+        showOverlay('⛵ Charon is Charmed!',
+            'The old ferryman has never heard such music. He beckons Orpheus onto the boat and rows across the black river. But ahead, something growls in the darkness...',
+            'Cross the Styx →', () => { initLevel(2); startLevel(); });
+    } else if (level === 2) {
+        showOverlay('🐕 Cerberus Sleeps!',
+            'All three heads droop, lulled by the lyre\'s melody. The great beast snores as Orpheus steps past. Beyond the gate, a cold throne room awaits...',
+            'Enter the Throne Room →', () => { initLevel(3); startLevel(); });
+    } else if (level === 3) {
+        startEurydiceCutscene();
+    }
+}
+
+// ==================== EURYDICE CUTSCENE ====================
+let cutsceneActive = false;
+let cutsceneStart = 0;
+let cutsceneOrpX = 0, cutsceneOrpY = 0;
+let cutsceneEurX = 0, cutsceneEurY = 0;
+let cutsceneEurAlpha = 0;
+let cutscenePhase = 0;
+
+function startEurydiceCutscene() {
+    cutsceneActive = true;
+    cutsceneStart = performance.now();
+    cutscenePhase = 0;
+    cutsceneOrpX = orpX;
+    cutsceneOrpY = orpY;
+    cutsceneEurX = persephoneX;
+    cutsceneEurY = persephoneY + 40;
+    cutsceneEurAlpha = 0;
+    animFrame = requestAnimationFrame(cutsceneLoop);
+}
+
+function cutsceneLoop(now) {
+    if (!cutsceneActive) return;
+    const elapsed = now - cutsceneStart;
+    const ctx = document.getElementById('canvas').getContext('2d');
+
+    ctx.clearRect(0, 0, CW, H);
+    drawTiledFloor(ctx, 'throne_floor', '#0f0a1a');
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = 'rgba(139,92,246,0.06)'; ctx.fillRect(i * 200 + 20, 0, 30, H); }
+
+    drawPersephone(ctx, persephoneX, persephoneY);
+
+    const FADE_DUR = 2000;
+    const PAUSE_END = 3500;
+    const WALK_END = 7000;
+
+    if (elapsed < FADE_DUR) {
+        cutscenePhase = 0;
+        cutsceneEurAlpha = elapsed / FADE_DUR;
+        const hadesAlpha = 1 - (elapsed / FADE_DUR);
+        ctx.save();
+        ctx.globalAlpha = hadesAlpha;
+        drawHades(ctx, hadesX, hadesY, -1);
+        ctx.restore();
+        drawOrpheus(ctx, cutsceneOrpX, cutsceneOrpY, 1);
+
+    } else if (elapsed < PAUSE_END) {
+        cutscenePhase = 1;
+        cutsceneEurAlpha = 1;
+        drawOrpheus(ctx, cutsceneOrpX, cutsceneOrpY, 1);
+
+    } else if (elapsed < WALK_END) {
+        cutscenePhase = 2;
+        cutsceneEurAlpha = 1;
+        const walkProgress = (elapsed - PAUSE_END) / (WALK_END - PAUSE_END);
+        cutsceneOrpY = orpY + walkProgress * (H + 80 - orpY);
+        cutsceneOrpX = orpX + (W / 2 - orpX) * walkProgress * 0.3;
+        const followDelay = Math.max(0, walkProgress - 0.15);
+        cutsceneEurY = persephoneY + 40 + followDelay * (H + 80 - (persephoneY + 40));
+        cutsceneEurX = persephoneX + (cutsceneOrpX - persephoneX) * followDelay * 0.8;
+        drawOrpheus(ctx, cutsceneOrpX, cutsceneOrpY, 1);
+
+    } else {
+        cutsceneActive = false;
+        onGameVictory();
+        return;
+    }
+
+    // Draw Eurydice with fade and sparkle
+    if (cutsceneEurAlpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = cutsceneEurAlpha * 0.85;
+        const eurImg = spriteImages['eurydice'];
+        if (eurImg) {
+            ctx.drawImage(eurImg, cutsceneEurX - 24, cutsceneEurY - 32, 48, 64);
+        }
+        if (cutscenePhase <= 1) {
+            const sparkleCount = 6;
+            for (let i = 0; i < sparkleCount; i++) {
+                const angle = (now / 400 + i * Math.PI * 2 / sparkleCount) % (Math.PI * 2);
+                const radius = 25 + Math.sin(now / 300 + i) * 10;
+                const sx = cutsceneEurX + Math.cos(angle) * radius;
+                const sy = cutsceneEurY + Math.sin(angle) * radius;
+                ctx.globalAlpha = cutsceneEurAlpha * (0.3 + Math.sin(now / 200 + i * 2) * 0.3);
+                ctx.fillStyle = '#ffd700';
+                ctx.beginPath();
+                ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
+
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(W, 0, PANEL_W, H);
+
+    animFrame = requestAnimationFrame(cutsceneLoop);
+}
+
+// ==================== VICTORY & POINT AWARD ====================
+let pointsAwarded = false;
+
+async function onGameVictory() {
+    // Award alliance points via API
+    let pointMsg = '';
+    if (!pointsAwarded) {
+        try {
+            const res = await fetch(`${API_URL}/student/orpheus-complete`, {
+                method: 'POST',
+                headers: headers
+            });
+            const data = await res.json();
+            if (data.success) {
+                pointsAwarded = true;
+                if (data.alreadyAwarded) {
+                    pointMsg = '<br><span style="color: rgba(255,255,255,0.5); font-size: 13px;">Alliance points already earned from a previous playthrough.</span>';
+                } else {
+                    pointMsg = `<br><span style="color: #ffd700; font-size: 15px; font-weight: 700;">🏆 +${data.pointsAwarded} Alliance Points Awarded!</span>`;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to award points:', err);
+            pointMsg = '<br><span style="color: #f87171; font-size: 12px;">Could not award points — check connection.</span>';
+        }
+    }
+
+    showOverlay('💛 Eurydice is Released!',
+        'Moved by the music, Persephone turns to Hades. "Let her go," she whispers. Hades lowers his gaze and nods. From the shadows, Eurydice steps forward — pale, but alive. Orpheus must now lead her back to the surface... without looking back.' + pointMsg,
+        '🏛️ Return to Orpheus Portal',
+        () => {
+            window.location.href = `/student.html?openPortal=3`;
+        });
+}
+
+// ==================== START ====================
+function showIntro() {
+    showOverlay('🎵 The Underworld Awaits',
+        'Orpheus descends into the Underworld to rescue Eurydice. Armed only with his lyre, he must charm his way past three guardians.<br><br>⬅️➡️ Arrow Keys: Move<br>🎵 A-G Keys: Play the right note to fire!',
+        'Begin Descent', () => { startLevel(); });
+}
+
+function startLevel() {
+    hideOverlay(); gameActive = true; notes = []; generateSequence();
+    animFrame = requestAnimationFrame(gameLoop);
+}
+
+// ==================== INPUT ====================
+document.addEventListener('keydown', (e) => {
+    keys[e.key] = true;
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+    handleLyreKey(e.key);
+});
+document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+// ==================== INIT ====================
+loadSprites(() => {
+    console.log('All sprites loaded!');
+    initLevel(1);
+    showIntro();
+});
+</script>
+</body>
+</html>

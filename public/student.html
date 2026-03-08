@@ -10090,6 +10090,7 @@
                             <div style="margin-top: 6px; color: rgba(255,255,255,0.4); font-size: 12px;">
                                 Path: ${portal.assignment_path === 'analytical' ? "📜 Scholar's Path" : "🎨 Creator's Path"}
                             </div>
+                            ${portalId === 3 ? `<button onclick="window.location.href='/orpheus_game.html?token=${token}'" style="margin-top: 14px; padding: 10px 22px; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(109,40,217,0.2)); border: 1px solid rgba(139,92,246,0.4); border-radius: 8px; color: #c4b5fd; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px;">🎵 Replay Orpheus Game</button>` : ''}
                         </div>`;
                     container.innerHTML = html;
                     return;
@@ -10115,6 +10116,7 @@
                             ">
                                 Close & Claim on Dashboard
                             </button>
+                            ${portalId === 3 ? `<div style="margin-top: 12px;"><button onclick="window.location.href='/orpheus_game.html?token=${token}'" style="padding: 10px 22px; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(109,40,217,0.2)); border: 1px solid rgba(139,92,246,0.4); border-radius: 8px; color: #c4b5fd; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px;">🎵 Replay Orpheus Game</button></div>` : ''}
                         </div>`;
                     container.innerHTML = html;
                     return;
@@ -10123,13 +10125,41 @@
                 // STATE: Quiz passed, not yet approved — show two path cards
                 html += `
                     <div style="text-align: center; margin-bottom: 16px;">
-                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 5 ? '✅ Escape Complete!' : '✅ Quiz Passed!'}</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
                         <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px; margin-bottom: 4px;">
                             ${portal.virtue_emoji || '🏛️'} Earn the Virtue of <span style="color: #ffd700;">${portal.virtue_english}</span>
                         </div>
                         <div style="font-size: 12px; color: rgba(255,255,255,0.4);">Choose a path and complete on Google Classroom</div>
-                    </div>
-                    
+                    </div>`;
+
+                // Portal 3 (Orpheus) — prominent game button above path cards
+                if (portalId === 3) {
+                    html += `
+                    <div style="text-align: center; margin-bottom: 18px; padding: 16px; background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.1)); border: 2px solid rgba(139,92,246,0.4); border-radius: 12px; box-shadow: 0 0 20px rgba(139,92,246,0.15);">
+                        <div style="font-size: 24px; margin-bottom: 6px;">🎵</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 16px; color: #c4b5fd; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px;">
+                            The Underworld Awaits
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">
+                            Guide Orpheus past Charon, Cerberus, and Hades to rescue Eurydice!<br>
+                            <span style="color: #ffd700;">🏆 +10 Alliance Points on completion</span>
+                        </div>
+                        <button onclick="window.location.href='/orpheus_game.html?token=${token}'" style="
+                            padding: 12px 28px;
+                            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+                            border: 2px solid #a78bfa;
+                            border-radius: 10px; color: #fff;
+                            font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700;
+                            cursor: pointer; letter-spacing: 1px;
+                            box-shadow: 0 0 20px rgba(139,92,246,0.3);
+                            transition: all 0.2s;
+                        " onmouseover="this.style.filter='brightness(1.15)';this.style.boxShadow='0 0 30px rgba(139,92,246,0.5)'" onmouseout="this.style.filter='';this.style.boxShadow='0 0 20px rgba(139,92,246,0.3)'">
+                            🎵 Play Orpheus Game
+                        </button>
+                    </div>`;
+                }
+
+                html += `
                     <div style="font-family: 'Cinzel', serif; font-size: 15px; color: #ff6b35; text-align: center; font-weight: 700; margin-bottom: 12px;">
                         ⚡ CHOOSE YOUR PATH ⚡
                     </div>
@@ -10358,12 +10388,39 @@
                 
                 // Header with virtue info
                 html += `<div style="text-align: center; margin-bottom: 16px;">
-                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">${portalId === 5 ? '✅ Escape Complete!' : '✅ Quiz Passed!'}</div>
+                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
                     <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px;">
                         ${portal.virtue_emoji || '🏛️'} Virtue: <span style="color: #ffd700;">${portal.virtue_english}</span>
                         <span style="color: rgba(255,255,255,0.4); font-size: 11px;">(${portal.virtue_greek})</span>
                     </div>
                 </div>`;
+
+                // Portal 3 (Orpheus) — prominent game button
+                if (portalId === 3) {
+                    html += `
+                    <div style="text-align: center; margin-bottom: 18px; padding: 16px; background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.1)); border: 2px solid rgba(139,92,246,0.4); border-radius: 12px; box-shadow: 0 0 20px rgba(139,92,246,0.15);">
+                        <div style="font-size: 24px; margin-bottom: 6px;">🎵</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 16px; color: #c4b5fd; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px;">
+                            The Underworld Awaits
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">
+                            Guide Orpheus past Charon, Cerberus, and Hades to rescue Eurydice!<br>
+                            <span style="color: #ffd700;">🏆 +10 Alliance Points on completion</span>
+                        </div>
+                        <button onclick="window.location.href='/orpheus_game.html?token=${token}'" style="
+                            padding: 12px 28px;
+                            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+                            border: 2px solid #a78bfa;
+                            border-radius: 10px; color: #fff;
+                            font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700;
+                            cursor: pointer; letter-spacing: 1px;
+                            box-shadow: 0 0 20px rgba(139,92,246,0.3);
+                            transition: all 0.2s;
+                        " onmouseover="this.style.filter='brightness(1.15)';this.style.boxShadow='0 0 30px rgba(139,92,246,0.5)'" onmouseout="this.style.filter='';this.style.boxShadow='0 0 20px rgba(139,92,246,0.3)'">
+                            🎵 Play Orpheus Game
+                        </button>
+                    </div>`;
+                }
                 
                 // Virtue progress checklist
                 html += `<div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; border: 1px solid ${glowCol}33;">

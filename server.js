@@ -9117,6 +9117,53 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
   }
 });
 
+// --- Student: Orpheus game completion — awards 10 alliance points (one-time) ---
+app.post('/api/student/orpheus-complete', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const student = query('SELECT student_id, name, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
+
+    // Verify quiz was actually passed for portal 3 (Orpheus)
+    const quizPassed = query(
+      'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 3 AND passed = 1 LIMIT 1',
+      [student_id]
+    )[0];
+    if (!quizPassed) {
+      return res.status(400).json({ error: 'Orpheus quiz not yet passed' });
+    }
+
+    // Check if points already awarded (one-time only)
+    const alreadyAwarded = query(
+      "SELECT 1 FROM point_transactions WHERE student_id = ? AND category = 'game' AND reason LIKE '%Orpheus Underworld%' LIMIT 1",
+      [student_id]
+    )[0];
+
+    if (alreadyAwarded) {
+      return res.json({ success: true, alreadyAwarded: true, pointsAwarded: 0, message: 'Points already awarded for this game.' });
+    }
+
+    // Award 10 points to the alliance
+    const pointsToAward = 10;
+    run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
+      [pointsToAward, student.alliance_id]);
+    run(
+      `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+       VALUES (?, ?, ?, 'game', ?)`,
+      [student.alliance_id, student_id, pointsToAward, `Orpheus Underworld Game — completed by ${student.name}`]
+    );
+
+    saveDatabase();
+    console.log(`🎵 Orpheus Game: ${student.name} completed — ${pointsToAward} points awarded to alliance ${student.alliance_id}`);
+
+    res.json({ success: true, alreadyAwarded: false, pointsAwarded: pointsToAward });
+  } catch (err) {
+    console.error('Orpheus complete error:', err);
+    res.status(500).json({ error: 'Failed to record Orpheus game completion' });
+  }
+});
+
 // --- Student: Get assignments for a myth portal (after quiz passed) ---
 app.get('/api/student/myth-assignments/:portal_id', authenticateToken, (req, res) => {
   try {
