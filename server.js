@@ -8810,22 +8810,79 @@ app.get('/api/student/quiz/:portal_id', authenticateToken, (req, res) => {
       return res.json({ questions: [], message: 'No quiz questions available for this myth yet. Quiz is submitted via Google Classroom.' });
     }
     
-    // Shuffle questions (Fisher-Yates)
-    for (let i = questions.length - 1; i > 0; i--) {
+    // Smart shuffle: scramble question order BUT keep comprehension passage groups together
+    // 1. Separate questions into passage groups and non-passage questions
+    const passageGroups = {};  // passage_group -> [questions]
+    const standaloneQuestions = [];
+    
+    questions.forEach(q => {
+      if (q.passage_group) {
+        if (!passageGroups[q.passage_group]) passageGroups[q.passage_group] = [];
+        passageGroups[q.passage_group].push(q);
+      } else {
+        standaloneQuestions.push(q);
+      }
+    });
+    
+    // 2. Shuffle standalone questions
+    for (let i = standaloneQuestions.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [questions[i], questions[j]] = [questions[j], questions[i]];
+      [standaloneQuestions[i], standaloneQuestions[j]] = [standaloneQuestions[j], standaloneQuestions[i]];
     }
     
-    // Send questions with named option fields for client rendering
-    const safeQuestions = questions.map(q => ({
-      question_id: q.question_id,
-      question_text: q.question_text,
-      option_a: q.option_a || q.answer_a,
-      option_b: q.option_b || q.answer_b,
-      option_c: q.option_c || q.answer_c,
-      option_d: q.option_d || q.answer_d,
-      correct_answer: q.correct_answer
-    }));
+    // 3. Build final order: insert each passage group as a block at a random position among standalones
+    let finalOrder = [...standaloneQuestions];
+    Object.values(passageGroups).forEach(group => {
+      // DON'T shuffle question order within a passage group — they stay in authored order
+      const insertPos = Math.floor(Math.random() * (finalOrder.length + 1));
+      finalOrder.splice(insertPos, 0, ...group);
+    });
+    
+    // 4. Shuffle answer choices for ALL questions, remapping correct_answer
+    const safeQuestions = finalOrder.map(q => {
+      const optA = q.option_a || q.answer_a;
+      const optB = q.option_b || q.answer_b;
+      const optC = q.option_c || q.answer_c;
+      const optD = q.option_d || q.answer_d;
+      const correctKey = q.correct_answer.toLowerCase();
+      
+      // Map original correct answer to its text
+      const originalOptions = { a: optA, b: optB, c: optC, d: optD };
+      const correctText = originalOptions[correctKey];
+      
+      // Create shuffled options array
+      const optionsArr = [
+        { text: optA }, { text: optB }, { text: optC }, { text: optD }
+      ].filter(o => o.text); // filter out nulls
+      
+      // Fisher-Yates shuffle the options
+      for (let i = optionsArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [optionsArr[i], optionsArr[j]] = [optionsArr[j], optionsArr[i]];
+      }
+      
+      // Assign shuffled options to A/B/C/D and find new correct key
+      const keys = ['a', 'b', 'c', 'd'];
+      let newCorrect = 'a';
+      const shuffled = {};
+      optionsArr.forEach((opt, idx) => {
+        shuffled[keys[idx]] = opt.text;
+        if (opt.text === correctText) newCorrect = keys[idx];
+      });
+      
+      return {
+        question_id: q.question_id,
+        question_text: q.question_text,
+        option_a: shuffled.a || '',
+        option_b: shuffled.b || '',
+        option_c: shuffled.c || '',
+        option_d: shuffled.d || '',
+        correct_answer: newCorrect,
+        question_type: q.question_type || 'standard',
+        passage_text: q.passage_text || null,
+        passage_group: q.passage_group || null
+      };
+    });
     
     res.json({ questions: safeQuestions });
   } catch (err) {

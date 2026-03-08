@@ -597,9 +597,22 @@ async function initDatabase() {
       option_c TEXT NOT NULL,
       option_d TEXT NOT NULL,
       correct_answer TEXT NOT NULL,
+      question_type TEXT DEFAULT 'standard',
+      passage_text TEXT DEFAULT NULL,
+      passage_group INTEGER DEFAULT NULL,
       FOREIGN KEY (portal_id) REFERENCES myth_portals(portal_id)
     )
   `);
+
+  // Migration: Add new quiz question columns if they don't exist
+  try {
+    db.exec("SELECT question_type FROM myth_quiz_questions LIMIT 0");
+  } catch(e) {
+    try { db.run("ALTER TABLE myth_quiz_questions ADD COLUMN question_type TEXT DEFAULT 'standard'"); } catch(e2) {}
+    try { db.run("ALTER TABLE myth_quiz_questions ADD COLUMN passage_text TEXT DEFAULT NULL"); } catch(e2) {}
+    try { db.run("ALTER TABLE myth_quiz_questions ADD COLUMN passage_group INTEGER DEFAULT NULL"); } catch(e2) {}
+    console.log('📝 Added question_type, passage_text, passage_group columns to myth_quiz_questions');
+  }
 
   // Student quiz attempt tracking
   db.run(`
@@ -2461,12 +2474,20 @@ function seedClassicalData() {
         [2, 'What was Apollo\'s reaction to Phaethon\'s request to drive the chariot? p.70', 'He laughed and agreed', 'He yelled that it was impossible', 'He calmly said no', 'He offered to teach him first', 'b'],
         [2, 'What was the job of Apollo\'s birds? p.68', 'To pull the sun chariot', 'To guard the palace gates', 'To gather gossip', 'To deliver messages to Zeus', 'c'],
 
-        // ==================== ORPHEUS (portal_id = 3) — 5 questions ====================
-        [3, 'Orpheus was gifted and lucky to know some great mentors. What was he famous for? p.77', 'Singing and dancing', 'Music and poetry', 'Running and athletics', 'Mathematics and science', 'b'],
-        [3, 'How did Eurydice die? p.80', 'She was turned into a poplar tree by a merciful Zeus', 'A young king shot her by accident with the golden bow he stole from Apollo', 'She was chased through the forest and stepped in a bed of snakes.', 'She tripped, running from a young king, and hit her head on a rock', 'c'],
-        [3, 'How did Orpheus get past Charon, the threshold guardian of the River Styx and the Underworld? p.81', 'He bribed Charon with one hundred souls', 'He tricked Charon by playing Charon a song that reminded the boatman of his youth', 'He hid behind a group of souls and Charon never saw him', 'He wrote a poem about Charon that made him cry', 'b'],
-        [3, 'Why did Orpheus turn around, causing Eurydice to return to the Underworld forever? p.86', 'Hermes flew past him with new souls', 'Persephone told Orpheus Hades was tricking him', 'He doubted she was really there', 'Cerberus began chasing them', 'c'],
-        [3, 'Which type of song did Orpheus NOT play for Cerberus? p.81', 'Sad song', 'Dog song', 'Sleeping song', 'Hunting song', 'b'],
+        // ==================== ORPHEUS & EURYDICE (portal_id = 3) — 10 questions (Verbal Reasoning v2) ====================
+        // Q1-Q4: Analogies
+        [3, 'ORPHEUS : LYRE :: ARCHER : ____________', 'Arrow', 'Bow', 'Target', 'Quiver', 'b', 'analogy', null, null],
+        [3, 'MELODY : SILENCE :: LIGHT : ____________', 'Brightness', 'Candle', 'Darkness', 'Flame', 'c', 'analogy', null, null],
+        [3, 'ORPHEUS : EURYDICE :: PROTECTOR : ____________', 'Warrior', 'Stranger', 'Beloved', 'Rival', 'c', 'analogy', null, null],
+        [3, 'DESCENT : ASCENT :: TRUST : ____________', 'Faith', 'Loyalty', 'Doubt', 'Hope', 'c', 'analogy', null, null],
+        // Q5-Q7: Reading Comprehension (passage_group = 1 links them together)
+        [3, 'Based on the passage, why does the author describe the shades as having "hollow eyes empty of recognition"?', 'The dead no longer experience the emotions of the living', 'The shades have been in the Underworld so long they have forgotten Orpheus\'s world', 'The dead are angry at Orpheus for entering their world', 'The shades are trying to frighten Orpheus away', 'a', 'comprehension', 'Orpheus stood at the gates of the Underworld, his lyre clutched against his chest. The shades of the dead drifted past him like smoke, their hollow eyes empty of recognition. Cerberus, the three-headed guardian, lowered his massive heads and whimpered as Orpheus began to play. The music that poured from the strings was unlike anything heard in the land of the dead — it carried the warmth of sunlight, the scent of open meadows, and the memory of every joy Eurydice had ever brought him. Even Charon, the old ferryman who had carried a thousand souls without a flicker of emotion, paused at his oar and wept.', 1],
+        [3, 'The passage states that Charon "had carried a thousand souls without a flicker of emotion." What does Charon\'s reaction to the music tell us?', 'Charon is easily distracted from his duties', 'Orpheus\'s music is powerful enough to reach even the most hardened heart', 'Charon secretly wanted to help Orpheus all along', 'The ferryman was tired and needed a reason to stop rowing', 'b', 'comprehension', null, 1],
+        [3, 'The author describes Orpheus\'s music as carrying "the warmth of sunlight" and "the scent of open meadows." These details are most likely included to show the difference between ____________.', 'Orpheus\'s talent and Eurydice\'s beauty', 'the world of the living and the Underworld', 'music and silence', 'Cerberus and Charon', 'b', 'comprehension', null, 1],
+        // Q8-Q10: Sentence Completion
+        [3, 'Orpheus\'s music was so __________ that even the rivers stopped flowing to listen.', 'mournful', 'enchanting', 'thunderous', 'peculiar', 'b', 'sentence_completion', null, null],
+        [3, 'After losing Eurydice a second time, Orpheus wandered in __________, refusing all comfort.', 'rage', 'confusion', 'grief', 'terror', 'c', 'sentence_completion', null, null],
+        [3, 'The tale of Orpheus teaches that even the deepest love can be undone by a single moment of __________.', 'doubt', 'anger', 'pride', 'greed', 'a', 'sentence_completion', null, null],
 
         // ==================== ECHO & NARCISSUS (portal_id = 4) — 5 questions ====================
         [4, 'What did Narcissus hope to find as he wandered through the woods?', 'His way home', 'The Golden Fleece', 'The Minotaur', 'Someone as beautiful as himself', 'd'],
@@ -2513,8 +2534,15 @@ function seedClassicalData() {
       ];
 
       quizQuestions.forEach(q => {
-        db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer)
-                VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
+        if (q.length > 7) {
+          // New format with question_type, passage_text, passage_group
+          db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer, question_type, passage_text, passage_group)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, q);
+        } else {
+          // Legacy format (7 columns)
+          db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`, q);
+        }
       });
       console.log('✅ Myth quiz questions seeded (' + quizQuestions.length + ' questions)');
     } else {
@@ -2538,12 +2566,6 @@ function seedClassicalData() {
         // Phaethon Q9 & Q10 (added Feb 25)
         [2, "What was Apollo's reaction to Phaethon's request to drive the chariot? p.70", 'He laughed and agreed', 'He yelled that it was impossible', 'He calmly said no', 'He offered to teach him first', 'b'],
         [2, "What was the job of Apollo's birds? p.68", 'To pull the sun chariot', 'To guard the palace gates', 'To gather gossip', 'To deliver messages to Zeus', 'c'],
-        // Orpheus Q6-Q10 (added Mar 4)
-        [3, 'What condition did Hades set for Eurydice to leave the Underworld with Orpheus? p.84', 'Orpheus must stay in the Underworld forever', 'Orpheus must not speak to Eurydice until they reach the surface', 'Orpheus must not look back at Eurydice until they reach the upper world', 'Orpheus must give Hades his lyre', 'c'],
-        [3, 'Why does Orpheus decide to go to the Underworld? p.80', 'He wants to become famous and prove he is brave', 'He wants to rescue Eurydice and bring her back from death', 'He is sent there by Zeus to deliver a message', 'He is trying to steal treasure from Hades', 'b'],
-        [3, 'Why did Persephone agree to give Orpheus a chance to bring Eurydice back? p.83', 'She wanted to punish Orpheus with an impossible task', 'Zeus ordered her to release Eurydice', 'She was moved by Orpheus\'s music and what it expressed', 'She felt guilty for Eurydice\'s death', 'c'],
-        [3, 'What did Charon usually require before he would take someone across the river? p.81', 'A penny', 'A golden crown', 'A weapon', 'A written promise never to return', 'a'],
-        [3, 'What happens to Eurydice when Orpheus turns around? p.86', 'She runs ahead of Orpheus and escapes to the upper world', 'She is pulled back by Hades and disappears into the darkness', 'She turns into smoke and fades away', 'She becomes a stone statue on the path', 'c'],
       ];
       
       let added = 0;
@@ -2569,7 +2591,58 @@ function seedClassicalData() {
     console.log('Quiz questions seed note:', err.message);
   }
 
-  // === CLASSICAL FATES (24 fates, numbered 21-44 to avoid conflicts with Archaic 1-20) ===
+  // === ORPHEUS QUIZ V2 MIGRATION: Replace old standard questions with Verbal Reasoning format ===
+  try {
+    // Check if Orpheus already has the new format by looking for question_type column and analogy questions
+    let needsOrpheusV2 = false;
+    try {
+      const orpheusCheck = db.exec("SELECT COUNT(*) FROM myth_quiz_questions WHERE portal_id = 3 AND question_type = 'analogy'");
+      const analogyCount = orpheusCheck[0] ? orpheusCheck[0].values[0][0] : 0;
+      if (analogyCount === 0) needsOrpheusV2 = true;
+    } catch(e) {
+      // question_type column might not exist yet on first run — migration above handles that
+      needsOrpheusV2 = false; // Fresh DB will get new questions from seed
+    }
+
+    if (needsOrpheusV2) {
+      console.log('📝 Migrating Orpheus quiz to Verbal Reasoning v2...');
+      // Delete old Orpheus questions
+      db.run('DELETE FROM myth_quiz_questions WHERE portal_id = 3');
+      
+      // Detect column names
+      let colA = 'option_a', colB = 'option_b', colC = 'option_c', colD = 'option_d';
+      try {
+        const tableInfo = db.exec("PRAGMA table_info(myth_quiz_questions)");
+        const colNames = tableInfo[0] ? tableInfo[0].values.map(r => r[1]) : [];
+        if (colNames.includes('answer_a')) {
+          colA = 'answer_a'; colB = 'answer_b'; colC = 'answer_c'; colD = 'answer_d';
+        }
+      } catch(e) {}
+
+      const orpheusPassage = 'Orpheus stood at the gates of the Underworld, his lyre clutched against his chest. The shades of the dead drifted past him like smoke, their hollow eyes empty of recognition. Cerberus, the three-headed guardian, lowered his massive heads and whimpered as Orpheus began to play. The music that poured from the strings was unlike anything heard in the land of the dead — it carried the warmth of sunlight, the scent of open meadows, and the memory of every joy Eurydice had ever brought him. Even Charon, the old ferryman who had carried a thousand souls without a flicker of emotion, paused at his oar and wept.';
+
+      const orpheusV2 = [
+        [3, 'ORPHEUS : LYRE :: ARCHER : ____________', 'Arrow', 'Bow', 'Target', 'Quiver', 'b', 'analogy', null, null],
+        [3, 'MELODY : SILENCE :: LIGHT : ____________', 'Brightness', 'Candle', 'Darkness', 'Flame', 'c', 'analogy', null, null],
+        [3, 'ORPHEUS : EURYDICE :: PROTECTOR : ____________', 'Warrior', 'Stranger', 'Beloved', 'Rival', 'c', 'analogy', null, null],
+        [3, 'DESCENT : ASCENT :: TRUST : ____________', 'Faith', 'Loyalty', 'Doubt', 'Hope', 'c', 'analogy', null, null],
+        [3, 'Based on the passage, why does the author describe the shades as having "hollow eyes empty of recognition"?', 'The dead no longer experience the emotions of the living', 'The shades have been in the Underworld so long they have forgotten Orpheus\'s world', 'The dead are angry at Orpheus for entering their world', 'The shades are trying to frighten Orpheus away', 'a', 'comprehension', orpheusPassage, 1],
+        [3, 'The passage states that Charon "had carried a thousand souls without a flicker of emotion." What does Charon\'s reaction to the music tell us?', 'Charon is easily distracted from his duties', 'Orpheus\'s music is powerful enough to reach even the most hardened heart', 'Charon secretly wanted to help Orpheus all along', 'The ferryman was tired and needed a reason to stop rowing', 'b', 'comprehension', null, 1],
+        [3, 'The author describes Orpheus\'s music as carrying "the warmth of sunlight" and "the scent of open meadows." These details are most likely included to show the difference between ____________.', 'Orpheus\'s talent and Eurydice\'s beauty', 'the world of the living and the Underworld', 'music and silence', 'Cerberus and Charon', 'b', 'comprehension', null, 1],
+        [3, 'Orpheus\'s music was so __________ that even the rivers stopped flowing to listen.', 'mournful', 'enchanting', 'thunderous', 'peculiar', 'b', 'sentence_completion', null, null],
+        [3, 'After losing Eurydice a second time, Orpheus wandered in __________, refusing all comfort.', 'rage', 'confusion', 'grief', 'terror', 'c', 'sentence_completion', null, null],
+        [3, 'The tale of Orpheus teaches that even the deepest love can be undone by a single moment of __________.', 'doubt', 'anger', 'pride', 'greed', 'a', 'sentence_completion', null, null],
+      ];
+
+      orpheusV2.forEach(q => {
+        db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, ${colA}, ${colB}, ${colC}, ${colD}, correct_answer, question_type, passage_text, passage_group)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, q);
+      });
+      console.log('✅ Orpheus quiz migrated to Verbal Reasoning v2 (10 questions)');
+    }
+  } catch (err) {
+    console.log('Orpheus V2 migration note:', err.message);
+  }
   try {
     const classicalFatesCheck = db.exec("SELECT COUNT(*) FROM fates_ref WHERE age_available = 'Classical'");
     const classicalFatesCount = classicalFatesCheck[0] ? classicalFatesCheck[0].values[0][0] : 0;
