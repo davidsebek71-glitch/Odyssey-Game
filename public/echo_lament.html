@@ -158,14 +158,17 @@ function stripPink(img) {
     const d = imageData.data;
     for (let i = 0; i < d.length; i += 4) {
         const r = d[i], g = d[i+1], b = d[i+2];
-        // Match #FF00FF and nearby pinks (threshold for anti-aliased edges)
-        if (r > 220 && g < 40 && b > 220) {
+        // Aggressive pink removal — catch #FF00FF and all nearby magentas
+        // Pure pink: R high, G low, B high
+        if (r > 180 && g < 80 && b > 180) {
             d[i+3] = 0; // fully transparent
-        } else if (r > 200 && g < 60 && b > 200) {
-            // Fade edges near pink
-            const pinkness = Math.min(r, b) - g;
-            if (pinkness > 160) {
-                d[i+3] = Math.max(0, Math.floor(255 * (1 - (pinkness - 160) / 60)));
+        } else if (r > 150 && g < 100 && b > 150 && (r + b) > (g * 4)) {
+            // Transition zone — fade based on how "pink" the pixel is
+            const pinkness = ((r + b) / 2) - g;
+            if (pinkness > 100) {
+                d[i+3] = 0;
+            } else if (pinkness > 60) {
+                d[i+3] = Math.floor(255 * (1 - (pinkness - 60) / 40));
             }
         }
     }
@@ -442,45 +445,28 @@ function updateDust(dt) {
 
 // ==================== DRAWING ====================
 function drawCave(now) {
-    // Background — use cave_wall tile sprite if loaded, otherwise gradient
-    if (sprites['cave_wall']) {
-        const tw = sprites['cave_wall'].width;
-        const th = sprites['cave_wall'].height;
-        for (let x = 0; x < W; x += tw) {
-            for (let y = 0; y < H; y += th) {
-                ctx.drawImage(sprites['cave_wall'], x, y, tw, th);
-            }
-        }
-        // Darken edges with vignette overlay for depth
-        const vignette = ctx.createRadialGradient(W/2, H/2, 100, W/2, H/2, 450);
-        vignette.addColorStop(0, 'rgba(0,0,0,0)');
-        vignette.addColorStop(1, 'rgba(0,0,0,0.5)');
-        ctx.fillStyle = vignette;
-        ctx.fillRect(0, 0, W, H);
-    } else {
-        // Fallback: canvas gradient
-        const grad = ctx.createRadialGradient(W/2, 100, 50, W/2, H/2, 500);
-        grad.addColorStop(0, '#15122a');
-        grad.addColorStop(0.5, '#0d0b1a');
-        grad.addColorStop(1, '#060510');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
+    // Original dark cave gradient background
+    const grad = ctx.createRadialGradient(W/2, 100, 50, W/2, H/2, 500);
+    grad.addColorStop(0, '#15122a');
+    grad.addColorStop(0.5, '#0d0b1a');
+    grad.addColorStop(1, '#060510');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
 
-        // Subtle rock texture lines
-        ctx.strokeStyle = 'rgba(80, 60, 100, 0.06)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 12; i++) {
-            const y = 20 + i * 50 + Math.sin(i * 1.7) * 15;
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            for (let x = 0; x < W; x += 20) {
-                ctx.lineTo(x, y + Math.sin(x * 0.02 + i) * 8);
-            }
-            ctx.stroke();
+    // Cave wall texture lines
+    ctx.strokeStyle = 'rgba(80, 60, 100, 0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i++) {
+        const y = 20 + i * 50 + Math.sin(i * 1.7) * 15;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        for (let x = 0; x < W; x += 20) {
+            ctx.lineTo(x, y + Math.sin(x * 0.02 + i) * 8);
         }
+        ctx.stroke();
     }
 
-    // Stalactites from ceiling
+    // Stalactites from ceiling — large and prominent
     drawStalactites(now);
 
     // Cave floor rocks
@@ -489,15 +475,14 @@ function drawCave(now) {
 
 function drawStalactites(now) {
     if (sprites['stalactite']) {
-        // Draw stalactite sprite at several positions along the ceiling
+        // Large stalactite sprites hanging from ceiling — much bigger and more pronounced
         const positions = [
-            { x: 40, scale: 0.8 }, { x: 140, scale: 1.1 }, { x: 260, scale: 0.9 },
-            { x: 360, scale: 1.2 }, { x: 440, scale: 0.7 }, { x: 530, scale: 1.0 },
-            { x: 610, scale: 0.85 },
+            { x: 60, scale: 2.2 }, { x: 180, scale: 2.8 }, { x: 310, scale: 2.5 },
+            { x: 420, scale: 3.0 }, { x: 540, scale: 2.3 }, { x: 640, scale: 2.6 },
         ];
         positions.forEach(p => {
             const sw = 64 * p.scale, sh = 32 * p.scale;
-            ctx.drawImage(sprites['stalactite'], p.x - sw/2, 0, sw, sh);
+            ctx.drawImage(sprites['stalactite'], p.x - sw/2, -2, sw, sh);
         });
     } else {
         // Fallback: canvas triangles
@@ -512,12 +497,9 @@ function drawStalactites(now) {
             grad.addColorStop(1, 'rgba(40, 30, 60, 0.1)');
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.moveTo(s.x - s.w/2, 0);
-            ctx.lineTo(s.x + s.w/2, 0);
-            ctx.lineTo(s.x + 2, s.h);
-            ctx.lineTo(s.x - 2, s.h);
-            ctx.closePath();
-            ctx.fill();
+            ctx.moveTo(s.x - s.w/2, 0); ctx.lineTo(s.x + s.w/2, 0);
+            ctx.lineTo(s.x + 2, s.h); ctx.lineTo(s.x - 2, s.h);
+            ctx.closePath(); ctx.fill();
         });
     }
 }
@@ -621,14 +603,14 @@ function drawPool(now) {
 
 function drawNarcissus(now) {
     narcissusBreathing = Math.sin(now / 1200) * 2;
-    // Position at the right edge of the pool, facing LEFT toward the water
-    const nx = POOL_CX + POOL_RX + 5, ny = POOL_CY + 20 + narcissusBreathing;
-    const spriteW = 72, spriteH = 72;
+    // Right at the pool edge, facing left, gazing down into the water
+    const nx = POOL_CX + POOL_RX - 20, ny = POOL_CY + 30 + narcissusBreathing;
+    const spriteW = 144, spriteH = 144;
 
     if (sprites['narcissus_kneel']) {
         ctx.save();
         // Flip horizontally so he faces left toward the pool
-        ctx.translate(nx, ny - spriteH + 15);
+        ctx.translate(nx, ny - spriteH/2);
         ctx.scale(-1, 1);
         ctx.drawImage(sprites['narcissus_kneel'], -spriteW/2, 0, spriteW, spriteH);
         ctx.restore();
@@ -643,26 +625,21 @@ function drawNarcissus(now) {
         ctx.moveTo(nx - 8, ny - 20); ctx.lineTo(nx + 5, ny - 20);
         ctx.lineTo(nx + 10, ny + 10); ctx.lineTo(nx - 12, ny + 10);
         ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = '#d4a574'; ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(nx - 6, ny - 12);
-        ctx.quadraticCurveTo(nx - 30, ny - 5, nx - 45, ny + 8);
-        ctx.stroke();
     }
 }
 
 function drawEcho(now) {
     // Position Echo near the tablets — she IS the repeating mechanic
-    const ex = TABLET_POSITIONS[0].x - 45, ey = TABLET_POSITIONS[0].y - 15;
+    const ex = TABLET_POSITIONS[0].x - 55, ey = TABLET_POSITIONS[0].y - 10;
     const alpha = echoOpacity;
-    const spriteW = 62, spriteH = 73;  // 30% larger than 48x56
+    const spriteW = 144, spriteH = 144;  // Same size as Narcissus
 
     // Choose sprite based on fade state
     let echoKey = 'echo_stand';
     if (alpha <= 0.2) echoKey = 'echo_voice';
     else if (alpha <= 0.7) echoKey = 'echo_fade';  // Stage 3 (0.65) shows fading
 
-    if (!drawSprite(echoKey, ex - spriteW/2, ey - spriteH/2 + 4, spriteW, spriteH, alpha)) {
+    if (!drawSprite(echoKey, ex - spriteW/2, ey - spriteH/2, spriteW, spriteH, alpha)) {
         // Fallback: canvas-drawn figure
         ctx.save();
         ctx.globalAlpha = alpha;
