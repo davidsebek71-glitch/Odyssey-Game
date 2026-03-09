@@ -607,7 +607,7 @@ function drawNarcissus(now) {
     // Anchor point: his reaching hand should be at the pool's right edge
     // Sprite is flipped, so hand is on the left side of drawn image
     // Place center-x so left edge of sprite touches pool right edge
-    const nx = POOL_CX + POOL_RX, ny = POOL_CY - 25 + narcissusBreathing;
+    const nx = POOL_CX + POOL_RX - 30, ny = POOL_CY - 15 + narcissusBreathing;
     const spriteW = 144, spriteH = 144;
 
     if (sprites['narcissus_kneel']) {
