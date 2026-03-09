@@ -107,7 +107,7 @@ const SPRITE_MANIFEST = {
     echo_stand:       'echo_stand.png',
     echo_fade:        'echo_fade.png',
     echo_voice:       'echo_voice.png',
-    narcissus_kneel:  'narcissus_kneel.png',
+    narcissus_kneel:  'Narcissus_kneel.png',
     hera_stand:       'hera_stand.png',
     // Tablets
     tablet_eros:      'tablet_eros.png',
@@ -131,12 +131,13 @@ const SPRITE_MANIFEST = {
     flower_narcissus: 'flower_narcissus.png',
     echo_ripple:      'echo_ripple.png',
     shatter_particle: 'shatter_particle.png',
+    shard_shatter:    'shard_shatter.png',
     dust_mote:        'dust_mote.png',
     // Story card scenes
     scene_forest:     'scene_forest.png',
     scene_hera_curse: 'scene_hera_curse.png',
     scene_pool:       'scene_pool.png',
-    scene_echo_fades: 'scene_echo_fades.png',
+    scene_echo_fades: 'scene_Echo_Fades.png',
     scene_shatter:    'scene_shatter.png',
 };
 
@@ -490,7 +491,7 @@ function drawStalactites(now) {
 function drawPool(now) {
     poolPhase += 0.015;
 
-    // Pool glow
+    // Pool glow (always canvas — ambient light effect)
     const glowR = POOL_RX + 20 + Math.sin(poolPhase) * 8;
     const glowGrad = ctx.createRadialGradient(POOL_CX, POOL_CY, 10, POOL_CX, POOL_CY, glowR);
     glowGrad.addColorStop(0, 'rgba(100, 140, 220, 0.15)');
@@ -501,64 +502,63 @@ function drawPool(now) {
     ctx.ellipse(POOL_CX, POOL_CY, glowR, glowR * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Pool surface
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(POOL_CX, POOL_CY, POOL_RX, POOL_RY, 0, 0, Math.PI * 2);
-    ctx.clip();
+    // Pool body — sprite or canvas fallback
+    const poolKey = crackLines.length > 0 ? 'pool_cracked' : 'pool_normal';
+    if (sprites[poolKey]) {
+        // Sprite-based pool
+        drawSprite(poolKey, POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
 
-    // Water base
-    const waterGrad = ctx.createRadialGradient(POOL_CX, POOL_CY, 5, POOL_CX, POOL_CY, POOL_RX);
-    waterGrad.addColorStop(0, '#1a2a5c');
-    waterGrad.addColorStop(0.5, '#0f1a3d');
-    waterGrad.addColorStop(1, '#0a1030');
-    ctx.fillStyle = waterGrad;
-    ctx.fillRect(POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
-
-    // Ripples
-    for (let r = 0; r < 4; r++) {
-        const rippleR = 20 + r * 30 + Math.sin(poolPhase + r * 0.8) * 10;
-        const alpha = 0.08 - r * 0.015;
-        ctx.strokeStyle = `rgba(150, 180, 255, ${Math.max(0, alpha)})`;
-        ctx.lineWidth = 1;
+        // Animated shimmer overlay on top of sprite
+        ctx.save();
         ctx.beginPath();
-        ctx.ellipse(POOL_CX, POOL_CY, rippleR, rippleR * 0.4, 0, 0, Math.PI * 2);
+        ctx.ellipse(POOL_CX, POOL_CY, POOL_RX - 4, POOL_RY - 4, 0, 0, Math.PI * 2);
+        ctx.clip();
+        for (let i = 0; i < 4; i++) {
+            const sx = POOL_CX + Math.cos(poolPhase * 0.7 + i * 1.5) * (POOL_RX * 0.5);
+            const sy = POOL_CY + Math.sin(poolPhase * 0.5 + i * 1.8) * (POOL_RY * 0.4);
+            ctx.fillStyle = `rgba(180, 200, 255, ${0.06 + Math.sin(poolPhase * 1.5 + i * 2) * 0.03})`;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 10, 4, poolPhase * 0.3 + i, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        if (mirrorIndicatorAlpha > 0) {
+            ctx.fillStyle = `rgba(200, 150, 255, ${mirrorIndicatorAlpha * 0.15})`;
+            ctx.fillRect(POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
+        }
+        ctx.restore();
+    } else {
+        // Canvas fallback pool
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(POOL_CX, POOL_CY, POOL_RX, POOL_RY, 0, 0, Math.PI * 2);
+        ctx.clip();
+        const waterGrad = ctx.createRadialGradient(POOL_CX, POOL_CY, 5, POOL_CX, POOL_CY, POOL_RX);
+        waterGrad.addColorStop(0, '#1a2a5c');
+        waterGrad.addColorStop(0.5, '#0f1a3d');
+        waterGrad.addColorStop(1, '#0a1030');
+        ctx.fillStyle = waterGrad;
+        ctx.fillRect(POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
+        for (let r = 0; r < 4; r++) {
+            const rippleR = 20 + r * 30 + Math.sin(poolPhase + r * 0.8) * 10;
+            ctx.strokeStyle = `rgba(150, 180, 255, ${Math.max(0, 0.08 - r * 0.015)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(POOL_CX, POOL_CY, rippleR, rippleR * 0.4, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if (mirrorIndicatorAlpha > 0) {
+            ctx.fillStyle = `rgba(200, 150, 255, ${mirrorIndicatorAlpha * 0.15})`;
+            ctx.fillRect(POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
+        }
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(100, 120, 180, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(POOL_CX, POOL_CY, POOL_RX, POOL_RY, 0, 0, Math.PI * 2);
         ctx.stroke();
     }
 
-    // Shimmer highlights
-    for (let i = 0; i < 6; i++) {
-        const sx = POOL_CX + Math.cos(poolPhase * 0.7 + i * 1.1) * (POOL_RX * 0.6);
-        const sy = POOL_CY + Math.sin(poolPhase * 0.5 + i * 1.4) * (POOL_RY * 0.5);
-        const sa = 0.08 + Math.sin(poolPhase * 1.5 + i * 2) * 0.05;
-        ctx.fillStyle = `rgba(180, 200, 255, ${sa})`;
-        ctx.beginPath();
-        ctx.ellipse(sx, sy, 8, 3, poolPhase * 0.3 + i, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Mirror indicator overlay when mirror round active
-    if (mirrorIndicatorAlpha > 0) {
-        ctx.fillStyle = `rgba(200, 150, 255, ${mirrorIndicatorAlpha * 0.15})`;
-        ctx.fillRect(POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
-    }
-
-    ctx.restore();
-
-    // Pool sprite overlay (if loaded)
-    const poolSpriteKey = crackLines.length > 0 ? 'pool_cracked' : 'pool_normal';
-    if (sprites[poolSpriteKey]) {
-        drawSprite(poolSpriteKey, POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2, 0.7);
-    }
-
-    // Pool edge
-    ctx.strokeStyle = 'rgba(100, 120, 180, 0.2)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(POOL_CX, POOL_CY, POOL_RX, POOL_RY, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Crack lines (canvas-drawn, layer on top)
+    // Crack lines (canvas-drawn overlay for finale)
     crackLines.forEach(crack => {
         ctx.strokeStyle = `rgba(255, 255, 255, ${crack.alpha})`;
         ctx.lineWidth = 1.5;
@@ -571,10 +571,11 @@ function drawPool(now) {
 
 function drawNarcissus(now) {
     narcissusBreathing = Math.sin(now / 1200) * 2;
-    const nx = POOL_CX + POOL_RX - 30, ny = POOL_CY + POOL_RY - 15 + narcissusBreathing;
-    const spriteW = 56, spriteH = 56;
+    // Position at the right edge of the pool, kneeling and gazing down
+    const nx = POOL_CX + POOL_RX - 15, ny = POOL_CY + POOL_RY - 5 + narcissusBreathing;
+    const spriteW = 72, spriteH = 72;
 
-    if (!drawSprite('narcissus_kneel', nx - spriteW/2, ny - spriteH/2 - 8, spriteW, spriteH)) {
+    if (!drawSprite('narcissus_kneel', nx - spriteW/2, ny - spriteH + 10, spriteW, spriteH)) {
         // Fallback: canvas-drawn figure
         ctx.fillStyle = '#d4a574';
         ctx.beginPath(); ctx.arc(nx, ny - 30, 10, 0, Math.PI * 2); ctx.fill();
@@ -602,7 +603,7 @@ function drawEcho(now) {
     // Choose sprite based on fade state
     let echoKey = 'echo_stand';
     if (alpha <= 0.2) echoKey = 'echo_voice';
-    else if (alpha <= 0.5) echoKey = 'echo_fade';
+    else if (alpha <= 0.7) echoKey = 'echo_fade';  // Stage 3 (0.65) shows fading
 
     if (!drawSprite(echoKey, ex - spriteW/2, ey - spriteH/2 + 4, spriteW, spriteH, alpha)) {
         // Fallback: canvas-drawn figure
@@ -629,10 +630,15 @@ function drawEcho(now) {
 
 function drawDust() {
     dustParticles.forEach(p => {
-        ctx.fillStyle = `rgba(180, 160, 210, ${p.alpha})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
+        if (sprites['dust_mote']) {
+            const sz = p.size * 4;
+            drawSprite('dust_mote', p.x - sz/2, p.y - sz/2, sz, sz, p.alpha * 2);
+        } else {
+            ctx.fillStyle = `rgba(180, 160, 210, ${p.alpha})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
     });
 }
 
@@ -790,15 +796,32 @@ function drawMirrorIndicator(now) {
 
 function drawHUD() {
     const stage = STAGES[currentStage];
-    // Hearts
-    let heartStr = '';
-    for (let i = 0; i < 3; i++) {
-        heartStr += i < hearts ? '❤️ ' : '🖤 ';
+    // Hearts — use sprite data URLs if available
+    const heartEl = document.getElementById('hud-hearts');
+    if (sprites['heart_full'] && sprites['heart_empty']) {
+        const fullUrl = sprites['heart_full'].toDataURL('image/png');
+        const emptyUrl = sprites['heart_empty'].toDataURL('image/png');
+        let heartHtml = '';
+        for (let i = 0; i < 3; i++) {
+            const url = i < hearts ? fullUrl : emptyUrl;
+            heartHtml += `<img src="${url}" style="width:18px;height:18px;image-rendering:pixelated;vertical-align:middle;margin-right:3px;">`;
+        }
+        heartEl.innerHTML = heartHtml;
+    } else {
+        let heartStr = '';
+        for (let i = 0; i < 3; i++) heartStr += i < hearts ? '❤️ ' : '🖤 ';
+        heartEl.textContent = heartStr.trim();
     }
-    document.getElementById('hud-hearts').textContent = heartStr.trim();
     document.getElementById('hud-stage').textContent = stage ? `Stage ${currentStage + 1}: ${stage.name}` : '';
     document.getElementById('hud-round').textContent = stage ? `Round ${currentRound + 1} / ${stage.rounds}` : '';
-    document.getElementById('hud-streak').textContent = `🔥 ${streak}`;
+    // Streak — use flame sprite if available
+    const streakEl = document.getElementById('hud-streak');
+    if (sprites['flame_streak'] && streak > 0) {
+        const flameUrl = sprites['flame_streak'].toDataURL('image/png');
+        streakEl.innerHTML = `<img src="${flameUrl}" style="width:16px;height:16px;image-rendering:pixelated;vertical-align:middle;margin-right:2px;"> ${streak}`;
+    } else {
+        streakEl.textContent = `🔥 ${streak}`;
+    }
 }
 
 // ==================== GAME LOGIC ====================
@@ -1036,13 +1059,12 @@ function showStoryCard() {
     const sceneKey = SCENE_KEYS[currentStage];
     let sceneImgHtml = '';
     if (sceneKey && sprites[sceneKey]) {
-        // Convert cleaned sprite canvas to data URL for inline display
         const dataUrl = sprites[sceneKey].toDataURL('image/png');
-        sceneImgHtml = `<div style="text-align:center;margin-bottom:12px;"><img src="${dataUrl}" style="width:280px;height:auto;image-rendering:pixelated;border-radius:8px;border:2px solid rgba(120,90,180,0.3);box-shadow:0 4px 20px rgba(0,0,0,0.4);"></div>`;
+        sceneImgHtml = `<div style="text-align:center;margin-bottom:14px;"><img src="${dataUrl}" style="width:360px;height:auto;image-rendering:pixelated;border-radius:10px;box-shadow:0 6px 30px rgba(0,0,0,0.5);"></div>`;
     } else if (sceneKey) {
-        // Fallback: load raw image with onerror hide
+        // Fallback: raw image (pink bg will show but better than nothing)
         const sceneImg = IMG_BASE + SPRITE_MANIFEST[sceneKey];
-        sceneImgHtml = `<div style="text-align:center;margin-bottom:12px;"><img src="${sceneImg}" style="width:280px;height:auto;image-rendering:pixelated;border-radius:8px;border:2px solid rgba(120,90,180,0.3);box-shadow:0 4px 20px rgba(0,0,0,0.4);" onerror="this.parentElement.style.display='none'"></div>`;
+        sceneImgHtml = `<div style="text-align:center;margin-bottom:14px;"><img src="${sceneImg}" style="width:360px;height:auto;image-rendering:pixelated;border-radius:10px;box-shadow:0 6px 30px rgba(0,0,0,0.5);" onerror="this.parentElement.style.display='none'"></div>`;
     }
 
     showOverlay(
@@ -1159,19 +1181,24 @@ function drawCinematic(now) {
         ctx.fillRect(0, 0, W, H);
     }
 
-    // Particles
+    // Particles — use shatter sprites if loaded
+    const shatterSprite = sprites['shatter_particle'] || sprites['shard_shatter'];
     cinematicShatterParticles.forEach(p => {
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = Math.max(0, p.alpha);
-        ctx.beginPath();
-        // Diamond shape
-        ctx.moveTo(p.x, p.y - p.size);
-        ctx.lineTo(p.x + p.size * 0.7, p.y);
-        ctx.lineTo(p.x, p.y + p.size);
-        ctx.lineTo(p.x - p.size * 0.7, p.y);
-        ctx.closePath();
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        if (shatterSprite) {
+            const sz = p.size * 5;
+            drawSprite('shatter_particle', p.x - sz/2, p.y - sz/2, sz, sz, Math.max(0, p.alpha));
+        } else {
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.alpha);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y - p.size);
+            ctx.lineTo(p.x + p.size * 0.7, p.y);
+            ctx.lineTo(p.x, p.y + p.size);
+            ctx.lineTo(p.x - p.size * 0.7, p.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
     });
 
     // Pool fading out during phase 1+
@@ -1188,49 +1215,28 @@ function drawCinematic(now) {
     if (cinematicPhase >= 2 && cinematicFlowerGrow > 0) {
         const fx = POOL_CX, fy = POOL_CY + 10;
         const scale = cinematicFlowerGrow;
-        ctx.save();
-        ctx.translate(fx, fy);
-        ctx.scale(scale, scale);
+        const flowerSize = 80 * scale;
 
-        // Stem
-        ctx.strokeStyle = '#3d7a37';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, 30);
-        ctx.stroke();
-
-        // Leaves
-        ctx.fillStyle = '#2d5a27';
-        ctx.beginPath();
-        ctx.ellipse(-6, 18, 4, 8, -0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(6, 22, 4, 7, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Petals (6 white petals in a circle)
-        ctx.fillStyle = '#f0ebe0';
-        for (let i = 0; i < 6; i++) {
-            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
-            const px = Math.cos(angle) * 10;
-            const py = Math.sin(angle) * 10;
-            ctx.beginPath();
-            ctx.ellipse(px, py, 5, 9, angle, 0, Math.PI * 2);
-            ctx.fill();
+        if (sprites['flower_narcissus']) {
+            drawSprite('flower_narcissus', fx - flowerSize/2, fy - flowerSize/2, flowerSize, flowerSize, scale);
+        } else {
+            // Canvas fallback flower
+            ctx.save();
+            ctx.translate(fx, fy);
+            ctx.scale(scale, scale);
+            ctx.strokeStyle = '#3d7a37'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 30); ctx.stroke();
+            ctx.fillStyle = '#f0ebe0';
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                ctx.beginPath();
+                ctx.ellipse(Math.cos(angle) * 10, Math.sin(angle) * 10, 5, 9, angle, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.fillStyle = '#d4a017';
+            ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
         }
-
-        // Corona (golden center)
-        ctx.fillStyle = '#d4a017';
-        ctx.beginPath();
-        ctx.arc(0, 0, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#fcd34d';
-        ctx.beginPath();
-        ctx.arc(-1, -1, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
 
         // Gentle glow around flower
         const glowAlpha = 0.05 + Math.sin(now / 500) * 0.03;
@@ -1539,6 +1545,11 @@ function gameLoop(now) {
         drawNarcissus(now);
     }
     drawEcho(now);
+    // Hera appears during Stage 2 as a looming presence in the upper-right
+    if (currentStage === 1 && sprites['hera_stand'] && gamePhase !== 'overlay') {
+        const heraAlpha = 0.4 + Math.sin(now / 2000) * 0.1;
+        drawSprite('hera_stand', W - 90, 30, 64, 64, heraAlpha);
+    }
     drawTablets(now);
     drawMirrorIndicator(now);
 
