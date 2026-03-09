@@ -1657,56 +1657,49 @@ function seedReferenceData() {
   }
 
   // V95: Replace Echo & Narcissus (portal 4) and Eros & Psyche (portal 6) quizzes with Verbal Reasoning v2 format
-  // Matches the Orpheus format: analogies, reading comprehension with passages, sentence completion
   try {
-    // Check if portal 4 still has old-format questions (question_type = 'standard' means legacy 7-column insert)
-    const echoCheck = db.prepare("SELECT COUNT(*) as cnt FROM myth_quiz_questions WHERE portal_id = 4 AND question_type = 'standard'").get();
-    if (echoCheck && echoCheck.cnt > 0) {
-      db.prepare('DELETE FROM myth_quiz_questions WHERE portal_id = 4').run();
-      db.prepare('DELETE FROM myth_quiz_questions WHERE portal_id = 6').run();
+    const echoAnalogies = db.exec("SELECT COUNT(*) FROM myth_quiz_questions WHERE portal_id = 4 AND question_type = 'analogy'");
+    const echoAnalogyCount = echoAnalogies[0] ? echoAnalogies[0].values[0][0] : 0;
+    
+    if (echoAnalogyCount === 0) {
+      db.run('DELETE FROM myth_quiz_questions WHERE portal_id = 4');
+      db.run('DELETE FROM myth_quiz_questions WHERE portal_id = 6');
       
-      const newQuestions = [
-        // ==================== ECHO & NARCISSUS (portal_id = 4) — 10 questions (Verbal Reasoning v2) ====================
-        // Q1-Q4: Analogies
-        [4, 'ECHO : VOICE :: SHADOW : ____________', 'Darkness', 'Light', 'Shape', 'Night', 'c', 'analogy', null, null],
-        [4, 'NARCISSUS : REFLECTION :: MOTH : ____________', 'Wings', 'Flame', 'Night', 'Cocoon', 'b', 'analogy', null, null],
-        [4, 'ECHO : REPETITION :: NARCISSUS : ____________', 'Beauty', 'Self-absorption', 'Strength', 'Wisdom', 'b', 'analogy', null, null],
-        [4, 'CURSE : PUNISHMENT :: VANITY : ____________', 'Beauty', 'Downfall', 'Mirror', 'Pride', 'b', 'analogy', null, null],
-        // Q5-Q7: Reading Comprehension (passage_group = 4 links them together)
-        [4, 'Based on the passage, why does the author say Echo could only \"catch the tail end of what others spoke\"?', 'Echo was hard of hearing and missed the beginning of sentences', 'Hera\'s curse took away Echo\'s ability to form her own words, leaving her only able to repeat', 'Echo was too shy to speak first in any conversation', 'The other nymphs spoke too quickly for Echo to understand', 'b', 'comprehension', 'Echo had once been the most talkative of all the mountain nymphs, her voice ringing through the valleys like a bell. But Hera, queen of the gods, had discovered Echo\'s trick — the nymph had been distracting her with endless chatter while Zeus slipped away. \"Since you love words so much,\" Hera said coldly, \"you shall keep them — but only the words of others.\" From that day forward, Echo could only catch the tail end of what others spoke and hurl it back, her own thoughts trapped forever behind her lips. When she found Narcissus in the forest, she ached to tell him how beautiful he was, but all she could do was repeat his own words back to him like a living mirror.', 4],
-        [4, 'The passage describes Echo as \"a living mirror.\" This comparison most likely suggests that ____________.', 'Echo could only reflect back what Narcissus said, just as a mirror reflects an image', 'Echo was as beautiful as Narcissus', 'Echo was made of glass by Hera\'s curse', 'Echo and Narcissus were exactly alike', 'a', 'comprehension', null, 4],
-        [4, 'The author includes the detail about Hera saying \"Since you love words so much, you shall keep them\" to show that ____________.', 'Hera was generous and gave Echo a gift', 'Hera\'s punishment was cruelly ironic, twisting Echo\'s greatest strength into her curse', 'Hera wanted Echo to become a better listener', 'Hera was impressed by Echo\'s clever speaking', 'b', 'comprehension', null, 4],
-        // Q8-Q10: Sentence Completion
-        [4, 'Narcissus was so __________ by his own reflection that he could not look away, even to eat or drink.', 'frightened', 'captivated', 'confused', 'amused', 'b', 'sentence_completion', null, null],
-        [4, 'Echo\'s punishment was especially cruel because it took away the very thing she __________ most.', 'feared', 'treasured', 'ignored', 'hated', 'b', 'sentence_completion', null, null],
-        [4, 'The myth of Echo and Narcissus warns that __________ can destroy even the most beautiful things.', 'jealousy', 'self-obsession', 'loneliness', 'silence', 'b', 'sentence_completion', null, null],
+      const insertQ = `INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer, question_type, passage_text, passage_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      
+      // ECHO & NARCISSUS (portal 4) — 10 questions
+      db.run(insertQ, [4, 'ECHO : VOICE :: SHADOW : ____________', 'Darkness', 'Light', 'Shape', 'Night', 'c', 'analogy', null, null]);
+      db.run(insertQ, [4, 'NARCISSUS : REFLECTION :: MOTH : ____________', 'Wings', 'Flame', 'Night', 'Cocoon', 'b', 'analogy', null, null]);
+      db.run(insertQ, [4, 'ECHO : REPETITION :: NARCISSUS : ____________', 'Beauty', 'Self-absorption', 'Strength', 'Wisdom', 'b', 'analogy', null, null]);
+      db.run(insertQ, [4, 'CURSE : PUNISHMENT :: VANITY : ____________', 'Beauty', 'Downfall', 'Mirror', 'Pride', 'b', 'analogy', null, null]);
+      db.run(insertQ, [4, 'Based on the passage, why does the author say Echo could only "catch the tail end of what others spoke"?', 'Echo was hard of hearing and missed the beginning of sentences', "Hera's curse took away Echo's ability to form her own words, leaving her only able to repeat", 'Echo was too shy to speak first in any conversation', 'The other nymphs spoke too quickly for Echo to understand', 'b', 'comprehension', 'Echo had once been the most talkative of all the mountain nymphs, her voice ringing through the valleys like a bell. But Hera, queen of the gods, had discovered Echo\'s trick \u2014 the nymph had been distracting her with endless chatter while Zeus slipped away. "Since you love words so much," Hera said coldly, "you shall keep them \u2014 but only the words of others." From that day forward, Echo could only catch the tail end of what others spoke and hurl it back, her own thoughts trapped forever behind her lips. When she found Narcissus in the forest, she ached to tell him how beautiful he was, but all she could do was repeat his own words back to him like a living mirror.', 4]);
+      db.run(insertQ, [4, 'The passage describes Echo as "a living mirror." This comparison most likely suggests that ____________.', 'Echo could only reflect back what Narcissus said, just as a mirror reflects an image', 'Echo was as beautiful as Narcissus', "Echo was made of glass by Hera's curse", 'Echo and Narcissus were exactly alike', 'a', 'comprehension', null, 4]);
+      db.run(insertQ, [4, 'The author includes the detail about Hera saying "Since you love words so much, you shall keep them" to show that ____________.', 'Hera was generous and gave Echo a gift', "Hera's punishment was cruelly ironic, twisting Echo's greatest strength into her curse", 'Hera wanted Echo to become a better listener', "Hera was impressed by Echo's clever speaking", 'b', 'comprehension', null, 4]);
+      db.run(insertQ, [4, 'Narcissus was so __________ by his own reflection that he could not look away, even to eat or drink.', 'frightened', 'captivated', 'confused', 'amused', 'b', 'sentence_completion', null, null]);
+      db.run(insertQ, [4, "Echo's punishment was especially cruel because it took away the very thing she __________ most.", 'feared', 'treasured', 'ignored', 'hated', 'b', 'sentence_completion', null, null]);
+      db.run(insertQ, [4, 'The myth of Echo and Narcissus warns that __________ can destroy even the most beautiful things.', 'jealousy', 'self-obsession', 'loneliness', 'silence', 'b', 'sentence_completion', null, null]);
 
-        // ==================== EROS & PSYCHE (portal_id = 6) — 10 questions (Verbal Reasoning v2) ====================
-        // Q1-Q4: Analogies
-        [6, 'EROS : WINGS :: PSYCHE : ____________', 'Lamp', 'Sword', 'Crown', 'Ring', 'a', 'analogy', null, null],
-        [6, 'VISIBLE : HIDDEN :: TRUST : ____________', 'Honesty', 'Suspicion', 'Loyalty', 'Courage', 'b', 'analogy', null, null],
-        [6, 'PSYCHE : EROS :: STUDENT : ____________', 'Classroom', 'Teacher', 'Homework', 'School', 'b', 'analogy', null, null],
-        [6, 'JEALOUSY : APHRODITE :: CURIOSITY : ____________', 'Eros', 'Zeus', 'Psyche', 'Hermes', 'c', 'analogy', null, null],
-        // Q5-Q7: Reading Comprehension (passage_group = 6 links them together)
-        [6, 'Based on the passage, what is the real reason Psyche\'s sisters encourage her to look at her husband?', 'They are worried about her safety', 'They want to help her understand her husband better', 'Their intentions are harmful even though their words sound caring', 'They believe her husband is truly a monster', 'c', 'comprehension', 'Psyche\'s sisters returned to the palace a second time, their voices sweet but their intentions sharp. "Have you seen your husband\'s face yet?" they asked, knowing the answer. "What kind of husband hides himself in darkness? Surely he must be a monster — why else would he forbid you from looking at him?" Night after night, Psyche had lain beside someone who was gentle and kind, whose voice made her feel safe. But her sisters\' words planted a seed she could not ignore. That evening, after Eros had fallen asleep, Psyche lit an oil lamp and held it above the bed. What she saw was no monster — it was the most beautiful face she had ever seen. A drop of hot oil fell from the lamp onto his shoulder, and Eros awoke. The look in his eyes was not anger. It was heartbreak.', 6],
-        [6, 'The passage says Psyche\'s sisters\' words "planted a seed she could not ignore." What does this phrase mean?', 'Her sisters gave her a gift from their garden', 'They put an idea in her mind that slowly grew into action', 'Psyche started a garden to distract herself from worry', 'Her sisters taught her how to grow plants in the palace', 'b', 'comprehension', null, 6],
-        [6, 'The passage ends by saying the look in Eros\'s eyes "was not anger. It was heartbreak." What does this tell us about how Eros feels?', 'He is afraid of Psyche and wants to escape', 'He is hurt that Psyche did not trust him enough', 'He is angry but trying to hide it', 'He feels sorry for Psyche\'s sisters', 'b', 'comprehension', null, 6],
-        // Q8-Q10: Sentence Completion
-        [6, 'Aphrodite was so __________ of Psyche\'s beauty that she ordered her own son to make Psyche fall in love with the ugliest creature alive.', 'proud', 'jealous', 'frightened', 'confused', 'b', 'sentence_completion', null, null],
-        [6, 'Although Psyche could not see Eros, she grew to love him because of his __________ and the way he treated her.', 'wealth', 'appearance', 'kindness', 'power', 'c', 'sentence_completion', null, null],
-        [6, 'The myth of Eros and Psyche teaches that real love requires __________ even when you do not have all the answers.', 'perfection', 'trust', 'silence', 'speed', 'b', 'sentence_completion', null, null],
-      ];
+      // EROS & PSYCHE (portal 6) — 10 questions
+      db.run(insertQ, [6, 'EROS : WINGS :: PSYCHE : ____________', 'Lamp', 'Sword', 'Crown', 'Ring', 'a', 'analogy', null, null]);
+      db.run(insertQ, [6, 'VISIBLE : HIDDEN :: TRUST : ____________', 'Honesty', 'Suspicion', 'Loyalty', 'Courage', 'b', 'analogy', null, null]);
+      db.run(insertQ, [6, 'PSYCHE : EROS :: STUDENT : ____________', 'Classroom', 'Teacher', 'Homework', 'School', 'b', 'analogy', null, null]);
+      db.run(insertQ, [6, 'JEALOUSY : APHRODITE :: CURIOSITY : ____________', 'Eros', 'Zeus', 'Psyche', 'Hermes', 'c', 'analogy', null, null]);
+      db.run(insertQ, [6, "Based on the passage, what is the real reason Psyche's sisters encourage her to look at her husband?", 'They are worried about her safety', 'They want to help her understand her husband better', 'Their intentions are harmful even though their words sound caring', 'They believe her husband is truly a monster', 'c', 'comprehension', 'Psyche\'s sisters returned to the palace a second time, their voices sweet but their intentions sharp. "Have you seen your husband\'s face yet?" they asked, knowing the answer. "What kind of husband hides himself in darkness? Surely he must be a monster \u2014 why else would he forbid you from looking at him?" Night after night, Psyche had lain beside someone who was gentle and kind, whose voice made her feel safe. But her sisters\' words planted a seed she could not ignore. That evening, after Eros had fallen asleep, Psyche lit an oil lamp and held it above the bed. What she saw was no monster \u2014 it was the most beautiful face she had ever seen. A drop of hot oil fell from the lamp onto his shoulder, and Eros awoke. The look in his eyes was not anger. It was heartbreak.', 6]);
+      db.run(insertQ, [6, 'The passage says Psyche\'s sisters\' words "planted a seed she could not ignore." What does this phrase mean?', 'Her sisters gave her a gift from their garden', 'They put an idea in her mind that slowly grew into action', 'Psyche started a garden to distract herself from worry', 'Her sisters taught her how to grow plants in the palace', 'b', 'comprehension', null, 6]);
+      db.run(insertQ, [6, 'The passage ends by saying the look in Eros\'s eyes "was not anger. It was heartbreak." What does this tell us about how Eros feels?', 'He is afraid of Psyche and wants to escape', 'He is hurt that Psyche did not trust him enough', 'He is angry but trying to hide it', "He feels sorry for Psyche's sisters", 'b', 'comprehension', null, 6]);
+      db.run(insertQ, [6, "Aphrodite was so __________ of Psyche's beauty that she ordered her own son to make Psyche fall in love with the ugliest creature alive.", 'proud', 'jealous', 'frightened', 'confused', 'b', 'sentence_completion', null, null]);
+      db.run(insertQ, [6, 'Although Psyche could not see Eros, she grew to love him because of his __________ and the way he treated her.', 'wealth', 'appearance', 'kindness', 'power', 'c', 'sentence_completion', null, null]);
+      db.run(insertQ, [6, 'The myth of Eros and Psyche teaches that real love requires __________ even when you do not have all the answers.', 'perfection', 'trust', 'silence', 'speed', 'b', 'sentence_completion', null, null]);
 
-      const stmt = db.prepare(`INSERT INTO myth_quiz_questions (portal_id, question_text, option_a, option_b, option_c, option_d, correct_answer, question_type, passage_text, passage_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-      newQuestions.forEach(q => stmt.run(...q));
-      console.log(`✅ V95: Replaced Echo & Narcissus (${newQuestions.filter(q => q[0]===4).length}) and Eros & Psyche (${newQuestions.filter(q => q[0]===6).length}) quizzes with Verbal Reasoning v2 format`);
+      console.log('\u2705 V95: Replaced Echo & Narcissus (10) and Eros & Psyche (10) quizzes with Verbal Reasoning v2 format');
     } else {
-      console.log('✅ V95: Echo/Eros quizzes already in new format');
+      console.log('\u2705 V95: Echo/Eros quizzes already in new format');
     }
   } catch (e) {
     console.log('Migration note: V95 quiz upgrade -', e.message);
   }
 
+  // ==================== END MIGRATIONS ====================
   // ==================== END MIGRATIONS ====================
   
   // ==================== CLASSICAL AGE SEED DATA ====================
