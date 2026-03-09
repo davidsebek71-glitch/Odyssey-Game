@@ -604,10 +604,12 @@ function drawPool(now) {
 
 function drawNarcissus(now) {
     narcissusBreathing = Math.sin(now / 1200) * 2;
-    // Anchor point: his reaching hand should be at the pool's right edge
-    // Sprite is flipped, so hand is on the left side of drawn image
-    // Place center-x so left edge of sprite touches pool right edge
-    const nx = POOL_CX + POOL_RX - 30, ny = POOL_CY - 15 + narcissusBreathing;
+    // Hand position measured from sprite: after flip, hand is at (nx - 49, ny + 114)
+    // Target: hand at pool rim right side (~POOL_CX + POOL_RX - 20, POOL_CY - 10)
+    // So: nx = target_x + 49, ny = target_y - 114
+    const handTargetX = POOL_CX + POOL_RX - 20;
+    const handTargetY = POOL_CY - 10;
+    const nx = handTargetX + 49, ny = handTargetY - 114 + narcissusBreathing;
     const spriteW = 144, spriteH = 144;
 
     if (sprites['narcissus_kneel']) {
