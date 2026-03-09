@@ -1584,10 +1584,19 @@ function gameLoop(now) {
         drawNarcissus(now);
     }
     drawEcho(now);
-    // Hera appears during Stage 2 as a looming presence in the upper-right
+    // Hera appears during Stage 2 — between Echo and the pool, facing Echo, cursing her
     if (currentStage === 1 && sprites['hera_stand'] && gamePhase !== 'overlay') {
-        const heraAlpha = 0.5 + Math.sin(now / 2000) * 0.1;
-        drawSprite('hera_stand', W - 140, 40, 120, 120, heraAlpha);
+        const heraAlpha = 0.55 + Math.sin(now / 2000) * 0.1;
+        const heraX = POOL_CX - POOL_RX + 20;  // Between Echo and pool
+        const heraY = POOL_CY - 60;
+        const heraW = 170, heraH = 170;  // Larger than Echo to look menacing
+        ctx.save();
+        // Flip horizontally so she faces left toward Echo
+        ctx.translate(heraX, heraY);
+        ctx.scale(-1, 1);
+        ctx.globalAlpha = heraAlpha;
+        ctx.drawImage(sprites['hera_stand'], -heraW/2, 0, heraW, heraH);
+        ctx.restore();
     }
     drawTablets(now);
     drawMirrorIndicator(now);
