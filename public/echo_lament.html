@@ -603,13 +603,13 @@ function drawPool(now) {
 
 function drawNarcissus(now) {
     narcissusBreathing = Math.sin(now / 1200) * 2;
-    // Right at the pool edge, facing left, gazing down into the water
-    const nx = POOL_CX + POOL_RX - 20, ny = POOL_CY + 30 + narcissusBreathing;
+    // Hand on the right edge of the pool, leaning over to gaze in
+    const nx = POOL_CX + POOL_RX - 55, ny = POOL_CY + 15 + narcissusBreathing;
     const spriteW = 144, spriteH = 144;
 
     if (sprites['narcissus_kneel']) {
         ctx.save();
-        // Flip horizontally so he faces left toward the pool
+        // Flip horizontally so he faces left toward the pool center
         ctx.translate(nx, ny - spriteH/2);
         ctx.scale(-1, 1);
         ctx.drawImage(sprites['narcissus_kneel'], -spriteW/2, 0, spriteW, spriteH);
@@ -629,10 +629,10 @@ function drawNarcissus(now) {
 }
 
 function drawEcho(now) {
-    // Position Echo near the tablets — she IS the repeating mechanic
-    const ex = TABLET_POSITIONS[0].x - 55, ey = TABLET_POSITIONS[0].y - 10;
+    // Position Echo on the left side of the pool, watching Narcissus
+    const ex = POOL_CX - POOL_RX - 20, ey = POOL_CY + 40;
     const alpha = echoOpacity;
-    const spriteW = 144, spriteH = 144;  // Same size as Narcissus
+    const spriteW = 144, spriteH = 144;
 
     // Choose sprite based on fade state
     let echoKey = 'echo_stand';
