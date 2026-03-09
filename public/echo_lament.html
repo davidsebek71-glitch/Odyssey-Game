@@ -607,7 +607,7 @@ function drawNarcissus(now) {
     // Anchor point: his reaching hand should be at the pool's right edge
     // Sprite is flipped, so hand is on the left side of drawn image
     // Place center-x so left edge of sprite touches pool right edge
-    const nx = POOL_CX + POOL_RX + 40, ny = POOL_CY - 25 + narcissusBreathing;
+    const nx = POOL_CX + POOL_RX, ny = POOL_CY - 25 + narcissusBreathing;
     const spriteW = 144, spriteH = 144;
 
     if (sprites['narcissus_kneel']) {
@@ -632,7 +632,7 @@ function drawNarcissus(now) {
 
 function drawEcho(now) {
     // Position Echo on the left side of the pool, watching Narcissus
-    const ex = POOL_CX - POOL_RX - 40, ey = POOL_CY - 10;
+    const ex = POOL_CX - POOL_RX - 40, ey = POOL_CY - 25;
     const alpha = echoOpacity;
     const spriteW = 144, spriteH = 144;
 
@@ -699,9 +699,9 @@ function drawTablets(now) {
         const hasSprite = sprites[tabletKey] || sprites['tablet_active'];
 
         if (hasSprite) {
-            // Inactive tablet — dim
+            // Inactive tablet — dimmed but still visible
             if (!isActive) {
-                ctx.globalAlpha = 0.2;
+                ctx.globalAlpha = 0.45;
                 drawSprite(tabletKey, sx, sy, spriteW, spriteH);
                 ctx.globalAlpha = 1;
             }
