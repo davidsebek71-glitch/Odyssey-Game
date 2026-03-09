@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪨 Echo's Lament</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #0a0a12;
+    color: #d4c9b8;
+    font-family: Georgia, serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+#game-wrapper { position: relative; text-align: center; }
+canvas { display: block; margin: 0 auto; border-radius: 8px; border: 2px solid rgba(120, 90, 180, 0.25); cursor: pointer; }
+#hud {
+    display: flex; justify-content: space-between; align-items: center;
+    width: 680px; margin: 8px auto 0; padding: 0 8px;
+}
+#hud-hearts { color: #ef4444; font-weight: 700; font-size: 14px; }
+#hud-stage { color: #a78bfa; font-weight: 700; font-size: 14px; }
+#hud-round { color: #ffd700; font-size: 13px; }
+#hud-streak { color: #4ade80; font-size: 13px; }
+/* Overlay for story cards and intro */
+#overlay {
+    position: absolute; top: 0; left: 0; width: 680px; height: 600px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(8, 8, 16, 0.93); border-radius: 8px; z-index: 10;
+}
+#overlay-icon { font-size: 2.4rem; margin-bottom: 8px; }
+#overlay-title {
+    font-size: 1.5rem; color: #a78bfa; margin-bottom: 10px; font-weight: 700;
+    text-shadow: 0 0 20px rgba(167, 139, 250, 0.3);
+}
+#overlay-text {
+    color: rgba(255,255,255,0.72); font-size: 15px; line-height: 1.7;
+    max-width: 480px; margin-bottom: 6px; text-align: center;
+}
+#overlay-scene {
+    color: rgba(180, 160, 210, 0.6); font-size: 13px; font-style: italic;
+    max-width: 440px; margin-bottom: 20px; text-align: center;
+}
+#overlay-btn {
+    padding: 14px 36px;
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    border: none; border-radius: 10px; color: #fff;
+    font-weight: 700; font-size: 16px; cursor: pointer;
+    font-family: Georgia, serif;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+    transition: filter 0.2s;
+}
+#overlay-btn:hover { filter: brightness(1.15); }
+#controls-hint {
+    color: rgba(255,255,255,0.25); font-size: 12px; margin-top: 6px;
+}
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+    <canvas id="canvas" width="680" height="600"></canvas>
+    <div id="hud">
+        <div id="hud-hearts">❤️ ❤️ ❤️</div>
+        <div id="hud-stage">Stage 1: The Forest</div>
+        <div id="hud-round">Round 1 / 4</div>
+        <div id="hud-streak">🔥 0</div>
+    </div>
+    <div id="controls-hint">Click or Tap the Stone Tablets to Repeat the Sequence</div>
+    <div id="overlay">
+        <div id="overlay-icon">🌿</div>
+        <div id="overlay-title">Echo's Lament</div>
+        <div id="overlay-text">
+            Cursed by Hera to only repeat the words of others, Echo wanders the forest — drawn to the voice of Narcissus.<br><br>
+            Watch the stone tablets glow. Repeat the sequence from memory.<br>
+            Can you help Echo speak before she fades away?
+        </div>
+        <div id="overlay-scene">A dark cave. Water drips. Five ancient tablets gleam in the half-light.</div>
+        <button id="overlay-btn" onclick="beginGame()">Enter the Cave</button>
+    </div>
+</div>
+
+<script>
+// ==================== CONSTANTS ====================
+const W = 680, H = 600;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// ==================== SPRITE LOADING ====================
+const IMG_BASE = '/images/classical/Echo/';
+const SPRITE_MANIFEST = {
+    // Characters
+    echo_stand:       'echo_stand.png',
+    echo_fade:        'echo_fade.png',
+    echo_voice:       'echo_voice.png',
+    narcissus_kneel:  'narcissus_kneel.png',
+    hera_stand:       'hera_stand.png',
+    // Tablets
+    tablet_eros:      'tablet_eros.png',
+    tablet_kalos:     'tablet_kalos.png',
+    tablet_phone:     'tablet_phone.png',
+    tablet_eidolon:   'tablet_eidolon.png',
+    tablet_lethe:     'tablet_lethe.png',
+    tablet_active:    'tablet_active.png',
+    // Pool
+    pool_normal:      'pool_normal.png',
+    pool_cracked:     'pool_cracked.png',
+    // Environment
+    stalactite:       'stalactite.png',
+    cave_rocks:       'cave_rocks.png',
+    cave_wall:        'cave_wall.png',
+    // UI
+    heart_full:       'heart_full.png',
+    heart_empty:      'heart_empty.png',
+    mirror_icon:      'mirror_icon.png',
+    flame_streak:     'flame_streak.png',
+    flower_narcissus: 'flower_narcissus.png',
+    echo_ripple:      'echo_ripple.png',
+    shatter_particle: 'shatter_particle.png',
+    dust_mote:        'dust_mote.png',
+    // Story card scenes
+    scene_forest:     'scene_forest.png',
+    scene_hera_curse: 'scene_hera_curse.png',
+    scene_pool:       'scene_pool.png',
+    scene_echo_fades: 'scene_echo_fades.png',
+    scene_shatter:    'scene_shatter.png',
+};
+
+// Cleaned sprite canvases (pink removed)
+const sprites = {};
+let spritesLoaded = false;
+let spritesTotal = Object.keys(SPRITE_MANIFEST).length;
+let spritesCount = 0;
+
+// Strip #FF00FF pink background from an image, return cleaned canvas
+function stripPink(img) {
+    const oc = document.createElement('canvas');
+    oc.width = img.width;
+    oc.height = img.height;
+    const octx = oc.getContext('2d');
+    octx.drawImage(img, 0, 0);
+    const imageData = octx.getImageData(0, 0, oc.width, oc.height);
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        // Match #FF00FF and nearby pinks (threshold for anti-aliased edges)
+        if (r > 220 && g < 40 && b > 220) {
+            d[i+3] = 0; // fully transparent
+        } else if (r > 200 && g < 60 && b > 200) {
+            // Fade edges near pink
+            const pinkness = Math.min(r, b) - g;
+            if (pinkness > 160) {
+                d[i+3] = Math.max(0, Math.floor(255 * (1 - (pinkness - 160) / 60)));
+            }
+        }
+    }
+    octx.putImageData(imageData, 0, 0);
+    return oc;
+}
+
+function loadAllSprites(callback) {
+    const keys = Object.keys(SPRITE_MANIFEST);
+    if (keys.length === 0) { callback(); return; }
+
+    keys.forEach(key => {
+        const img = new Image();
+        img.onload = function() {
+            sprites[key] = stripPink(img);
+            spritesCount++;
+            // Update loading bar
+            drawLoadingScreen();
+            if (spritesCount >= spritesTotal) {
+                spritesLoaded = true;
+                callback();
+            }
+        };
+        img.onerror = function() {
+            console.warn('Failed to load sprite:', key, SPRITE_MANIFEST[key]);
+            sprites[key] = null; // fallback to canvas drawing
+            spritesCount++;
+            drawLoadingScreen();
+            if (spritesCount >= spritesTotal) {
+                spritesLoaded = true;
+                callback();
+            }
+        };
+        img.src = IMG_BASE + SPRITE_MANIFEST[key];
+    });
+}
+
+function drawLoadingScreen() {
+    ctx.fillStyle = '#0a0a12';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = '16px Georgia';
+    ctx.fillStyle = '#a78bfa';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText("Echo's Lament", W / 2, H / 2 - 30);
+    ctx.font = '12px Georgia';
+    ctx.fillStyle = 'rgba(200, 180, 255, 0.5)';
+    ctx.fillText(`Loading sprites... ${spritesCount}/${spritesTotal}`, W / 2, H / 2);
+    // Progress bar
+    const barW = 200, barH = 6;
+    const barX = (W - barW) / 2, barY = H / 2 + 20;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = '#7c3aed';
+    ctx.fillRect(barX, barY, barW * (spritesCount / spritesTotal), barH);
+}
+
+// Helper: draw a sprite if loaded, return false if not (caller draws fallback)
+function drawSprite(key, x, y, w, h, alpha) {
+    const s = sprites[key];
+    if (!s) return false;
+    if (alpha !== undefined && alpha < 1) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(s, x, y, w, h);
+        ctx.restore();
+    } else {
+        ctx.drawImage(s, x, y, w, h);
+    }
+    return true;
+}
+
+// Tablet sprite keys mapped to index
+const TABLET_SPRITE_KEYS = ['tablet_eros', 'tablet_kalos', 'tablet_phone', 'tablet_eidolon', 'tablet_lethe'];
+
+// Story card scene keys mapped to stage index
+const SCENE_KEYS = ['scene_forest', 'scene_hera_curse', 'scene_pool', 'scene_echo_fades', 'scene_shatter'];
+
+// Tablet definitions
+const TABLETS = [
+    { label: 'Eros',    meaning: 'Love',       color: '#8b5cf6', glow: '#c4b5fd', tone: 329.63 },  // E4
+    { label: 'Kalos',   meaning: 'Beautiful',   color: '#d4a017', glow: '#fde68a', tone: 392.00 },  // G4
+    { label: 'Phōnē',  meaning: 'Voice',       color: '#0d9488', glow: '#5eead4', tone: 440.00 },  // A4
+    { label: 'Eidōlon', meaning: 'Reflection', color: '#e11d48', glow: '#fda4af', tone: 523.25 },  // C5
+    { label: 'Lēthē',  meaning: 'Forgetting',  color: '#94a3b8', glow: '#e2e8f0', tone: 587.33 },  // D5
+];
+
+// Tablet positions — semicircle at bottom
+const TABLET_POSITIONS = [];
+const TABLET_RADIUS = 52;
+const ARC_CX = W / 2, ARC_CY = 460;
+const ARC_R = 200;
+// 5 tablets spread from ~150° to ~30° (bottom arc)
+const TABLET_ANGLES = [Math.PI * 0.82, Math.PI * 0.66, Math.PI * 0.5, Math.PI * 0.34, Math.PI * 0.18];
+for (let i = 0; i < 5; i++) {
+    const a = TABLET_ANGLES[i];
+    TABLET_POSITIONS.push({
+        x: ARC_CX + Math.cos(a) * ARC_R,
+        y: ARC_CY - Math.sin(a) * ARC_R * 0.55 + 30
+    });
+}
+
+// Pool position — larger pool, central focal point
+const POOL_CX = W / 2, POOL_CY = 150, POOL_RX = 150, POOL_RY = 65;
+
+// Stage definitions
+const STAGES = [
+    {
+        name: 'The Forest',
+        icon: '🌿',
+        story: 'Echo spots Narcissus wandering through the woods. His voice echoes off the rocks — and she is captivated. She follows, silent, yearning to speak.',
+        scene: 'Dappled sunlight filters through ancient oaks. A distant voice carries on the wind.',
+        tabletsActive: 4,  // only first 4 tablets
+        rounds: 4,
+        startLen: 3,
+        mirrorRounds: [],   // no mirror in stage 1
+        fadeNotes: 0,
+        speedMult: 1.0,
+    },
+    {
+        name: "The Curse of Hera",
+        icon: '⚡',
+        story: "Hera discovers Echo's trick — distracting her with chatter while Zeus's lovers escaped. In fury, Hera curses Echo: she can never speak first, only repeat the last words she hears.",
+        scene: 'Thunder rumbles. The cave darkens. The pool begins to shimmer with strange light.',
+        tabletsActive: 5,   // all 5 now
+        rounds: 4,
+        startLen: 3,
+        mirrorRounds: [1, 3],  // rounds 2 and 4 (0-indexed) are mirrored
+        fadeNotes: 0,
+        speedMult: 1.0,
+        maxLen: 5,
+        echoOpacity: 1.0,
+    },
+    {
+        name: "Narcissus at the Pool",
+        icon: '🪞',
+        story: "Narcissus finds a still pool deep in the cave. He kneels, gazes at his own reflection — and is lost. Echo watches from the shadows, desperate to call out, but the curse holds her tongue.",
+        scene: 'The pool glows. Narcissus whispers to his own face in the water. Echo strains to speak.',
+        tabletsActive: 5,
+        rounds: 5,
+        startLen: 3,
+        mirrorRounds: [2, 4],
+        fadeNotes: 1,       // first note in sequence is faded (quieter, dimmer)
+        speedMult: 1.0,
+        maxLen: 5,
+        echoOpacity: 0.65,
+    },
+    {
+        name: "Echo Fades",
+        icon: '👻',
+        story: "Rejected by Narcissus, Echo retreats deeper into the cave. Her body begins to dissolve — her arms, her face, everything fading. Soon only her voice will remain. The stones grow harder to read...",
+        scene: 'The cave grows cold. Echo\'s form flickers like a candle in the wind.',
+        tabletsActive: 5,
+        rounds: 5,
+        startLen: 3,
+        mirrorRounds: [1, 3],
+        fadeNotes: 2,       // first 2 notes faded
+        speedMult: 1.15,    // 15% faster playback
+        maxLen: 5,          // reversals go up to 5
+        echoOpacity: 0.3,
+    },
+    {
+        name: "Shatter the Reflection",
+        icon: '💥',
+        story: "The gods take pity. One last chance — shatter the pool's hold on Narcissus before Echo vanishes forever. The tablets blaze with power. Break the reflection!",
+        scene: 'Light surges through the cave. The pool trembles. Now or never.',
+        tabletsActive: 5,
+        rounds: 5,
+        startLen: 4,
+        mirrorRounds: [],    // no mirror — pure speed challenge
+        fadeNotes: 0,        // no fading — clear and fair for the finale
+        speedMult: 1.0,      // starts normal, accelerates via finaleSpeedUp
+        maxLen: 6,           // longer sequences — the real challenge is speed + length
+        echoOpacity: 0.15,
+        isFinale: true,      // triggers rapid-fire acceleration + shattering visuals
+    },
+];
+
+// Game state
+let currentStage = 0;
+let currentRound = 0;
+let sequence = [];
+let playerInput = [];
+let hearts = 3;
+let streak = 0;
+let longestStreak = 0;
+let totalCorrect = 0;
+let totalAttempts = 0;
+let totalHeartLost = 0;
+let gamePhase = 'overlay';  // overlay, story, playing-show, playing-input, mirror-show, wrong, stage-clear, victory
+let showIndex = 0;
+let showTimer = 0;
+let tabletFlash = -1;      // which tablet is currently lit (-1 = none)
+let tabletFlashEnd = 0;
+let wrongFlashEnd = 0;
+let shakeAmount = 0;
+let mirrorActive = false;   // is current round a mirror round?
+let mirrorIndicatorAlpha = 0;
+let finaleSpeedUp = 1.0;    // accelerates each round in Stage 5
+let animFrame = null;
+let lastTime = 0;
+
+// Visual state
+let dustParticles = [];
+let poolPhase = 0;
+let echoOpacity = 1.0;
+let narcissusBreathing = 0;
+let crackLines = [];
+
+// Audio context (lazy init)
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+function playTone(freq, duration = 0.35, volume = 0.3) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+function playWrongTone() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(130, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.4);
+}
+
+// ==================== PARTICLE SYSTEM ====================
+function initDust() {
+    dustParticles = [];
+    for (let i = 0; i < 30; i++) {
+        dustParticles.push({
+            x: Math.random() * W,
+            y: Math.random() * H,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: -Math.random() * 0.4 - 0.1,
+            size: Math.random() * 2.5 + 0.5,
+            alpha: Math.random() * 0.3 + 0.05,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+}
+
+function updateDust(dt) {
+    dustParticles.forEach(p => {
+        p.x += p.vx + Math.sin(p.phase + performance.now() / 3000) * 0.15;
+        p.y += p.vy;
+        if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
+        if (p.x < -5) p.x = W + 5;
+        if (p.x > W + 5) p.x = -5;
+    });
+}
+
+// ==================== DRAWING ====================
+function drawCave(now) {
+    // Background gradient — dark cave
+    const grad = ctx.createRadialGradient(W/2, 100, 50, W/2, H/2, 500);
+    grad.addColorStop(0, '#15122a');
+    grad.addColorStop(0.5, '#0d0b1a');
+    grad.addColorStop(1, '#060510');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stalactites from ceiling
+    drawStalactites(now);
+
+    // Cave wall texture (subtle rock lines)
+    ctx.strokeStyle = 'rgba(80, 60, 100, 0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i++) {
+        const y = 20 + i * 50 + Math.sin(i * 1.7) * 15;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        for (let x = 0; x < W; x += 20) {
+            ctx.lineTo(x, y + Math.sin(x * 0.02 + i) * 8);
+        }
+        ctx.stroke();
+    }
+}
+
+function drawStalactites(now) {
+    const stalacs = [
+        { x: 60, h: 45, w: 18 }, { x: 150, h: 65, w: 22 }, { x: 280, h: 50, w: 16 },
+        { x: 370, h: 70, w: 24 }, { x: 450, h: 40, w: 14 }, { x: 540, h: 58, w: 20 },
+        { x: 620, h: 48, w: 17 }, { x: 100, h: 30, w: 12 }, { x: 500, h: 35, w: 13 },
+    ];
+    stalacs.forEach(s => {
+        const grad = ctx.createLinearGradient(s.x, 0, s.x, s.h);
+        grad.addColorStop(0, 'rgba(60, 50, 80, 0.5)');
+        grad.addColorStop(1, 'rgba(40, 30, 60, 0.1)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(s.x - s.w/2, 0);
+        ctx.lineTo(s.x + s.w/2, 0);
+        ctx.lineTo(s.x + 2, s.h);
+        ctx.lineTo(s.x - 2, s.h);
+        ctx.closePath();
+        ctx.fill();
+    });
+}
+
+function drawPool(now) {
+    poolPhase += 0.015;
+
+    // Pool glow
+    const glowR = POOL_RX + 20 + Math.sin(poolPhase) * 8;
+    const glowGrad = ctx.createRadialGradient(POOL_CX, POOL_CY, 10, POOL_CX, POOL_CY, glowR);
+    glowGrad.addColorStop(0, 'rgba(100, 140, 220, 0.15)');
+    glowGrad.addColorStop(0.6, 'rgba(80, 100, 180, 0.06)');
+    glowGrad.addColorStop(1, 'rgba(60, 80, 160, 0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.ellipse(POOL_CX, POOL_CY, glowR, glowR * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pool surface
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(POOL_CX, POOL_CY, POOL_RX, POOL_RY, 0, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Water base
+    const waterGrad = ctx.createRadialGradient(POOL_CX, POOL_CY, 5, POOL_CX, POOL_CY, POOL_RX);
+    waterGrad.addColorStop(0, '#1a2a5c');
+    waterGrad.addColorStop(0.5, '#0f1a3d');
+    waterGrad.addColorStop(1, '#0a1030');
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
+
+    // Ripples
+    for (let r = 0; r < 4; r++) {
+        const rippleR = 20 + r * 30 + Math.sin(poolPhase + r * 0.8) * 10;
+        const alpha = 0.08 - r * 0.015;
+        ctx.strokeStyle = `rgba(150, 180, 255, ${Math.max(0, alpha)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(POOL_CX, POOL_CY, rippleR, rippleR * 0.4, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Shimmer highlights
+    for (let i = 0; i < 6; i++) {
+        const sx = POOL_CX + Math.cos(poolPhase * 0.7 + i * 1.1) * (POOL_RX * 0.6);
+        const sy = POOL_CY + Math.sin(poolPhase * 0.5 + i * 1.4) * (POOL_RY * 0.5);
+        const sa = 0.08 + Math.sin(poolPhase * 1.5 + i * 2) * 0.05;
+        ctx.fillStyle = `rgba(180, 200, 255, ${sa})`;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, 8, 3, poolPhase * 0.3 + i, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Mirror indicator overlay when mirror round active
+    if (mirrorIndicatorAlpha > 0) {
+        ctx.fillStyle = `rgba(200, 150, 255, ${mirrorIndicatorAlpha * 0.15})`;
+        ctx.fillRect(POOL_CX - POOL_RX, POOL_CY - POOL_RY, POOL_RX * 2, POOL_RY * 2);
+    }
+
+    ctx.restore();
+
+    // Pool edge
+    ctx.strokeStyle = 'rgba(100, 120, 180, 0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(POOL_CX, POOL_CY, POOL_RX, POOL_RY, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Crack lines (for future shattering)
+    crackLines.forEach(crack => {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${crack.alpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(crack.x1, crack.y1);
+        ctx.lineTo(crack.x2, crack.y2);
+        ctx.stroke();
+    });
+}
+
+function drawNarcissus(now) {
+    narcissusBreathing = Math.sin(now / 1200) * 2;
+    const nx = POOL_CX + POOL_RX - 30, ny = POOL_CY + POOL_RY - 15 + narcissusBreathing;
+    const spriteW = 56, spriteH = 56;
+
+    if (!drawSprite('narcissus_kneel', nx - spriteW/2, ny - spriteH/2 - 8, spriteW, spriteH)) {
+        // Fallback: canvas-drawn figure
+        ctx.fillStyle = '#d4a574';
+        ctx.beginPath(); ctx.arc(nx, ny - 30, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#5c3a1e';
+        ctx.beginPath(); ctx.arc(nx, ny - 34, 10, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#3b5998';
+        ctx.beginPath();
+        ctx.moveTo(nx - 8, ny - 20); ctx.lineTo(nx + 5, ny - 20);
+        ctx.lineTo(nx + 10, ny + 10); ctx.lineTo(nx - 12, ny + 10);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#d4a574'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(nx - 6, ny - 12);
+        ctx.quadraticCurveTo(nx - 30, ny - 5, nx - 45, ny + 8);
+        ctx.stroke();
+    }
+}
+
+function drawEcho(now) {
+    // Position Echo near the tablets — she IS the repeating mechanic
+    const ex = TABLET_POSITIONS[0].x - 40, ey = TABLET_POSITIONS[0].y - 20;
+    const alpha = echoOpacity;
+    const spriteW = 48, spriteH = 56;
+
+    // Choose sprite based on fade state
+    let echoKey = 'echo_stand';
+    if (alpha <= 0.2) echoKey = 'echo_voice';
+    else if (alpha <= 0.5) echoKey = 'echo_fade';
+
+    if (!drawSprite(echoKey, ex - spriteW/2, ey - spriteH/2 + 4, spriteW, spriteH, alpha)) {
+        // Fallback: canvas-drawn figure
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = '#c9a87c';
+        ctx.beginPath(); ctx.arc(ex, ey - 28, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#4a3020';
+        ctx.beginPath(); ctx.arc(ex, ey - 32, 9, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#5b4a6e';
+        ctx.beginPath();
+        ctx.moveTo(ex - 7, ey - 18); ctx.lineTo(ex + 7, ey - 18);
+        ctx.lineTo(ex + 14, ey + 20); ctx.lineTo(ex - 14, ey + 20);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+
+    // Echo ripple effect (sound waves) — always draw when fading
+    if (alpha < 0.8 && sprites['echo_ripple']) {
+        const rippleAlpha = (1 - alpha) * 0.6;
+        drawSprite('echo_ripple', ex + 15, ey - 10, 32, 16, rippleAlpha + Math.sin(now / 400) * 0.1);
+    }
+}
+
+function drawDust() {
+    dustParticles.forEach(p => {
+        ctx.fillStyle = `rgba(180, 160, 210, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawTablets(now) {
+    const stage = STAGES[currentStage];
+    const activeCount = stage ? stage.tabletsActive : 4;
+
+    for (let i = 0; i < 5; i++) {
+        const t = TABLETS[i];
+        const pos = TABLET_POSITIONS[i];
+        const isActive = i < activeCount;
+        const isLit = tabletFlash === i && now < tabletFlashEnd;
+        const isHover = isActive && hoveredTablet === i && gamePhase === 'playing-input';
+        const isFadedFlash = isLit && currentFadedFlash && gamePhase === 'playing-show';
+
+        ctx.save();
+        const spriteW = TABLET_RADIUS * 2, spriteH = TABLET_RADIUS * 2 * 0.85;
+        const sx = pos.x - spriteW/2, sy = pos.y - spriteH/2;
+
+        // Try sprite-based rendering
+        const tabletKey = TABLET_SPRITE_KEYS[i];
+        const hasSprite = sprites[tabletKey] || sprites['tablet_active'];
+
+        if (hasSprite) {
+            // Inactive tablet — dim
+            if (!isActive) {
+                ctx.globalAlpha = 0.2;
+                drawSprite(tabletKey, sx, sy, spriteW, spriteH);
+                ctx.globalAlpha = 1;
+            }
+            // Lit (activated) — show active sprite with color tint
+            else if (isLit && !isFadedFlash) {
+                if (!drawSprite('tablet_active', sx, sy, spriteW, spriteH)) {
+                    drawSprite(tabletKey, sx, sy, spriteW, spriteH);
+                }
+                // Color glow overlay
+                const glowGrad = ctx.createRadialGradient(pos.x, pos.y, TABLET_RADIUS * 0.3, pos.x, pos.y, TABLET_RADIUS * 1.6);
+                glowGrad.addColorStop(0, `${t.color}44`);
+                glowGrad.addColorStop(1, `${t.color}00`);
+                ctx.fillStyle = glowGrad;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, TABLET_RADIUS * 1.6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Faded flash — barely visible
+            else if (isLit && isFadedFlash) {
+                ctx.globalAlpha = 0.35;
+                drawSprite(tabletKey, sx, sy, spriteW, spriteH);
+                ctx.globalAlpha = 1;
+            }
+            // Hover
+            else if (isHover) {
+                drawSprite(tabletKey, sx, sy, spriteW, spriteH);
+                // Subtle highlight
+                ctx.fillStyle = 'rgba(255,255,255,0.04)';
+                ctx.beginPath();
+                ctx.ellipse(pos.x, pos.y, TABLET_RADIUS, TABLET_RADIUS * 0.85, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Normal idle
+            else {
+                drawSprite(tabletKey, sx, sy, spriteW, spriteH);
+            }
+
+            // Greek word label (always draw on top of sprite)
+            ctx.font = isLit && !isFadedFlash ? 'bold 15px Georgia' : '14px Georgia';
+            ctx.fillStyle = isLit && !isFadedFlash ? '#fff' : isActive ? `${t.color}cc` : 'rgba(60,55,80,0.4)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(t.label, pos.x, pos.y - 6);
+
+            ctx.font = '10px Georgia';
+            ctx.fillStyle = isLit && !isFadedFlash ? 'rgba(255,255,255,0.7)' : isActive ? 'rgba(180,160,200,0.35)' : 'rgba(60,55,80,0.2)';
+            ctx.fillText(t.meaning, pos.x, pos.y + 12);
+        } else {
+            // FALLBACK: Original canvas-drawn tablets
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.ellipse(pos.x + 3, pos.y + 3, TABLET_RADIUS, TABLET_RADIUS * 0.85, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            const stoneGrad = ctx.createRadialGradient(pos.x - 10, pos.y - 10, 5, pos.x, pos.y, TABLET_RADIUS);
+            if (!isActive) {
+                stoneGrad.addColorStop(0, '#1a1820'); stoneGrad.addColorStop(1, '#0f0e15');
+            } else if (isLit && isFadedFlash) {
+                stoneGrad.addColorStop(0, '#2a2540'); stoneGrad.addColorStop(0.6, '#1e1a30'); stoneGrad.addColorStop(1, '#14122a');
+            } else if (isLit) {
+                stoneGrad.addColorStop(0, t.glow); stoneGrad.addColorStop(0.6, t.color); stoneGrad.addColorStop(1, '#1a1525');
+            } else if (isHover) {
+                stoneGrad.addColorStop(0, '#2a2540'); stoneGrad.addColorStop(1, '#1a1525');
+            } else {
+                stoneGrad.addColorStop(0, '#22203a'); stoneGrad.addColorStop(1, '#14122a');
+            }
+            ctx.fillStyle = stoneGrad;
+            ctx.beginPath();
+            ctx.ellipse(pos.x, pos.y, TABLET_RADIUS, TABLET_RADIUS * 0.85, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = isLit && !isFadedFlash ? t.glow : isActive ? `${t.color}55` : 'rgba(40,35,60,0.3)';
+            ctx.lineWidth = isLit && !isFadedFlash ? 3 : 1.5;
+            ctx.beginPath();
+            ctx.ellipse(pos.x, pos.y, TABLET_RADIUS, TABLET_RADIUS * 0.85, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            if (isLit && !isFadedFlash) {
+                const glowGrad = ctx.createRadialGradient(pos.x, pos.y, TABLET_RADIUS * 0.5, pos.x, pos.y, TABLET_RADIUS * 1.6);
+                glowGrad.addColorStop(0, `${t.color}33`); glowGrad.addColorStop(1, `${t.color}00`);
+                ctx.fillStyle = glowGrad;
+                ctx.beginPath(); ctx.arc(pos.x, pos.y, TABLET_RADIUS * 1.6, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.font = isLit ? 'bold 15px Georgia' : '14px Georgia';
+            ctx.fillStyle = isLit ? '#fff' : isActive ? `${t.color}cc` : 'rgba(60,55,80,0.4)';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(t.label, pos.x, pos.y - 6);
+            ctx.font = '10px Georgia';
+            ctx.fillStyle = isLit ? 'rgba(255,255,255,0.7)' : isActive ? 'rgba(180,160,200,0.35)' : 'rgba(60,55,80,0.2)';
+            ctx.fillText(t.meaning, pos.x, pos.y + 12);
+            if (isActive) {
+                ctx.fillStyle = isLit ? t.glow : t.color + '66';
+                ctx.beginPath(); ctx.arc(pos.x, pos.y + 28, 4, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
+}
+
+function drawMirrorIndicator(now) {
+    if (mirrorIndicatorAlpha <= 0) return;
+
+    ctx.save();
+    ctx.globalAlpha = mirrorIndicatorAlpha;
+
+    // Mirror icon sprite
+    if (sprites['mirror_icon']) {
+        drawSprite('mirror_icon', W / 2 - 12, POOL_CY + POOL_RY + 8, 24, 24, mirrorIndicatorAlpha);
+    }
+
+    // "REVERSED" text near pool
+    ctx.font = 'bold 16px Georgia';
+    ctx.fillStyle = '#c4b5fd';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const textX = sprites['mirror_icon'] ? W / 2 + 14 : W / 2;
+    ctx.fillText('REVERSED — Repeat Backwards!', textX, POOL_CY + POOL_RY + 25);
+
+    // Mirror shimmer over pool
+    ctx.strokeStyle = `rgba(200, 180, 255, ${mirrorIndicatorAlpha * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.ellipse(POOL_CX, POOL_CY, POOL_RX + 8, POOL_RY + 6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.restore();
+}
+
+function drawHUD() {
+    const stage = STAGES[currentStage];
+    // Hearts
+    let heartStr = '';
+    for (let i = 0; i < 3; i++) {
+        heartStr += i < hearts ? '❤️ ' : '🖤 ';
+    }
+    document.getElementById('hud-hearts').textContent = heartStr.trim();
+    document.getElementById('hud-stage').textContent = stage ? `Stage ${currentStage + 1}: ${stage.name}` : '';
+    document.getElementById('hud-round').textContent = stage ? `Round ${currentRound + 1} / ${stage.rounds}` : '';
+    document.getElementById('hud-streak').textContent = `🔥 ${streak}`;
+}
+
+// ==================== GAME LOGIC ====================
+function generateSequence() {
+    const stage = STAGES[currentStage];
+    let len = stage.startLen + currentRound;
+    if (stage.maxLen) len = Math.min(len, stage.maxLen);
+    const max = stage.tabletsActive;
+    sequence = [];
+    for (let i = 0; i < len; i++) {
+        sequence.push(Math.floor(Math.random() * max));
+    }
+    playerInput = [];
+    mirrorActive = stage.mirrorRounds.includes(currentRound);
+}
+
+function getExpectedSequence() {
+    if (mirrorActive) {
+        return [...sequence].reverse();
+    }
+    return [...sequence];
+}
+
+let showDelay = 0;
+const SHOW_NOTE_DUR = 450;   // ms each note shown
+const SHOW_GAP = 150;        // ms gap between notes
+let currentFadedFlash = false; // track if current flash is a faded note
+
+function startShowSequence() {
+    gamePhase = 'playing-show';
+    showIndex = 0;
+    currentFadedFlash = false;
+    const stage = STAGES[currentStage];
+    showDelay = 600;  // initial pause before first note
+    tabletFlash = -1;
+    // If mirror round, show indicator first
+    if (mirrorActive) {
+        mirrorIndicatorAlpha = 1;
+        showDelay = 1400;  // extra time to read "REVERSED"
+    }
+    // Finale: accelerate playback each round
+    if (stage.isFinale) {
+        finaleSpeedUp = 1.0 + currentRound * 0.2;  // 1.0, 1.2, 1.4, 1.6, 1.8
+    }
+}
+
+function updateShowSequence(dt) {
+    showDelay -= dt;
+    if (showDelay > 0) return;
+
+    if (showIndex < sequence.length) {
+        // Light up current note
+        const noteIdx = sequence[showIndex];
+        const stage = STAGES[currentStage];
+        const fadingNotes = stage.fadeNotes || 0;
+        const isFaded = showIndex < fadingNotes;
+        currentFadedFlash = isFaded;
+
+        // Speed multiplier from stage config + finale acceleration
+        const speed = (stage.speedMult || 1.0) * (stage.isFinale ? finaleSpeedUp : 1.0);
+        const noteDur = SHOW_NOTE_DUR / speed;
+        const noteGap = SHOW_GAP / speed;
+
+        tabletFlash = noteIdx;
+        tabletFlashEnd = performance.now() + (isFaded ? noteDur * 0.6 : noteDur);
+        playTone(TABLETS[noteIdx].tone, 0.35 / speed, isFaded ? 0.06 : 0.3);
+        showIndex++;
+        showDelay = noteDur + noteGap;
+    } else {
+        // Done showing — player's turn
+        tabletFlash = -1;
+        currentFadedFlash = false;
+        gamePhase = 'playing-input';
+        playerInput = [];
+        if (!mirrorActive) mirrorIndicatorAlpha = 0;
+    }
+}
+
+function handleTabletClick(tabletIdx) {
+    if (gamePhase !== 'playing-input') return;
+    const stage = STAGES[currentStage];
+    if (tabletIdx >= stage.tabletsActive) return;
+
+    // Flash the clicked tablet
+    tabletFlash = tabletIdx;
+    tabletFlashEnd = performance.now() + 250;
+    playTone(TABLETS[tabletIdx].tone, 0.25, 0.3);
+
+    playerInput.push(tabletIdx);
+
+    // Check against expected
+    const expected = getExpectedSequence();
+    const pos = playerInput.length - 1;
+
+    if (playerInput[pos] !== expected[pos]) {
+        // Wrong!
+        onWrongInput();
+        return;
+    }
+
+    if (playerInput.length === expected.length) {
+        // Round complete!
+        onRoundComplete();
+    }
+}
+
+function onWrongInput() {
+    playWrongTone();
+    hearts--;
+    totalHeartLost++;
+    streak = 0;
+    shakeAmount = 12;
+    wrongFlashEnd = performance.now() + 400;
+    drawHUD();
+
+    if (hearts <= 0) {
+        // Stage failed — restart stage
+        gamePhase = 'wrong';
+        setTimeout(() => {
+            hearts = 3;
+            currentRound = 0;
+            streak = 0;
+            showStoryCard();
+        }, 1200);
+    } else {
+        // Replay same round
+        gamePhase = 'wrong';
+        setTimeout(() => {
+            generateSequence();  // new sequence same length
+            startShowSequence();
+        }, 1000);
+    }
+}
+
+function onRoundComplete() {
+    streak++;
+    totalCorrect++;
+    if (streak > longestStreak) longestStreak = streak;
+
+    const stage = STAGES[currentStage];
+    mirrorIndicatorAlpha = 0;
+
+    // Finale: add crack lines to pool after each round
+    if (stage.isFinale) {
+        addPoolCracks(currentRound + 1);
+    }
+
+    if (currentRound + 1 >= stage.rounds) {
+        // Stage complete!
+        gamePhase = 'stage-clear';
+        setTimeout(() => advanceStage(), 1200);
+    } else {
+        currentRound++;
+        drawHUD();
+        setTimeout(() => {
+            generateSequence();
+            startShowSequence();
+        }, 800);
+    }
+}
+
+function addPoolCracks(intensity) {
+    // Add 2-4 crack lines radiating from pool center
+    const count = 2 + Math.floor(intensity * 0.5);
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const len = 20 + Math.random() * 40 * intensity;
+        crackLines.push({
+            x1: POOL_CX + Math.cos(angle) * 5,
+            y1: POOL_CY + Math.sin(angle) * 3,
+            x2: POOL_CX + Math.cos(angle) * len,
+            y2: POOL_CY + Math.sin(angle) * len * 0.4,
+            alpha: 0.5 + Math.random() * 0.5
+        });
+    }
+}
+
+function advanceStage() {
+    currentStage++;
+    currentRound = 0;
+    hearts = 3;  // refill hearts
+    finaleSpeedUp = 1.0;
+
+    if (currentStage >= STAGES.length) {
+        // Game complete!
+        gamePhase = 'victory';
+        showVictory();
+        return;
+    }
+
+    // Update Echo's opacity for this stage
+    const stage = STAGES[currentStage];
+    if (stage.echoOpacity !== undefined) {
+        echoOpacity = stage.echoOpacity;
+    }
+
+    showStoryCard();
+}
+
+// ==================== OVERLAYS ====================
+function showOverlay(icon, title, text, scene, btnText, btnAction) {
+    document.getElementById('overlay-icon').textContent = icon;
+    document.getElementById('overlay-title').textContent = title;
+    document.getElementById('overlay-text').innerHTML = text;
+    document.getElementById('overlay-scene').textContent = scene || '';
+    const btn = document.getElementById('overlay-btn');
+    btn.textContent = btnText;
+    btn.onclick = btnAction;
+    document.getElementById('overlay').style.display = 'flex';
+    gamePhase = 'overlay';
+}
+
+function hideOverlay() {
+    document.getElementById('overlay').style.display = 'none';
+}
+
+function showStoryCard() {
+    const stage = STAGES[currentStage];
+    let mechHints = '';
+    if (stage.mirrorRounds.length > 0) {
+        mechHints += '<br><br>🪞 <em>Some rounds will be <strong>REVERSED</strong> — repeat the sequence backwards!</em>';
+    }
+    if (stage.fadeNotes > 0) {
+        mechHints += '<br>👻 <em>The first notes are <strong>FADING</strong> — listen carefully, they\'re barely there...</em>';
+    }
+    if (stage.speedMult > 1.0) {
+        mechHints += '<br>⚡ <em>The sequence plays <strong>FASTER</strong> now!</em>';
+    }
+    if (stage.isFinale) {
+        mechHints += '<br><br>💥 <em>Rapid-fire rounds — each one <strong>FASTER</strong> than the last! Shatter the pool!</em>';
+    }
+
+    // Add scene image if available
+    const sceneKey = SCENE_KEYS[currentStage];
+    const sceneImg = sceneKey ? IMG_BASE + SPRITE_MANIFEST[sceneKey] : null;
+    let sceneImgHtml = '';
+    if (sceneImg) {
+        sceneImgHtml = `<img src="${sceneImg}" style="width:256px;height:192px;image-rendering:pixelated;border-radius:6px;border:1px solid rgba(120,90,180,0.3);margin-bottom:10px;" onerror="this.style.display='none'">`;
+    }
+
+    showOverlay(
+        stage.icon,
+        `Stage ${currentStage + 1}: ${stage.name}`,
+        sceneImgHtml + stage.story + mechHints,
+        stage.scene,
+        'Continue',
+        () => {
+            hideOverlay();
+            gamePhase = 'playing-show';
+            generateSequence();
+            startShowSequence();
+            drawHUD();
+        }
+    );
+}
+
+function showVictory() {
+    // Phase 1: Cinematic shattering animation on the canvas
+    gamePhase = 'cinematic';
+    echoOpacity = 0.15;
+    cinematicPhase = 0;
+    cinematicTimer = 0;
+    cinematicShatterParticles = [];
+    cinematicFlowerGrow = 0;
+
+    // Generate a burst of shatter particles from pool center
+    for (let i = 0; i < 40; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random() * 3;
+        cinematicShatterParticles.push({
+            x: POOL_CX,
+            y: POOL_CY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed * 0.6 - 1,
+            size: 1 + Math.random() * 3,
+            alpha: 0.8 + Math.random() * 0.2,
+            color: ['#fff', '#c8e0f0', '#c4b5fd', '#fde68a', '#5eead4'][Math.floor(Math.random() * 5)]
+        });
+    }
+}
+
+// Cinematic state
+let cinematicPhase = 0;    // 0=shatter flash, 1=particles+pool fades, 2=flower grows, 3=echo returns, 4=done
+let cinematicTimer = 0;
+let cinematicShatterParticles = [];
+let cinematicFlowerGrow = 0;
+let cinematicEchoReturn = 0;
+
+function updateCinematic(dt, now) {
+    cinematicTimer += dt;
+
+    // Phase 0: Bright white flash (0-800ms)
+    if (cinematicPhase === 0 && cinematicTimer > 800) {
+        cinematicPhase = 1;
+        cinematicTimer = 0;
+        // Play a rising tone chord
+        playTone(329.63, 1.5, 0.15);
+        playTone(440, 1.5, 0.12);
+        playTone(523.25, 1.5, 0.1);
+    }
+
+    // Phase 1: Particles scatter, pool fades (0-2500ms)
+    if (cinematicPhase === 1) {
+        cinematicShatterParticles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.03;  // gentle gravity
+            p.alpha -= 0.003;
+        });
+        cinematicShatterParticles = cinematicShatterParticles.filter(p => p.alpha > 0);
+
+        if (cinematicTimer > 2500) {
+            cinematicPhase = 2;
+            cinematicTimer = 0;
+            playTone(392, 1.0, 0.2);  // G — flower tone
+        }
+    }
+
+    // Phase 2: Flower grows where Narcissus was (0-2000ms)
+    if (cinematicPhase === 2) {
+        cinematicFlowerGrow = Math.min(1, cinematicTimer / 1500);
+        if (cinematicTimer > 2000) {
+            cinematicPhase = 3;
+            cinematicTimer = 0;
+            // Play Echo's return chord
+            playTone(329.63, 2.0, 0.12);
+            playTone(587.33, 2.0, 0.1);
+        }
+    }
+
+    // Phase 3: Echo's opacity returns (0-2500ms)
+    if (cinematicPhase === 3) {
+        cinematicEchoReturn = Math.min(1, cinematicTimer / 2000);
+        echoOpacity = 0.15 + cinematicEchoReturn * 0.85;
+        if (cinematicTimer > 2500) {
+            cinematicPhase = 4;
+            cinematicTimer = 0;
+        }
+    }
+
+    // Phase 4: Hold for a moment, then show results (0-1500ms)
+    if (cinematicPhase === 4 && cinematicTimer > 1500) {
+        showResultsScreen();
+    }
+}
+
+function drawCinematic(now) {
+    // Phase 0: White flash
+    if (cinematicPhase === 0) {
+        const flashIntensity = cinematicTimer < 200 ? cinematicTimer / 200 : 1 - ((cinematicTimer - 200) / 600);
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, flashIntensity * 0.7)})`;
+        ctx.fillRect(0, 0, W, H);
+    }
+
+    // Particles
+    cinematicShatterParticles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.beginPath();
+        // Diamond shape
+        ctx.moveTo(p.x, p.y - p.size);
+        ctx.lineTo(p.x + p.size * 0.7, p.y);
+        ctx.lineTo(p.x, p.y + p.size);
+        ctx.lineTo(p.x - p.size * 0.7, p.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    });
+
+    // Pool fading out during phase 1+
+    if (cinematicPhase >= 1) {
+        const poolFade = cinematicPhase === 1 ? Math.min(1, cinematicTimer / 2000) : 1;
+        // Dark overlay on pool area to fade it
+        ctx.fillStyle = `rgba(10, 8, 20, ${poolFade * 0.8})`;
+        ctx.beginPath();
+        ctx.ellipse(POOL_CX, POOL_CY, POOL_RX + 5, POOL_RY + 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Narcissus flower growing
+    if (cinematicPhase >= 2 && cinematicFlowerGrow > 0) {
+        const fx = POOL_CX, fy = POOL_CY + 10;
+        const scale = cinematicFlowerGrow;
+        ctx.save();
+        ctx.translate(fx, fy);
+        ctx.scale(scale, scale);
+
+        // Stem
+        ctx.strokeStyle = '#3d7a37';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 30);
+        ctx.stroke();
+
+        // Leaves
+        ctx.fillStyle = '#2d5a27';
+        ctx.beginPath();
+        ctx.ellipse(-6, 18, 4, 8, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(6, 22, 4, 7, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Petals (6 white petals in a circle)
+        ctx.fillStyle = '#f0ebe0';
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            const px = Math.cos(angle) * 10;
+            const py = Math.sin(angle) * 10;
+            ctx.beginPath();
+            ctx.ellipse(px, py, 5, 9, angle, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Corona (golden center)
+        ctx.fillStyle = '#d4a017';
+        ctx.beginPath();
+        ctx.arc(0, 0, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fcd34d';
+        ctx.beginPath();
+        ctx.arc(-1, -1, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        // Gentle glow around flower
+        const glowAlpha = 0.05 + Math.sin(now / 500) * 0.03;
+        const flowerGlow = ctx.createRadialGradient(fx, fy, 5, fx, fy, 50 * scale);
+        flowerGlow.addColorStop(0, `rgba(255, 215, 0, ${glowAlpha * scale})`);
+        flowerGlow.addColorStop(1, 'rgba(255, 215, 0, 0)');
+        ctx.fillStyle = flowerGlow;
+        ctx.beginPath();
+        ctx.arc(fx, fy, 50 * scale, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // "The curse is broken" text fading in during phase 3
+    if (cinematicPhase >= 3) {
+        const textAlpha = Math.min(1, cinematicEchoReturn);
+        ctx.font = '18px Georgia';
+        ctx.fillStyle = `rgba(200, 180, 255, ${textAlpha * 0.8})`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('The curse is broken.', W / 2, H / 2);
+
+        ctx.font = '13px Georgia';
+        ctx.fillStyle = `rgba(180, 160, 210, ${textAlpha * 0.5})`;
+        ctx.fillText('Echo speaks again.', W / 2, H / 2 + 25);
+    }
+}
+
+function showResultsScreen() {
+    gamePhase = 'results';
+
+    // Calculate score
+    const totalRounds = STAGES.reduce((sum, s) => sum + s.rounds, 0);
+    const accuracy = totalRounds > 0 ? Math.round((totalCorrect / totalRounds) * 100) : 0;
+
+    // Determine star rating
+    let stars = '⭐';
+    if (accuracy >= 60 && totalHeartLost <= 10) stars = '⭐⭐';
+    if (accuracy >= 80 && totalHeartLost <= 5) stars = '⭐⭐⭐';
+    if (accuracy >= 95 && totalHeartLost <= 2) stars = '⭐⭐⭐ ✨';
+
+    // Build results HTML — matches Daedalus end screen pattern
+    const resultsHTML = `
+        <div id="overlay-icon" style="font-size:3em;margin-bottom:8px;">🌸</div>
+        <div id="overlay-title" style="font-size:1.5rem;color:#a78bfa;margin-bottom:6px;font-weight:700;">The Reflection Shatters!</div>
+        <div style="color:rgba(255,255,255,0.65);font-size:14px;max-width:440px;text-align:center;margin-bottom:16px;line-height:1.6;">
+            The pool breaks — Narcissus is free. Where he knelt, a single flower blooms.<br>
+            Echo's voice still lingers in the cave... but the curse is broken.
+        </div>
+
+        <div style="font-size:1.8em;margin-bottom:12px;">${stars}</div>
+
+        <div style="display:flex;justify-content:center;gap:20px;margin-bottom:16px;flex-wrap:wrap;">
+            <div style="text-align:center;background:rgba(139,92,246,0.1);padding:10px 18px;border-radius:8px;border:1px solid rgba(139,92,246,0.25);">
+                <div style="font-size:1.3em;font-weight:700;color:#a78bfa;">🔥 ${longestStreak}</div>
+                <div style="font-size:11px;color:rgba(200,180,255,0.5);margin-top:2px;">Longest Streak</div>
+            </div>
+            <div style="text-align:center;background:rgba(74,222,128,0.1);padding:10px 18px;border-radius:8px;border:1px solid rgba(74,222,128,0.25);">
+                <div style="font-size:1.3em;font-weight:700;color:#4ade80;">${totalCorrect} / ${totalRounds}</div>
+                <div style="font-size:11px;color:rgba(200,180,255,0.5);margin-top:2px;">Rounds Cleared</div>
+            </div>
+            <div style="text-align:center;background:rgba(239,68,68,0.1);padding:10px 18px;border-radius:8px;border:1px solid rgba(239,68,68,0.25);">
+                <div style="font-size:1.3em;font-weight:700;color:#ef4444;">💔 ${totalHeartLost}</div>
+                <div style="font-size:11px;color:rgba(200,180,255,0.5);margin-top:2px;">Hearts Lost</div>
+            </div>
+        </div>
+
+        <div id="server-result-area" style="margin-bottom:14px;padding:10px 16px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:8px;max-width:400px;">
+            <div style="color:rgba(200,180,255,0.6);font-size:13px;">⏳ Recording results...</div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button id="overlay-btn" onclick="handleAssignmentTransition()" style="
+                padding:14px 28px;
+                background:linear-gradient(135deg, #7c3aed, #5b21b6);
+                border:none;border-radius:10px;color:#fff;
+                font-weight:700;font-size:15px;cursor:pointer;
+                font-family:Georgia,serif;
+                box-shadow:0 4px 20px rgba(124,58,237,0.3);
+                opacity:0.5;pointer-events:none;
+            ">⏳ Saving...</button>
+            <button onclick="handlePlayAgain()" style="
+                padding:14px 20px;
+                background:rgba(255,255,255,0.08);
+                border:1px solid rgba(255,255,255,0.2);border-radius:10px;color:rgba(255,255,255,0.6);
+                font-weight:600;font-size:13px;cursor:pointer;
+                font-family:Georgia,serif;
+            ">Play Again</button>
+        </div>
+
+        <div id="result-scene" style="color:rgba(180,160,210,0.4);font-size:12px;font-style:italic;margin-top:14px;max-width:400px;text-align:center;">
+            A narcissus flower grows where the pool once was. Echo whispers one last time... and smiles.
+        </div>
+    `;
+
+    const overlay = document.getElementById('overlay');
+    overlay.innerHTML = resultsHTML;
+    overlay.style.display = 'flex';
+
+    // Simulate server result (placeholder — will be replaced with real POST in production)
+    setTimeout(() => {
+        const resultArea = document.getElementById('server-result-area');
+        const btn = document.getElementById('overlay-btn');
+        if (resultArea) {
+            // Check if we have an Odyssey token (production mode)
+            if (typeof ODYSSEY_TOKEN !== 'undefined' && ODYSSEY_TOKEN) {
+                sendGameResults();
+            } else {
+                // Standalone mode
+                resultArea.innerHTML = `
+                    <div style="color:#4ade80;font-weight:600;font-size:13px;">✅ Game Complete!</div>
+                    <div style="color:rgba(200,180,255,0.5);font-size:11px;margin-top:4px;">Launch from Odyssey dashboard for points to be recorded.</div>
+                `;
+                if (btn) {
+                    btn.textContent = 'Choose Your Assignment →';
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                }
+            }
+        }
+    }, 500);
+}
+
+// Placeholder for server integration — matches Daedalus pattern
+async function sendGameResults() {
+    const resultArea = document.getElementById('server-result-area');
+    const btn = document.getElementById('overlay-btn');
+    const totalRounds = STAGES.reduce((sum, s) => sum + s.rounds, 0);
+
+    // TODO: Replace with actual POST to /api/student/echo-complete
+    // For now, simulate success
+    try {
+        // In production this will be:
+        // const res = await fetch(`${API_BASE}/api/student/echo-complete`, {
+        //     method: 'POST',
+        //     headers: odysseyHeaders,
+        //     body: JSON.stringify({
+        //         roundsCleared: totalCorrect,
+        //         totalRounds: totalRounds,
+        //         longestStreak: longestStreak,
+        //         heartsLost: totalHeartLost,
+        //         completed: true
+        //     })
+        // });
+
+        resultArea.innerHTML = `
+            <div style="color:#4ade80;font-weight:600;font-size:13px;">✅ Game Complete!</div>
+            <div style="color:rgba(200,180,255,0.5);font-size:11px;margin-top:4px;">Results recorded. Choose your assignment below.</div>
+        `;
+        if (btn) {
+            btn.textContent = 'Choose Your Assignment →';
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+        }
+    } catch (err) {
+        resultArea.innerHTML = `
+            <div style="color:#ef4444;font-weight:600;font-size:13px;">⚠️ Error Saving</div>
+            <div style="color:rgba(200,180,255,0.5);font-size:11px;margin-top:4px;">Your game is complete. Results will sync when you return to the dashboard.</div>
+        `;
+        if (btn) {
+            btn.textContent = 'Return to Dashboard →';
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+        }
+    }
+}
+
+function handleAssignmentTransition() {
+    // In production: redirect to student.html with portal param
+    // window.location.href = '/student.html?openPortal=4';
+    // For now (standalone): show a message
+    const overlay = document.getElementById('overlay');
+    overlay.innerHTML = `
+        <div style="font-size:3em;margin-bottom:12px;">📜</div>
+        <div style="font-size:1.3rem;color:#a78bfa;font-weight:700;margin-bottom:10px;">Assignment Selection</div>
+        <div style="color:rgba(255,255,255,0.6);font-size:14px;max-width:400px;text-align:center;line-height:1.6;margin-bottom:20px;">
+            In the live game, this transitions to the Echo & Narcissus myth portal where students choose their assignment:<br><br>
+            <strong style="color:#fde68a;">Scholar's Path</strong> — Reading Guide + Word Cloud<br>
+            <strong style="color:#5eead4;">Creator's Path</strong> — Pixton Comic or Creative Project<br><br>
+            <em style="color:rgba(200,180,255,0.4);">Both paths award 20 Alliance Points via Google Classroom.</em>
+        </div>
+        <button onclick="handlePlayAgain()" style="
+            padding:14px 28px;
+            background:linear-gradient(135deg, #7c3aed, #5b21b6);
+            border:none;border-radius:10px;color:#fff;
+            font-weight:700;font-size:15px;cursor:pointer;
+            font-family:Georgia,serif;
+            box-shadow:0 4px 20px rgba(124,58,237,0.3);
+        ">Play Again</button>
+    `;
+}
+
+function handlePlayAgain() {
+    currentStage = 0;
+    currentRound = 0;
+    hearts = 3;
+    streak = 0;
+    longestStreak = 0;
+    totalCorrect = 0;
+    totalHeartLost = 0;
+    echoOpacity = 1.0;
+    crackLines = [];
+    finaleSpeedUp = 1.0;
+    cinematicPhase = 0;
+
+    // Restore overlay to original structure
+    document.getElementById('overlay').innerHTML = `
+        <div id="overlay-icon">🌿</div>
+        <div id="overlay-title">Echo's Lament</div>
+        <div id="overlay-text"></div>
+        <div id="overlay-scene"></div>
+        <button id="overlay-btn">Continue</button>
+    `;
+    document.getElementById('overlay').style.display = 'none';
+    showStoryCard();
+}
+
+function beginGame() {
+    initAudio();
+    hideOverlay();
+    initDust();
+
+    // Show loading screen and load all sprites
+    drawLoadingScreen();
+    loadAllSprites(() => {
+        console.log('All sprites loaded!', spritesCount, '/', spritesTotal);
+        showStoryCard();
+        if (!animFrame) {
+            lastTime = performance.now();
+            animFrame = requestAnimationFrame(gameLoop);
+        }
+    });
+}
+
+// ==================== MOUSE HANDLING ====================
+let hoveredTablet = -1;
+
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top) * (H / rect.height);
+    hoveredTablet = getTabletAt(mx, my);
+    canvas.style.cursor = hoveredTablet >= 0 && gamePhase === 'playing-input' ? 'pointer' : 'default';
+});
+
+canvas.addEventListener('click', (e) => {
+    initAudio();
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top) * (H / rect.height);
+    const idx = getTabletAt(mx, my);
+    if (idx >= 0) handleTabletClick(idx);
+});
+
+// Touch support
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    initAudio();
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const mx = (touch.clientX - rect.left) * (W / rect.width);
+    const my = (touch.clientY - rect.top) * (H / rect.height);
+    const idx = getTabletAt(mx, my);
+    if (idx >= 0) handleTabletClick(idx);
+}, { passive: false });
+
+function getTabletAt(mx, my) {
+    const stage = STAGES[currentStage];
+    const activeCount = stage ? stage.tabletsActive : 4;
+    for (let i = 0; i < activeCount; i++) {
+        const pos = TABLET_POSITIONS[i];
+        const dx = mx - pos.x;
+        const dy = my - pos.y;
+        // Ellipse hit test
+        if ((dx * dx) / (TABLET_RADIUS * TABLET_RADIUS) + (dy * dy) / ((TABLET_RADIUS * 0.85) * (TABLET_RADIUS * 0.85)) <= 1) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// ==================== MAIN LOOP ====================
+function gameLoop(now) {
+    const dt = Math.min(now - lastTime, 50);
+    lastTime = now;
+
+    // Screen shake
+    ctx.save();
+    if (shakeAmount > 0) {
+        ctx.translate(
+            (Math.random() - 0.5) * shakeAmount,
+            (Math.random() - 0.5) * shakeAmount
+        );
+        shakeAmount *= 0.85;
+        if (shakeAmount < 0.5) shakeAmount = 0;
+    }
+
+    // Draw scene
+    drawCave(now);
+    drawDust();
+    drawPool(now);
+    // Hide Narcissus during cinematic flower phase (he's transformed)
+    if (gamePhase !== 'cinematic' || cinematicPhase < 2) {
+        drawNarcissus(now);
+    }
+    drawEcho(now);
+    drawTablets(now);
+    drawMirrorIndicator(now);
+
+    // Cinematic ending sequence
+    if (gamePhase === 'cinematic') {
+        drawCinematic(now);
+        updateCinematic(dt, now);
+    }
+
+    // Wrong flash overlay
+    if (now < wrongFlashEnd) {
+        ctx.fillStyle = `rgba(255, 30, 30, ${0.15 * (1 - (now - (wrongFlashEnd - 400)) / 400)})`;
+        ctx.fillRect(0, 0, W, H);
+    }
+
+    // Stage clear flash
+    if (gamePhase === 'stage-clear') {
+        const stage = STAGES[currentStage];
+        const pulse = Math.sin(now / 120) * 0.5 + 0.5;
+        if (stage && stage.isFinale) {
+            // Finale shattering effect — white flash + screen shake residual
+            ctx.fillStyle = `rgba(200, 220, 255, ${pulse * 0.15})`;
+            ctx.fillRect(0, 0, W, H);
+            ctx.font = 'bold 32px Georgia';
+            ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💥 SHATTERED!', W / 2, H / 2 - 30);
+        } else {
+            ctx.fillStyle = `rgba(100, 200, 100, ${pulse * 0.08})`;
+            ctx.fillRect(0, 0, W, H);
+            ctx.font = 'bold 28px Georgia';
+            ctx.fillStyle = `rgba(74, 222, 128, ${pulse})`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('✓ Stage Complete!', W / 2, H / 2 - 30);
+        }
+    }
+
+    // Finale: pulsing energy around pool + speed indicator
+    if (STAGES[currentStage] && STAGES[currentStage].isFinale && (gamePhase === 'playing-show' || gamePhase === 'playing-input')) {
+        const energyPulse = Math.sin(now / 200) * 0.5 + 0.5;
+        ctx.strokeStyle = `rgba(255, 200, 100, ${0.15 + energyPulse * 0.2})`;
+        ctx.lineWidth = 2 + energyPulse * 2;
+        ctx.beginPath();
+        ctx.ellipse(POOL_CX, POOL_CY, POOL_RX + 8 + energyPulse * 5, POOL_RY + 5 + energyPulse * 3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Speed indicator
+        ctx.font = 'bold 12px Georgia';
+        ctx.fillStyle = `rgba(255, 200, 100, ${0.5 + energyPulse * 0.3})`;
+        ctx.textAlign = 'center';
+        const speedLabel = finaleSpeedUp <= 1.0 ? '⚡' : finaleSpeedUp <= 1.2 ? '⚡⚡' : finaleSpeedUp <= 1.4 ? '⚡⚡⚡' : '⚡⚡⚡⚡';
+        ctx.fillText(speedLabel, W / 2, POOL_CY + POOL_RY + 30);
+    }
+
+    // Input phase indicator
+    if (gamePhase === 'playing-input') {
+        ctx.font = '13px Georgia';
+        ctx.fillStyle = 'rgba(200, 180, 255, 0.5)';
+        ctx.textAlign = 'center';
+        const expected = getExpectedSequence();
+        ctx.fillText(`Your turn — ${playerInput.length} / ${expected.length}`, W / 2, H - 12);
+
+        // Show progress dots
+        const dotY = H - 30;
+        const dotSpacing = 14;
+        const totalDots = expected.length;
+        const startX = W / 2 - ((totalDots - 1) * dotSpacing) / 2;
+        for (let i = 0; i < totalDots; i++) {
+            if (i < playerInput.length) {
+                ctx.fillStyle = '#4ade80';
+            } else {
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            }
+            ctx.beginPath();
+            ctx.arc(startX + i * dotSpacing, dotY, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // "Watch..." during show phase
+    if (gamePhase === 'playing-show') {
+        ctx.font = '13px Georgia';
+        ctx.fillStyle = 'rgba(200, 180, 255, 0.5)';
+        ctx.textAlign = 'center';
+        ctx.fillText('Watch the sequence...', W / 2, H - 12);
+    }
+
+    ctx.restore(); // end shake transform
+
+    // Update logic
+    updateDust(dt);
+    if (mirrorIndicatorAlpha > 0 && gamePhase === 'playing-input') {
+        // Keep mirror indicator visible during input
+    } else if (gamePhase !== 'playing-show') {
+        mirrorIndicatorAlpha = Math.max(0, mirrorIndicatorAlpha - dt * 0.002);
+    }
+
+    if (gamePhase === 'playing-show') {
+        updateShowSequence(dt);
+    }
+
+    // Auto-clear tablet flash
+    if (tabletFlash >= 0 && now > tabletFlashEnd) {
+        tabletFlash = -1;
+    }
+
+    drawHUD();
+    animFrame = requestAnimationFrame(gameLoop);
+}
+
+// Initial static draw
+ctx.fillStyle = '#0a0a12';
+ctx.fillRect(0, 0, W, H);
+ctx.font = '16px Georgia';
+ctx.fillStyle = '#a78bfa';
+ctx.textAlign = 'center';
+ctx.fillText('Echo\'s Lament', W / 2, H / 2);
+</script>
+</body>
+</html>
