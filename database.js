@@ -1659,8 +1659,8 @@ function seedReferenceData() {
   // V95: Replace Echo & Narcissus (portal 4) and Eros & Psyche (portal 6) quizzes with Verbal Reasoning v2 format
   // Matches the Orpheus format: analogies, reading comprehension with passages, sentence completion
   try {
-    // Check if portal 4 still has old-format questions (no question_type)
-    const echoCheck = db.prepare("SELECT COUNT(*) as cnt FROM myth_quiz_questions WHERE portal_id = 4 AND (question_type IS NULL OR question_type = '')").get();
+    // Check if portal 4 still has old-format questions (question_type = 'standard' means legacy 7-column insert)
+    const echoCheck = db.prepare("SELECT COUNT(*) as cnt FROM myth_quiz_questions WHERE portal_id = 4 AND question_type = 'standard'").get();
     if (echoCheck && echoCheck.cnt > 0) {
       db.prepare('DELETE FROM myth_quiz_questions WHERE portal_id = 4').run();
       db.prepare('DELETE FROM myth_quiz_questions WHERE portal_id = 6').run();
