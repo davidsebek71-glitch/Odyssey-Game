@@ -85,6 +85,16 @@ canvas { display: block; margin: 0 auto; border-radius: 8px; border: 2px solid r
 </div>
 
 <script>
+// ==================== ODYSSEY SERVER CONNECTION ====================
+const urlParams = new URLSearchParams(window.location.search);
+const ODYSSEY_TOKEN = urlParams.get('token') || null;
+const API_BASE = window.location.origin;
+const odysseyHeaders = ODYSSEY_TOKEN ? {
+    'Authorization': `Bearer ${ODYSSEY_TOKEN}`,
+    'Content-Type': 'application/json'
+} : null;
+let odysseyStudent = null;
+
 // ==================== CONSTANTS ====================
 const W = 680, H = 600;
 const canvas = document.getElementById('canvas');
@@ -1374,28 +1384,31 @@ async function sendGameResults() {
 }
 
 function handleAssignmentTransition() {
-    // In production: redirect to student.html with portal param
-    // window.location.href = '/student.html?openPortal=4';
-    // For now (standalone): show a message
-    const overlay = document.getElementById('overlay');
-    overlay.innerHTML = `
-        <div style="font-size:3em;margin-bottom:12px;">📜</div>
-        <div style="font-size:1.3rem;color:#a78bfa;font-weight:700;margin-bottom:10px;">Assignment Selection</div>
-        <div style="color:rgba(255,255,255,0.6);font-size:14px;max-width:400px;text-align:center;line-height:1.6;margin-bottom:20px;">
-            In the live game, this transitions to the Echo & Narcissus myth portal where students choose their assignment:<br><br>
-            <strong style="color:#fde68a;">Scholar's Path</strong> — Reading Guide + Word Cloud<br>
-            <strong style="color:#5eead4;">Creator's Path</strong> — Pixton Comic or Creative Project<br><br>
-            <em style="color:rgba(200,180,255,0.4);">Both paths award 20 Alliance Points via Google Classroom.</em>
-        </div>
-        <button onclick="handlePlayAgain()" style="
-            padding:14px 28px;
-            background:linear-gradient(135deg, #7c3aed, #5b21b6);
-            border:none;border-radius:10px;color:#fff;
-            font-weight:700;font-size:15px;cursor:pointer;
-            font-family:Georgia,serif;
-            box-shadow:0 4px 20px rgba(124,58,237,0.3);
-        ">Play Again</button>
-    `;
+    if (ODYSSEY_TOKEN) {
+        // Redirect to student dashboard, auto-open the Echo & Narcissus portal for assignment selection
+        window.location.href = '/student.html?openPortal=4';
+    } else {
+        // Standalone mode — show placeholder
+        const overlay = document.getElementById('overlay');
+        overlay.innerHTML = `
+            <div style="font-size:3em;margin-bottom:12px;">📜</div>
+            <div style="font-size:1.3rem;color:#a78bfa;font-weight:700;margin-bottom:10px;">Assignment Selection</div>
+            <div style="color:rgba(255,255,255,0.6);font-size:14px;max-width:400px;text-align:center;line-height:1.6;margin-bottom:20px;">
+                In the live game, this transitions to the Echo & Narcissus myth portal where students choose their assignment:<br><br>
+                <strong style="color:#fde68a;">Scholar's Path</strong> — Word Cloud<br>
+                <strong style="color:#5eead4;">Creator's Path</strong> — Metamorphosis Creative Project<br><br>
+                <em style="color:rgba(200,180,255,0.4);">Launch from Odyssey dashboard for the full experience.</em>
+            </div>
+            <button onclick="handlePlayAgain()" style="
+                padding:14px 28px;
+                background:linear-gradient(135deg, #7c3aed, #5b21b6);
+                border:none;border-radius:10px;color:#fff;
+                font-weight:700;font-size:15px;cursor:pointer;
+                font-family:Georgia,serif;
+                box-shadow:0 4px 20px rgba(124,58,237,0.3);
+            ">Play Again</button>
+        `;
+    }
 }
 
 function handlePlayAgain() {
