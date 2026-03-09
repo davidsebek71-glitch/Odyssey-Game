@@ -442,50 +442,100 @@ function updateDust(dt) {
 
 // ==================== DRAWING ====================
 function drawCave(now) {
-    // Background gradient — dark cave
-    const grad = ctx.createRadialGradient(W/2, 100, 50, W/2, H/2, 500);
-    grad.addColorStop(0, '#15122a');
-    grad.addColorStop(0.5, '#0d0b1a');
-    grad.addColorStop(1, '#060510');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
+    // Background — use cave_wall tile sprite if loaded, otherwise gradient
+    if (sprites['cave_wall']) {
+        const tw = sprites['cave_wall'].width;
+        const th = sprites['cave_wall'].height;
+        for (let x = 0; x < W; x += tw) {
+            for (let y = 0; y < H; y += th) {
+                ctx.drawImage(sprites['cave_wall'], x, y, tw, th);
+            }
+        }
+        // Darken edges with vignette overlay for depth
+        const vignette = ctx.createRadialGradient(W/2, H/2, 100, W/2, H/2, 450);
+        vignette.addColorStop(0, 'rgba(0,0,0,0)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.5)');
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, W, H);
+    } else {
+        // Fallback: canvas gradient
+        const grad = ctx.createRadialGradient(W/2, 100, 50, W/2, H/2, 500);
+        grad.addColorStop(0, '#15122a');
+        grad.addColorStop(0.5, '#0d0b1a');
+        grad.addColorStop(1, '#060510');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Subtle rock texture lines
+        ctx.strokeStyle = 'rgba(80, 60, 100, 0.06)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 12; i++) {
+            const y = 20 + i * 50 + Math.sin(i * 1.7) * 15;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            for (let x = 0; x < W; x += 20) {
+                ctx.lineTo(x, y + Math.sin(x * 0.02 + i) * 8);
+            }
+            ctx.stroke();
+        }
+    }
 
     // Stalactites from ceiling
     drawStalactites(now);
 
-    // Cave wall texture (subtle rock lines)
-    ctx.strokeStyle = 'rgba(80, 60, 100, 0.06)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 12; i++) {
-        const y = 20 + i * 50 + Math.sin(i * 1.7) * 15;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        for (let x = 0; x < W; x += 20) {
-            ctx.lineTo(x, y + Math.sin(x * 0.02 + i) * 8);
-        }
-        ctx.stroke();
-    }
+    // Cave floor rocks
+    drawCaveRocks();
 }
 
 function drawStalactites(now) {
-    const stalacs = [
-        { x: 60, h: 45, w: 18 }, { x: 150, h: 65, w: 22 }, { x: 280, h: 50, w: 16 },
-        { x: 370, h: 70, w: 24 }, { x: 450, h: 40, w: 14 }, { x: 540, h: 58, w: 20 },
-        { x: 620, h: 48, w: 17 }, { x: 100, h: 30, w: 12 }, { x: 500, h: 35, w: 13 },
-    ];
-    stalacs.forEach(s => {
-        const grad = ctx.createLinearGradient(s.x, 0, s.x, s.h);
-        grad.addColorStop(0, 'rgba(60, 50, 80, 0.5)');
-        grad.addColorStop(1, 'rgba(40, 30, 60, 0.1)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(s.x - s.w/2, 0);
-        ctx.lineTo(s.x + s.w/2, 0);
-        ctx.lineTo(s.x + 2, s.h);
-        ctx.lineTo(s.x - 2, s.h);
-        ctx.closePath();
-        ctx.fill();
-    });
+    if (sprites['stalactite']) {
+        // Draw stalactite sprite at several positions along the ceiling
+        const positions = [
+            { x: 40, scale: 0.8 }, { x: 140, scale: 1.1 }, { x: 260, scale: 0.9 },
+            { x: 360, scale: 1.2 }, { x: 440, scale: 0.7 }, { x: 530, scale: 1.0 },
+            { x: 610, scale: 0.85 },
+        ];
+        positions.forEach(p => {
+            const sw = 64 * p.scale, sh = 32 * p.scale;
+            ctx.drawImage(sprites['stalactite'], p.x - sw/2, 0, sw, sh);
+        });
+    } else {
+        // Fallback: canvas triangles
+        const stalacs = [
+            { x: 60, h: 45, w: 18 }, { x: 150, h: 65, w: 22 }, { x: 280, h: 50, w: 16 },
+            { x: 370, h: 70, w: 24 }, { x: 450, h: 40, w: 14 }, { x: 540, h: 58, w: 20 },
+            { x: 620, h: 48, w: 17 }, { x: 100, h: 30, w: 12 }, { x: 500, h: 35, w: 13 },
+        ];
+        stalacs.forEach(s => {
+            const grad = ctx.createLinearGradient(s.x, 0, s.x, s.h);
+            grad.addColorStop(0, 'rgba(60, 50, 80, 0.5)');
+            grad.addColorStop(1, 'rgba(40, 30, 60, 0.1)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(s.x - s.w/2, 0);
+            ctx.lineTo(s.x + s.w/2, 0);
+            ctx.lineTo(s.x + 2, s.h);
+            ctx.lineTo(s.x - 2, s.h);
+            ctx.closePath();
+            ctx.fill();
+        });
+    }
+}
+
+function drawCaveRocks() {
+    if (sprites['cave_rocks']) {
+        // Draw cave rock strips along the bottom floor area
+        const rockY = H - 80;
+        const rw = 80, rh = 20;
+        // Scatter a few rock clusters
+        drawSprite('cave_rocks', 30, rockY, rw, rh, 0.6);
+        drawSprite('cave_rocks', 180, rockY + 8, rw * 0.8, rh * 0.8, 0.5);
+        drawSprite('cave_rocks', 400, rockY - 5, rw * 1.1, rh, 0.55);
+        drawSprite('cave_rocks', 560, rockY + 3, rw * 0.9, rh * 0.9, 0.5);
+        // A few near the pool base
+        drawSprite('cave_rocks', POOL_CX - 100, POOL_CY + POOL_RY + 15, rw * 0.7, rh * 0.7, 0.35);
+        drawSprite('cave_rocks', POOL_CX + 60, POOL_CY + POOL_RY + 20, rw * 0.6, rh * 0.6, 0.3);
+    }
 }
 
 function drawPool(now) {
@@ -571,11 +621,18 @@ function drawPool(now) {
 
 function drawNarcissus(now) {
     narcissusBreathing = Math.sin(now / 1200) * 2;
-    // Position at the right edge of the pool, kneeling and gazing down
-    const nx = POOL_CX + POOL_RX - 15, ny = POOL_CY + POOL_RY - 5 + narcissusBreathing;
+    // Position at the right edge of the pool, facing LEFT toward the water
+    const nx = POOL_CX + POOL_RX + 5, ny = POOL_CY + 20 + narcissusBreathing;
     const spriteW = 72, spriteH = 72;
 
-    if (!drawSprite('narcissus_kneel', nx - spriteW/2, ny - spriteH + 10, spriteW, spriteH)) {
+    if (sprites['narcissus_kneel']) {
+        ctx.save();
+        // Flip horizontally so he faces left toward the pool
+        ctx.translate(nx, ny - spriteH + 15);
+        ctx.scale(-1, 1);
+        ctx.drawImage(sprites['narcissus_kneel'], -spriteW/2, 0, spriteW, spriteH);
+        ctx.restore();
+    } else {
         // Fallback: canvas-drawn figure
         ctx.fillStyle = '#d4a574';
         ctx.beginPath(); ctx.arc(nx, ny - 30, 10, 0, Math.PI * 2); ctx.fill();
@@ -596,9 +653,9 @@ function drawNarcissus(now) {
 
 function drawEcho(now) {
     // Position Echo near the tablets — she IS the repeating mechanic
-    const ex = TABLET_POSITIONS[0].x - 40, ey = TABLET_POSITIONS[0].y - 20;
+    const ex = TABLET_POSITIONS[0].x - 45, ey = TABLET_POSITIONS[0].y - 15;
     const alpha = echoOpacity;
-    const spriteW = 48, spriteH = 56;
+    const spriteW = 62, spriteH = 73;  // 30% larger than 48x56
 
     // Choose sprite based on fade state
     let echoKey = 'echo_stand';
