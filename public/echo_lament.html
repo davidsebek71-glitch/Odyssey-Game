@@ -30,8 +30,9 @@ canvas { display: block; margin: 0 auto; border-radius: 8px; border: 2px solid r
 /* Overlay for story cards and intro */
 #overlay {
     position: absolute; top: 0; left: 0; width: 680px; height: 600px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: rgba(8, 8, 16, 0.93); border-radius: 8px; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    background: rgba(8, 8, 16, 0.95); border-radius: 8px; z-index: 10;
+    overflow-y: auto; padding: 30px 20px;
 }
 #overlay-icon { font-size: 2.4rem; margin-bottom: 8px; }
 #overlay-title {
@@ -807,18 +808,18 @@ function drawMirrorIndicator(now) {
     ctx.save();
     ctx.globalAlpha = mirrorIndicatorAlpha;
 
-    // Mirror icon sprite
+    // Large mirror icon centered above the text
+    const mirrorY = POOL_CY + POOL_RY + 5;
     if (sprites['mirror_icon']) {
-        drawSprite('mirror_icon', W / 2 - 12, POOL_CY + POOL_RY + 8, 24, 24, mirrorIndicatorAlpha);
+        drawSprite('mirror_icon', W / 2 - 24, mirrorY, 48, 48, mirrorIndicatorAlpha);
     }
 
-    // "REVERSED" text near pool
+    // "REVERSED" text below mirror icon
     ctx.font = 'bold 16px Georgia';
     ctx.fillStyle = '#c4b5fd';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const textX = sprites['mirror_icon'] ? W / 2 + 14 : W / 2;
-    ctx.fillText('REVERSED — Repeat Backwards!', textX, POOL_CY + POOL_RY + 25);
+    ctx.fillText('REVERSED — Repeat Backwards!', W / 2, mirrorY + 62);
 
     // Mirror shimmer over pool
     ctx.strokeStyle = `rgba(200, 180, 255, ${mirrorIndicatorAlpha * 0.4})`;
@@ -1585,8 +1586,8 @@ function gameLoop(now) {
     drawEcho(now);
     // Hera appears during Stage 2 as a looming presence in the upper-right
     if (currentStage === 1 && sprites['hera_stand'] && gamePhase !== 'overlay') {
-        const heraAlpha = 0.4 + Math.sin(now / 2000) * 0.1;
-        drawSprite('hera_stand', W - 90, 30, 64, 64, heraAlpha);
+        const heraAlpha = 0.5 + Math.sin(now / 2000) * 0.1;
+        drawSprite('hera_stand', W - 140, 40, 120, 120, heraAlpha);
     }
     drawTablets(now);
     drawMirrorIndicator(now);
