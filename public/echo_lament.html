@@ -635,7 +635,7 @@ function drawNarcissus(now) {
 
 function drawEcho(now) {
     // Position Echo on the left side of the pool, watching Narcissus
-    const ex = POOL_CX - POOL_RX - 100, ey = POOL_CY - 25;
+    const ex = POOL_CX - POOL_RX - 140, ey = POOL_CY - 25;
     const alpha = echoOpacity;
     const spriteW = 144, spriteH = 144;
 
@@ -808,27 +808,21 @@ function drawMirrorIndicator(now) {
     ctx.save();
     ctx.globalAlpha = mirrorIndicatorAlpha;
 
-    // Large mirror icon centered above the text
-    const mirrorY = POOL_CY + POOL_RY + 5;
-    if (sprites['mirror_icon']) {
-        drawSprite('mirror_icon', W / 2 - 24, mirrorY, 48, 48, mirrorIndicatorAlpha);
-    }
+    // Purple tint over the pool to signal reversal
+    ctx.fillStyle = `rgba(160, 100, 255, ${mirrorIndicatorAlpha * 0.2})`;
+    ctx.beginPath();
+    ctx.ellipse(POOL_CX, POOL_CY, POOL_RX, POOL_RY, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-    // "REVERSED" text below mirror icon
-    ctx.font = 'bold 16px Georgia';
+    // Bold "REVERSED" text below the pool — large and unmissable
+    ctx.font = 'bold 20px Georgia';
     ctx.fillStyle = '#c4b5fd';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('REVERSED — Repeat Backwards!', W / 2, mirrorY + 62);
-
-    // Mirror shimmer over pool
-    ctx.strokeStyle = `rgba(200, 180, 255, ${mirrorIndicatorAlpha * 0.4})`;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.ellipse(POOL_CX, POOL_CY, POOL_RX + 8, POOL_RY + 6, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.shadowColor = 'rgba(139, 92, 246, 0.6)';
+    ctx.shadowBlur = 12;
+    ctx.fillText('🪞 REVERSED — Repeat Backwards!', W / 2, POOL_CY + POOL_RY + 22);
+    ctx.shadowBlur = 0;
 
     ctx.restore();
 }
@@ -1587,7 +1581,7 @@ function gameLoop(now) {
     // Hera appears during Stage 2 — between Echo and the pool, facing Echo, cursing her
     if (currentStage === 1 && sprites['hera_stand'] && gamePhase !== 'overlay') {
         const heraAlpha = 0.55 + Math.sin(now / 2000) * 0.1;
-        const heraX = POOL_CX - POOL_RX - 10;  // Between Echo and pool, spaced out
+        const heraX = POOL_CX - POOL_RX - 35;  // Centered between Echo and pool
         // Align feet with Echo: Echo feet at ey + 72, Hera feet at heraY + heraH
         const heraW = 190, heraH = 190;
         const heraY = (POOL_CY - 25 + 72) - heraH;  // Same baseline as Echo
