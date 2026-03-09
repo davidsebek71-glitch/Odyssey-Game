@@ -1439,7 +1439,9 @@ async function sendGameResults() {
 function handleAssignmentTransition() {
     if (ODYSSEY_TOKEN) {
         // Redirect to student dashboard, auto-open the Echo & Narcissus portal for assignment selection
-        window.location.href = '/student.html?openPortal=4';
+        window.location.href = ODYSSEY_TOKEN 
+            ? '/student.html?openPortal=4&token=' + encodeURIComponent(ODYSSEY_TOKEN)
+            : '/student.html?openPortal=4';
     } else {
         // Standalone mode — show placeholder
         const overlay = document.getElementById('overlay');
