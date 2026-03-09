@@ -523,15 +523,16 @@ function drawCaveRocks() {
 function drawPool(now) {
     poolPhase += 0.015;
 
-    // Pool glow (always canvas — ambient light effect)
-    const glowR = POOL_RX + 20 + Math.sin(poolPhase) * 8;
-    const glowGrad = ctx.createRadialGradient(POOL_CX, POOL_CY, 10, POOL_CX, POOL_CY, glowR);
-    glowGrad.addColorStop(0, 'rgba(100, 140, 220, 0.15)');
-    glowGrad.addColorStop(0.6, 'rgba(80, 100, 180, 0.06)');
+    // Pool glow (always canvas — ambient light effect, matching pool ellipse shape)
+    const glowRX = POOL_RX + 20 + Math.sin(poolPhase) * 8;
+    const glowRY = POOL_RY + 15 + Math.sin(poolPhase) * 5;
+    const glowGrad = ctx.createRadialGradient(POOL_CX, POOL_CY, 10, POOL_CX, POOL_CY, glowRX);
+    glowGrad.addColorStop(0, 'rgba(100, 140, 220, 0.12)');
+    glowGrad.addColorStop(0.6, 'rgba(80, 100, 180, 0.04)');
     glowGrad.addColorStop(1, 'rgba(60, 80, 160, 0)');
     ctx.fillStyle = glowGrad;
     ctx.beginPath();
-    ctx.ellipse(POOL_CX, POOL_CY, glowR, glowR * 0.45, 0, 0, Math.PI * 2);
+    ctx.ellipse(POOL_CX, POOL_CY, glowRX, glowRY, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Pool body — sprite or canvas fallback
@@ -603,14 +604,15 @@ function drawPool(now) {
 
 function drawNarcissus(now) {
     narcissusBreathing = Math.sin(now / 1200) * 2;
-    // Hand on the right edge of the pool, leaning over to gaze in
-    const nx = POOL_CX + POOL_RX - 55, ny = POOL_CY + 15 + narcissusBreathing;
+    // Anchor point: his reaching hand should be at the pool's right edge
+    // Sprite is flipped, so hand is on the left side of drawn image
+    // Place center-x so left edge of sprite touches pool right edge
+    const nx = POOL_CX + POOL_RX + 40, ny = POOL_CY - 25 + narcissusBreathing;
     const spriteW = 144, spriteH = 144;
 
     if (sprites['narcissus_kneel']) {
         ctx.save();
-        // Flip horizontally so he faces left toward the pool center
-        ctx.translate(nx, ny - spriteH/2);
+        ctx.translate(nx, ny);
         ctx.scale(-1, 1);
         ctx.drawImage(sprites['narcissus_kneel'], -spriteW/2, 0, spriteW, spriteH);
         ctx.restore();
@@ -630,7 +632,7 @@ function drawNarcissus(now) {
 
 function drawEcho(now) {
     // Position Echo on the left side of the pool, watching Narcissus
-    const ex = POOL_CX - POOL_RX - 20, ey = POOL_CY + 40;
+    const ex = POOL_CX - POOL_RX - 40, ey = POOL_CY - 10;
     const alpha = echoOpacity;
     const spriteW = 144, spriteH = 144;
 
@@ -737,16 +739,16 @@ function drawTablets(now) {
                 drawSprite(tabletKey, sx, sy, spriteW, spriteH);
             }
 
-            // Greek word label (always draw on top of sprite)
-            ctx.font = isLit && !isFadedFlash ? 'bold 15px Georgia' : '14px Georgia';
+            // Greek word label — below the stone so symbols are visible
+            ctx.font = isLit && !isFadedFlash ? 'bold 13px Georgia' : '12px Georgia';
             ctx.fillStyle = isLit && !isFadedFlash ? '#fff' : isActive ? `${t.color}cc` : 'rgba(60,55,80,0.4)';
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(t.label, pos.x, pos.y - 6);
+            ctx.textBaseline = 'top';
+            ctx.fillText(t.label, pos.x, pos.y + 48);
 
-            ctx.font = '10px Georgia';
+            ctx.font = '9px Georgia';
             ctx.fillStyle = isLit && !isFadedFlash ? 'rgba(255,255,255,0.7)' : isActive ? 'rgba(180,160,200,0.35)' : 'rgba(60,55,80,0.2)';
-            ctx.fillText(t.meaning, pos.x, pos.y + 12);
+            ctx.fillText(t.meaning, pos.x, pos.y + 63);
         } else {
             // FALLBACK: Original canvas-drawn tablets
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -781,13 +783,13 @@ function drawTablets(now) {
                 ctx.fillStyle = glowGrad;
                 ctx.beginPath(); ctx.arc(pos.x, pos.y, TABLET_RADIUS * 1.6, 0, Math.PI * 2); ctx.fill();
             }
-            ctx.font = isLit ? 'bold 15px Georgia' : '14px Georgia';
+            ctx.font = isLit ? 'bold 13px Georgia' : '12px Georgia';
             ctx.fillStyle = isLit ? '#fff' : isActive ? `${t.color}cc` : 'rgba(60,55,80,0.4)';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(t.label, pos.x, pos.y - 6);
-            ctx.font = '10px Georgia';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            ctx.fillText(t.label, pos.x, pos.y + 48);
+            ctx.font = '9px Georgia';
             ctx.fillStyle = isLit ? 'rgba(255,255,255,0.7)' : isActive ? 'rgba(180,160,200,0.35)' : 'rgba(60,55,80,0.2)';
-            ctx.fillText(t.meaning, pos.x, pos.y + 12);
+            ctx.fillText(t.meaning, pos.x, pos.y + 63);
             if (isActive) {
                 ctx.fillStyle = isLit ? t.glow : t.color + '66';
                 ctx.beginPath(); ctx.arc(pos.x, pos.y + 28, 4, 0, Math.PI * 2); ctx.fill();
