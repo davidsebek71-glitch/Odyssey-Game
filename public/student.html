@@ -9946,17 +9946,25 @@
                 }
             }
 
-            // Portal 4 (Echo & Narcissus) uses Echo's Lament game — same pattern as Portal 5
+            // Portal 4 (Echo & Narcissus) uses Echo's Lament game
+            // When returning from the game, skip the quiz intro and go straight to assignments
             if (portalId === 4) {
                 try {
                     const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
                     const statusData = await statusRes.json();
                     const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 4) : false;
-                    if (!hasPassed) {
-                        window.location.href = `/echo_lament.html?token=${token}`;
+                    if (hasPassed) {
+                        // Quiz already passed — skip quiz intro, go straight to assignment panel
+                        currentQuizPortalId = portalId;
+                        document.getElementById('myth-quiz-modal').classList.add('show');
+                        document.getElementById('quiz-intro').style.display = 'none';
+                        document.getElementById('quiz-questions').style.display = 'none';
+                        document.getElementById('quiz-results').style.display = 'none';
+                        document.getElementById('myth-assignment-panel').style.display = 'block';
+                        loadMythAssignments(portalId);
                         return;
                     }
-                    // If already passed, fall through to show assignments panel
+                    // If not passed, fall through to normal quiz flow
                 } catch (err) {
                     console.error('Error checking Echo status:', err);
                 }
