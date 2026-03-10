@@ -9945,6 +9945,22 @@
                     console.error('Error checking Daedalus status:', err);
                 }
             }
+
+            // Portal 4 (Echo & Narcissus) uses Echo's Lament game — same pattern as Portal 5
+            if (portalId === 4) {
+                try {
+                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
+                    const statusData = await statusRes.json();
+                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 4) : false;
+                    if (!hasPassed) {
+                        window.location.href = `/echo_lament.html?token=${token}`;
+                        return;
+                    }
+                    // If already passed, fall through to show assignments panel
+                } catch (err) {
+                    console.error('Error checking Echo status:', err);
+                }
+            }
             
             currentQuizPortalId = portalId;
             currentQuestionIndex = 0;
