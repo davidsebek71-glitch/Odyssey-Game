@@ -10072,6 +10072,14 @@
                 analytical: {
                     title: "The Scholar's Path",
                     icon: "📜",
+                    name: "CER: Echo & Narcissus Analysis",
+                    description: "Analyze the myth of Echo and Narcissus using Claim, Evidence, and Reasoning. What lesson does this myth teach about self-awareness, vanity, and the consequences of ignoring others?",
+                    link: null,
+                    points: 15
+                },
+                wordcloud: {
+                    title: "The Word Cloud Path",
+                    icon: "☁️",
                     name: "Echo & Narcissus Word Cloud",
                     description: "Create a word cloud capturing the key themes, vocabulary, and ideas from the myth of Echo and Narcissus. Reflect on self-knowledge, vanity, obsession, and the consequences of ignoring others.",
                     link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz",
@@ -10181,10 +10189,10 @@
                     return;
                 }
                 
-                // STATE: Quiz passed, not yet approved — show two path cards
+                // STATE: Quiz passed, not yet approved — show path cards
                 html += `
                     <div style="text-align: center; margin-bottom: 16px;">
-                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
                         <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px; margin-bottom: 4px;">
                             ${portal.virtue_emoji || '🏛️'} Earn the Virtue of <span style="color: #ffd700;">${portal.virtue_english}</span>
                         </div>
@@ -10218,13 +10226,42 @@
                     </div>`;
                 }
 
+                // Portal 4 (Echo & Narcissus) — prominent replay button above path cards
+                if (portalId === 4) {
+                    html += `
+                    <div style="text-align: center; margin-bottom: 18px; padding: 16px; background: linear-gradient(135deg, rgba(236,72,153,0.15), rgba(190,24,93,0.1)); border: 2px solid rgba(236,72,153,0.4); border-radius: 12px; box-shadow: 0 0 20px rgba(236,72,153,0.15);">
+                        <div style="font-size: 24px; margin-bottom: 6px;">🪞</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 16px; color: #f9a8d4; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px;">
+                            The Cave of Echoes
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">
+                            Help Echo break the curse and shatter Narcissus's reflection!
+                        </div>
+                        <button onclick="window.location.href='/echo_lament.html?token=${token}'" style="
+                            padding: 12px 28px;
+                            background: linear-gradient(135deg, #ec4899, #be185d);
+                            border: 2px solid #f9a8d4;
+                            border-radius: 10px; color: #fff;
+                            font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700;
+                            cursor: pointer; letter-spacing: 1px;
+                            box-shadow: 0 0 20px rgba(236,72,153,0.3);
+                            transition: all 0.2s;
+                        " onmouseover="this.style.filter='brightness(1.15)';this.style.boxShadow='0 0 30px rgba(236,72,153,0.5)'" onmouseout="this.style.filter='';this.style.boxShadow='0 0 20px rgba(236,72,153,0.3)'">
+                            🪞 Replay Echo's Lament
+                        </button>
+                    </div>`;
+                }
+
+                // Portal 4 has 3 paths (CER, Word Cloud, Creative) — use 3-column grid
+                const gridCols = portalId === 4 ? '1fr 1fr 1fr' : '1fr 1fr';
                 html += `
                     <div style="font-family: 'Cinzel', serif; font-size: 15px; color: #ff6b35; text-align: center; font-weight: 700; margin-bottom: 12px;">
                         ⚡ CHOOSE YOUR PATH ⚡
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: ${gridCols}; gap: 12px; margin-bottom: 16px;">
                         ${renderPathCard(assignments.analytical, 'analytical', glowCol, portalId)}
+                        ${assignments.wordcloud ? renderPathCard(assignments.wordcloud, 'wordcloud', glowCol, portalId) : ''}
                         ${renderPathCard(assignments.creative, 'creative', glowCol, portalId)}
                     </div>
                     
@@ -10242,9 +10279,9 @@
         }
         
         function renderPathCard(assignment, pathType, glowCol, portalId) {
-            const borderColor = pathType === 'analytical' ? '#60a5fa' : '#f59e0b';
-            const bgColor = pathType === 'analytical' ? 'rgba(96,165,250,0.08)' : 'rgba(245,158,11,0.08)';
-            const labelColor = pathType === 'analytical' ? '#93c5fd' : '#fcd34d';
+            const borderColor = pathType === 'analytical' ? '#60a5fa' : pathType === 'wordcloud' ? '#4ade80' : '#f59e0b';
+            const bgColor = pathType === 'analytical' ? 'rgba(96,165,250,0.08)' : pathType === 'wordcloud' ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.08)';
+            const labelColor = pathType === 'analytical' ? '#93c5fd' : pathType === 'wordcloud' ? '#86efac' : '#fcd34d';
             
             const linkBtn = assignment.link ? `
                 <a href="${assignment.link}" target="_blank" style="
@@ -10447,7 +10484,7 @@
                 
                 // Header with virtue info
                 html += `<div style="text-align: center; margin-bottom: 16px;">
-                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
+                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
                     <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px;">
                         ${portal.virtue_emoji || '🏛️'} Virtue: <span style="color: #ffd700;">${portal.virtue_english}</span>
                         <span style="color: rgba(255,255,255,0.4); font-size: 11px;">(${portal.virtue_greek})</span>
@@ -10721,16 +10758,22 @@
             const percentage = Math.round((quizCorrectCount / total) * 100);
             const passed = percentage >= 80;
 
+            let quizSaveSuccess = false;
             try {
                 const answers = quizQuestions.map((q, i) => ({
                     question_id: q.question_id,
                     selected_answer: quizPlayerAnswers[i] || ''
                 }));
-                await fetch(`${API_URL}/student/submit-quiz`, {
+                const submitRes = await fetch(`${API_URL}/student/submit-quiz`, {
                     method: 'POST',
                     headers: { ...headers, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ portal_id: currentQuizPortalId, answers: answers })
                 });
+                if (submitRes.ok) {
+                    quizSaveSuccess = true;
+                } else {
+                    console.error('Quiz submit returned error status:', submitRes.status);
+                }
             } catch (err) {
                 console.error('Submit quiz error:', err);
             }
@@ -10741,12 +10784,18 @@
             document.getElementById('quiz-result-score').textContent = `${quizCorrectCount}/${total} (${percentage}%)`;
 
             if (passed) {
-                // Portal 3 (Orpheus): immediately launch the game after passing the quiz
+                // Portal 3 (Orpheus): launch the game after passing the quiz
                 if (currentQuizPortalId === 3) {
                     document.getElementById('quiz-result-icon').textContent = '🎵';
                     document.getElementById('quiz-result-title').style.color = '#8b5cf6';
                     document.getElementById('quiz-result-title').textContent = 'MYTH MASTERED!';
                     document.getElementById('quiz-result-score').style.color = '#4ade80';
+                    if (!quizSaveSuccess) {
+                        // Quiz save failed — don't redirect, let them retry
+                        document.getElementById('quiz-result-message').textContent = 'Quiz passed but save failed. Please close and try again.';
+                        document.getElementById('quiz-result-buttons').innerHTML = '<button onclick="closeQuizModal()" style="padding: 12px 28px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; color: #e2d8c8; font-weight: 600; font-size: 14px; cursor: pointer;">Close</button>';
+                        return;
+                    }
                     document.getElementById('quiz-result-message').textContent = 'Launching the Underworld...';
                     document.getElementById('quiz-result-buttons').innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 13px;">Redirecting to Orpheus Game...</div>';
                     setTimeout(() => {
@@ -10760,6 +10809,12 @@
                     document.getElementById('quiz-result-title').style.color = '#ec4899';
                     document.getElementById('quiz-result-title').textContent = 'MYTH MASTERED!';
                     document.getElementById('quiz-result-score').style.color = '#4ade80';
+                    if (!quizSaveSuccess) {
+                        // Quiz save failed — don't redirect, let them retry
+                        document.getElementById('quiz-result-message').textContent = 'Quiz passed but save failed. Please close and try again.';
+                        document.getElementById('quiz-result-buttons').innerHTML = '<button onclick="closeQuizModal()" style="padding: 12px 28px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; color: #e2d8c8; font-weight: 600; font-size: 14px; cursor: pointer;">Close</button>';
+                        return;
+                    }
                     document.getElementById('quiz-result-message').textContent = 'Entering the Cave of Echoes...';
                     document.getElementById('quiz-result-buttons').innerHTML = '<div style="color: rgba(255,255,255,0.5); font-size: 13px;">Redirecting to Echo\'s Lament...</div>';
                     setTimeout(() => {
