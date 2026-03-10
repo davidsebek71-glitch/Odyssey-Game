@@ -8982,18 +8982,57 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
     const questions = query('SELECT * FROM myth_quiz_questions WHERE portal_id = ?', [portal_id]);
     if (questions.length === 0) return res.status(400).json({ error: 'No questions for this portal' });
     
-    // Grade the quiz - answers can be array of {question_id, selected_answer} or object keyed by question_id
-    let correct = 0;
+    // Build answer map from client submission
+    // Client sends: {question_id, selected_answer (key), selected_text (answer text), correct_answer (shuffled key)}
     const answerMap = {};
     if (Array.isArray(answers)) {
-      answers.forEach(a => { answerMap[a.question_id] = a.selected_answer ? a.selected_answer.toLowerCase() : ''; });
+      answers.forEach(a => { 
+        answerMap[a.question_id] = {
+          selectedKey: a.selected_answer ? a.selected_answer.toLowerCase() : '',
+          selectedText: a.selected_text || '',
+          shuffledCorrectKey: a.correct_answer ? a.correct_answer.toLowerCase() : ''
+        };
+      });
     } else {
-      Object.keys(answers).forEach(k => { answerMap[k] = answers[k] ? answers[k].toLowerCase() : ''; });
+      // Legacy format: object keyed by question_id with just the key
+      Object.keys(answers).forEach(k => { 
+        answerMap[k] = {
+          selectedKey: answers[k] ? answers[k].toLowerCase() : '',
+          selectedText: '',
+          shuffledCorrectKey: ''
+        };
+      });
     }
     
+    // Grade using TEXT comparison to handle shuffled answer positions
+    // The quiz GET endpoint shuffles answer options, so the key positions change.
+    // We compare the student's selected answer TEXT against the correct answer TEXT from the DB.
+    let correct = 0;
     const results = questions.map(q => {
-      const studentAnswer = answerMap[q.question_id] || '';
-      const isCorrect = studentAnswer === q.correct_answer;
+      const submission = answerMap[q.question_id] || { selectedKey: '', selectedText: '', shuffledCorrectKey: '' };
+      
+      // Get the correct answer TEXT from the original DB question
+      const optionMap = {
+        a: q.option_a || q.answer_a || '',
+        b: q.option_b || q.answer_b || '',
+        c: q.option_c || q.answer_c || '',
+        d: q.option_d || q.answer_d || ''
+      };
+      const correctText = optionMap[q.correct_answer.toLowerCase()] || '';
+      
+      let isCorrect = false;
+      
+      if (submission.selectedText && correctText) {
+        // Primary method: compare answer text (handles shuffled positions)
+        isCorrect = submission.selectedText.trim().toLowerCase() === correctText.trim().toLowerCase();
+      } else if (submission.shuffledCorrectKey && submission.selectedKey) {
+        // Fallback: client sent the shuffled correct key, check if student picked it
+        isCorrect = submission.selectedKey === submission.shuffledCorrectKey;
+      } else {
+        // Legacy fallback: direct key comparison (only works if answers weren't shuffled)
+        isCorrect = submission.selectedKey === q.correct_answer.toLowerCase();
+      }
+      
       if (isCorrect) correct++;
       return { question_id: q.question_id, correct: isCorrect, correct_answer: q.correct_answer };
     });
