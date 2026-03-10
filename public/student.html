@@ -9946,6 +9946,30 @@
                 }
             }
 
+            // Portal 3 (Orpheus) uses the Orpheus game after quiz
+            // When returning from the game, skip the quiz intro and go straight to assignments
+            if (portalId === 3) {
+                try {
+                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
+                    const statusData = await statusRes.json();
+                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 3) : false;
+                    if (hasPassed) {
+                        // Quiz already passed — skip quiz intro, go straight to assignment panel
+                        currentQuizPortalId = portalId;
+                        document.getElementById('myth-quiz-modal').classList.add('show');
+                        document.getElementById('quiz-intro').style.display = 'none';
+                        document.getElementById('quiz-questions').style.display = 'none';
+                        document.getElementById('quiz-results').style.display = 'none';
+                        document.getElementById('myth-assignment-panel').style.display = 'block';
+                        loadMythAssignments(portalId);
+                        return;
+                    }
+                    // If not passed, fall through to normal quiz flow
+                } catch (err) {
+                    console.error('Error checking Orpheus status:', err);
+                }
+            }
+
             // Portal 4 (Echo & Narcissus) uses Echo's Lament game
             // When returning from the game, skip the quiz intro and go straight to assignments
             if (portalId === 4) {
@@ -10192,7 +10216,7 @@
                 // STATE: Quiz passed, not yet approved — show path cards
                 html += `
                     <div style="text-align: center; margin-bottom: 16px;">
-                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Game Complete! 🎵' : '✅ Quiz Passed!'}</div>
                         <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px; margin-bottom: 4px;">
                             ${portal.virtue_emoji || '🏛️'} Earn the Virtue of <span style="color: #ffd700;">${portal.virtue_english}</span>
                         </div>
@@ -10484,7 +10508,7 @@
                 
                 // Header with virtue info
                 html += `<div style="text-align: center; margin-bottom: 16px;">
-                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Quiz Passed! 🎵' : '✅ Quiz Passed!'}</div>
+                    <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 8px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Game Complete! 🎵' : '✅ Quiz Passed!'}</div>
                     <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px;">
                         ${portal.virtue_emoji || '🏛️'} Virtue: <span style="color: #ffd700;">${portal.virtue_english}</span>
                         <span style="color: rgba(255,255,255,0.4); font-size: 11px;">(${portal.virtue_greek})</span>
