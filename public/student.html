@@ -3324,6 +3324,29 @@
         const student = JSON.parse(localStorage.getItem('user'));
         document.getElementById('student-name').textContent = student.name;
 
+        // Check EARLY if returning from a game — show loading overlay immediately to hide dashboard flash
+        const _earlyUrlParams = new URLSearchParams(window.location.search);
+        const _earlyOpenPortal = _earlyUrlParams.get('openPortal');
+        if (_earlyOpenPortal) {
+            // Create and show a full-screen loading overlay BEFORE dashboard renders
+            const gameReturnOverlay = document.createElement('div');
+            gameReturnOverlay.id = 'game-return-overlay';
+            gameReturnOverlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: #0a0a14; z-index: 99999; display: flex;
+                flex-direction: column; align-items: center; justify-content: center;
+            `;
+            gameReturnOverlay.innerHTML = `
+                <div style="font-size: 2.5rem; margin-bottom: 16px;">${_earlyOpenPortal === '3' ? '🎵' : _earlyOpenPortal === '4' ? '🪞' : _earlyOpenPortal === '5' ? '🏛️' : '📜'}</div>
+                <div style="font-family: 'Cinzel', serif; font-size: 18px; color: #ffd700; letter-spacing: 2px;">Loading Assignments...</div>
+                <div style="margin-top: 12px; width: 120px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+                    <div style="width: 40%; height: 100%; background: linear-gradient(90deg, #ffd700, #ff8c00); border-radius: 2px; animation: portalLoadBar 1.2s ease-in-out infinite;"></div>
+                </div>
+                <style>@keyframes portalLoadBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }</style>
+            `;
+            document.body.appendChild(gameReturnOverlay);
+        }
+
         // Load dashboard first (sets dashboardData needed by other sections), then load rest in parallel
         loadDashboard().then(() => {
             // Check if returning from Daedalus game or other portal redirect
@@ -3332,8 +3355,15 @@
             if (openPortalId) {
                 // Clean the URL
                 window.history.replaceState({}, '', '/student.html');
-                // Open the portal after a short delay to let data load
-                setTimeout(() => openMythPortal(parseInt(openPortalId)), 500);
+                // Open the portal immediately — no delay needed, dashboard is loaded
+                openMythPortal(parseInt(openPortalId)).then(() => {
+                    // Remove the loading overlay once modal is showing
+                    const overlay = document.getElementById('game-return-overlay');
+                    if (overlay) overlay.remove();
+                }).catch(() => {
+                    const overlay = document.getElementById('game-return-overlay');
+                    if (overlay) overlay.remove();
+                });
             }
             
             // Stagger parallel loads to avoid overwhelming the browser
