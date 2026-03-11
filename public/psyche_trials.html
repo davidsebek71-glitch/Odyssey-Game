@@ -71,6 +71,16 @@ function loadSprite(n, f) {
     document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';};
   img.src=IMG_BASE+f;
 }
+// Scene images — NO magenta removal (full illustrations with pink/red content)
+function loadScene(n, f) {
+  spritesTotal++;
+  const img = new Image();
+  img.onload = () => { sprites[n]=img; spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%'; };
+  img.onerror = () => { spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%'; };
+  img.src=IMG_BASE+f;
+}
 loadSprite('seed_types','seed_types.png');
 loadSprite('sorting_bins','sorting_bins.png');
 loadSprite('ants_marching','ants_marching.png');
@@ -95,12 +105,12 @@ loadSprite('coins','glittering_coins.png');
 loadSprite('soul','soul_crying.png');
 loadSprite('zeus','Zeus.png');
 loadSprite('aphrodite','Aphrodite.png');
-loadSprite('scene_intro','scene_aphrodite_on_throne.png');
-loadSprite('scene_rams','scene_golden_rams_sunset.png');
-loadSprite('scene_palace','scene_dark_palace.png');
-loadSprite('scene_descent','scene_underworld_descent.png');
-loadSprite('scene_rescue','scene_rescue_and_ascension.png');
-loadSprite('scene_ascend','scene_psyche_ascension.png');
+loadScene('scene_intro','scene_aphrodite_on_throne.png');
+loadScene('scene_rams','scene_golden_rams_sunset.png');
+loadScene('scene_palace','scene_dark_palace.png');
+loadScene('scene_descent','scene_underworld_descent.png');
+loadScene('scene_rescue','scene_rescue_and_ascension.png');
+loadScene('scene_ascend','scene_psyche_ascension.png');
 loadSprite('golden_arrow','golden_arrow.png');
 loadSprite('rose_petals','rose_petals.png');
 loadSprite('white_feather','white_feather.png');
@@ -584,55 +594,53 @@ function drawAnt(x, y, seedType, seedSize, heading, wigglePhase, alpha) {
   ctx.rotate(heading);
   ctx.globalAlpha = alpha || 1;
 
-  // Single programmatic ant — ~40px long
+  // Use ant sprite if available
+  const antSpr = sprites['ants_marching'];
+  if (antSpr) {
+    // Draw sprite scaled to ~40px wide
+    const targetW = 40;
+    const scale = targetW / antSpr.width;
+    const dw = antSpr.width * scale;
+    const dh = antSpr.height * scale;
+    ctx.drawImage(antSpr, -dw/2, -dh/2, dw, dh);
+  } else {
+    // Programmatic fallback — single ant ~40px long
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath(); ctx.ellipse(0, 2, 14, 4, 0, 0, Math.PI*2); ctx.fill();
 
-  // Ground shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.12)';
-  ctx.beginPath(); ctx.ellipse(0, 2, 14, 4, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4a2a10';
+    ctx.beginPath(); ctx.ellipse(-12, 0, 9, 6, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6a4a20';
+    ctx.beginPath(); ctx.ellipse(-11, -1.5, 6, 3.5, -0.2, 0, Math.PI*2); ctx.fill();
 
-  // Abdomen (back)
-  ctx.fillStyle = '#4a2a10';
-  ctx.beginPath(); ctx.ellipse(-12, 0, 9, 6, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#6a4a20';
-  ctx.beginPath(); ctx.ellipse(-11, -1.5, 6, 3.5, -0.2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5a3a18';
+    ctx.beginPath(); ctx.ellipse(-1, 0, 6, 4.5, 0, 0, Math.PI*2); ctx.fill();
 
-  // Thorax (middle)
-  ctx.fillStyle = '#5a3a18';
-  ctx.beginPath(); ctx.ellipse(-1, 0, 6, 4.5, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#6a4a22';
-  ctx.beginPath(); ctx.ellipse(-0.5, -1, 4, 2.5, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6a4a20';
+    ctx.beginPath(); ctx.ellipse(8, 0, 5, 4, 0, 0, Math.PI*2); ctx.fill();
 
-  // Head (front)
-  ctx.fillStyle = '#6a4a20';
-  ctx.beginPath(); ctx.ellipse(8, 0, 5, 4, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#7a5a28';
-  ctx.beginPath(); ctx.ellipse(8.5, -1, 3, 2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(11, -1.5, 1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(11, 1.5, 1, 0, Math.PI*2); ctx.fill();
 
-  // Eyes
-  ctx.fillStyle = '#111';
-  ctx.beginPath(); ctx.arc(11, -1.5, 1, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11, 1.5, 1, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(12, -2); ctx.lineTo(15, -4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(12, 2); ctx.lineTo(15, 4); ctx.stroke();
 
-  // Mandibles
-  ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(12, -2); ctx.lineTo(15, -4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(12, 2); ctx.lineTo(15, 4); ctx.stroke();
+    ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 1;
+    [-10, -1, 7].forEach((lx, i) => {
+      const swing = Math.sin(wigglePhase + i * 2.2) * 2.5;
+      ctx.beginPath(); ctx.moveTo(lx, -5); ctx.lineTo(lx - swing, -12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx, 5); ctx.lineTo(lx + swing, 12); ctx.stroke();
+    });
 
-  // Legs — 3 pairs
-  ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 1;
-  [-10, -1, 7].forEach((lx, i) => {
-    const swing = Math.sin(wigglePhase + i * 2.2) * 2.5;
-    ctx.beginPath(); ctx.moveTo(lx, -5); ctx.lineTo(lx - swing, -12); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(lx, 5); ctx.lineTo(lx + swing, 12); ctx.stroke();
-  });
-
-  // Antennae
-  const aw = Math.sin(wigglePhase * 0.7) * 2;
-  ctx.strokeStyle = '#5a3a18'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(12, -2.5);
-  ctx.quadraticCurveTo(17, -7+aw, 20, -9+aw); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(12, 2.5);
-  ctx.quadraticCurveTo(17, 7-aw, 20, 9-aw); ctx.stroke();
+    const aw = Math.sin(wigglePhase * 0.7) * 2;
+    ctx.strokeStyle = '#5a3a18'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(12, -2.5);
+    ctx.quadraticCurveTo(17, -7+aw, 20, -9+aw); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(12, 2.5);
+    ctx.quadraticCurveTo(17, 7-aw, 20, 9-aw); ctx.stroke();
+  }
 
   // Carried seed above thorax
   if (seedType !== undefined && seedType >= 0) {
@@ -1034,8 +1042,8 @@ function render() {
   // Sort zone archway at entrance
   const archSpr = sprites['sort_zone'];
   if (archSpr) {
-    const archW = 60, archH = 60;
-    ctx.drawImage(archSpr, szStart.x - archW/2, szStart.y - archH + 10, archW, archH);
+    const archW = 80, archH = 80;
+    ctx.drawImage(archSpr, szStart.x - archW/2, szStart.y - archH/2 - 10, archW, archH);
   } else {
     // Programmatic archway
     ctx.strokeStyle = 'rgba(140,200,140,0.5)';
@@ -1197,15 +1205,11 @@ function renderBins() {
     // Bin background — sprite or programmatic
     const binSpr = sprites['sorting_bins'];
     if (binSpr) {
-      const cellW = Math.floor(binSpr.width / 2);
-      const cellH = Math.floor(binSpr.height / 2);
-      const col = b.type % 2;
-      const row = Math.floor(b.type / 2);
+      // Draw the full basket sprite, fitted within the bin area
       ctx.save();
       ctx.globalAlpha = 0.9;
-      ctx.drawImage(binSpr,
-        col * cellW, row * cellH, cellW, cellH,
-        b.x - b.w/2 + 5, b.y - b.h/2 + 5, b.w - 10, b.h - 10);
+      const bw = b.w - 6, bh = b.h - 6;
+      ctx.drawImage(binSpr, b.x - bw/2, b.y - bh/2, bw, bh);
       ctx.restore();
     } else {
       ctx.fillStyle = 'rgba(40,35,30,0.7)';
