@@ -506,24 +506,24 @@ function generatePile(seedCount, typeCount, targetIdx) {
     y: PILE_CY + (Math.random()-0.5)*140
   });
   seeds.forEach(s => {
-    if (s.isTarget && Math.random() < 0.5) {
+    if (s.isTarget && Math.random() < 0.4) {
       const cc = clusters[Math.floor(Math.random()*clusters.length)];
-      s.x = s.x*0.35 + cc.x*0.65 + (Math.random()-0.5)*25;
-      s.y = s.y*0.35 + cc.y*0.65 + (Math.random()-0.5)*20;
+      s.x = s.x*0.5 + cc.x*0.5 + (Math.random()-0.5)*35;
+      s.y = s.y*0.5 + cc.y*0.5 + (Math.random()-0.5)*30;
     }
-    s.x = Math.max(50, Math.min(380, s.x));
-    s.y = Math.max(160, Math.min(520, s.y));
+    s.x = Math.max(30, Math.min(420, s.x));
+    s.y = Math.max(140, Math.min(540, s.y));
   });
   return { seeds, targetCount };
 }
 
 function makeSeed(type, isTarget) {
   const angle = Math.random() * Math.PI * 2;
-  const dist = Math.pow(Math.random(), 0.55) * 140;
+  const dist = Math.pow(Math.random(), 0.45) * 190;
   return {
     type, isTarget,
-    x: PILE_CX + Math.cos(angle)*dist + (Math.random()-0.5)*30,
-    y: PILE_CY + Math.sin(angle)*dist*0.65 + (Math.random()-0.5)*25,
+    x: PILE_CX + Math.cos(angle)*dist + (Math.random()-0.5)*50,
+    y: PILE_CY + Math.sin(angle)*dist*0.75 + (Math.random()-0.5)*40,
     size: (type===2?5:7) + Math.random()*2,
     rot: Math.random()*Math.PI*2,
     collected: false, collecting: false, opacity: 1
@@ -594,15 +594,16 @@ function drawAnt(x, y, seedType, seedSize, heading, wigglePhase, alpha) {
   ctx.rotate(heading);
   ctx.globalAlpha = alpha || 1;
 
-  // Use ant sprite if available
+  // Use ant sprite if available — extract leftmost ant (1/3 of horizontal row)
   const antSpr = sprites['ants_marching'];
   if (antSpr) {
-    // Draw sprite scaled to ~40px wide
+    const frameW = Math.floor(antSpr.width / 3); // 3 ants side by side
+    const frameH = antSpr.height;
     const targetW = 40;
-    const scale = targetW / antSpr.width;
-    const dw = antSpr.width * scale;
-    const dh = antSpr.height * scale;
-    ctx.drawImage(antSpr, -dw/2, -dh/2, dw, dh);
+    const scale = targetW / frameW;
+    const dw = frameW * scale;
+    const dh = frameH * scale;
+    ctx.drawImage(antSpr, 0, 0, frameW, frameH, -dw/2, -dh/2, dw, dh);
   } else {
     // Programmatic fallback — single ant ~40px long
     ctx.fillStyle = 'rgba(0,0,0,0.12)';
@@ -1013,25 +1014,32 @@ function render() {
   ctx.lineTo(380,HORIZON_Y-5);ctx.lineTo(460,HORIZON_Y-14);ctx.lineTo(560,HORIZON_Y-6);
   ctx.lineTo(W,HORIZON_Y-4);ctx.lineTo(W,HORIZON_Y);ctx.closePath();ctx.fill();
 
-  // === MARCH PATH (visible trail) ===
-  ctx.strokeStyle = 'rgba(140,120,80,0.25)';
-  ctx.lineWidth = 22;
-  ctx.lineCap = 'round';
+  // === MARCH PATH (layered dirt trail) ===
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // Outer soft edge
+  ctx.strokeStyle = 'rgba(80,65,40,0.15)';
+  ctx.lineWidth = 30;
   ctx.beginPath();
   PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
   ctx.stroke();
-  // Path edge lines
-  ctx.strokeStyle = 'rgba(160,140,90,0.12)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([6,4]);
-  ctx.beginPath(); PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y)); ctx.stroke();
-  ctx.setLineDash([]);
+  // Main trail
+  ctx.strokeStyle = 'rgba(120,100,65,0.3)';
+  ctx.lineWidth = 18;
+  ctx.beginPath();
+  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+  // Inner worn center
+  ctx.strokeStyle = 'rgba(160,140,95,0.18)';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.stroke();
 
-  // Sort zone highlight on the path — brighter green glow
+  // Sort zone highlight on the path — warm golden glow
   const szStart = getPathPos(SORT_ZONE_START / (PATH.length-1));
   const szEnd = getPathPos(SORT_ZONE_END / (PATH.length-1));
-  ctx.strokeStyle = `rgba(100,220,120,${0.18+Math.sin(G.elapsed*2)*0.06})`;
-  ctx.lineWidth = 28;
+  ctx.strokeStyle = `rgba(180,200,100,${0.12+Math.sin(G.elapsed*2)*0.04})`;
+  ctx.lineWidth = 32;
   ctx.beginPath();
   ctx.moveTo(szStart.x, szStart.y);
   for (let i = SORT_ZONE_START; i <= SORT_ZONE_END && i < PATH.length; i++) {
@@ -1045,24 +1053,46 @@ function render() {
     const archW = 80, archH = 80;
     ctx.drawImage(archSpr, szStart.x - archW/2, szStart.y - archH/2 - 10, archW, archH);
   } else {
-    // Programmatic archway
-    ctx.strokeStyle = 'rgba(140,200,140,0.5)';
-    ctx.lineWidth = 3;
+    // Programmatic stone archway
+    ctx.save();
+    // Glow behind arch
+    const ag = ctx.createRadialGradient(szStart.x, szStart.y-5, 5, szStart.x, szStart.y-5, 35);
+    ag.addColorStop(0, 'rgba(180,220,140,0.15)');
+    ag.addColorStop(1, 'rgba(180,220,140,0)');
+    ctx.fillStyle = ag;
+    ctx.fillRect(szStart.x-40, szStart.y-45, 80, 60);
+    // Arch stones
+    ctx.strokeStyle = 'rgba(160,180,130,0.6)';
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(szStart.x, szStart.y, 18, Math.PI, 0);
+    ctx.arc(szStart.x, szStart.y, 22, Math.PI, 0);
     ctx.stroke();
-    // Pillars
-    ctx.fillStyle = 'rgba(120,180,120,0.3)';
-    ctx.fillRect(szStart.x - 18, szStart.y - 4, 5, 20);
-    ctx.fillRect(szStart.x + 13, szStart.y - 4, 5, 20);
+    // Stone texture on arch
+    ctx.strokeStyle = 'rgba(140,160,110,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(szStart.x, szStart.y, 20, Math.PI, 0); ctx.stroke();
+    // Pillars with gradient
+    const pillarGrad = ctx.createLinearGradient(0, szStart.y-6, 0, szStart.y+22);
+    pillarGrad.addColorStop(0, 'rgba(160,180,130,0.5)');
+    pillarGrad.addColorStop(1, 'rgba(100,120,80,0.3)');
+    ctx.fillStyle = pillarGrad;
+    ctx.fillRect(szStart.x - 23, szStart.y - 4, 7, 26);
+    ctx.fillRect(szStart.x + 16, szStart.y - 4, 7, 26);
+    // Pillar caps
+    ctx.fillStyle = 'rgba(180,200,150,0.4)';
+    ctx.fillRect(szStart.x - 25, szStart.y - 6, 11, 4);
+    ctx.fillRect(szStart.x + 14, szStart.y - 6, 11, 4);
+    ctx.restore();
   }
 
-  // Exit gate marker
-  ctx.fillStyle = 'rgba(200,100,100,0.3)';
-  ctx.beginPath(); ctx.arc(PATH[SORT_ZONE_END].x, PATH[SORT_ZONE_END].y, 6, 0, Math.PI*2); ctx.fill();
+  // Exit gate marker — subtle red warning
+  ctx.fillStyle = `rgba(200,100,100,${0.2+Math.sin(G.elapsed*3)*0.1})`;
+  ctx.beginPath(); ctx.arc(PATH[SORT_ZONE_END].x, PATH[SORT_ZONE_END].y, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(200,100,100,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(PATH[SORT_ZONE_END].x, PATH[SORT_ZONE_END].y, 12, 0, Math.PI*2); ctx.stroke();
 
-  // Sort zone label — positioned along the path
-  ctx.fillStyle = 'rgba(100,220,120,0.5)';
+  // Sort zone label
+  ctx.fillStyle = 'rgba(160,210,120,0.6)';
   ctx.font = 'bold 14px "Segoe UI"'; ctx.textAlign = 'center';
   ctx.fillText('SORT ZONE', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2);
   ctx.font = '12px "Segoe UI"';
@@ -1202,14 +1232,19 @@ function renderBins() {
       ctx.fillText('★ TARGET ★', b.x, b.y - b.h/2 - 8);
     }
 
-    // Bin background — sprite or programmatic
+    // Bin background — extract per-type region from 2x2 sorting_bins sprite sheet
+    // Layout: TL=Barley(0), TR=Lentil(1), BL=Poppy(2), BR=Millet(3)
     const binSpr = sprites['sorting_bins'];
     if (binSpr) {
-      // Draw the full basket sprite, fitted within the bin area
+      const cellW = Math.floor(binSpr.width / 2);
+      const cellH = Math.floor(binSpr.height / 2);
+      const col = b.type % 2;
+      const row = Math.floor(b.type / 2);
+      const sx = col * cellW, sy = row * cellH;
       ctx.save();
       ctx.globalAlpha = 0.9;
       const bw = b.w - 6, bh = b.h - 6;
-      ctx.drawImage(binSpr, b.x - bw/2, b.y - bh/2, bw, bh);
+      ctx.drawImage(binSpr, sx, sy, cellW, cellH, b.x - bw/2, b.y - bh/2, bw, bh);
       ctx.restore();
     } else {
       ctx.fillStyle = 'rgba(40,35,30,0.7)';
