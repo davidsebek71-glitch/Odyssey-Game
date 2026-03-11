@@ -9228,6 +9228,145 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
   }
 });
 
+// ================================================================
+// PSYCHE TRIALS (Portal 6: Eros & Psyche) — Game Completion
+// ================================================================
+app.post('/api/student/psyche-complete', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { completed, heartsRemaining, virtues, starRating, boxChoice } = req.body;
+
+    if (!completed || !virtues) {
+      return res.status(400).json({ error: 'Missing completion data' });
+    }
+
+    const student = query('SELECT student_id, name, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
+
+    // Max 2 scoring attempts
+    const attemptCount = query(
+      'SELECT COUNT(*) as cnt FROM psyche_game_results WHERE student_id = ?',
+      [student_id]
+    )[0]?.cnt || 0;
+
+    if (attemptCount >= 2) {
+      return res.json({ 
+        success: true, 
+        alreadyCompleted: true, 
+        message: 'Maximum attempts reached (2). No additional score recorded.' 
+      });
+    }
+
+    // Calculate score from virtue ratings
+    const ratingScores = { 'Excellent': 100, 'Good': 75, 'Fair': 50, 'Needs Work': 25 };
+    const virtueKeys = ['precision', 'patience', 'trust', 'resolve'];
+    let totalVirtueScore = 0;
+    virtueKeys.forEach(k => {
+      if (virtues[k] && virtues[k].rating) {
+        totalVirtueScore += (ratingScores[virtues[k].rating] || 25);
+      }
+    });
+    const percentage = Math.round(totalVirtueScore / 4);
+    const passed = percentage >= 60;
+
+    // Insert game result
+    run(
+      `INSERT INTO psyche_game_results 
+       (student_id, hearts_remaining, star_rating, box_choice,
+        precision_rating, patience_rating, trust_rating, resolve_rating,
+        percentage, passed, completed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [student_id, heartsRemaining || 0, starRating || 1,
+       boxChoice ? 'opened' : 'sealed',
+       virtues.precision?.rating || '', virtues.patience?.rating || '',
+       virtues.trust?.rating || '', virtues.resolve?.rating || '',
+       percentage, passed ? 1 : 0]
+    );
+
+    // Record in myth_quiz_attempts for portal compatibility
+    const totalQuestions = 4;
+    const correctCount = virtueKeys.filter(k => 
+      virtues[k]?.rating === 'Excellent' || virtues[k]?.rating === 'Good'
+    ).length;
+
+    run(
+      `INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at)
+       VALUES (?, 6, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [student_id, correctCount, totalQuestions, percentage, passed ? 1 : 0]
+    );
+
+    let alliancePointsAwarded = 0;
+    let gradePointsEarned = 0;
+
+    if (completed) {
+      // Record grade
+      try {
+        const quizAssignment = query(
+          "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = 'Eros and Psyche'",
+          []
+        )[0];
+
+        if (quizAssignment) {
+          const thisAttemptScore = Math.round((percentage / 100) * quizAssignment.max_points);
+
+          const existingGrade = query(
+            'SELECT record_id, points_earned FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+            [student_id, quizAssignment.assignment_id]
+          )[0];
+
+          if (existingGrade) {
+            gradePointsEarned = Math.ceil((existingGrade.points_earned + thisAttemptScore) / 2);
+            run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
+              [gradePointsEarned, existingGrade.record_id]);
+            console.log(`✅ Psyche grade AVERAGED: ${student.name} - attempt1:${existingGrade.points_earned} attempt2:${thisAttemptScore} avg:${gradePointsEarned}/${quizAssignment.max_points}`);
+          } else {
+            gradePointsEarned = thisAttemptScore;
+            run(
+              `INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
+               VALUES (?, ?, ?, ?)`,
+              [student_id, quizAssignment.assignment_id, gradePointsEarned, quizAssignment.max_points]
+            );
+            console.log(`✅ Psyche grade recorded: ${student.name} - ${gradePointsEarned}/${quizAssignment.max_points} (attempt 1)`);
+          }
+        }
+      } catch (gradeErr) {
+        console.error('Psyche grade recording error:', gradeErr.message);
+      }
+
+      // Award alliance points if passed
+      if (passed) {
+        alliancePointsAwarded = correctCount + (starRating || 0);
+        if (alliancePointsAwarded > 0) {
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
+            [alliancePointsAwarded, student.alliance_id]);
+          run(
+            `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
+             VALUES (?, ?, ?, 'quiz', ?)`,
+            [student.alliance_id, student_id, alliancePointsAwarded, `Trials of Psyche — ${percentage}%, ${starRating} stars`]
+          );
+        }
+      }
+    }
+
+    saveDatabase();
+    console.log(`💘 Psyche: ${student.name} — ${percentage}%, ${starRating} stars, ${passed ? 'PASSED' : 'NOT PASSED'}, box:${boxChoice ? 'opened' : 'sealed'}, ${alliancePointsAwarded} AP`);
+
+    res.json({
+      success: true,
+      alreadyCompleted: false,
+      passed,
+      percentage,
+      starRating,
+      gradePointsEarned,
+      alliancePointsAwarded
+    });
+  } catch (err) {
+    console.error('Psyche complete error:', err);
+    res.status(500).json({ error: 'Failed to record game completion' });
+  }
+});
+
 // --- Student: Orpheus game completion — awards 10 alliance points (one-time) ---
 app.post('/api/student/orpheus-complete', authenticateToken, (req, res) => {
   try {

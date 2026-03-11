@@ -9976,6 +9976,22 @@
                 }
             }
 
+            // Portal 6 (Psyche) uses the Trials of Psyche game instead of regular quiz
+            if (portalId === 6) {
+                try {
+                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
+                    const statusData = await statusRes.json();
+                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 6) : false;
+                    if (!hasPassed) {
+                        window.location.href = `/psyche_trials.html?token=${token}`;
+                        return;
+                    }
+                    // If already passed, fall through to show assignments panel
+                } catch (err) {
+                    console.error('Error checking Psyche status:', err);
+                }
+            }
+
             // Portal 3 (Orpheus) uses the Orpheus game after quiz
             // When returning from the game, skip the quiz intro and go straight to assignments
             if (portalId === 3) {
@@ -10212,6 +10228,7 @@
                             </div>
                             ${portalId === 3 ? `<button onclick="window.location.href='/orpheus_game.html?token=${token}'" style="margin-top: 14px; padding: 10px 22px; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(109,40,217,0.2)); border: 1px solid rgba(139,92,246,0.4); border-radius: 8px; color: #c4b5fd; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px;">🎵 Replay Orpheus Game</button>` : ''}
                             ${portalId === 4 ? `<button onclick="window.location.href='/echo_lament.html?token=${token}'" style="margin-top: 14px; padding: 10px 22px; background: linear-gradient(135deg, rgba(236,72,153,0.3), rgba(190,24,93,0.2)); border: 1px solid rgba(236,72,153,0.4); border-radius: 8px; color: #f9a8d4; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px;">🪞 Replay Echo's Lament</button>` : ''}
+                            ${portalId === 6 ? `<button onclick="window.location.href='/psyche_trials.html?token=${token}'" style="margin-top: 14px; padding: 10px 22px; background: linear-gradient(135deg, rgba(244,114,182,0.3), rgba(219,39,119,0.2)); border: 1px solid rgba(244,114,182,0.4); border-radius: 8px; color: #f9a8d4; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px;">💘 Replay Trials of Psyche</button>` : ''}
                         </div>`;
                     container.innerHTML = html;
                     return;
@@ -10238,6 +10255,7 @@
                                 Close & Claim on Dashboard
                             </button>
                             ${portalId === 3 ? `<div style="margin-top: 12px;"><button onclick="window.location.href='/orpheus_game.html?token=${token}'" style="padding: 10px 22px; background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(109,40,217,0.2)); border: 1px solid rgba(139,92,246,0.4); border-radius: 8px; color: #c4b5fd; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px;">🎵 Replay Orpheus Game</button></div>` : ''}
+                            ${portalId === 6 ? `<div style="margin-top: 12px;"><button onclick="window.location.href='/psyche_trials.html?token=${token}'" style="padding: 10px 22px; background: linear-gradient(135deg, rgba(244,114,182,0.3), rgba(219,39,119,0.2)); border: 1px solid rgba(244,114,182,0.4); border-radius: 8px; color: #f9a8d4; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px;">💘 Replay Trials of Psyche</button></div>` : ''}
                         </div>`;
                     container.innerHTML = html;
                     return;
@@ -10246,7 +10264,7 @@
                 // STATE: Quiz passed, not yet approved — show path cards
                 html += `
                     <div style="text-align: center; margin-bottom: 16px;">
-                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Game Complete! 🎵' : '✅ Quiz Passed!'}</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700; margin-bottom: 6px;">${portalId === 6 ? '✅ Trials Complete! 💘' : portalId === 5 ? '✅ Escape Complete!' : portalId === 4 ? '✅ Game Complete! 🪞' : portalId === 3 ? '✅ Game Complete! 🎵' : '✅ Quiz Passed!'}</div>
                         <div style="font-family: 'Cinzel', serif; font-size: 13px; color: ${glowCol}; letter-spacing: 1px; margin-bottom: 4px;">
                             ${portal.virtue_emoji || '🏛️'} Earn the Virtue of <span style="color: #ffd700;">${portal.virtue_english}</span>
                         </div>

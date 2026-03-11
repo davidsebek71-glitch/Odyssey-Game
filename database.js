@@ -683,6 +683,25 @@ async function initDatabase() {
 
   // ==================== TRADE SYSTEM TABLES ====================
 
+  // Psyche Trials game results (Portal 6: Eros & Psyche)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS psyche_game_results (
+      result_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      hearts_remaining INTEGER DEFAULT 0,
+      star_rating INTEGER DEFAULT 1,
+      box_choice TEXT DEFAULT 'sealed',
+      precision_rating TEXT DEFAULT '',
+      patience_rating TEXT DEFAULT '',
+      trust_rating TEXT DEFAULT '',
+      resolve_rating TEXT DEFAULT '',
+      percentage INTEGER DEFAULT 0,
+      passed INTEGER DEFAULT 0,
+      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES students(student_id)
+    )
+  `);
+
   // Alliance native resource assignments (no shared pool — students buy directly)
   db.run(`
     CREATE TABLE IF NOT EXISTS alliance_resources (
