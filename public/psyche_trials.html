@@ -188,15 +188,16 @@ function renderStoryCard() {
     let iw = maxW, ih = maxW / ratio;
     if (ih > maxH) { ih = maxH; iw = maxH * ratio; }
     const imgX = W/2 - iw/2, imgY = 40;
-    // Clip to rounded rect to hide any magenta bleed at edges
+    // Clip to rounded rect to hide magenta background at edges
     ctx.save();
-    rr(ctx, imgX+4, imgY+4, iw-8, ih-8, 6);
+    const inset = 14;
+    rr(ctx, imgX+inset, imgY+inset, iw-inset*2, ih-inset*2, 6);
     ctx.clip();
     ctx.drawImage(spr, imgX, imgY, iw, ih);
     ctx.restore();
-    // Subtle border
+    // Subtle border around clipped area
     ctx.strokeStyle = 'rgba(200,180,140,0.15)'; ctx.lineWidth = 1;
-    rr(ctx, imgX+4, imgY+4, iw-8, ih-8, 6); ctx.stroke();
+    rr(ctx, imgX+inset, imgY+inset, iw-inset*2, ih-inset*2, 6); ctx.stroke();
     textY = imgY + ih + 12;
   }
   ctx.textAlign='center';
@@ -362,7 +363,7 @@ function getSeedRegion(type) {
 const SEEDS = [
   { name:'Barley', fill:'#D4A017', dark:'#9e7a10', hi:'#f0d68a', shape:'elongated' },
   { name:'Lentil', fill:'#8B4513', dark:'#5c2e0a', hi:'#a0522d', shape:'round' },
-  { name:'Poppy',  fill:'#4a4a6a', dark:'#2a2a45', hi:'#6a6a8a', shape:'cluster' },
+  { name:'Poppy',  fill:'#3a3a3a', dark:'#1a1a1a', hi:'#5a5a5a', shape:'cluster' },
   { name:'Millet', fill:'#6B8E23', dark:'#4a6318', hi:'#8fb832', shape:'oval' }
 ];
 
@@ -397,10 +398,10 @@ const SORT_ZONE_START = 3;
 const SORT_ZONE_END = 5;
 
 // Bins positioned along the right side
-const BIN_X = 610;
-const BIN_START_Y = 120;
-const BIN_SPACING = 120;
-const BIN_W = 100, BIN_H = 90;
+const BIN_X = 615;
+const BIN_START_Y = 100;
+const BIN_SPACING = 125;
+const BIN_W = 90, BIN_H = 75;
 
 // ============================================================
 // STATE
@@ -585,38 +586,51 @@ function drawAnt(x, y, seedType, seedSize, heading, wigglePhase, alpha) {
   // Try sprite
   const antSpr = sprites['ants_marching'];
   if (antSpr) {
-    const scale = 48 / antSpr.width;
+    const scale = 64 / antSpr.width;
     const dw = antSpr.width * scale;
     const dh = antSpr.height * scale;
     ctx.drawImage(antSpr, -dw/2, -dh/2, dw, dh);
   } else {
-    // Programmatic fallback — scaled up 2.5x
-    ctx.fillStyle = 'rgba(200,180,120,0.2)';
-    ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill();
+    // Programmatic single ant — ~60px long
+    // Glow
+    ctx.fillStyle = 'rgba(200,180,120,0.15)';
+    ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
 
+    // Abdomen (back, largest)
+    ctx.fillStyle = '#5a3a18';
+    ctx.beginPath(); ctx.ellipse(-18, 0, 14, 9, 0, 0, Math.PI*2); ctx.fill();
+    // Thorax (middle)
     ctx.fillStyle = '#6a4a20';
-    ctx.beginPath(); ctx.ellipse(-12, 0, 10, 7, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(0, 0, 8, 5.5, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-2, 0, 10, 7, 0, 0, Math.PI*2); ctx.fill();
+    // Head (front)
     ctx.fillStyle = '#7a5a28';
-    ctx.beginPath(); ctx.ellipse(10, 0, 6, 5, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(14, 0, 8, 6.5, 0, 0, Math.PI*2); ctx.fill();
+    // Eye
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(18, -2, 1.5, 0, Math.PI*2); ctx.fill();
+    // Mandibles
+    ctx.strokeStyle = '#5a3a18'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(20, -3); ctx.lineTo(25, -6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(20, 3); ctx.lineTo(25, 6); ctx.stroke();
 
-    ctx.strokeStyle = '#6a4a20'; ctx.lineWidth = 1.5;
-    [-7, 0, 7].forEach((lx, i) => {
-      const lwig = Math.sin(wigglePhase + i*2) * 3.5;
-      ctx.beginPath(); ctx.moveTo(lx, 6); ctx.lineTo(lx+lwig, 16); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(lx, -6); ctx.lineTo(lx-lwig, -16); ctx.stroke();
+    // Legs — 3 pairs, animated
+    ctx.strokeStyle = '#5a3a18'; ctx.lineWidth = 1.5;
+    [-14, -2, 10].forEach((lx, i) => {
+      const lwig = Math.sin(wigglePhase + i*2.2) * 4;
+      ctx.beginPath(); ctx.moveTo(lx, 8); ctx.lineTo(lx+lwig, 22); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx, -8); ctx.lineTo(lx-lwig, -22); ctx.stroke();
     });
 
-    const aw = Math.sin(wigglePhase*0.7) * 2.5;
-    ctx.beginPath();
-    ctx.moveTo(14, -2); ctx.lineTo(22, -9+aw);
-    ctx.moveTo(14, 2); ctx.lineTo(22, 9-aw);
-    ctx.stroke();
+    // Antennae
+    const aw = Math.sin(wigglePhase*0.7) * 3;
+    ctx.strokeStyle = '#6a4a20'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(20, -4); ctx.quadraticCurveTo(28, -10+aw, 32, -14+aw); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(20, 4); ctx.quadraticCurveTo(28, 10-aw, 32, 14-aw); ctx.stroke();
   }
 
-  // Carried seed — offset above ant
+  // Carried seed — above ant's thorax
   if (seedType !== undefined && seedType >= 0) {
-    drawSeed(0, -18, seedType, (seedSize||7)*0.8, 0, 0.9);
+    drawSeed(0, -22, seedType, (seedSize||7)*0.9, 0, 0.9);
   }
 
   ctx.restore();
@@ -1149,10 +1163,15 @@ function renderBins() {
     const S = SEEDS[b.type];
     const isT = b.type === G.targetType;
 
-    // Bin background
+    // Target label ABOVE bin
+    if (isT) {
+      ctx.fillStyle='rgba(240,214,138,0.7)';ctx.font='bold 14px "Segoe UI"';ctx.textAlign='center';
+      ctx.fillText('★ TARGET ★', b.x, b.y - b.h/2 - 8);
+    }
+
+    // Bin background — sprite or programmatic
     const binSpr = sprites['sorting_bins'];
     if (binSpr) {
-      // sorting_bins.png is a 2x2 grid — extract the correct quadrant for this bin type
       const cellW = Math.floor(binSpr.width / 2);
       const cellH = Math.floor(binSpr.height / 2);
       const col = b.type % 2;
@@ -1164,9 +1183,7 @@ function renderBins() {
         b.x - b.w/2 + 5, b.y - b.h/2 + 5, b.w - 10, b.h - 10);
       ctx.restore();
     } else {
-      // Programmatic fallback - colored box
-      ctx.fillStyle = b.wrongFlash>0 ? `rgba(180,40,40,${0.2+b.wrongFlash*0.3})` :
-        b.flash>0 ? `rgba(40,180,60,${0.15+b.flash*0.25})` : 'rgba(30,28,35,0.7)';
+      ctx.fillStyle = 'rgba(40,35,30,0.7)';
       rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.fill();
     }
 
@@ -1180,40 +1197,42 @@ function renderBins() {
       rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.fill();
     }
 
-    // Border — target bin gets golden glow
+    // Border
     if (isT) {
       ctx.strokeStyle = 'rgba(240,214,138,0.6)';
       ctx.lineWidth = 3;
-      ctx.shadowColor = 'rgba(240,214,138,0.3)';
-      ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(240,214,138,0.3)'; ctx.shadowBlur = 8;
       rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.stroke();
       ctx.shadowBlur = 0;
-      // Target label ABOVE this specific bin
-      ctx.fillStyle='rgba(240,214,138,0.65)';ctx.font='bold 14px "Segoe UI"';ctx.textAlign='center';
-      ctx.fillText('★ TARGET ★',b.x, b.y - b.h/2 - 6);
     } else {
-      ctx.strokeStyle = 'rgba(100,95,110,0.35)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(100,95,110,0.35)'; ctx.lineWidth = 1;
       rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.stroke();
     }
 
-    // Seed sample icon — bigger, centered left
-    drawSeed(b.x - 25, b.y + 8, b.type, 16, 0, 0.95);
+    // === LABEL BELOW BIN ===
+    const labelY = b.y + b.h/2 + 6;
 
-    // Name — bigger, bold, to the right of seed
+    // Dark label background
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    rr(ctx, b.x - b.w/2, labelY, b.w, 28, 5); ctx.fill();
+
+    // Seed sample icon — small, left of name
+    drawSeed(b.x - 30, labelY + 14, b.type, 8, 0, 0.95);
+
+    // Name
     ctx.fillStyle = S.fill;
-    ctx.font = 'bold 16px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText(S.name, b.x + 10, b.y + 5);
+    ctx.font = 'bold 15px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(S.name, b.x + 5, labelY + 18);
 
-    // Count below name
-    ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='14px "Segoe UI"';
-    ctx.fillText(`×${b.count}`, b.x + 10, b.y + 24);
+    // Count — right side
+    ctx.fillStyle = 'rgba(200,180,140,0.5)'; ctx.font = '13px "Segoe UI"';
+    ctx.fillText(`×${b.count}`, b.x + 38, labelY + 18);
 
     // Jam indicator
     if (G.jammedBin===i) {
       ctx.fillStyle=`rgba(255,60,60,${0.4+Math.sin(G.elapsed*20)*0.15})`;
-      ctx.font='bold 14px "Segoe UI"';
-      ctx.fillText('JAMMED', b.x, b.y + b.h/2 - 8);
+      ctx.font='bold 13px "Segoe UI"';
+      ctx.fillText('JAMMED', b.x, labelY + 38);
     }
 
     // Hover highlight
