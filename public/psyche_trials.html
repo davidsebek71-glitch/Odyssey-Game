@@ -7,11 +7,11 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0a12;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;overflow:hidden}
-#game-container{position:relative;width:680px;height:600px;background:#000;border:2px solid #333;border-radius:4px;overflow:hidden;user-select:none;-webkit-user-select:none}
-canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#game-container{position:relative;width:680px;height:600px;background:#000;border:2px solid #333;border-radius:4px;overflow:hidden;user-select:none;-webkit-user-select:none;transform:scale(1.35);transform-origin:center center}
+canvas{display:block}
 #game-container.shake{animation:shake .3s ease-out}
-@keyframes shake{0%,100%{transform:translate(0)}20%{transform:translate(-4px,2px)}40%{transform:translate(3px,-2px)}60%{transform:translate(-2px,1px)}80%{transform:translate(2px,-1px)}}
-.float-text{position:absolute;pointer-events:none;z-index:80;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.9);animation:floatUp 1s ease-out forwards}
+@keyframes shake{0%,100%{transform:scale(1.35)}20%{transform:scale(1.35) translate(-4px,2px)}40%{transform:scale(1.35) translate(3px,-2px)}60%{transform:scale(1.35) translate(-2px,1px)}80%{transform:scale(1.35) translate(2px,-1px)}}
+.float-text{position:absolute;pointer-events:none;z-index:80;font-weight:700;font-size:15px;text-shadow:0 1px 4px rgba(0,0,0,.9);animation:floatUp 1s ease-out forwards}
 @keyframes floatUp{0%{opacity:1;transform:translateY(0)}50%{opacity:1;transform:translateY(-18px)}100%{opacity:0;transform:translateY(-36px)}}
 .whisper-text{position:absolute;pointer-events:none;z-index:75;font-style:italic;font-size:14px;text-shadow:0 0 8px rgba(80,120,160,.5);animation:whisperFade 3.5s ease-out forwards}
 @keyframes whisperFade{0%{opacity:0}15%{opacity:1}70%{opacity:.8}100%{opacity:0}}
@@ -101,6 +101,14 @@ loadSprite('scene_palace','scene_dark_palace.png');
 loadSprite('scene_descent','scene_underworld_descent.png');
 loadSprite('scene_rescue','scene_rescue_and_ascension.png');
 loadSprite('scene_ascend','scene_psyche_ascension.png');
+loadSprite('golden_arrow','golden_arrow.png');
+loadSprite('rose_petals','rose_petals.png');
+loadSprite('white_feather','white_feather.png');
+loadSprite('story_fragment','story_fragment.png');
+loadSprite('wall_inscription','wall_inscription.png');
+loadSprite('sort_zone','sort_zone_marker.png');
+loadSprite('ground','ground_surface_tile.png');
+loadSprite('oil_lamp','oil_lamp.png');
 
 // ================================================================
 // SHARED HELPERS
@@ -118,8 +126,8 @@ function getPos(e){const rect=canvas.getBoundingClientRect();const raw=e.touches
 function drawHearts(){
   ctx.fillStyle='rgba(0,0,0,.55)';rr(ctx,10,10,130,40,6);ctx.fill();
   let hs='';for(let i=0;i<4;i++)hs+=i<GAME.hearts?'\u2764\uFE0F':'\u{1F5A4}';
-  ctx.font='13px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,18,28);
-  ctx.fillStyle='rgba(200,180,140,.4)';ctx.font='9px "Segoe UI"';
+  ctx.font='15px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,18,28);
+  ctx.fillStyle='rgba(200,180,140,.4)';ctx.font='14px "Segoe UI"';
   ctx.fillText(GAME.totalHearts+' lives remaining',18,44);ctx.textAlign='left';
 }
 function getSeedRegion(type){const spr=sprites['seed_types'];if(!spr)return null;const cw=Math.floor(spr.width/2),ch=Math.floor(spr.height/2);return{sx:(type%2)*cw,sy:Math.floor(type/2)*ch,sw:cw,sh:ch};}
@@ -171,16 +179,32 @@ function showStory(key, cb) { GAME.storyCard = STORIES[key]; GAME.storyCallback 
 function renderStoryCard() {
   const s = GAME.storyCard; if (!s) return;
   ctx.fillStyle='rgba(0,0,0,.92)';ctx.fillRect(0,0,W,H);
-  const spr=sprites[s.scene];let textY=80;
-  if(spr){const iw=280,ih=iw*(spr.height/spr.width);ctx.globalAlpha=.65;ctx.drawImage(spr,W/2-iw/2,15,iw,ih);ctx.globalAlpha=1;textY=Math.min(200,15+ih+10);}
+  const spr=sprites[s.scene];
+  let textY = 50;
+  if(spr){
+    // Large centered scene image
+    const iw=380, ih=iw*(spr.height/spr.width);
+    const imgY = 20;
+    ctx.globalAlpha=.75;
+    ctx.drawImage(spr, W/2-iw/2, imgY, iw, ih);
+    ctx.globalAlpha=1;
+    textY = imgY + ih + 18;
+  }
   ctx.textAlign='center';
-  ctx.fillStyle='#f0d68a';ctx.font='bold 20px "Segoe UI"';ctx.fillText(s.title,W/2,textY);
-  ctx.fillStyle='#c8b88a';ctx.font='13px "Segoe UI"';
-  s.text.split('\n').forEach((l,i)=>{ctx.fillText(l,W/2,textY+28+i*20);});
-  const btnY=H-60;const p=.7+Math.sin(GAME.elapsed*3)*.3;
-  ctx.fillStyle='rgba(240,214,138,'+p*.12+')';rr(ctx,W/2-70,btnY,140,40,8);ctx.fill();
-  ctx.strokeStyle='rgba(240,214,138,'+p*.5+')';ctx.lineWidth=1.5;rr(ctx,W/2-70,btnY,140,40,8);ctx.stroke();
-  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';ctx.fillText(s.btn,W/2,btnY+25);
+  // Title — large and golden
+  ctx.fillStyle='#f0d68a';ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText(s.title, W/2, textY);
+  // Body text — readable size
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  const lines = s.text.split('\n');
+  lines.forEach((l,i)=>{
+    ctx.fillText(l, W/2, textY + 28 + i*22);
+  });
+  // Button
+  const btnY=H-55;const p=.7+Math.sin(GAME.elapsed*3)*.3;
+  ctx.fillStyle='rgba(240,214,138,'+p*.12+')';rr(ctx,W/2-80,btnY,160,42,8);ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,'+p*.5+')';ctx.lineWidth=1.5;rr(ctx,W/2-80,btnY,160,42,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 16px "Segoe UI"';ctx.fillText(s.btn,W/2,btnY+27);
   ctx.textAlign='left';
 }
 
@@ -236,7 +260,7 @@ function renderCinematicEnd() {
     ctx.fillStyle='rgba(255,240,200,'+Math.min(1,(t-5.5)/1.5)+')';ctx.font='italic 15px "Segoe UI"';
     ctx.fillText('"For enduring what no mortal should,',W/2,H/2-25);
     ctx.fillText('I grant you immortality."',W/2,H/2+5);
-    ctx.fillStyle='rgba(200,180,255,.6)';ctx.font='13px "Segoe UI"';
+    ctx.fillStyle='rgba(200,180,255,.6)';ctx.font='15px "Segoe UI"';
     ctx.fillText('Wings grow from Psyche\'s back.',W/2,H/2+35);
   }else{ctx.fillStyle='#f0d68a';ctx.font='bold 20px "Segoe UI"';ctx.fillText('Love endures.',W/2,H/2);}
   ctx.textAlign='left';
@@ -264,11 +288,11 @@ function renderResults() {
     const d=GAME.virtues[v.k],y=120+i*55;
     ctx.fillStyle='rgba(255,255,255,.05)';rr(ctx,100,y,480,45,6);ctx.fill();
     ctx.textAlign='left';ctx.font='18px "Segoe UI"';ctx.fillText(v.i,115,y+28);
-    ctx.fillStyle='#c8b88a';ctx.font='13px "Segoe UI"';ctx.fillText(v.n,145,y+28);
+    ctx.fillStyle='#c8b88a';ctx.font='15px "Segoe UI"';ctx.fillText(v.n,145,y+28);
     ctx.textAlign='right';ctx.fillStyle=rc[d.rating]||'#888';ctx.font='bold 13px "Segoe UI"';ctx.fillText(d.rating||'—',560,y+28);
   });
   ctx.textAlign='center';
-  ctx.fillStyle='rgba(200,180,140,.4)';ctx.font='12px "Segoe UI"';
+  ctx.fillStyle='rgba(200,180,140,.4)';ctx.font='14px "Segoe UI"';
   ctx.fillText('Hearts remaining: '+GAME.totalHearts+'/10  |  Box: '+(GAME.boxChoice?'Opened':'Carried Sealed'),W/2,365);
   // Submit button
   ctx.fillStyle='rgba(74,222,128,.12)';rr(ctx,W/2-100,400,200,42,8);ctx.fill();
@@ -978,7 +1002,7 @@ function render() {
 
   // Sort zone label
   ctx.fillStyle = 'rgba(100,200,120,0.3)';
-  ctx.font = '9px "Segoe UI"'; ctx.textAlign = 'center';
+  ctx.font = '14px "Segoe UI"'; ctx.textAlign = 'center';
   ctx.fillText('⬇ SORT ZONE — click a bin! ⬇', 530, 460);
   ctx.textAlign = 'left';
 
@@ -1144,7 +1168,7 @@ function renderBins() {
     if (isT) {
       ctx.fillStyle='rgba(240,214,138,0.12)';
       rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,8);ctx.fill();
-      ctx.fillStyle='rgba(240,214,138,0.45)';ctx.font='8px "Segoe UI"';ctx.textAlign='center';
+      ctx.fillStyle='rgba(240,214,138,0.45)';ctx.font='14px "Segoe UI"';ctx.textAlign='center';
       ctx.fillText('★ TARGET',b.x,b.y-b.h/2+11);
     }
 
@@ -1154,7 +1178,7 @@ function renderBins() {
     // Name & count
     ctx.fillStyle=S.fill;ctx.font='bold 11px "Segoe UI"';ctx.textAlign='center';
     ctx.fillText(S.name, b.x+8, b.y);
-    ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='10px "Segoe UI"';
+    ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='15px "Segoe UI"';
     ctx.fillText(`${b.count}`, b.x+8, b.y+14);
 
     // Jam indicator
@@ -1178,7 +1202,7 @@ function renderHUD() {
   const r = ROUNDS[G.round];
 
   ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,10,8,165,50,8);ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='9px "Segoe UI"';ctx.textAlign='left';
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';ctx.textAlign='left';
   ctx.fillText('① CIRCLE clusters  ② CLICK bins to sort',18,22);
   drawSeed(30,42,r.target,11,0,1);
   ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 12px "Segoe UI"';
@@ -1188,7 +1212,7 @@ function renderHUD() {
   ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,185,8,80,42,8);ctx.fill();
   ctx.fillStyle='#f0d68a';ctx.font='bold 17px "Segoe UI"';ctx.textAlign='center';
   ctx.fillText(`${G.sorted}/${G.needed}`,225,32);
-  ctx.fillStyle='rgba(200,180,140,0.35)';ctx.font='9px "Segoe UI"';
+  ctx.fillStyle='rgba(200,180,140,0.35)';ctx.font='14px "Segoe UI"';
   ctx.fillText(`Rd ${G.round+1}/${ROUNDS.length}`,225,46);
 
   // Timer
@@ -1198,18 +1222,18 @@ function renderHUD() {
   ctx.fillStyle=tc;ctx.font='bold 15px "Segoe UI"';
   ctx.fillText(`${Math.ceil(G.timeLeft)}s`,302,32);
   ctx.fillStyle=tr>0.3?'rgba(200,180,140,0.35)':'rgba(255,150,100,0.5)';
-  ctx.font='8px "Segoe UI"';ctx.fillText('dawn',302,44);
+  ctx.font='14px "Segoe UI"';ctx.fillText('dawn',302,44);
 
   // Squads
   const avail = G.maxSquads - Math.ceil(G.activeSquads);
   ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-42,95,30,6);ctx.fill();
   ctx.fillStyle=avail>0?'#f0d68a':'rgba(200,140,140,0.5)';
-  ctx.font='11px "Segoe UI"';
+  ctx.font='14px "Segoe UI"';
   ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,57,H-23);
 
   // Hearts
   let hs='';for(let i=0;i<G.hearts;i++)hs+='❤️';for(let i=G.hearts;i<4;i++)hs+='🖤';
-  ctx.font='13px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,14,76);
+  ctx.font='15px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,14,76);
 }
 
 function renderTutorial() {
@@ -1257,7 +1281,7 @@ function renderTransition() {
   ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
   ctx.fillText(`New target: ${tgt.name}`,W/2,H/2+10);
   drawSeed(W/2,H/2+45,r.target,20,0,1);
-  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='12px "Segoe UI"';
+  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='14px "Segoe UI"';
   ctx.fillText(`${r.types} bins  ·  ${r.squads} squads  ·  ${Math.ceil(G.timeLeft)}s left`,W/2,H/2+85);
   ctx.textAlign='left';
 }
@@ -2149,7 +2173,7 @@ function renderHUD() {
   rr(ctx,W-140,bY,130,50,8);ctx.fill();
   ctx.fillStyle='#ffd700';ctx.font='bold 20px "Segoe UI"';ctx.textAlign='center';
   ctx.fillText(`🧺 ${G.woolCollected}/${G.woolNeeded}`,W-75,bY+26);
-  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='10px "Segoe UI"';
+  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='15px "Segoe UI"';
   ctx.fillText('Golden Wool',W-75,bY+42);
 
   // Hearts
@@ -2157,12 +2181,12 @@ function renderHUD() {
   let hs='';
   for(let i=0;i<4;i++) hs+=i<G.hearts?'❤️':'🖤';
   ctx.font='14px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,18,28);
-  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='9px "Segoe UI"';
+  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='14px "Segoe UI"';
   ctx.fillText(`${G.totalHearts} lives remaining`,18,44);
 
   // Controls reminder
   ctx.fillStyle='rgba(0,0,0,0.35)';rr(ctx,8,H-80,130,32,6);ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='9px "Segoe UI"';
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';
   ctx.fillText('Arrow keys: move  ·  Space: grab',16,H-60);
 
   ctx.textAlign='left';
@@ -2983,7 +3007,7 @@ function render() {
 
       // Text
       ctx.fillStyle = isCurrent ? '#f0d68a' : 'rgba(200,180,140,0.6)';
-      ctx.font = isCurrent ? '15px "Segoe UI"' : '13px "Segoe UI"';
+      ctx.font = isCurrent ? '15px "Segoe UI"' : '15px "Segoe UI"';
       ctx.fillText(line.text, W/2, y + 22);
 
       ctx.globalAlpha = 1;
@@ -3032,7 +3056,7 @@ function renderFurniture() {
     rr(ctx, W/2-210, H-115, 420, 75, 6); ctx.fill();
     ctx.strokeStyle = 'rgba(60,55,75,0.3)'; ctx.lineWidth = 1;
     rr(ctx, W/2-210, H-115, 420, 75, 6); ctx.stroke();
-    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '10px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '15px "Segoe UI"'; ctx.textAlign = 'center';
     ctx.fillText('▼ STORY MURAL — arrange in order ▼', W/2, H-120);
     ctx.textAlign = 'left';
   } else if (G.roomIdx === 1) {
@@ -3041,7 +3065,7 @@ function renderFurniture() {
     rr(ctx, W-140, 130, 110, 400, 6); ctx.fill();
     ctx.strokeStyle = 'rgba(60,55,75,0.3)'; ctx.lineWidth = 1;
     rr(ctx, W-140, 130, 110, 400, 6); ctx.stroke();
-    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '10px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '15px "Segoe UI"'; ctx.textAlign = 'center';
     ctx.fillText('ALTAR', W-85, 148);
     ctx.textAlign = 'left';
   }
@@ -3074,10 +3098,10 @@ function renderItems() {
       // Name when close
       if (dist < 50 && a > 0.5) {
         ctx.fillStyle = it.isReal ? `rgba(255,230,150,${a*0.7})` : `rgba(130,170,200,${a*0.6})`;
-        ctx.font = '10px "Segoe UI"';
+        ctx.font = '15px "Segoe UI"';
         ctx.fillText(it.data.title || it.data.name, it.x, it.y + 24);
         if (a > 0.7) {
-          ctx.font = '9px "Segoe UI"';
+          ctx.font = '14px "Segoe UI"';
           ctx.fillStyle = `rgba(200,180,140,${a*0.4})`;
           ctx.fillText('click to pick up', it.x, it.y + 36);
         }
@@ -3107,7 +3131,7 @@ function renderHints() {
     ctx.fillText(h.title, h.x + h.w/2, h.y + 15);
 
     // Lines
-    ctx.font = '11px "Segoe UI"';
+    ctx.font = '14px "Segoe UI"';
     ctx.fillStyle = 'rgba(240,220,160,0.75)';
     h.lines.forEach((line, i) => {
       ctx.fillText(line, h.x + h.w/2, h.y + 32 + i * 15);
@@ -3146,13 +3170,13 @@ function renderSlots() {
       if (G.roomIdx === 0) {
         ctx.fillStyle = 'rgba(200,180,140,0.35)'; ctx.font = 'bold 14px "Segoe UI"';
         ctx.fillText(s.label, s.x, s.y + 4);
-        ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '8px "Segoe UI"';
+        ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '14px "Segoe UI"';
         ctx.fillText(s.symbolHint, s.x, s.y + 18);
       } else {
         // Altar: show symbol hint
         ctx.font = '20px "Segoe UI"';
         ctx.fillText(s.label, s.x, s.y - 2);
-        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '8px "Segoe UI"';
+        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '14px "Segoe UI"';
         ctx.fillText(s.symbolHint, s.x, s.y + 18);
       }
     }
@@ -3189,7 +3213,7 @@ function renderSisters() {
 
     if (s.phase === 'warning') {
       ctx.fillStyle = `rgba(120,150,200,${alpha*0.3})`;
-      ctx.font = '11px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.font = '14px "Segoe UI"'; ctx.textAlign = 'center';
       ctx.fillText('⚠ Sister!', s.x, s.y-40);
       ctx.textAlign = 'left';
     }
@@ -3248,7 +3272,7 @@ function renderBedchamber() {
 function renderHUD() {
   // Oil
   ctx.fillStyle='rgba(0,0,0,0.65)'; rr(ctx,10,10,165,32,6); ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='15px "Segoe UI"'; ctx.textAlign='left';
   ctx.fillText('🛢️ OIL',18,30);
   ctx.fillStyle='rgba(255,255,255,0.08)'; rr(ctx,58,20,105,10,3); ctx.fill();
   const oilC = G.oil>50?'#ffd700':G.oil>25?'#f97316':'#ef4444';
@@ -3256,12 +3280,12 @@ function renderHUD() {
 
   // Room
   const roomNames = ['The Hall — Story Wall','The Chamber — Altar','The Inner Chamber'];
-  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='center';
+  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='15px "Segoe UI"'; ctx.textAlign='center';
   ctx.fillText(`Room ${G.roomIdx+1}: ${roomNames[G.roomIdx]||''}`, W/2, 22);
 
   // Inventory bar
   ctx.fillStyle='rgba(0,0,0,0.6)'; rr(ctx,5,42,Math.max(60, G.inventory.length*55+15),40,6); ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='8px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='14px "Segoe UI"'; ctx.textAlign='left';
   ctx.fillText('INVENTORY — drag to slots', 12, 52);
 
   G.inventory.forEach((item, i) => {
@@ -3277,7 +3301,7 @@ function renderHUD() {
 
   // Lives
   ctx.fillStyle='rgba(0,0,0,0.45)'; rr(ctx,10,H-32,120,22,6); ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='9px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='14px "Segoe UI"'; ctx.textAlign='left';
   ctx.fillText(`${G.totalHearts} lives remaining (no heart loss)`,18,H-17);
 
   ctx.textAlign='left';
@@ -4040,9 +4064,9 @@ function renderEncounter() {
 
   ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 16px "Segoe UI"'; ctx.textAlign = 'center';
   ctx.fillText(enc.prompt, W/2, H*0.6 + 15);
-  ctx.fillStyle = '#c8b88a'; ctx.font = '13px "Segoe UI"';
+  ctx.fillStyle = '#c8b88a'; ctx.font = '15px "Segoe UI"';
   ctx.fillText(enc.action, W/2, H*0.6 + 35);
-  ctx.fillStyle = 'rgba(255,215,100,0.5)'; ctx.font = '11px "Segoe UI"';
+  ctx.fillStyle = 'rgba(255,215,100,0.5)'; ctx.font = '14px "Segoe UI"';
   ctx.fillText('Click the correct item from your inventory (top-right) →', W/2, H*0.6 + 52);
   ctx.textAlign = 'left';
 }
@@ -4103,7 +4127,7 @@ function renderPersephoneScene() {
   } else if (t < 3.5) {
     ctx.fillStyle = '#f0d68a'; ctx.font = 'italic 16px "Segoe UI"';
     ctx.fillText('"You have come far, mortal."', W/2, H*0.65);
-    ctx.fillStyle = 'rgba(200,180,220,0.5)'; ctx.font = '13px "Segoe UI"';
+    ctx.fillStyle = 'rgba(200,180,220,0.5)'; ctx.font = '15px "Segoe UI"';
     ctx.fillText('She studies your face.', W/2, H*0.65 + 24);
   } else {
     ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 16px "Segoe UI"';
@@ -4239,7 +4263,7 @@ function renderCinematic() {
     ctx.fillStyle = `rgba(255,240,200,${Math.min(1,(t-4.5)/1.5)})`; ctx.font = 'italic 15px "Segoe UI"';
     ctx.fillText('"For enduring what no mortal should,', W/2, H/2-25);
     ctx.fillText('I grant you immortality."', W/2, H/2+5);
-    ctx.fillStyle = 'rgba(200,180,255,0.6)'; ctx.font = '13px "Segoe UI"';
+    ctx.fillStyle = 'rgba(200,180,255,0.6)'; ctx.font = '15px "Segoe UI"';
     ctx.fillText('Wings grow from Psyche\'s back.', W/2, H/2+35);
   }
   else if (phase === 3) {
@@ -4257,11 +4281,11 @@ function renderHUD() {
   ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(ctx, 10, 10, 100, 28, 6); ctx.fill();
   let hs = '';
   for (let i=0;i<4;i++) hs += i<G.hearts?'❤️':'🖤';
-  ctx.font = '13px "Segoe UI"'; ctx.textAlign = 'left'; ctx.fillText(hs, 18, 28);
+  ctx.font = '15px "Segoe UI"'; ctx.textAlign = 'left'; ctx.fillText(hs, 18, 28);
 
   // Lives remaining
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; rr(ctx, 10, 42, 100, 18, 4); ctx.fill();
-  ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = '8px "Segoe UI"';
+  ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = '14px "Segoe UI"';
   ctx.fillText(`${G.totalHearts} lives remaining`, 16, 54);
 
   // Descent progress
@@ -4276,14 +4300,14 @@ function renderHUD() {
     ctx.fillStyle = '#f0d68a';
     ctx.fillRect(W-54, 63 + barH, 33, 3);
     // Label
-    ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = '8px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = '14px "Segoe UI"'; ctx.textAlign = 'center';
     ctx.fillText(`${pct}%`, W-37, 55);
   }
 
   // Inventory
   if (G.phase === 'playing' || G.phase === 'encounter') {
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(ctx, W-120, 10, 110, 38, 6); ctx.fill();
-    ctx.font = '11px "Segoe UI"'; ctx.textAlign = 'left';
+    ctx.font = '14px "Segoe UI"'; ctx.textAlign = 'left';
     // Coins
     ctx.fillStyle = G.coins > 0 ? '#ffd700' : 'rgba(100,100,100,0.4)';
     ctx.fillText(`🪙 ×${G.coins}`, W-112, 26);
@@ -4295,7 +4319,7 @@ function renderHUD() {
     if (G.phase === 'encounter') {
       ctx.strokeStyle = 'rgba(255,215,100,0.4)'; ctx.lineWidth = 1.5;
       rr(ctx, W-120, 10, 110, 38, 6); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,215,100,0.5)'; ctx.font = '8px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,215,100,0.5)'; ctx.font = '14px "Segoe UI"'; ctx.textAlign = 'center';
       ctx.fillText('← click to offer', W-65, 56);
     }
   }
@@ -4303,13 +4327,13 @@ function renderHUD() {
   // Resist counter
   if (G.temptResisted > 0) {
     const ra = G.resistFlash > 0 ? 0.7 : 0.4;
-    ctx.fillStyle = `rgba(100,200,150,${ra})`; ctx.font = '10px "Segoe UI"'; ctx.textAlign = 'left';
+    ctx.fillStyle = `rgba(100,200,150,${ra})`; ctx.font = '15px "Segoe UI"'; ctx.textAlign = 'left';
     ctx.fillText(`✧ ${G.temptResisted} resisted`, 16, 76);
   }
 
   // Controls
   if (G.phase === 'playing' && G.scroll < 300) {
-    ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = '9px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = '14px "Segoe UI"'; ctx.textAlign = 'center';
     ctx.fillText('← → Arrow keys to dodge  ·  Don\'t click the temptations!', W/2, H - 15);
     ctx.textAlign = 'left';
   }
@@ -4430,8 +4454,8 @@ function renderComplete() {
 canvas.addEventListener('mousedown',(e)=>{
   const p=getPos(e);
   if(GAME.phase==='story'){
-    const btnY=H-60;
-    if(p.x>W/2-70&&p.x<W/2+70&&p.y>btnY&&p.y<btnY+40){
+    const btnY=H-55;
+    if(p.x>W/2-80&&p.x<W/2+80&&p.y>btnY&&p.y<btnY+42){
       const cb=GAME.storyCallback;GAME.storyCard=null;GAME.storyCallback=null;if(cb)cb();
     }
     return;
