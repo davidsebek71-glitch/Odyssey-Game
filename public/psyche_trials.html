@@ -212,8 +212,8 @@ function renderStoryCard() {
     ctx.fillText(l, W/2, textY + 28 + lineIdx * 22);
     lineIdx++;
   });
-  // Button at bottom
-  const btnY = H - 50;
+  // Button — moved up 15%
+  const btnY = H - 140;
   const p = .7 + Math.sin(GAME.elapsed*3) * .3;
   ctx.fillStyle='rgba(240,214,138,'+p*.12+')';rr(ctx,W/2-80,btnY,160,40,8);ctx.fill();
   ctx.strokeStyle='rgba(240,214,138,'+p*.5+')';ctx.lineWidth=1.5;rr(ctx,W/2-80,btnY,160,40,8);ctx.stroke();
@@ -386,23 +386,23 @@ const PILE_CX = 200, PILE_CY = 350;
 // Path is an array of waypoints ants follow
 const PATH = [
   {x: 200, y: 500},   // Start: bottom of pile
-  {x: 300, y: 520},   // Curve right along bottom
-  {x: 420, y: 510},   // Approach sort zone
-  {x: 500, y: 480},   // SORT ZONE START — this is where player must act
-  {x: 540, y: 430},   // Sort zone middle
-  {x: 560, y: 370},   // Sort zone end — past here = missed
-  {x: 580, y: 300},   // Exit path (missed ants continue here)
+  {x: 320, y: 520},   // Curve right along bottom
+  {x: 430, y: 500},   // Approach sort zone
+  {x: 480, y: 440},   // SORT ZONE START — archway here
+  {x: 510, y: 370},   // Sort zone middle
+  {x: 520, y: 300},   // Sort zone end — past here = missed
+  {x: 530, y: 230},   // Exit path (missed ants continue here)
 ];
 
 // Sort zone: segment index 3-5 of the path
 const SORT_ZONE_START = 3;
 const SORT_ZONE_END = 5;
 
-// Bins positioned along the right side
-const BIN_X = 615;
-const BIN_START_Y = 100;
-const BIN_SPACING = 125;
-const BIN_W = 90, BIN_H = 75;
+// Bins positioned along the right side — clear of path (path max x = 530)
+const BIN_X = 610;
+const BIN_START_Y = 110;
+const BIN_SPACING = 105;
+const BIN_W = 65, BIN_H = 55;
 
 // ============================================================
 // STATE
@@ -584,71 +584,59 @@ function drawAnt(x, y, seedType, seedSize, heading, wigglePhase, alpha) {
   ctx.rotate(heading);
   ctx.globalAlpha = alpha || 1;
 
-  // Single large programmatic ant — ~80px long total
-  // (ants_marching.png is a multi-ant sprite sheet, not suitable for single ant rendering)
+  // Single programmatic ant — ~40px long
 
-  // Subtle ground shadow
+  // Ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
-  ctx.beginPath(); ctx.ellipse(0, 4, 28, 8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 2, 14, 4, 0, 0, Math.PI*2); ctx.fill();
 
-  // Abdomen (back, largest segment)
+  // Abdomen (back)
   ctx.fillStyle = '#4a2a10';
-  ctx.beginPath(); ctx.ellipse(-24, 0, 18, 12, 0, 0, Math.PI*2); ctx.fill();
-  // Abdomen highlight
+  ctx.beginPath(); ctx.ellipse(-12, 0, 9, 6, 0, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#6a4a20';
-  ctx.beginPath(); ctx.ellipse(-22, -3, 12, 7, -0.2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-11, -1.5, 6, 3.5, -0.2, 0, Math.PI*2); ctx.fill();
 
-  // Thorax (middle segment)
+  // Thorax (middle)
   ctx.fillStyle = '#5a3a18';
-  ctx.beginPath(); ctx.ellipse(-2, 0, 12, 9, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-1, 0, 6, 4.5, 0, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#6a4a22';
-  ctx.beginPath(); ctx.ellipse(-1, -2, 8, 5, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-0.5, -1, 4, 2.5, 0, 0, Math.PI*2); ctx.fill();
 
   // Head (front)
   ctx.fillStyle = '#6a4a20';
-  ctx.beginPath(); ctx.ellipse(16, 0, 10, 8, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(8, 0, 5, 4, 0, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#7a5a28';
-  ctx.beginPath(); ctx.ellipse(17, -2, 6, 4, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(8.5, -1, 3, 2, 0, 0, Math.PI*2); ctx.fill();
 
   // Eyes
   ctx.fillStyle = '#111';
-  ctx.beginPath(); ctx.arc(22, -3, 2, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(22, 3, 2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11, -1.5, 1, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11, 1.5, 1, 0, Math.PI*2); ctx.fill();
 
   // Mandibles
-  ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(24, -4); ctx.lineTo(30, -8); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(24, 4); ctx.lineTo(30, 8); ctx.stroke();
+  ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(12, -2); ctx.lineTo(15, -4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12, 2); ctx.lineTo(15, 4); ctx.stroke();
 
-  // Legs — 3 pairs, animated walk cycle
-  ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 2;
-  const legPositions = [-20, -2, 14];
-  legPositions.forEach((lx, i) => {
-    const phase = wigglePhase + i * 2.2;
-    const swing = Math.sin(phase) * 5;
-    // Top legs
-    ctx.beginPath();
-    ctx.moveTo(lx, -10);
-    ctx.lineTo(lx - swing, -24);
-    ctx.stroke();
-    // Bottom legs
-    ctx.beginPath();
-    ctx.moveTo(lx, 10);
-    ctx.lineTo(lx + swing, 24);
-    ctx.stroke();
+  // Legs — 3 pairs
+  ctx.strokeStyle = '#4a2a10'; ctx.lineWidth = 1;
+  [-10, -1, 7].forEach((lx, i) => {
+    const swing = Math.sin(wigglePhase + i * 2.2) * 2.5;
+    ctx.beginPath(); ctx.moveTo(lx, -5); ctx.lineTo(lx - swing, -12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(lx, 5); ctx.lineTo(lx + swing, 12); ctx.stroke();
   });
 
-  // Antennae — curved, animated
-  const aw = Math.sin(wigglePhase * 0.7) * 4;
-  ctx.strokeStyle = '#5a3a18'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(24, -5);
-  ctx.quadraticCurveTo(34, -14+aw, 40, -18+aw); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(24, 5);
-  ctx.quadraticCurveTo(34, 14-aw, 40, 18-aw); ctx.stroke();
+  // Antennae
+  const aw = Math.sin(wigglePhase * 0.7) * 2;
+  ctx.strokeStyle = '#5a3a18'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(12, -2.5);
+  ctx.quadraticCurveTo(17, -7+aw, 20, -9+aw); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(12, 2.5);
+  ctx.quadraticCurveTo(17, 7-aw, 20, 9-aw); ctx.stroke();
 
-  // Carried seed — centered above thorax
+  // Carried seed above thorax
   if (seedType !== undefined && seedType >= 0) {
-    drawSeed(0, -26, seedType, (seedSize||7)*1.0, 0, 0.92);
+    drawSeed(0, -13, seedType, (seedSize||7)*0.7, 0, 0.92);
   }
 
   ctx.restore();
@@ -1043,15 +1031,34 @@ function render() {
   }
   ctx.stroke();
 
-  // Sort zone gate markers
-  ctx.fillStyle = 'rgba(100,220,120,0.4)';
-  ctx.beginPath(); ctx.arc(szStart.x, szStart.y, 6, 0, Math.PI*2); ctx.fill();
+  // Sort zone archway at entrance
+  const archSpr = sprites['sort_zone'];
+  if (archSpr) {
+    const archW = 60, archH = 60;
+    ctx.drawImage(archSpr, szStart.x - archW/2, szStart.y - archH + 10, archW, archH);
+  } else {
+    // Programmatic archway
+    ctx.strokeStyle = 'rgba(140,200,140,0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(szStart.x, szStart.y, 18, Math.PI, 0);
+    ctx.stroke();
+    // Pillars
+    ctx.fillStyle = 'rgba(120,180,120,0.3)';
+    ctx.fillRect(szStart.x - 18, szStart.y - 4, 5, 20);
+    ctx.fillRect(szStart.x + 13, szStart.y - 4, 5, 20);
+  }
+
+  // Exit gate marker
+  ctx.fillStyle = 'rgba(200,100,100,0.3)';
   ctx.beginPath(); ctx.arc(PATH[SORT_ZONE_END].x, PATH[SORT_ZONE_END].y, 6, 0, Math.PI*2); ctx.fill();
 
-  // Sort zone label
-  ctx.fillStyle = 'rgba(100,220,120,0.45)';
-  ctx.font = 'bold 15px "Segoe UI"'; ctx.textAlign = 'center';
-  ctx.fillText('⬇ SORT ZONE — click a bin! ⬇', 530, 455);
+  // Sort zone label — positioned along the path
+  ctx.fillStyle = 'rgba(100,220,120,0.5)';
+  ctx.font = 'bold 14px "Segoe UI"'; ctx.textAlign = 'center';
+  ctx.fillText('SORT ZONE', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2);
+  ctx.font = '12px "Segoe UI"';
+  ctx.fillText('click a bin!', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2 + 16);
   ctx.textAlign = 'left';
 
   // === PILE SHADOW ===
@@ -1228,23 +1235,23 @@ function renderBins() {
     }
 
     // === LABEL BELOW BIN ===
-    const labelY = b.y + b.h/2 + 6;
+    const labelY = b.y + b.h/2 + 4;
 
     // Dark label background
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    rr(ctx, b.x - b.w/2, labelY, b.w, 28, 5); ctx.fill();
+    rr(ctx, b.x - b.w/2 - 2, labelY, b.w + 4, 22, 4); ctx.fill();
 
-    // Seed sample icon — small, left of name
-    drawSeed(b.x - 30, labelY + 14, b.type, 8, 0, 0.95);
+    // Seed color dot (not full drawSeed — too big)
+    ctx.fillStyle = S.fill;
+    ctx.beginPath(); ctx.arc(b.x - 22, labelY + 11, 4, 0, Math.PI*2); ctx.fill();
 
     // Name
-    ctx.fillStyle = S.fill;
-    ctx.font = 'bold 15px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText(S.name, b.x + 5, labelY + 18);
+    ctx.font = 'bold 13px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(S.name, b.x + 2, labelY + 15);
 
-    // Count — right side
-    ctx.fillStyle = 'rgba(200,180,140,0.5)'; ctx.font = '13px "Segoe UI"';
-    ctx.fillText(`×${b.count}`, b.x + 38, labelY + 18);
+    // Count
+    ctx.fillStyle = 'rgba(200,180,140,0.5)'; ctx.font = '11px "Segoe UI"';
+    ctx.fillText(`${b.count}`, b.x + 30, labelY + 15);
 
     // Jam indicator
     if (G.jammedBin===i) {
@@ -4519,7 +4526,7 @@ function renderComplete() {
 canvas.addEventListener('mousedown',(e)=>{
   const p=getPos(e);
   if(GAME.phase==='story'){
-    const btnY=H-50;
+    const btnY=H-140;
     if(p.x>W/2-80&&p.x<W/2+80&&p.y>btnY&&p.y<btnY+40){
       const cb=GAME.storyCallback;GAME.storyCard=null;GAME.storyCallback=null;if(cb)cb();
     }
