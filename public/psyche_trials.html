@@ -1,0 +1,4495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Trials of Psyche</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a12;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;overflow:hidden}
+#game-container{position:relative;width:680px;height:600px;background:#000;border:2px solid #333;border-radius:4px;overflow:hidden;user-select:none;-webkit-user-select:none}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#game-container.shake{animation:shake .3s ease-out}
+@keyframes shake{0%,100%{transform:translate(0)}20%{transform:translate(-4px,2px)}40%{transform:translate(3px,-2px)}60%{transform:translate(-2px,1px)}80%{transform:translate(2px,-1px)}}
+.float-text{position:absolute;pointer-events:none;z-index:80;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.9);animation:floatUp 1s ease-out forwards}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0)}50%{opacity:1;transform:translateY(-18px)}100%{opacity:0;transform:translateY(-36px)}}
+.whisper-text{position:absolute;pointer-events:none;z-index:75;font-style:italic;font-size:14px;text-shadow:0 0 8px rgba(80,120,160,.5);animation:whisperFade 3.5s ease-out forwards}
+@keyframes whisperFade{0%{opacity:0}15%{opacity:1}70%{opacity:.8}100%{opacity:0}}
+.reed-msg{position:absolute;bottom:55px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:70;font-size:14px;font-style:italic;color:rgba(120,180,100,.8);text-shadow:0 1px 6px rgba(0,0,0,.9);animation:reedFade 2.2s ease-out forwards}
+@keyframes reedFade{0%{opacity:0;transform:translateX(-50%) translateY(5px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}75%{opacity:1}100%{opacity:0}}
+.resist-shimmer{position:absolute;pointer-events:none;z-index:70;font-size:12px;color:rgba(100,200,150,.7);text-shadow:0 0 6px rgba(80,180,120,.4);animation:shimmer 1.5s ease-out forwards}
+@keyframes shimmer{0%{opacity:0}20%{opacity:1}80%{opacity:.6}100%{opacity:0;transform:translateY(-15px)}}
+.charge-flash{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(200,40,20,.18);pointer-events:none;z-index:60;animation:flashOut .5s ease-out forwards}
+@keyframes flashOut{0%{opacity:1}100%{opacity:0}}
+#loading-screen{position:absolute;top:0;left:0;width:100%;height:100%;background:#0a0a12;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;transition:opacity .5s}
+</style>
+</head>
+<body>
+<div id="game-container">
+<canvas id="c" width="680" height="600"></canvas>
+<div id="loading-screen">
+  <div style="font-size:20px;color:#f0d68a;letter-spacing:2px;margin-bottom:12px">THE TRIALS OF PSYCHE</div>
+  <div style="width:200px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden">
+    <div id="loadBar" style="width:0%;height:100%;background:#f0d68a;border-radius:2px;transition:width .3s"></div>
+  </div>
+</div>
+</div>
+<script>
+// ================================================================
+// THE TRIALS OF PSYCHE — Combined Game
+// Portal 6: Eros & Psyche myth
+// Canvas: 680x600 | Return: student.html?openPortal=6
+// ================================================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 680, H = 600;
+const container = document.getElementById('game-container');
+const urlParams = new URLSearchParams(window.location.search);
+const token = urlParams.get('token');
+
+// ================================================================
+// SPRITES
+// ================================================================
+const IMG_BASE = '/images/classical/Psyche/';
+const sprites = {};
+let spritesLoaded = 0, spritesTotal = 0;
+function loadSprite(n, f) {
+  spritesTotal++;
+  const img = new Image();
+  img.onload = () => {
+    const tc = document.createElement('canvas');
+    tc.width=img.width;tc.height=img.height;
+    const tx=tc.getContext('2d');tx.drawImage(img,0,0);
+    const d=tx.getImageData(0,0,tc.width,tc.height);
+    for(let i=0;i<d.data.length;i+=4)
+      if(d.data[i]>=230&&d.data[i+1]<=30&&d.data[i+2]>=230) d.data[i+3]=0;
+    tx.putImageData(d,0,0);
+    sprites[n]=tc;spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';
+  };
+  img.onerror=()=>{spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';};
+  img.src=IMG_BASE+f;
+}
+loadSprite('seed_types','seed_types.png');
+loadSprite('sorting_bins','sorting_bins.png');
+loadSprite('ants_marching','ants_marching.png');
+loadSprite('ram_graze','golden_ram_grazing.png');
+loadSprite('ram_alert','golden_ram_alert.png');
+loadSprite('ram_charge','golden_ram_charging.png');
+loadSprite('wool','golden_wool_tuft.png');
+loadSprite('reed','reed_river.png');
+loadSprite('psyche','Psyche_Standing.png');
+loadSprite('psyche_lamp','Psyche_Lamp.png');
+loadSprite('sister','Psyche_Sister.png');
+loadSprite('eros_sleep','Eros_Sleeping.png');
+loadSprite('eros_fly','Eros_Flying.png');
+loadSprite('psyche_wing','Psyche_Winged.png');
+loadSprite('charon','Charon.png');
+loadSprite('cerberus','Cerberus.png');
+loadSprite('persephone','Persephone.png');
+loadSprite('box','persephones_box.png');
+loadSprite('hand','ghostly_claw.png');
+loadSprite('feast','golden_feast.png');
+loadSprite('coins','glittering_coins.png');
+loadSprite('soul','soul_crying.png');
+loadSprite('zeus','Zeus.png');
+loadSprite('aphrodite','Aphrodite.png');
+loadSprite('scene_intro','scene_aphrodite_on_throne.png');
+loadSprite('scene_rams','scene_golden_rams_sunset.png');
+loadSprite('scene_palace','scene_dark_palace.png');
+loadSprite('scene_descent','scene_underworld_descent.png');
+loadSprite('scene_rescue','scene_rescue_and_ascension.png');
+loadSprite('scene_ascend','scene_psyche_ascension.png');
+
+// ================================================================
+// SHARED HELPERS
+// ================================================================
+const keys = {};
+document.addEventListener('keydown',e=>{keys[e.key]=true;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+function spawnP(x,y,n,c){for(let i=0;i<n;i++)GAME.particles.push({x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1,life:.5+Math.random()*.3,ml:.7,color:c,size:2+Math.random()*2});}
+function showFloat(x,y,t,c,sz){const el=document.createElement('div');el.className='float-text';el.textContent=t;el.style.left=Math.max(5,Math.min(W-180,x-50))+'px';el.style.top=y+'px';el.style.color=c;el.style.fontSize=(sz||13)+'px';container.appendChild(el);setTimeout(()=>el.remove(),1000);}
+function shake(){container.classList.add('shake');setTimeout(()=>container.classList.remove('shake'),300);}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
+function lerpC(a,b,t){const f=(s,i)=>parseInt(s.slice(i,i+2),16);const r=Math.round(f(a,1)+(f(b,1)-f(a,1))*t);const g=Math.round(f(a,3)+(f(b,3)-f(a,3))*t);const bl=Math.round(f(a,5)+(f(b,5)-f(a,5))*t);return'#'+r.toString(16).padStart(2,'0')+g.toString(16).padStart(2,'0')+bl.toString(16).padStart(2,'0');}
+function getPos(e){const rect=canvas.getBoundingClientRect();const raw=e.touches?e.touches[0]:e;return{x:(raw.clientX-rect.left)*(W/rect.width),y:(raw.clientY-rect.top)*(H/rect.height)};}
+function drawHearts(){
+  ctx.fillStyle='rgba(0,0,0,.55)';rr(ctx,10,10,130,40,6);ctx.fill();
+  let hs='';for(let i=0;i<4;i++)hs+=i<GAME.hearts?'\u2764\uFE0F':'\u{1F5A4}';
+  ctx.font='13px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,18,28);
+  ctx.fillStyle='rgba(200,180,140,.4)';ctx.font='9px "Segoe UI"';
+  ctx.fillText(GAME.totalHearts+' lives remaining',18,44);ctx.textAlign='left';
+}
+function getSeedRegion(type){const spr=sprites['seed_types'];if(!spr)return null;const cw=Math.floor(spr.width/2),ch=Math.floor(spr.height/2);return{sx:(type%2)*cw,sy:Math.floor(type/2)*ch,sw:cw,sh:ch};}
+
+// ================================================================
+// MASTER GAME STATE
+// ================================================================
+const GAME = {
+  phase: 'loading', // loading|story|trial1|trial2|trial3|trial4|cinematic|results
+  totalHearts: 10,
+  hearts: 4,
+  elapsed: 0,
+  particles: [],
+  virtues: { precision:{score:0,rating:''}, patience:{score:0,rating:''}, trust:{score:0,rating:''}, resolve:{score:0,rating:''} },
+  starRating: 0,
+  boxChoice: null,
+  storyCard: null,
+  storyCallback: null,
+  cinematicTimer: 0,
+  cinematicPhase: 0,
+  // Active trial module
+  trial: null
+};
+
+function loseHeart() {
+  GAME.hearts--;
+  GAME.totalHearts--;
+  shake();
+  if (GAME.hearts <= 0 && GAME.totalHearts > 0) {
+    GAME.hearts = Math.min(4, GAME.totalHearts);
+    return 'restart';
+  }
+  if (GAME.totalHearts <= 0) return 'gameover';
+  return 'ok';
+}
+
+// ================================================================
+// STORY CARDS
+// ================================================================
+const STORIES = {
+  intro:{title:'The Trials of Psyche',text:'Eros is gone. Aphrodite, furious that a mortal dared to\nlove her son, declares Psyche must complete four\nimpossible tasks to prove her worth.\n\n"If you truly love him," Aphrodite says, "then survive this."',scene:'scene_intro',btn:'Begin the Trials'},
+  toRams:{title:'The Golden Rams',text:'"Your next task," Aphrodite sneers.\n"Bring me golden wool from the rams of Helios.\nThey will crush anyone foolish enough to approach."\n\nA river reed whispers: "Wait. Be patient.\nWhen the rams rest, the wool catches on the thorns."',scene:'scene_rams',btn:'Enter the Field'},
+  toPalace:{title:'The Dark Palace',text:'Aphrodite demands proof of Eros\'s divine nature.\nPsyche returns to the palace where she once lived with Eros.\n\nThe halls are dark now. She lights her oil lamp\nand steps inside. But her sisters are waiting,\nwhispering lies in the shadows.',scene:'scene_palace',btn:'Enter the Palace'},
+  toDescent:{title:'The Underworld',text:'"One final task," Aphrodite says.\n"Descend to the Underworld.\nAsk Persephone for a box of divine beauty."\n\n"Do not stop. Do not help anyone. Do not look back."\n\nPsyche takes two coins and two barley cakes.\nShe begins the descent.',scene:'scene_descent',btn:'Begin the Descent'}
+};
+
+function showStory(key, cb) { GAME.storyCard = STORIES[key]; GAME.storyCallback = cb; GAME.phase = 'story'; }
+
+function renderStoryCard() {
+  const s = GAME.storyCard; if (!s) return;
+  ctx.fillStyle='rgba(0,0,0,.92)';ctx.fillRect(0,0,W,H);
+  const spr=sprites[s.scene];let textY=80;
+  if(spr){const iw=280,ih=iw*(spr.height/spr.width);ctx.globalAlpha=.65;ctx.drawImage(spr,W/2-iw/2,15,iw,ih);ctx.globalAlpha=1;textY=Math.min(200,15+ih+10);}
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 20px "Segoe UI"';ctx.fillText(s.title,W/2,textY);
+  ctx.fillStyle='#c8b88a';ctx.font='13px "Segoe UI"';
+  s.text.split('\n').forEach((l,i)=>{ctx.fillText(l,W/2,textY+28+i*20);});
+  const btnY=H-60;const p=.7+Math.sin(GAME.elapsed*3)*.3;
+  ctx.fillStyle='rgba(240,214,138,'+p*.12+')';rr(ctx,W/2-70,btnY,140,40,8);ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,'+p*.5+')';ctx.lineWidth=1.5;rr(ctx,W/2-70,btnY,140,40,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';ctx.fillText(s.btn,W/2,btnY+25);
+  ctx.textAlign='left';
+}
+
+// ================================================================
+// TRIAL FLOW
+// ================================================================
+function startTrial(num) {
+  GAME.phase = 'trial'+num;
+  GAME.hearts = Math.min(4, GAME.totalHearts);
+  if (num===1) { GAME.trial = Trial1; Trial1.init(); }
+  if (num===2) { GAME.trial = Trial2; Trial2.init(); }
+  if (num===3) { GAME.trial = Trial3; Trial3.init(); }
+  if (num===4) { GAME.trial = Trial4; Trial4.init(); }
+}
+
+function trialComplete(num, virtueKey, virtueData) {
+  GAME.virtues[virtueKey] = virtueData;
+  if (num===1) showStory('toRams', ()=>startTrial(2));
+  else if (num===2) showStory('toPalace', ()=>startTrial(3));
+  else if (num===3) showStory('toDescent', ()=>startTrial(4));
+  else if (num===4) { GAME.boxChoice = virtueData.boxChoice; startCinematic(); }
+}
+
+// ================================================================
+// CINEMATIC ENDING
+// ================================================================
+function startCinematic() { GAME.phase='cinematic'; GAME.cinematicTimer=0; GAME.cinematicPhase=0; }
+
+function updateCinematicEnd(dt) {
+  GAME.cinematicTimer+=dt;
+  if(GAME.cinematicTimer>2.5&&GAME.cinematicPhase===0) GAME.cinematicPhase=1;
+  if(GAME.cinematicTimer>5.5&&GAME.cinematicPhase===1) GAME.cinematicPhase=2;
+  if(GAME.cinematicTimer>8.5&&GAME.cinematicPhase===2) GAME.cinematicPhase=3;
+  if(GAME.cinematicTimer>11) showResults();
+}
+
+function renderCinematicEnd() {
+  const t=GAME.cinematicTimer,p=GAME.cinematicPhase;
+  const lt=Math.min(1,t/10);
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,lerpC('#080a16','#3a2858',lt));
+  bg.addColorStop(1,lerpC('#0a0c18','#c8943a',lt));
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  if(p===0){
+    if(GAME.boxChoice){ctx.fillStyle='rgba(200,170,220,.8)';ctx.font='italic 15px "Segoe UI"';ctx.fillText('Psyche opens the box. Sleep pours out...',W/2,H/2);}
+    else{ctx.fillStyle='rgba(200,170,220,.7)';ctx.font='italic 15px "Segoe UI"';ctx.fillText('Psyche resists. But the box trembles...',W/2,H/2-15);if(t>1.5)ctx.fillText('Fate is not so easily denied. The box opens on its own.',W/2,H/2+15);}
+  }else if(p===1){
+    ctx.fillStyle='rgba(255,215,100,'+Math.min(1,(t-2.5)/2)+')';ctx.font='italic 15px "Segoe UI"';
+    ctx.fillText('Eros, healed by love, descends from the sky.',W/2,H/2-20);
+    ctx.fillText('He wipes the sleep from her eyes.',W/2,H/2+10);
+  }else if(p===2){
+    ctx.fillStyle='rgba(255,240,200,'+Math.min(1,(t-5.5)/1.5)+')';ctx.font='italic 15px "Segoe UI"';
+    ctx.fillText('"For enduring what no mortal should,',W/2,H/2-25);
+    ctx.fillText('I grant you immortality."',W/2,H/2+5);
+    ctx.fillStyle='rgba(200,180,255,.6)';ctx.font='13px "Segoe UI"';
+    ctx.fillText('Wings grow from Psyche\'s back.',W/2,H/2+35);
+  }else{ctx.fillStyle='#f0d68a';ctx.font='bold 20px "Segoe UI"';ctx.fillText('Love endures.',W/2,H/2);}
+  ctx.textAlign='left';
+}
+
+// ================================================================
+// RESULTS
+// ================================================================
+function showResults() {
+  GAME.phase='results';
+  const r=Object.values(GAME.virtues).map(v=>v.rating);
+  const exc=r.filter(x=>x==='Excellent').length;
+  const good=r.filter(x=>x==='Excellent'||x==='Good').length;
+  GAME.starRating=exc===4&&GAME.totalHearts>=8?4:good===4?3:good>=3?2:1;
+}
+
+function renderResults() {
+  ctx.fillStyle='rgba(5,5,15,.95)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';ctx.fillText('TRIALS COMPLETE',W/2,55);
+  const stars='\u2B50'.repeat(GAME.starRating)+(GAME.starRating===4?'\u2728':'');
+  ctx.font='28px "Segoe UI"';ctx.fillText(stars,W/2,90);
+  const vd=[{i:'\u2696\uFE0F',n:'Precision',k:'precision'},{i:'\u{1F54A}\uFE0F',n:'Patience',k:'patience'},{i:'\u{1F526}',n:'Trust',k:'trust'},{i:'\u{1F6E1}\uFE0F',n:'Resolve',k:'resolve'}];
+  const rc={Excellent:'#4ade80',Good:'#60a5fa',Fair:'#fbbf24','Needs Work':'#f87171'};
+  vd.forEach((v,i)=>{
+    const d=GAME.virtues[v.k],y=120+i*55;
+    ctx.fillStyle='rgba(255,255,255,.05)';rr(ctx,100,y,480,45,6);ctx.fill();
+    ctx.textAlign='left';ctx.font='18px "Segoe UI"';ctx.fillText(v.i,115,y+28);
+    ctx.fillStyle='#c8b88a';ctx.font='13px "Segoe UI"';ctx.fillText(v.n,145,y+28);
+    ctx.textAlign='right';ctx.fillStyle=rc[d.rating]||'#888';ctx.font='bold 13px "Segoe UI"';ctx.fillText(d.rating||'—',560,y+28);
+  });
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(200,180,140,.4)';ctx.font='12px "Segoe UI"';
+  ctx.fillText('Hearts remaining: '+GAME.totalHearts+'/10  |  Box: '+(GAME.boxChoice?'Opened':'Carried Sealed'),W/2,365);
+  // Submit button
+  ctx.fillStyle='rgba(74,222,128,.12)';rr(ctx,W/2-100,400,200,42,8);ctx.fill();
+  ctx.strokeStyle='rgba(74,222,128,.4)';ctx.lineWidth=1.5;rr(ctx,W/2-100,400,200,42,8);ctx.stroke();
+  ctx.fillStyle='#4ade80';ctx.font='bold 15px "Segoe UI"';ctx.fillText('Choose Your Assignment \u2192',W/2,426);
+  ctx.textAlign='left';
+}
+
+async function submitResults() {
+  if(token){try{await fetch(window.location.origin+'/api/student/psyche-complete',{
+    method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify({completed:true,heartsRemaining:GAME.totalHearts,virtues:GAME.virtues,starRating:GAME.starRating,boxChoice:GAME.boxChoice})
+  });}catch(e){console.error(e);}}
+  window.location.href='/student.html?openPortal=6'+(token?'&token='+token:'');
+}
+
+// ================================================================
+// TRIAL 1: SORTING THE SEEDS
+// ================================================================
+const Trial1 = (function(){
+
+
+// ============================================================
+// SPRITE SYSTEM
+// ============================================================
+
+
+// Load sprites
+
+// Extract a sub-region from a sprite sheet
+function drawSprite(spriteName, sx, sy, sw, sh, dx, dy, dw, dh, alpha) {
+  const spr = sprites[spriteName];
+  if (!spr) return false;
+  ctx.globalAlpha = alpha !== undefined ? alpha : 1;
+  ctx.drawImage(spr, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.globalAlpha = 1;
+  return true;
+}
+
+// Seed sprite regions: seed_types.png is a 2x2 grid
+// Order: top-left=Barley(0), top-right=Lentil(1), bottom-left=Poppy(2), bottom-right=Millet(3)
+// We'll detect the grid size from the loaded image
+function getSeedRegion(type) {
+  const spr = sprites['seed_types'];
+  if (!spr) return null;
+  const cellW = Math.floor(spr.width / 2);
+  const cellH = Math.floor(spr.height / 2);
+  const col = type % 2;
+  const row = Math.floor(type / 2);
+  return { sx: col * cellW, sy: row * cellH, sw: cellW, sh: cellH };
+}
+
+// ============================================================
+// SEEDS
+// ============================================================
+const SEEDS = [
+  { name:'Barley', fill:'#D4A017', dark:'#9e7a10', hi:'#f0d68a', shape:'elongated' },
+  { name:'Lentil', fill:'#8B4513', dark:'#5c2e0a', hi:'#a0522d', shape:'round' },
+  { name:'Poppy',  fill:'#4a4a6a', dark:'#2a2a45', hi:'#6a6a8a', shape:'cluster' },
+  { name:'Millet', fill:'#6B8E23', dark:'#4a6318', hi:'#8fb832', shape:'oval' }
+];
+
+// ============================================================
+// CONFIG
+// ============================================================
+const TOTAL_TIME = 120;
+const ROUNDS = [
+  { types:2, target:0, seedCount:45, squads:2, antSpeed:0.55, label:'Two seed types' },
+  { types:3, target:2, seedCount:55, squads:2, antSpeed:0.65, label:'Three types' },
+  { types:4, target:3, seedCount:65, squads:3, antSpeed:0.75, label:'All four types' }
+];
+
+// Layout
+const HORIZON_Y = 90;
+const PILE_CX = 200, PILE_CY = 350;
+
+// Ant march path: from pile area, curves right to the sort zone, then past bins
+// Path is an array of waypoints ants follow
+const PATH = [
+  {x: 200, y: 500},   // Start: bottom of pile
+  {x: 300, y: 520},   // Curve right along bottom
+  {x: 420, y: 510},   // Approach sort zone
+  {x: 500, y: 480},   // SORT ZONE START — this is where player must act
+  {x: 540, y: 430},   // Sort zone middle
+  {x: 560, y: 370},   // Sort zone end — past here = missed
+  {x: 580, y: 300},   // Exit path (missed ants continue here)
+];
+
+// Sort zone: segment index 3-5 of the path
+const SORT_ZONE_START = 3;
+const SORT_ZONE_END = 5;
+
+// Bins positioned along the right side
+const BIN_X = 620;
+const BIN_START_Y = 160;
+const BIN_SPACING = 90;
+const BIN_W = 80, BIN_H = 65;
+
+// ============================================================
+// STATE
+// ============================================================
+  let G = {};
+function freshState() {
+  return {
+    phase: 'tutorial',
+    round: 0,
+    seeds: [],
+    // Ant squads collecting from pile
+    collectors: [],   // Ants going TO seeds
+    maxSquads: 2,
+    activeSquads: 0,
+    // March line: ants returning with seeds
+    marchers: [],     // { type, isTarget, pathProgress, speed, wiggle, sortState, deliverBin, deliverProgress }
+    // Bins
+    bins: [],
+    targetType: 0,
+    // Drawing
+    drawing: false, drawStart: null, drawCurrent: null,
+    // Scoring
+    sorted: 0, needed: 0,
+    correctSorts: 0, wrongSorts: 0, missedSorts: 0,
+    totalDeploys: 0, goodDeploys: 0, badDeploys: 0,
+    // Timer
+    timeLeft: TOTAL_TIME, totalTime: TOTAL_TIME,
+    // Hearts
+    hearts: 4,
+    // Global
+    globalSorted: 0, globalNeeded: 0,
+    elapsed: 0, particles: [],
+    // Jam
+    jammedBin: -1, jamTimer: 0,
+    // Transition
+    transitionTimer: 0
+  };
+}
+
+// ============================================================
+// PATH HELPERS
+// ============================================================
+function getPathPos(progress) {
+  // progress: 0 to 1 along the full path
+  const totalSegs = PATH.length - 1;
+  const seg = Math.min(totalSegs - 1, Math.floor(progress * totalSegs));
+  const t = (progress * totalSegs) - seg;
+  const a = PATH[seg], b = PATH[Math.min(seg + 1, PATH.length - 1)];
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    seg: seg
+  };
+}
+
+function isInSortZone(progress) {
+  const totalSegs = PATH.length - 1;
+  const seg = progress * totalSegs;
+  return seg >= SORT_ZONE_START && seg <= SORT_ZONE_END;
+}
+
+function isPastSortZone(progress) {
+  const totalSegs = PATH.length - 1;
+  return progress * totalSegs > SORT_ZONE_END;
+}
+
+// ============================================================
+// SEED GENERATION
+// ============================================================
+function generatePile(seedCount, typeCount, targetIdx) {
+  const seeds = [];
+  const targetCount = Math.floor(seedCount * 0.36);
+  const otherCount = seedCount - targetCount;
+  const otherTypes = [];
+  for (let i = 0; i < typeCount; i++) if (i !== targetIdx) otherTypes.push(i);
+
+  for (let i = 0; i < targetCount; i++) seeds.push(makeSeed(targetIdx, true));
+  for (let i = 0; i < otherCount; i++)
+    seeds.push(makeSeed(otherTypes[i % otherTypes.length], false));
+
+  // Shuffle
+  for (let i = seeds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
+  }
+
+  // Cluster target seeds
+  const clusters = [];
+  for (let c = 0; c < 3; c++) clusters.push({
+    x: PILE_CX + (Math.random()-0.5)*180,
+    y: PILE_CY + (Math.random()-0.5)*140
+  });
+  seeds.forEach(s => {
+    if (s.isTarget && Math.random() < 0.5) {
+      const cc = clusters[Math.floor(Math.random()*clusters.length)];
+      s.x = s.x*0.35 + cc.x*0.65 + (Math.random()-0.5)*25;
+      s.y = s.y*0.35 + cc.y*0.65 + (Math.random()-0.5)*20;
+    }
+    s.x = Math.max(50, Math.min(380, s.x));
+    s.y = Math.max(160, Math.min(520, s.y));
+  });
+  return { seeds, targetCount };
+}
+
+function makeSeed(type, isTarget) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = Math.pow(Math.random(), 0.55) * 140;
+  return {
+    type, isTarget,
+    x: PILE_CX + Math.cos(angle)*dist + (Math.random()-0.5)*30,
+    y: PILE_CY + Math.sin(angle)*dist*0.65 + (Math.random()-0.5)*25,
+    size: (type===2?5:7) + Math.random()*2,
+    rot: Math.random()*Math.PI*2,
+    collected: false, collecting: false, opacity: 1
+  };
+}
+
+// ============================================================
+// DRAW SEED
+// ============================================================
+function drawSeed(x, y, type, size, rot, alpha) {
+  // Try sprite first
+  const region = getSeedRegion(type);
+  if (region) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.globalAlpha = alpha;
+    const drawSize = size * 2;
+    ctx.drawImage(sprites['seed_types'],
+      region.sx, region.sy, region.sw, region.sh,
+      -drawSize/2, -drawSize/2, drawSize, drawSize);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    return;
+  }
+
+  // Programmatic fallback
+  const S = SEEDS[type]; ctx.save();
+  ctx.translate(x,y); ctx.rotate(rot); ctx.globalAlpha = alpha;
+  if (S.shape==='elongated') {
+    ctx.fillStyle=S.fill;
+    ctx.beginPath();ctx.ellipse(0,0,size*1.4,size*0.5,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=S.dark;ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.ellipse(0,0,size*1.4,size*0.5,0,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle=S.hi;ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(-size*0.4,-1);ctx.lineTo(size*0.4,-1.5);ctx.stroke();
+    ctx.strokeStyle=S.dark;ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(size*1.2,0);ctx.lineTo(size*1.8,-2);ctx.stroke();
+  } else if (S.shape==='round') {
+    ctx.fillStyle=S.fill;
+    ctx.beginPath();ctx.ellipse(0,0,size*0.7,size*0.55,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=S.dark;ctx.lineWidth=0.8;ctx.stroke();
+    ctx.fillStyle=S.hi;ctx.globalAlpha=alpha*0.35;
+    ctx.beginPath();ctx.arc(-size*0.12,-size*0.1,size*0.18,0,Math.PI*2);ctx.fill();
+  } else if (S.shape==='cluster') {
+    ctx.strokeStyle=S.hi;ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.arc(0,0,size*0.55,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle=S.fill;
+    [{x:0,y:0},{x:-2.5,y:-2.5},{x:2.5,y:-1.5},{x:-1.5,y:3},{x:2.5,y:2.5}].forEach(d=>{
+      ctx.beginPath();ctx.arc(d.x*size/8,d.y*size/8,size*0.22,0,Math.PI*2);ctx.fill();
+    });
+  } else if (S.shape==='oval') {
+    ctx.fillStyle=S.fill;
+    ctx.beginPath();ctx.ellipse(0,0,size*0.65,size*0.4,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=S.dark;ctx.lineWidth=0.8;ctx.stroke();
+    ctx.strokeStyle=S.hi;ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(-size*0.25,0);ctx.lineTo(size*0.25,0);ctx.stroke();
+  }
+  ctx.restore();ctx.globalAlpha=1;
+}
+
+// ============================================================
+// DRAW ANT
+// ============================================================
+function drawAnt(x, y, seedType, seedSize, heading, wigglePhase, alpha) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(heading);
+  ctx.globalAlpha = alpha || 1;
+
+  // Try sprite
+  const antSpr = sprites['ants_marching'];
+  if (antSpr) {
+    // Draw ant sprite centered, scaled to ~20px wide
+    const scale = 20 / antSpr.width;
+    const dw = antSpr.width * scale;
+    const dh = antSpr.height * scale;
+    ctx.drawImage(antSpr, -dw/2, -dh/2, dw, dh);
+  } else {
+    // Programmatic fallback
+    // Glow for visibility
+    ctx.fillStyle = 'rgba(200,180,120,0.2)';
+    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+
+    // Body segments
+    ctx.fillStyle = '#6a4a20';
+    ctx.beginPath(); ctx.ellipse(-5, 0, 4, 2.8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, 3, 2.2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#7a5a28';
+    ctx.beginPath(); ctx.ellipse(4, 0, 2.5, 2, 0, 0, Math.PI*2); ctx.fill();
+
+    // Legs
+    ctx.strokeStyle = '#6a4a20'; ctx.lineWidth = 0.8;
+    [-3, 0, 3].forEach((lx, i) => {
+      const lwig = Math.sin(wigglePhase + i*2) * 1.5;
+      ctx.beginPath(); ctx.moveTo(lx, 2.5); ctx.lineTo(lx+lwig, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx, -2.5); ctx.lineTo(lx-lwig, -7); ctx.stroke();
+    });
+
+    // Antennae
+    const aw = Math.sin(wigglePhase*0.7) * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(6, -1); ctx.lineTo(10, -4+aw);
+    ctx.moveTo(6, 1); ctx.lineTo(10, 4-aw);
+    ctx.stroke();
+  }
+
+  // Carried seed (above ant, perpendicular to heading)
+  if (seedType !== undefined && seedType >= 0) {
+    drawSeed(0, -9, seedType, (seedSize||7)*0.6, 0, 0.9);
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+// ============================================================
+// BINS
+// ============================================================
+function buildBins(typeCount) {
+  const bins = [];
+  for (let i = 0; i < typeCount; i++) {
+    bins.push({
+      type: i, x: BIN_X, y: BIN_START_Y + i*BIN_SPACING,
+      w: BIN_W, h: BIN_H, count: 0,
+      flash: 0, wrongFlash: 0, hovered: false
+    });
+  }
+  return bins;
+}
+
+function getBinAt(mx, my) {
+  for (let i = 0; i < G.bins.length; i++) {
+    const b = G.bins[i];
+    if (mx >= b.x-b.w/2 && mx <= b.x+b.w/2 && my >= b.y-b.h/2 && my <= b.y+b.h/2) return i;
+  }
+  return -1;
+}
+
+// ============================================================
+// DEPLOY SQUAD
+// ============================================================
+function deploySquad(zoneX, zoneY, zoneR) {
+  const inZone = G.seeds.filter(s => !s.collected && !s.collecting &&
+    Math.hypot(s.x-zoneX, s.y-zoneY) <= zoneR);
+  if (inZone.length === 0) return false;
+
+  const tgtIn = inZone.filter(s => s.isTarget).length;
+  const ratio = tgtIn / inZone.length;
+  let quality, msg, color;
+  if (ratio >= 0.6) { quality='excellent'; msg='🐜 Great cluster!'; color='#4ade80'; G.goodDeploys++; }
+  else if (ratio >= 0.35) { quality='decent'; msg='🐜 Mixed grab'; color='#fbbf24'; }
+  else { quality='poor'; msg='🐜 Messy — watch the parade!'; color='#f87171'; G.badDeploys++; }
+  G.totalDeploys++;
+  showFloat(zoneX, zoneY-zoneR-12, msg, color);
+
+  const toCollect = inZone.slice(0, 8);
+  toCollect.forEach(s => s.collecting = true);
+
+  // Create collector ants that go to each seed then join the march
+  const r = ROUNDS[G.round];
+  toCollect.forEach((s, i) => {
+    G.collectors.push({
+      seed: s,
+      startX: zoneX, startY: zoneY,
+      progress: 0,
+      speed: (r.antSpeed || 0.7) * (0.9 + Math.random()*0.2),
+      delay: i * 0.35,  // Stagger so ants spread out on march path
+      phase: 'goToSeed', // goToSeed -> pickup -> joinMarch
+      wiggle: Math.random()*20,
+      antX: zoneX, antY: zoneY
+    });
+  });
+
+  G.activeSquads++;
+  return true;
+}
+
+// ============================================================
+// UPDATE
+// ============================================================
+function update(dt) {
+  G.particles = G.particles.filter(p => {
+    p.x+=p.vx; p.y+=p.vy; p.vy+=3*dt; p.life-=dt; return p.life>0;
+  });
+
+  if (G.phase === 'transition') {
+    G.transitionTimer -= dt;
+    if (G.transitionTimer <= 0) { G.phase = 'playing'; }
+    return;
+  }
+  if (G.phase !== 'playing') return;
+
+  G.elapsed += dt;
+  G.timeLeft -= dt;
+  if (G.timeLeft <= 0) { G.timeLeft = 0; endRound(); return; }
+
+  // Bin flashes
+  G.bins.forEach(b => {
+    if (b.flash > 0) b.flash -= dt*2;
+    if (b.wrongFlash > 0) b.wrongFlash -= dt*2;
+  });
+  if (G.jamTimer > 0) { G.jamTimer -= dt; if (G.jamTimer <= 0) G.jammedBin = -1; }
+
+  // Update collectors (ants going to grab seeds)
+  G.collectors = G.collectors.filter(c => {
+    c.delay -= dt;
+    if (c.delay > 0) return true;
+
+    c.progress += dt * c.speed;
+
+    if (c.phase === 'goToSeed') {
+      const t = Math.min(1, c.progress / 0.5);
+      const e = t*t*(3-2*t);
+      const dx = c.seed.x-c.startX, dy = c.seed.y-c.startY;
+      const len = Math.hypot(dx,dy)||1;
+      const wb = Math.sin(c.progress*18+c.wiggle)*3*(1-t);
+      c.antX = c.startX + dx*e + (-dy/len)*wb;
+      c.antY = c.startY + dy*e + (dx/len)*wb;
+
+      if (t >= 1) {
+        c.phase = 'pickup';
+        c.progress = 0;
+        c.seed.collected = true;
+        c.seed.collecting = false;
+        spawnP(c.seed.x, c.seed.y, 3, SEEDS[c.seed.type].fill);
+      }
+    }
+    else if (c.phase === 'pickup') {
+      // Brief pause at seed, then join march
+      if (c.progress > 0.2) {
+        // Add to marcher line
+        G.marchers.push({
+          type: c.seed.type,
+          isTarget: c.seed.isTarget,
+          size: c.seed.size,
+          rot: c.seed.rot,
+          pathProgress: 0,
+          speed: (ROUNDS[G.round].antSpeed || 0.7) * (0.85 + Math.random()*0.2),
+          wiggle: c.wiggle,
+          sortState: 'marching', // marching | delivering | sorted | missed
+          deliverBin: -1,
+          deliverProgress: 0,
+          deliverStartX: 0, deliverStartY: 0
+        });
+        // Squad tracking
+        G.activeSquads = Math.max(0, G.activeSquads - 0.1); // Gradual free-up
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // Recalculate active squads based on collectors still working
+  if (G.collectors.length === 0 && G.activeSquads > 0) {
+    G.activeSquads = 0;
+  }
+
+  // Update marchers
+  const totalSegs = PATH.length - 1;
+  G.marchers.forEach((m, idx) => {
+    if (m.sortState === 'marching') {
+      // Gentle spacing: nudge slower if very close to ant ahead
+      let speedMult = 1;
+      for (let j = 0; j < G.marchers.length; j++) {
+        if (j === idx) continue;
+        const other = G.marchers[j];
+        if (other.sortState !== 'marching') continue;
+        const gap = other.pathProgress - m.pathProgress;
+        if (gap > 0 && gap < 0.025) {
+          speedMult = 0.7; // Slight slowdown, not a hard stop
+          break;
+        }
+      }
+      m.pathProgress += dt * m.speed * 0.35 * speedMult;
+
+      // Past sort zone — not clicked in time, loop back to end of line
+      if (isPastSortZone(m.pathProgress)) {
+        G.missedSorts++;
+        showFloat(570, 340, '💨 Missed! Looping back...', 'rgba(200,170,100,0.7)');
+
+        // Start return animation (same as wrong-click)
+        const pos = getPathPos(m.pathProgress);
+        m.sortState = 'returning';
+        m.returnProgress = 0;
+        m.returnStartX = pos.x;
+        m.returnStartY = pos.y;
+        m.returnEndX = PATH[0].x;
+        m.returnEndY = PATH[0].y;
+        m.returnMidX = (pos.x + PATH[0].x) * 0.5;
+        m.returnMidY = Math.min(H - 30, Math.max(pos.y, PATH[0].y) + 60);
+      }
+    }
+    else if (m.sortState === 'delivering') {
+      m.deliverProgress += dt * 2.5;
+      if (m.deliverProgress >= 1) {
+        m.sortState = 'sorted';
+        const bin = G.bins[m.deliverBin];
+        if (bin) {
+          bin.count++;
+          bin.flash = 0.5;
+          spawnP(bin.x, bin.y, 5, '#ffd700');
+        }
+        if (m.isTarget) { G.sorted++; G.globalSorted++; }
+        G.correctSorts++;
+        checkRoundEnd();
+      }
+    }
+    else if (m.sortState === 'returning') {
+      // Animate off-path loop back to start of line
+      m.returnProgress += dt * 1.2;
+      if (m.returnProgress >= 1) {
+        // Rejoin the march at the start
+        m.sortState = 'marching';
+        m.pathProgress = 0;
+        m.returnProgress = 0;
+      }
+    }
+  });
+
+  // Clean up only fully sorted marchers
+  G.marchers = G.marchers.filter(m => m.sortState !== 'sorted');
+}
+
+function checkRoundEnd() {
+  const remaining = G.seeds.filter(s => s.isTarget && !s.collected && !s.collecting).length;
+  const collecting = G.collectors.filter(c => c.seed.isTarget).length;
+  const marching = G.marchers.filter(m => m.isTarget && (m.sortState === 'marching' || m.sortState === 'returning')).length;
+  const delivering = G.marchers.filter(m => m.isTarget && m.sortState === 'delivering').length;
+  if (remaining === 0 && collecting === 0 && marching === 0 && delivering === 0) {
+    endRound();
+  }
+}
+
+function endRound() {
+  G.phase = 'roundEnd';
+  setTimeout(() => {
+    G.round++;
+    if (G.round >= ROUNDS.length) G.phase = 'complete';
+    else { G.phase = 'transition'; G.transitionTimer = 3; setupRound(); }
+  }, 1800);
+}
+
+// ============================================================
+// SORT ACTION
+// ============================================================
+function sortToBin(binIdx) {
+  // Find the first marcher in the sort zone
+  const inZone = G.marchers.filter(m =>
+    m.sortState === 'marching' && isInSortZone(m.pathProgress)
+  );
+  if (inZone.length === 0) return;
+
+  // Sort the one furthest along (about to leave the zone)
+  inZone.sort((a,b) => b.pathProgress - a.pathProgress);
+  const ant = inZone[0];
+  const bin = G.bins[binIdx];
+
+  if (bin.type === ant.type) {
+    // CORRECT
+    ant.sortState = 'delivering';
+    ant.deliverBin = binIdx;
+    ant.deliverProgress = 0;
+    const pos = getPathPos(ant.pathProgress);
+    ant.deliverStartX = pos.x;
+    ant.deliverStartY = pos.y;
+  } else {
+    // WRONG — brief jam, ant peels off path and loops back to end of line
+    bin.wrongFlash = 0.4;
+    G.wrongSorts++;
+    G.jammedBin = binIdx;
+    G.jamTimer = 0.3;
+    shake();
+    showFloat(bin.x, bin.y-40, '✗ Wrong! Back of the line!', '#ef4444');
+
+    // Capture current position, start return animation
+    const pos = getPathPos(ant.pathProgress);
+    ant.sortState = 'returning';
+    ant.returnProgress = 0;
+    ant.returnStartX = pos.x;
+    ant.returnStartY = pos.y;
+    // Return destination: start of path
+    ant.returnEndX = PATH[0].x;
+    ant.returnEndY = PATH[0].y;
+    // Mid-point: loop below the path for visual clarity
+    ant.returnMidX = (pos.x + PATH[0].x) * 0.5;
+    ant.returnMidY = Math.min(H - 30, Math.max(pos.y, PATH[0].y) + 60);
+    ant.speed *= 0.95;
+
+    if (G.wrongSorts % 5 === 0 && G.hearts > 1) {
+      G.hearts--;
+      showFloat(W/2, 50, '💔', '#ef4444');
+    }
+  }
+}
+
+// ============================================================
+// ROUND MANAGEMENT
+// ============================================================
+function initGame() {
+  G = freshState();
+  G.globalNeeded = ROUNDS.reduce((s,r) => s + Math.floor(r.seedCount*0.36), 0);
+  setupRound();
+}
+
+function setupRound() {
+  const r = ROUNDS[G.round];
+  const pile = generatePile(r.seedCount, r.types, r.target);
+  G.seeds = pile.seeds;
+  G.needed = pile.targetCount;
+  G.sorted = 0;
+  G.maxSquads = r.squads;
+  G.activeSquads = 0;
+  G.collectors = [];
+  G.marchers = [];
+  G.bins = buildBins(r.types);
+  G.targetType = r.target;
+  G.drawing = false; G.drawStart = null;
+  G.particles = [];
+  G.jammedBin = -1; G.jamTimer = 0;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  ctx.clearRect(0,0,W,H);
+  const dp = Math.min(1, 1 - G.timeLeft/G.totalTime);
+
+  // === SKY ===
+  const sky = ctx.createLinearGradient(0,0,0,HORIZON_Y);
+  sky.addColorStop(0, lerpC('#04020e','#1a1040',dp));
+  sky.addColorStop(0.5, lerpC('#08061a','#3a1850',dp));
+  sky.addColorStop(1, lerpC('#0c0820','#c86830',dp));
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,HORIZON_Y);
+
+  const gi = Math.max(0,dp-0.15)/0.85;
+  if (gi>0) {
+    const hg=ctx.createLinearGradient(0,HORIZON_Y-35,0,HORIZON_Y+15);
+    hg.addColorStop(0,`rgba(255,140,40,${gi*0.3})`);
+    hg.addColorStop(0.5,`rgba(255,180,60,${gi*0.5})`);
+    hg.addColorStop(1,`rgba(255,120,30,${gi*0.1})`);
+    ctx.fillStyle=hg;ctx.fillRect(0,HORIZON_Y-35,W,50);
+  }
+
+  // Sun
+  const sunX=W*0.55, sunY=HORIZON_Y+20-dp*45, sunR=12+dp*6;
+  if (dp>0.1) {
+    const sg=ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR*5);
+    sg.addColorStop(0,`rgba(255,200,80,${dp*0.25})`);sg.addColorStop(1,'rgba(255,140,40,0)');
+    ctx.fillStyle=sg;ctx.fillRect(0,0,W,HORIZON_Y+30);
+    ctx.fillStyle=`rgba(255,210,80,${Math.min(1,dp*1.5)})`;
+    ctx.beginPath();ctx.arc(sunX,sunY,sunR,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=`rgba(255,240,200,${Math.min(0.8,dp*1.2)})`;
+    ctx.beginPath();ctx.arc(sunX,sunY,sunR*0.5,0,Math.PI*2);ctx.fill();
+  }
+
+  // Stars
+  if (dp<0.45) {
+    ctx.fillStyle=`rgba(255,255,240,${(1-dp/0.45)*0.7})`;
+    [[50,18],[175,38],[310,12],[430,30],[595,45],[125,60]].forEach(([x,y])=>{
+      if(y<HORIZON_Y){ctx.beginPath();ctx.arc(x,y,1.2,0,Math.PI*2);ctx.fill();}
+    });
+  }
+
+  // Ground
+  const gnd=ctx.createLinearGradient(0,HORIZON_Y,0,H);
+  gnd.addColorStop(0,lerpC('#0e0c18','#2a2218',dp));
+  gnd.addColorStop(1,lerpC('#0e0c10','#1a1610',dp));
+  ctx.fillStyle=gnd;ctx.fillRect(0,HORIZON_Y,W,H-HORIZON_Y);
+
+  // Horizon silhouette
+  ctx.fillStyle=lerpC('#0a0a14','#1e1a12',dp);
+  ctx.beginPath();ctx.moveTo(0,HORIZON_Y);
+  ctx.lineTo(80,HORIZON_Y-8);ctx.lineTo(180,HORIZON_Y-3);ctx.lineTo(280,HORIZON_Y-12);
+  ctx.lineTo(380,HORIZON_Y-5);ctx.lineTo(460,HORIZON_Y-14);ctx.lineTo(560,HORIZON_Y-6);
+  ctx.lineTo(W,HORIZON_Y-4);ctx.lineTo(W,HORIZON_Y);ctx.closePath();ctx.fill();
+
+  // === MARCH PATH (subtle trail) ===
+  ctx.strokeStyle = 'rgba(120,100,70,0.12)';
+  ctx.lineWidth = 12;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+
+  // Sort zone highlight on the path
+  const szStart = getPathPos(SORT_ZONE_START / (PATH.length-1));
+  const szEnd = getPathPos(SORT_ZONE_END / (PATH.length-1));
+  ctx.strokeStyle = `rgba(100,200,120,${0.08+Math.sin(G.elapsed*2)*0.03})`;
+  ctx.lineWidth = 20;
+  ctx.beginPath();
+  ctx.moveTo(szStart.x, szStart.y);
+  // Draw through sort zone waypoints
+  for (let i = SORT_ZONE_START; i <= SORT_ZONE_END && i < PATH.length; i++) {
+    ctx.lineTo(PATH[i].x, PATH[i].y);
+  }
+  ctx.stroke();
+
+  // Sort zone label
+  ctx.fillStyle = 'rgba(100,200,120,0.3)';
+  ctx.font = '9px "Segoe UI"'; ctx.textAlign = 'center';
+  ctx.fillText('⬇ SORT ZONE — click a bin! ⬇', 530, 460);
+  ctx.textAlign = 'left';
+
+  // === PILE SHADOW ===
+  ctx.fillStyle='rgba(0,0,0,0.1)';
+  ctx.beginPath();ctx.ellipse(PILE_CX,PILE_CY+10,150,100,0,0,Math.PI*2);ctx.fill();
+
+  // === DRAW ZONE PREVIEW ===
+  if (G.drawing && G.drawStart && G.drawCurrent) {
+    const dx=G.drawCurrent.x-G.drawStart.x, dy=G.drawCurrent.y-G.drawStart.y;
+    const r=Math.min(90,Math.max(25,Math.hypot(dx,dy)));
+    const cx=G.drawStart.x, cy=G.drawStart.y;
+
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fill();
+
+    const inZ=G.seeds.filter(s=>!s.collected&&!s.collecting&&Math.hypot(s.x-cx,s.y-cy)<=r);
+    const ti=inZ.filter(s=>s.isTarget).length, tot=inZ.length;
+    const rat=tot>0?ti/tot:0;
+    const zc=rat>=0.6?'rgba(74,222,128,':rat>=0.35?'rgba(251,191,36,':'rgba(248,113,113,';
+
+    ctx.fillStyle=zc+'0.12)';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=zc+'0.5)';ctx.lineWidth=2;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+
+    ctx.fillStyle=zc+'0.8)';ctx.font='bold 11px "Segoe UI"';ctx.textAlign='center';
+    if(tot===0) ctx.fillText('No seeds',cx,cy-r-8);
+    else ctx.fillText(`${ti} target + ${tot-ti} other`,cx,cy-r-8);
+    ctx.textAlign='left';
+  }
+
+  // === SEEDS IN PILE ===
+  G.seeds.forEach(s => {
+    if (s.collected || s.collecting) return;
+    drawSeed(s.x, s.y, s.type, s.size, s.rot, s.opacity*(s.isTarget?1:0.85));
+  });
+
+  // === COLLECTOR ANTS (going to seeds) ===
+  G.collectors.forEach(c => {
+    if (c.delay > 0) return;
+    const heading = Math.atan2(c.seed.y-c.antY, c.seed.x-c.antX);
+    const carrying = c.phase === 'pickup' ? c.seed.type : -1;
+    drawAnt(c.antX, c.antY, carrying, c.seed.size, heading, G.elapsed*14+c.wiggle, 1);
+  });
+
+  // === MARCHING ANTS (returning with seeds) ===
+  G.marchers.forEach(m => {
+    if (m.sortState === 'sorted') return;
+
+    let ax, ay, heading;
+
+    if (m.sortState === 'delivering') {
+      // Flying to bin
+      const t = m.deliverProgress;
+      const e = t*t*(3-2*t);
+      const bin = G.bins[m.deliverBin];
+      if (!bin) return;
+      ax = m.deliverStartX + (bin.x - m.deliverStartX)*e;
+      ay = m.deliverStartY + (bin.y - m.deliverStartY)*e - Math.sin(t*Math.PI)*20;
+      heading = Math.atan2(bin.y-m.deliverStartY, bin.x-m.deliverStartX);
+      drawAnt(ax, ay, m.type, m.size, heading, G.elapsed*14+m.wiggle, 1-t*0.3);
+      return;
+    }
+
+    if (m.sortState === 'returning') {
+      // Quadratic bezier: start -> mid (below path) -> end (path start)
+      const t = Math.min(1, m.returnProgress);
+      const inv = 1 - t;
+      ax = inv*inv*m.returnStartX + 2*inv*t*m.returnMidX + t*t*m.returnEndX;
+      ay = inv*inv*m.returnStartY + 2*inv*t*m.returnMidY + t*t*m.returnEndY;
+      // Heading: tangent of bezier
+      const tx = 2*inv*(m.returnMidX-m.returnStartX) + 2*t*(m.returnEndX-m.returnMidX);
+      const ty = 2*inv*(m.returnMidY-m.returnStartY) + 2*t*(m.returnEndY-m.returnMidY);
+      heading = Math.atan2(ty, tx);
+      // Draw slightly transparent to show it's "shamed"
+      drawAnt(ax, ay, m.type, m.size, heading, G.elapsed*14+m.wiggle, 0.6);
+      return;
+    }
+
+    // Normal marching
+    const pos = getPathPos(Math.min(1, m.pathProgress));
+    ax = pos.x; ay = pos.y;
+
+    // Get heading from path direction
+    const nextPos = getPathPos(Math.min(1, m.pathProgress + 0.02));
+    heading = Math.atan2(nextPos.y-pos.y, nextPos.x-pos.x);
+
+    // Wobble perpendicular to path
+    const wb = Math.sin(G.elapsed*10+m.wiggle)*3;
+    ax += Math.cos(heading+Math.PI/2)*wb;
+    ay += Math.sin(heading+Math.PI/2)*wb;
+
+    // In sort zone: highlight
+    if (isInSortZone(m.pathProgress)) {
+      ctx.strokeStyle = `rgba(255,215,100,${0.3+Math.sin(G.elapsed*6)*0.15})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ax, ay, 14, 0, Math.PI*2); ctx.stroke();
+    }
+
+    // Missed: fade out
+    const alpha = m.sortState === 'missed' ? Math.max(0, 1-(m.pathProgress-0.9)*5) : 1;
+
+    drawAnt(ax, ay, m.type, m.size, heading, G.elapsed*14+m.wiggle, alpha);
+  });
+
+  // === BINS ===
+  if (G.phase === 'playing' || G.phase === 'roundEnd') renderBins();
+
+  // === PARTICLES ===
+  G.particles.forEach(p => {
+    ctx.globalAlpha=Math.max(0,p.life/p.ml);ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.life/p.ml),0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // === HUD ===
+  if (G.phase === 'playing') renderHUD();
+
+  // === OVERLAYS ===
+  if (G.phase==='tutorial') renderTutorial();
+  if (G.phase==='transition') renderTransition();
+  if (G.phase==='roundEnd') renderRoundEnd();
+  if (G.phase==='complete') renderComplete();
+}
+
+function renderBins() {
+  G.bins.forEach((b,i) => {
+    const S = SEEDS[b.type];
+    const isT = b.type === G.targetType;
+
+    // Bin background: try sprite, fall back to programmatic
+    const binSpr = sprites['sorting_bins'];
+    if (binSpr) {
+      // sorting_bins.png — draw the full sprite as bin background, tinted per state
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      const binDrawSize = Math.min(b.w, b.h) - 4;
+      ctx.drawImage(binSpr, b.x - binDrawSize/2, b.y - binDrawSize/2, binDrawSize, binDrawSize);
+      ctx.restore();
+
+      // Flash overlays on top of sprite
+      if (b.wrongFlash > 0) {
+        ctx.fillStyle = `rgba(180,40,40,${b.wrongFlash*0.4})`;
+        rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 8); ctx.fill();
+      }
+      if (b.flash > 0) {
+        ctx.fillStyle = `rgba(40,180,60,${b.flash*0.3})`;
+        rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 8); ctx.fill();
+      }
+    } else {
+      // Programmatic fallback
+      ctx.fillStyle = b.wrongFlash>0 ? `rgba(180,40,40,${0.2+b.wrongFlash*0.3})` :
+        b.flash>0 ? `rgba(40,180,60,${0.15+b.flash*0.25})` : 'rgba(30,28,35,0.7)';
+      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 8); ctx.fill();
+    }
+
+    // Border
+    ctx.strokeStyle = isT?'rgba(240,214,138,0.4)':'rgba(100,95,110,0.3)';
+    ctx.lineWidth = isT?2:1;
+    rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 8); ctx.stroke();
+
+    // Target badge
+    if (isT) {
+      ctx.fillStyle='rgba(240,214,138,0.12)';
+      rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,8);ctx.fill();
+      ctx.fillStyle='rgba(240,214,138,0.45)';ctx.font='8px "Segoe UI"';ctx.textAlign='center';
+      ctx.fillText('★ TARGET',b.x,b.y-b.h/2+11);
+    }
+
+    // Seed sample icon
+    drawSeed(b.x-18, b.y+2, b.type, 10, 0, 0.9);
+
+    // Name & count
+    ctx.fillStyle=S.fill;ctx.font='bold 11px "Segoe UI"';ctx.textAlign='center';
+    ctx.fillText(S.name, b.x+8, b.y);
+    ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='10px "Segoe UI"';
+    ctx.fillText(`${b.count}`, b.x+8, b.y+14);
+
+    // Jam indicator
+    if (G.jammedBin===i) {
+      ctx.fillStyle=`rgba(255,60,60,${0.3+Math.sin(G.elapsed*20)*0.15})`;
+      ctx.font='bold 9px "Segoe UI"';
+      ctx.fillText('JAMMED',b.x,b.y+b.h/2-5);
+    }
+
+    // Hover highlight
+    if (b.hovered && G.marchers.some(m=>m.sortState==='marching'&&isInSortZone(m.pathProgress))) {
+      ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=1.5;
+      rr(ctx,b.x-b.w/2-2,b.y-b.h/2-2,b.w+4,b.h+4,10);ctx.stroke();
+    }
+
+    ctx.textAlign='left';
+  });
+}
+
+function renderHUD() {
+  const r = ROUNDS[G.round];
+
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,10,8,165,50,8);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='9px "Segoe UI"';ctx.textAlign='left';
+  ctx.fillText('① CIRCLE clusters  ② CLICK bins to sort',18,22);
+  drawSeed(30,42,r.target,11,0,1);
+  ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 12px "Segoe UI"';
+  ctx.fillText(`Target: ${SEEDS[r.target].name}`,48,46);
+
+  // Progress
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,185,8,80,42,8);ctx.fill();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 17px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText(`${G.sorted}/${G.needed}`,225,32);
+  ctx.fillStyle='rgba(200,180,140,0.35)';ctx.font='9px "Segoe UI"';
+  ctx.fillText(`Rd ${G.round+1}/${ROUNDS.length}`,225,46);
+
+  // Timer
+  const tr=G.timeLeft/G.totalTime;
+  const tc=tr>0.4?'#c8b88a':tr>0.2?'#fbbf24':'#ef4444';
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,275,8,55,42,8);ctx.fill();
+  ctx.fillStyle=tc;ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText(`${Math.ceil(G.timeLeft)}s`,302,32);
+  ctx.fillStyle=tr>0.3?'rgba(200,180,140,0.35)':'rgba(255,150,100,0.5)';
+  ctx.font='8px "Segoe UI"';ctx.fillText('dawn',302,44);
+
+  // Squads
+  const avail = G.maxSquads - Math.ceil(G.activeSquads);
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-42,95,30,6);ctx.fill();
+  ctx.fillStyle=avail>0?'#f0d68a':'rgba(200,140,140,0.5)';
+  ctx.font='11px "Segoe UI"';
+  ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,57,H-23);
+
+  // Hearts
+  let hs='';for(let i=0;i<G.hearts;i++)hs+='❤️';for(let i=G.hearts;i<4;i++)hs+='🖤';
+  ctx.font='13px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,14,76);
+}
+
+function renderTutorial() {
+  ctx.fillStyle='rgba(0,0,0,0.82)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText('"Discern what belongs."',W/2,85);
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  [
+    'Aphrodite has dumped a mountain of mixed seeds before you.',
+    'Direct the ants to sort them before dawn.',
+    '',
+    '① CIRCLE a cluster in the pile (click & drag)',
+    '     Ants grab seeds and march back in a line',
+    '',
+    '② As each ant enters the SORT ZONE,',
+    '     click the correct BIN for the seed it carries',
+    '',
+    '③ Good clusters = easy parade. Messy = frantic sorting!',
+    '     Wrong bin = ant goes back to end of line!'
+  ].forEach((l,i) => {
+    const isS = l.startsWith('①')||l.startsWith('②')||l.startsWith('③');
+    ctx.fillStyle = isS?'#e8d8a8':l===''?'transparent':'#a09878';
+    ctx.fillText(l,W/2,130+i*24);
+  });
+
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText(`Target: ${SEEDS[ROUNDS[0].target].name}`,W/2,410);
+  drawSeed(W/2,440,ROUNDS[0].target,20,0,1);
+
+  const p=0.7+Math.sin(G.elapsed*3)*0.3;
+  ctx.fillStyle=`rgba(240,214,138,${p*0.12})`;rr(ctx,W/2-65,470,130,38,8);ctx.fill();
+  ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`;ctx.lineWidth=1.5;rr(ctx,W/2-65,470,130,38,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';ctx.fillText('Begin',W/2,494);
+  ctx.textAlign='left';
+}
+
+function renderTransition() {
+  ctx.fillStyle='rgba(0,0,0,0.75)';ctx.fillRect(0,0,W,H);
+  const r=ROUNDS[G.round],tgt=SEEDS[r.target];
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText(`Round ${G.round+1} of ${ROUNDS.length}`,W/2,H/2-55);
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';ctx.fillText(r.label,W/2,H/2-25);
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText(`New target: ${tgt.name}`,W/2,H/2+10);
+  drawSeed(W/2,H/2+45,r.target,20,0,1);
+  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='12px "Segoe UI"';
+  ctx.fillText(`${r.types} bins  ·  ${r.squads} squads  ·  ${Math.ceil(G.timeLeft)}s left`,W/2,H/2+85);
+  ctx.textAlign='left';
+}
+
+function renderRoundEnd() {
+  ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';ctx.fillStyle='#4ade80';ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('✓ Round Complete!',W/2,H/2-15);
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  ctx.fillText(`${G.sorted} sorted · ${G.wrongSorts} wrong · ${G.missedSorts} missed`,W/2,H/2+18);
+  ctx.textAlign='left';
+}
+
+function renderComplete() {
+  ctx.fillStyle='rgba(0,0,0,0.85)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('Trial I Complete',W/2,120);
+
+  const total=G.correctSorts+G.wrongSorts;
+  const acc=total>0?G.correctSorts/total:0;
+  const dAcc=G.totalDeploys>0?G.goodDeploys/G.totalDeploys:0;
+  const combined=(acc*0.5+dAcc*0.5)*100;
+  let rating,rc;
+  if(combined>=85){rating='Excellent';rc='#4ade80';}
+  else if(combined>=65){rating='Good';rc='#60a5fa';}
+  else if(combined>=45){rating='Fair';rc='#fbbf24';}
+  else{rating='Needs Work';rc='#f87171';}
+
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  ctx.fillText(`Seeds Sorted: ${G.globalSorted}`,W/2,180);
+  ctx.fillText(`Bin Accuracy: ${Math.round(acc*100)}% · Deploy Quality: ${Math.round(dAcc*100)}%`,W/2,208);
+  ctx.fillText(`Wrong: ${G.wrongSorts} · Missed: ${G.missedSorts} · Time: ${Math.round(TOTAL_TIME-G.timeLeft)}s`,W/2,236);
+
+  ctx.fillStyle=rc;ctx.font='bold 20px "Segoe UI"';
+  ctx.fillText(`⚖️ Precision: ${rating}`,W/2,290);
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
+  ctx.fillText('"You discerned what belonged."',W/2,340);
+
+  ctx.fillStyle='rgba(240,214,138,0.12)';rr(ctx,W/2-60,375,120,36,8);ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,0.4)';ctx.lineWidth=1;rr(ctx,W/2-60,375,120,36,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 14px "Segoe UI"';ctx.fillText('Play Again',W/2,398);
+  ctx.textAlign='left';
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+
+
+
+
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+// ============================================================
+// LOOP
+// ============================================================
+
+
+  return {
+    init(){ initGame(); G.phase='tutorial'; },
+    update(dt){ G.elapsed+=dt; update(dt); },
+    render(){ render(); drawHearts(); },
+    click(x,y){
+      const p={x,y};
+      if(G.phase==='tutorial'){if(p.x>W/2-65&&p.x<W/2+65&&p.y>470&&p.y<508){G.phase='playing';}return;}
+      if(G.phase==='complete'){
+        // Calculate virtue and advance
+        const total=G.correctSorts+G.wrongSorts;
+        const acc=total>0?G.correctSorts/total:0;
+        const dAcc=G.totalDeploys>0?G.goodDeploys/G.totalDeploys:0;
+        const combined=(acc*.5+dAcc*.5)*100;
+        let rating;
+        if(combined>=85)rating='Excellent';else if(combined>=65)rating='Good';
+        else if(combined>=45)rating='Fair';else rating='Needs Work';
+        trialComplete(1,'precision',{score:Math.round(combined),rating});
+        return;
+      }
+      if(G.phase!=='playing')return;
+      const bi=getBinAt(p.x,p.y);
+      if(bi>=0){if(G.jammedBin===bi)return;sortToBin(bi);return;}
+      if(p.x>460)return;
+      if(Math.ceil(G.activeSquads)>=G.maxSquads)return;
+      G.drawing=true;G.drawStart={x:p.x,y:p.y};G.drawCurrent={x:p.x,y:p.y};
+    },
+    mouseup(x,y){
+      if(!G.drawing)return;G.drawing=false;
+      if(!G.drawStart||!G.drawCurrent){G.drawStart=null;G.drawCurrent=null;return;}
+      const dx=G.drawCurrent.x-G.drawStart.x,dy=G.drawCurrent.y-G.drawStart.y;
+      const radius=Math.min(90,Math.max(25,Math.hypot(dx,dy)));
+      deploySquad(G.drawStart.x,G.drawStart.y,radius);
+      G.drawStart=null;G.drawCurrent=null;
+    },
+    mousemove(x,y){
+      if(G.drawing)G.drawCurrent={x,y};
+      if(G.phase==='playing'){
+        G.bins.forEach(b=>{b.hovered=x>=b.x-b.w/2&&x<=b.x+b.w/2&&y>=b.y-b.h/2&&y<=b.y+b.h/2;});
+      }
+    },
+    G: ()=>G
+  };
+})();
+
+// ================================================================
+// TRIAL 2: THE GOLDEN FLEECE
+// ================================================================
+const Trial2 = (function(){
+
+
+// ============================================================
+// SPRITES
+// ============================================================
+
+// ============================================================
+// THORNS
+// ============================================================
+const THORNS = [
+  {x:100,y:200},{x:230,y:175},{x:370,y:195},{x:510,y:170},{x:610,y:205},
+  {x:150,y:320},{x:310,y:340},{x:460,y:315},{x:570,y:355},{x:240,y:440}
+];
+
+// ============================================================
+// STATE
+// ============================================================
+  let G = {};
+function freshState() {
+  return {
+    phase:'tutorial', elapsed:0,
+    // Psyche
+    px: 340, py: 500, // Start near bottom
+    pSpeed: 2.5,
+    pRunSpeed: 5.5,    // Sprint speed when fleeing — must clearly outrun rams
+    pFacing: 1,        // 1=right, -1=left
+    pMoving: false,
+    pHit: false,       // Invincibility after being hit
+    pHitTimer: 0,
+    pKnockX: 0, pKnockY: 0, // Knockback velocity
+    pNearWool: -1,     // Index of wool within grab range
+    pGrabbing: false,
+    pGrabTimer: 0,
+    // Wool
+    woolCollected: 0,
+    woolNeeded: 15,
+    woolTufts: [],
+    spawnTimer: 2,
+    // Rams
+    rams: [],
+    // Hearts: 10 total across ALL trials, 4 available per attempt
+    totalHearts: 10,      // Pool for entire game (all 4 trials)
+    hearts: 4,            // Current attempt hearts
+    heartsUsedThisAttempt: 0,
+    attempts: 0,
+    // Particles
+    particles: [],
+    // Basket
+    basketBounce: 0,
+    // Reed
+    reedCooldown: 0,
+    // Flying wool animations
+    flyingWool: []
+  };
+}
+
+// ============================================================
+// PSYCHE MOVEMENT
+// ============================================================
+  // keys: uses shared keys object
+
+function updatePsyche(dt) {
+  if (G.pGrabbing) {
+    G.pGrabTimer -= dt;
+    if (G.pGrabTimer <= 0) G.pGrabbing = false;
+    return; // Can't move while grabbing
+  }
+
+  // Knockback
+  if (Math.abs(G.pKnockX) > 0.5 || Math.abs(G.pKnockY) > 0.5) {
+    G.px += G.pKnockX;
+    G.py += G.pKnockY;
+    G.pKnockX *= 0.85;
+    G.pKnockY *= 0.85;
+  }
+
+  // Hit invincibility
+  if (G.pHitTimer > 0) G.pHitTimer -= dt;
+  if (G.pHitTimer <= 0) G.pHit = false;
+
+  // Movement
+  let dx = 0, dy = 0;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx -= 1;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
+  if (keys['ArrowUp'] || keys['w'] || keys['W']) dy -= 1;
+  if (keys['ArrowDown'] || keys['s'] || keys['S']) dy += 1;
+
+  G.pMoving = dx !== 0 || dy !== 0;
+
+  if (G.pMoving) {
+    // Normalize diagonal
+    const len = Math.hypot(dx, dy);
+    dx /= len; dy /= len;
+
+    // Sprint if any ram is chasing
+    const beingChased = G.rams.some(r => r.state === 'chasing');
+    const speed = beingChased ? G.pRunSpeed : G.pSpeed;
+
+    const newX = G.px + dx * speed * 60 * dt;
+    const newY = G.py + dy * speed * 60 * dt;
+
+    // Thorn collision: push out of bushes
+    let blocked = false;
+    THORNS.forEach(t => {
+      const BUSH_R = 18; // Collision radius of thorn bush
+      const distToThorn = Math.hypot(newX - t.x, newY - t.y);
+      if (distToThorn < BUSH_R) {
+        // Push out along the vector from thorn center
+        const pushDx = newX - t.x;
+        const pushDy = newY - t.y;
+        const pushDist = Math.hypot(pushDx, pushDy) || 1;
+        G.px = t.x + (pushDx / pushDist) * BUSH_R;
+        G.py = t.y + (pushDy / pushDist) * BUSH_R;
+        blocked = true;
+      }
+    });
+
+    if (!blocked) {
+      G.px = newX;
+      G.py = newY;
+    }
+
+    if (dx !== 0) G.pFacing = dx > 0 ? 1 : -1;
+  }
+
+  // Clamp to field bounds
+  G.px = Math.max(25, Math.min(W - 25, G.px));
+  G.py = Math.max(130, Math.min(H - 55, G.py));
+
+  // Check proximity to wool
+  G.pNearWool = -1;
+  G.woolTufts.forEach((w, i) => {
+    if (w.collected || w.fadeOut) return;
+    if (Math.hypot(G.px - w.x, G.py - w.y) < 28) {
+      G.pNearWool = i;
+    }
+  });
+}
+
+function grabWool() {
+  if (G.pNearWool < 0 || G.pGrabbing) return;
+  const w = G.woolTufts[G.pNearWool];
+  if (!w || w.collected) return;
+
+  w.collected = true;
+  G.woolCollected++;
+  G.pGrabbing = true;
+  G.pGrabTimer = 0.3; // Brief pause while grabbing
+  G.basketBounce = 0.4;
+  spawnP(w.x, w.y, 8, '#ffd700');
+  showFloat(w.x, w.y - 15, '+1 🧶', '#ffd700');
+
+  // Flying wool to basket
+  G.flyingWool.push({
+    startX: w.x, startY: w.y, progress: 0
+  });
+
+  // Escalation
+  checkEscalation();
+
+  if (G.woolCollected >= G.woolNeeded) {
+    setTimeout(() => { G.phase = 'complete'; }, 800);
+  }
+}
+
+function checkEscalation() {
+  const wc = G.woolCollected;
+  // More rams as more wool collected
+  if (wc === 4 && G.rams.length < 3) {
+    G.rams.push(createRam(320, 310, 150, 520, 0.5, 80));   // Middle patrol
+    showFloat(W/2, 120, '🐏 Another ram enters the field!', '#fbbf24');
+  }
+  if (wc === 8 && G.rams.length < 4) {
+    G.rams.push(createRam(450, 180, 300, 620, 0.55, 75));   // Top-right patrol
+    showFloat(W/2, 120, '🐏 The herd grows restless!', '#fbbf24');
+  }
+  if (wc === 12 && G.rams.length < 5) {
+    G.rams.push(createRam(180, 420, 60, 400, 0.6, 70));     // Bottom-left patrol
+    showFloat(W/2, 120, '🐏 A fifth ram! Be careful!', '#ef4444');
+  }
+}
+
+// ============================================================
+// RAMS
+// ============================================================
+function createRam(x, y, patrolL, patrolR, speed, detectR) {
+  return {
+    x, y, patrolL, patrolR,
+    homeY: y,
+    baseSpeed: speed || 0.5,
+    speed: speed || 0.5,
+    dir: 1, facingRight: true,
+    state: 'grazing',  // grazing | alert | chasing | returning
+    stateTimer: 3 + Math.random()*2,
+    detectRadius: detectR || 80,
+    chargeSpeed: 2.8,
+    chaseTimer: 0,     // Gives up after this expires
+    maxChaseTime: 3.0, // Seconds before ram gives up chasing
+    headBob: 0,
+    // Smooth scaling: t goes 0→1 as woolCollected goes 0→15
+    // Graze shrinks: 5s → 1.5s  (less safe time)
+    // Alert grows: 1.5s → 3.5s  (more danger time)
+    grazeTime: () => {
+      const t = Math.min(1, G.woolCollected / 15);
+      return (5.0 - t * 3.5) + Math.random() * (1.5 - t * 0.8);
+    },
+    alertTime: () => {
+      const t = Math.min(1, G.woolCollected / 15);
+      return (1.5 + t * 2.0) + Math.random() * 0.5;
+    },
+    // Return target
+    returnX: 0, returnY: 0
+  };
+}
+
+function updateRam(ram, dt) {
+  // Ramp patrol speed: 1x at 0 wool → 1.8x at 15 wool
+  const speedScale = 1 + (Math.min(1, G.woolCollected / 15)) * 0.8;
+  ram.speed = ram.baseSpeed * speedScale;
+
+  if (ram.state === 'grazing') {
+    // Find nearest wool-bearing thorn to bias patrol toward
+    let woolTarget = null;
+    let nearestWoolDist = Infinity;
+    G.woolTufts.forEach(w => {
+      if (w.collected || w.fadeOut) return;
+      const d = Math.hypot(w.x - ram.x, w.y - ram.y);
+      if (d < 250 && d < nearestWoolDist) {
+        nearestWoolDist = d;
+        woolTarget = w;
+      }
+    });
+
+    if (woolTarget && nearestWoolDist > 30) {
+      // Drift toward the wool — blend patrol direction with pull toward wool
+      const dx = woolTarget.x - ram.x;
+      const dy = woolTarget.y - ram.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const pull = 0.3; // How strongly rams are attracted (0 = ignore, 1 = beeline)
+      const patrolDx = ram.dir * ram.speed * 60 * dt;
+      const woolDx = (dx / dist) * ram.speed * 60 * dt * pull;
+      const woolDy = (dy / dist) * ram.speed * 60 * dt * pull;
+
+      ram.x += patrolDx * (1 - pull) + woolDx;
+      ram.y += woolDy;
+
+      // Still respect patrol bounds loosely
+      if (ram.x >= ram.patrolR + 30) { ram.dir = -1; ram.facingRight = false; }
+      if (ram.x <= ram.patrolL - 30) { ram.dir = 1; ram.facingRight = true; }
+      ram.facingRight = (patrolDx * (1 - pull) + woolDx) > 0;
+    } else {
+      // Normal patrol — no wool nearby
+      ram.x += ram.dir * ram.speed * 60 * dt;
+      if (ram.x >= ram.patrolR) { ram.dir = -1; ram.facingRight = false; }
+      if (ram.x <= ram.patrolL) { ram.dir = 1; ram.facingRight = true; }
+    }
+
+    // Gently pull Y back toward home when not chasing wool
+    if (!woolTarget) {
+      ram.y += (ram.homeY - ram.y) * 0.02;
+    }
+
+    ram.headBob = Math.sin(G.elapsed * 2.5) * 3;
+
+    ram.stateTimer -= dt;
+    if (ram.stateTimer <= 0) {
+      ram.state = 'alert';
+      ram.stateTimer = ram.alertTime();
+      checkReedWarning(ram);
+    }
+  }
+  else if (ram.state === 'alert') {
+    // Patrol slower
+    ram.x += ram.dir * ram.speed * 0.3 * 60 * dt;
+    if (ram.x >= ram.patrolR) { ram.dir = -1; ram.facingRight = false; }
+    if (ram.x <= ram.patrolL) { ram.dir = 1; ram.facingRight = true; }
+    ram.headBob = 0;
+
+    // Detect Psyche
+    const distToPsyche = Math.hypot(G.px - ram.x, G.py - ram.y);
+    if (distToPsyche < ram.detectRadius) {
+      // SPOTTED — start chasing!
+      ram.state = 'chasing';
+      ram.chaseTimer = 0;
+      ram.stateTimer = 0;
+      ram.facingRight = G.px > ram.x;
+    } else {
+      ram.stateTimer -= dt;
+      if (ram.stateTimer <= 0) {
+        ram.state = 'grazing';
+        ram.stateTimer = ram.grazeTime();
+      }
+    }
+  }
+  else if (ram.state === 'chasing') {
+    // Chase Psyche
+    const dx = G.px - ram.x;
+    const dy = G.py - ram.y;
+    const dist = Math.hypot(dx, dy);
+    ram.facingRight = dx > 0;
+
+    // Chase timer — ram tires out
+    ram.chaseTimer += dt;
+    const tiredness = Math.min(1, ram.chaseTimer / ram.maxChaseTime);
+    const currentChargeSpeed = ram.chargeSpeed * (1 - tiredness * 0.5); // Slows to 50% as it tires
+
+    if (dist > 3) {
+      ram.x += (dx / dist) * currentChargeSpeed * 60 * dt;
+      ram.y += (dy / dist) * currentChargeSpeed * 60 * dt;
+    }
+
+    // Check if caught Psyche
+    if (dist < 20 && !G.pHit) {
+      hitPsyche(ram);
+    }
+
+    // Escape conditions: either outran the radius OR ram timed out
+    const escaped = dist > ram.detectRadius + 20;
+    const timedOut = ram.chaseTimer >= ram.maxChaseTime;
+
+    if (escaped || timedOut) {
+      ram.state = 'returning';
+      ram.returnX = (ram.patrolL + ram.patrolR) / 2;
+      ram.returnY = ram.homeY;
+      ram.chaseTimer = 0;
+    }
+  }
+  else if (ram.state === 'returning') {
+    // Walk back to patrol route
+    const dx = ram.returnX - ram.x;
+    const dy = ram.returnY - ram.y;
+    const dist = Math.hypot(dx, dy);
+    ram.facingRight = dx > 0;
+
+    if (dist > 5) {
+      ram.x += (dx / dist) * ram.speed * 1.5 * 60 * dt;
+      ram.y += (dy / dist) * ram.speed * 1.5 * 60 * dt;
+    } else {
+      ram.state = 'grazing';
+      ram.stateTimer = ram.grazeTime();
+    }
+  }
+
+  // Ram thorn collision — push out of bushes
+  THORNS.forEach(t => {
+    const RAM_BUSH_R = 22;
+    const d = Math.hypot(ram.x - t.x, ram.y - t.y);
+    if (d < RAM_BUSH_R && d > 0) {
+      ram.x = t.x + ((ram.x - t.x) / d) * RAM_BUSH_R;
+      ram.y = t.y + ((ram.y - t.y) / d) * RAM_BUSH_R;
+    }
+  });
+}
+
+function hitPsyche(ram) {
+  G.pHit = true;
+  G.pHitTimer = 1.5; // Invincibility frames
+
+  // Knockback away from ram
+  const dx = G.px - ram.x;
+  const dy = G.py - ram.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  G.pKnockX = (dx / dist) * 8;
+  G.pKnockY = (dy / dist) * 8;
+
+  // Ram returns after hit
+  ram.state = 'returning';
+  ram.returnX = (ram.patrolL + ram.patrolR) / 2;
+  ram.returnY = ram.homeY;
+
+  // Every hit costs a heart from both attempt and total pool
+  G.hearts--;
+  G.totalHearts--;
+  G.heartsUsedThisAttempt++;
+  showFloat(G.px, G.py - 20, '🐏💔 Hit!', '#ef4444');
+
+  shake();
+  const flash = document.createElement('div');
+  flash.className = 'charge-flash';
+  container.appendChild(flash);
+  setTimeout(() => flash.remove(), 500);
+
+  spawnP(G.px, G.py, 6, '#ef4444');
+
+  // Out of attempt hearts — restart level
+  if (G.hearts <= 0) {
+    if (G.totalHearts <= 0) {
+      // No hearts left at all — game over
+      G.phase = 'gameover';
+      return;
+    }
+    G.phase = 'restart';
+    G.attempts++;
+    showFloat(W/2, H/2, '💔 Restarting trial...', '#ef4444');
+    setTimeout(() => {
+      restartLevel();
+    }, 1500);
+  }
+}
+
+function restartLevel() {
+  const totalH = G.totalHearts;
+  const attempts = G.attempts;
+
+  G = freshState();
+  G.totalHearts = totalH;
+  G.attempts = attempts;
+  G.hearts = Math.min(4, G.totalHearts); // 4 or whatever's left in the pool
+
+  setupRams();
+  G.phase = 'playing';
+}
+
+// ============================================================
+// REED WARNING
+// ============================================================
+function checkReedWarning(ram) {
+  if (G.reedCooldown > 0) return;
+  // Warn if Psyche is somewhat near this ram
+  const dist = Math.hypot(G.px - ram.x, G.py - ram.y);
+  if (dist < ram.detectRadius + 60) {
+    const el = document.createElement('div');
+    el.className = 'reed-msg';
+    el.textContent = '🌿 careful... it\'s looking around...';
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 2200);
+    G.reedCooldown = 5;
+  }
+}
+
+// ============================================================
+// WOOL
+// ============================================================
+function spawnWool() {
+  const available = THORNS.filter((t,i) =>
+    !G.woolTufts.some(w => w.thornIdx === i && !w.collected && !w.fadeOut));
+  if (available.length === 0) return;
+  const thornIdx = THORNS.indexOf(available[Math.floor(Math.random()*available.length)]);
+  const t = THORNS[thornIdx];
+  G.woolTufts.push({
+    thornIdx, x: t.x + (Math.random()-0.5)*6, y: t.y - 14,
+    life: 10 + Math.random()*4, maxLife: 14,
+    collected: false, fadeOut: 0
+  });
+}
+
+// ============================================================
+// UPDATE
+// ============================================================
+function update(dt) {
+  G.particles = G.particles.filter(p => {
+    p.x+=p.vx; p.y+=p.vy; p.vy+=2*dt; p.life-=dt; return p.life>0;
+  });
+  G.flyingWool = G.flyingWool.filter(f => {
+    f.progress += dt * 2.5;
+    return f.progress < 1;
+  });
+
+  if (G.phase !== 'playing') return;
+  G.elapsed += dt;
+
+  if (G.basketBounce > 0) G.basketBounce -= dt*2;
+  if (G.reedCooldown > 0) G.reedCooldown -= dt;
+
+  updatePsyche(dt);
+  G.rams.forEach(r => updateRam(r, dt));
+
+  // Space/Enter to grab
+  if ((keys[' '] || keys['Enter']) && G.pNearWool >= 0) {
+    grabWool();
+    keys[' '] = false; keys['Enter'] = false;
+  }
+
+  // Spawn wool
+  G.spawnTimer -= dt;
+  if (G.spawnTimer <= 0 && G.woolTufts.filter(w=>!w.collected&&!w.fadeOut).length < 4) {
+    spawnWool();
+    G.spawnTimer = (G.woolCollected < 5 ? 3 : G.woolCollected < 10 ? 2.5 : 2) + Math.random()*1.5;
+  }
+
+  // Wool lifetime
+  G.woolTufts.forEach(w => {
+    if (w.collected) return;
+    w.life -= dt;
+    if (w.life <= 0 && !w.fadeOut) w.fadeOut = 1;
+    if (w.fadeOut > 0) w.fadeOut -= dt*2;
+  });
+  G.woolTufts = G.woolTufts.filter(w => {
+    if (w.collected) return false;
+    if (w.fadeOut <= 0 && w.life <= 0) return false;
+    return true;
+  });
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  // === SKY ===
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#3a6090'); sky.addColorStop(0.15,'#6a88a8');
+  sky.addColorStop(0.3,'#c89848'); sky.addColorStop(0.45,'#d8a838');
+  sky.addColorStop(0.65,'#5a8a3a'); sky.addColorStop(0.85,'#3a6828');
+  sky.addColorStop(1,'#2a4a1e');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+
+  // Sun glow
+  const sg = ctx.createRadialGradient(560,90,0,560,90,200);
+  sg.addColorStop(0,'rgba(255,210,100,0.25)');
+  sg.addColorStop(1,'rgba(255,160,40,0)');
+  ctx.fillStyle=sg; ctx.fillRect(0,0,W,H);
+
+  // Hills
+  ctx.fillStyle='#4a7a2a'; ctx.beginPath();
+  ctx.moveTo(0,280);
+  ctx.quadraticCurveTo(120,250,240,270);
+  ctx.quadraticCurveTo(380,290,500,260);
+  ctx.quadraticCurveTo(600,250,W,275);
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+
+  ctx.fillStyle='#3a6a22'; ctx.beginPath();
+  ctx.moveTo(0,340);
+  ctx.quadraticCurveTo(200,330,400,345);
+  ctx.quadraticCurveTo(550,355,W,340);
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+
+  // Grass
+  ctx.strokeStyle='rgba(50,100,30,0.25)'; ctx.lineWidth=1;
+  for (let gx=0;gx<W;gx+=12) {
+    const gy=290+Math.sin(gx*0.03)*20+Math.random()*40;
+    if (gy>260) {
+      ctx.beginPath();ctx.moveTo(gx,gy);
+      ctx.lineTo(gx+Math.sin(G.elapsed*1.5+gx)*2,gy-5-Math.random()*3);
+      ctx.stroke();
+    }
+  }
+
+  // River
+  const riverY=H-45;
+  ctx.fillStyle='#2a5a88'; ctx.fillRect(0,riverY,W,45);
+  ctx.fillStyle='rgba(100,180,220,0.12)';
+  for (let rx=0;rx<W;rx+=30) {
+    const ry=riverY+5+Math.sin(G.elapsed*2+rx*0.1)*3;
+    ctx.fillRect(rx,ry,18,2);
+  }
+
+  // === DANGER ZONES (subtle ground telegraph) ===
+  G.rams.forEach(ram => {
+    if (ram.state === 'alert') {
+      const pulse = 0.05 + Math.sin(G.elapsed*3)*0.02;
+      ctx.fillStyle = `rgba(220,180,50,${pulse})`;
+      ctx.beginPath(); ctx.arc(ram.x, ram.y, ram.detectRadius, 0, Math.PI*2); ctx.fill();
+    } else if (ram.state === 'chasing') {
+      ctx.fillStyle = 'rgba(200,50,30,0.06)';
+      ctx.beginPath(); ctx.arc(ram.x, ram.y, ram.detectRadius, 0, Math.PI*2); ctx.fill();
+      // Chase line to Psyche
+      ctx.strokeStyle = 'rgba(200,50,30,0.15)';
+      ctx.lineWidth = 1; ctx.setLineDash([4,6]);
+      ctx.beginPath(); ctx.moveTo(ram.x, ram.y); ctx.lineTo(G.px, G.py); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  // === THORNS ===
+  THORNS.forEach(t => {
+    ctx.fillStyle='#2a4a18';
+    ctx.beginPath(); ctx.arc(t.x,t.y+5,13,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#3a5a22';
+    ctx.beginPath(); ctx.arc(t.x-4,t.y+2,9,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(t.x+5,t.y+3,8,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#4a3a1a'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(t.x-2,t.y); ctx.lineTo(t.x-7,t.y-13);
+    ctx.moveTo(t.x+3,t.y-2); ctx.lineTo(t.x+9,t.y-11);
+    ctx.moveTo(t.x,t.y-1); ctx.lineTo(t.x+1,t.y-15);
+    ctx.stroke();
+  });
+
+  // === WOOL ===
+  G.woolTufts.forEach((w,i) => {
+    if (w.collected) return;
+    const fadeA = w.fadeOut > 0 ? w.fadeOut : 1;
+    const isNear = i === G.pNearWool;
+    const pulse = 0.8 + Math.sin(G.elapsed*4)*0.2;
+
+    const woolSpr = sprites['wool'];
+    if (woolSpr) {
+      ctx.save(); ctx.globalAlpha = fadeA;
+      const sz = isNear ? 22 : 18;
+      ctx.drawImage(woolSpr, w.x-sz/2, w.y-sz/2, sz, sz);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = `rgba(255,215,0,${pulse*fadeA})`;
+      ctx.beginPath(); ctx.arc(w.x,w.y,isNear?9:7,0,Math.PI*2); ctx.fill();
+      if (isNear) {
+        ctx.fillStyle = `rgba(255,240,100,${0.15*fadeA})`;
+        ctx.beginPath(); ctx.arc(w.x,w.y,14,0,Math.PI*2); ctx.fill();
+      }
+    }
+
+    // Grab prompt when near
+    if (isNear && G.phase === 'playing' && !G.pGrabbing) {
+      ctx.fillStyle = 'rgba(255,215,100,0.7)';
+      ctx.font = 'bold 10px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillText('SPACE to grab', w.x, w.y - 18);
+      ctx.textAlign = 'left';
+    }
+
+    // Life bar
+    const lr = w.life / w.maxLife;
+    if (lr < 0.35 && !w.fadeOut) {
+      ctx.fillStyle = `rgba(255,255,255,${0.2*fadeA})`;
+      ctx.fillRect(w.x-8, w.y+12, 16*lr/0.35, 2);
+    }
+  });
+
+  // Flying wool to basket
+  G.flyingWool.forEach(f => {
+    const t = f.progress;
+    const e = t*t*(3-2*t);
+    const fx = f.startX + (W-75 - f.startX)*e;
+    const fy = f.startY + (25 - f.startY)*e - Math.sin(t*Math.PI)*40;
+    ctx.fillStyle = `rgba(255,215,0,${1-t*0.5})`;
+    ctx.beginPath(); ctx.arc(fx,fy,5*(1-t*0.3),0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(255,240,150,${(1-t)*0.3})`;
+    ctx.beginPath(); ctx.arc(fx-3,fy+2,3,0,Math.PI*2); ctx.fill();
+  });
+
+  // === RAMS ===
+  G.rams.forEach(ram => {
+    const sprName = ram.state==='chasing'?'ram_charge':ram.state==='alert'?'ram_alert':'ram_graze';
+    const spr = sprites[sprName];
+
+    if (spr) {
+      ctx.save();
+      const sz = 48;
+      if (!ram.facingRight) {
+        ctx.translate(ram.x, ram.y-sz/2+10); ctx.scale(-1,1);
+        ctx.drawImage(spr,-sz/2,0,sz,sz);
+      } else {
+        ctx.drawImage(spr, ram.x-sz/2, ram.y-sz/2+10, sz, sz);
+      }
+      ctx.restore();
+    } else {
+      // Programmatic ram
+      const headOff = ram.state==='grazing'?12+ram.headBob:ram.state==='alert'?-8:5;
+      const headX = ram.x+(ram.facingRight?20:-20);
+      const headY = ram.y+headOff;
+      ctx.fillStyle='#d4a020';
+      ctx.beginPath();ctx.ellipse(ram.x,ram.y,26,16,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#c89418';
+      ctx.beginPath();ctx.ellipse(ram.x,ram.y-3,22,12,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#b88418';
+      ctx.beginPath();ctx.arc(headX,headY,9,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#8a6a10';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(headX,headY-7,7,Math.PI*0.8,Math.PI*1.9);ctx.stroke();
+      ctx.fillStyle=ram.state==='chasing'?'#ff3333':'#222';
+      ctx.beginPath();ctx.arc(headX+(ram.facingRight?4:-4),headY-1,
+        ram.state==='chasing'?2.5:1.5,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#8a6a18';ctx.lineWidth=2.5;
+      const la=ram.state==='chasing'?Math.sin(G.elapsed*18)*5:Math.sin(G.elapsed*3)*2;
+      ctx.beginPath();
+      ctx.moveTo(ram.x-12,ram.y+14);ctx.lineTo(ram.x-12+la,ram.y+28);
+      ctx.moveTo(ram.x+12,ram.y+14);ctx.lineTo(ram.x+12-la,ram.y+28);
+      ctx.stroke();
+      if (ram.state==='chasing') {
+        for(let d=0;d<4;d++){
+          ctx.fillStyle=`rgba(160,140,80,${0.3+Math.random()*0.3})`;
+          ctx.beginPath();
+          ctx.arc(ram.x-(ram.facingRight?1:-1)*(20+d*8)+Math.random()*6,
+            ram.y+22+Math.random()*6,2+Math.random()*2,0,Math.PI*2);ctx.fill();
+        }
+      }
+    }
+
+    // State aura
+    if (ram.state==='grazing') {
+      ctx.fillStyle='rgba(80,180,80,0.05)';
+      ctx.beginPath();ctx.arc(ram.x,ram.y,22,0,Math.PI*2);ctx.fill();
+    } else if (ram.state==='alert') {
+      ctx.strokeStyle=`rgba(220,180,50,${0.25+Math.sin(G.elapsed*4)*0.1})`;
+      ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(ram.x,ram.y+5,20,0,Math.PI*2);ctx.stroke();
+    }
+  });
+
+  // === PSYCHE ===
+  renderPsyche();
+
+  // === REED ===
+  const reedSway = Math.sin(G.elapsed*1.8)*4;
+  const reedSpr = sprites['reed'];
+  const rX=55, rBase=riverY;
+  if (reedSpr) {
+    ctx.save();
+    const rH=50, rW=rH*(reedSpr.width/reedSpr.height);
+    ctx.translate(rX, rBase-rH+10);
+    ctx.transform(1,0,reedSway*0.02,1,0,0);
+    ctx.drawImage(reedSpr,-rW/2,0,rW,rH);
+    ctx.restore();
+  } else {
+    ctx.strokeStyle='#4a6a3a';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(rX,rBase);
+    ctx.quadraticCurveTo(rX+reedSway,rBase-30,rX+reedSway*1.3,rBase-55);ctx.stroke();
+    ctx.fillStyle='#5a3a2a';
+    ctx.beginPath();ctx.ellipse(rX+reedSway*1.3,rBase-62,4,10,reedSway*0.01,0,Math.PI*2);ctx.fill();
+  }
+
+  // === PARTICLES ===
+  G.particles.forEach(p => {
+    ctx.globalAlpha=Math.max(0,p.life/p.ml);ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.life/p.ml),0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // === HUD ===
+  if (G.phase==='playing') renderHUD();
+
+  // === OVERLAYS ===
+  if (G.phase==='tutorial') renderTutorial();
+  if (G.phase==='complete') renderComplete();
+  if (G.phase==='gameover') renderGameOver();
+  if (G.phase==='restart') renderRestart();
+}
+
+function renderPsyche() {
+  const blink = G.pHit && Math.sin(G.elapsed*30) > 0; // Flash when hit
+  if (blink) return; // Skip render on blink frames
+
+  const spr = sprites['psyche'];
+  if (spr) {
+    ctx.save();
+    const sz = 40;
+    if (G.pFacing < 0) {
+      ctx.translate(G.px, G.py-sz+8); ctx.scale(-1,1);
+      ctx.drawImage(spr,-sz/2,0,sz,sz);
+    } else {
+      ctx.drawImage(spr, G.px-sz/2, G.py-sz+8, sz, sz);
+    }
+    ctx.restore();
+  } else {
+    // Programmatic Psyche
+    // Head
+    ctx.fillStyle='#e8ddd0';
+    ctx.beginPath();ctx.arc(G.px, G.py-18, 7, 0, Math.PI*2);ctx.fill();
+    // Hair
+    ctx.fillStyle='#6a4a28';
+    ctx.beginPath();ctx.arc(G.px, G.py-21, 6, Math.PI, Math.PI*2);ctx.fill();
+    ctx.fillRect(G.px-5, G.py-21, 2, 12);
+    ctx.fillRect(G.px+3, G.py-21, 2, 10);
+    // Body (white chiton)
+    ctx.fillStyle='#f0ece4';
+    ctx.beginPath();
+    ctx.moveTo(G.px, G.py-11);
+    ctx.lineTo(G.px-9, G.py+4);
+    ctx.lineTo(G.px+9, G.py+4);
+    ctx.closePath();ctx.fill();
+    // Gold belt
+    ctx.strokeStyle='#d4a020'; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(G.px-6,G.py-6);ctx.lineTo(G.px+6,G.py-6);ctx.stroke();
+    // Legs
+    ctx.strokeStyle='#e8ddd0';ctx.lineWidth=2;
+    const legAnim = G.pMoving ? Math.sin(G.elapsed*12)*4 : 0;
+    ctx.beginPath();ctx.moveTo(G.px-3,G.py+4);ctx.lineTo(G.px-3+legAnim,G.py+12);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(G.px+3,G.py+4);ctx.lineTo(G.px+3-legAnim,G.py+12);ctx.stroke();
+  }
+
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.15)';
+  ctx.beginPath();ctx.ellipse(G.px, G.py+10, 10, 4, 0, 0, Math.PI*2);ctx.fill();
+}
+
+function renderHUD() {
+  // Basket
+  const bY = 15 - (G.basketBounce>0?G.basketBounce*6:0);
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  rr(ctx,W-140,bY,130,50,8);ctx.fill();
+  ctx.fillStyle='#ffd700';ctx.font='bold 20px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText(`🧺 ${G.woolCollected}/${G.woolNeeded}`,W-75,bY+26);
+  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='10px "Segoe UI"';
+  ctx.fillText('Golden Wool',W-75,bY+42);
+
+  // Hearts
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,10,130,42,6);ctx.fill();
+  let hs='';
+  for(let i=0;i<4;i++) hs+=i<G.hearts?'❤️':'🖤';
+  ctx.font='14px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,18,28);
+  ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='9px "Segoe UI"';
+  ctx.fillText(`${G.totalHearts} lives remaining`,18,44);
+
+  // Controls reminder
+  ctx.fillStyle='rgba(0,0,0,0.35)';rr(ctx,8,H-80,130,32,6);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='9px "Segoe UI"';
+  ctx.fillText('Arrow keys: move  ·  Space: grab',16,H-60);
+
+  ctx.textAlign='left';
+}
+
+function renderTutorial() {
+  ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText('"Wait for the safe moment."',W/2,90);
+
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  [
+    'Golden wool hangs from thorns across the field.',
+    'Move Psyche with arrow keys (or WASD) to approach.',
+    'Press SPACE near wool to grab it.',
+    '',
+    'But the golden rams are watching!',
+    '  🟢 Grazing = safe to sneak past',
+    '  🟡 Alert = if you\'re in their zone, they CHARGE',
+    '  🔴 Charging = RUN out of their zone!',
+    '',
+    'The ram calms down once you escape its territory.',
+    'Watch the patterns. Time your approach. Be patient.'
+  ].forEach((l,i) => {
+    ctx.fillStyle=l===''?'transparent':
+      l.includes('🟢')?'rgba(100,200,100,0.8)':
+      l.includes('🟡')?'rgba(220,180,50,0.8)':
+      l.includes('🔴')?'rgba(220,80,60,0.8)':'#a09878';
+    ctx.fillText(l,W/2,140+i*24);
+  });
+
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText('Collect 15 golden wool',W/2,430);
+
+  const p=0.7+Math.sin(G.elapsed*3)*0.3;
+  ctx.fillStyle=`rgba(240,214,138,${p*0.12})`;rr(ctx,W/2-65,460,130,40,8);ctx.fill();
+  ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`;ctx.lineWidth=1.5;rr(ctx,W/2-65,460,130,40,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText('Enter the Field',W/2,485);
+  ctx.textAlign='left';
+}
+
+function renderComplete() {
+  ctx.fillStyle='rgba(0,0,0,0.8)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('Trial II Complete',W/2,140);
+
+  let rating,rc;
+  const lost = 10 - G.totalHearts; // Total hearts used across all attempts
+  if(lost===0){rating='Excellent';rc='#4ade80';}
+  else if(lost<=2){rating='Good';rc='#60a5fa';}
+  else if(lost<=4){rating='Fair';rc='#fbbf24';}
+  else{rating='Needs Work';rc='#f87171';}
+
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  ctx.fillText(`Wool Collected: ${G.woolCollected}`,W/2,200);
+  ctx.fillText(`Hearts Used: ${lost} of 10`,W/2,228);
+  ctx.fillText(`Rams in field: ${G.rams.length}`,W/2,256);
+
+  ctx.fillStyle=rc;ctx.font='bold 20px "Segoe UI"';
+  ctx.fillText(`🕊️ Patience: ${rating}`,W/2,310);
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
+  ctx.fillText('"You waited for the safe moment."',W/2,355);
+
+  ctx.fillStyle='rgba(240,214,138,0.12)';rr(ctx,W/2-60,390,120,36,8);ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,0.4)';ctx.lineWidth=1;rr(ctx,W/2-60,390,120,36,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText('Play Again',W/2,413);
+  ctx.textAlign='left';
+}
+
+function renderGameOver() {
+  ctx.fillStyle='rgba(0,0,0,0.85)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#ef4444';ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('All Hearts Lost',W/2,200);
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  ctx.fillText('Psyche\'s strength has faded...',W/2,240);
+  ctx.fillText(`Wool collected: ${G.woolCollected} / ${G.woolNeeded}`,W/2,275);
+  ctx.fillText(`Attempts: ${G.attempts + 1}`,W/2,300);
+
+  ctx.fillStyle='rgba(240,214,138,0.12)';rr(ctx,W/2-70,340,140,38,8);ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,0.4)';ctx.lineWidth=1;rr(ctx,W/2-70,340,140,38,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText('Try Again',W/2,364);
+  ctx.textAlign='left';
+}
+
+function renderRestart() {
+  ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#fbbf24';ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText('💔 Restarting Trial...',W/2,H/2-15);
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';
+  ctx.fillText(`${G.totalHearts} hearts remaining`,W/2,H/2+20);
+  ctx.textAlign='left';
+}
+
+// ============================================================
+// INPUT (click for tutorial/complete buttons + mobile grab)
+// ============================================================
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function setupRams() {
+  G.rams = [];
+  // Spread across top, middle, and bottom of the field
+  // Field playable area: y = 150 to y = 500
+  G.rams.push(createRam(160, 190, 60, 350, 0.4, 80));    // Top-left patrol
+  G.rams.push(createRam(500, 440, 350, 640, 0.45, 80));   // Bottom-right patrol
+}
+
+function initGame() {
+  G = freshState();
+  setupRams();
+}
+function startGame() { G.phase = 'playing'; }
+
+
+
+  return {
+    init(){ initGame(); startGame(); },
+    update(dt){ G.elapsed+=dt; update(dt);
+      if(G.woolCollected>=G.woolNeeded&&G.phase==='playing'){
+        G.phase='complete';
+        const lost=10-GAME.totalHearts;
+        let rating;
+        if(lost===0)rating='Excellent';else if(lost<=2)rating='Good';
+        else if(lost<=4)rating='Fair';else rating='Needs Work';
+        setTimeout(()=>trialComplete(2,'patience',{score:Math.max(0,100-lost*15),rating}),1500);
+      }
+    },
+    render(){ render(); },
+    click(x,y){
+      const p={x,y};
+      if(G.phase==='playing'&&G.pNearWool>=0) grabWool();
+    },
+    mousemove(x,y){},
+    mouseup(x,y){},
+    G: ()=>G
+  };
+})();
+
+// ================================================================
+// TRIAL 3: THE DARK PALACE
+// ================================================================
+const Trial3 = (function(){
+
+
+// ============================================================
+// SPRITES
+// ============================================================
+
+// ============================================================
+// ROOM 1: THE STORY WALL
+// Fragments of a mural showing Eros & Psyche's story.
+// Player finds fragments scattered in darkness, then arranges
+// them in chronological order on the empty mural panel.
+// ============================================================
+const STORY_FRAGMENTS = [
+  { id:0, icon:'💘', title:'Eros Strikes', desc:'Eros sees Psyche and falls in love', color:'#e8a040' },
+  { id:1, icon:'🏛️', title:'The Invisible Palace', desc:'Psyche lives in a palace, never seeing her husband', color:'#c090d0' },
+  { id:2, icon:'🪔', title:'The Oil Lamp', desc:'Psyche lights a lamp to see Eros\'s face', color:'#f0d060' },
+  { id:3, icon:'💔', title:'The Betrayal', desc:'Oil drops on Eros — he wakes and flies away', color:'#e06060' }
+];
+
+// False fragments (sister lies) — look similar but don't belong
+const FALSE_FRAGMENTS = [
+  { id:'f0', icon:'🐍', title:'The Serpent', desc:'A monster lurks in the palace', color:'#5080a0', whisper:'He was always a monster...' },
+  { id:'f1', icon:'⛓️', title:'The Prison', desc:'Psyche was trapped against her will', color:'#5080a0', whisper:'You were never free...' }
+];
+
+// ============================================================
+// ROOM 2: THE OFFERING ALTAR
+// Find divine objects and match them to the correct altar slot
+// by reading the symbol hint on each slot.
+// ============================================================
+const ALTAR_OBJECTS = [
+  { id:0, icon:'🪶', name:'White Feather', symbol:'🦋', symbolHint:'Wings of the soul', color:'#e8d8c0' },
+  { id:1, icon:'🏹', name:'Golden Arrow', symbol:'💘', symbolHint:'Weapon of love', color:'#d4a020' },
+  { id:2, icon:'🌹', name:'Rose Petals', symbol:'❤️', symbolHint:'Where love bloomed', color:'#d06080' },
+  { id:3, icon:'✨', name:'Divine Light', symbol:'☀️', symbolHint:'Radiance of the gods', color:'#f0e080' }
+];
+
+const FALSE_OBJECTS = [
+  { id:'f0', icon:'💀', name:'Skull Fragment', symbol:null, color:'#6090a0', whisper:'Death was always near...' },
+  { id:'f1', icon:'🐍', name:'Dark Scale', symbol:null, color:'#5080a0', whisper:'A serpent lived here...' }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+  let G = {};
+function freshState() {
+  return {
+    phase: 'tutorial',
+    elapsed: 0,
+    // Lamp
+    lampX: W/2, lampY: H/2,
+    lampTX: W/2, lampTY: H/2,
+    lampR: 80,
+    lampOn: true, lampOutTimer: 0,
+    // Oil
+    oil: 100,
+    // Room
+    roomIdx: 0, // 0=Story Wall, 1=Altar, 2=Bedchamber
+    // Clue items scattered in darkness
+    items: [],        // { x, y, data, found, discovered, glow, isReal, pickedUp }
+    inventory: [],    // Items player has picked up (max display 6)
+    // Puzzle panel / altar
+    slots: [],        // { x, y, symbolHint, correctId, placedItem, flash }
+    puzzleSolved: false,
+    // Hint paintings on walls (discoverable with lamp)
+    hints: [],        // { x, y, w, h, lines[], discovered, glow }
+    // Sisters
+    sisters: [],
+    sisterTimer: 0,
+    sisterAttacksLeft: 0,
+    // Scoring
+    falseCollected: 0,
+    wrongPlacements: 0,
+    // Bedchamber
+    bedReveal: 0, bedPhase: 0,
+    // UI state
+    dragging: null,    // Index in inventory being dragged
+    dragX: 0, dragY: 0,
+    hoveredSlot: -1,
+    // Particles
+    particles: [],
+    // Hearts
+    totalHearts: 10, hearts: 4,
+    // Cold flash
+    coldFlash: 0
+  };
+}
+
+// ============================================================
+// ROOM SETUP
+// ============================================================
+function setupRoom(idx) {
+  G.roomIdx = idx;
+  G.items = [];
+  G.inventory = [];
+  G.slots = [];
+  G.hints = [];
+  G.puzzleSolved = false;
+  G.sisters = [];
+  G.dragging = null;
+  G.hoveredSlot = -1;
+
+  if (idx === 0) {
+    // ROOM 1: Story Wall
+    G.sisterAttacksLeft = 1;
+    G.sisterTimer = 18 + Math.random() * 5;
+    G.oil = Math.min(100, G.oil + 5);
+
+    // Scatter story fragments in the dark
+    const positions = [
+      {x:120, y:200}, {x:500, y:180}, {x:160, y:420}, {x:520, y:400}
+    ];
+    // Shuffle positions
+    const shuffled = [...positions].sort(() => Math.random() - 0.5);
+    STORY_FRAGMENTS.forEach((frag, i) => {
+      G.items.push({
+        x: shuffled[i].x, y: shuffled[i].y,
+        data: frag, found: false, discovered: false, glow: 0,
+        isReal: true, pickedUp: false
+      });
+    });
+
+    // Add false fragment
+    G.items.push({
+      x: 340 + (Math.random()-0.5)*100, y: 300 + (Math.random()-0.5)*80,
+      data: FALSE_FRAGMENTS[0], found: false, discovered: false, glow: 0,
+      isReal: false, pickedUp: false
+    });
+
+    // Mural panel slots (bottom-center, 4 slots in a row)
+    const slotY = H - 80;
+    const slotStartX = W/2 - 150;
+    for (let i = 0; i < 4; i++) {
+      G.slots.push({
+        x: slotStartX + i * 100, y: slotY,
+        label: `${i+1}`,
+        symbolHint: ['First', 'Second', 'Third', 'Fourth'][i],
+        correctId: i,
+        placedItem: null,
+        flash: 0, wrongFlash: 0
+      });
+    }
+
+    // Hint: Ancient inscription on the wall showing the story order
+    G.hints.push({
+      x: 340, y: 140, w: 180, h: 80,
+      title: '📜 Ancient Inscription',
+      lines: ['💘 Love struck first', '🏛️ Then a hidden palace', '🪔 Light revealed truth', '💔 And love was lost'],
+      discovered: false, glow: 0
+    });
+  }
+  else if (idx === 1) {
+    // ROOM 2: Offering Altar
+    G.sisterAttacksLeft = 2;
+    G.sisterTimer = 14 + Math.random() * 5;
+    G.oil = Math.min(85, G.oil + 5);
+
+    const positions = [
+      {x:100, y:180}, {x:540, y:200}, {x:140, y:400}, {x:500, y:420}
+    ];
+    const shuffled = [...positions].sort(() => Math.random() - 0.5);
+    ALTAR_OBJECTS.forEach((obj, i) => {
+      G.items.push({
+        x: shuffled[i].x, y: shuffled[i].y,
+        data: obj, found: false, discovered: false, glow: 0,
+        isReal: true, pickedUp: false
+      });
+    });
+
+    // False objects
+    FALSE_OBJECTS.forEach((obj, i) => {
+      G.items.push({
+        x: 300 + (Math.random()-0.5)*150, y: 250 + (Math.random()-0.5)*120,
+        data: obj, found: false, discovered: false, glow: 0,
+        isReal: false, pickedUp: false
+      });
+    });
+
+    // Altar slots (right side, vertical)
+    const slotX = W - 90;
+    for (let i = 0; i < 4; i++) {
+      G.slots.push({
+        x: slotX, y: 160 + i * 95,
+        label: ALTAR_OBJECTS[i].symbol,
+        symbolHint: ALTAR_OBJECTS[i].symbolHint,
+        correctId: i,
+        placedItem: null,
+        flash: 0, wrongFlash: 0
+      });
+    }
+
+    // Hint: Stone carving showing what each symbol means
+    G.hints.push({
+      x: 320, y: 160, w: 190, h: 90,
+      title: '🪨 Stone Carving',
+      lines: ['🦋 = feathers that fly', '💘 = the archer\'s tool', '❤️ = petals of the heart', '☀️ = light from above'],
+      discovered: false, glow: 0
+    });
+  }
+  else if (idx === 2) {
+    // Bedchamber
+    G.phase = 'bedchamber';
+    G.bedPhase = 0;
+    G.bedReveal = 0;
+    G.lampOn = true;
+  }
+}
+
+// ============================================================
+// UPDATE
+// ============================================================
+function update(dt) {
+  G.particles = G.particles.filter(p => {
+    p.x+=p.vx; p.y+=p.vy; p.vy+=1*dt; p.life-=dt; return p.life>0;
+  });
+  if (G.coldFlash > 0) G.coldFlash -= dt * 2;
+
+  if (G.phase === 'roomTransition') return;
+  if (G.phase === 'bridge') {
+    G.bridgeTimer += dt;
+    const line = G.bridgeLines[G.bridgeStep];
+    if (line && G.bridgeTimer >= line.pause) {
+      G.bridgeStep++;
+      G.bridgeTimer = 0;
+      if (G.bridgeStep >= G.bridgeLines.length) {
+        // Bridge complete — move to next room
+        G.roomIdx++;
+        setupRoom(G.roomIdx);
+        if (G.phase !== 'bedchamber') G.phase = 'playing';
+      }
+    }
+    return;
+  }
+  if (G.phase !== 'playing' && G.phase !== 'bedchamber') return;
+
+  G.elapsed += dt;
+
+  // Lamp smoothing
+  G.lampX += (G.lampTX - G.lampX) * 0.12;
+  G.lampY += (G.lampTY - G.lampY) * 0.12;
+
+  if (!G.lampOn) {
+    G.lampOutTimer -= dt;
+    if (G.lampOutTimer <= 0) G.lampOn = true;
+  }
+
+  if (G.phase === 'bedchamber') { updateBedchamber(dt); return; }
+
+  // Oil drain
+  G.oil -= 1.85 * dt;
+  if (G.oil <= 0) {
+    G.oil = 70;
+    // Return all placed slot items and inventory items back to the field
+    G.slots.forEach(s => {
+      if (s.placedItem) {
+        // Find the original item and un-pick it
+        const orig = G.items.find(it => it.data === s.placedItem || (it.data.id === s.placedItem.id && it.isReal));
+        if (orig) { orig.pickedUp = false; orig.discovered = false; orig.glow = 0; }
+        s.placedItem = null;
+      }
+      s.flash = 0; s.wrongFlash = 0;
+    });
+    G.inventory.forEach(invItem => {
+      const orig = G.items.find(it => it.data === invItem || (it.data.id === invItem.id && it.isReal));
+      if (orig) { orig.pickedUp = false; orig.discovered = false; orig.glow = 0; }
+    });
+    G.inventory = [];
+    // Also reset undiscovered items
+    G.items.forEach(it => { if (!it.pickedUp) { it.discovered = false; it.glow = 0; } });
+    G.dragging = null;
+    showFloat(W/2, H/2, '🛢️ Oil ran out! Room resets...', '#f97316');
+  }
+
+  // Discover items
+  if (G.lampOn) {
+    G.items.forEach(it => {
+      if (it.pickedUp) return;
+      const dist = Math.hypot(it.x - G.lampX, it.y - G.lampY);
+      if (dist < G.lampR * 0.75) {
+        it.discovered = true;
+        it.glow = Math.min(1, it.glow + dt * 3);
+      } else {
+        it.glow = Math.max(0, it.glow - dt * 1.5);
+      }
+    });
+
+    // Discover hints (paintings/inscriptions on walls)
+    G.hints.forEach(h => {
+      const dist = Math.hypot((h.x + h.w/2) - G.lampX, (h.y + h.h/2) - G.lampY);
+      if (dist < G.lampR) {
+        h.discovered = true;
+        h.glow = Math.min(1, h.glow + dt * 2.5);
+      } else {
+        h.glow = Math.max(0, h.glow - dt * 1);
+      }
+    });
+  }
+
+  // Slot flashes
+  G.slots.forEach(s => {
+    if (s.flash > 0) s.flash -= dt * 2;
+    if (s.wrongFlash > 0) s.wrongFlash -= dt * 2;
+  });
+
+  // Sisters
+  if (G.sisterAttacksLeft > 0) {
+    G.sisterTimer -= dt;
+    if (G.sisterTimer <= 0) {
+      spawnSister();
+      G.sisterAttacksLeft--;
+      G.sisterTimer = 15 + Math.random() * 8;
+    }
+  }
+  G.sisters = G.sisters.filter(s => {
+    s.timer -= dt;
+    if (s.phase === 'warning' && s.timer <= 0) {
+      s.phase = 'gust'; s.timer = 0.8;
+      const inPath = s.side === 'left'
+        ? (G.lampX < W*0.5 && Math.abs(G.lampY - s.gustY) < 90)
+        : (G.lampX > W*0.5 && Math.abs(G.lampY - s.gustY) < 90);
+      if (inPath) {
+        G.lampOn = false; G.lampOutTimer = 3;
+        showFloat(G.lampX, G.lampY-20, '💨 Lamp blown out!', 'rgba(150,180,220,0.8)');
+      }
+    }
+    return s.timer > -2;
+  });
+
+  // Check puzzle solved
+  if (!G.puzzleSolved && G.slots.length > 0 && G.slots.every(s => s.placedItem !== null)) {
+    const allCorrect = G.slots.every(s => s.placedItem && s.placedItem.id === s.correctId);
+    if (allCorrect) {
+      G.puzzleSolved = true;
+      spawnP(W/2, H/2, 15, '#ffd700');
+
+      // Narrative bridge before next room
+      if (G.roomIdx === 0) {
+        G.phase = 'bridge';
+        G.bridgeStep = 0;
+        G.bridgeTimer = 0;
+        G.bridgeLines = [
+          { icon: '✨', text: 'The mural glows. The story is in order.', pause: 2.5 },
+          { icon: '🚪', text: 'A hidden door grinds open behind the wall.', pause: 2.5 },
+          { icon: '🏛️', text: 'Beyond it — a deeper chamber. An altar stands in the shadows.', pause: 3 },
+          { icon: '⚠️', text: 'Your sisters\' whispers grow louder here. Be careful what you trust.', pause: 3 }
+        ];
+      } else if (G.roomIdx === 1) {
+        G.phase = 'bridge';
+        G.bridgeStep = 0;
+        G.bridgeTimer = 0;
+        G.bridgeLines = [
+          { icon: '✨', text: 'The altar accepts your offerings. The symbols illuminate.', pause: 2.5 },
+          { icon: '🚪', text: 'The final door opens — a private chamber.', pause: 2.5 },
+          { icon: '🤫', text: 'Someone is here. You can hear soft breathing.', pause: 2.5 },
+          { icon: '🪔', text: 'Your oil lamp flickers. Move closer to see the truth.', pause: 3 }
+        ];
+      }
+    }
+  }
+}
+
+function spawnSister() {
+  const side = Math.random() > 0.5 ? 'left' : 'right';
+  const gustY = 150 + Math.random() * 250;
+  const whispers = [
+    "He is hiding something...", "Why does he fear the light?",
+    "What kind of husband hides?", "Your sisters know the truth...",
+    "A monster wears a gentle face..."
+  ];
+  G.sisters.push({
+    side, gustY, x: side==='left'?20:W-20, y: gustY,
+    phase: 'warning', timer: 2
+  });
+  const el = document.createElement('div');
+  el.className = 'whisper-text';
+  el.textContent = `"${whispers[Math.floor(Math.random()*whispers.length)]}"`;
+  el.style.color = 'rgba(100,140,180,0.7)';
+  el.style.left = side==='left' ? '30px' : '';
+  el.style.right = side==='right' ? '30px' : '';
+  el.style.top = (gustY-30+Math.random()*60)+'px';
+  container.appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
+// ============================================================
+// CLICK / DRAG
+// ============================================================
+function handleClick(mx, my) {
+  if (G.phase !== 'playing') return;
+  if (!G.lampOn) return;
+
+  // Pick up an item
+  for (let i = G.items.length - 1; i >= 0; i--) {
+    const it = G.items[i];
+    if (it.pickedUp || !it.discovered || it.glow < 0.3) continue;
+    if (Math.hypot(it.x - mx, it.y - my) > 28) continue;
+
+    if (it.isReal) {
+      it.pickedUp = true;
+      G.inventory.push(it.data);
+      spawnP(it.x, it.y, 6, it.data.color);
+      showFloat(mx, my-10, `✨ ${it.data.title || it.data.name}`, '#ffd700');
+    } else {
+      it.pickedUp = true; // Remove from field
+      G.falseCollected++;
+      G.oil = Math.max(0, G.oil - 15);
+      G.coldFlash = 0.5;
+      spawnP(it.x, it.y, 5, '#4488cc');
+      showFloat(mx, my-10, `❌ False clue! -15% oil`, '#6495ed');
+      if (it.data.whisper) {
+        const el = document.createElement('div');
+        el.className = 'whisper-text';
+        el.textContent = `"${it.data.whisper}"`;
+        el.style.color = 'rgba(100,140,180,0.7)';
+        el.style.left = (mx - 60) + 'px'; el.style.top = (my + 20) + 'px';
+        container.appendChild(el);
+        setTimeout(()=>el.remove(), 3000);
+      }
+    }
+    return;
+  }
+
+  // Click on a slot that has an item → return to inventory
+  const clickedSlot = getSlotAt(mx, my);
+  if (clickedSlot >= 0 && G.dragging === null) {
+    const slot = G.slots[clickedSlot];
+    if (slot.placedItem) {
+      G.inventory.push(slot.placedItem);
+      slot.placedItem = null;
+      showFloat(mx, my - 15, '↩ Returned', 'rgba(200,180,140,0.6)');
+      return;
+    }
+  }
+
+  // Click on inventory item to start drag
+  const invItem = getInventoryAt(mx, my);
+  if (invItem >= 0) {
+    G.dragging = invItem;
+    G.dragX = mx; G.dragY = my;
+    return;
+  }
+
+  // Click on slot to place dragged item
+  if (G.dragging !== null) {
+    const slotIdx = getSlotAt(mx, my);
+    if (slotIdx >= 0) {
+      placeItem(slotIdx);
+    } else {
+      G.dragging = null; // Cancel drag
+    }
+  }
+}
+
+function handleMouseUp(mx, my) {
+  if (G.dragging === null) return;
+  const slotIdx = getSlotAt(mx, my);
+  if (slotIdx >= 0) {
+    placeItem(slotIdx);
+  }
+  G.dragging = null;
+}
+
+function placeItem(slotIdx) {
+  if (G.dragging === null) return;
+  const slot = G.slots[slotIdx];
+  if (slot.placedItem) {
+    // Slot already has an item — swap back to inventory
+    G.inventory.push(slot.placedItem);
+    slot.placedItem = null;
+  }
+  const item = G.inventory[G.dragging];
+  slot.placedItem = item;
+  G.inventory.splice(G.dragging, 1);
+  G.dragging = null;
+
+  // Check if correct
+  if (item.id === slot.correctId) {
+    slot.flash = 0.6;
+    spawnP(slot.x, slot.y, 5, '#ffd700');
+  } else {
+    slot.wrongFlash = 0.5;
+    G.wrongPlacements++;
+    G.oil = Math.max(0, G.oil - 5);
+    showFloat(slot.x, slot.y - 30, '✗ Wrong spot! -5% oil', '#f97316');
+  }
+}
+
+function getInventoryAt(mx, my) {
+  const invY = 52;
+  const invStartX = 10;
+  for (let i = 0; i < G.inventory.length; i++) {
+    const ix = invStartX + i * 55 + 25;
+    if (Math.abs(mx - ix) < 25 && Math.abs(my - invY - 18) < 22) return i;
+  }
+  return -1;
+}
+
+function getSlotAt(mx, my) {
+  for (let i = 0; i < G.slots.length; i++) {
+    const s = G.slots[i];
+    if (Math.abs(mx - s.x) < 40 && Math.abs(my - s.y) < 35) return i;
+  }
+  return -1;
+}
+
+// ============================================================
+// BEDCHAMBER
+// ============================================================
+function updateBedchamber(dt) {
+  const cx = W/2, cy = H/2 - 30;
+  if (G.bedPhase === 0) {
+    if (G.lampOn && Math.hypot(G.lampX-cx, G.lampY-cy) < 100) {
+      G.bedReveal += dt * 0.12;
+    }
+    if (G.bedReveal >= 1) {
+      G.bedPhase = 1;
+      setTimeout(()=>{ G.bedPhase = 2; }, 2500);
+      setTimeout(()=>{ G.bedPhase = 3; }, 4500);
+      setTimeout(()=>{ G.phase = 'complete'; }, 7000);
+    }
+  }
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Cursor
+  container.style.cursor = (G.phase==='playing'||G.phase==='bedchamber')
+    ? (G.dragging !== null ? 'grabbing' : 'none') : 'default';
+
+  // Base darkness
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W, H);
+
+  if (G.phase === 'tutorial') { renderTutorial(); return; }
+  if (G.phase === 'complete') { renderComplete(); return; }
+
+  // ---- Draw scene content (will be masked by darkness) ----
+  // Save scene for lamp reveal
+  renderWalls();
+  renderFurniture();
+
+  if (G.phase === 'bedchamber') {
+    renderBedchamber();
+  } else {
+    renderItems();
+    renderHints();
+    renderSlots();
+    renderSisters();
+  }
+
+  // ---- LAMP LIGHT MASK ----
+  if (G.lampOn) {
+    // Capture current scene
+    const scene = ctx.getImageData(0, 0, W, H);
+
+    // Redraw base darkness + faint walls
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(0, 0, W, H);
+    renderWalls();
+
+    // Cut lamp hole
+    ctx.globalCompositeOperation = 'destination-out';
+    const lg = ctx.createRadialGradient(G.lampX, G.lampY, 0, G.lampX, G.lampY, G.lampR);
+    lg.addColorStop(0, 'rgba(0,0,0,1)');
+    lg.addColorStop(0.55, 'rgba(0,0,0,0.85)');
+    lg.addColorStop(0.8, 'rgba(0,0,0,0.3)');
+    lg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Clip and restore lit scene
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(G.lampX, G.lampY, G.lampR, 0, Math.PI*2);
+    ctx.clip();
+    ctx.putImageData(scene, 0, 0);
+    ctx.restore();
+
+    // Warm glow
+    const wg = ctx.createRadialGradient(G.lampX, G.lampY, 0, G.lampX, G.lampY, G.lampR*0.6);
+    wg.addColorStop(0, 'rgba(255,200,100,0.07)');
+    wg.addColorStop(1, 'rgba(255,180,80,0)');
+    ctx.fillStyle = wg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Lamp icon
+  ctx.fillStyle = G.lampOn ? '#ffd700' : '#444';
+  ctx.font = '18px "Segoe UI"'; ctx.textAlign = 'center';
+  ctx.fillText(G.lampOn ? '🪔' : '💨', G.lampX, G.lampY + 5);
+  ctx.textAlign = 'left';
+
+  // Lamp out overlay
+  if (!G.lampOn) {
+    ctx.fillStyle = 'rgba(5,5,16,0.75)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(150,180,220,0.4)';
+    ctx.font = 'italic 13px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(`Lamp out... ${Math.ceil(G.lampOutTimer)}s`, W/2, H/2);
+    ctx.textAlign = 'left';
+  }
+
+  // Cold flash
+  if (G.coldFlash > 0) {
+    ctx.fillStyle = `rgba(40,60,100,${G.coldFlash * 0.2})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Particles
+  G.particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life/p.ml);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(p.life/p.ml),0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // ---- HUD (always visible, above darkness) ----
+  if (G.phase === 'playing') renderHUD();
+
+  // Dragging item
+  if (G.dragging !== null && G.phase === 'playing') {
+    const item = G.inventory[G.dragging];
+    if (item) {
+      ctx.font = '28px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.globalAlpha = 0.85;
+      ctx.fillText(item.icon, G.dragX, G.dragY + 8);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(255,215,100,0.15)';
+      ctx.beginPath(); ctx.arc(G.dragX, G.dragY, 22, 0, Math.PI*2); ctx.fill();
+      ctx.textAlign = 'left';
+    }
+  }
+
+  // Narrative bridge between rooms
+  if (G.phase === 'bridge') {
+    ctx.fillStyle = 'rgba(0,0,0,0.88)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'center';
+    const step = G.bridgeStep;
+    const timer = G.bridgeTimer;
+
+    // Show all completed lines (faded) plus current line (bright)
+    G.bridgeLines.forEach((line, i) => {
+      if (i > step) return; // Not yet reached
+      const isCurrent = (i === step);
+      const y = 180 + i * 55;
+
+      // Fade in for current line
+      let alpha;
+      if (isCurrent) {
+        alpha = Math.min(1, timer * 2); // Fade in over 0.5s
+      } else {
+        alpha = 0.35; // Past lines stay dim
+      }
+
+      // Icon
+      ctx.globalAlpha = alpha;
+      ctx.font = '28px "Segoe UI"';
+      ctx.fillText(line.icon, W/2, y - 8);
+
+      // Text
+      ctx.fillStyle = isCurrent ? '#f0d68a' : 'rgba(200,180,140,0.6)';
+      ctx.font = isCurrent ? '15px "Segoe UI"' : '13px "Segoe UI"';
+      ctx.fillText(line.text, W/2, y + 22);
+
+      ctx.globalAlpha = 1;
+    });
+
+    ctx.textAlign = 'left';
+  }
+
+  // Old room transition fallback
+  if (G.phase === 'roomTransition') {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#4ade80'; ctx.font = 'bold 20px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText('✓ Puzzle Solved!', W/2, H/2 - 10);
+    ctx.textAlign = 'left';
+  }
+}
+
+function renderWalls() {
+  ctx.strokeStyle = 'rgba(40,38,55,0.25)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(25, 25, W-50, H-50);
+  // Floor grid
+  ctx.strokeStyle = 'rgba(35,33,48,0.12)';
+  ctx.lineWidth = 1;
+  for (let x=25; x<W-25; x+=65) {
+    ctx.beginPath(); ctx.moveTo(x,25); ctx.lineTo(x,H-25); ctx.stroke();
+  }
+  for (let y=25; y<H-25; y+=65) {
+    ctx.beginPath(); ctx.moveTo(25,y); ctx.lineTo(W-25,y); ctx.stroke();
+  }
+  // Columns
+  ctx.fillStyle = 'rgba(30,28,42,0.4)';
+  [[80,100,16,250],[600,100,16,250],[340,80,16,100]].forEach(([x,y,w,h]) => {
+    ctx.fillRect(x-w/2,y,w,h);
+    ctx.fillStyle = 'rgba(42,40,58,0.35)';
+    ctx.fillRect(x-w/2-3,y,w+6,10);
+    ctx.fillStyle = 'rgba(30,28,42,0.4)';
+  });
+}
+
+function renderFurniture() {
+  if (G.roomIdx === 0) {
+    // Mural panel background (where slots go)
+    ctx.fillStyle = 'rgba(35,30,45,0.5)';
+    rr(ctx, W/2-210, H-115, 420, 75, 6); ctx.fill();
+    ctx.strokeStyle = 'rgba(60,55,75,0.3)'; ctx.lineWidth = 1;
+    rr(ctx, W/2-210, H-115, 420, 75, 6); ctx.stroke();
+    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '10px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText('▼ STORY MURAL — arrange in order ▼', W/2, H-120);
+    ctx.textAlign = 'left';
+  } else if (G.roomIdx === 1) {
+    // Altar panel
+    ctx.fillStyle = 'rgba(35,30,45,0.5)';
+    rr(ctx, W-140, 130, 110, 400, 6); ctx.fill();
+    ctx.strokeStyle = 'rgba(60,55,75,0.3)'; ctx.lineWidth = 1;
+    rr(ctx, W-140, 130, 110, 400, 6); ctx.stroke();
+    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '10px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText('ALTAR', W-85, 148);
+    ctx.textAlign = 'left';
+  }
+}
+
+function renderItems() {
+  G.items.forEach(it => {
+    if (it.pickedUp) return;
+    if (it.glow <= 0 && !it.discovered) return;
+    const dist = Math.hypot(it.x - G.lampX, it.y - G.lampY);
+    if (dist > G.lampR * 1.2) return;
+
+    const a = it.glow;
+
+    // Glow aura
+    if (it.isReal) {
+      ctx.fillStyle = `rgba(255,210,80,${a*0.2})`;
+      ctx.beginPath(); ctx.arc(it.x, it.y, 20, 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle = `rgba(80,140,180,${a*0.18})`;
+      ctx.beginPath(); ctx.arc(it.x, it.y, 20, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Icon
+    if (a > 0.25) {
+      ctx.globalAlpha = a;
+      ctx.font = '24px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillText(it.data.icon, it.x, it.y + 7);
+
+      // Name when close
+      if (dist < 50 && a > 0.5) {
+        ctx.fillStyle = it.isReal ? `rgba(255,230,150,${a*0.7})` : `rgba(130,170,200,${a*0.6})`;
+        ctx.font = '10px "Segoe UI"';
+        ctx.fillText(it.data.title || it.data.name, it.x, it.y + 24);
+        if (a > 0.7) {
+          ctx.font = '9px "Segoe UI"';
+          ctx.fillStyle = `rgba(200,180,140,${a*0.4})`;
+          ctx.fillText('click to pick up', it.x, it.y + 36);
+        }
+      }
+      ctx.textAlign = 'left';
+      ctx.globalAlpha = 1;
+    }
+  });
+}
+
+function renderHints() {
+  G.hints.forEach(h => {
+    if (h.glow <= 0 && !h.discovered) return;
+    const a = h.glow;
+
+    // Background panel
+    ctx.fillStyle = `rgba(35,30,25,${a * 0.6})`;
+    rr(ctx, h.x, h.y, h.w, h.h, 4); ctx.fill();
+    ctx.strokeStyle = `rgba(180,160,120,${a * 0.3})`;
+    ctx.lineWidth = 1;
+    rr(ctx, h.x, h.y, h.w, h.h, 4); ctx.stroke();
+
+    // Title
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(220,200,150,0.8)';
+    ctx.font = 'bold 11px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(h.title, h.x + h.w/2, h.y + 15);
+
+    // Lines
+    ctx.font = '11px "Segoe UI"';
+    ctx.fillStyle = 'rgba(240,220,160,0.75)';
+    h.lines.forEach((line, i) => {
+      ctx.fillText(line, h.x + h.w/2, h.y + 32 + i * 15);
+    });
+
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  });
+}
+
+function renderSlots() {
+  G.slots.forEach((s, i) => {
+    const w = 70, h = 55;
+
+    // Slot background
+    ctx.fillStyle = s.wrongFlash > 0 ? `rgba(180,50,40,${0.15+s.wrongFlash*0.25})` :
+      s.flash > 0 ? `rgba(50,180,80,${0.12+s.flash*0.2})` :
+      s.placedItem ? 'rgba(40,50,35,0.5)' : 'rgba(25,22,35,0.6)';
+    rr(ctx, s.x-w/2, s.y-h/2, w, h, 6); ctx.fill();
+
+    // Border
+    ctx.strokeStyle = s.placedItem
+      ? (s.placedItem.id === s.correctId ? 'rgba(100,200,100,0.4)' : 'rgba(200,150,50,0.3)')
+      : 'rgba(80,75,95,0.3)';
+    ctx.lineWidth = 1.5;
+    rr(ctx, s.x-w/2, s.y-h/2, w, h, 6); ctx.stroke();
+
+    ctx.textAlign = 'center';
+
+    if (s.placedItem) {
+      // Show placed item
+      ctx.font = '22px "Segoe UI"';
+      ctx.fillText(s.placedItem.icon, s.x, s.y + 6);
+    } else {
+      // Show hint
+      if (G.roomIdx === 0) {
+        ctx.fillStyle = 'rgba(200,180,140,0.35)'; ctx.font = 'bold 14px "Segoe UI"';
+        ctx.fillText(s.label, s.x, s.y + 4);
+        ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '8px "Segoe UI"';
+        ctx.fillText(s.symbolHint, s.x, s.y + 18);
+      } else {
+        // Altar: show symbol hint
+        ctx.font = '20px "Segoe UI"';
+        ctx.fillText(s.label, s.x, s.y - 2);
+        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '8px "Segoe UI"';
+        ctx.fillText(s.symbolHint, s.x, s.y + 18);
+      }
+    }
+
+    // Hover highlight
+    if (i === G.hoveredSlot && G.dragging !== null) {
+      ctx.strokeStyle = 'rgba(255,215,100,0.4)'; ctx.lineWidth = 2;
+      rr(ctx, s.x-w/2-2, s.y-h/2-2, w+4, h+4, 8); ctx.stroke();
+    }
+
+    ctx.textAlign = 'left';
+  });
+}
+
+function renderSisters() {
+  G.sisters.forEach(s => {
+    if (s.timer < -1) return;
+    const alpha = s.phase === 'warning' ? Math.min(1, (2-s.timer)*0.5) : Math.max(0, s.timer);
+
+    const spr = sprites['sister'];
+    if (spr) {
+      ctx.save(); ctx.globalAlpha = alpha*0.5;
+      const sz = 48;
+      if (s.side==='right') { ctx.translate(s.x,s.y-sz/2); ctx.scale(-1,1); ctx.drawImage(spr,-sz/2,0,sz,sz); }
+      else ctx.drawImage(spr, s.x-sz/2, s.y-sz/2, sz, sz);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = `rgba(30,20,45,${alpha*0.5})`;
+      ctx.beginPath(); ctx.ellipse(s.x,s.y,15,35,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(100,140,180,${alpha*0.3})`;
+      ctx.beginPath(); ctx.arc(s.x-3,s.y-10,2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x+3,s.y-10,2,0,Math.PI*2); ctx.fill();
+    }
+
+    if (s.phase === 'warning') {
+      ctx.fillStyle = `rgba(120,150,200,${alpha*0.3})`;
+      ctx.font = '11px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillText('⚠ Sister!', s.x, s.y-40);
+      ctx.textAlign = 'left';
+    }
+    if (s.phase === 'gust') {
+      ctx.strokeStyle = `rgba(120,150,200,${Math.max(0,s.timer)*0.3})`;
+      ctx.lineWidth = 1.5;
+      const dir = s.side==='left'?1:-1;
+      for (let g=0; g<6; g++) {
+        const gx = s.x+dir*(30+g*50);
+        const gy = s.gustY-40+g*15+Math.sin(G.elapsed*10+g)*8;
+        ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+dir*35,gy+Math.sin(g)*5); ctx.stroke();
+      }
+    }
+  });
+}
+
+function renderBedchamber() {
+  const cx=W/2, cy=H/2-30, rev=G.bedReveal;
+
+  ctx.fillStyle = `rgba(50,35,30,${0.3+rev*0.4})`;
+  rr(ctx, cx-70, cy-15, 140, 60, 6); ctx.fill();
+
+  if (rev > 0.2) {
+    const wa=(rev-0.2)*1.2;
+    ctx.fillStyle=`rgba(220,220,240,${Math.min(0.7,wa)})`;
+    ctx.beginPath();ctx.ellipse(cx-30,cy,28,16,-0.3,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(cx+30,cy,28,16,0.3,0,Math.PI*2);ctx.fill();
+  }
+  if (rev > 0.4) {
+    ctx.fillStyle=`rgba(240,220,200,${(rev-0.4)*1.3})`;
+    ctx.beginPath();ctx.ellipse(cx,cy+12,22,11,0,0,Math.PI*2);ctx.fill();
+  }
+  if (rev > 0.6) {
+    ctx.fillStyle=`rgba(255,235,215,${(rev-0.6)*2})`;
+    ctx.beginPath();ctx.arc(cx+25,cy+2,10,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=`rgba(218,165,32,${(rev-0.6)*1.8})`;
+    ctx.beginPath();ctx.arc(cx+27,cy-4,8,0,Math.PI*2);ctx.fill();
+  }
+
+  ctx.textAlign = 'center';
+  if (G.bedPhase===0 && rev<0.5) {
+    ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='italic 12px "Segoe UI"';
+    ctx.fillText('Move your lamp closer...', W/2, H-60);
+  }
+  if (G.bedPhase>=2) {
+    ctx.fillStyle='rgba(255,200,100,0.7)'; ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('A drop of oil falls from the lamp...', W/2, H-80);
+  }
+  if (G.bedPhase>=3) {
+    ctx.fillStyle='rgba(180,200,240,0.8)'; ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('Eros wakes. His eyes meet yours. He flies away.', W/2, H-55);
+  }
+  ctx.textAlign='left';
+}
+
+function renderHUD() {
+  // Oil
+  ctx.fillStyle='rgba(0,0,0,0.65)'; rr(ctx,10,10,165,32,6); ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillText('🛢️ OIL',18,30);
+  ctx.fillStyle='rgba(255,255,255,0.08)'; rr(ctx,58,20,105,10,3); ctx.fill();
+  const oilC = G.oil>50?'#ffd700':G.oil>25?'#f97316':'#ef4444';
+  ctx.fillStyle=oilC; rr(ctx,58,20,Math.max(0,G.oil)*1.05,10,3); ctx.fill();
+
+  // Room
+  const roomNames = ['The Hall — Story Wall','The Chamber — Altar','The Inner Chamber'];
+  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='center';
+  ctx.fillText(`Room ${G.roomIdx+1}: ${roomNames[G.roomIdx]||''}`, W/2, 22);
+
+  // Inventory bar
+  ctx.fillStyle='rgba(0,0,0,0.6)'; rr(ctx,5,42,Math.max(60, G.inventory.length*55+15),40,6); ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='8px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillText('INVENTORY — drag to slots', 12, 52);
+
+  G.inventory.forEach((item, i) => {
+    const ix = 10 + i*55 + 25;
+    const iy = 70;
+    ctx.fillStyle = 'rgba(50,45,60,0.7)';
+    rr(ctx, ix-22, iy-18, 44, 36, 4); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,180,140,0.2)'; ctx.lineWidth=1;
+    rr(ctx, ix-22, iy-18, 44, 36, 4); ctx.stroke();
+    ctx.font = '20px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(item.icon, ix, iy+6);
+  });
+
+  // Lives
+  ctx.fillStyle='rgba(0,0,0,0.45)'; rr(ctx,10,H-32,120,22,6); ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='9px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillText(`${G.totalHearts} lives remaining (no heart loss)`,18,H-17);
+
+  ctx.textAlign='left';
+}
+
+function renderTutorial() {
+  ctx.fillStyle='rgba(0,0,0,0.88)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a'; ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText('"Seek the truth in darkness."',W/2,80);
+  ctx.font='14px "Segoe UI"';
+  [
+    {t:'The palace is dark. Your lamp reveals a small circle of light.',c:'#c8b88a'},
+    {t:'Explore to find hidden clues — then solve the puzzle.',c:'#c8b88a'},
+    {t:'',c:''},
+    {t:'Room 1: Find story fragments → arrange in chronological order',c:'#e8d8a8'},
+    {t:'Room 2: Find divine objects → match to altar symbols',c:'#e8d8a8'},
+    {t:'',c:''},
+    {t:'REAL clues glow warm gold ✨',c:'#ffd700'},
+    {t:'FALSE clues shimmer cold blue 🧊 — cost 15% oil!',c:'#6495ed'},
+    {t:'',c:''},
+    {t:'Pick up clues, then DRAG from inventory to puzzle slots.',c:'#c8b88a'},
+    {t:'Wrong placement costs 5% oil. Sisters blow out your lamp!',c:'#f97316'},
+    {t:'',c:''},
+    {t:'No hearts lost — but oil is precious.',c:'#a09878'},
+  ].forEach((l,i)=>{
+    if(l.t){ctx.fillStyle=l.c;ctx.fillText(l.t,W/2,120+i*24);}
+  });
+
+  const p=0.7+Math.sin(G.elapsed*3)*0.3;
+  ctx.fillStyle=`rgba(240,214,138,${p*0.12})`; rr(ctx,W/2-70,490,140,40,8); ctx.fill();
+  ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`; ctx.lineWidth=1.5; rr(ctx,W/2-70,490,140,40,8); ctx.stroke();
+  ctx.fillStyle='#f0d68a'; ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText('Enter the Palace',W/2,515);
+  ctx.textAlign='left';
+}
+
+function renderComplete() {
+  ctx.fillStyle='rgba(0,0,0,0.88)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a'; ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('Trial III Complete',W/2,130);
+
+  let rating,rc;
+  const mistakes = G.falseCollected + G.wrongPlacements;
+  if(mistakes===0){rating='Excellent';rc='#4ade80';}
+  else if(mistakes<=2){rating='Good';rc='#60a5fa';}
+  else if(mistakes<=4){rating='Fair';rc='#fbbf24';}
+  else{rating='Needs Work';rc='#f87171';}
+
+  ctx.fillStyle='#c8b88a'; ctx.font='14px "Segoe UI"';
+  ctx.fillText(`False Clues Collected: ${G.falseCollected}`,W/2,195);
+  ctx.fillText(`Wrong Placements: ${G.wrongPlacements}`,W/2,223);
+  ctx.fillText(`Oil Remaining: ${Math.round(G.oil)}%`,W/2,251);
+
+  ctx.fillStyle=rc; ctx.font='bold 20px "Segoe UI"';
+  ctx.fillText(`🔦 Trust: ${rating}`,W/2,310);
+  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='italic 13px "Segoe UI"';
+  ctx.fillText('"You sought truth beyond doubt."',W/2,355);
+
+  ctx.fillStyle='rgba(240,214,138,0.12)'; rr(ctx,W/2-60,390,120,36,8); ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,0.4)'; ctx.lineWidth=1; rr(ctx,W/2-60,390,120,36,8); ctx.stroke();
+  ctx.fillStyle='#f0d68a'; ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText('Play Again',W/2,413);
+  ctx.textAlign='left';
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+
+
+
+
+
+
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+
+
+  return {
+    init(){ G=freshState(); setupRoom(0); G.phase='playing'; },
+    update(dt){ G.elapsed+=dt; update(dt);
+      if(G.phase==='complete'){
+        const mistakes=G.falseCollected+G.wrongPlacements;
+        let rating;
+        if(mistakes===0)rating='Excellent';else if(mistakes<=2)rating='Good';
+        else if(mistakes<=4)rating='Fair';else rating='Needs Work';
+        setTimeout(()=>trialComplete(3,'trust',{score:Math.max(0,100-mistakes*15),rating}),1500);
+        G.phase='done';
+      }
+    },
+    render(){ render(); },
+    click(x,y){ handleClick(x,y); },
+    mousemove(x,y){
+      G.lampTX=x;G.lampTY=y;
+      if(G.dragging!==null){G.dragX=x;G.dragY=y;}
+      G.hoveredSlot=getSlotAt(x,y);
+    },
+    mouseup(x,y){ handleMouseUp(x,y); },
+    G: ()=>G
+  };
+})();
+
+// ================================================================
+// TRIAL 4: STAIRWAY OF SHADOWS
+// ================================================================
+const Trial4 = (function(){
+
+
+// ============================================================
+// SPRITES
+// ============================================================
+
+// ============================================================
+// CONTENT DEFINITIONS
+// ============================================================
+const TEMPTATIONS = [
+  { icon:'👻', text:'"Help me, please..."', sprite:'soul', color:'rgba(180,200,255,0.6)' },
+  { icon:'🍽️', text:'"Rest here... eat..."', sprite:'feast', color:'rgba(255,210,120,0.6)' },
+  { icon:'💰', text:'"Take them... you\'ve earned it..."', sprite:'coins', color:'rgba(255,215,80,0.6)' },
+  { icon:'🎵', text:'"Stay with us..."', sprite:null, color:'rgba(200,180,255,0.6)' }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+  let G = {};
+function freshState() {
+  return {
+    phase: 'tutorial', // tutorial | playing | encounter | persephone | ascending | boxChoice | cinematic | complete
+    elapsed: 0,
+    // Psyche position (lateral only, auto-descends)
+    px: W/2,
+    pKnock: 0,         // Knockback velocity
+    // Descent
+    scroll: 0,          // Current scroll position (pixels)
+    maxScroll: 3000,    // Total descent distance
+    scrollSpeed: 1.5,   // Constant speed (pixels per frame at 60fps)
+    // Path
+    pathCenter: W/2,
+    pathWidth: 280,     // Narrows as we descend
+    // Temptations
+    temptations: [],
+    temptResisted: 0,
+    temptClicked: 0,
+    // Shadow hands
+    hands: [],
+    handTimer: 0,
+    // Sacred encounters
+    encounters: [],     // Pre-placed at specific scroll positions
+    currentEncounter: null,
+    // Inventory
+    coins: 2,
+    cakes: 2,
+    wrongItems: 0,
+    // Hearts
+    totalHearts: 10,
+    hearts: 4,
+    pHit: false,
+    pHitTimer: 0,
+    // Tutorial
+    tutorialTimer: 0,
+    // Persephone / Box
+    boxChoice: null,    // true=opened, false=sealed
+    cinematicTimer: 0,
+    cinematicPhase: 0,
+    // Ascending after Persephone
+    ascendScroll: 0,
+    // Particles
+    particles: [],
+    // Resist counter for display
+    resistFlash: 0,
+    temptFlash: 0
+  };
+}
+
+// ============================================================
+// GENERATE CONTENT
+// ============================================================
+function generateDescent() {
+  const MS = G.maxScroll;
+
+  // Temptations placed along the descent
+  // Tutorial: 1 safe temptation early
+  G.temptations.push({
+    scrollY: 200, x: W/2 + 80,
+    data: TEMPTATIONS[0], active: false, resolved: false,
+    tutorial: true
+  });
+
+  // Top third (400-1000): 3 temptations
+  [450, 650, 880].forEach((sy, i) => {
+    const t = TEMPTATIONS[(i+1) % TEMPTATIONS.length];
+    G.temptations.push({
+      scrollY: sy, x: W/2 + (Math.random()>0.5?1:-1) * (60+Math.random()*70),
+      data: t, active: false, resolved: false
+    });
+  });
+
+  // Middle third (1000-2000): 5 temptations
+  [1050, 1250, 1450, 1650, 1850].forEach((sy, i) => {
+    const t = TEMPTATIONS[i % TEMPTATIONS.length];
+    G.temptations.push({
+      scrollY: sy, x: W/2 + (Math.random()>0.5?1:-1) * (50+Math.random()*80),
+      data: t, active: false, resolved: false
+    });
+  });
+
+  // Bottom third (2000-2800): 6 temptations
+  [2050, 2200, 2350, 2500, 2600, 2750].forEach((sy, i) => {
+    const t = TEMPTATIONS[i % TEMPTATIONS.length];
+    G.temptations.push({
+      scrollY: sy, x: W/2 + (Math.random()>0.5?1:-1) * (40+Math.random()*60),
+      data: t, active: false, resolved: false
+    });
+  });
+
+  // Sacred encounters
+  G.encounters = [
+    { scrollY: 900, type: 'charon', prompt: 'The River Styx blocks your path.', action: 'Offer payment to Charon.', correctItem: 'coin', resolved: false },
+    { scrollY: 2100, type: 'cerberus', prompt: 'Cerberus guards the way.', action: 'Calm the guardian.', correctItem: 'cake', resolved: false }
+  ];
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+  // keys: uses shared keys object
+
+// ============================================================
+// UPDATE
+// ============================================================
+function update(dt) {
+  G.particles = G.particles.filter(p => {
+    p.x+=p.vx;p.y+=p.vy;p.life-=dt;return p.life>0;
+  });
+
+  if (G.phase === 'tutorial') { G.tutorialTimer += dt; return; }
+  if (G.phase === 'complete') return;
+
+  G.elapsed += dt;
+  if (G.resistFlash > 0) G.resistFlash -= dt * 2;
+  if (G.temptFlash > 0) G.temptFlash -= dt * 2;
+
+  // Hit invincibility
+  if (G.pHitTimer > 0) { G.pHitTimer -= dt; if (G.pHitTimer <= 0) G.pHit = false; }
+
+  // Knockback
+  if (Math.abs(G.pKnock) > 0.3) { G.px += G.pKnock; G.pKnock *= 0.88; }
+
+  if (G.phase === 'cinematic') { updateCinematic(dt); return; }
+  if (G.phase === 'boxChoice') return;
+  if (G.phase === 'persephone') { updatePersephone(dt); return; }
+  if (G.phase === 'ascending') { updateAscending(dt); return; }
+  if (G.phase === 'encounter') return; // Paused during sacred encounters
+
+  if (G.phase !== 'playing') return;
+
+  // === AUTO SCROLL ===
+  G.scroll += G.scrollSpeed;
+
+  // Lateral movement
+  let dx = 0;
+  if (keys['ArrowLeft']||keys['a']||keys['A']) dx = -1;
+  if (keys['ArrowRight']||keys['d']||keys['D']) dx = 1;
+  G.px += dx * 3.5;
+
+  // Path narrows with depth
+  const depthRatio = G.scroll / G.maxScroll;
+  G.pathWidth = 280 - depthRatio * 100;
+  const pathL = G.pathCenter - G.pathWidth/2;
+  const pathR = G.pathCenter + G.pathWidth/2;
+  G.px = Math.max(pathL + 15, Math.min(pathR - 15, G.px));
+
+  // === TEMPTATIONS ===
+  G.temptations.forEach(t => {
+    if (t.resolved) return;
+    const screenY = t.scrollY - G.scroll + H/2;
+    if (screenY > -60 && screenY < H + 60) t.active = true;
+
+    // Passed off screen top — resisted!
+    if (screenY < -80 && t.active) {
+      t.resolved = true;
+      G.temptResisted++;
+      G.resistFlash = 0.5;
+      // Shimmer
+      const el = document.createElement('div');
+      el.className = 'resist-shimmer';
+      el.textContent = '✧ resisted';
+      el.style.left = Math.min(W-80, Math.max(10, t.x-30)) + 'px';
+      el.style.top = '40px';
+      container.appendChild(el);
+      setTimeout(()=>el.remove(), 1500);
+    }
+  });
+
+  // === SHADOW HANDS ===
+  G.handTimer -= dt;
+  if (G.handTimer <= 0) {
+    const freq = depthRatio < 0.33 ? 3 : depthRatio < 0.66 ? 2 : 1.2;
+    G.handTimer = freq + Math.random() * 1;
+    const side = Math.random() > 0.5 ? 'left' : 'right';
+    // Spawn at world position ahead of Psyche
+    G.hands.push({
+      side,
+      worldY: G.scroll + H * 0.3 + Math.random() * H * 0.4,
+      phase: 'telegraph',
+      timer: 1.0,
+      reached: false,
+      extend: 0
+    });
+  }
+
+  G.hands = G.hands.filter(h => {
+    h.timer -= dt;
+    const screenY = h.worldY - G.scroll + H/2;
+    // Off screen — remove
+    if (screenY < -60 || screenY > H + 60) return false;
+
+    if (h.phase === 'telegraph') {
+      h.extend = Math.min(12, h.extend + dt * 15);
+      if (h.timer <= 0) { h.phase = 'reach'; h.timer = 0.7; }
+    }
+    if (h.phase === 'reach') {
+      h.extend = Math.min(45, h.extend + dt * 80);
+      const handX = h.side === 'left' ? pathL + h.extend : pathR - h.extend;
+      if (!h.reached && Math.abs(G.px - handX) < 22 && Math.abs(H/2 - screenY) < 25) {
+        h.reached = true;
+        G.pKnock = h.side === 'left' ? 25 : -25;
+        shake();
+      }
+      if (h.timer <= 0) { h.phase = 'retract'; h.timer = 0.5; }
+    }
+    if (h.phase === 'retract') {
+      h.extend = Math.max(0, h.extend - dt * 60);
+    }
+    return h.phase !== 'retract' || h.timer > 0;
+  });
+
+  // === SACRED ENCOUNTERS ===
+  G.encounters.forEach(enc => {
+    if (enc.resolved) return;
+    const screenY = enc.scrollY - G.scroll + H/2;
+    if (screenY > 150 && screenY < 400) {
+      G.currentEncounter = enc;
+      G.phase = 'encounter';
+      G.scrollSpeed = 0; // Pause scroll
+    }
+  });
+
+  // === CHECK PERSEPHONE ===
+  if (G.scroll >= G.maxScroll) {
+    G.phase = 'persephone';
+    G.cinematicTimer = 0;
+  }
+}
+
+// ============================================================
+// ENCOUNTER HANDLING
+// ============================================================
+function useItem(itemType) {
+  if (G.phase !== 'encounter' || !G.currentEncounter) return;
+  const enc = G.currentEncounter;
+
+  if (itemType === enc.correctItem) {
+    // Correct!
+    if (itemType === 'coin') G.coins--;
+    else G.cakes--;
+    enc.resolved = true;
+    G.currentEncounter = null;
+    G.phase = 'playing';
+    G.scrollSpeed = 1.5;
+    showFloat(W/2, H/2 - 40, '✓ Correct offering!', '#4ade80');
+    spawnP(W/2, H/2, 8, '#ffd700');
+  } else {
+    // Wrong item
+    G.wrongItems++;
+    G.hearts--;
+    G.totalHearts--;
+    shake();
+    showFloat(W/2, H/2 - 40, '✗ Wrong item! 💔', '#ef4444');
+    // Don't resolve — player can try again with correct item
+  }
+}
+
+// ============================================================
+// TEMPTATION CLICK
+// ============================================================
+function handleTemptClick(mx, my) {
+  if (G.phase !== 'playing') return;
+
+  G.temptations.forEach(t => {
+    if (t.resolved || !t.active) return;
+    const screenY = t.scrollY - G.scroll + H/2;
+    if (screenY < -50 || screenY > H + 50) return;
+    // Generous hitbox — 45px
+    if (Math.hypot(mx - t.x, my - screenY) < 45) {
+      t.resolved = true;
+      G.temptClicked++;
+      G.hearts--;
+      G.totalHearts--;
+      G.pHit = true;
+      G.pHitTimer = 1;
+      // Big pull back
+      G.scroll -= 80;
+      shake();
+      showFloat(mx, my - 20, '💔 Tempted!', '#ef4444');
+      spawnP(mx, my, 8, '#ef4444');
+      // Dark flash
+      G.temptFlash = 0.5;
+    }
+  });
+}
+
+// ============================================================
+// PERSEPHONE & BOX
+// ============================================================
+function updatePersephone(dt) {
+  G.cinematicTimer += dt;
+  if (G.cinematicTimer > 6) {
+    G.phase = 'ascending';
+    G.ascendScroll = 0;
+    G.cinematicTimer = 0;
+  }
+}
+
+function updateAscending(dt) {
+  G.ascendScroll += dt * 40;
+  G.cinematicTimer += dt;
+  // After 3 seconds of ascending, show box choice
+  if (G.cinematicTimer > 3 && G.phase !== 'boxChoice') {
+    G.phase = 'boxChoice';
+  }
+}
+
+function makeBoxChoice(opened) {
+  G.boxChoice = opened;
+  G.phase = 'cinematic';
+  G.cinematicTimer = 0;
+  G.cinematicPhase = 0;
+}
+
+function updateCinematic(dt) {
+  G.cinematicTimer += dt;
+  if (G.cinematicTimer > 2 && G.cinematicPhase === 0) G.cinematicPhase = 1; // Sleep
+  if (G.cinematicTimer > 4.5 && G.cinematicPhase === 1) G.cinematicPhase = 2; // Eros
+  if (G.cinematicTimer > 7 && G.cinematicPhase === 2) G.cinematicPhase = 3; // Zeus
+  if (G.cinematicTimer > 9.5) G.phase = 'complete';
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  if (G.phase === 'tutorial') { renderTutorial(); return; }
+  if (G.phase === 'complete') { renderComplete(); return; }
+  if (G.phase === 'cinematic') { renderCinematic(); return; }
+
+  // === UNDERWORLD BACKGROUND ===
+  const depthRatio = Math.min(1, G.scroll / G.maxScroll);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#060812');
+  bg.addColorStop(0.5, lerpC('#080a16', '#0a1210', depthRatio));
+  bg.addColorStop(1, lerpC('#0a0c18', '#081a0e', depthRatio));
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Green underworld glow from below
+  const glowA = 0.05 + depthRatio * 0.1;
+  const glow = ctx.createRadialGradient(W/2, H, 0, W/2, H, 300);
+  glow.addColorStop(0, `rgba(0,80,40,${glowA})`);
+  glow.addColorStop(1, 'rgba(0,60,30,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+
+  // === STAIRWAY ===
+  const pathL = G.pathCenter - G.pathWidth/2;
+  const pathR = G.pathCenter + G.pathWidth/2;
+
+  // Path surface
+  ctx.fillStyle = '#12141e';
+  ctx.fillRect(pathL, 0, G.pathWidth, H);
+
+  // Step lines (scrolling)
+  ctx.strokeStyle = 'rgba(60,55,75,0.25)';
+  ctx.lineWidth = 1;
+  const stepOffset = (G.scroll * 0.5) % 25;
+  for (let y = stepOffset; y < H; y += 25) {
+    ctx.beginPath(); ctx.moveTo(pathL, y); ctx.lineTo(pathR, y); ctx.stroke();
+  }
+
+  // Walls
+  ctx.fillStyle = 'rgba(20,18,30,0.6)';
+  ctx.fillRect(0, 0, pathL, H);
+  ctx.fillRect(pathR, 0, W - pathR, H);
+
+  // Wall texture
+  ctx.strokeStyle = 'rgba(40,35,55,0.2)';
+  ctx.lineWidth = 1;
+  for (let y = stepOffset * 2; y < H; y += 40) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pathL, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pathR, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // === SHADOW HANDS ===
+  G.hands.forEach(h => {
+    const screenY = h.worldY - G.scroll + H/2;
+    if (screenY < -40 || screenY > H + 40) return;
+    const hx = h.side === 'left' ? pathL : pathR;
+    const dir = h.side === 'left' ? 1 : -1;
+    const alpha = h.phase === 'telegraph' ? 0.3 + Math.sin(G.elapsed*8)*0.15 : 0.65;
+
+    // Arm reaching from wall
+    ctx.fillStyle = `rgba(35,15,55,${alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(hx + dir*h.extend*0.5, screenY, h.extend*0.5+5, 6, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Fingers at the tip
+    for (let f = -1; f <= 1; f++) {
+      ctx.beginPath();
+      ctx.ellipse(hx + dir*h.extend + dir*f*4, screenY + f*6, 8, 3.5, dir>0?0:Math.PI, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Purple glow
+    ctx.fillStyle = `rgba(80,30,120,${alpha * 0.3})`;
+    ctx.beginPath(); ctx.arc(hx + dir*h.extend, screenY, 15, 0, Math.PI*2); ctx.fill();
+
+    // Telegraph warning glow on wall
+    if (h.phase === 'telegraph') {
+      ctx.fillStyle = `rgba(80,40,120,${0.15 + Math.sin(G.elapsed*6)*0.08})`;
+      ctx.beginPath(); ctx.arc(hx, screenY, 20, 0, Math.PI*2); ctx.fill();
+    }
+  });
+
+  // === TEMPTATIONS ===
+  G.temptations.forEach(t => {
+    if (t.resolved || !t.active) return;
+    const screenY = t.scrollY - G.scroll + H/2;
+    if (screenY < -50 || screenY > H + 50) return;
+
+    const pulse = 0.6 + Math.sin(G.elapsed * 3) * 0.2;
+
+    // Warm inviting glow
+    const tGlow = ctx.createRadialGradient(t.x, screenY, 0, t.x, screenY, 35);
+    tGlow.addColorStop(0, t.data.color.replace('0.6', String(pulse * 0.3)));
+    tGlow.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = tGlow;
+    ctx.fillRect(t.x-35, screenY-35, 70, 70);
+
+    // Sprite or icon
+    const spr = t.data.sprite ? sprites[t.data.sprite] : null;
+    if (spr) {
+      ctx.globalAlpha = pulse;
+      ctx.drawImage(spr, t.x-18, screenY-18, 36, 36);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.font = '24px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.globalAlpha = pulse;
+      ctx.fillText(t.data.icon, t.x, screenY + 7);
+      ctx.globalAlpha = 1;
+    }
+
+    // Whisper text
+    ctx.fillStyle = `rgba(255,220,140,${pulse * 0.6})`;
+    ctx.font = 'italic 11px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(t.data.text, t.x, screenY + 28);
+
+    // Proximity warning — pulsing ring when Psyche is close
+    const psycheDist = Math.hypot(G.px - t.x, H/2 - screenY);
+    if (psycheDist < 80) {
+      const warn = (1 - psycheDist / 80) * 0.4;
+      ctx.strokeStyle = `rgba(255,180,60,${warn + Math.sin(G.elapsed*6)*0.1})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(t.x, screenY, 30 + Math.sin(G.elapsed*4)*3, 0, Math.PI*2); ctx.stroke();
+    }
+
+    // Tutorial label
+    if (t.tutorial) {
+      ctx.fillStyle = 'rgba(255,100,100,0.6)';
+      ctx.font = 'bold 10px "Segoe UI"';
+      ctx.fillText("DON'T CLICK", t.x, screenY - 22);
+    }
+
+    ctx.textAlign = 'left';
+  });
+
+  // === SACRED ENCOUNTER ===
+  if (G.phase === 'encounter' && G.currentEncounter) {
+    renderEncounter();
+  }
+
+  // === PSYCHE ===
+  if (G.phase === 'playing' || G.phase === 'encounter') {
+    renderPsyche();
+  }
+
+  // === PERSEPHONE SCENE ===
+  if (G.phase === 'persephone') renderPersephoneScene();
+  if (G.phase === 'ascending') renderAscending();
+  if (G.phase === 'boxChoice') { renderAscending(); renderBoxChoice(); }
+
+  // Particles
+  G.particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life/0.7);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,2*(p.life/0.7),0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Temptation flash
+  if (G.temptFlash > 0) {
+    ctx.fillStyle = `rgba(180,40,40,${G.temptFlash * 0.15})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // === HUD ===
+  renderHUD();
+}
+
+function renderPsyche() {
+  const py = H / 2;
+  const blink = G.pHit && Math.sin(G.elapsed * 30) > 0;
+  if (blink) return;
+
+  const spr = sprites['psyche'];
+  if (spr) {
+    ctx.drawImage(spr, G.px - 18, py - 28, 36, 44);
+  } else {
+    // Programmatic
+    ctx.fillStyle = '#e8ddd0';
+    ctx.beginPath(); ctx.arc(G.px, py-16, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6a4a28';
+    ctx.beginPath(); ctx.arc(G.px, py-19, 5, Math.PI, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f0ece4';
+    ctx.beginPath();
+    ctx.moveTo(G.px, py-10); ctx.lineTo(G.px-8, py+5); ctx.lineTo(G.px+8, py+5);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#d4a020'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(G.px-5, py-5); ctx.lineTo(G.px+5, py-5); ctx.stroke();
+  }
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(G.px, py+8, 10, 4, 0, 0, Math.PI*2); ctx.fill();
+}
+
+function renderEncounter() {
+  const enc = G.currentEncounter;
+
+  if (enc.type === 'charon') {
+    // === RIVER STYX SCENE ===
+    // Dark water background
+    ctx.fillStyle = '#080c1a';
+    ctx.fillRect(0, 0, W, H);
+
+    // River
+    const riverGrad = ctx.createLinearGradient(0, H*0.4, 0, H);
+    riverGrad.addColorStop(0, '#0a1428');
+    riverGrad.addColorStop(0.5, '#0c1830');
+    riverGrad.addColorStop(1, '#081020');
+    ctx.fillStyle = riverGrad; ctx.fillRect(0, H*0.4, W, H*0.6);
+
+    // Water ripples
+    ctx.strokeStyle = 'rgba(40,60,100,0.2)'; ctx.lineWidth = 1;
+    for (let r = 0; r < 8; r++) {
+      const ry = H*0.45 + r*25 + Math.sin(G.elapsed*1.5+r)*4;
+      ctx.beginPath(); ctx.moveTo(0, ry);
+      ctx.quadraticCurveTo(W*0.3, ry+Math.sin(G.elapsed*2+r)*6, W*0.6, ry);
+      ctx.quadraticCurveTo(W*0.8, ry-Math.sin(G.elapsed*2+r)*4, W, ry);
+      ctx.stroke();
+    }
+
+    // Mist
+    for (let m = 0; m < 5; m++) {
+      ctx.fillStyle = `rgba(30,40,60,${0.05+Math.sin(G.elapsed+m)*0.02})`;
+      ctx.beginPath();
+      ctx.ellipse(100+m*140+Math.sin(G.elapsed*0.5+m)*20, H*0.38, 80, 20, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Charon and boat
+    const spr = sprites['charon'];
+    if (spr) {
+      ctx.drawImage(spr, W/2-30, H*0.25-20, 60, 60);
+    } else {
+      // Boat
+      ctx.fillStyle = '#2a1e18';
+      ctx.beginPath();
+      ctx.moveTo(W/2-50, H*0.38); ctx.quadraticCurveTo(W/2, H*0.42, W/2+50, H*0.38);
+      ctx.lineTo(W/2+40, H*0.35); ctx.quadraticCurveTo(W/2, H*0.33, W/2-40, H*0.35);
+      ctx.closePath(); ctx.fill();
+      // Figure
+      ctx.fillStyle = '#1a1520';
+      ctx.beginPath(); ctx.ellipse(W/2, H*0.28, 12, 25, 0, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Far bank
+    ctx.fillStyle = '#0a0e16';
+    ctx.fillRect(0, H*0.35, W, 8);
+
+  } else {
+    // === CERBERUS CAVE SCENE ===
+    ctx.fillStyle = '#0a0810';
+    ctx.fillRect(0, 0, W, H);
+
+    // Cave walls
+    ctx.fillStyle = '#141018';
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(150, 0); ctx.lineTo(100, H*0.4);
+    ctx.quadraticCurveTo(80, H*0.6, 0, H); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(W, 0); ctx.lineTo(W-150, 0); ctx.lineTo(W-100, H*0.4);
+    ctx.quadraticCurveTo(W-80, H*0.6, W, H); ctx.closePath(); ctx.fill();
+
+    // Cave ceiling arch
+    ctx.fillStyle = '#0e0c14';
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.quadraticCurveTo(W/2, 120, W, 0);
+    ctx.lineTo(W, 0); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+
+    // Eerie green glow from behind Cerberus
+    const cGlow = ctx.createRadialGradient(W/2, H*0.4, 0, W/2, H*0.4, 150);
+    cGlow.addColorStop(0, 'rgba(0,60,30,0.12)');
+    cGlow.addColorStop(1, 'rgba(0,40,20,0)');
+    ctx.fillStyle = cGlow; ctx.fillRect(0, 0, W, H);
+
+    // Cerberus
+    const spr = sprites['cerberus'];
+    if (spr) {
+      ctx.drawImage(spr, W/2-30, H*0.3-10, 60, 60);
+    } else {
+      // Three-headed silhouette
+      ctx.fillStyle = '#1a1218';
+      ctx.beginPath(); ctx.ellipse(W/2, H*0.38, 35, 22, 0, 0, Math.PI*2); ctx.fill();
+      for (let head = -1; head <= 1; head++) {
+        ctx.beginPath(); ctx.arc(W/2 + head*22, H*0.3, 10, 0, Math.PI*2); ctx.fill();
+        // Red eyes
+        ctx.fillStyle = '#cc2222';
+        ctx.beginPath(); ctx.arc(W/2 + head*22 + 3, H*0.3 - 2, 2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#1a1218';
+      }
+    }
+
+    // Bones on ground
+    ctx.fillStyle = 'rgba(60,55,50,0.3)';
+    [[W/2-80,H*0.5],[W/2+60,H*0.52],[W/2-20,H*0.55]].forEach(([bx,by]) => {
+      ctx.beginPath(); ctx.ellipse(bx, by, 8, 2, Math.random(), 0, Math.PI*2); ctx.fill();
+    });
+  }
+
+  // Prompt text (both encounters)
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  rr(ctx, W/2-180, H*0.6-10, 360, 70, 8); ctx.fill();
+
+  ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 16px "Segoe UI"'; ctx.textAlign = 'center';
+  ctx.fillText(enc.prompt, W/2, H*0.6 + 15);
+  ctx.fillStyle = '#c8b88a'; ctx.font = '13px "Segoe UI"';
+  ctx.fillText(enc.action, W/2, H*0.6 + 35);
+  ctx.fillStyle = 'rgba(255,215,100,0.5)'; ctx.font = '11px "Segoe UI"';
+  ctx.fillText('Click the correct item from your inventory (top-right) →', W/2, H*0.6 + 52);
+  ctx.textAlign = 'left';
+}
+
+function renderPersephoneScene() {
+  // === PERSEPHONE'S THRONE ROOM ===
+  // Deep purple/black underground throne room
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0a0614');
+  bg.addColorStop(0.5, '#0e081a');
+  bg.addColorStop(1, '#080510');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Columns
+  ctx.fillStyle = 'rgba(25,20,35,0.7)';
+  [[100,0,18,H],[580,0,18,H],[200,0,14,H*0.7],[480,0,14,H*0.7]].forEach(([x,y,w,h]) => {
+    ctx.fillRect(x-w/2,y,w,h);
+  });
+
+  // Throne platform
+  ctx.fillStyle = '#15102a';
+  ctx.beginPath();
+  ctx.moveTo(W/2-100, H*0.55); ctx.lineTo(W/2-80, H*0.45);
+  ctx.lineTo(W/2+80, H*0.45); ctx.lineTo(W/2+100, H*0.55);
+  ctx.closePath(); ctx.fill();
+
+  // Ethereal glow behind Persephone
+  const pGlow = ctx.createRadialGradient(W/2, H*0.32, 0, W/2, H*0.32, 120);
+  pGlow.addColorStop(0, 'rgba(80,40,100,0.12)');
+  pGlow.addColorStop(0.5, 'rgba(60,30,80,0.06)');
+  pGlow.addColorStop(1, 'rgba(40,20,60,0)');
+  ctx.fillStyle = pGlow; ctx.fillRect(0, 0, W, H);
+
+  // Persephone
+  const spr = sprites['persephone'];
+  if (spr) {
+    ctx.drawImage(spr, W/2-28, H*0.28, 56, 56);
+  } else {
+    ctx.fillStyle = '#3a1848';
+    ctx.beginPath(); ctx.ellipse(W/2, H*0.32, 15, 30, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#2a1038';
+    ctx.beginPath(); ctx.arc(W/2, H*0.26, 8, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Pomegranate flowers at base of throne
+  [[W/2-60,H*0.52],[W/2+55,H*0.53]].forEach(([fx,fy]) => {
+    ctx.fillStyle = 'rgba(120,30,50,0.3)';
+    ctx.beginPath(); ctx.arc(fx, fy, 5, 0, Math.PI*2); ctx.fill();
+  });
+
+  ctx.textAlign = 'center';
+  const t = G.cinematicTimer;
+
+  if (t < 2) {
+    ctx.fillStyle = 'rgba(200,180,220,0.7)'; ctx.font = 'italic 15px "Segoe UI"';
+    ctx.fillText('You reach the throne of Persephone,', W/2, H*0.65);
+    ctx.fillText('Queen of the Underworld.', W/2, H*0.65 + 24);
+  } else if (t < 3.5) {
+    ctx.fillStyle = '#f0d68a'; ctx.font = 'italic 16px "Segoe UI"';
+    ctx.fillText('"You have come far, mortal."', W/2, H*0.65);
+    ctx.fillStyle = 'rgba(200,180,220,0.5)'; ctx.font = '13px "Segoe UI"';
+    ctx.fillText('She studies your face.', W/2, H*0.65 + 24);
+  } else {
+    ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 16px "Segoe UI"';
+    ctx.fillText('"Take this box of divine beauty."', W/2, H*0.62);
+    ctx.fillStyle = '#c8b88a'; ctx.font = 'italic 14px "Segoe UI"';
+    ctx.fillText('"Do not open it. No matter what it whispers."', W/2, H*0.62 + 26);
+
+    // Box appears with glow
+    const boxPulse = 0.5 + Math.sin(G.elapsed*2)*0.3;
+    ctx.fillStyle = `rgba(150,120,200,${boxPulse*0.2})`;
+    ctx.beginPath(); ctx.arc(W/2, H*0.62 + 55, 18, 0, Math.PI*2); ctx.fill();
+    const boxSpr = sprites['box'];
+    if (boxSpr) {
+      ctx.drawImage(boxSpr, W/2-14, H*0.62 + 40, 28, 28);
+    } else {
+      ctx.fillStyle = '#2a1838';
+      ctx.fillRect(W/2-10, H*0.62+45, 20, 16);
+      ctx.strokeStyle = '#d4a020'; ctx.lineWidth = 1;
+      ctx.strokeRect(W/2-10, H*0.62+45, 20, 16);
+    }
+  }
+  ctx.textAlign = 'left';
+}
+
+function renderAscending() {
+  // Lighter background — ascending toward surface
+  const ag = ctx.createLinearGradient(0, 0, 0, H);
+  ag.addColorStop(0, '#1a1830');
+  ag.addColorStop(1, '#0e1018');
+  ctx.fillStyle = ag; ctx.fillRect(0, 0, W, H);
+
+  // Steps going up
+  ctx.strokeStyle = 'rgba(80,70,100,0.2)';
+  ctx.lineWidth = 1;
+  const offset = (G.ascendScroll * 0.5) % 25;
+  for (let y = offset; y < H; y += 25) {
+    ctx.beginPath(); ctx.moveTo(200, y); ctx.lineTo(480, y); ctx.stroke();
+  }
+
+  // Psyche ascending
+  ctx.fillStyle = '#e8ddd0';
+  ctx.beginPath(); ctx.arc(W/2, H/2-12, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#f0ece4';
+  ctx.beginPath();
+  ctx.moveTo(W/2, H/2-6); ctx.lineTo(W/2-8, H/2+8); ctx.lineTo(W/2+8, H/2+8);
+  ctx.closePath(); ctx.fill();
+
+  // Box glow
+  const pulse = 0.5 + Math.sin(G.elapsed * 2) * 0.3;
+  ctx.fillStyle = `rgba(180,160,220,${pulse * 0.3})`;
+  ctx.beginPath(); ctx.arc(W/2, H/2+15, 12, 0, Math.PI*2); ctx.fill();
+
+  // Whisper text building
+  ctx.fillStyle = `rgba(200,170,220,${pulse * 0.7})`;
+  ctx.font = 'italic 13px "Segoe UI"'; ctx.textAlign = 'center';
+  ctx.fillText('The box whispers... it promises beauty beyond measure...', W/2, H - 80);
+  ctx.textAlign = 'left';
+}
+
+function renderBoxChoice() {
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, H/2 - 60, W, 120);
+
+  ctx.textAlign = 'center';
+
+  // Open button (seductive, glowing, pulsing)
+  const op = 0.7 + Math.sin(G.elapsed * 2) * 0.3;
+  ctx.fillStyle = `rgba(255,215,0,${op * 0.08})`;
+  rr(ctx, W/2-120, H/2-40, 240, 35, 8); ctx.fill();
+  ctx.strokeStyle = `rgba(255,215,0,${op * 0.5})`; ctx.lineWidth = 1.5;
+  rr(ctx, W/2-120, H/2-40, 240, 35, 8); ctx.stroke();
+  ctx.fillStyle = `rgba(255,215,0,${op})`; ctx.font = 'bold 15px "Segoe UI"';
+  ctx.fillText('🔓 Open the Box', W/2, H/2 - 18);
+
+  // Seal button (calm, understated)
+  ctx.fillStyle = 'rgba(130,130,160,0.06)';
+  rr(ctx, W/2-120, H/2+15, 240, 35, 8); ctx.fill();
+  ctx.strokeStyle = 'rgba(130,130,160,0.25)'; ctx.lineWidth = 1;
+  rr(ctx, W/2-120, H/2+15, 240, 35, 8); ctx.stroke();
+  ctx.fillStyle = 'rgba(160,160,190,0.6)'; ctx.font = '14px "Segoe UI"';
+  ctx.fillText('🔒 Carry It Sealed', W/2, H/2 + 37);
+
+  ctx.textAlign = 'left';
+}
+
+function renderCinematic() {
+  const t = G.cinematicTimer;
+  const phase = G.cinematicPhase;
+
+  // Background transition: dark to light
+  const lightT = Math.min(1, t / 9);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, lerpC('#080a16', '#3a2858', lightT));
+  bg.addColorStop(1, lerpC('#0a0c18', '#c8943a', lightT));
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+
+  if (phase === 0) {
+    // Box opens / fate
+    if (G.boxChoice) {
+      ctx.fillStyle = 'rgba(200,170,220,0.8)'; ctx.font = 'italic 15px "Segoe UI"';
+      ctx.fillText('You open the box. Sleep pours out...', W/2, H/2);
+    } else {
+      ctx.fillStyle = 'rgba(200,170,220,0.7)'; ctx.font = 'italic 15px "Segoe UI"';
+      ctx.fillText('You resist. But the box trembles...', W/2, H/2 - 15);
+      if (t > 1) {
+        ctx.fillStyle = 'rgba(200,170,220,0.8)';
+        ctx.fillText('Fate is not so easily denied. The box opens on its own.', W/2, H/2 + 15);
+      }
+    }
+    // Sleep particles
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = `rgba(150,130,200,${0.2 + Math.sin(t*3+i)*0.1})`;
+      ctx.beginPath();
+      ctx.arc(W/2 + Math.sin(t*2+i*2)*40, H/2+30+i*15+Math.sin(t+i)*10, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  else if (phase === 1) {
+    // Eros rescue
+    ctx.fillStyle = `rgba(255,215,100,${Math.min(1,(t-2)/2)})`; ctx.font = 'italic 15px "Segoe UI"';
+    ctx.fillText('Eros, healed by love, descends from the sky.', W/2, H/2-20);
+    ctx.fillText('He wipes the sleep from her eyes.', W/2, H/2+10);
+    // Golden glow
+    const gr = (t-2)*60;
+    const gg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, gr);
+    gg.addColorStop(0, 'rgba(255,215,100,0.15)'); gg.addColorStop(1, 'rgba(255,215,100,0)');
+    ctx.fillStyle = gg; ctx.fillRect(0, 0, W, H);
+  }
+  else if (phase === 2) {
+    // Zeus grants immortality
+    ctx.fillStyle = `rgba(255,240,200,${Math.min(1,(t-4.5)/1.5)})`; ctx.font = 'italic 15px "Segoe UI"';
+    ctx.fillText('"For enduring what no mortal should,', W/2, H/2-25);
+    ctx.fillText('I grant you immortality."', W/2, H/2+5);
+    ctx.fillStyle = 'rgba(200,180,255,0.6)'; ctx.font = '13px "Segoe UI"';
+    ctx.fillText('Wings grow from Psyche\'s back.', W/2, H/2+35);
+  }
+  else if (phase === 3) {
+    ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 18px "Segoe UI"';
+    ctx.fillText('Love endures.', W/2, H/2);
+  }
+
+  ctx.textAlign = 'left';
+}
+
+function renderHUD() {
+  if (G.phase === 'cinematic' || G.phase === 'complete') return;
+
+  // Hearts
+  ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(ctx, 10, 10, 100, 28, 6); ctx.fill();
+  let hs = '';
+  for (let i=0;i<4;i++) hs += i<G.hearts?'❤️':'🖤';
+  ctx.font = '13px "Segoe UI"'; ctx.textAlign = 'left'; ctx.fillText(hs, 18, 28);
+
+  // Lives remaining
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; rr(ctx, 10, 42, 100, 18, 4); ctx.fill();
+  ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = '8px "Segoe UI"';
+  ctx.fillText(`${G.totalHearts} lives remaining`, 16, 54);
+
+  // Descent progress
+  if (G.phase === 'playing') {
+    const pct = Math.min(100, Math.round((G.scroll / G.maxScroll) * 100));
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; rr(ctx, W-55, 60, 35, H-120, 4); ctx.fill();
+    // Bar
+    const barH = (H - 130) * (pct / 100);
+    ctx.fillStyle = '#2a5a3a';
+    rr(ctx, W-52, 65, 29, barH, 3); ctx.fill();
+    // Marker
+    ctx.fillStyle = '#f0d68a';
+    ctx.fillRect(W-54, 63 + barH, 33, 3);
+    // Label
+    ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = '8px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(`${pct}%`, W-37, 55);
+  }
+
+  // Inventory
+  if (G.phase === 'playing' || G.phase === 'encounter') {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; rr(ctx, W-120, 10, 110, 38, 6); ctx.fill();
+    ctx.font = '11px "Segoe UI"'; ctx.textAlign = 'left';
+    // Coins
+    ctx.fillStyle = G.coins > 0 ? '#ffd700' : 'rgba(100,100,100,0.4)';
+    ctx.fillText(`🪙 ×${G.coins}`, W-112, 26);
+    // Cakes
+    ctx.fillStyle = G.cakes > 0 ? '#d4a060' : 'rgba(100,100,100,0.4)';
+    ctx.fillText(`🍰 ×${G.cakes}`, W-112, 42);
+
+    // During encounter: clickable inventory items
+    if (G.phase === 'encounter') {
+      ctx.strokeStyle = 'rgba(255,215,100,0.4)'; ctx.lineWidth = 1.5;
+      rr(ctx, W-120, 10, 110, 38, 6); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,215,100,0.5)'; ctx.font = '8px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillText('← click to offer', W-65, 56);
+    }
+  }
+
+  // Resist counter
+  if (G.temptResisted > 0) {
+    const ra = G.resistFlash > 0 ? 0.7 : 0.4;
+    ctx.fillStyle = `rgba(100,200,150,${ra})`; ctx.font = '10px "Segoe UI"'; ctx.textAlign = 'left';
+    ctx.fillText(`✧ ${G.temptResisted} resisted`, 16, 76);
+  }
+
+  // Controls
+  if (G.phase === 'playing' && G.scroll < 300) {
+    ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = '9px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText('← → Arrow keys to dodge  ·  Don\'t click the temptations!', W/2, H - 15);
+    ctx.textAlign = 'left';
+  }
+
+  ctx.textAlign = 'left';
+}
+
+function renderTutorial() {
+  ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 22px "Segoe UI"';
+  ctx.fillText('"Resist every call."', W/2, 80);
+
+  ctx.font = '14px "Segoe UI"';
+  [
+    {t:'Descend into the Underworld. The path is narrow.',c:'#c8b88a'},
+    {t:'Arrow keys to dodge left/right.',c:'#c8b88a'},
+    {t:'',c:''},
+    {t:'👻 TEMPTATIONS glow warmly and whisper — DO NOT CLICK THEM!',c:'#fbbf24'},
+    {t:'Clicking a temptation = heart lost + pulled backward.',c:'#f87171'},
+    {t:'Ignoring them = resisted. Let them pass.',c:'#4ade80'},
+    {t:'',c:''},
+    {t:'🖐️ Shadow hands reach from walls — dodge, no heart loss.',c:'#a09878'},
+    {t:'',c:''},
+    {t:'⛵ Charon needs a COIN.  🐕 Cerberus needs a CAKE.',c:'#e8d8a8'},
+    {t:'Click the right item from your inventory when prompted.',c:'#c8b88a'},
+    {t:'Wrong item = heart lost!',c:'#f87171'},
+  ].forEach((l,i) => {
+    if(l.t){ctx.fillStyle=l.c;ctx.fillText(l.t,W/2,125+i*24);}
+  });
+
+  const p=0.7+Math.sin(G.elapsed*3)*0.3;
+  ctx.fillStyle=`rgba(240,214,138,${p*0.12})`; rr(ctx,W/2-70,480,140,40,8); ctx.fill();
+  ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`; ctx.lineWidth=1.5; rr(ctx,W/2-70,480,140,40,8); ctx.stroke();
+  ctx.fillStyle='#f0d68a'; ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText('Begin the Descent',W/2,505);
+  ctx.textAlign='left';
+}
+
+function renderComplete() {
+  ctx.fillStyle='rgba(0,0,0,0.88)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a'; ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('Trial IV Complete',W/2,120);
+
+  let rating,rc;
+  const badActions = G.temptClicked + G.wrongItems;
+  if(badActions===0){rating='Excellent';rc='#4ade80';}
+  else if(badActions<=2){rating='Good';rc='#60a5fa';}
+  else if(badActions<=4){rating='Fair';rc='#fbbf24';}
+  else{rating='Needs Work';rc='#f87171';}
+
+  ctx.fillStyle='#c8b88a'; ctx.font='14px "Segoe UI"';
+  ctx.fillText(`Temptations Resisted: ${G.temptResisted}`,W/2,190);
+  ctx.fillText(`Temptations Clicked: ${G.temptClicked}`,W/2,218);
+  ctx.fillText(`Wrong Items: ${G.wrongItems}`,W/2,246);
+  ctx.fillText(`Box Choice: ${G.boxChoice ? 'Opened' : 'Carried Sealed'}`,W/2,274);
+
+  ctx.fillStyle=rc; ctx.font='bold 20px "Segoe UI"';
+  ctx.fillText(`🛡️ Resolve: ${rating}`,W/2,330);
+  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='italic 13px "Segoe UI"';
+  ctx.fillText('"You resisted the call of temptation."',W/2,375);
+
+  ctx.fillStyle='rgba(240,214,138,0.12)'; rr(ctx,W/2-60,410,120,36,8); ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,0.4)'; ctx.lineWidth=1; rr(ctx,W/2-60,410,120,36,8); ctx.stroke();
+  ctx.fillStyle='#f0d68a'; ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText('Play Again',W/2,433);
+  ctx.textAlign='left';
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+
+
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+
+
+  return {
+    init(){ G=freshState(); generateDescent(); G.phase='playing'; },
+    update(dt){ G.elapsed+=dt; update(dt);
+      if(G.phase==='complete'){
+        const bad=G.temptClicked+G.wrongItems;
+        let rating;
+        if(bad===0)rating='Excellent';else if(bad<=2)rating='Good';
+        else if(bad<=4)rating='Fair';else rating='Needs Work';
+        trialComplete(4,'resolve',{score:Math.max(0,100-bad*15),rating,boxChoice:G.boxChoice});
+        G.phase='done';
+      }
+    },
+    render(){ render(); },
+    click(x,y){
+      if(G.phase==='encounter'){
+        if(x>W-112&&x<W-60&&y>14&&y<30&&G.coins>0){useItem('coin');return;}
+        if(x>W-112&&x<W-60&&y>30&&y<46&&G.cakes>0){useItem('cake');return;}
+        return;
+      }
+      if(G.phase==='boxChoice'){
+        if(x>W/2-120&&x<W/2+120&&y>H/2-40&&y<H/2-5){makeBoxChoice(true);return;}
+        if(x>W/2-120&&x<W/2+120&&y>H/2+15&&y<H/2+50){makeBoxChoice(false);return;}
+        return;
+      }
+      if(G.phase==='playing') handleTemptClick(x,y);
+    },
+    mousemove(x,y){},
+    mouseup(x,y){},
+    G: ()=>G
+  };
+})();
+
+// ================================================================
+// INPUT ROUTING
+// ================================================================
+canvas.addEventListener('mousedown',(e)=>{
+  const p=getPos(e);
+  if(GAME.phase==='story'){
+    const btnY=H-60;
+    if(p.x>W/2-70&&p.x<W/2+70&&p.y>btnY&&p.y<btnY+40){
+      const cb=GAME.storyCallback;GAME.storyCard=null;GAME.storyCallback=null;if(cb)cb();
+    }
+    return;
+  }
+  if(GAME.phase==='results'){
+    if(p.x>W/2-100&&p.x<W/2+100&&p.y>400&&p.y<442) submitResults();
+    return;
+  }
+  if(GAME.trial&&GAME.trial.click) GAME.trial.click(p.x,p.y);
+});
+canvas.addEventListener('mousemove',(e)=>{
+  const p=getPos(e);
+  if(GAME.trial&&GAME.trial.mousemove) GAME.trial.mousemove(p.x,p.y);
+});
+canvas.addEventListener('mouseup',(e)=>{
+  const p=getPos(e);
+  if(GAME.trial&&GAME.trial.mouseup) GAME.trial.mouseup(p.x,p.y);
+});
+canvas.addEventListener('touchstart',(e)=>{e.preventDefault();canvas.dispatchEvent(new MouseEvent('mousedown',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}));},{passive:false});
+canvas.addEventListener('touchmove',(e)=>{e.preventDefault();canvas.dispatchEvent(new MouseEvent('mousemove',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}));},{passive:false});
+canvas.addEventListener('touchend',(e)=>{e.preventDefault();canvas.dispatchEvent(new MouseEvent('mouseup',{}));},{passive:false});
+
+// ================================================================
+// MAIN LOOP
+// ================================================================
+let lastTime=0;
+function gameLoop(ts){
+  const dt=Math.min((ts-lastTime)/1000,.05);lastTime=ts;
+  GAME.elapsed+=dt;
+  GAME.particles=GAME.particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=2*dt;p.life-=dt;return p.life>0;});
+  ctx.clearRect(0,0,W,H);
+
+  if(GAME.phase==='loading'){/* handled by HTML overlay */}
+  else if(GAME.phase==='story'){renderStoryCard();}
+  else if(GAME.phase.startsWith('trial')&&GAME.trial){GAME.trial.update(dt);GAME.trial.render();}
+  else if(GAME.phase==='cinematic'){updateCinematicEnd(dt);renderCinematicEnd();}
+  else if(GAME.phase==='results'){renderResults();}
+
+  GAME.particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life/p.ml);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.life/p.ml),0,Math.PI*2);ctx.fill();});
+  ctx.globalAlpha=1;
+
+  // Cursor
+  if(GAME.phase==='trial3'){const g=Trial3.G();container.style.cursor=(g.phase==='playing'||g.phase==='bedchamber')?'none':'default';}
+  else{container.style.cursor='default';}
+
+  requestAnimationFrame(gameLoop);
+}
+
+function checkLoaded(){
+  if(spritesLoaded>=spritesTotal){
+    document.getElementById('loading-screen').style.opacity='0';
+    setTimeout(()=>{document.getElementById('loading-screen').style.display='none';
+      showStory('intro',()=>startTrial(1));
+    },600);
+  } else setTimeout(checkLoaded,100);
+}
+checkLoaded();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
