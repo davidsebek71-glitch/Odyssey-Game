@@ -1002,65 +1002,66 @@ function render() {
     });
   }
 
-  // === GROUND — warm storehouse floor ===
-  const gnd=ctx.createLinearGradient(0,HORIZON_Y,0,H);
-  gnd.addColorStop(0,lerpC('#3a2e22','#5a4830',dp));
-  gnd.addColorStop(0.4,lerpC('#342818','#4e3c24',dp));
-  gnd.addColorStop(1,lerpC('#2a2018','#3e3020',dp));
-  ctx.fillStyle=gnd;ctx.fillRect(0,HORIZON_Y,W,H-HORIZON_Y);
-
-  // Stone tile texture on ground (procedural)
-  ctx.strokeStyle = `rgba(80,65,45,${0.15+dp*0.1})`;
-  ctx.lineWidth = 1;
-  for (let ty = HORIZON_Y+20; ty < H; ty += 40) {
-    const offset = (Math.floor(ty/40) % 2) * 30;
-    for (let tx = -30+offset; tx < W+30; tx += 60) {
-      rr(ctx, tx, ty, 58, 38, 3); ctx.stroke();
+  // === GROUND — tiled stone floor ===
+  const groundTile = sprites['ground'];
+  if (groundTile) {
+    // Tile the sprite across the floor area
+    const tw = groundTile.width, th = groundTile.height;
+    for (let ty = HORIZON_Y; ty < H; ty += th) {
+      for (let tx = 0; tx < W; tx += tw) {
+        ctx.drawImage(groundTile, tx, ty, tw, th);
+      }
     }
+  } else {
+    // Fallback gradient if sprite not loaded
+    const gnd=ctx.createLinearGradient(0,HORIZON_Y,0,H);
+    gnd.addColorStop(0,'#8e8b82');
+    gnd.addColorStop(1,'#7a776e');
+    ctx.fillStyle=gnd;ctx.fillRect(0,HORIZON_Y,W,H-HORIZON_Y);
   }
 
-  // Torch-like warm lighting from corners
+  // Subtle vignette darkening at edges for depth
+  const vig = ctx.createRadialGradient(W/2, H/2+40, 100, W/2, H/2+40, 400);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.25)');
+  ctx.fillStyle = vig; ctx.fillRect(0, HORIZON_Y, W, H-HORIZON_Y);
+
+  // Torch-like warm lighting from corners (overlay on top of tiles)
   const torch1 = ctx.createRadialGradient(40, H-40, 10, 40, H-40, 250);
-  torch1.addColorStop(0, `rgba(255,180,80,${0.08+dp*0.04})`);
-  torch1.addColorStop(0.5, `rgba(200,130,50,${0.04+dp*0.02})`);
+  torch1.addColorStop(0, `rgba(255,180,80,${0.1+dp*0.05})`);
+  torch1.addColorStop(0.5, `rgba(200,130,50,${0.05+dp*0.025})`);
   torch1.addColorStop(1, 'rgba(200,130,50,0)');
   ctx.fillStyle = torch1; ctx.fillRect(0, HORIZON_Y, W, H-HORIZON_Y);
 
   const torch2 = ctx.createRadialGradient(W-80, 160, 10, W-80, 160, 200);
-  torch2.addColorStop(0, `rgba(255,200,100,${0.06+dp*0.03})`);
-  torch2.addColorStop(0.5, `rgba(200,150,60,${0.03+dp*0.015})`);
+  torch2.addColorStop(0, `rgba(255,200,100,${0.08+dp*0.04})`);
+  torch2.addColorStop(0.5, `rgba(200,150,60,${0.04+dp*0.02})`);
   torch2.addColorStop(1, 'rgba(200,150,60,0)');
   ctx.fillStyle = torch2; ctx.fillRect(0, HORIZON_Y, W, H-HORIZON_Y);
 
-  // Center pile warm glow
-  const pileGlow = ctx.createRadialGradient(PILE_CX, PILE_CY, 20, PILE_CX, PILE_CY, 200);
-  pileGlow.addColorStop(0, 'rgba(200,160,80,0.06)');
-  pileGlow.addColorStop(1, 'rgba(200,160,80,0)');
-  ctx.fillStyle = pileGlow; ctx.fillRect(0, HORIZON_Y, W, H-HORIZON_Y);
-
-  // Horizon silhouette — warmer
-  ctx.fillStyle=lerpC('#1a1210','#2e2418',dp);
+  // Horizon silhouette — darker against brighter ground
+  ctx.fillStyle=lerpC('#2a2520','#3e3828',dp);
   ctx.beginPath();ctx.moveTo(0,HORIZON_Y);
   ctx.lineTo(80,HORIZON_Y-8);ctx.lineTo(180,HORIZON_Y-3);ctx.lineTo(280,HORIZON_Y-12);
   ctx.lineTo(380,HORIZON_Y-5);ctx.lineTo(460,HORIZON_Y-14);ctx.lineTo(560,HORIZON_Y-6);
   ctx.lineTo(W,HORIZON_Y-4);ctx.lineTo(W,HORIZON_Y);ctx.closePath();ctx.fill();
 
-  // === MARCH PATH — warm dirt trail ===
+  // === MARCH PATH — worn trail on stone floor ===
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  // Outer soft edge
-  ctx.strokeStyle = 'rgba(100,80,50,0.2)';
+  // Outer soft edge — darker for contrast on gray floor
+  ctx.strokeStyle = 'rgba(60,50,35,0.35)';
   ctx.lineWidth = 30;
   ctx.beginPath();
   PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
   ctx.stroke();
-  // Main trail — warm brown
-  ctx.strokeStyle = 'rgba(140,110,70,0.35)';
+  // Main trail — warm brown, more opaque
+  ctx.strokeStyle = 'rgba(110,90,55,0.45)';
   ctx.lineWidth = 18;
   ctx.beginPath();
   PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
   ctx.stroke();
   // Inner worn center — lighter
-  ctx.strokeStyle = 'rgba(180,150,100,0.2)';
+  ctx.strokeStyle = 'rgba(150,130,90,0.25)';
   ctx.lineWidth = 6;
   ctx.beginPath();
   PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
@@ -1127,8 +1128,8 @@ function render() {
   ctx.fillText('click a bin!', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2 + 17);
   ctx.textAlign = 'left';
 
-  // === PILE SHADOW — warm glow ===
-  ctx.fillStyle='rgba(40,30,15,0.15)';
+  // === PILE SHADOW — visible against gray floor ===
+  ctx.fillStyle='rgba(0,0,0,0.2)';
   ctx.beginPath();ctx.ellipse(PILE_CX,PILE_CY+10,160,110,0,0,Math.PI*2);ctx.fill();
 
   // === DRAW ZONE PREVIEW ===
