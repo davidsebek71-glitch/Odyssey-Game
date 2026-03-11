@@ -972,7 +972,6 @@ function render() {
   if (skySpr) {
     ctx.drawImage(skySpr, 0, 0, W, HORIZON_Y);
   } else {
-    // Fallback: simple banded sky
     const bands = ['#1c0c34','#2a1244','#581c4e','#a02832','#c35028','#dc7323','#f09b2d','#f0c83c'];
     const bh = HORIZON_Y / bands.length;
     bands.forEach((c,i) => { ctx.fillStyle=c; ctx.fillRect(0,i*bh,W,bh+1); });
@@ -983,125 +982,100 @@ function render() {
   if (groundTile) {
     const tw = groundTile.width, th = groundTile.height;
     for (let ty = HORIZON_Y; ty < H; ty += th) {
-      for (let tx = 0; tx < W; tx += tw) {
-        ctx.drawImage(groundTile, tx, ty, tw, th);
-      }
+      for (let tx = 0; tx < W; tx += tw) { ctx.drawImage(groundTile, tx, ty, tw, th); }
     }
-  } else {
-    ctx.fillStyle='#6c6960';ctx.fillRect(0,HORIZON_Y,W,H-HORIZON_Y);
-  }
+  } else { ctx.fillStyle='#6c6960';ctx.fillRect(0,HORIZON_Y,W,H-HORIZON_Y); }
 
-  // Subtle vignette for depth
+  // Subtle vignette
   const vig = ctx.createRadialGradient(W/2, H/2+40, 80, W/2, H/2+40, 420);
-  vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.18)');
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.18)');
   ctx.fillStyle = vig; ctx.fillRect(0, HORIZON_Y, W, H-HORIZON_Y);
 
-  // === MARCH PATH — tiled cobblestone walkway ===
-  const pathTile = sprites['path_tile'];
-  ctx.save();
-  // Create clipping path for the walkway shape (wide stroke)
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.lineWidth = 26;
-  ctx.beginPath();
-  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-  ctx.stroke(); // Draw the stroke outline
-  // Now clip and tile
-  ctx.beginPath();
-  // Build a thick path outline for clipping by stroking
-  // We'll use a different approach: draw border, then fill with tiles using clip
-  ctx.restore();
-
-  // Outer border — dark stone edge
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = 'rgba(40,32,22,0.85)';
-  ctx.lineWidth = 30;
-  ctx.beginPath();
-  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-  ctx.stroke();
-
-  // Inner walkway — tile with path cobblestone sprite
-  if (pathTile) {
-    ctx.save();
-    // Create clip region from the inner path stroke
-    ctx.lineWidth = 22;
-    ctx.beginPath();
-    PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-    ctx.clip();
-    // Tile the path sprite across the clipped area
-    const ptw = pathTile.width, pth = pathTile.height;
-    for (let ty = HORIZON_Y; ty < H; ty += pth) {
-      for (let tx = 0; tx < W; tx += ptw) {
-        ctx.drawImage(pathTile, tx, ty, ptw, pth);
-      }
-    }
-    ctx.restore();
-  } else {
-    // Fallback: solid fill
-    ctx.strokeStyle = 'rgba(95,85,68,0.7)';
-    ctx.lineWidth = 22;
-    ctx.beginPath();
-    PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
-    ctx.stroke();
+  // === MARCH PATH — polygon outline filled with pattern ===
+  // Compute left and right edge points for each waypoint
+  const PATH_HALF_W = 16; // half-width of the path in pixels
+  const leftEdge = [], rightEdge = [];
+  for (let i = 0; i < PATH.length; i++) {
+    // Direction vector: average of prev->cur and cur->next for smooth normals
+    let dx = 0, dy = 0;
+    if (i < PATH.length - 1) { dx += PATH[i+1].x - PATH[i].x; dy += PATH[i+1].y - PATH[i].y; }
+    if (i > 0) { dx += PATH[i].x - PATH[i-1].x; dy += PATH[i].y - PATH[i-1].y; }
+    const len = Math.hypot(dx, dy) || 1;
+    // Perpendicular normal (rotate 90 degrees)
+    const nx = -dy / len, ny = dx / len;
+    leftEdge.push({ x: PATH[i].x + nx * PATH_HALF_W, y: PATH[i].y + ny * PATH_HALF_W });
+    rightEdge.push({ x: PATH[i].x - nx * PATH_HALF_W, y: PATH[i].y - ny * PATH_HALF_W });
   }
 
-  // Inner edge highlights — thin light lines on each side
-  ctx.strokeStyle = 'rgba(140,130,110,0.35)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3,5]);
-  // Offset paths slightly for edge highlights
+  // Build closed polygon: left edge forward, right edge backward
   ctx.beginPath();
-  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x-11,p.y) : ctx.lineTo(p.x-11,p.y));
-  ctx.stroke();
-  ctx.beginPath();
-  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x+11,p.y) : ctx.lineTo(p.x+11,p.y));
-  ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
+  for (let i = 1; i < leftEdge.length; i++) ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
+  for (let i = rightEdge.length - 1; i >= 0; i--) ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
+  ctx.closePath();
 
-  // === SORT ZONE — golden glow section ===
+  // Fill with path tile pattern or solid color
+  const pathTile = sprites['path_tile'];
+  if (pathTile) {
+    const pat = ctx.createPattern(pathTile, 'repeat');
+    ctx.fillStyle = pat;
+  } else {
+    ctx.fillStyle = 'rgba(82,74,62,0.9)';
+  }
+  ctx.fill();
+
+  // Dark border on both edges
+  ctx.strokeStyle = 'rgba(30,24,15,0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
+  for (let i = 1; i < leftEdge.length; i++) ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rightEdge[0].x, rightEdge[0].y);
+  for (let i = 1; i < rightEdge.length; i++) ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
+  ctx.stroke();
+
+  // Inner highlight line (center of path)
+  ctx.strokeStyle = 'rgba(110,100,82,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+
+  // === SORT ZONE — golden tint overlay on the path polygon section ===
   const szStart = getPathPos(SORT_ZONE_START / (PATH.length-1));
   const szEnd = getPathPos(SORT_ZONE_END / (PATH.length-1));
-  // Glow overlay on the walkway
-  ctx.strokeStyle = `rgba(220,200,100,${0.2+Math.sin(G.elapsed*2)*0.06})`;
-  ctx.lineWidth = 24;
+  // Draw golden overlay only on the sort zone segment
   ctx.beginPath();
-  ctx.moveTo(szStart.x, szStart.y);
-  for (let i = SORT_ZONE_START; i <= SORT_ZONE_END && i < PATH.length; i++) {
-    ctx.lineTo(PATH[i].x, PATH[i].y);
-  }
-  ctx.stroke();
+  ctx.moveTo(leftEdge[SORT_ZONE_START].x, leftEdge[SORT_ZONE_START].y);
+  for (let i = SORT_ZONE_START+1; i <= SORT_ZONE_END && i < leftEdge.length; i++)
+    ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
+  for (let i = Math.min(SORT_ZONE_END, rightEdge.length-1); i >= SORT_ZONE_START; i--)
+    ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(220,200,100,${0.15+Math.sin(G.elapsed*2)*0.05})`;
+  ctx.fill();
 
   // Sort zone archway
   const archSpr = sprites['sort_zone'];
   if (archSpr) {
-    const archW = 90, archH = 90;
-    ctx.drawImage(archSpr, szStart.x - archW/2, szStart.y - archH/2 - 12, archW, archH);
+    ctx.drawImage(archSpr, szStart.x - 45, szStart.y - 57, 90, 90);
   } else {
     ctx.save();
-    // Glow
     const ag = ctx.createRadialGradient(szStart.x, szStart.y-8, 5, szStart.x, szStart.y-8, 40);
-    ag.addColorStop(0, 'rgba(220,200,120,0.25)');
-    ag.addColorStop(1, 'rgba(220,200,120,0)');
-    ctx.fillStyle = ag;
-    ctx.fillRect(szStart.x-45, szStart.y-50, 90, 65);
-    // Stone arch
+    ag.addColorStop(0, 'rgba(220,200,120,0.25)'); ag.addColorStop(1, 'rgba(220,200,120,0)');
+    ctx.fillStyle = ag; ctx.fillRect(szStart.x-45, szStart.y-50, 90, 65);
     ctx.strokeStyle = 'rgba(200,180,120,0.7)'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(szStart.x, szStart.y, 24, Math.PI, 0); ctx.stroke();
-    ctx.strokeStyle = 'rgba(180,160,100,0.4)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(szStart.x, szStart.y, 22, Math.PI, 0); ctx.stroke();
-    // Pillars
     const pg = ctx.createLinearGradient(0, szStart.y-8, 0, szStart.y+28);
     pg.addColorStop(0, 'rgba(200,180,120,0.6)'); pg.addColorStop(1, 'rgba(140,120,70,0.3)');
     ctx.fillStyle = pg;
-    ctx.fillRect(szStart.x - 25, szStart.y - 4, 8, 30);
-    ctx.fillRect(szStart.x + 17, szStart.y - 4, 8, 30);
-    ctx.fillStyle = 'rgba(220,200,140,0.5)';
-    ctx.fillRect(szStart.x - 27, szStart.y - 8, 12, 5);
-    ctx.fillRect(szStart.x + 15, szStart.y - 8, 12, 5);
+    ctx.fillRect(szStart.x-25, szStart.y-4, 8, 30); ctx.fillRect(szStart.x+17, szStart.y-4, 8, 30);
     ctx.restore();
   }
 
-  // Exit gate — pulsing red
+  // Exit gate
   ctx.fillStyle = `rgba(220,100,80,${0.25+Math.sin(G.elapsed*3)*0.1})`;
   ctx.beginPath(); ctx.arc(PATH[SORT_ZONE_END].x, PATH[SORT_ZONE_END].y, 8, 0, Math.PI*2); ctx.fill();
 
@@ -1113,7 +1087,7 @@ function render() {
   ctx.fillText('click a bin!', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2 + 17);
   ctx.textAlign = 'left';
 
-  // (pile shadow removed — seeds define the pile area naturally)
+  // (pile shadow removed)
 
   // === DRAW ZONE PREVIEW ===
   if (G.drawing && G.drawStart && G.drawCurrent) {
@@ -1235,79 +1209,22 @@ function render() {
 
 function renderBins() {
   const SEED_COLORS = ['#D4A017','#8B4513','#4a4a4a','#6B8E23'];
-
   G.bins.forEach((b,i) => {
-    const S = SEEDS[b.type];
-    const isT = b.type === G.targetType;
-    const sc = SEED_COLORS[b.type];
-
-    // Target label ABOVE bin
-    if (isT) {
-      ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';ctx.textAlign='center';
-      ctx.fillText('★ TARGET ★', b.x, b.y - b.h/2 - 10);
-    }
-
-    // Dark panel background
-    ctx.fillStyle = 'rgba(25,22,18,0.88)';
-    rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 6); ctx.fill();
-
-    // Bin sprite — per-type from 2x2 sheet, centered inside panel
+    const S = SEEDS[b.type]; const isT = b.type === G.targetType; const sc = SEED_COLORS[b.type];
+    if (isT) { ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';ctx.textAlign='center'; ctx.fillText('★ TARGET ★', b.x, b.y - b.h/2 - 10); }
+    ctx.fillStyle = 'rgba(25,22,18,0.88)'; rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 6); ctx.fill();
     const binSpr = sprites['sorting_bins'];
-    if (binSpr) {
-      const cellW = Math.floor(binSpr.width / 2);
-      const cellH = Math.floor(binSpr.height / 2);
-      const col = b.type % 2;
-      const row = Math.floor(b.type / 2);
-      const sprSize = Math.min(b.w - 14, b.h - 14);
-      ctx.drawImage(binSpr, col*cellW, row*cellH, cellW, cellH,
-        b.x - sprSize/2, b.y - sprSize/2, sprSize, sprSize);
-    }
-
-    // Flash overlays
-    if (b.wrongFlash > 0) {
-      ctx.fillStyle = `rgba(200,40,40,${b.wrongFlash*0.5})`;
-      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 6); ctx.fill();
-    }
-    if (b.flash > 0) {
-      ctx.fillStyle = `rgba(40,200,60,${b.flash*0.4})`;
-      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 6); ctx.fill();
-    }
-
-    // Colored border per seed type
-    ctx.strokeStyle = isT ? sc : sc;
-    ctx.lineWidth = isT ? 3 : 2;
-    if (isT) { ctx.shadowColor = sc; ctx.shadowBlur = 8; }
-    rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 6); ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // === SINGLE CLEAN LABEL below bin ===
-    const labelY = b.y + b.h/2 + 5;
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    rr(ctx, b.x - b.w/2, labelY, b.w, 22, 4); ctx.fill();
-
-    // Color dot + Name + Count — all on one line
-    ctx.fillStyle = sc;
-    ctx.beginPath(); ctx.arc(b.x - b.w/2 + 12, labelY + 11, 4, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#ddd';
-    ctx.font = 'bold 13px "Segoe UI"'; ctx.textAlign = 'left';
-    ctx.fillText(S.name, b.x - b.w/2 + 22, labelY + 15);
-    ctx.fillStyle = 'rgba(240,220,180,0.7)'; ctx.font = 'bold 13px "Segoe UI"';
-    ctx.textAlign = 'right';
-    ctx.fillText(b.count, b.x + b.w/2 - 8, labelY + 15);
-
-    // Jam indicator
-    if (G.jammedBin===i) {
-      ctx.fillStyle=`rgba(255,80,80,${0.5+Math.sin(G.elapsed*20)*0.2})`;
-      ctx.font='bold 12px "Segoe UI"'; ctx.textAlign='center';
-      ctx.fillText('JAMMED', b.x, labelY + 36);
-    }
-
-    // Hover highlight
-    if (b.hovered && G.marchers.some(m=>m.sortState==='marching'&&isInSortZone(m.pathProgress))) {
-      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;
-      rr(ctx,b.x-b.w/2-3,b.y-b.h/2-3,b.w+6,b.h+6,8);ctx.stroke();
-    }
-
+    if (binSpr) { const cellW=Math.floor(binSpr.width/2),cellH=Math.floor(binSpr.height/2),col=b.type%2,row=Math.floor(b.type/2),sprSize=Math.min(b.w-14,b.h-14); ctx.drawImage(binSpr,col*cellW,row*cellH,cellW,cellH,b.x-sprSize/2,b.y-sprSize/2,sprSize,sprSize); }
+    if (b.wrongFlash>0){ctx.fillStyle=`rgba(200,40,40,${b.wrongFlash*0.5})`;rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,6);ctx.fill();}
+    if (b.flash>0){ctx.fillStyle=`rgba(40,200,60,${b.flash*0.4})`;rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,6);ctx.fill();}
+    ctx.strokeStyle=sc;ctx.lineWidth=isT?3:2;if(isT){ctx.shadowColor=sc;ctx.shadowBlur=8;}
+    rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,6);ctx.stroke();ctx.shadowBlur=0;
+    const labelY=b.y+b.h/2+5;ctx.fillStyle='rgba(0,0,0,0.65)';rr(ctx,b.x-b.w/2,labelY,b.w,22,4);ctx.fill();
+    ctx.fillStyle=sc;ctx.beginPath();ctx.arc(b.x-b.w/2+12,labelY+11,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ddd';ctx.font='bold 13px "Segoe UI"';ctx.textAlign='left';ctx.fillText(S.name,b.x-b.w/2+22,labelY+15);
+    ctx.fillStyle='rgba(240,220,180,0.7)';ctx.font='bold 13px "Segoe UI"';ctx.textAlign='right';ctx.fillText(b.count,b.x+b.w/2-8,labelY+15);
+    if(G.jammedBin===i){ctx.fillStyle=`rgba(255,80,80,${0.5+Math.sin(G.elapsed*20)*0.2})`;ctx.font='bold 12px "Segoe UI"';ctx.textAlign='center';ctx.fillText('JAMMED',b.x,labelY+36);}
+    if(b.hovered&&G.marchers.some(m=>m.sortState==='marching'&&isInSortZone(m.pathProgress))){ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;rr(ctx,b.x-b.w/2-3,b.y-b.h/2-3,b.w+6,b.h+6,8);ctx.stroke();}
     ctx.textAlign='left';
   });
 }
