@@ -62,7 +62,7 @@ function loadSprite(n, f) {
     const tx=tc.getContext('2d');tx.drawImage(img,0,0);
     const d=tx.getImageData(0,0,tc.width,tc.height);
     for(let i=0;i<d.data.length;i+=4)
-      if(d.data[i]>=230&&d.data[i+1]<=30&&d.data[i+2]>=230) d.data[i+3]=0;
+      if(d.data[i]>=180&&d.data[i+1]<=80&&d.data[i+2]>=180&&(d.data[i]-d.data[i+1])>100) d.data[i+3]=0;
     tx.putImageData(d,0,0);
     sprites[n]=tc;spritesLoaded++;
     document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';
@@ -119,6 +119,7 @@ loadSprite('wall_inscription','wall_inscription.png');
 loadSprite('sort_zone','sort_zone_marker.png');
 loadSprite('ground','ground_surface_tile.png');
 loadSprite('oil_lamp','oil_lamp.png');
+loadSprite('thorn_bush','thorny_bush.png');
 loadScene('sky_sunrise','sky_sunrise.png');
 loadSprite('path_tile','path_tile.png');
 
@@ -1672,7 +1673,7 @@ function updatePsyche(dt) {
     // Thorn collision: push out of bushes
     let blocked = false;
     THORNS.forEach(t => {
-      const BUSH_R = 18; // Collision radius of thorn bush
+      const BUSH_R = 25; // Collision radius of thorn bush
       const distToThorn = Math.hypot(newX - t.x, newY - t.y);
       if (distToThorn < BUSH_R) {
         // Push out along the vector from thorn center
@@ -1736,7 +1737,7 @@ function grabWool() {
 function checkEscalation() {
   const wc = G.woolCollected;
   // More rams as more wool collected
-  if (wc === 4 && G.rams.length < 3) {
+  if (wc === 3 && G.rams.length < 3) {
     G.rams.push(createRam(320, 310, 150, 520, 0.5, 80));   // Middle patrol
     showFloat(W/2, 120, '🐏 Another ram enters the field!', '#fbbf24');
   }
@@ -1913,7 +1914,7 @@ function updateRam(ram, dt) {
 
   // Ram thorn collision — push out of bushes
   THORNS.forEach(t => {
-    const RAM_BUSH_R = 22;
+    const RAM_BUSH_R = 28;
     const d = Math.hypot(ram.x - t.x, ram.y - t.y);
     if (d < RAM_BUSH_R && d > 0) {
       ram.x = t.x + ((ram.x - t.x) / d) * RAM_BUSH_R;
@@ -2135,17 +2136,23 @@ function render() {
 
   // === THORNS ===
   THORNS.forEach(t => {
-    ctx.fillStyle='#2a4a18';
-    ctx.beginPath(); ctx.arc(t.x,t.y+5,13,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#3a5a22';
-    ctx.beginPath(); ctx.arc(t.x-4,t.y+2,9,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(t.x+5,t.y+3,8,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='#4a3a1a'; ctx.lineWidth=1.5;
-    ctx.beginPath();
-    ctx.moveTo(t.x-2,t.y); ctx.lineTo(t.x-7,t.y-13);
-    ctx.moveTo(t.x+3,t.y-2); ctx.lineTo(t.x+9,t.y-11);
-    ctx.moveTo(t.x,t.y-1); ctx.lineTo(t.x+1,t.y-15);
-    ctx.stroke();
+    const bushSpr = sprites['thorn_bush'];
+    if (bushSpr) {
+      const bsz = 56;
+      ctx.drawImage(bushSpr, t.x - bsz/2, t.y - bsz/2 + 5, bsz, bsz);
+    } else {
+      ctx.fillStyle='#2a4a18';
+      ctx.beginPath(); ctx.arc(t.x,t.y+5,20,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#3a5a22';
+      ctx.beginPath(); ctx.arc(t.x-5,t.y+2,14,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(t.x+7,t.y+3,12,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#4a3a1a'; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(t.x-3,t.y); ctx.lineTo(t.x-9,t.y-18);
+      ctx.moveTo(t.x+4,t.y-2); ctx.lineTo(t.x+12,t.y-15);
+      ctx.moveTo(t.x,t.y-1); ctx.lineTo(t.x+1,t.y-20);
+      ctx.stroke();
+    }
   });
 
   // === WOOL ===
@@ -2158,7 +2165,7 @@ function render() {
     const woolSpr = sprites['wool'];
     if (woolSpr) {
       ctx.save(); ctx.globalAlpha = fadeA;
-      const sz = isNear ? 22 : 18;
+      const sz = isNear ? 34 : 28;
       ctx.drawImage(woolSpr, w.x-sz/2, w.y-sz/2, sz, sz);
       ctx.restore();
     } else {
@@ -2205,7 +2212,7 @@ function render() {
 
     if (spr) {
       ctx.save();
-      const sz = 48;
+      const sz = 64;
       if (!ram.facingRight) {
         ctx.translate(ram.x, ram.y-sz/2+10); ctx.scale(-1,1);
         ctx.drawImage(spr,-sz/2,0,sz,sz);
@@ -2302,7 +2309,7 @@ function renderPsyche() {
   const spr = sprites['psyche'];
   if (spr) {
     ctx.save();
-    const sz = 40;
+    const sz = 56;
     if (G.pFacing < 0) {
       ctx.translate(G.px, G.py-sz+8); ctx.scale(-1,1);
       ctx.drawImage(spr,-sz/2,0,sz,sz);
@@ -2429,10 +2436,10 @@ function renderComplete() {
   ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
   ctx.fillText('"You waited for the safe moment."',W/2,355);
 
-  ctx.fillStyle='rgba(240,214,138,0.12)';rr(ctx,W/2-60,390,120,36,8);ctx.fill();
-  ctx.strokeStyle='rgba(240,214,138,0.4)';ctx.lineWidth=1;rr(ctx,W/2-60,390,120,36,8);ctx.stroke();
-  ctx.fillStyle='#f0d68a';ctx.font='bold 14px "Segoe UI"';
-  ctx.fillText('Play Again',W/2,413);
+  ctx.fillStyle='rgba(74,222,128,0.12)';rr(ctx,W/2-90,390,180,36,8);ctx.fill();
+  ctx.strokeStyle='rgba(74,222,128,0.4)';ctx.lineWidth=1;rr(ctx,W/2-90,390,180,36,8);ctx.stroke();
+  ctx.fillStyle='#4ade80';ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText('Continue to Trial 3 →',W/2,413);
   ctx.textAlign='left';
 }
 
@@ -2496,12 +2503,23 @@ function startGame() { G.phase = 'playing'; }
         let rating;
         if(lost===0)rating='Excellent';else if(lost<=2)rating='Good';
         else if(lost<=4)rating='Fair';else rating='Needs Work';
-        setTimeout(()=>trialComplete(2,'patience',{score:Math.max(0,100-lost*15),rating}),1500);
+        setTimeout(()=>trialComplete(2,'patience',{score:Math.max(0,100-lost*15),rating}),4000);
       }
     },
     render(){ render(); },
     click(x,y){
       const p={x,y};
+      if(G.phase==='complete'){
+        // Continue to Trial 3 button
+        if(p.x>W/2-90&&p.x<W/2+90&&p.y>390&&p.y<426){
+          const lost=10-GAME.totalHearts;
+          let rating;
+          if(lost===0)rating='Excellent';else if(lost<=2)rating='Good';
+          else if(lost<=4)rating='Fair';else rating='Needs Work';
+          trialComplete(2,'patience',{score:Math.max(0,100-lost*15),rating});
+        }
+        return;
+      }
       if(G.phase==='playing'&&G.pNearWool>=0) grabWool();
     },
     mousemove(x,y){},
