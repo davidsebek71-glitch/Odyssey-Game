@@ -1349,41 +1349,45 @@ function renderBins() {
 
 function renderHUD() {
   const r = ROUNDS[G.round];
+  ctx.textAlign='left';
 
-  // === TOP BAR — spread across the full width ===
-  // Target indicator (left)
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,10,8,155,32,6);ctx.fill();
-  drawSeed(24,24,r.target,10,0,1);
-  ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 13px "Segoe UI"';ctx.textAlign='left';
-  ctx.fillText(`Sort: ${SEEDS[r.target].name}`,42,28);
+  // === TOP BAR — single row, spread across width ===
+  // Hearts (far left)
+  let hs='';for(let i=0;i<G.hearts;i++)hs+='❤️';for(let i=G.hearts;i<4;i++)hs+='🖤';
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,8,6,85,30,6);ctx.fill();
+  ctx.font='13px "Segoe UI"';ctx.fillText(hs,14,26);
 
-  // Progress (center-left)
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,175,8,90,32,6);ctx.fill();
+  // Target seed (left of center)
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,100,6,130,30,6);ctx.fill();
+  drawSeed(114,21,r.target,9,0,1);
+  ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 13px "Segoe UI"';
+  ctx.fillText(`Sort: ${SEEDS[r.target].name}`,130,25);
+
+  // Progress (center)
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,238,6,75,30,6);ctx.fill();
   ctx.fillStyle='#f0d68a';ctx.font='bold 16px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText(`${G.sorted}/${G.needed}`,220,30);
+  ctx.fillText(`${G.sorted}/${G.needed}`,275,27);
 
-  // Round (center)
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,275,8,70,32,6);ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='bold 14px "Segoe UI"';
-  ctx.fillText(`Rd ${G.round+1}/${ROUNDS.length}`,310,30);
+  // Round (center-right)
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,320,6,60,30,6);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='bold 13px "Segoe UI"';
+  ctx.fillText(`Rd ${G.round+1}/3`,350,26);
 
-  // Timer (center-right)
+  // Timer (right of center)
   const tr=G.timeLeft/G.totalTime;
   const tc=tr>0.4?'#c8b88a':tr>0.2?'#fbbf24':'#ef4444';
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,355,8,65,32,6);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,388,6,55,30,6);ctx.fill();
   ctx.fillStyle=tc;ctx.font='bold 15px "Segoe UI"';
-  ctx.fillText(`${Math.ceil(G.timeLeft)}s`,387,30);
+  ctx.fillText(`${Math.ceil(G.timeLeft)}s`,415,27);
 
-  // Hearts (below top bar, left)
-  let hs='';for(let i=0;i<G.hearts;i++)hs+='❤️';for(let i=G.hearts;i<4;i++)hs+='🖤';
-  ctx.font='14px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,14,62);
+  ctx.textAlign='left';
 
   // Squads (bottom-left)
   const avail = G.maxSquads - Math.ceil(G.activeSquads);
-  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-38,100,28,6);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-36,100,26,6);ctx.fill();
   ctx.fillStyle=avail>0?'#f0d68a':'rgba(200,140,140,0.5)';
   ctx.font='13px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,60,H-20);
+  ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,60,H-19);
   ctx.textAlign='left';
 }
 
@@ -1511,7 +1515,7 @@ function renderComplete() {
   return {
     init(){ initGame(); G.phase='tutorial'; },
     update(dt){ G.elapsed+=dt; update(dt); },
-    render(){ render(); drawHearts(); },
+    render(){ render(); },
     click(x,y){
       const p={x,y};
       if(G.phase==='tutorial'){if(p.x>W/2-65&&p.x<W/2+65&&p.y>470&&p.y<508){G.phase='playing';}return;}
