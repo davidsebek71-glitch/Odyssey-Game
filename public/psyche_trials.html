@@ -386,9 +386,9 @@ const SEEDS = [
 // ============================================================
 const TOTAL_TIME = 180;
 const ROUNDS = [
-  { types:2, target:0, seedCount:45, squads:2, antSpeed:0.50, label:'Two seed types' },
-  { types:3, target:2, seedCount:55, squads:2, antSpeed:0.58, label:'Three types' },
-  { types:4, target:3, seedCount:65, squads:3, antSpeed:0.61, label:'All four types' }
+  { types:2, target:0, seedCount:50, squads:2, antSpeed:0.50, label:'Two seed types' },
+  { types:3, target:2, seedCount:60, squads:2, antSpeed:0.58, label:'Three types' },
+  { types:4, target:3, seedCount:70, squads:3, antSpeed:0.61, label:'All four types' }
 ];
 
 // Layout
@@ -867,7 +867,7 @@ function update(dt) {
 
 function checkRoundEnd() {
   // Pass immediately if player has sorted enough (60% of target)
-  const minRequired = Math.ceil(G.needed * 0.6);
+  const minRequired = Math.ceil(G.needed * 0.7);
   if (G.sorted >= minRequired) {
     endRound();
     return;
@@ -885,7 +885,7 @@ function checkRoundEnd() {
 
 function endRound() {
   // Check if player met the 60% minimum sort requirement
-  const minRequired = Math.ceil(G.needed * 0.6);
+  const minRequired = Math.ceil(G.needed * 0.7);
   const passed = G.sorted >= minRequired;
 
   if (!passed) {
@@ -1738,15 +1738,15 @@ function checkEscalation() {
   const wc = G.woolCollected;
   // More rams as more wool collected
   if (wc === 3 && G.rams.length < 3) {
-    G.rams.push(createRam(320, 310, 150, 520, 0.5, 80));   // Middle patrol
+    G.rams.push(createRam(320, 310, 150, 520, 0.6, 95));   // Middle patrol
     showFloat(W/2, 120, '🐏 Another ram enters the field!', '#fbbf24');
   }
   if (wc === 8 && G.rams.length < 4) {
-    G.rams.push(createRam(450, 180, 300, 620, 0.55, 75));   // Top-right patrol
+    G.rams.push(createRam(450, 180, 300, 620, 0.65, 90));   // Top-right patrol
     showFloat(W/2, 120, '🐏 The herd grows restless!', '#fbbf24');
   }
   if (wc === 12 && G.rams.length < 5) {
-    G.rams.push(createRam(180, 420, 60, 400, 0.6, 70));     // Bottom-left patrol
+    G.rams.push(createRam(180, 420, 60, 400, 0.7, 85));     // Bottom-left patrol
     showFloat(W/2, 120, '🐏 A fifth ram! Be careful!', '#ef4444');
   }
 }
@@ -1761,32 +1761,28 @@ function createRam(x, y, patrolL, patrolR, speed, detectR) {
     baseSpeed: speed || 0.5,
     speed: speed || 0.5,
     dir: 1, facingRight: true,
-    state: 'grazing',  // grazing | alert | chasing | returning
-    stateTimer: 3 + Math.random()*2,
-    detectRadius: detectR || 80,
-    chargeSpeed: 2.8,
-    chaseTimer: 0,     // Gives up after this expires
-    maxChaseTime: 3.0, // Seconds before ram gives up chasing
+    state: 'grazing',
+    stateTimer: 2.5 + Math.random()*1.5,
+    detectRadius: detectR || 100,
+    chargeSpeed: 3.5,
+    chaseTimer: 0,
+    maxChaseTime: 4.0,
     headBob: 0,
-    // Smooth scaling: t goes 0→1 as woolCollected goes 0→15
-    // Graze shrinks: 5s → 1.5s  (less safe time)
-    // Alert grows: 1.5s → 3.5s  (more danger time)
     grazeTime: () => {
       const t = Math.min(1, G.woolCollected / 15);
-      return (5.0 - t * 3.5) + Math.random() * (1.5 - t * 0.8);
+      return (3.5 - t * 2.5) + Math.random() * (1.2 - t * 0.6);
     },
     alertTime: () => {
       const t = Math.min(1, G.woolCollected / 15);
-      return (1.5 + t * 2.0) + Math.random() * 0.5;
+      return (2.0 + t * 2.5) + Math.random() * 0.5;
     },
-    // Return target
     returnX: 0, returnY: 0
   };
 }
 
 function updateRam(ram, dt) {
-  // Ramp patrol speed: 1x at 0 wool → 1.8x at 15 wool
-  const speedScale = 1 + (Math.min(1, G.woolCollected / 15)) * 0.8;
+  // Ramp patrol speed: 1x at 0 wool → 2.2x at 15 wool
+  const speedScale = 1 + (Math.min(1, G.woolCollected / 15)) * 1.2;
   ram.speed = ram.baseSpeed * speedScale;
 
   if (ram.state === 'grazing') {
@@ -2212,7 +2208,7 @@ function render() {
 
     if (spr) {
       ctx.save();
-      const sz = 64;
+      const sz = 80;
       if (!ram.facingRight) {
         ctx.translate(ram.x, ram.y-sz/2+10); ctx.scale(-1,1);
         ctx.drawImage(spr,-sz/2,0,sz,sz);
@@ -2309,7 +2305,7 @@ function renderPsyche() {
   const spr = sprites['psyche'];
   if (spr) {
     ctx.save();
-    const sz = 56;
+    const sz = 72;
     if (G.pFacing < 0) {
       ctx.translate(G.px, G.py-sz+8); ctx.scale(-1,1);
       ctx.drawImage(spr,-sz/2,0,sz,sz);
@@ -2482,8 +2478,8 @@ function setupRams() {
   G.rams = [];
   // Spread across top, middle, and bottom of the field
   // Field playable area: y = 150 to y = 500
-  G.rams.push(createRam(160, 190, 60, 350, 0.4, 80));    // Top-left patrol
-  G.rams.push(createRam(500, 440, 350, 640, 0.45, 80));   // Bottom-right patrol
+  G.rams.push(createRam(160, 190, 60, 350, 0.5, 100));    // Top-left patrol
+  G.rams.push(createRam(500, 440, 350, 640, 0.55, 100));   // Bottom-right patrol
 }
 
 function initGame() {
