@@ -1302,7 +1302,7 @@ function renderBins() {
   const SEED_COLORS = ['#E8B830','#C03030','#4080D0','#40B840'];
   G.bins.forEach((b,i) => {
     const S = SEEDS[b.type]; const isT = b.type === G.targetType; const sc = SEED_COLORS[b.type];
-    if (isT) { ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';ctx.textAlign='center'; ctx.fillText('★ TARGET ★', b.x, b.y - b.h/2 - 10); }
+    if (isT) { /* target highlight handled by border glow */ }
     ctx.fillStyle = 'rgba(25,22,18,0.88)'; rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 6); ctx.fill();
     const binSpr = sprites['sorting_bins'];
     if (binSpr) { const cellW=Math.floor(binSpr.width/2),cellH=Math.floor(binSpr.height/2),col=b.type%2,row=Math.floor(b.type/2),sprSize=Math.min(b.w-14,b.h-14); ctx.drawImage(binSpr,col*cellW,row*cellH,cellW,cellH,b.x-sprSize/2,b.y-sprSize/2,sprSize,sprSize); }
