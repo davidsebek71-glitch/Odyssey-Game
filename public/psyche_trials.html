@@ -394,20 +394,22 @@ const ROUNDS = [
 const HORIZON_Y = 140;
 const PILE_CX = 180, PILE_CY = 380;
 
-// Ant march path: left-to-right flow from pile toward bins
-// Sort zone covers the last ~40% of the path
+// Ant march path: left-to-right smooth curve from below pile toward bins
+// Many waypoints for a natural curve, not angular segments
 const PATH = [
-  {x: 180, y: 500},   // Start: below pile
-  {x: 300, y: 470},   // Moving right
-  {x: 420, y: 430},   // SORT ZONE START — ~40% of path from here
-  {x: 500, y: 380},   // Sort zone middle
-  {x: 540, y: 310},   // Sort zone upper
-  {x: 530, y: 240},   // Sort zone end — past here = missed
+  {x: 250, y: 570},   // Start: well below pile
+  {x: 320, y: 560},   // Gentle rightward
+  {x: 400, y: 540},   // Curving
+  {x: 470, y: 505},   // SORT ZONE START
+  {x: 530, y: 460},   // Sort zone
+  {x: 570, y: 400},   // Sort zone
+  {x: 585, y: 330},   // Sort zone upper
+  {x: 575, y: 260},   // Sort zone end — past here = missed
 ];
 
-// Sort zone: segment index 2-5 of the path (~40% of total)
-const SORT_ZONE_START = 2;
-const SORT_ZONE_END = 5;
+// Sort zone: segment index 3-7 (~57% of path)
+const SORT_ZONE_START = 3;
+const SORT_ZONE_END = 7;
 
 // Bins positioned along the right side
 const BIN_X = 630;
@@ -512,8 +514,8 @@ function generatePile(seedCount, typeCount, targetIdx) {
       s.x = s.x*0.5 + cc.x*0.5 + (Math.random()-0.5)*35;
       s.y = s.y*0.5 + cc.y*0.5 + (Math.random()-0.5)*30;
     }
-    s.x = Math.max(20, Math.min(400, s.x));
-    s.y = Math.max(180, Math.min(550, s.y));
+    s.x = Math.max(20, Math.min(420, s.x));
+    s.y = Math.max(170, Math.min(500, s.y));
   });
   return { seeds, targetCount };
 }
