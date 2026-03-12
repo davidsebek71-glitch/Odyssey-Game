@@ -383,7 +383,7 @@ const SEEDS = [
 // ============================================================
 // CONFIG
 // ============================================================
-const TOTAL_TIME = 150;
+const TOTAL_TIME = 180;
 const ROUNDS = [
   { types:2, target:0, seedCount:45, squads:2, antSpeed:0.50, label:'Two seed types' },
   { types:3, target:2, seedCount:55, squads:2, antSpeed:0.58, label:'Three types' },
@@ -865,6 +865,14 @@ function update(dt) {
 }
 
 function checkRoundEnd() {
+  // Pass immediately if player has sorted enough (60% of target)
+  const minRequired = Math.ceil(G.needed * 0.6);
+  if (G.sorted >= minRequired) {
+    endRound();
+    return;
+  }
+
+  // Otherwise, end when all target seeds are accounted for
   const remaining = G.seeds.filter(s => s.isTarget && !s.collected && !s.collecting).length;
   const collecting = G.collectors.filter(c => c.seed.isTarget).length;
   const marching = G.marchers.filter(m => m.isTarget && (m.sortState === 'marching' || m.sortState === 'returning')).length;
