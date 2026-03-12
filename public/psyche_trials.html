@@ -392,29 +392,29 @@ const ROUNDS = [
 
 // Layout
 const HORIZON_Y = 140;
-const PILE_CX = 200, PILE_CY = 350;
+const PILE_CX = 180, PILE_CY = 380;
 
-// Ant march path: from pile area, curves right to the sort zone, then past bins
-// Path is an array of waypoints ants follow
+// Ant march path: left-to-right flow from pile toward bins
+// Gentle S-curve across the screen, sort zone near the bins
 const PATH = [
-  {x: 200, y: 500},   // Start: bottom of pile
-  {x: 320, y: 520},   // Curve right along bottom
-  {x: 430, y: 500},   // Approach sort zone
-  {x: 480, y: 440},   // SORT ZONE START — archway here
-  {x: 510, y: 370},   // Sort zone middle
-  {x: 520, y: 300},   // Sort zone end — past here = missed
-  {x: 530, y: 230},   // Exit path (missed ants continue here)
+  {x: 180, y: 500},   // Start: below pile
+  {x: 280, y: 480},   // Moving right
+  {x: 390, y: 440},   // Midfield curve up
+  {x: 490, y: 390},   // Approaching sort zone
+  {x: 550, y: 340},   // SORT ZONE START
+  {x: 580, y: 280},   // Sort zone middle
+  {x: 570, y: 220},   // Sort zone end — past here = missed
 ];
 
-// Sort zone: segment index 3-5 of the path
-const SORT_ZONE_START = 3;
-const SORT_ZONE_END = 5;
+// Sort zone: segment index 4-6 of the path
+const SORT_ZONE_START = 4;
+const SORT_ZONE_END = 6;
 
-// Bins positioned along the right side — clear of path (path max x = 530)
-const BIN_X = 615;
-const BIN_START_Y = 190;
-const BIN_SPACING = 130;
-const BIN_W = 80, BIN_H = 70;
+// Bins positioned along the right side
+const BIN_X = 630;
+const BIN_START_Y = 195;
+const BIN_SPACING = 100;
+const BIN_W = 75, BIN_H = 65;
 
 // ============================================================
 // STATE
@@ -513,8 +513,8 @@ function generatePile(seedCount, typeCount, targetIdx) {
       s.x = s.x*0.5 + cc.x*0.5 + (Math.random()-0.5)*35;
       s.y = s.y*0.5 + cc.y*0.5 + (Math.random()-0.5)*30;
     }
-    s.x = Math.max(30, Math.min(420, s.x));
-    s.y = Math.max(170, Math.min(540, s.y));
+    s.x = Math.max(20, Math.min(400, s.x));
+    s.y = Math.max(180, Math.min(550, s.y));
   });
   return { seeds, targetCount };
 }
@@ -1488,7 +1488,7 @@ function renderComplete() {
       if(G.phase!=='playing')return;
       const bi=getBinAt(p.x,p.y);
       if(bi>=0){if(G.jammedBin===bi)return;sortToBin(bi);return;}
-      if(p.x>460)return;
+      if(p.x>500)return;
       if(Math.ceil(G.activeSquads)>=G.maxSquads)return;
       G.drawing=true;G.drawStart={x:p.x,y:p.y};G.drawCurrent={x:p.x,y:p.y};
     },
