@@ -1350,39 +1350,41 @@ function renderBins() {
 function renderHUD() {
   const r = ROUNDS[G.round];
 
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,10,8,165,50,8);ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';ctx.textAlign='left';
-  ctx.fillText('① CIRCLE clusters  ② CLICK bins to sort',18,22);
-  drawSeed(30,42,r.target,11,0,1);
-  ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 12px "Segoe UI"';
-  ctx.fillText(`Target: ${SEEDS[r.target].name}`,48,46);
+  // === TOP BAR — spread across the full width ===
+  // Target indicator (left)
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,10,8,155,32,6);ctx.fill();
+  drawSeed(24,24,r.target,10,0,1);
+  ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 13px "Segoe UI"';ctx.textAlign='left';
+  ctx.fillText(`Sort: ${SEEDS[r.target].name}`,42,28);
 
-  // Progress
-  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,185,8,80,42,8);ctx.fill();
-  ctx.fillStyle='#f0d68a';ctx.font='bold 17px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText(`${G.sorted}/${G.needed}`,225,32);
-  ctx.fillStyle='rgba(200,180,140,0.35)';ctx.font='14px "Segoe UI"';
-  ctx.fillText(`Rd ${G.round+1}/${ROUNDS.length}`,225,46);
+  // Progress (center-left)
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,175,8,90,32,6);ctx.fill();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 16px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText(`${G.sorted}/${G.needed}`,220,30);
 
-  // Timer
+  // Round (center)
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,275,8,70,32,6);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText(`Rd ${G.round+1}/${ROUNDS.length}`,310,30);
+
+  // Timer (center-right)
   const tr=G.timeLeft/G.totalTime;
   const tc=tr>0.4?'#c8b88a':tr>0.2?'#fbbf24':'#ef4444';
-  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,275,8,55,42,8);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,355,8,65,32,6);ctx.fill();
   ctx.fillStyle=tc;ctx.font='bold 15px "Segoe UI"';
-  ctx.fillText(`${Math.ceil(G.timeLeft)}s`,302,32);
-  ctx.fillStyle=tr>0.3?'rgba(200,180,140,0.35)':'rgba(255,150,100,0.5)';
-  ctx.font='14px "Segoe UI"';ctx.fillText('dawn',302,44);
+  ctx.fillText(`${Math.ceil(G.timeLeft)}s`,387,30);
 
-  // Squads
-  const avail = G.maxSquads - Math.ceil(G.activeSquads);
-  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-42,95,30,6);ctx.fill();
-  ctx.fillStyle=avail>0?'#f0d68a':'rgba(200,140,140,0.5)';
-  ctx.font='14px "Segoe UI"';
-  ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,57,H-23);
-
-  // Hearts
+  // Hearts (below top bar, left)
   let hs='';for(let i=0;i<G.hearts;i++)hs+='❤️';for(let i=G.hearts;i<4;i++)hs+='🖤';
-  ctx.font='15px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,14,76);
+  ctx.font='14px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,14,62);
+
+  // Squads (bottom-left)
+  const avail = G.maxSquads - Math.ceil(G.activeSquads);
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-38,100,28,6);ctx.fill();
+  ctx.fillStyle=avail>0?'#f0d68a':'rgba(200,140,140,0.5)';
+  ctx.font='13px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,60,H-20);
+  ctx.textAlign='left';
 }
 
 function renderTutorial() {
