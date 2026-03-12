@@ -394,28 +394,27 @@ const ROUNDS = [
 const HORIZON_Y = 140;
 const PILE_CX = 180, PILE_CY = 380;
 
-// Ant march path: left-to-right smooth curve from below pile toward bins
-// Many waypoints for a natural curve, not angular segments
+// Ant march path: smooth curve from below pile, well clear of bins
 const PATH = [
-  {x: 250, y: 570},   // Start: well below pile
-  {x: 320, y: 560},   // Gentle rightward
-  {x: 400, y: 540},   // Curving
-  {x: 470, y: 505},   // SORT ZONE START
-  {x: 530, y: 460},   // Sort zone
-  {x: 570, y: 400},   // Sort zone
-  {x: 585, y: 330},   // Sort zone upper
-  {x: 575, y: 260},   // Sort zone end — past here = missed
+  {x: 220, y: 570},   // Start: below pile
+  {x: 310, y: 555},   // Gentle rightward
+  {x: 400, y: 530},   // Curving up
+  {x: 470, y: 490},   // SORT ZONE START
+  {x: 520, y: 440},   // Sort zone
+  {x: 550, y: 380},   // Sort zone
+  {x: 555, y: 310},   // Sort zone upper
+  {x: 540, y: 245},   // Sort zone end — past here = missed
 ];
 
 // Sort zone: segment index 3-7 (~57% of path)
 const SORT_ZONE_START = 3;
 const SORT_ZONE_END = 7;
 
-// Bins positioned along the right side
-const BIN_X = 630;
-const BIN_START_Y = 195;
-const BIN_SPACING = 100;
-const BIN_W = 75, BIN_H = 65;
+// Bins flush to right edge with tight spacing
+const BIN_X = 640;
+const BIN_START_Y = 180;
+const BIN_SPACING = 95;
+const BIN_W = 70, BIN_H = 60;
 
 // ============================================================
 // STATE
@@ -451,7 +450,9 @@ function freshState() {
     // Jam
     jammedBin: -1, jamTimer: 0,
     // Transition
-    transitionTimer: 0
+    transitionTimer: 0,
+    // Round pass/fail
+    roundMinRequired: 0
   };
 }
 
@@ -874,17 +875,41 @@ function checkRoundEnd() {
 }
 
 function endRound() {
-  G.phase = 'roundEnd';
-  setTimeout(() => {
-    G.round++;
-    if (G.round >= ROUNDS.length) G.phase = 'complete';
-    else {
-      // Bonus time: ensure at least 30s for the next round, plus reward fast sorting
-      const bonus = Math.max(30, 15 + Math.floor(G.timeLeft * 0.3));
-      G.timeLeft = Math.max(G.timeLeft, bonus);
-      G.phase = 'transition'; G.transitionTimer = 3; setupRound();
+  // Check if player met the 60% minimum sort requirement
+  const minRequired = Math.ceil(G.needed * 0.6);
+  const passed = G.sorted >= minRequired;
+
+  if (!passed) {
+    // Failed round — lose a heart and replay
+    G.phase = 'roundFail';
+    G.roundMinRequired = minRequired;
+    const result = loseHeart();
+    if (result === 'gameover') {
+      // Out of hearts entirely — go to complete with what they have
+      setTimeout(() => { G.phase = 'complete'; }, 2500);
+    } else {
+      // Replay this round after showing fail message
+      setTimeout(() => {
+        G.phase = 'transition'; G.transitionTimer = 3;
+        // Bonus time for retry
+        G.timeLeft = Math.max(G.timeLeft, 30);
+        setupRound();
+      }, 2500);
     }
-  }, 1800);
+  } else {
+    // Passed round — advance
+    G.phase = 'roundEnd';
+    G.roundMinRequired = minRequired;
+    setTimeout(() => {
+      G.round++;
+      if (G.round >= ROUNDS.length) G.phase = 'complete';
+      else {
+        const bonus = Math.max(30, 15 + Math.floor(G.timeLeft * 0.3));
+        G.timeLeft = Math.max(G.timeLeft, bonus);
+        G.phase = 'transition'; G.transitionTimer = 3; setupRound();
+      }
+    }, 1800);
+  }
 }
 
 // ============================================================
@@ -1280,7 +1305,7 @@ function render() {
   });
 
   // === BINS ===
-  if (G.phase === 'playing' || G.phase === 'roundEnd') renderBins();
+  if (G.phase === 'playing' || G.phase === 'roundEnd' || G.phase === 'roundFail') renderBins();
 
   // === PARTICLES ===
   G.particles.forEach(p => {
@@ -1296,6 +1321,7 @@ function render() {
   if (G.phase==='tutorial') renderTutorial();
   if (G.phase==='transition') renderTransition();
   if (G.phase==='roundEnd') renderRoundEnd();
+  if (G.phase==='roundFail') renderRoundFail();
   if (G.phase==='complete') renderComplete();
 }
 
@@ -1412,9 +1438,22 @@ function renderTransition() {
 function renderRoundEnd() {
   ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H);
   ctx.textAlign='center';ctx.fillStyle='#4ade80';ctx.font='bold 24px "Segoe UI"';
-  ctx.fillText('✓ Round Complete!',W/2,H/2-15);
+  ctx.fillText('✓ Round Complete!',W/2,H/2-30);
   ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
-  ctx.fillText(`${G.sorted} sorted · ${G.wrongSorts} wrong · ${G.missedSorts} missed`,W/2,H/2+18);
+  ctx.fillText(`${G.sorted}/${G.needed} target sorted (needed ${G.roundMinRequired||'?'})`,W/2,H/2+5);
+  ctx.fillText(`${G.wrongSorts} wrong · ${G.missedSorts} missed`,W/2,H/2+28);
+  ctx.textAlign='left';
+}
+
+function renderRoundFail() {
+  ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f87171';ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('✗ Not Enough Sorted!',W/2,H/2-35);
+  ctx.fillStyle='#e8d8a8';ctx.font='15px "Segoe UI"';
+  ctx.fillText(`${G.sorted}/${G.needed} sorted — needed at least ${G.roundMinRequired}`,W/2,H/2+0);
+  ctx.fillStyle='#f87171';ctx.font='14px "Segoe UI"';
+  ctx.fillText('💔 Lost a heart — try again!',W/2,H/2+28);
   ctx.textAlign='left';
 }
 
