@@ -374,10 +374,10 @@ function getSeedRegion(type) {
 // SEEDS
 // ============================================================
 const SEEDS = [
-  { name:'Barley', fill:'#D4A017', dark:'#9e7a10', hi:'#f0d68a', shape:'elongated' },
-  { name:'Lentil', fill:'#8B4513', dark:'#5c2e0a', hi:'#a0522d', shape:'round' },
-  { name:'Poppy',  fill:'#3a3a3a', dark:'#1a1a1a', hi:'#5a5a5a', shape:'cluster' },
-  { name:'Millet', fill:'#6B8E23', dark:'#4a6318', hi:'#8fb832', shape:'oval' }
+  { name:'Barley', fill:'#E8B830', dark:'#B08820', hi:'#F0D868', shape:'elongated' },
+  { name:'Lentil', fill:'#C03030', dark:'#8A1818', hi:'#E05050', shape:'round' },
+  { name:'Poppy',  fill:'#4080D0', dark:'#2858A0', hi:'#60A0F0', shape:'cluster' },
+  { name:'Millet', fill:'#40B840', dark:'#288028', hi:'#60E060', shape:'oval' }
 ];
 
 // ============================================================
@@ -385,9 +385,9 @@ const SEEDS = [
 // ============================================================
 const TOTAL_TIME = 120;
 const ROUNDS = [
-  { types:2, target:0, seedCount:45, squads:2, antSpeed:0.55, label:'Two seed types' },
-  { types:3, target:2, seedCount:55, squads:2, antSpeed:0.65, label:'Three types' },
-  { types:4, target:3, seedCount:65, squads:3, antSpeed:0.75, label:'All four types' }
+  { types:2, target:0, seedCount:45, squads:2, antSpeed:0.50, label:'Two seed types' },
+  { types:3, target:2, seedCount:55, squads:2, antSpeed:0.58, label:'Three types' },
+  { types:4, target:3, seedCount:65, squads:3, antSpeed:0.68, label:'All four types' }
 ];
 
 // Layout
@@ -526,7 +526,7 @@ function makeSeed(type, isTarget) {
     type, isTarget,
     x: PILE_CX + Math.cos(angle)*dist + (Math.random()-0.5)*50,
     y: PILE_CY + Math.sin(angle)*dist*0.75 + (Math.random()-0.5)*40,
-    size: (type===2?5:7) + Math.random()*2,
+    size: (type===2?6:8.5) + Math.random()*2.5,
     rot: Math.random()*Math.PI*2,
     collected: false, collecting: false, opacity: 1
   };
@@ -1025,13 +1025,16 @@ function render() {
   }
   ctx.lineTo(W, HORIZON_Y); ctx.closePath(); ctx.fill();
 
-  // Sun — rises from below horizon as dp increases
-  // At dp=0: sun is fully below horizon (not visible)
-  // At dp=0.5: sun peeks over mountains
-  // At dp=1: sun sits on horizon
+  // Sun — rises from behind mountains into the sky as dp increases
+  // At dp=0: sun is fully below horizon (hidden)
+  // At dp=0.3: glow starts appearing behind mountains
+  // At dp=0.6: sun peeks over mountains
+  // At dp=1: sun is ~40% up the sky
   const sunX = W * 0.55;
   const sunR = 14;
-  const sunY = HORIZON_Y + sunR + 10 - dp * (sunR * 2 + 15); // starts below, rises up
+  const sunStartY = HORIZON_Y + sunR + 20; // fully hidden below horizon
+  const sunEndY = HORIZON_Y * 0.4; // 40% up the sky at dawn
+  const sunY = sunStartY + (sunEndY - sunStartY) * dp;
   if (sunY < HORIZON_Y + sunR) { // Only draw when any part is visible
     // Sun glow (always visible before sun itself)
     if (dp > 0.15) {
@@ -1296,7 +1299,7 @@ function render() {
 }
 
 function renderBins() {
-  const SEED_COLORS = ['#D4A017','#8B4513','#4a4a4a','#6B8E23'];
+  const SEED_COLORS = ['#E8B830','#C03030','#4080D0','#40B840'];
   G.bins.forEach((b,i) => {
     const S = SEEDS[b.type]; const isT = b.type === G.targetType; const sc = SEED_COLORS[b.type];
     if (isT) { ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';ctx.textAlign='center'; ctx.fillText('★ TARGET ★', b.x, b.y - b.h/2 - 10); }
