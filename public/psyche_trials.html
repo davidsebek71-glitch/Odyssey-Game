@@ -877,7 +877,12 @@ function endRound() {
   setTimeout(() => {
     G.round++;
     if (G.round >= ROUNDS.length) G.phase = 'complete';
-    else { G.phase = 'transition'; G.transitionTimer = 3; setupRound(); }
+    else {
+      // Bonus time: ensure at least 30s for the next round, plus reward fast sorting
+      const bonus = Math.max(30, 15 + Math.floor(G.timeLeft * 0.3));
+      G.timeLeft = Math.max(G.timeLeft, bonus);
+      G.phase = 'transition'; G.transitionTimer = 3; setupRound();
+    }
   }, 1800);
 }
 
@@ -967,14 +972,97 @@ function render() {
   ctx.clearRect(0,0,W,H);
   const dp = Math.min(1, 1 - G.timeLeft/G.totalTime);
 
-  // === SKY — pixel art sunrise sprite ===
-  const skySpr = sprites['sky_sunrise'];
-  if (skySpr) {
-    ctx.drawImage(skySpr, 0, 0, W, HORIZON_Y);
-  } else {
-    const bands = ['#1c0c34','#2a1244','#581c4e','#a02832','#c35028','#dc7323','#f09b2d','#f0c83c'];
-    const bh = HORIZON_Y / bands.length;
-    bands.forEach((c,i) => { ctx.fillStyle=c; ctx.fillRect(0,i*bh,W,bh+1); });
+  // === SKY — animated SNES-style banded sunrise ===
+  // dp goes 0 (full time) → 1 (dawn/time up)
+  // Night palette transitions to dawn palette as dp increases
+  const nightBands = [
+    [18,8,42],[28,14,52],[38,18,62],[48,20,68],[55,22,72],[60,24,75],[65,26,78],[70,28,80]
+  ];
+  const dawnBands = [
+    [28,12,52],[62,22,82],[120,38,65],[180,60,45],[210,90,35],[235,130,40],[248,170,55],[255,200,75]
+  ];
+  const bandH = Math.ceil(HORIZON_Y / nightBands.length);
+  for (let i = 0; i < nightBands.length; i++) {
+    const n = nightBands[i], d = dawnBands[i];
+    const r = Math.round(n[0] + (d[0]-n[0]) * dp);
+    const g = Math.round(n[1] + (d[1]-n[1]) * dp);
+    const b = Math.round(n[2] + (d[2]-n[2]) * dp);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, i * bandH, W, bandH + 1);
+    // SNES dither between bands
+    if (i < nightBands.length - 1) {
+      const n2 = nightBands[i+1], d2 = dawnBands[i+1];
+      const r2 = Math.round(n2[0]+(d2[0]-n2[0])*dp);
+      const g2 = Math.round(n2[1]+(d2[1]-n2[1])*dp);
+      const b2 = Math.round(n2[2]+(d2[2]-n2[2])*dp);
+      ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
+      const ditherY = (i+1) * bandH;
+      for (let dx = 0; dx < W; dx += 2) {
+        ctx.fillRect(dx, ditherY - 1, 1, 1);
+      }
+    }
+  }
+
+  // Horizon glow — intensifies with dp
+  if (dp > 0.1) {
+    const glowAlpha = (dp - 0.1) * 0.6;
+    ctx.fillStyle = `rgba(255,180,60,${Math.min(0.4, glowAlpha)})`;
+    ctx.fillRect(0, HORIZON_Y - 20, W, 20);
+    ctx.fillStyle = `rgba(255,220,100,${Math.min(0.25, glowAlpha * 0.5)})`;
+    ctx.fillRect(0, HORIZON_Y - 35, W, 15);
+  }
+
+  // Mountain silhouette — pixel art jagged peaks
+  ctx.fillStyle = 'rgb(30,22,15)';
+  ctx.beginPath(); ctx.moveTo(0, HORIZON_Y);
+  // Chunky 2-pixel stepped mountains
+  const mtnPoints = [0,8,20,6,50,12,80,10,120,16,160,8,200,14,240,6,280,18,320,10,360,16,400,8,440,20,480,12,520,16,560,8,600,14,640,10,680,6];
+  for (let m = 0; m < mtnPoints.length; m += 2) {
+    const mx = mtnPoints[m], mh = mtnPoints[m+1];
+    // Step in 2-pixel increments for pixel art feel
+    const steppedH = Math.round(mh / 2) * 2;
+    ctx.lineTo(mx, HORIZON_Y - steppedH);
+  }
+  ctx.lineTo(W, HORIZON_Y); ctx.closePath(); ctx.fill();
+
+  // Sun — rises from below horizon as dp increases
+  // At dp=0: sun is fully below horizon (not visible)
+  // At dp=0.5: sun peeks over mountains
+  // At dp=1: sun sits on horizon
+  const sunX = W * 0.55;
+  const sunR = 14;
+  const sunY = HORIZON_Y + sunR + 10 - dp * (sunR * 2 + 15); // starts below, rises up
+  if (sunY < HORIZON_Y + sunR) { // Only draw when any part is visible
+    // Sun glow (always visible before sun itself)
+    if (dp > 0.15) {
+      const glowR = sunR * 4;
+      const sg = ctx.createRadialGradient(sunX, Math.min(sunY, HORIZON_Y), 0, sunX, Math.min(sunY, HORIZON_Y), glowR);
+      sg.addColorStop(0, `rgba(255,220,100,${Math.min(0.3, dp * 0.4)})`);
+      sg.addColorStop(1, 'rgba(255,180,60,0)');
+      ctx.fillStyle = sg;
+      ctx.fillRect(sunX - glowR, HORIZON_Y - glowR, glowR * 2, glowR);
+    }
+    // Sun disc — clip to above horizon only
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, HORIZON_Y);
+    ctx.clip();
+    // Outer disc
+    ctx.fillStyle = `rgba(255,230,120,${Math.min(1, dp * 2)})`;
+    ctx.beginPath(); ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2); ctx.fill();
+    // Bright center
+    ctx.fillStyle = `rgba(255,250,220,${Math.min(0.9, dp * 2)})`;
+    ctx.beginPath(); ctx.arc(sunX, sunY, sunR * 0.55, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // Stars — fade out as dawn approaches
+  if (dp < 0.55) {
+    const starAlpha = (1 - dp / 0.55) * 0.8;
+    ctx.fillStyle = `rgba(255,255,220,${starAlpha})`;
+    [[50,20],[175,50],[310,15],[430,40],[595,55],[125,75],[400,25],[550,35],[260,65]].forEach(([x,y]) => {
+      if (y < HORIZON_Y - 20) { ctx.fillRect(x, y, 1, 1); ctx.fillRect(x, y, 2, 1); } // 1-2px stars
+    });
   }
 
   // === GROUND — tiled stone floor ===
