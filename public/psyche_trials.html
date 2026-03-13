@@ -3079,14 +3079,64 @@ function render() {
     renderSisters();
   }
 
-  // ---- LAYER 2: PSYCHE WITH LAMP ----
+  // ---- LAYER 2: DARKNESS + LAMP REVEAL ----
   if (G.lampOn) {
+    const flicker = G.lampR + Math.sin(G.elapsed * 8) * 4 + Math.sin(G.elapsed * 13) * 2;
+    const lx = G.lampX, ly = G.lampY - 5;
+
+    // Build darkness mask on offscreen canvas (opaque black with transparent hole)
+    if (!G._darkCanvas) {
+      G._darkCanvas = document.createElement('canvas');
+      G._darkCanvas.width = W;
+      G._darkCanvas.height = H;
+    }
+    const dc = G._darkCanvas;
+    const dx = dc.getContext('2d');
+
+    // Fill solid black
+    dx.clearRect(0, 0, W, H);
+    dx.fillStyle = '#000';
+    dx.fillRect(0, 0, W, H);
+
+    // Punch transparent hole using destination-out on the OFFSCREEN canvas
+    dx.globalCompositeOperation = 'destination-out';
+    const hole = dx.createRadialGradient(lx, ly, 0, lx, ly, flicker);
+    hole.addColorStop(0, 'rgba(0,0,0,1)');
+    hole.addColorStop(0.3, 'rgba(0,0,0,1)');
+    hole.addColorStop(0.6, 'rgba(0,0,0,0.8)');
+    hole.addColorStop(0.85, 'rgba(0,0,0,0.3)');
+    hole.addColorStop(1, 'rgba(0,0,0,0)');
+    dx.fillStyle = hole;
+    dx.fillRect(0, 0, W, H);
+    dx.globalCompositeOperation = 'source-over';
+
+    // Draw the darkness mask onto the main canvas at 88% opacity
+    ctx.globalAlpha = 0.88;
+    ctx.drawImage(dc, 0, 0);
+    ctx.globalAlpha = 1;
+
+    // Warm SNES glow — visible golden light around Psyche
+    const wg1 = ctx.createRadialGradient(lx, ly, 0, lx, ly, flicker * 0.65);
+    wg1.addColorStop(0, 'rgba(255,200,80,0.16)');
+    wg1.addColorStop(0.4, 'rgba(255,180,60,0.08)');
+    wg1.addColorStop(1, 'rgba(255,140,30,0)');
+    ctx.fillStyle = wg1;
+    ctx.fillRect(0, 0, W, H);
+
+    // Bright inner flame core
+    const wg2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, 35);
+    wg2.addColorStop(0, 'rgba(255,235,160,0.22)');
+    wg2.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = wg2;
+    ctx.fillRect(lx - 40, ly - 40, 80, 80);
+
+    // ---- PSYCHE WITH LAMP (drawn ABOVE darkness so always visible) ----
     const psycheSpr = sprites['psyche_lamp'];
     if (psycheSpr) {
       const sz = 76;
       ctx.drawImage(psycheSpr, G.lampX - sz/2, G.lampY - sz*0.4, sz, sz);
     } else {
-      // Programmatic fallback
+      // Programmatic Psyche fallback
       ctx.fillStyle = '#e8ddd0';
       ctx.beginPath(); ctx.arc(G.lampX, G.lampY - 14, 6, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#f0ece4';
@@ -3096,44 +3146,6 @@ function render() {
       ctx.fillStyle = '#ffd700';
       ctx.beginPath(); ctx.arc(G.lampX + 9, G.lampY - 10, 3, 0, Math.PI*2); ctx.fill();
     }
-  }
-
-  // ---- LAYER 3: DARKNESS OVERLAY with lamp hole ----
-  if (G.lampOn) {
-    // Flicker
-    const flicker = G.lampR + Math.sin(G.elapsed * 8) * 4 + Math.sin(G.elapsed * 13) * 2;
-
-    // Create an offscreen canvas for the darkness mask
-    ctx.save();
-    // Draw solid darkness
-    ctx.fillStyle = 'rgba(5,5,16,0.92)';
-    ctx.fillRect(0, 0, W, H);
-    // Cut out the lamp circle using destination-out
-    ctx.globalCompositeOperation = 'destination-out';
-    const lg = ctx.createRadialGradient(G.lampX, G.lampY - 5, 0, G.lampX, G.lampY - 5, flicker);
-    lg.addColorStop(0, 'rgba(0,0,0,1)');
-    lg.addColorStop(0.35, 'rgba(0,0,0,0.98)');
-    lg.addColorStop(0.6, 'rgba(0,0,0,0.7)');
-    lg.addColorStop(0.8, 'rgba(0,0,0,0.25)');
-    lg.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = lg;
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.restore();
-
-    // Warm SNES glow layers
-    const wg1 = ctx.createRadialGradient(G.lampX, G.lampY - 5, 0, G.lampX, G.lampY - 5, flicker * 0.6);
-    wg1.addColorStop(0, 'rgba(255,200,80,0.14)');
-    wg1.addColorStop(0.5, 'rgba(255,170,50,0.06)');
-    wg1.addColorStop(1, 'rgba(255,140,30,0)');
-    ctx.fillStyle = wg1;
-    ctx.fillRect(0, 0, W, H);
-    // Bright inner core
-    const wg2 = ctx.createRadialGradient(G.lampX, G.lampY - 5, 0, G.lampX, G.lampY - 5, 30);
-    wg2.addColorStop(0, 'rgba(255,230,150,0.18)');
-    wg2.addColorStop(1, 'rgba(255,200,100,0)');
-    ctx.fillStyle = wg2;
-    ctx.fillRect(G.lampX - 35, G.lampY - 40, 70, 70);
   } else {
     // Lamp is out — near total darkness
     ctx.fillStyle = 'rgba(5,5,16,0.92)';
