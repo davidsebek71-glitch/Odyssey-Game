@@ -124,6 +124,12 @@ loadScene('sky_sunrise','sky_sunrise.png');
 loadSprite('path_tile','path_tile.png');
 // Palace (Trial 3)
 loadScene('palace_bg','palace_bg.png');
+loadSprite('fragment_eros','fragment_eros.png');
+loadSprite('fragment_palace','fragment_palace.png');
+loadSprite('fragment_lamp','fragment_lamp.png');
+loadSprite('fragment_betrayal','fragment_betrayal.png');
+loadSprite('inscription_plaque','inscription_plaque.png');
+loadSprite('mural_slot','mural_slot.png');
 
 // ================================================================
 // SHARED HELPERS
@@ -2538,10 +2544,10 @@ const Trial3 = (function(){
 // them in chronological order on the empty mural panel.
 // ============================================================
 const STORY_FRAGMENTS = [
-  { id:0, icon:'💘', title:'Eros Strikes', desc:'Eros sees Psyche and falls in love', color:'#e8a040', spriteKey:'story_fragment' },
-  { id:1, icon:'🏛️', title:'The Invisible Palace', desc:'Psyche lives in a palace, never seeing her husband', color:'#c090d0', spriteKey:'story_fragment' },
-  { id:2, icon:'🪔', title:'The Oil Lamp', desc:'Psyche lights a lamp to see Eros\'s face', color:'#f0d060', spriteKey:'story_fragment' },
-  { id:3, icon:'💔', title:'The Betrayal', desc:'Oil drops on Eros — he wakes and flies away', color:'#e06060', spriteKey:'story_fragment' }
+  { id:0, icon:'💘', title:'Eros Strikes', desc:'Eros sees Psyche and falls in love', color:'#e8a040', spriteKey:'fragment_eros' },
+  { id:1, icon:'🏛️', title:'The Invisible Palace', desc:'Psyche lives in a palace, never seeing her husband', color:'#c090d0', spriteKey:'fragment_palace' },
+  { id:2, icon:'🪔', title:'The Oil Lamp', desc:'Psyche lights a lamp to see Eros\'s face', color:'#f0d060', spriteKey:'fragment_lamp' },
+  { id:3, icon:'💔', title:'The Betrayal', desc:'Oil drops on Eros — he wakes and flies away', color:'#e06060', spriteKey:'fragment_betrayal' }
 ];
 
 // False fragments (sister lies) — look similar but don't belong
@@ -3215,7 +3221,7 @@ function render() {
       ctx.fillStyle = 'rgba(255,215,100,0.2)';
       ctx.beginPath(); ctx.arc(G.dragX, G.dragY, 26, 0, Math.PI*2); ctx.fill();
       ctx.globalAlpha = 0.9;
-      const spr = (item.spriteKey && item.spriteKey !== 'story_fragment') ? sprites[item.spriteKey] : null;
+      const spr = item.spriteKey ? sprites[item.spriteKey] : null;
       if (spr) {
         ctx.drawImage(spr, G.dragX - 20, G.dragY - 20, 40, 40);
       } else {
@@ -3359,11 +3365,10 @@ function renderItems() {
       // Gentle float animation
       const bob = Math.sin(G.elapsed * 2.5 + it.x * 0.1) * 3;
 
-      if (spr && sprKey !== 'story_fragment') {
-        // Altar items — use their unique sprites
+      if (spr) {
         ctx.drawImage(spr, it.x - sz/2, it.y - sz/2 + bob, sz, sz);
       } else {
-        // Story fragments + fallback — use emoji icon (each visually distinct)
+        // Emoji fallback only if sprite failed to load
         ctx.font = '38px "Segoe UI"'; ctx.textAlign = 'center';
         ctx.fillText(it.data.icon, it.x, it.y + 12 + bob);
       }
@@ -3394,37 +3399,33 @@ function renderHints() {
     if (h.glow <= 0 && !h.discovered) return;
     const a = h.glow;
 
-    // Dark stone plaque — clean SNES-style panel
-    const pw = 200, ph = 110;
+    const pw = 220, ph = 120;
     const px = h.x + h.w/2 - pw/2, py = h.y + h.h/2 - ph/2;
 
-    // Outer border (raised stone)
     ctx.globalAlpha = a;
-    ctx.fillStyle = 'rgba(60,52,72,0.9)';
-    rr(ctx, px-2, py-2, pw+4, ph+4, 5); ctx.fill();
-    // Inner recessed area
-    ctx.fillStyle = 'rgba(22,18,32,0.95)';
-    rr(ctx, px, py, pw, ph, 4); ctx.fill();
-    // Bevel highlights
-    ctx.strokeStyle = 'rgba(90,80,110,0.6)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(px+4, py+ph-2); ctx.lineTo(px+4, py+4); ctx.lineTo(px+pw-4, py+4); ctx.stroke();
-    ctx.strokeStyle = 'rgba(15,12,25,0.8)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(px+4, py+ph-2); ctx.lineTo(px+pw-4, py+ph-2); ctx.lineTo(px+pw-4, py+4); ctx.stroke();
 
-    // Title — golden, centered
+    // Use inscription_plaque sprite as background
+    const plaque = sprites['inscription_plaque'];
+    if (plaque) {
+      ctx.drawImage(plaque, px, py, pw, ph);
+    } else {
+      // Fallback dark panel
+      ctx.fillStyle = 'rgba(45,38,55,0.92)';
+      rr(ctx, px, py, pw, ph, 4); ctx.fill();
+      ctx.strokeStyle = 'rgba(80,70,100,0.5)'; ctx.lineWidth = 2;
+      rr(ctx, px, py, pw, ph, 4); ctx.stroke();
+    }
+
+    // Title — golden, centered on the plaque
     ctx.fillStyle = '#f0d68a';
-    ctx.font = 'bold 13px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText(h.title.replace('📜 ',''), px + pw/2, py + 22);
+    ctx.font = 'bold 14px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(h.title.replace('📜 ',''), px + pw/2, py + 24);
 
-    // Divider line
-    ctx.strokeStyle = 'rgba(200,180,140,0.25)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(px+20, py+30); ctx.lineTo(px+pw-20, py+30); ctx.stroke();
-
-    // Hint lines — clean golden text
+    // Hint lines — golden text on the plaque surface
     ctx.font = '12px "Segoe UI"';
-    ctx.fillStyle = 'rgba(220,200,150,0.9)';
+    ctx.fillStyle = 'rgba(230,210,160,0.95)';
     h.lines.forEach((line, i) => {
-      ctx.fillText(line, px + pw/2, py + 48 + i * 18);
+      ctx.fillText(line, px + pw/2, py + 46 + i * 19);
     });
 
     ctx.textAlign = 'left';
@@ -3434,11 +3435,18 @@ function renderHints() {
 
 function renderSlots() {
   G.slots.forEach((s, i) => {
-    const w = 80, h = 65;
+    const w = 85, h = 68;
 
-    // Slot background — stone niche
-    ctx.fillStyle = s.placedItem ? 'rgba(25,30,22,0.7)' : 'rgba(15,12,25,0.75)';
-    rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.fill();
+    // Slot background — use mural_slot sprite
+    const slotSpr = sprites['mural_slot'];
+    if (slotSpr) {
+      ctx.drawImage(slotSpr, s.x - w/2, s.y - h/2, w, h);
+    } else {
+      ctx.fillStyle = s.placedItem ? 'rgba(25,30,22,0.7)' : 'rgba(15,12,25,0.75)';
+      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.fill();
+      ctx.strokeStyle = 'rgba(70,65,90,0.4)'; ctx.lineWidth = 2;
+      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.stroke();
+    }
 
     // Flash overlays
     if (s.wrongFlash > 0) {
@@ -3450,44 +3458,46 @@ function renderSlots() {
       rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.fill();
     }
 
-    // Border
-    ctx.strokeStyle = s.placedItem
-      ? (s.placedItem.id === s.correctId ? 'rgba(100,200,100,0.5)' : 'rgba(200,150,50,0.4)')
-      : 'rgba(70,65,90,0.4)';
-    ctx.lineWidth = 2;
-    rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.stroke();
+    // Correct placement green border
+    if (s.placedItem && s.placedItem.id === s.correctId) {
+      ctx.strokeStyle = 'rgba(100,200,100,0.5)'; ctx.lineWidth = 2;
+      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.stroke();
+    }
 
     ctx.textAlign = 'center';
 
     if (s.placedItem) {
-      // Placed item — use sprite for altar objects, emoji for story fragments
+      // Placed item — always try sprite
       const sprKey = s.placedItem.spriteKey;
-      const spr = (sprKey && sprKey !== 'story_fragment') ? sprites[sprKey] : null;
+      const spr = sprKey ? sprites[sprKey] : null;
       if (spr) {
-        ctx.drawImage(spr, s.x - 20, s.y - 20, 40, 40);
+        ctx.drawImage(spr, s.x - 22, s.y - 22, 44, 44);
       } else {
         ctx.font = '30px "Segoe UI"';
         ctx.fillText(s.placedItem.icon, s.x, s.y + 10);
       }
     } else {
-      // Empty slot — show hint
+      // Empty slot — show number hint
       if (G.roomIdx === 0) {
-        ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = 'bold 16px "Segoe UI"';
-        ctx.fillText(s.label, s.x, s.y);
-        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '11px "Segoe UI"';
-        ctx.fillText(s.symbolHint, s.x, s.y + 16);
+        ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = 'bold 18px "Segoe UI"';
+        ctx.fillText(s.label, s.x, s.y + 2);
+        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '10px "Segoe UI"';
+        ctx.fillText(s.symbolHint, s.x, s.y + 18);
       } else {
-        ctx.font = '22px "Segoe UI"';
-        ctx.fillText(s.label, s.x, s.y);
-        ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = '11px "Segoe UI"';
-        ctx.fillText(s.symbolHint, s.x, s.y + 16);
+        ctx.font = '24px "Segoe UI"';
+        ctx.fillText(s.label, s.x, s.y + 2);
+        ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = '10px "Segoe UI"';
+        ctx.fillText(s.symbolHint, s.x, s.y + 18);
       }
     }
 
-    // Hover highlight when dragging
-    if (i === G.hoveredSlot && G.dragging !== null) {
-      ctx.strokeStyle = 'rgba(255,215,100,0.5)'; ctx.lineWidth = 2.5;
-      rr(ctx, s.x-w/2-3, s.y-h/2-3, w+6, h+6, 7); ctx.stroke();
+    // Highlight when player has an item selected and hovers near slot
+    if (G.selectedItem !== null) {
+      const lampDist = Math.hypot(G.lampX - s.x, G.lampY - s.y);
+      if (lampDist < 80) {
+        ctx.strokeStyle = 'rgba(255,215,100,0.5)'; ctx.lineWidth = 2.5;
+        rr(ctx, s.x-w/2-3, s.y-h/2-3, w+6, h+6, 7); ctx.stroke();
+      }
     }
 
     ctx.textAlign = 'left';
@@ -3497,37 +3507,47 @@ function renderSlots() {
 function renderSisters() {
   G.sisters.forEach(s => {
     if (s.timer < -1) return;
-    const alpha = s.phase === 'warning' ? Math.min(1, (2-s.timer)*0.5) : Math.max(0, s.timer);
+    const alpha = s.phase === 'warning' ? Math.min(1, (2-s.timer)*0.6) : Math.max(0, s.timer);
 
     const spr = sprites['sister'];
     if (spr) {
-      ctx.save(); ctx.globalAlpha = alpha*0.5;
-      const sz = 48;
-      if (s.side==='right') { ctx.translate(s.x,s.y-sz/2); ctx.scale(-1,1); ctx.drawImage(spr,-sz/2,0,sz,sz); }
-      else ctx.drawImage(spr, s.x-sz/2, s.y-sz/2, sz, sz);
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.75;
+      const sz = 64;
+      if (s.side==='right') {
+        ctx.translate(s.x, s.y - sz/2);
+        ctx.scale(-1, 1);
+        ctx.drawImage(spr, -sz/2, 0, sz, sz);
+      } else {
+        ctx.drawImage(spr, s.x - sz/2, s.y - sz/2, sz, sz);
+      }
       ctx.restore();
     } else {
-      ctx.fillStyle = `rgba(30,20,45,${alpha*0.5})`;
+      // Programmatic fallback — ghostly figure
+      ctx.fillStyle = `rgba(30,20,45,${alpha*0.6})`;
       ctx.beginPath(); ctx.ellipse(s.x,s.y,15,35,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = `rgba(100,140,180,${alpha*0.3})`;
+      ctx.fillStyle = `rgba(100,140,180,${alpha*0.4})`;
       ctx.beginPath(); ctx.arc(s.x-3,s.y-10,2,0,Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(s.x+3,s.y-10,2,0,Math.PI*2); ctx.fill();
     }
 
     if (s.phase === 'warning') {
-      ctx.fillStyle = `rgba(120,150,200,${alpha*0.3})`;
-      ctx.font = '14px "Segoe UI"'; ctx.textAlign = 'center';
-      ctx.fillText('⚠ Sister!', s.x, s.y-40);
-      ctx.textAlign = 'left';
+      // Eerie glow around the sister
+      const warnGlow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 50);
+      warnGlow.addColorStop(0, `rgba(100,130,200,${alpha*0.15})`);
+      warnGlow.addColorStop(1, 'rgba(80,110,180,0)');
+      ctx.fillStyle = warnGlow;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 50, 0, Math.PI*2); ctx.fill();
     }
     if (s.phase === 'gust') {
-      ctx.strokeStyle = `rgba(120,150,200,${Math.max(0,s.timer)*0.3})`;
-      ctx.lineWidth = 1.5;
+      // Wind gust lines — more visible
+      ctx.strokeStyle = `rgba(140,170,220,${Math.max(0,s.timer)*0.5})`;
+      ctx.lineWidth = 2;
       const dir = s.side==='left'?1:-1;
-      for (let g=0; g<6; g++) {
-        const gx = s.x+dir*(30+g*50);
-        const gy = s.gustY-40+g*15+Math.sin(G.elapsed*10+g)*8;
-        ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+dir*35,gy+Math.sin(g)*5); ctx.stroke();
+      for (let g=0; g<8; g++) {
+        const gx = s.x + dir*(20+g*40);
+        const gy = s.gustY - 50 + g*14 + Math.sin(G.elapsed*12+g)*10;
+        ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+dir*40,gy+Math.sin(g)*6); ctx.stroke();
       }
     }
   });
@@ -3620,7 +3640,7 @@ function renderHUD() {
       rr(ctx, ix-22, iy-18, 44, 36, 3); ctx.stroke();
     }
 
-    const spr = (item.spriteKey && item.spriteKey !== 'story_fragment') ? sprites[item.spriteKey] : null;
+    const spr = item.spriteKey ? sprites[item.spriteKey] : null;
     if (spr) {
       ctx.drawImage(spr, ix - 14, iy - 14, 28, 28);
     } else {
