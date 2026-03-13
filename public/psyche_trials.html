@@ -2580,6 +2580,7 @@ function freshState() {
     lampTX: W/2, lampTY: H/2,
     lampR: 120,
     lampOn: true, lampOutTimer: 0,
+    facingRight: true,
     // Floor bounds — Psyche can't walk on walls
     floorL: 50, floorR: W-50, floorT: 90, floorB: H-40,
     // Oil
@@ -2604,7 +2605,8 @@ function freshState() {
     // Bedchamber
     bedReveal: 0, bedPhase: 0,
     // UI state
-    dragging: null,
+    selectedItem: null,   // Index in inventory of currently selected item
+    dragging: null,       // Legacy — kept for mouseup compat
     dragX: 0, dragY: 0,
     hoveredSlot: -1,
     // Particles
@@ -2636,11 +2638,10 @@ function setupRoom(idx) {
     G.sisterTimer = 18 + Math.random() * 5;
     G.oil = Math.min(100, G.oil + 5);
 
-    // Scatter story fragments in the dark
+    // Scatter story fragments — well spread across the floor, away from walls and inscription
     const positions = [
-      {x:120, y:200}, {x:500, y:180}, {x:160, y:420}, {x:520, y:400}
+      {x:130, y:250}, {x:530, y:230}, {x:150, y:440}, {x:510, y:420}
     ];
-    // Shuffle positions
     const shuffled = [...positions].sort(() => Math.random() - 0.5);
     STORY_FRAGMENTS.forEach((frag, i) => {
       G.items.push({
@@ -2650,9 +2651,9 @@ function setupRoom(idx) {
       });
     });
 
-    // Add false fragment
+    // False fragment — center area
     G.items.push({
-      x: 340 + (Math.random()-0.5)*100, y: 300 + (Math.random()-0.5)*80,
+      x: 330 + (Math.random()-0.5)*60, y: 340 + (Math.random()-0.5)*40,
       data: FALSE_FRAGMENTS[0], found: false, discovered: false, glow: 0,
       isReal: false, pickedUp: false
     });
@@ -2671,10 +2672,10 @@ function setupRoom(idx) {
       });
     }
 
-    // Hint: Ancient inscription on the wall showing the story order
+    // Hint: Ancient inscription — positioned on left wall, clear of item spawns
     G.hints.push({
-      x: 340, y: 140, w: 180, h: 80,
-      title: '📜 Ancient Inscription',
+      x: 70, y: 120, w: 200, h: 110,
+      title: 'Ancient Inscription',
       lines: ['💘 Love struck first', '🏛️ Then a hidden palace', '🪔 Light revealed truth', '💔 And love was lost'],
       discovered: false, glow: 0
     });
@@ -2921,24 +2922,76 @@ function handleClick(mx, my) {
   if (G.phase !== 'playing') return;
   if (!G.lampOn) return;
 
-  // Pick up an item
+  // === STEP 1: If holding a selected item, try to place it on a slot ===
+  if (G.selectedItem !== null) {
+    const slotIdx = getSlotAt(mx, my);
+    if (slotIdx >= 0) {
+      // Place the selected item
+      const slot = G.slots[slotIdx];
+      if (slot.placedItem) {
+        // Swap: return placed item to inventory
+        G.inventory.push(slot.placedItem);
+        slot.placedItem = null;
+      }
+      const item = G.inventory[G.selectedItem];
+      slot.placedItem = item;
+      G.inventory.splice(G.selectedItem, 1);
+      G.selectedItem = null;
+
+      // Check correctness
+      if (item.id === slot.correctId) {
+        slot.flash = 0.6;
+        spawnP(slot.x, slot.y, 5, '#ffd700');
+      } else {
+        slot.wrongFlash = 0.5;
+        G.wrongPlacements++;
+        G.oil = Math.max(0, G.oil - 5);
+        showFloat(slot.x, slot.y - 30, '✗ Wrong spot! -5% oil', '#f97316');
+      }
+      return;
+    }
+    // Click elsewhere = deselect
+    G.selectedItem = null;
+    return;
+  }
+
+  // === STEP 2: Click on a slot to retrieve a placed item ===
+  const clickedSlot = getSlotAt(mx, my);
+  if (clickedSlot >= 0) {
+    const slot = G.slots[clickedSlot];
+    if (slot.placedItem) {
+      G.inventory.push(slot.placedItem);
+      slot.placedItem = null;
+      showFloat(mx, my - 15, '↩', 'rgba(200,180,140,0.7)');
+      return;
+    }
+  }
+
+  // === STEP 3: Click inventory item to select it ===
+  const invIdx = getInventoryAt(mx, my);
+  if (invIdx >= 0) {
+    G.selectedItem = invIdx;
+    return;
+  }
+
+  // === STEP 4: Click an item in the world to pick it up ===
   for (let i = G.items.length - 1; i >= 0; i--) {
     const it = G.items[i];
     if (it.pickedUp || !it.discovered || it.glow < 0.3) continue;
-    if (Math.hypot(it.x - mx, it.y - my) > 28) continue;
+    if (Math.hypot(it.x - mx, it.y - my) > 35) continue;
 
     if (it.isReal) {
       it.pickedUp = true;
       G.inventory.push(it.data);
-      spawnP(it.x, it.y, 6, it.data.color);
-      showFloat(mx, my-10, `✨ ${it.data.title || it.data.name}`, '#ffd700');
+      spawnP(it.x, it.y, 8, it.data.color);
+      showFloat(mx, my-10, `${it.data.title || it.data.name}`, '#ffd700');
     } else {
-      it.pickedUp = true; // Remove from field
+      it.pickedUp = true;
       G.falseCollected++;
       G.oil = Math.max(0, G.oil - 15);
       G.coldFlash = 0.5;
       spawnP(it.x, it.y, 5, '#4488cc');
-      showFloat(mx, my-10, `❌ False clue! -15% oil`, '#6495ed');
+      showFloat(mx, my-10, `False clue! -15% oil`, '#6495ed');
       if (it.data.whisper) {
         const el = document.createElement('div');
         el.className = 'whisper-text';
@@ -2950,36 +3003,6 @@ function handleClick(mx, my) {
       }
     }
     return;
-  }
-
-  // Click on a slot that has an item → return to inventory
-  const clickedSlot = getSlotAt(mx, my);
-  if (clickedSlot >= 0 && G.dragging === null) {
-    const slot = G.slots[clickedSlot];
-    if (slot.placedItem) {
-      G.inventory.push(slot.placedItem);
-      slot.placedItem = null;
-      showFloat(mx, my - 15, '↩ Returned', 'rgba(200,180,140,0.6)');
-      return;
-    }
-  }
-
-  // Click on inventory item to start drag
-  const invItem = getInventoryAt(mx, my);
-  if (invItem >= 0) {
-    G.dragging = invItem;
-    G.dragX = mx; G.dragY = my;
-    return;
-  }
-
-  // Click on slot to place dragged item
-  if (G.dragging !== null) {
-    const slotIdx = getSlotAt(mx, my);
-    if (slotIdx >= 0) {
-      placeItem(slotIdx);
-    } else {
-      G.dragging = null; // Cancel drag
-    }
   }
 }
 
@@ -3131,10 +3154,18 @@ function render() {
     ctx.fillRect(lx - 40, ly - 40, 80, 80);
 
     // ---- PSYCHE WITH LAMP (drawn ABOVE darkness so always visible) ----
+    // Track facing direction based on lamp movement
+    const moveDx = G.lampTX - G.lampX;
+    if (Math.abs(moveDx) > 1) G.facingRight = moveDx > 0;
+
     const psycheSpr = sprites['psyche_lamp'];
     if (psycheSpr) {
       const sz = 76;
-      ctx.drawImage(psycheSpr, G.lampX - sz/2, G.lampY - sz*0.4, sz, sz);
+      ctx.save();
+      ctx.translate(G.lampX, G.lampY - sz*0.4 + sz/2);
+      if (G.facingRight === false) ctx.scale(-1, 1);
+      ctx.drawImage(psycheSpr, -sz/2, -sz/2, sz, sz);
+      ctx.restore();
     } else {
       // Programmatic Psyche fallback
       ctx.fillStyle = '#e8ddd0';
@@ -3569,15 +3600,26 @@ function renderHUD() {
   ctx.fillStyle='rgba(0,0,0,0.65)'; rr(ctx,5,46,invW,46,6); ctx.fill();
   ctx.strokeStyle='rgba(60,55,80,0.3)'; ctx.lineWidth=1; rr(ctx,5,46,invW,46,6); ctx.stroke();
   ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText('INVENTORY — drag to slots', 12, 57);
+  ctx.fillText(G.selectedItem !== null ? 'Click a slot to place ▼' : (G.inventory.length > 0 ? 'Click item, then click slot ▼' : 'Find items with lamp'), 12, 57);
 
   G.inventory.forEach((item, i) => {
     const ix = 14 + i*54 + 24;
     const iy = 76;
-    ctx.fillStyle = 'rgba(40,36,55,0.8)';
-    rr(ctx, ix-22, iy-18, 44, 36, 3); ctx.fill();
-    ctx.strokeStyle = 'rgba(200,180,140,0.25)'; ctx.lineWidth=1;
-    rr(ctx, ix-22, iy-18, 44, 36, 3); ctx.stroke();
+    const isSelected = (G.selectedItem === i);
+
+    // Slot background — golden glow if selected
+    if (isSelected) {
+      ctx.fillStyle = 'rgba(255,210,80,0.25)';
+      rr(ctx, ix-24, iy-20, 48, 40, 4); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,215,100,0.7)'; ctx.lineWidth = 2;
+      rr(ctx, ix-24, iy-20, 48, 40, 4); ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(40,36,55,0.8)';
+      rr(ctx, ix-22, iy-18, 44, 36, 3); ctx.fill();
+      ctx.strokeStyle = 'rgba(200,180,140,0.25)'; ctx.lineWidth=1;
+      rr(ctx, ix-22, iy-18, 44, 36, 3); ctx.stroke();
+    }
+
     const spr = (item.spriteKey && item.spriteKey !== 'story_fragment') ? sprites[item.spriteKey] : null;
     if (spr) {
       ctx.drawImage(spr, ix - 14, iy - 14, 28, 28);
