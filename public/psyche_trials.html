@@ -2585,7 +2585,7 @@ function freshState() {
     // Lamp / Psyche position
     lampX: W/2, lampY: H/2,
     lampTX: W/2, lampTY: H/2,
-    lampR: 120,
+    lampR: 84,
     lampOn: true, lampOutTimer: 0,
     facingRight: true,
     // Floor bounds — Psyche can't walk on walls
@@ -2645,9 +2645,9 @@ function setupRoom(idx) {
     G.sisterTimer = 18 + Math.random() * 5;
     G.oil = Math.min(100, G.oil + 5);
 
-    // Scatter story fragments — well spread across the floor, away from walls and inscription
+    // Scatter story fragments — spread across floor, clear of inscription area (top-left)
     const positions = [
-      {x:130, y:250}, {x:530, y:230}, {x:150, y:440}, {x:510, y:420}
+      {x:520, y:200}, {x:560, y:400}, {x:140, y:420}, {x:180, y:320}
     ];
     const shuffled = [...positions].sort(() => Math.random() - 0.5);
     STORY_FRAGMENTS.forEach((frag, i) => {
@@ -2658,9 +2658,9 @@ function setupRoom(idx) {
       });
     });
 
-    // False fragment — center area
+    // False fragment — bottom center, away from everything
     G.items.push({
-      x: 330 + (Math.random()-0.5)*60, y: 340 + (Math.random()-0.5)*40,
+      x: 340 + (Math.random()-0.5)*40, y: 380 + (Math.random()-0.5)*30,
       data: FALSE_FRAGMENTS[0], found: false, discovered: false, glow: 0,
       isReal: false, pickedUp: false
     });
@@ -2773,11 +2773,11 @@ function update(dt) {
 
   G.elapsed += dt;
 
-  // Lamp smoothing + floor bounds clamping
+  // Lamp smoothing + floor bounds clamping — slow, cautious movement
   const clampedTX = Math.max(G.floorL, Math.min(G.floorR, G.lampTX));
   const clampedTY = Math.max(G.floorT, Math.min(G.floorB, G.lampTY));
-  G.lampX += (clampedTX - G.lampX) * 0.12;
-  G.lampY += (clampedTY - G.lampY) * 0.12;
+  G.lampX += (clampedTX - G.lampX) * 0.05;
+  G.lampY += (clampedTY - G.lampY) * 0.05;
 
   if (!G.lampOn) {
     G.lampOutTimer -= dt;
