@@ -129,6 +129,7 @@ loadSprite('fragment_palace','fragment_palace.png');
 loadSprite('fragment_lamp','fragment_lamp.png');
 loadSprite('fragment_betrayal','fragment_betrayal.png');
 loadSprite('inscription_plaque','inscription_plaque.png');
+loadSprite('inscription_complete','inscription_complete.png');
 loadSprite('mural_slot','mural_slot.png');
 
 // ================================================================
@@ -2678,11 +2679,11 @@ function setupRoom(idx) {
       });
     }
 
-    // Hint: Ancient inscription — positioned on left wall, clear of item spawns
+    // Hint: Ancient inscription — complete static sprite, positioned on left wall
     G.hints.push({
-      x: 70, y: 120, w: 200, h: 110,
+      x: 60, y: 110, w: 340, h: 118,
       title: 'Ancient Inscription',
-      lines: ['💘 Love struck first', '🏛️ Then a hidden palace', '🪔 Light revealed truth', '💔 And love was lost'],
+      lines: ['Love struck first', 'Then a hidden palace', 'Light revealed truth', 'And love was lost'],
       discovered: false, glow: 0
     });
   }
@@ -3399,36 +3400,28 @@ function renderHints() {
     if (h.glow <= 0 && !h.discovered) return;
     const a = h.glow;
 
-    const pw = 220, ph = 120;
-    const px = h.x + h.w/2 - pw/2, py = h.y + h.h/2 - ph/2;
-
     ctx.globalAlpha = a;
 
-    // Use inscription_plaque sprite as background
-    const plaque = sprites['inscription_plaque'];
-    if (plaque) {
-      ctx.drawImage(plaque, px, py, pw, ph);
+    // Draw the complete inscription as a single static sprite
+    const spr = sprites['inscription_complete'] || sprites['inscription_plaque'];
+    if (spr) {
+      // Draw at the hint's position, sized to fit naturally
+      const pw = 340, ph = 118;
+      const px = h.x + h.w/2 - pw/2, py = h.y + h.h/2 - ph/2;
+      ctx.drawImage(spr, px, py, pw, ph);
     } else {
-      // Fallback dark panel
+      // Last resort fallback
+      const pw = 200, ph = 100;
+      const px = h.x + h.w/2 - pw/2, py = h.y + h.h/2 - ph/2;
       ctx.fillStyle = 'rgba(45,38,55,0.92)';
       rr(ctx, px, py, pw, ph, 4); ctx.fill();
-      ctx.strokeStyle = 'rgba(80,70,100,0.5)'; ctx.lineWidth = 2;
-      rr(ctx, px, py, pw, ph, 4); ctx.stroke();
+      ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 12px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillText('Ancient Inscription', px+pw/2, py+20);
+      ctx.fillStyle = 'rgba(200,180,140,0.8)'; ctx.font = '11px "Segoe UI"';
+      h.lines.forEach((line, i) => { ctx.fillText(line, px+pw/2, py+40+i*16); });
+      ctx.textAlign = 'left';
     }
 
-    // Title — golden, centered on the plaque
-    ctx.fillStyle = '#f0d68a';
-    ctx.font = 'bold 14px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText(h.title.replace('📜 ',''), px + pw/2, py + 24);
-
-    // Hint lines — golden text on the plaque surface
-    ctx.font = '12px "Segoe UI"';
-    ctx.fillStyle = 'rgba(230,210,160,0.95)';
-    h.lines.forEach((line, i) => {
-      ctx.fillText(line, px + pw/2, py + 46 + i * 19);
-    });
-
-    ctx.textAlign = 'left';
     ctx.globalAlpha = 1;
   });
 }
