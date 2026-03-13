@@ -62,7 +62,7 @@ function loadSprite(n, f) {
     const tx=tc.getContext('2d');tx.drawImage(img,0,0);
     const d=tx.getImageData(0,0,tc.width,tc.height);
     for(let i=0;i<d.data.length;i+=4)
-      if(d.data[i]>=180&&d.data[i+1]<=80&&d.data[i+2]>=180&&(d.data[i]-d.data[i+1])>100) d.data[i+3]=0;
+      if(d.data[i]>=230&&d.data[i+1]<=30&&d.data[i+2]>=230) d.data[i+3]=0;
     tx.putImageData(d,0,0);
     sprites[n]=tc;spritesLoaded++;
     document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';
@@ -119,9 +119,6 @@ loadSprite('wall_inscription','wall_inscription.png');
 loadSprite('sort_zone','sort_zone_marker.png');
 loadSprite('ground','ground_surface_tile.png');
 loadSprite('oil_lamp','oil_lamp.png');
-loadSprite('thorn_bush','thorny_bush.png');
-loadScene('sky_sunrise','sky_sunrise.png');
-loadSprite('path_tile','path_tile.png');
 
 // ================================================================
 // SHARED HELPERS
@@ -375,47 +372,47 @@ function getSeedRegion(type) {
 // SEEDS
 // ============================================================
 const SEEDS = [
-  { name:'Barley', fill:'#E8B830', dark:'#B08820', hi:'#F0D868', shape:'elongated' },
-  { name:'Lentil', fill:'#C03030', dark:'#8A1818', hi:'#E05050', shape:'round' },
-  { name:'Poppy',  fill:'#4080D0', dark:'#2858A0', hi:'#60A0F0', shape:'cluster' },
-  { name:'Millet', fill:'#40B840', dark:'#288028', hi:'#60E060', shape:'oval' }
+  { name:'Barley', fill:'#D4A017', dark:'#9e7a10', hi:'#f0d68a', shape:'elongated' },
+  { name:'Lentil', fill:'#8B4513', dark:'#5c2e0a', hi:'#a0522d', shape:'round' },
+  { name:'Poppy',  fill:'#3a3a3a', dark:'#1a1a1a', hi:'#5a5a5a', shape:'cluster' },
+  { name:'Millet', fill:'#6B8E23', dark:'#4a6318', hi:'#8fb832', shape:'oval' }
 ];
 
 // ============================================================
 // CONFIG
 // ============================================================
-const TOTAL_TIME = 180;
+const TOTAL_TIME = 120;
 const ROUNDS = [
-  { types:2, target:0, seedCount:50, squads:2, antSpeed:0.50, label:'Two seed types' },
-  { types:3, target:2, seedCount:60, squads:2, antSpeed:0.58, label:'Three types' },
-  { types:4, target:3, seedCount:70, squads:3, antSpeed:0.61, label:'All four types' }
+  { types:2, target:0, seedCount:45, squads:2, antSpeed:0.55, label:'Two seed types' },
+  { types:3, target:2, seedCount:55, squads:2, antSpeed:0.65, label:'Three types' },
+  { types:4, target:3, seedCount:65, squads:3, antSpeed:0.75, label:'All four types' }
 ];
 
 // Layout
-const HORIZON_Y = 140;
-const PILE_CX = 180, PILE_CY = 380;
+const HORIZON_Y = 90;
+const PILE_CX = 200, PILE_CY = 350;
 
-// Ant march path: smooth curve from below pile, well clear of bins
+// Ant march path: from pile area, curves right to the sort zone, then past bins
+// Path is an array of waypoints ants follow
 const PATH = [
-  {x: 220, y: 570},   // Start: below pile
-  {x: 310, y: 555},   // Gentle rightward
-  {x: 400, y: 530},   // Curving up
-  {x: 470, y: 490},   // SORT ZONE START
-  {x: 520, y: 440},   // Sort zone
-  {x: 550, y: 380},   // Sort zone
-  {x: 555, y: 310},   // Sort zone upper
-  {x: 540, y: 245},   // Sort zone end — past here = missed
+  {x: 200, y: 500},   // Start: bottom of pile
+  {x: 320, y: 520},   // Curve right along bottom
+  {x: 430, y: 500},   // Approach sort zone
+  {x: 480, y: 440},   // SORT ZONE START — archway here
+  {x: 510, y: 370},   // Sort zone middle
+  {x: 520, y: 300},   // Sort zone end — past here = missed
+  {x: 530, y: 230},   // Exit path (missed ants continue here)
 ];
 
-// Sort zone: segment index 3-7 (~57% of path)
+// Sort zone: segment index 3-5 of the path
 const SORT_ZONE_START = 3;
-const SORT_ZONE_END = 7;
+const SORT_ZONE_END = 5;
 
-// Bins flush to right edge with tight spacing
-const BIN_X = 640;
-const BIN_START_Y = 180;
-const BIN_SPACING = 95;
-const BIN_W = 70, BIN_H = 60;
+// Bins positioned along the right side — clear of path (path max x = 530)
+const BIN_X = 610;
+const BIN_START_Y = 110;
+const BIN_SPACING = 105;
+const BIN_W = 65, BIN_H = 55;
 
 // ============================================================
 // STATE
@@ -451,9 +448,7 @@ function freshState() {
     // Jam
     jammedBin: -1, jamTimer: 0,
     // Transition
-    transitionTimer: 0,
-    // Round pass/fail
-    roundMinRequired: 0
+    transitionTimer: 0
   };
 }
 
@@ -516,8 +511,8 @@ function generatePile(seedCount, typeCount, targetIdx) {
       s.x = s.x*0.5 + cc.x*0.5 + (Math.random()-0.5)*35;
       s.y = s.y*0.5 + cc.y*0.5 + (Math.random()-0.5)*30;
     }
-    s.x = Math.max(20, Math.min(420, s.x));
-    s.y = Math.max(170, Math.min(500, s.y));
+    s.x = Math.max(30, Math.min(420, s.x));
+    s.y = Math.max(140, Math.min(540, s.y));
   });
   return { seeds, targetCount };
 }
@@ -529,7 +524,7 @@ function makeSeed(type, isTarget) {
     type, isTarget,
     x: PILE_CX + Math.cos(angle)*dist + (Math.random()-0.5)*50,
     y: PILE_CY + Math.sin(angle)*dist*0.75 + (Math.random()-0.5)*40,
-    size: (type===2?6:8.5) + Math.random()*2.5,
+    size: (type===2?5:7) + Math.random()*2,
     rot: Math.random()*Math.PI*2,
     collected: false, collecting: false, opacity: 1
   };
@@ -599,10 +594,10 @@ function drawAnt(x, y, seedType, seedSize, heading, wigglePhase, alpha) {
   ctx.rotate(heading);
   ctx.globalAlpha = alpha || 1;
 
-  // Use ant sprite if available
+  // Use ant sprite if available — extract leftmost ant (1/3 of horizontal row)
   const antSpr = sprites['ants_marching'];
   if (antSpr) {
-    const frameW = Math.floor(antSpr.width / 3);
+    const frameW = Math.floor(antSpr.width / 3); // 3 ants side by side
     const frameH = antSpr.height;
     const targetW = 40;
     const scale = targetW / frameW;
@@ -866,14 +861,6 @@ function update(dt) {
 }
 
 function checkRoundEnd() {
-  // Pass immediately if player has sorted enough (60% of target)
-  const minRequired = Math.ceil(G.needed * 0.7);
-  if (G.sorted >= minRequired) {
-    endRound();
-    return;
-  }
-
-  // Otherwise, end when all target seeds are accounted for
   const remaining = G.seeds.filter(s => s.isTarget && !s.collected && !s.collecting).length;
   const collecting = G.collectors.filter(c => c.seed.isTarget).length;
   const marching = G.marchers.filter(m => m.isTarget && (m.sortState === 'marching' || m.sortState === 'returning')).length;
@@ -884,41 +871,12 @@ function checkRoundEnd() {
 }
 
 function endRound() {
-  // Check if player met the 60% minimum sort requirement
-  const minRequired = Math.ceil(G.needed * 0.7);
-  const passed = G.sorted >= minRequired;
-
-  if (!passed) {
-    // Failed round — lose a heart and replay
-    G.phase = 'roundFail';
-    G.roundMinRequired = minRequired;
-    const result = loseHeart();
-    if (result === 'gameover') {
-      // Out of hearts entirely — go to complete with what they have
-      setTimeout(() => { G.phase = 'complete'; }, 2500);
-    } else {
-      // Replay this round after showing fail message
-      setTimeout(() => {
-        G.phase = 'transition'; G.transitionTimer = 3;
-        // Bonus time for retry
-        G.timeLeft = Math.max(G.timeLeft, 30);
-        setupRound();
-      }, 2500);
-    }
-  } else {
-    // Passed round — advance
-    G.phase = 'roundEnd';
-    G.roundMinRequired = minRequired;
-    setTimeout(() => {
-      G.round++;
-      if (G.round >= ROUNDS.length) G.phase = 'complete';
-      else {
-        const bonus = Math.max(30, 15 + Math.floor(G.timeLeft * 0.3));
-        G.timeLeft = Math.max(G.timeLeft, bonus);
-        G.phase = 'transition'; G.transitionTimer = 3; setupRound();
-      }
-    }, 1800);
-  }
+  G.phase = 'roundEnd';
+  setTimeout(() => {
+    G.round++;
+    if (G.round >= ROUNDS.length) G.phase = 'complete';
+    else { G.phase = 'transition'; G.transitionTimer = 3; setupRound(); }
+  }, 1800);
 }
 
 // ============================================================
@@ -1007,213 +965,143 @@ function render() {
   ctx.clearRect(0,0,W,H);
   const dp = Math.min(1, 1 - G.timeLeft/G.totalTime);
 
-  // === SKY — animated SNES-style banded sunrise ===
-  // dp goes 0 (full time) → 1 (dawn/time up)
-  // Night palette transitions to dawn palette as dp increases
-  const nightBands = [
-    [18,8,42],[28,14,52],[38,18,62],[48,20,68],[55,22,72],[60,24,75],[65,26,78],[70,28,80]
-  ];
-  const dawnBands = [
-    [28,12,52],[62,22,82],[120,38,65],[180,60,45],[210,90,35],[235,130,40],[248,170,55],[255,200,75]
-  ];
-  const bandH = Math.ceil(HORIZON_Y / nightBands.length);
-  for (let i = 0; i < nightBands.length; i++) {
-    const n = nightBands[i], d = dawnBands[i];
-    const r = Math.round(n[0] + (d[0]-n[0]) * dp);
-    const g = Math.round(n[1] + (d[1]-n[1]) * dp);
-    const b = Math.round(n[2] + (d[2]-n[2]) * dp);
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-    ctx.fillRect(0, i * bandH, W, bandH + 1);
-    // SNES dither between bands
-    if (i < nightBands.length - 1) {
-      const n2 = nightBands[i+1], d2 = dawnBands[i+1];
-      const r2 = Math.round(n2[0]+(d2[0]-n2[0])*dp);
-      const g2 = Math.round(n2[1]+(d2[1]-n2[1])*dp);
-      const b2 = Math.round(n2[2]+(d2[2]-n2[2])*dp);
-      ctx.fillStyle = `rgb(${r2},${g2},${b2})`;
-      const ditherY = (i+1) * bandH;
-      for (let dx = 0; dx < W; dx += 2) {
-        ctx.fillRect(dx, ditherY - 1, 1, 1);
-      }
-    }
+  // === SKY ===
+  const sky = ctx.createLinearGradient(0,0,0,HORIZON_Y);
+  sky.addColorStop(0, lerpC('#04020e','#1a1040',dp));
+  sky.addColorStop(0.5, lerpC('#08061a','#3a1850',dp));
+  sky.addColorStop(1, lerpC('#0c0820','#c86830',dp));
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,HORIZON_Y);
+
+  const gi = Math.max(0,dp-0.15)/0.85;
+  if (gi>0) {
+    const hg=ctx.createLinearGradient(0,HORIZON_Y-35,0,HORIZON_Y+15);
+    hg.addColorStop(0,`rgba(255,140,40,${gi*0.3})`);
+    hg.addColorStop(0.5,`rgba(255,180,60,${gi*0.5})`);
+    hg.addColorStop(1,`rgba(255,120,30,${gi*0.1})`);
+    ctx.fillStyle=hg;ctx.fillRect(0,HORIZON_Y-35,W,50);
   }
 
-  // Horizon glow — intensifies with dp
-  if (dp > 0.1) {
-    const glowAlpha = (dp - 0.1) * 0.6;
-    ctx.fillStyle = `rgba(255,180,60,${Math.min(0.4, glowAlpha)})`;
-    ctx.fillRect(0, HORIZON_Y - 20, W, 20);
-    ctx.fillStyle = `rgba(255,220,100,${Math.min(0.25, glowAlpha * 0.5)})`;
-    ctx.fillRect(0, HORIZON_Y - 35, W, 15);
+  // Sun
+  const sunX=W*0.55, sunY=HORIZON_Y+20-dp*45, sunR=12+dp*6;
+  if (dp>0.1) {
+    const sg=ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR*5);
+    sg.addColorStop(0,`rgba(255,200,80,${dp*0.25})`);sg.addColorStop(1,'rgba(255,140,40,0)');
+    ctx.fillStyle=sg;ctx.fillRect(0,0,W,HORIZON_Y+30);
+    ctx.fillStyle=`rgba(255,210,80,${Math.min(1,dp*1.5)})`;
+    ctx.beginPath();ctx.arc(sunX,sunY,sunR,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=`rgba(255,240,200,${Math.min(0.8,dp*1.2)})`;
+    ctx.beginPath();ctx.arc(sunX,sunY,sunR*0.5,0,Math.PI*2);ctx.fill();
   }
 
-  // Mountain silhouette — pixel art jagged peaks
-  ctx.fillStyle = 'rgb(30,22,15)';
-  ctx.beginPath(); ctx.moveTo(0, HORIZON_Y);
-  // Chunky 2-pixel stepped mountains
-  const mtnPoints = [0,8,20,6,50,12,80,10,120,16,160,8,200,14,240,6,280,18,320,10,360,16,400,8,440,20,480,12,520,16,560,8,600,14,640,10,680,6];
-  for (let m = 0; m < mtnPoints.length; m += 2) {
-    const mx = mtnPoints[m], mh = mtnPoints[m+1];
-    // Step in 2-pixel increments for pixel art feel
-    const steppedH = Math.round(mh / 2) * 2;
-    ctx.lineTo(mx, HORIZON_Y - steppedH);
-  }
-  ctx.lineTo(W, HORIZON_Y); ctx.closePath(); ctx.fill();
-
-  // Sun — rises from behind mountains into the sky as dp increases
-  // At dp=0: sun is fully below horizon (hidden)
-  // At dp=0.3: glow starts appearing behind mountains
-  // At dp=0.6: sun peeks over mountains
-  // At dp=1: sun is ~40% up the sky
-  const sunX = W * 0.55;
-  const sunR = 14;
-  const sunStartY = HORIZON_Y + sunR + 20; // fully hidden below horizon
-  const sunEndY = HORIZON_Y * 0.4; // 40% up the sky at dawn
-  const sunY = sunStartY + (sunEndY - sunStartY) * dp;
-  if (sunY < HORIZON_Y + sunR) { // Only draw when any part is visible
-    // Sun glow (always visible before sun itself)
-    if (dp > 0.15) {
-      const glowR = sunR * 4;
-      const sg = ctx.createRadialGradient(sunX, Math.min(sunY, HORIZON_Y), 0, sunX, Math.min(sunY, HORIZON_Y), glowR);
-      sg.addColorStop(0, `rgba(255,220,100,${Math.min(0.3, dp * 0.4)})`);
-      sg.addColorStop(1, 'rgba(255,180,60,0)');
-      ctx.fillStyle = sg;
-      ctx.fillRect(sunX - glowR, HORIZON_Y - glowR, glowR * 2, glowR);
-    }
-    // Sun disc — clip to above horizon only
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, W, HORIZON_Y);
-    ctx.clip();
-    // Outer disc
-    ctx.fillStyle = `rgba(255,230,120,${Math.min(1, dp * 2)})`;
-    ctx.beginPath(); ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2); ctx.fill();
-    // Bright center
-    ctx.fillStyle = `rgba(255,250,220,${Math.min(0.9, dp * 2)})`;
-    ctx.beginPath(); ctx.arc(sunX, sunY, sunR * 0.55, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-
-  // Stars — fade out as dawn approaches
-  if (dp < 0.55) {
-    const starAlpha = (1 - dp / 0.55) * 0.8;
-    ctx.fillStyle = `rgba(255,255,220,${starAlpha})`;
-    [[50,20],[175,50],[310,15],[430,40],[595,55],[125,75],[400,25],[550,35],[260,65]].forEach(([x,y]) => {
-      if (y < HORIZON_Y - 20) { ctx.fillRect(x, y, 1, 1); ctx.fillRect(x, y, 2, 1); } // 1-2px stars
+  // Stars
+  if (dp<0.45) {
+    ctx.fillStyle=`rgba(255,255,240,${(1-dp/0.45)*0.7})`;
+    [[50,18],[175,38],[310,12],[430,30],[595,45],[125,60]].forEach(([x,y])=>{
+      if(y<HORIZON_Y){ctx.beginPath();ctx.arc(x,y,1.2,0,Math.PI*2);ctx.fill();}
     });
   }
 
-  // === GROUND — tiled stone floor ===
-  const groundTile = sprites['ground'];
-  if (groundTile) {
-    const tw = groundTile.width, th = groundTile.height;
-    for (let ty = HORIZON_Y; ty < H; ty += th) {
-      for (let tx = 0; tx < W; tx += tw) { ctx.drawImage(groundTile, tx, ty, tw, th); }
-    }
-  } else { ctx.fillStyle='#6c6960';ctx.fillRect(0,HORIZON_Y,W,H-HORIZON_Y); }
+  // Ground — lighter
+  const gnd=ctx.createLinearGradient(0,HORIZON_Y,0,H);
+  gnd.addColorStop(0,lerpC('#1e1a28','#3a3228',dp));
+  gnd.addColorStop(1,lerpC('#1a1820','#2e2a20',dp));
+  ctx.fillStyle=gnd;ctx.fillRect(0,HORIZON_Y,W,H-HORIZON_Y);
 
-  // Subtle vignette
-  const vig = ctx.createRadialGradient(W/2, H/2+40, 80, W/2, H/2+40, 420);
-  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.18)');
-  ctx.fillStyle = vig; ctx.fillRect(0, HORIZON_Y, W, H-HORIZON_Y);
+  // Horizon silhouette
+  ctx.fillStyle=lerpC('#0a0a14','#1e1a12',dp);
+  ctx.beginPath();ctx.moveTo(0,HORIZON_Y);
+  ctx.lineTo(80,HORIZON_Y-8);ctx.lineTo(180,HORIZON_Y-3);ctx.lineTo(280,HORIZON_Y-12);
+  ctx.lineTo(380,HORIZON_Y-5);ctx.lineTo(460,HORIZON_Y-14);ctx.lineTo(560,HORIZON_Y-6);
+  ctx.lineTo(W,HORIZON_Y-4);ctx.lineTo(W,HORIZON_Y);ctx.closePath();ctx.fill();
 
-  // === MARCH PATH — polygon outline filled with pattern ===
-  // Compute left and right edge points for each waypoint
-  const PATH_HALF_W = 16; // half-width of the path in pixels
-  const leftEdge = [], rightEdge = [];
-  for (let i = 0; i < PATH.length; i++) {
-    // Direction vector: average of prev->cur and cur->next for smooth normals
-    let dx = 0, dy = 0;
-    if (i < PATH.length - 1) { dx += PATH[i+1].x - PATH[i].x; dy += PATH[i+1].y - PATH[i].y; }
-    if (i > 0) { dx += PATH[i].x - PATH[i-1].x; dy += PATH[i].y - PATH[i-1].y; }
-    const len = Math.hypot(dx, dy) || 1;
-    // Perpendicular normal (rotate 90 degrees)
-    const nx = -dy / len, ny = dx / len;
-    leftEdge.push({ x: PATH[i].x + nx * PATH_HALF_W, y: PATH[i].y + ny * PATH_HALF_W });
-    rightEdge.push({ x: PATH[i].x - nx * PATH_HALF_W, y: PATH[i].y - ny * PATH_HALF_W });
-  }
-
-  // Build closed polygon: left edge forward, right edge backward
+  // === MARCH PATH (layered dirt trail) ===
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // Outer soft edge
+  ctx.strokeStyle = 'rgba(80,65,40,0.15)';
+  ctx.lineWidth = 30;
   ctx.beginPath();
-  ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
-  for (let i = 1; i < leftEdge.length; i++) ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
-  for (let i = rightEdge.length - 1; i >= 0; i--) ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
-  ctx.closePath();
-
-  // Fill with path tile pattern or solid color
-  const pathTile = sprites['path_tile'];
-  if (pathTile) {
-    const pat = ctx.createPattern(pathTile, 'repeat');
-    ctx.fillStyle = pat;
-  } else {
-    ctx.fillStyle = 'rgba(82,74,62,0.9)';
-  }
-  ctx.fill();
-
-  // Dark border on both edges
-  ctx.strokeStyle = 'rgba(30,24,15,0.85)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(leftEdge[0].x, leftEdge[0].y);
-  for (let i = 1; i < leftEdge.length; i++) ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
+  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
   ctx.stroke();
+  // Main trail
+  ctx.strokeStyle = 'rgba(120,100,65,0.3)';
+  ctx.lineWidth = 18;
   ctx.beginPath();
-  ctx.moveTo(rightEdge[0].x, rightEdge[0].y);
-  for (let i = 1; i < rightEdge.length; i++) ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
+  PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
   ctx.stroke();
-
-  // Inner highlight line (center of path)
-  ctx.strokeStyle = 'rgba(110,100,82,0.3)';
-  ctx.lineWidth = 1;
+  // Inner worn center
+  ctx.strokeStyle = 'rgba(160,140,95,0.18)';
+  ctx.lineWidth = 8;
   ctx.beginPath();
   PATH.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
   ctx.stroke();
 
-  // === SORT ZONE — golden tint overlay on the path polygon section ===
+  // Sort zone highlight on the path — warm golden glow
   const szStart = getPathPos(SORT_ZONE_START / (PATH.length-1));
   const szEnd = getPathPos(SORT_ZONE_END / (PATH.length-1));
-  // Draw golden overlay only on the sort zone segment
+  ctx.strokeStyle = `rgba(180,200,100,${0.12+Math.sin(G.elapsed*2)*0.04})`;
+  ctx.lineWidth = 32;
   ctx.beginPath();
-  ctx.moveTo(leftEdge[SORT_ZONE_START].x, leftEdge[SORT_ZONE_START].y);
-  for (let i = SORT_ZONE_START+1; i <= SORT_ZONE_END && i < leftEdge.length; i++)
-    ctx.lineTo(leftEdge[i].x, leftEdge[i].y);
-  for (let i = Math.min(SORT_ZONE_END, rightEdge.length-1); i >= SORT_ZONE_START; i--)
-    ctx.lineTo(rightEdge[i].x, rightEdge[i].y);
-  ctx.closePath();
-  ctx.fillStyle = `rgba(220,200,100,${0.15+Math.sin(G.elapsed*2)*0.05})`;
-  ctx.fill();
+  ctx.moveTo(szStart.x, szStart.y);
+  for (let i = SORT_ZONE_START; i <= SORT_ZONE_END && i < PATH.length; i++) {
+    ctx.lineTo(PATH[i].x, PATH[i].y);
+  }
+  ctx.stroke();
 
-  // Sort zone archway
+  // Sort zone archway at entrance
   const archSpr = sprites['sort_zone'];
   if (archSpr) {
-    ctx.drawImage(archSpr, szStart.x - 45, szStart.y - 57, 90, 90);
+    const archW = 80, archH = 80;
+    ctx.drawImage(archSpr, szStart.x - archW/2, szStart.y - archH/2 - 10, archW, archH);
   } else {
+    // Programmatic stone archway
     ctx.save();
-    const ag = ctx.createRadialGradient(szStart.x, szStart.y-8, 5, szStart.x, szStart.y-8, 40);
-    ag.addColorStop(0, 'rgba(220,200,120,0.25)'); ag.addColorStop(1, 'rgba(220,200,120,0)');
-    ctx.fillStyle = ag; ctx.fillRect(szStart.x-45, szStart.y-50, 90, 65);
-    ctx.strokeStyle = 'rgba(200,180,120,0.7)'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(szStart.x, szStart.y, 24, Math.PI, 0); ctx.stroke();
-    const pg = ctx.createLinearGradient(0, szStart.y-8, 0, szStart.y+28);
-    pg.addColorStop(0, 'rgba(200,180,120,0.6)'); pg.addColorStop(1, 'rgba(140,120,70,0.3)');
-    ctx.fillStyle = pg;
-    ctx.fillRect(szStart.x-25, szStart.y-4, 8, 30); ctx.fillRect(szStart.x+17, szStart.y-4, 8, 30);
+    // Glow behind arch
+    const ag = ctx.createRadialGradient(szStart.x, szStart.y-5, 5, szStart.x, szStart.y-5, 35);
+    ag.addColorStop(0, 'rgba(180,220,140,0.15)');
+    ag.addColorStop(1, 'rgba(180,220,140,0)');
+    ctx.fillStyle = ag;
+    ctx.fillRect(szStart.x-40, szStart.y-45, 80, 60);
+    // Arch stones
+    ctx.strokeStyle = 'rgba(160,180,130,0.6)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(szStart.x, szStart.y, 22, Math.PI, 0);
+    ctx.stroke();
+    // Stone texture on arch
+    ctx.strokeStyle = 'rgba(140,160,110,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(szStart.x, szStart.y, 20, Math.PI, 0); ctx.stroke();
+    // Pillars with gradient
+    const pillarGrad = ctx.createLinearGradient(0, szStart.y-6, 0, szStart.y+22);
+    pillarGrad.addColorStop(0, 'rgba(160,180,130,0.5)');
+    pillarGrad.addColorStop(1, 'rgba(100,120,80,0.3)');
+    ctx.fillStyle = pillarGrad;
+    ctx.fillRect(szStart.x - 23, szStart.y - 4, 7, 26);
+    ctx.fillRect(szStart.x + 16, szStart.y - 4, 7, 26);
+    // Pillar caps
+    ctx.fillStyle = 'rgba(180,200,150,0.4)';
+    ctx.fillRect(szStart.x - 25, szStart.y - 6, 11, 4);
+    ctx.fillRect(szStart.x + 14, szStart.y - 6, 11, 4);
     ctx.restore();
   }
 
-  // Exit gate
-  ctx.fillStyle = `rgba(220,100,80,${0.25+Math.sin(G.elapsed*3)*0.1})`;
+  // Exit gate marker — subtle red warning
+  ctx.fillStyle = `rgba(200,100,100,${0.2+Math.sin(G.elapsed*3)*0.1})`;
   ctx.beginPath(); ctx.arc(PATH[SORT_ZONE_END].x, PATH[SORT_ZONE_END].y, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(200,100,100,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(PATH[SORT_ZONE_END].x, PATH[SORT_ZONE_END].y, 12, 0, Math.PI*2); ctx.stroke();
 
   // Sort zone label
-  ctx.fillStyle = 'rgba(220,230,140,0.75)';
-  ctx.font = 'bold 15px "Segoe UI"'; ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(160,210,120,0.6)';
+  ctx.font = 'bold 14px "Segoe UI"'; ctx.textAlign = 'center';
   ctx.fillText('SORT ZONE', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2);
-  ctx.fillStyle = 'rgba(200,210,130,0.5)'; ctx.font = '12px "Segoe UI"';
-  ctx.fillText('click a bin!', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2 + 17);
+  ctx.font = '12px "Segoe UI"';
+  ctx.fillText('click a bin!', (szStart.x + PATH[SORT_ZONE_END].x)/2 - 30, (szStart.y + PATH[SORT_ZONE_END].y)/2 + 16);
   ctx.textAlign = 'left';
 
-  // (pile shadow removed)
+  // === PILE SHADOW ===
+  ctx.fillStyle='rgba(0,0,0,0.1)';
+  ctx.beginPath();ctx.ellipse(PILE_CX,PILE_CY+10,150,100,0,0,Math.PI*2);ctx.fill();
 
   // === DRAW ZONE PREVIEW ===
   if (G.drawing && G.drawStart && G.drawCurrent) {
@@ -1314,7 +1202,7 @@ function render() {
   });
 
   // === BINS ===
-  if (G.phase === 'playing' || G.phase === 'roundEnd' || G.phase === 'roundFail') renderBins();
+  if (G.phase === 'playing' || G.phase === 'roundEnd') renderBins();
 
   // === PARTICLES ===
   G.particles.forEach(p => {
@@ -1330,74 +1218,133 @@ function render() {
   if (G.phase==='tutorial') renderTutorial();
   if (G.phase==='transition') renderTransition();
   if (G.phase==='roundEnd') renderRoundEnd();
-  if (G.phase==='roundFail') renderRoundFail();
   if (G.phase==='complete') renderComplete();
 }
 
 function renderBins() {
-  const SEED_COLORS = ['#E8B830','#C03030','#4080D0','#40B840'];
   G.bins.forEach((b,i) => {
-    const S = SEEDS[b.type]; const isT = b.type === G.targetType; const sc = SEED_COLORS[b.type];
-    if (isT) { /* target highlight handled by border glow */ }
-    ctx.fillStyle = 'rgba(25,22,18,0.88)'; rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 6); ctx.fill();
+    const S = SEEDS[b.type];
+    const isT = b.type === G.targetType;
+
+    // Target label ABOVE bin
+    if (isT) {
+      ctx.fillStyle='rgba(240,214,138,0.7)';ctx.font='bold 14px "Segoe UI"';ctx.textAlign='center';
+      ctx.fillText('★ TARGET ★', b.x, b.y - b.h/2 - 8);
+    }
+
+    // Bin background — extract per-type region from 2x2 sorting_bins sprite sheet
+    // Layout: TL=Barley(0), TR=Lentil(1), BL=Poppy(2), BR=Millet(3)
     const binSpr = sprites['sorting_bins'];
-    if (binSpr) { const cellW=Math.floor(binSpr.width/2),cellH=Math.floor(binSpr.height/2),col=b.type%2,row=Math.floor(b.type/2),sprSize=Math.min(b.w-14,b.h-14); ctx.drawImage(binSpr,col*cellW,row*cellH,cellW,cellH,b.x-sprSize/2,b.y-sprSize/2,sprSize,sprSize); }
-    if (b.wrongFlash>0){ctx.fillStyle=`rgba(200,40,40,${b.wrongFlash*0.5})`;rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,6);ctx.fill();}
-    if (b.flash>0){ctx.fillStyle=`rgba(40,200,60,${b.flash*0.4})`;rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,6);ctx.fill();}
-    ctx.strokeStyle=sc;ctx.lineWidth=isT?3:2;if(isT){ctx.shadowColor=sc;ctx.shadowBlur=8;}
-    rr(ctx,b.x-b.w/2,b.y-b.h/2,b.w,b.h,6);ctx.stroke();ctx.shadowBlur=0;
-    const labelY=b.y+b.h/2+5;ctx.fillStyle='rgba(0,0,0,0.65)';rr(ctx,b.x-b.w/2,labelY,b.w,22,4);ctx.fill();
-    ctx.fillStyle=sc;ctx.beginPath();ctx.arc(b.x-b.w/2+12,labelY+11,4,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#ddd';ctx.font='bold 13px "Segoe UI"';ctx.textAlign='left';ctx.fillText(S.name,b.x-b.w/2+22,labelY+15);
-    ctx.fillStyle='rgba(240,220,180,0.7)';ctx.font='bold 13px "Segoe UI"';ctx.textAlign='right';ctx.fillText(b.count,b.x+b.w/2-8,labelY+15);
-    if(G.jammedBin===i){ctx.fillStyle=`rgba(255,80,80,${0.5+Math.sin(G.elapsed*20)*0.2})`;ctx.font='bold 12px "Segoe UI"';ctx.textAlign='center';ctx.fillText('JAMMED',b.x,labelY+36);}
-    if(b.hovered&&G.marchers.some(m=>m.sortState==='marching'&&isInSortZone(m.pathProgress))){ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;rr(ctx,b.x-b.w/2-3,b.y-b.h/2-3,b.w+6,b.h+6,8);ctx.stroke();}
+    if (binSpr) {
+      const cellW = Math.floor(binSpr.width / 2);
+      const cellH = Math.floor(binSpr.height / 2);
+      const col = b.type % 2;
+      const row = Math.floor(b.type / 2);
+      const sx = col * cellW, sy = row * cellH;
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      const bw = b.w - 6, bh = b.h - 6;
+      ctx.drawImage(binSpr, sx, sy, cellW, cellH, b.x - bw/2, b.y - bh/2, bw, bh);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = 'rgba(40,35,30,0.7)';
+      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.fill();
+    }
+
+    // Flash overlays
+    if (b.wrongFlash > 0) {
+      ctx.fillStyle = `rgba(180,40,40,${b.wrongFlash*0.4})`;
+      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.fill();
+    }
+    if (b.flash > 0) {
+      ctx.fillStyle = `rgba(40,180,60,${b.flash*0.3})`;
+      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.fill();
+    }
+
+    // Border
+    if (isT) {
+      ctx.strokeStyle = 'rgba(240,214,138,0.6)';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(240,214,138,0.3)'; ctx.shadowBlur = 8;
+      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.strokeStyle = 'rgba(100,95,110,0.35)'; ctx.lineWidth = 1;
+      rr(ctx, b.x-b.w/2, b.y-b.h/2, b.w, b.h, 10); ctx.stroke();
+    }
+
+    // === LABEL BELOW BIN ===
+    const labelY = b.y + b.h/2 + 4;
+
+    // Dark label background
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    rr(ctx, b.x - b.w/2 - 2, labelY, b.w + 4, 22, 4); ctx.fill();
+
+    // Seed color dot (not full drawSeed — too big)
+    ctx.fillStyle = S.fill;
+    ctx.beginPath(); ctx.arc(b.x - 22, labelY + 11, 4, 0, Math.PI*2); ctx.fill();
+
+    // Name
+    ctx.font = 'bold 13px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText(S.name, b.x + 2, labelY + 15);
+
+    // Count
+    ctx.fillStyle = 'rgba(200,180,140,0.5)'; ctx.font = '11px "Segoe UI"';
+    ctx.fillText(`${b.count}`, b.x + 30, labelY + 15);
+
+    // Jam indicator
+    if (G.jammedBin===i) {
+      ctx.fillStyle=`rgba(255,60,60,${0.4+Math.sin(G.elapsed*20)*0.15})`;
+      ctx.font='bold 13px "Segoe UI"';
+      ctx.fillText('JAMMED', b.x, labelY + 38);
+    }
+
+    // Hover highlight
+    if (b.hovered && G.marchers.some(m=>m.sortState==='marching'&&isInSortZone(m.pathProgress))) {
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=2;
+      rr(ctx,b.x-b.w/2-3,b.y-b.h/2-3,b.w+6,b.h+6,12);ctx.stroke();
+    }
+
     ctx.textAlign='left';
   });
 }
 
 function renderHUD() {
   const r = ROUNDS[G.round];
-  ctx.textAlign='left';
 
-  // === TOP BAR — single row, spread across width ===
-  // Hearts (far left)
-  let hs='';for(let i=0;i<G.hearts;i++)hs+='❤️';for(let i=G.hearts;i<4;i++)hs+='🖤';
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,8,6,85,30,6);ctx.fill();
-  ctx.font='13px "Segoe UI"';ctx.fillText(hs,14,26);
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,10,8,165,50,8);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';ctx.textAlign='left';
+  ctx.fillText('① CIRCLE clusters  ② CLICK bins to sort',18,22);
+  drawSeed(30,42,r.target,11,0,1);
+  ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 12px "Segoe UI"';
+  ctx.fillText(`Target: ${SEEDS[r.target].name}`,48,46);
 
-  // Target seed (left of center)
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,100,6,130,30,6);ctx.fill();
-  drawSeed(114,21,r.target,9,0,1);
-  ctx.fillStyle=SEEDS[r.target].fill;ctx.font='bold 13px "Segoe UI"';
-  ctx.fillText(`Sort: ${SEEDS[r.target].name}`,130,25);
+  // Progress
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,185,8,80,42,8);ctx.fill();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 17px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText(`${G.sorted}/${G.needed}`,225,32);
+  ctx.fillStyle='rgba(200,180,140,0.35)';ctx.font='14px "Segoe UI"';
+  ctx.fillText(`Rd ${G.round+1}/${ROUNDS.length}`,225,46);
 
-  // Progress (center)
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,238,6,75,30,6);ctx.fill();
-  ctx.fillStyle='#f0d68a';ctx.font='bold 16px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText(`${G.sorted}/${G.needed}`,275,27);
-
-  // Round (center-right)
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,320,6,60,30,6);ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='bold 13px "Segoe UI"';
-  ctx.fillText(`Rd ${G.round+1}/3`,350,26);
-
-  // Timer (right of center)
+  // Timer
   const tr=G.timeLeft/G.totalTime;
   const tc=tr>0.4?'#c8b88a':tr>0.2?'#fbbf24':'#ef4444';
-  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,388,6,55,30,6);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,275,8,55,42,8);ctx.fill();
   ctx.fillStyle=tc;ctx.font='bold 15px "Segoe UI"';
-  ctx.fillText(`${Math.ceil(G.timeLeft)}s`,415,27);
+  ctx.fillText(`${Math.ceil(G.timeLeft)}s`,302,32);
+  ctx.fillStyle=tr>0.3?'rgba(200,180,140,0.35)':'rgba(255,150,100,0.5)';
+  ctx.font='14px "Segoe UI"';ctx.fillText('dawn',302,44);
 
-  ctx.textAlign='left';
-
-  // Squads (bottom-left)
+  // Squads
   const avail = G.maxSquads - Math.ceil(G.activeSquads);
-  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-36,100,26,6);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,10,H-42,95,30,6);ctx.fill();
   ctx.fillStyle=avail>0?'#f0d68a':'rgba(200,140,140,0.5)';
-  ctx.font='13px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,60,H-19);
-  ctx.textAlign='left';
+  ctx.font='14px "Segoe UI"';
+  ctx.fillText(`🐜 Squads: ${Math.max(0,avail)}/${G.maxSquads}`,57,H-23);
+
+  // Hearts
+  let hs='';for(let i=0;i<G.hearts;i++)hs+='❤️';for(let i=G.hearts;i<4;i++)hs+='🖤';
+  ctx.font='15px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,14,76);
 }
 
 function renderTutorial() {
@@ -1453,22 +1400,9 @@ function renderTransition() {
 function renderRoundEnd() {
   ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,W,H);
   ctx.textAlign='center';ctx.fillStyle='#4ade80';ctx.font='bold 24px "Segoe UI"';
-  ctx.fillText('✓ Round Complete!',W/2,H/2-30);
+  ctx.fillText('✓ Round Complete!',W/2,H/2-15);
   ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
-  ctx.fillText(`${G.sorted}/${G.needed} target sorted (needed ${G.roundMinRequired||'?'})`,W/2,H/2+5);
-  ctx.fillText(`${G.wrongSorts} wrong · ${G.missedSorts} missed`,W/2,H/2+28);
-  ctx.textAlign='left';
-}
-
-function renderRoundFail() {
-  ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(0,0,W,H);
-  ctx.textAlign='center';
-  ctx.fillStyle='#f87171';ctx.font='bold 24px "Segoe UI"';
-  ctx.fillText('✗ Not Enough Sorted!',W/2,H/2-35);
-  ctx.fillStyle='#e8d8a8';ctx.font='15px "Segoe UI"';
-  ctx.fillText(`${G.sorted}/${G.needed} sorted — needed at least ${G.roundMinRequired}`,W/2,H/2+0);
-  ctx.fillStyle='#f87171';ctx.font='14px "Segoe UI"';
-  ctx.fillText('💔 Lost a heart — try again!',W/2,H/2+28);
+  ctx.fillText(`${G.sorted} sorted · ${G.wrongSorts} wrong · ${G.missedSorts} missed`,W/2,H/2+18);
   ctx.textAlign='left';
 }
 
@@ -1500,7 +1434,7 @@ function renderComplete() {
 
   ctx.fillStyle='rgba(240,214,138,0.12)';rr(ctx,W/2-60,375,120,36,8);ctx.fill();
   ctx.strokeStyle='rgba(240,214,138,0.4)';ctx.lineWidth=1;rr(ctx,W/2-60,375,120,36,8);ctx.stroke();
-  ctx.fillStyle='#f0d68a';ctx.font='bold 14px "Segoe UI"';ctx.fillText('Play Again',W/2,398);
+  ctx.fillStyle='#f0d68a';ctx.font='bold 14px "Segoe UI"';ctx.fillText('Continue →',W/2,398);
   ctx.textAlign='left';
 }
 
@@ -1524,7 +1458,7 @@ function renderComplete() {
   return {
     init(){ initGame(); G.phase='tutorial'; },
     update(dt){ G.elapsed+=dt; update(dt); },
-    render(){ render(); },
+    render(){ render(); drawHearts(); },
     click(x,y){
       const p={x,y};
       if(G.phase==='tutorial'){if(p.x>W/2-65&&p.x<W/2+65&&p.y>470&&p.y<508){G.phase='playing';}return;}
@@ -1543,7 +1477,7 @@ function renderComplete() {
       if(G.phase!=='playing')return;
       const bi=getBinAt(p.x,p.y);
       if(bi>=0){if(G.jammedBin===bi)return;sortToBin(bi);return;}
-      if(p.x>500)return;
+      if(p.x>460)return;
       if(Math.ceil(G.activeSquads)>=G.maxSquads)return;
       G.drawing=true;G.drawStart={x:p.x,y:p.y};G.drawCurrent={x:p.x,y:p.y};
     },
@@ -1609,9 +1543,9 @@ function freshState() {
     spawnTimer: 2,
     // Rams
     rams: [],
-    // Hearts: 10 total across ALL trials, 4 available per attempt
-    totalHearts: 10,      // Pool for entire game (all 4 trials)
-    hearts: 4,            // Current attempt hearts
+    // Hearts: synced from master GAME state
+    totalHearts: GAME.totalHearts,
+    hearts: Math.min(4, GAME.totalHearts),
     heartsUsedThisAttempt: 0,
     attempts: 0,
     // Particles
@@ -1673,7 +1607,7 @@ function updatePsyche(dt) {
     // Thorn collision: push out of bushes
     let blocked = false;
     THORNS.forEach(t => {
-      const BUSH_R = 25; // Collision radius of thorn bush
+      const BUSH_R = 18; // Collision radius of thorn bush
       const distToThorn = Math.hypot(newX - t.x, newY - t.y);
       if (distToThorn < BUSH_R) {
         // Push out along the vector from thorn center
@@ -1737,16 +1671,16 @@ function grabWool() {
 function checkEscalation() {
   const wc = G.woolCollected;
   // More rams as more wool collected
-  if (wc === 3 && G.rams.length < 3) {
-    G.rams.push(createRam(320, 310, 150, 520, 0.6, 95));   // Middle patrol
+  if (wc === 4 && G.rams.length < 3) {
+    G.rams.push(createRam(320, 310, 150, 520, 0.5, 80));   // Middle patrol
     showFloat(W/2, 120, '🐏 Another ram enters the field!', '#fbbf24');
   }
   if (wc === 8 && G.rams.length < 4) {
-    G.rams.push(createRam(450, 180, 300, 620, 0.65, 90));   // Top-right patrol
+    G.rams.push(createRam(450, 180, 300, 620, 0.55, 75));   // Top-right patrol
     showFloat(W/2, 120, '🐏 The herd grows restless!', '#fbbf24');
   }
   if (wc === 12 && G.rams.length < 5) {
-    G.rams.push(createRam(180, 420, 60, 400, 0.7, 85));     // Bottom-left patrol
+    G.rams.push(createRam(180, 420, 60, 400, 0.6, 70));     // Bottom-left patrol
     showFloat(W/2, 120, '🐏 A fifth ram! Be careful!', '#ef4444');
   }
 }
@@ -1761,28 +1695,32 @@ function createRam(x, y, patrolL, patrolR, speed, detectR) {
     baseSpeed: speed || 0.5,
     speed: speed || 0.5,
     dir: 1, facingRight: true,
-    state: 'grazing',
-    stateTimer: 2.5 + Math.random()*1.5,
-    detectRadius: detectR || 100,
-    chargeSpeed: 3.5,
-    chaseTimer: 0,
-    maxChaseTime: 4.0,
+    state: 'grazing',  // grazing | alert | chasing | returning
+    stateTimer: 3 + Math.random()*2,
+    detectRadius: detectR || 80,
+    chargeSpeed: 2.8,
+    chaseTimer: 0,     // Gives up after this expires
+    maxChaseTime: 3.0, // Seconds before ram gives up chasing
     headBob: 0,
+    // Smooth scaling: t goes 0→1 as woolCollected goes 0→15
+    // Graze shrinks: 5s → 1.5s  (less safe time)
+    // Alert grows: 1.5s → 3.5s  (more danger time)
     grazeTime: () => {
       const t = Math.min(1, G.woolCollected / 15);
-      return (3.5 - t * 2.5) + Math.random() * (1.2 - t * 0.6);
+      return (5.0 - t * 3.5) + Math.random() * (1.5 - t * 0.8);
     },
     alertTime: () => {
       const t = Math.min(1, G.woolCollected / 15);
-      return (2.0 + t * 2.5) + Math.random() * 0.5;
+      return (1.5 + t * 2.0) + Math.random() * 0.5;
     },
+    // Return target
     returnX: 0, returnY: 0
   };
 }
 
 function updateRam(ram, dt) {
-  // Ramp patrol speed: 1x at 0 wool → 2.2x at 15 wool
-  const speedScale = 1 + (Math.min(1, G.woolCollected / 15)) * 1.2;
+  // Ramp patrol speed: 1x at 0 wool → 1.8x at 15 wool
+  const speedScale = 1 + (Math.min(1, G.woolCollected / 15)) * 0.8;
   ram.speed = ram.baseSpeed * speedScale;
 
   if (ram.state === 'grazing') {
@@ -1910,7 +1848,7 @@ function updateRam(ram, dt) {
 
   // Ram thorn collision — push out of bushes
   THORNS.forEach(t => {
-    const RAM_BUSH_R = 28;
+    const RAM_BUSH_R = 22;
     const d = Math.hypot(ram.x - t.x, ram.y - t.y);
     if (d < RAM_BUSH_R && d > 0) {
       ram.x = t.x + ((ram.x - t.x) / d) * RAM_BUSH_R;
@@ -1938,6 +1876,8 @@ function hitPsyche(ram) {
   // Every hit costs a heart from both attempt and total pool
   G.hearts--;
   G.totalHearts--;
+  GAME.totalHearts--;
+  GAME.hearts = G.hearts;
   G.heartsUsedThisAttempt++;
   showFloat(G.px, G.py - 20, '🐏💔 Hit!', '#ef4444');
 
@@ -1951,7 +1891,7 @@ function hitPsyche(ram) {
 
   // Out of attempt hearts — restart level
   if (G.hearts <= 0) {
-    if (G.totalHearts <= 0) {
+    if (GAME.totalHearts <= 0) {
       // No hearts left at all — game over
       G.phase = 'gameover';
       return;
@@ -1966,13 +1906,12 @@ function hitPsyche(ram) {
 }
 
 function restartLevel() {
-  const totalH = G.totalHearts;
   const attempts = G.attempts;
 
   G = freshState();
-  G.totalHearts = totalH;
+  G.totalHearts = GAME.totalHearts;
   G.attempts = attempts;
-  G.hearts = Math.min(4, G.totalHearts); // 4 or whatever's left in the pool
+  G.hearts = Math.min(4, GAME.totalHearts);
 
   setupRams();
   G.phase = 'playing';
@@ -2132,23 +2071,17 @@ function render() {
 
   // === THORNS ===
   THORNS.forEach(t => {
-    const bushSpr = sprites['thorn_bush'];
-    if (bushSpr) {
-      const bsz = 56;
-      ctx.drawImage(bushSpr, t.x - bsz/2, t.y - bsz/2 + 5, bsz, bsz);
-    } else {
-      ctx.fillStyle='#2a4a18';
-      ctx.beginPath(); ctx.arc(t.x,t.y+5,20,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#3a5a22';
-      ctx.beginPath(); ctx.arc(t.x-5,t.y+2,14,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(t.x+7,t.y+3,12,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='#4a3a1a'; ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(t.x-3,t.y); ctx.lineTo(t.x-9,t.y-18);
-      ctx.moveTo(t.x+4,t.y-2); ctx.lineTo(t.x+12,t.y-15);
-      ctx.moveTo(t.x,t.y-1); ctx.lineTo(t.x+1,t.y-20);
-      ctx.stroke();
-    }
+    ctx.fillStyle='#2a4a18';
+    ctx.beginPath(); ctx.arc(t.x,t.y+5,13,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#3a5a22';
+    ctx.beginPath(); ctx.arc(t.x-4,t.y+2,9,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(t.x+5,t.y+3,8,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#4a3a1a'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(t.x-2,t.y); ctx.lineTo(t.x-7,t.y-13);
+    ctx.moveTo(t.x+3,t.y-2); ctx.lineTo(t.x+9,t.y-11);
+    ctx.moveTo(t.x,t.y-1); ctx.lineTo(t.x+1,t.y-15);
+    ctx.stroke();
   });
 
   // === WOOL ===
@@ -2161,7 +2094,7 @@ function render() {
     const woolSpr = sprites['wool'];
     if (woolSpr) {
       ctx.save(); ctx.globalAlpha = fadeA;
-      const sz = isNear ? 34 : 28;
+      const sz = isNear ? 22 : 18;
       ctx.drawImage(woolSpr, w.x-sz/2, w.y-sz/2, sz, sz);
       ctx.restore();
     } else {
@@ -2208,7 +2141,7 @@ function render() {
 
     if (spr) {
       ctx.save();
-      const sz = 80;
+      const sz = 48;
       if (!ram.facingRight) {
         ctx.translate(ram.x, ram.y-sz/2+10); ctx.scale(-1,1);
         ctx.drawImage(spr,-sz/2,0,sz,sz);
@@ -2305,7 +2238,7 @@ function renderPsyche() {
   const spr = sprites['psyche'];
   if (spr) {
     ctx.save();
-    const sz = 72;
+    const sz = 40;
     if (G.pFacing < 0) {
       ctx.translate(G.px, G.py-sz+8); ctx.scale(-1,1);
       ctx.drawImage(spr,-sz/2,0,sz,sz);
@@ -2361,7 +2294,7 @@ function renderHUD() {
   for(let i=0;i<4;i++) hs+=i<G.hearts?'❤️':'🖤';
   ctx.font='14px "Segoe UI"';ctx.textAlign='left';ctx.fillText(hs,18,28);
   ctx.fillStyle='rgba(200,180,140,0.4)';ctx.font='14px "Segoe UI"';
-  ctx.fillText(`${G.totalHearts} lives remaining`,18,44);
+  ctx.fillText(`${GAME.totalHearts} lives remaining`,18,44);
 
   // Controls reminder
   ctx.fillStyle='rgba(0,0,0,0.35)';rr(ctx,8,H-80,130,32,6);ctx.fill();
@@ -2416,7 +2349,7 @@ function renderComplete() {
   ctx.fillText('Trial II Complete',W/2,140);
 
   let rating,rc;
-  const lost = 10 - G.totalHearts; // Total hearts used across all attempts
+  const lost = 10 - GAME.totalHearts;
   if(lost===0){rating='Excellent';rc='#4ade80';}
   else if(lost<=2){rating='Good';rc='#60a5fa';}
   else if(lost<=4){rating='Fair';rc='#fbbf24';}
@@ -2432,10 +2365,10 @@ function renderComplete() {
   ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
   ctx.fillText('"You waited for the safe moment."',W/2,355);
 
-  ctx.fillStyle='rgba(74,222,128,0.12)';rr(ctx,W/2-90,390,180,36,8);ctx.fill();
-  ctx.strokeStyle='rgba(74,222,128,0.4)';ctx.lineWidth=1;rr(ctx,W/2-90,390,180,36,8);ctx.stroke();
-  ctx.fillStyle='#4ade80';ctx.font='bold 14px "Segoe UI"';
-  ctx.fillText('Continue to Trial 3 →',W/2,413);
+  ctx.fillStyle='rgba(240,214,138,0.12)';rr(ctx,W/2-60,390,120,36,8);ctx.fill();
+  ctx.strokeStyle='rgba(240,214,138,0.4)';ctx.lineWidth=1;rr(ctx,W/2-60,390,120,36,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText('Continue →',W/2,413);
   ctx.textAlign='left';
 }
 
@@ -2462,7 +2395,7 @@ function renderRestart() {
   ctx.fillStyle='#fbbf24';ctx.font='bold 22px "Segoe UI"';
   ctx.fillText('💔 Restarting Trial...',W/2,H/2-15);
   ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';
-  ctx.fillText(`${G.totalHearts} hearts remaining`,W/2,H/2+20);
+  ctx.fillText(`${GAME.totalHearts} hearts remaining`,W/2,H/2+20);
   ctx.textAlign='left';
 }
 
@@ -2478,8 +2411,8 @@ function setupRams() {
   G.rams = [];
   // Spread across top, middle, and bottom of the field
   // Field playable area: y = 150 to y = 500
-  G.rams.push(createRam(160, 190, 60, 350, 0.5, 100));    // Top-left patrol
-  G.rams.push(createRam(500, 440, 350, 640, 0.55, 100));   // Bottom-right patrol
+  G.rams.push(createRam(160, 190, 60, 350, 0.4, 80));    // Top-left patrol
+  G.rams.push(createRam(500, 440, 350, 640, 0.45, 80));   // Bottom-right patrol
 }
 
 function initGame() {
@@ -2491,29 +2424,27 @@ function startGame() { G.phase = 'playing'; }
 
 
   return {
-    init(){ initGame(); startGame(); },
+    init(){ initGame(); G.phase='tutorial'; },
     update(dt){ G.elapsed+=dt; update(dt);
       if(G.woolCollected>=G.woolNeeded&&G.phase==='playing'){
         G.phase='complete';
-        const lost=10-GAME.totalHearts;
-        let rating;
-        if(lost===0)rating='Excellent';else if(lost<=2)rating='Good';
-        else if(lost<=4)rating='Fair';else rating='Needs Work';
-        setTimeout(()=>trialComplete(2,'patience',{score:Math.max(0,100-lost*15),rating}),4000);
       }
     },
     render(){ render(); },
     click(x,y){
       const p={x,y};
+      if(G.phase==='tutorial'){if(p.x>W/2-65&&p.x<W/2+65&&p.y>460&&p.y<500){G.phase='playing';}return;}
       if(G.phase==='complete'){
-        // Continue to Trial 3 button
-        if(p.x>W/2-90&&p.x<W/2+90&&p.y>390&&p.y<426){
-          const lost=10-GAME.totalHearts;
-          let rating;
-          if(lost===0)rating='Excellent';else if(lost<=2)rating='Good';
-          else if(lost<=4)rating='Fair';else rating='Needs Work';
-          trialComplete(2,'patience',{score:Math.max(0,100-lost*15),rating});
-        }
+        const lost=10-GAME.totalHearts;
+        let rating;
+        if(lost===0)rating='Excellent';else if(lost<=2)rating='Good';
+        else if(lost<=4)rating='Fair';else rating='Needs Work';
+        trialComplete(2,'patience',{score:Math.max(0,100-lost*15),rating});
+        return;
+      }
+      if(G.phase==='gameover'){
+        // Restart from scratch with remaining total hearts
+        restartLevel();
         return;
       }
       if(G.phase==='playing'&&G.pNearWool>=0) grabWool();
@@ -2610,8 +2541,8 @@ function freshState() {
     hoveredSlot: -1,
     // Particles
     particles: [],
-    // Hearts
-    totalHearts: 10, hearts: 4,
+    // Hearts (display only — Trial 3 uses oil, not hearts)
+    totalHearts: GAME.totalHearts, hearts: Math.min(4, GAME.totalHearts),
     // Cold flash
     coldFlash: 0
   };
@@ -3492,7 +3423,7 @@ function renderHUD() {
   // Lives
   ctx.fillStyle='rgba(0,0,0,0.45)'; rr(ctx,10,H-32,120,22,6); ctx.fill();
   ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='14px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText(`${G.totalHearts} lives remaining (no heart loss)`,18,H-17);
+  ctx.fillText(`${GAME.totalHearts} lives remaining (no heart loss)`,18,H-17);
 
   ctx.textAlign='left';
 }
@@ -3555,13 +3486,9 @@ function renderComplete() {
   ctx.fillStyle='rgba(240,214,138,0.12)'; rr(ctx,W/2-60,390,120,36,8); ctx.fill();
   ctx.strokeStyle='rgba(240,214,138,0.4)'; ctx.lineWidth=1; rr(ctx,W/2-60,390,120,36,8); ctx.stroke();
   ctx.fillStyle='#f0d68a'; ctx.font='bold 14px "Segoe UI"';
-  ctx.fillText('Play Again',W/2,413);
+  ctx.fillText('Continue →',W/2,413);
   ctx.textAlign='left';
 }
-
-// ============================================================
-// INPUT
-// ============================================================
 
 
 
@@ -3576,19 +3503,21 @@ function renderComplete() {
 
 
   return {
-    init(){ G=freshState(); setupRoom(0); G.phase='playing'; },
-    update(dt){ G.elapsed+=dt; update(dt);
+    init(){ G=freshState(); setupRoom(0); G.phase='tutorial'; },
+    update(dt){ G.elapsed+=dt; update(dt); },
+    render(){ render(); },
+    click(x,y){
+      if(G.phase==='tutorial'){if(x>W/2-70&&x<W/2+70&&y>490&&y<530){G.phase='playing';}return;}
       if(G.phase==='complete'){
         const mistakes=G.falseCollected+G.wrongPlacements;
         let rating;
         if(mistakes===0)rating='Excellent';else if(mistakes<=2)rating='Good';
         else if(mistakes<=4)rating='Fair';else rating='Needs Work';
-        setTimeout(()=>trialComplete(3,'trust',{score:Math.max(0,100-mistakes*15),rating}),1500);
-        G.phase='done';
+        trialComplete(3,'trust',{score:Math.max(0,100-mistakes*15),rating});
+        return;
       }
+      handleClick(x,y);
     },
-    render(){ render(); },
-    click(x,y){ handleClick(x,y); },
     mousemove(x,y){
       G.lampTX=x;G.lampTY=y;
       if(G.dragging!==null){G.dragX=x;G.dragY=y;}
@@ -3651,9 +3580,9 @@ function freshState() {
     coins: 2,
     cakes: 2,
     wrongItems: 0,
-    // Hearts
-    totalHearts: 10,
-    hearts: 4,
+    // Hearts — synced from master GAME state
+    totalHearts: GAME.totalHearts,
+    hearts: Math.min(4, GAME.totalHearts),
     pHit: false,
     pHitTimer: 0,
     // Tutorial
@@ -3875,6 +3804,8 @@ function useItem(itemType) {
     G.wrongItems++;
     G.hearts--;
     G.totalHearts--;
+    GAME.totalHearts--;
+    GAME.hearts = G.hearts;
     shake();
     showFloat(W/2, H/2 - 40, '✗ Wrong item! 💔', '#ef4444');
     // Don't resolve — player can try again with correct item
@@ -3897,6 +3828,8 @@ function handleTemptClick(mx, my) {
       G.temptClicked++;
       G.hearts--;
       G.totalHearts--;
+      GAME.totalHearts--;
+      GAME.hearts = G.hearts;
       G.pHit = true;
       G.pHitTimer = 1;
       // Big pull back
@@ -4476,7 +4409,7 @@ function renderHUD() {
   // Lives remaining
   ctx.fillStyle = 'rgba(0,0,0,0.4)'; rr(ctx, 10, 42, 100, 18, 4); ctx.fill();
   ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = '14px "Segoe UI"';
-  ctx.fillText(`${G.totalHearts} lives remaining`, 16, 54);
+  ctx.fillText(`${GAME.totalHearts} lives remaining`, 16, 54);
 
   // Descent progress
   if (G.phase === 'playing') {
@@ -4590,7 +4523,7 @@ function renderComplete() {
   ctx.fillStyle='rgba(240,214,138,0.12)'; rr(ctx,W/2-60,410,120,36,8); ctx.fill();
   ctx.strokeStyle='rgba(240,214,138,0.4)'; ctx.lineWidth=1; rr(ctx,W/2-60,410,120,36,8); ctx.stroke();
   ctx.fillStyle='#f0d68a'; ctx.font='bold 14px "Segoe UI"';
-  ctx.fillText('Play Again',W/2,433);
+  ctx.fillText('Continue →',W/2,433);
   ctx.textAlign='left';
 }
 
@@ -4607,19 +4540,19 @@ function renderComplete() {
 
 
   return {
-    init(){ G=freshState(); generateDescent(); G.phase='playing'; },
-    update(dt){ G.elapsed+=dt; update(dt);
+    init(){ G=freshState(); generateDescent(); G.phase='tutorial'; },
+    update(dt){ G.elapsed+=dt; update(dt); },
+    render(){ render(); },
+    click(x,y){
+      if(G.phase==='tutorial'){if(x>W/2-70&&x<W/2+70&&y>480&&y<520){G.phase='playing';}return;}
       if(G.phase==='complete'){
         const bad=G.temptClicked+G.wrongItems;
         let rating;
         if(bad===0)rating='Excellent';else if(bad<=2)rating='Good';
         else if(bad<=4)rating='Fair';else rating='Needs Work';
         trialComplete(4,'resolve',{score:Math.max(0,100-bad*15),rating,boxChoice:G.boxChoice});
-        G.phase='done';
+        return;
       }
-    },
-    render(){ render(); },
-    click(x,y){
       if(G.phase==='encounter'){
         if(x>W-112&&x<W-60&&y>14&&y<30&&G.coins>0){useItem('coin');return;}
         if(x>W-112&&x<W-60&&y>30&&y<46&&G.cakes>0){useItem('cake');return;}
