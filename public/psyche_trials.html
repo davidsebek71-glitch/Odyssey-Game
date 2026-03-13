@@ -122,6 +122,9 @@ loadSprite('oil_lamp','oil_lamp.png');
 loadSprite('thorn_bush','thorny_bush.png');
 loadScene('sky_sunrise','sky_sunrise.png');
 loadSprite('path_tile','path_tile.png');
+// Palace background (Trial 3) — single authored scene image
+loadScene('palace_bg','palace_bg.png');
+loadSprite('palace_slot','palace_slot.png');
 
 // ================================================================
 // SHARED HELPERS
@@ -1954,7 +1957,6 @@ function hitPsyche(ram) {
   // Out of attempt hearts — restart level
   if (G.hearts <= 0) {
     if (GAME.totalHearts <= 0) {
-      // No hearts left at all — game over
       G.phase = 'gameover';
       return;
     }
@@ -1973,7 +1975,7 @@ function restartLevel() {
   G = freshState();
   G.totalHearts = GAME.totalHearts;
   G.attempts = attempts;
-  G.hearts = Math.min(4, GAME.totalHearts); // 4 or whatever's left in the pool
+  G.hearts = Math.min(4, GAME.totalHearts);
 
   setupRams();
   G.phase = 'playing';
@@ -2503,7 +2505,6 @@ function startGame() { G.phase = 'playing'; }
       const p={x,y};
       if(G.phase==='tutorial'){if(p.x>W/2-65&&p.x<W/2+65&&p.y>460&&p.y<500){G.phase='playing';}return;}
       if(G.phase==='complete'){
-        // Continue to Trial 3 button
         if(p.x>W/2-90&&p.x<W/2+90&&p.y>390&&p.y<426){
           const lost=10-GAME.totalHearts;
           let rating;
@@ -2513,10 +2514,7 @@ function startGame() { G.phase = 'playing'; }
         }
         return;
       }
-      if(G.phase==='gameover'){
-        restartLevel();
-        return;
-      }
+      if(G.phase==='gameover'){restartLevel();return;}
       if(G.phase==='playing'&&G.pNearWool>=0) grabWool();
     },
     mousemove(x,y){},
@@ -2542,10 +2540,10 @@ const Trial3 = (function(){
 // them in chronological order on the empty mural panel.
 // ============================================================
 const STORY_FRAGMENTS = [
-  { id:0, icon:'💘', title:'Eros Strikes', desc:'Eros sees Psyche and falls in love', color:'#e8a040' },
-  { id:1, icon:'🏛️', title:'The Invisible Palace', desc:'Psyche lives in a palace, never seeing her husband', color:'#c090d0' },
-  { id:2, icon:'🪔', title:'The Oil Lamp', desc:'Psyche lights a lamp to see Eros\'s face', color:'#f0d060' },
-  { id:3, icon:'💔', title:'The Betrayal', desc:'Oil drops on Eros — he wakes and flies away', color:'#e06060' }
+  { id:0, icon:'💘', title:'Eros Strikes', desc:'Eros sees Psyche and falls in love', color:'#e8a040', spriteKey:'story_fragment' },
+  { id:1, icon:'🏛️', title:'The Invisible Palace', desc:'Psyche lives in a palace, never seeing her husband', color:'#c090d0', spriteKey:'story_fragment' },
+  { id:2, icon:'🪔', title:'The Oil Lamp', desc:'Psyche lights a lamp to see Eros\'s face', color:'#f0d060', spriteKey:'story_fragment' },
+  { id:3, icon:'💔', title:'The Betrayal', desc:'Oil drops on Eros — he wakes and flies away', color:'#e06060', spriteKey:'story_fragment' }
 ];
 
 // False fragments (sister lies) — look similar but don't belong
@@ -2560,10 +2558,10 @@ const FALSE_FRAGMENTS = [
 // by reading the symbol hint on each slot.
 // ============================================================
 const ALTAR_OBJECTS = [
-  { id:0, icon:'🪶', name:'White Feather', symbol:'🦋', symbolHint:'Wings of the soul', color:'#e8d8c0' },
-  { id:1, icon:'🏹', name:'Golden Arrow', symbol:'💘', symbolHint:'Weapon of love', color:'#d4a020' },
-  { id:2, icon:'🌹', name:'Rose Petals', symbol:'❤️', symbolHint:'Where love bloomed', color:'#d06080' },
-  { id:3, icon:'✨', name:'Divine Light', symbol:'☀️', symbolHint:'Radiance of the gods', color:'#f0e080' }
+  { id:0, icon:'🪶', name:'White Feather', symbol:'🦋', symbolHint:'Wings of the soul', color:'#e8d8c0', spriteKey:'white_feather' },
+  { id:1, icon:'🏹', name:'Golden Arrow', symbol:'💘', symbolHint:'Weapon of love', color:'#d4a020', spriteKey:'golden_arrow' },
+  { id:2, icon:'🌹', name:'Rose Petals', symbol:'❤️', symbolHint:'Where love bloomed', color:'#d06080', spriteKey:'rose_petals' },
+  { id:3, icon:'✨', name:'Divine Light', symbol:'☀️', symbolHint:'Radiance of the gods', color:'#f0e080', spriteKey:'oil_lamp' }
 ];
 
 const FALSE_OBJECTS = [
@@ -3090,17 +3088,24 @@ function render() {
     // Capture current scene
     const scene = ctx.getImageData(0, 0, W, H);
 
-    // Redraw base darkness + faint walls
+    // Redraw base darkness + faint walls visible through darkness
     ctx.fillStyle = '#050510';
     ctx.fillRect(0, 0, W, H);
+    // Faint wall outlines visible in the dark
+    ctx.globalAlpha = 0.15;
     renderWalls();
+    ctx.globalAlpha = 1;
 
-    // Cut lamp hole
+    // Lamp flicker — subtle radius oscillation
+    const flicker = G.lampR + Math.sin(G.elapsed * 8) * 3 + Math.sin(G.elapsed * 13) * 1.5;
+
+    // Cut lamp hole with SNES warm gradient
     ctx.globalCompositeOperation = 'destination-out';
-    const lg = ctx.createRadialGradient(G.lampX, G.lampY, 0, G.lampX, G.lampY, G.lampR);
+    const lg = ctx.createRadialGradient(G.lampX, G.lampY - 10, 0, G.lampX, G.lampY - 10, flicker);
     lg.addColorStop(0, 'rgba(0,0,0,1)');
-    lg.addColorStop(0.55, 'rgba(0,0,0,0.85)');
-    lg.addColorStop(0.8, 'rgba(0,0,0,0.3)');
+    lg.addColorStop(0.4, 'rgba(0,0,0,0.95)');
+    lg.addColorStop(0.65, 'rgba(0,0,0,0.6)');
+    lg.addColorStop(0.85, 'rgba(0,0,0,0.15)');
     lg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = lg;
     ctx.fillRect(0, 0, W, H);
@@ -3109,24 +3114,44 @@ function render() {
     // Clip and restore lit scene
     ctx.save();
     ctx.beginPath();
-    ctx.arc(G.lampX, G.lampY, G.lampR, 0, Math.PI*2);
+    ctx.arc(G.lampX, G.lampY - 10, flicker, 0, Math.PI*2);
     ctx.clip();
     ctx.putImageData(scene, 0, 0);
     ctx.restore();
 
-    // Warm glow
-    const wg = ctx.createRadialGradient(G.lampX, G.lampY, 0, G.lampX, G.lampY, G.lampR*0.6);
-    wg.addColorStop(0, 'rgba(255,200,100,0.07)');
-    wg.addColorStop(1, 'rgba(255,180,80,0)');
-    ctx.fillStyle = wg;
+    // Warm SNES glow — layered for richness
+    const wg1 = ctx.createRadialGradient(G.lampX, G.lampY - 10, 0, G.lampX, G.lampY - 10, flicker * 0.7);
+    wg1.addColorStop(0, 'rgba(255,200,80,0.12)');
+    wg1.addColorStop(0.5, 'rgba(255,170,50,0.06)');
+    wg1.addColorStop(1, 'rgba(255,140,30,0)');
+    ctx.fillStyle = wg1;
     ctx.fillRect(0, 0, W, H);
+
+    // Inner bright core
+    const wg2 = ctx.createRadialGradient(G.lampX, G.lampY - 10, 0, G.lampX, G.lampY - 10, 25);
+    wg2.addColorStop(0, 'rgba(255,230,150,0.15)');
+    wg2.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = wg2;
+    ctx.fillRect(G.lampX - 30, G.lampY - 40, 60, 60);
   }
 
-  // Lamp icon
-  ctx.fillStyle = G.lampOn ? '#ffd700' : '#444';
-  ctx.font = '18px "Segoe UI"'; ctx.textAlign = 'center';
-  ctx.fillText(G.lampOn ? '🪔' : '💨', G.lampX, G.lampY + 5);
-  ctx.textAlign = 'left';
+  // === PSYCHE WITH LAMP (replaces emoji lamp icon) ===
+  const psycheLampSpr = sprites['psyche_lamp'];
+  if (G.lampOn && psycheLampSpr) {
+    const sz = 56;
+    ctx.drawImage(psycheLampSpr, G.lampX - sz/2, G.lampY - sz/2 - 8, sz, sz);
+  } else if (G.lampOn) {
+    // Programmatic fallback — simple figure with lamp glow
+    ctx.fillStyle = '#e8ddd0';
+    ctx.beginPath(); ctx.arc(G.lampX, G.lampY - 18, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f0ece4';
+    ctx.beginPath();
+    ctx.moveTo(G.lampX, G.lampY - 12); ctx.lineTo(G.lampX - 7, G.lampY + 2); ctx.lineTo(G.lampX + 7, G.lampY + 2);
+    ctx.closePath(); ctx.fill();
+    // Lamp flame
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath(); ctx.arc(G.lampX + 8, G.lampY - 14, 3, 0, Math.PI*2); ctx.fill();
+  }
 
   // Lamp out overlay
   if (!G.lampOn) {
@@ -3159,12 +3184,19 @@ function render() {
   if (G.dragging !== null && G.phase === 'playing') {
     const item = G.inventory[G.dragging];
     if (item) {
-      ctx.font = '28px "Segoe UI"'; ctx.textAlign = 'center';
-      ctx.globalAlpha = 0.85;
-      ctx.fillText(item.icon, G.dragX, G.dragY + 8);
-      ctx.globalAlpha = 1;
+      // Glow under dragged item
       ctx.fillStyle = 'rgba(255,215,100,0.15)';
       ctx.beginPath(); ctx.arc(G.dragX, G.dragY, 22, 0, Math.PI*2); ctx.fill();
+      // Item sprite or icon
+      ctx.globalAlpha = 0.9;
+      const spr = item.spriteKey ? sprites[item.spriteKey] : null;
+      if (spr) {
+        ctx.drawImage(spr, G.dragX - 16, G.dragY - 16, 32, 32);
+      } else {
+        ctx.font = '28px "Segoe UI"'; ctx.textAlign = 'center';
+        ctx.fillText(item.icon, G.dragX, G.dragY + 8);
+      }
+      ctx.globalAlpha = 1;
       ctx.textAlign = 'left';
     }
   }
@@ -3219,46 +3251,66 @@ function render() {
 }
 
 function renderWalls() {
-  ctx.strokeStyle = 'rgba(40,38,55,0.25)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(25, 25, W-50, H-50);
-  // Floor grid
-  ctx.strokeStyle = 'rgba(35,33,48,0.12)';
-  ctx.lineWidth = 1;
-  for (let x=25; x<W-25; x+=65) {
-    ctx.beginPath(); ctx.moveTo(x,25); ctx.lineTo(x,H-25); ctx.stroke();
+  // Single authored palace background — drawn full canvas
+  const bg = sprites['palace_bg'];
+  if (bg) {
+    ctx.drawImage(bg, 0, 0, W, H);
+  } else {
+    // Programmatic fallback if image hasn't loaded
+    ctx.fillStyle = '#1c1828';
+    ctx.fillRect(0, 0, W, H);
+    // Basic stone grid
+    ctx.strokeStyle = 'rgba(50,45,65,0.2)'; ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 48) {
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 48) {
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+    // Fallback columns
+    ctx.fillStyle = 'rgba(50,45,65,0.4)';
+    [[80,60,20,240],[600,60,20,240]].forEach(([x,y,w,h]) => {
+      ctx.fillRect(x-w/2,y,w,h);
+    });
   }
-  for (let y=25; y<H-25; y+=65) {
-    ctx.beginPath(); ctx.moveTo(25,y); ctx.lineTo(W-25,y); ctx.stroke();
+
+  // Ambient dust motes (float above the background)
+  const t = G.elapsed || 0;
+  ctx.fillStyle = 'rgba(200,180,140,0.06)';
+  for (let i = 0; i < 8; i++) {
+    const dx = 100 + i * 80 + Math.sin(t * 0.3 + i * 1.7) * 30;
+    const dy = 120 + i * 55 + Math.cos(t * 0.2 + i * 2.3) * 20;
+    ctx.beginPath(); ctx.arc(dx, dy, 1.5, 0, Math.PI * 2); ctx.fill();
   }
-  // Columns
-  ctx.fillStyle = 'rgba(30,28,42,0.4)';
-  [[80,100,16,250],[600,100,16,250],[340,80,16,100]].forEach(([x,y,w,h]) => {
-    ctx.fillRect(x-w/2,y,w,h);
-    ctx.fillStyle = 'rgba(42,40,58,0.35)';
-    ctx.fillRect(x-w/2-3,y,w+6,10);
-    ctx.fillStyle = 'rgba(30,28,42,0.4)';
-  });
 }
 
 function renderFurniture() {
   if (G.roomIdx === 0) {
-    // Mural panel background (where slots go)
-    ctx.fillStyle = 'rgba(35,30,45,0.5)';
-    rr(ctx, W/2-210, H-115, 420, 75, 6); ctx.fill();
-    ctx.strokeStyle = 'rgba(60,55,75,0.3)'; ctx.lineWidth = 1;
-    rr(ctx, W/2-210, H-115, 420, 75, 6); ctx.stroke();
-    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '15px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText('▼ STORY MURAL — arrange in order ▼', W/2, H-120);
+    // === STORY MURAL — dark recessed panel for slots ===
+    const mx = W/2 - 220, my = H - 125, mw = 440, mh = 85;
+    ctx.fillStyle = 'rgba(15,12,25,0.6)';
+    rr(ctx, mx, my, mw, mh, 4); ctx.fill();
+    // Carved border — double bevel
+    ctx.strokeStyle = 'rgba(80,70,100,0.45)'; ctx.lineWidth = 2;
+    rr(ctx, mx, my, mw, mh, 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(50,44,68,0.3)'; ctx.lineWidth = 1;
+    rr(ctx, mx+3, my+3, mw-6, mh-6, 2); ctx.stroke();
+    // Label
+    ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = 'bold 11px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText('▾ STORY MURAL — arrange in order ▾', W/2, my - 6);
     ctx.textAlign = 'left';
   } else if (G.roomIdx === 1) {
-    // Altar panel
-    ctx.fillStyle = 'rgba(35,30,45,0.5)';
-    rr(ctx, W-140, 130, 110, 400, 6); ctx.fill();
-    ctx.strokeStyle = 'rgba(60,55,75,0.3)'; ctx.lineWidth = 1;
-    rr(ctx, W-140, 130, 110, 400, 6); ctx.stroke();
-    ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '15px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText('ALTAR', W-85, 148);
+    // === OFFERING ALTAR — dark recessed panel for slots ===
+    const ax = W - 150, ay = 120, aw = 120, ah = 420;
+    ctx.fillStyle = 'rgba(15,12,25,0.6)';
+    rr(ctx, ax, ay, aw, ah, 4); ctx.fill();
+    ctx.strokeStyle = 'rgba(80,70,100,0.45)'; ctx.lineWidth = 2;
+    rr(ctx, ax, ay, aw, ah, 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(50,44,68,0.3)'; ctx.lineWidth = 1;
+    rr(ctx, ax+3, ay+3, aw-6, ah-6, 2); ctx.stroke();
+    // Label
+    ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = 'bold 12px "Segoe UI"'; ctx.textAlign = 'center';
+    ctx.fillText('ALTAR', ax + aw/2, ay + 16);
     ctx.textAlign = 'left';
   }
 }
@@ -3272,30 +3324,47 @@ function renderItems() {
 
     const a = it.glow;
 
-    // Glow aura
+    // Glow aura — warm gold for real, cold blue for false
     if (it.isReal) {
-      ctx.fillStyle = `rgba(255,210,80,${a*0.2})`;
-      ctx.beginPath(); ctx.arc(it.x, it.y, 20, 0, Math.PI*2); ctx.fill();
+      const ag = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, 24);
+      ag.addColorStop(0, `rgba(255,210,80,${a*0.3})`);
+      ag.addColorStop(0.6, `rgba(255,180,60,${a*0.12})`);
+      ag.addColorStop(1, 'rgba(255,160,40,0)');
+      ctx.fillStyle = ag;
+      ctx.fillRect(it.x-24, it.y-24, 48, 48);
     } else {
-      ctx.fillStyle = `rgba(80,140,180,${a*0.18})`;
-      ctx.beginPath(); ctx.arc(it.x, it.y, 20, 0, Math.PI*2); ctx.fill();
+      const ag = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, 22);
+      ag.addColorStop(0, `rgba(80,140,200,${a*0.25})`);
+      ag.addColorStop(0.6, `rgba(60,110,180,${a*0.1})`);
+      ag.addColorStop(1, 'rgba(50,90,160,0)');
+      ctx.fillStyle = ag;
+      ctx.fillRect(it.x-22, it.y-22, 44, 44);
     }
 
-    // Icon
+    // Item sprite or icon
     if (a > 0.25) {
       ctx.globalAlpha = a;
-      ctx.font = '24px "Segoe UI"'; ctx.textAlign = 'center';
-      ctx.fillText(it.data.icon, it.x, it.y + 7);
+      // Try sprite mapping: story_fragment for story items, specific sprites for altar objects
+      const spriteKey = it.data.spriteKey; // We'll add this to data definitions
+      const spr = spriteKey ? sprites[spriteKey] : null;
+      if (spr) {
+        const sz = 32;
+        ctx.drawImage(spr, it.x - sz/2, it.y - sz/2, sz, sz);
+      } else {
+        // Fallback to emoji icon
+        ctx.font = '24px "Segoe UI"'; ctx.textAlign = 'center';
+        ctx.fillText(it.data.icon, it.x, it.y + 7);
+      }
 
-      // Name when close
+      // Name label when close
       if (dist < 50 && a > 0.5) {
-        ctx.fillStyle = it.isReal ? `rgba(255,230,150,${a*0.7})` : `rgba(130,170,200,${a*0.6})`;
-        ctx.font = '15px "Segoe UI"';
-        ctx.fillText(it.data.title || it.data.name, it.x, it.y + 24);
+        ctx.fillStyle = it.isReal ? `rgba(255,230,150,${a*0.8})` : `rgba(130,170,200,${a*0.7})`;
+        ctx.font = 'bold 10px "Segoe UI"'; ctx.textAlign = 'center';
+        ctx.fillText(it.data.title || it.data.name, it.x, it.y + 22);
         if (a > 0.7) {
-          ctx.font = '14px "Segoe UI"';
-          ctx.fillStyle = `rgba(200,180,140,${a*0.4})`;
-          ctx.fillText('click to pick up', it.x, it.y + 36);
+          ctx.font = '9px "Segoe UI"';
+          ctx.fillStyle = `rgba(200,180,140,${a*0.5})`;
+          ctx.fillText('click to pick up', it.x, it.y + 33);
         }
       }
       ctx.textAlign = 'left';
@@ -3309,24 +3378,31 @@ function renderHints() {
     if (h.glow <= 0 && !h.discovered) return;
     const a = h.glow;
 
-    // Background panel
-    ctx.fillStyle = `rgba(35,30,25,${a * 0.6})`;
-    rr(ctx, h.x, h.y, h.w, h.h, 4); ctx.fill();
-    ctx.strokeStyle = `rgba(180,160,120,${a * 0.3})`;
-    ctx.lineWidth = 1;
-    rr(ctx, h.x, h.y, h.w, h.h, 4); ctx.stroke();
+    // Stone tablet background
+    const tabSpr = sprites['wall_inscription'] || sprites['palace_tablet'];
+    if (tabSpr) {
+      ctx.globalAlpha = a * 0.85;
+      ctx.drawImage(tabSpr, h.x, h.y, h.w, h.h);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = `rgba(42,38,52,${a * 0.7})`;
+      rr(ctx, h.x, h.y, h.w, h.h, 3); ctx.fill();
+    }
+    // Carved border
+    ctx.strokeStyle = `rgba(80,70,100,${a * 0.4})`; ctx.lineWidth = 1.5;
+    rr(ctx, h.x, h.y, h.w, h.h, 3); ctx.stroke();
 
-    // Title
+    // Title — etched look
     ctx.globalAlpha = a;
-    ctx.fillStyle = 'rgba(220,200,150,0.8)';
+    ctx.fillStyle = 'rgba(240,220,160,0.85)';
     ctx.font = 'bold 11px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText(h.title, h.x + h.w/2, h.y + 15);
+    ctx.fillText(h.title, h.x + h.w/2, h.y + 16);
 
-    // Lines
-    ctx.font = '14px "Segoe UI"';
-    ctx.fillStyle = 'rgba(240,220,160,0.75)';
+    // Lines — hint text
+    ctx.font = '11px "Segoe UI"';
+    ctx.fillStyle = 'rgba(240,220,160,0.7)';
     h.lines.forEach((line, i) => {
-      ctx.fillText(line, h.x + h.w/2, h.y + 32 + i * 15);
+      ctx.fillText(line, h.x + h.w/2, h.y + 32 + i * 16);
     });
 
     ctx.textAlign = 'left';
@@ -3336,47 +3412,65 @@ function renderHints() {
 
 function renderSlots() {
   G.slots.forEach((s, i) => {
-    const w = 70, h = 55;
+    const w = 72, h = 58;
 
-    // Slot background
-    ctx.fillStyle = s.wrongFlash > 0 ? `rgba(180,50,40,${0.15+s.wrongFlash*0.25})` :
-      s.flash > 0 ? `rgba(50,180,80,${0.12+s.flash*0.2})` :
-      s.placedItem ? 'rgba(40,50,35,0.5)' : 'rgba(25,22,35,0.6)';
-    rr(ctx, s.x-w/2, s.y-h/2, w, h, 6); ctx.fill();
+    // Stone niche sprite
+    const slotSpr = sprites['palace_slot'];
+    if (slotSpr) {
+      ctx.drawImage(slotSpr, s.x - w/2, s.y - h/2, w, h);
+    } else {
+      ctx.fillStyle = s.placedItem ? 'rgba(30,35,28,0.6)' : 'rgba(18,16,28,0.7)';
+      rr(ctx, s.x-w/2, s.y-h/2, w, h, 4); ctx.fill();
+    }
 
-    // Border
+    // Flash overlays
+    if (s.wrongFlash > 0) {
+      ctx.fillStyle = `rgba(180,50,40,${s.wrongFlash*0.3})`;
+      rr(ctx, s.x-w/2, s.y-h/2, w, h, 4); ctx.fill();
+    }
+    if (s.flash > 0) {
+      ctx.fillStyle = `rgba(50,180,80,${s.flash*0.25})`;
+      rr(ctx, s.x-w/2, s.y-h/2, w, h, 4); ctx.fill();
+    }
+
+    // Border — green if correct, gold outline if placed
     ctx.strokeStyle = s.placedItem
-      ? (s.placedItem.id === s.correctId ? 'rgba(100,200,100,0.4)' : 'rgba(200,150,50,0.3)')
-      : 'rgba(80,75,95,0.3)';
+      ? (s.placedItem.id === s.correctId ? 'rgba(100,200,100,0.5)' : 'rgba(200,150,50,0.35)')
+      : 'rgba(60,55,80,0.3)';
     ctx.lineWidth = 1.5;
-    rr(ctx, s.x-w/2, s.y-h/2, w, h, 6); ctx.stroke();
+    rr(ctx, s.x-w/2, s.y-h/2, w, h, 4); ctx.stroke();
 
     ctx.textAlign = 'center';
 
     if (s.placedItem) {
-      // Show placed item
-      ctx.font = '22px "Segoe UI"';
-      ctx.fillText(s.placedItem.icon, s.x, s.y + 6);
+      // Show placed item — try sprite first
+      const sprKey = s.placedItem.spriteKey;
+      const spr = sprKey ? sprites[sprKey] : null;
+      if (spr) {
+        ctx.drawImage(spr, s.x - 14, s.y - 14, 28, 28);
+      } else {
+        ctx.font = '22px "Segoe UI"';
+        ctx.fillText(s.placedItem.icon, s.x, s.y + 6);
+      }
     } else {
       // Show hint
       if (G.roomIdx === 0) {
-        ctx.fillStyle = 'rgba(200,180,140,0.35)'; ctx.font = 'bold 14px "Segoe UI"';
-        ctx.fillText(s.label, s.x, s.y + 4);
-        ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '14px "Segoe UI"';
-        ctx.fillText(s.symbolHint, s.x, s.y + 18);
+        ctx.fillStyle = 'rgba(200,180,140,0.35)'; ctx.font = 'bold 13px "Segoe UI"';
+        ctx.fillText(s.label, s.x, s.y);
+        ctx.fillStyle = 'rgba(200,180,140,0.2)'; ctx.font = '10px "Segoe UI"';
+        ctx.fillText(s.symbolHint, s.x, s.y + 14);
       } else {
-        // Altar: show symbol hint
-        ctx.font = '20px "Segoe UI"';
+        ctx.font = '18px "Segoe UI"';
         ctx.fillText(s.label, s.x, s.y - 2);
-        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '14px "Segoe UI"';
-        ctx.fillText(s.symbolHint, s.x, s.y + 18);
+        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '10px "Segoe UI"';
+        ctx.fillText(s.symbolHint, s.x, s.y + 14);
       }
     }
 
-    // Hover highlight
+    // Hover highlight when dragging
     if (i === G.hoveredSlot && G.dragging !== null) {
-      ctx.strokeStyle = 'rgba(255,215,100,0.4)'; ctx.lineWidth = 2;
-      rr(ctx, s.x-w/2-2, s.y-h/2-2, w+4, h+4, 8); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,215,100,0.5)'; ctx.lineWidth = 2;
+      rr(ctx, s.x-w/2-3, s.y-h/2-3, w+6, h+6, 6); ctx.stroke();
     }
 
     ctx.textAlign = 'left';
@@ -3462,39 +3556,61 @@ function renderBedchamber() {
 }
 
 function renderHUD() {
-  // Oil
-  ctx.fillStyle='rgba(0,0,0,0.65)'; rr(ctx,10,10,165,32,6); ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='15px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText('🛢️ OIL',18,30);
-  ctx.fillStyle='rgba(255,255,255,0.08)'; rr(ctx,58,20,105,10,3); ctx.fill();
+  // Oil meter with lamp sprite
+  ctx.fillStyle='rgba(0,0,0,0.7)'; rr(ctx,10,10,170,34,6); ctx.fill();
+  const lampSpr = sprites['oil_lamp'];
+  if (lampSpr) {
+    ctx.drawImage(lampSpr, 14, 12, 20, 20);
+    ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='bold 10px "Segoe UI"'; ctx.textAlign='left';
+    ctx.fillText('OIL',38,24);
+  } else {
+    ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='15px "Segoe UI"'; ctx.textAlign='left';
+    ctx.fillText('🛢️ OIL',18,30);
+  }
+  // Oil bar
+  ctx.fillStyle='rgba(255,255,255,0.08)'; rr(ctx,58,20,110,10,3); ctx.fill();
   const oilC = G.oil>50?'#ffd700':G.oil>25?'#f97316':'#ef4444';
-  ctx.fillStyle=oilC; rr(ctx,58,20,Math.max(0,G.oil)*1.05,10,3); ctx.fill();
+  ctx.fillStyle=oilC; rr(ctx,58,20,Math.max(0,G.oil)*1.1,10,3); ctx.fill();
+  // Oil bar border
+  ctx.strokeStyle='rgba(200,180,140,0.2)'; ctx.lineWidth=1;
+  rr(ctx,58,20,110,10,3); ctx.stroke();
 
-  // Room
+  // Room title
   const roomNames = ['The Hall — Story Wall','The Chamber — Altar','The Inner Chamber'];
-  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='15px "Segoe UI"'; ctx.textAlign='center';
-  ctx.fillText(`Room ${G.roomIdx+1}: ${roomNames[G.roomIdx]||''}`, W/2, 22);
+  ctx.fillStyle='rgba(0,0,0,0.5)'; rr(ctx,W/2-120,6,240,22,4); ctx.fill();
+  ctx.fillStyle='rgba(220,200,160,0.5)'; ctx.font='bold 11px "Segoe UI"'; ctx.textAlign='center';
+  ctx.fillText(`Room ${G.roomIdx+1}: ${roomNames[G.roomIdx]||''}`, W/2, 21);
 
   // Inventory bar
-  ctx.fillStyle='rgba(0,0,0,0.6)'; rr(ctx,5,42,Math.max(60, G.inventory.length*55+15),40,6); ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='14px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText('INVENTORY — drag to slots', 12, 52);
+  const invW = Math.max(80, G.inventory.length*52+20);
+  ctx.fillStyle='rgba(0,0,0,0.65)'; rr(ctx,5,44,invW,42,6); ctx.fill();
+  ctx.strokeStyle='rgba(60,55,80,0.3)'; ctx.lineWidth=1;
+  rr(ctx,5,44,invW,42,6); ctx.stroke();
+  ctx.fillStyle='rgba(200,180,140,0.35)'; ctx.font='9px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillText('INVENTORY — drag to slots', 12, 54);
 
   G.inventory.forEach((item, i) => {
-    const ix = 10 + i*55 + 25;
-    const iy = 70;
-    ctx.fillStyle = 'rgba(50,45,60,0.7)';
-    rr(ctx, ix-22, iy-18, 44, 36, 4); ctx.fill();
-    ctx.strokeStyle = 'rgba(200,180,140,0.2)'; ctx.lineWidth=1;
-    rr(ctx, ix-22, iy-18, 44, 36, 4); ctx.stroke();
-    ctx.font = '20px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText(item.icon, ix, iy+6);
+    const ix = 12 + i*52 + 22;
+    const iy = 72;
+    // Slot background
+    ctx.fillStyle = 'rgba(40,36,55,0.8)';
+    rr(ctx, ix-20, iy-16, 40, 32, 3); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,180,140,0.25)'; ctx.lineWidth=1;
+    rr(ctx, ix-20, iy-16, 40, 32, 3); ctx.stroke();
+    // Item sprite or icon
+    const spr = item.spriteKey ? sprites[item.spriteKey] : null;
+    if (spr) {
+      ctx.drawImage(spr, ix - 12, iy - 12, 24, 24);
+    } else {
+      ctx.font = '18px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillText(item.icon, ix, iy + 5);
+    }
   });
 
   // Lives
-  ctx.fillStyle='rgba(0,0,0,0.45)'; rr(ctx,10,H-32,120,22,6); ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='14px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText(`${GAME.totalHearts} lives remaining (no heart loss)`,18,H-17);
+  ctx.fillStyle='rgba(0,0,0,0.5)'; rr(ctx,10,H-30,135,20,6); ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='left';
+  ctx.fillText(`${GAME.totalHearts} lives remaining (no heart loss)`,18,H-16);
 
   ctx.textAlign='left';
 }
@@ -4706,7 +4822,18 @@ function checkLoaded(){
   if(spritesLoaded>=spritesTotal){
     document.getElementById('loading-screen').style.opacity='0';
     setTimeout(()=>{document.getElementById('loading-screen').style.display='none';
-      showStory('intro',()=>startTrial(1));
+      // Dev skip: ?trial=2, ?trial=3, or ?trial=4 jumps directly to that trial
+      const devTrial = parseInt(urlParams.get('trial'));
+      if(devTrial >= 2 && devTrial <= 4){
+        console.log('DEV SKIP → Trial '+devTrial);
+        // Give full hearts and mock previous trial virtues
+        if(devTrial >= 2) GAME.virtues.precision = {score:80,rating:'Good'};
+        if(devTrial >= 3) GAME.virtues.patience = {score:80,rating:'Good'};
+        if(devTrial >= 4) GAME.virtues.trust = {score:80,rating:'Good'};
+        startTrial(devTrial);
+      } else {
+        showStory('intro',()=>startTrial(1));
+      }
     },600);
   } else setTimeout(checkLoaded,100);
 }
