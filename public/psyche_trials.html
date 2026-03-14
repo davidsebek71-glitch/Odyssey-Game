@@ -2774,11 +2774,11 @@ function update(dt) {
 
   G.elapsed += dt;
 
-  // Lamp smoothing + floor bounds clamping — slow, cautious movement in darkness
+  // Lamp smoothing + floor bounds — Psyche IS the cursor, with slight weight
   const clampedTX = Math.max(G.floorL, Math.min(G.floorR, G.lampTX));
   const clampedTY = Math.max(G.floorT, Math.min(G.floorB, G.lampTY));
-  G.lampX += (clampedTX - G.lampX) * 0.025;
-  G.lampY += (clampedTY - G.lampY) * 0.025;
+  G.lampX += (clampedTX - G.lampX) * 0.08;
+  G.lampY += (clampedTY - G.lampY) * 0.08;
 
   if (!G.lampOn) {
     G.lampOutTimer -= dt;
@@ -2963,14 +2963,17 @@ function handleClick(mx, my) {
   if (G.phase !== 'playing') return;
   if (!G.lampOn) return;
 
-  // === STEP 1: If holding a selected item, try to place it on a slot ===
+  // HUD clicks use mouse position (mx, my)
+  // World clicks use Psyche's position (G.lampX, G.lampY)
+  const px = G.lampX, py = G.lampY;
+
+  // === STEP 1: If holding a selected item, try to place on slot ===
   if (G.selectedItem !== null) {
-    const slotIdx = getSlotAt(mx, my);
+    // Check slots using Psyche's position (she walks to the slot)
+    const slotIdx = getSlotAt(px, py);
     if (slotIdx >= 0) {
-      // Place the selected item
       const slot = G.slots[slotIdx];
       if (slot.placedItem) {
-        // Swap: return placed item to inventory
         G.inventory.push(slot.placedItem);
         slot.placedItem = null;
       }
@@ -2979,7 +2982,6 @@ function handleClick(mx, my) {
       G.inventory.splice(G.selectedItem, 1);
       G.selectedItem = null;
 
-      // Check correctness
       if (item.id === slot.correctId) {
         slot.flash = 0.6;
         spawnP(slot.x, slot.y, 5, '#ffd700');
@@ -2987,7 +2989,31 @@ function handleClick(mx, my) {
         slot.wrongFlash = 0.5;
         G.wrongPlacements++;
         G.oil = Math.max(0, G.oil - 5);
-        showFloat(slot.x, slot.y - 30, '✗ Wrong spot! -5% oil', '#f97316');
+        showFloat(slot.x, slot.y - 30, 'Wrong spot! -5% oil', '#f97316');
+      }
+      return;
+    }
+    // Also check via mouse (for clicking slots directly)
+    const slotIdx2 = getSlotAt(mx, my);
+    if (slotIdx2 >= 0) {
+      const slot = G.slots[slotIdx2];
+      if (slot.placedItem) {
+        G.inventory.push(slot.placedItem);
+        slot.placedItem = null;
+      }
+      const item = G.inventory[G.selectedItem];
+      slot.placedItem = item;
+      G.inventory.splice(G.selectedItem, 1);
+      G.selectedItem = null;
+
+      if (item.id === slot.correctId) {
+        slot.flash = 0.6;
+        spawnP(slot.x, slot.y, 5, '#ffd700');
+      } else {
+        slot.wrongFlash = 0.5;
+        G.wrongPlacements++;
+        G.oil = Math.max(0, G.oil - 5);
+        showFloat(slot.x, slot.y - 30, 'Wrong spot! -5% oil', '#f97316');
       }
       return;
     }
@@ -2996,49 +3022,49 @@ function handleClick(mx, my) {
     return;
   }
 
-  // === STEP 2: Click on a slot to retrieve a placed item ===
-  const clickedSlot = getSlotAt(mx, my);
-  if (clickedSlot >= 0) {
-    const slot = G.slots[clickedSlot];
-    if (slot.placedItem) {
-      G.inventory.push(slot.placedItem);
-      slot.placedItem = null;
-      showFloat(mx, my - 15, '↩', 'rgba(200,180,140,0.7)');
-      return;
-    }
-  }
-
-  // === STEP 3: Click inventory item to select it ===
+  // === STEP 2: Click inventory (uses mouse — it's a HUD element) ===
   const invIdx = getInventoryAt(mx, my);
   if (invIdx >= 0) {
     G.selectedItem = invIdx;
     return;
   }
 
-  // === STEP 4: Click an item in the world to pick it up ===
+  // === STEP 3: Click slot to retrieve placed item (mouse or Psyche) ===
+  let clickedSlot = getSlotAt(mx, my);
+  if (clickedSlot < 0) clickedSlot = getSlotAt(px, py);
+  if (clickedSlot >= 0) {
+    const slot = G.slots[clickedSlot];
+    if (slot.placedItem) {
+      G.inventory.push(slot.placedItem);
+      slot.placedItem = null;
+      return;
+    }
+  }
+
+  // === STEP 4: Pick up world item — uses PSYCHE position ===
   for (let i = G.items.length - 1; i >= 0; i--) {
     const it = G.items[i];
     if (it.pickedUp || !it.discovered || it.glow < 0.3) continue;
-    if (Math.hypot(it.x - mx, it.y - my) > 35) continue;
+    if (Math.hypot(it.x - px, it.y - py) > 50) continue;
 
     if (it.isReal) {
       it.pickedUp = true;
       G.inventory.push(it.data);
       spawnP(it.x, it.y, 8, it.data.color);
-      showFloat(mx, my-10, `${it.data.title || it.data.name}`, '#ffd700');
+      showFloat(it.x, it.y-15, `${it.data.title || it.data.name}`, '#ffd700');
     } else {
       it.pickedUp = true;
       G.falseCollected++;
       G.oil = Math.max(0, G.oil - 15);
       G.coldFlash = 0.5;
       spawnP(it.x, it.y, 5, '#4488cc');
-      showFloat(mx, my-10, `False clue! -15% oil`, '#6495ed');
+      showFloat(it.x, it.y-15, 'False clue! -15% oil', '#6495ed');
       if (it.data.whisper) {
         const el = document.createElement('div');
         el.className = 'whisper-text';
         el.textContent = `"${it.data.whisper}"`;
         el.style.color = 'rgba(100,140,180,0.7)';
-        el.style.left = (mx - 60) + 'px'; el.style.top = (my + 20) + 'px';
+        el.style.left = (it.x - 60) + 'px'; el.style.top = (it.y + 20) + 'px';
         container.appendChild(el);
         setTimeout(()=>el.remove(), 3000);
       }
