@@ -2854,13 +2854,33 @@ function update(dt) {
   }
   G.sisters = G.sisters.filter(s => {
     s.timer -= dt;
-    if (s.phase === 'warning' && s.timer <= 0) {
-      s.phase = 'gust'; s.timer = 1.2;
-      // Sister ALWAYS blows out the lamp — she targets Psyche directly
+
+    if (s.phase === 'approach') {
+      // Walk from wall edge toward Psyche
+      s.approachProgress += dt * 0.4;  // Takes ~2.5s to cross
+      const t = Math.min(1, s.approachProgress);
+      const ease = t * t * (3 - 2 * t);  // Smooth ease in-out
+      s.x = s.startX + (s.targetX - s.startX) * ease;
+      s.y = s.startY + (s.targetY - s.startY) * ease;
+
+      if (t >= 1) {
+        s.phase = 'warning';
+        s.timer = 1.5;  // Pause next to Psyche, visible in the light
+      }
+    }
+    else if (s.phase === 'warning' && s.timer <= 0) {
+      s.phase = 'gust'; s.timer = 1.5;
+      // Blow out the lamp
       G.lampOn = false; G.lampOutTimer = 3.5;
       showFloat(G.lampX, G.lampY-20, 'Lamp blown out!', 'rgba(150,180,220,0.9)');
       shake();
     }
+    else if (s.phase === 'gust') {
+      // Retreat back to wall
+      const retreatT = Math.min(1, (1.5 - s.timer) / 1.2);
+      s.x = s.targetX + (s.startX - s.targetX) * retreatT;
+    }
+
     return s.timer > -2;
   });
 
@@ -2899,16 +2919,27 @@ function update(dt) {
 
 function spawnSister() {
   const side = Math.random() > 0.5 ? 'left' : 'right';
-  // Sister targets Psyche's current Y position
-  const gustY = G.lampY + (Math.random()-0.5) * 40;
+  const startX = side === 'left' ? 20 : W - 20;
+  // Target: just outside Psyche's lamp radius
+  const targetX = G.lampX + (side === 'left' ? -50 : 50);
+  const targetY = G.lampY + (Math.random()-0.5) * 30;
   const whispers = [
     "He is hiding something...", "Why does he fear the light?",
     "What kind of husband hides?", "Your sisters know the truth...",
     "A monster wears a gentle face..."
   ];
   G.sisters.push({
-    side, gustY, x: side==='left'?20:W-20, y: gustY,
-    phase: 'warning', timer: 3
+    side,
+    startX: startX,
+    startY: targetY,
+    x: startX,
+    y: targetY,
+    targetX: targetX,
+    targetY: targetY,
+    gustY: targetY,
+    phase: 'approach',  // approach → warning → gust
+    timer: 2.5,         // time to walk in
+    approachProgress: 0
   });
   const el = document.createElement('div');
   el.className = 'whisper-text';
@@ -2916,9 +2947,9 @@ function spawnSister() {
   el.style.color = 'rgba(100,140,180,0.7)';
   el.style.left = side==='left' ? '30px' : '';
   el.style.right = side==='right' ? '30px' : '';
-  el.style.top = (gustY-30+Math.random()*60)+'px';
+  el.style.top = (Math.max(50, Math.min(H-80, targetY))-30)+'px';
   container.appendChild(el);
-  setTimeout(()=>el.remove(), 3500);
+  setTimeout(()=>el.remove(), 4000);
 }
 
 // ============================================================
@@ -3105,7 +3136,6 @@ function render() {
     renderItems();
     renderHints();
     renderSlots();
-    renderSisters();
   }
 
   // ---- LAYER 2: DARKNESS + LAMP REVEAL ----
@@ -3210,6 +3240,9 @@ function render() {
     ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(p.life/p.ml),0,Math.PI*2); ctx.fill();
   });
   ctx.globalAlpha = 1;
+
+  // ---- SISTERS (above darkness so player sees them approach) ----
+  if (G.phase === 'playing' || G.phase === 'bedchamber') renderSisters();
 
   // ---- HUD (always visible, above everything) ----
   if (G.phase === 'playing') renderHUD();
@@ -3498,15 +3531,24 @@ function renderSlots() {
 
 function renderSisters() {
   G.sisters.forEach(s => {
-    if (s.timer < -1) return;
-    const alpha = s.phase === 'warning' ? Math.min(1, (2-s.timer)*0.6) : Math.max(0, s.timer);
+    if (s.timer < -1 && s.phase === 'gust') return;
 
+    let alpha;
+    if (s.phase === 'approach') {
+      alpha = Math.min(0.8, s.approachProgress * 1.5);
+    } else if (s.phase === 'warning') {
+      alpha = 0.8 + Math.sin(G.elapsed * 6) * 0.1;  // Pulsing at full visibility
+    } else {
+      alpha = Math.max(0, s.timer * 0.6);
+    }
+
+    // Draw sister sprite
     const spr = sprites['sister'];
     if (spr) {
       ctx.save();
-      ctx.globalAlpha = alpha * 0.75;
+      ctx.globalAlpha = alpha;
       const sz = 64;
-      if (s.side==='right') {
+      if (s.side === 'right') {
         ctx.translate(s.x, s.y - sz/2);
         ctx.scale(-1, 1);
         ctx.drawImage(spr, -sz/2, 0, sz, sz);
@@ -3515,31 +3557,42 @@ function renderSisters() {
       }
       ctx.restore();
     } else {
-      // Programmatic fallback — ghostly figure
-      ctx.fillStyle = `rgba(30,20,45,${alpha*0.6})`;
-      ctx.beginPath(); ctx.ellipse(s.x,s.y,15,35,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = `rgba(100,140,180,${alpha*0.4})`;
-      ctx.beginPath(); ctx.arc(s.x-3,s.y-10,2,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(s.x+3,s.y-10,2,0,Math.PI*2); ctx.fill();
+      // Programmatic fallback
+      ctx.fillStyle = `rgba(50,30,70,${alpha * 0.7})`;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y, 14, 32, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(120,150,200,${alpha * 0.5})`;
+      ctx.beginPath(); ctx.arc(s.x-3, s.y-12, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x+3, s.y-12, 2.5, 0, Math.PI*2); ctx.fill();
     }
 
-    if (s.phase === 'warning') {
-      // Eerie glow around the sister
-      const warnGlow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 50);
-      warnGlow.addColorStop(0, `rgba(100,130,200,${alpha*0.15})`);
-      warnGlow.addColorStop(1, 'rgba(80,110,180,0)');
-      ctx.fillStyle = warnGlow;
-      ctx.beginPath(); ctx.arc(s.x, s.y, 50, 0, Math.PI*2); ctx.fill();
+    // Eerie glow during approach and warning
+    if (s.phase === 'approach' || s.phase === 'warning') {
+      const glowR = s.phase === 'warning' ? 55 : 35;
+      const glowA = s.phase === 'warning' ? 0.2 : 0.1;
+      const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
+      glow.addColorStop(0, `rgba(100,130,200,${glowA})`);
+      glow.addColorStop(1, 'rgba(80,110,180,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(s.x, s.y, glowR, 0, Math.PI*2); ctx.fill();
     }
+
+    // Wind gust lines — from sister toward Psyche
     if (s.phase === 'gust') {
-      // Wind gust lines — more visible
-      ctx.strokeStyle = `rgba(140,170,220,${Math.max(0,s.timer)*0.5})`;
+      const gustAlpha = Math.max(0, s.timer) * 0.6;
+      ctx.strokeStyle = `rgba(160,190,230,${gustAlpha})`;
       ctx.lineWidth = 2;
-      const dir = s.side==='left'?1:-1;
-      for (let g=0; g<8; g++) {
-        const gx = s.x + dir*(20+g*40);
-        const gy = s.gustY - 50 + g*14 + Math.sin(G.elapsed*12+g)*10;
-        ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+dir*40,gy+Math.sin(g)*6); ctx.stroke();
+      const dx = G.lampX - s.x;
+      const dy = G.lampY - s.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const nx = dx / dist, ny = dy / dist;
+      for (let g = 0; g < 8; g++) {
+        const startDist = 20 + g * 15;
+        const gx = s.x + nx * startDist + ny * (Math.sin(G.elapsed * 12 + g) * 10);
+        const gy = s.y + ny * startDist - nx * (Math.sin(G.elapsed * 12 + g) * 10);
+        ctx.beginPath();
+        ctx.moveTo(gx, gy);
+        ctx.lineTo(gx + nx * 30, gy + ny * 30);
+        ctx.stroke();
       }
     }
   });
