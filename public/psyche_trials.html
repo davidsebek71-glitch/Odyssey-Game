@@ -2762,10 +2762,10 @@ function update(dt) {
       G.bridgeStep++;
       G.bridgeTimer = 0;
       if (G.bridgeStep >= G.bridgeLines.length) {
-        // Bridge complete — move to next room
-        G.roomIdx++;
-        setupRoom(G.roomIdx);
-        if (G.phase !== 'bedchamber') G.phase = 'playing';
+        // Bridge complete — go to bedchamber (Eros reveal)
+        G.roomIdx = 2;
+        setupRoom(2);
+        // setupRoom(2) sets phase to 'bedchamber'
       }
     }
     return;
@@ -2899,28 +2899,16 @@ function update(dt) {
       G.puzzleSolved = true;
       spawnP(W/2, H/2, 15, '#ffd700');
 
-      // Narrative bridge before next room
-      if (G.roomIdx === 0) {
-        G.phase = 'bridge';
-        G.bridgeStep = 0;
-        G.bridgeTimer = 0;
-        G.bridgeLines = [
-          { icon: '✨', text: 'The mural glows. The story is in order.', pause: 2.5 },
-          { icon: '🚪', text: 'A hidden door grinds open behind the wall.', pause: 2.5 },
-          { icon: '🏛️', text: 'Beyond it — a deeper chamber. An altar stands in the shadows.', pause: 3 },
-          { icon: '⚠️', text: 'Your sisters\' whispers grow louder here. Be careful what you trust.', pause: 3 }
-        ];
-      } else if (G.roomIdx === 1) {
-        G.phase = 'bridge';
-        G.bridgeStep = 0;
-        G.bridgeTimer = 0;
-        G.bridgeLines = [
-          { icon: '✨', text: 'The altar accepts your offerings. The symbols illuminate.', pause: 2.5 },
-          { icon: '🚪', text: 'The final door opens — a private chamber.', pause: 2.5 },
-          { icon: '🤫', text: 'Someone is here. You can hear soft breathing.', pause: 2.5 },
-          { icon: '🪔', text: 'Your oil lamp flickers. Move closer to see the truth.', pause: 3 }
-        ];
-      }
+      // Bridge straight to bedchamber — skip Room 2
+      G.phase = 'bridge';
+      G.bridgeStep = 0;
+      G.bridgeTimer = 0;
+      G.bridgeLines = [
+        { icon: '✨', text: 'The mural glows. The story is in order.', pause: 2.5 },
+        { icon: '🚪', text: 'A hidden door grinds open behind the wall.', pause: 2.5 },
+        { icon: '🤫', text: 'Someone is here. You can hear soft breathing.', pause: 2.5 },
+        { icon: '🪔', text: 'Your oil lamp flickers. Move closer to see the truth.', pause: 3 }
+      ];
     }
   }
 }
