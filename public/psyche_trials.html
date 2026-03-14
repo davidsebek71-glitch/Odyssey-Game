@@ -2642,8 +2642,8 @@ function setupRoom(idx) {
 
   if (idx === 0) {
     // ROOM 1: Story Wall
-    G.sisterAttacksLeft = 1;
-    G.sisterTimer = 18 + Math.random() * 5;
+    G.sisterAttacksLeft = 3;
+    G.sisterTimer = 8 + Math.random() * 2;
     G.oil = Math.min(100, G.oil + 5);
 
     // Scatter story fragments — spread across floor, clear of inscription area (top-left)
@@ -2690,8 +2690,8 @@ function setupRoom(idx) {
   }
   else if (idx === 1) {
     // ROOM 2: Offering Altar
-    G.sisterAttacksLeft = 2;
-    G.sisterTimer = 14 + Math.random() * 5;
+    G.sisterAttacksLeft = 3;
+    G.sisterTimer = 10 + Math.random() * 4;
     G.oil = Math.min(85, G.oil + 5);
 
     const positions = [
@@ -2774,11 +2774,11 @@ function update(dt) {
 
   G.elapsed += dt;
 
-  // Lamp smoothing + floor bounds clamping — slow, cautious movement
+  // Lamp smoothing + floor bounds clamping — slow, cautious movement in darkness
   const clampedTX = Math.max(G.floorL, Math.min(G.floorR, G.lampTX));
   const clampedTY = Math.max(G.floorT, Math.min(G.floorB, G.lampTY));
-  G.lampX += (clampedTX - G.lampX) * 0.05;
-  G.lampY += (clampedTY - G.lampY) * 0.05;
+  G.lampX += (clampedTX - G.lampX) * 0.025;
+  G.lampY += (clampedTY - G.lampY) * 0.025;
 
   if (!G.lampOn) {
     G.lampOutTimer -= dt;
@@ -2849,20 +2849,17 @@ function update(dt) {
     if (G.sisterTimer <= 0) {
       spawnSister();
       G.sisterAttacksLeft--;
-      G.sisterTimer = 15 + Math.random() * 8;
+      G.sisterTimer = 10 + Math.random() * 5;
     }
   }
   G.sisters = G.sisters.filter(s => {
     s.timer -= dt;
     if (s.phase === 'warning' && s.timer <= 0) {
-      s.phase = 'gust'; s.timer = 0.8;
-      const inPath = s.side === 'left'
-        ? (G.lampX < W*0.5 && Math.abs(G.lampY - s.gustY) < 90)
-        : (G.lampX > W*0.5 && Math.abs(G.lampY - s.gustY) < 90);
-      if (inPath) {
-        G.lampOn = false; G.lampOutTimer = 3;
-        showFloat(G.lampX, G.lampY-20, '💨 Lamp blown out!', 'rgba(150,180,220,0.8)');
-      }
+      s.phase = 'gust'; s.timer = 1.2;
+      // Sister ALWAYS blows out the lamp — she targets Psyche directly
+      G.lampOn = false; G.lampOutTimer = 3.5;
+      showFloat(G.lampX, G.lampY-20, 'Lamp blown out!', 'rgba(150,180,220,0.9)');
+      shake();
     }
     return s.timer > -2;
   });
@@ -2902,7 +2899,8 @@ function update(dt) {
 
 function spawnSister() {
   const side = Math.random() > 0.5 ? 'left' : 'right';
-  const gustY = 150 + Math.random() * 250;
+  // Sister targets Psyche's current Y position
+  const gustY = G.lampY + (Math.random()-0.5) * 40;
   const whispers = [
     "He is hiding something...", "Why does he fear the light?",
     "What kind of husband hides?", "Your sisters know the truth...",
@@ -2910,7 +2908,7 @@ function spawnSister() {
   ];
   G.sisters.push({
     side, gustY, x: side==='left'?20:W-20, y: gustY,
-    phase: 'warning', timer: 2
+    phase: 'warning', timer: 3
   });
   const el = document.createElement('div');
   el.className = 'whisper-text';
