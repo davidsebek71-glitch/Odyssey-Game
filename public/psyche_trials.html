@@ -132,6 +132,7 @@ loadSprite('inscription_plaque','inscription_plaque.png');
 loadSprite('inscription_complete','inscription_complete.png');
 loadSprite('fragment_false_serpent','fragment_false_serpent.png');
 loadSprite('mural_slot','mural_slot.png');
+loadScene('underworld_bg','underworld_descent_bg.png');
 
 // ================================================================
 // SHARED HELPERS
@@ -2611,7 +2612,7 @@ function freshState() {
     falseCollected: 0,
     wrongPlacements: 0,
     // Bedchamber
-    bedReveal: 0, bedPhase: 0,
+    bedReveal: 0, bedPhase: 0, bedFlyTimer: 0,
     // UI state
     selectedItem: null,   // Index in inventory of currently selected item
     dragging: null,       // Legacy — kept for mouseup compat
@@ -3123,17 +3124,22 @@ function getSlotAt(mx, my) {
 // BEDCHAMBER
 // ============================================================
 function updateBedchamber(dt) {
-  const cx = W/2, cy = H/2 - 30;
+  const cx = W/2, cy = H/2 - 20;
   if (G.bedPhase === 0) {
     if (G.lampOn && Math.hypot(G.lampX-cx, G.lampY-cy) < 100) {
-      G.bedReveal += dt * 0.12;
+      G.bedReveal += dt * 0.15;
     }
     if (G.bedReveal >= 1) {
-      G.bedPhase = 1;
-      setTimeout(()=>{ G.bedPhase = 2; }, 2500);
-      setTimeout(()=>{ G.bedPhase = 3; }, 4500);
-      setTimeout(()=>{ G.phase = 'complete'; }, 7000);
+      G.bedPhase = 1;  // Eros revealed
+      setTimeout(()=>{ G.bedPhase = 2; }, 2000);   // Oil drips
+      setTimeout(()=>{ G.bedPhase = 3; G.bedFlyTimer = 0; }, 3500); // Eros wakes
+      setTimeout(()=>{ G.phase = 'complete'; }, 6000);
     }
+  }
+  // Animate Eros flying away
+  if (G.bedPhase === 3) {
+    if (!G.bedFlyTimer) G.bedFlyTimer = 0;
+    G.bedFlyTimer += dt;
   }
 }
 
@@ -3627,78 +3633,93 @@ function renderSisters() {
 function renderBedchamber() {
   const cx=W/2, cy=H/2-20, rev=G.bedReveal;
 
-  // Bed/couch — dark shape revealed by lamp
+  // Bed/couch
   ctx.fillStyle = `rgba(60,40,35,${0.3+rev*0.5})`;
-  rr(ctx, cx-80, cy-10, 160, 50, 8); ctx.fill();
-  // Bed frame details
+  rr(ctx, cx-90, cy+10, 180, 50, 8); ctx.fill();
   ctx.strokeStyle = `rgba(90,65,50,${rev*0.4})`; ctx.lineWidth = 2;
-  rr(ctx, cx-80, cy-10, 160, 50, 8); ctx.stroke();
-  // Pillow
+  rr(ctx, cx-90, cy+10, 180, 50, 8); ctx.stroke();
   ctx.fillStyle = `rgba(180,170,155,${rev*0.5})`;
-  ctx.beginPath(); ctx.ellipse(cx-50, cy+5, 25, 12, -0.2, 0, Math.PI*2); ctx.fill();
-  // Blanket drape
-  ctx.fillStyle = `rgba(100,60,80,${rev*0.4})`;
-  ctx.beginPath(); ctx.ellipse(cx+20, cy+20, 60, 15, 0.1, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx-55, cy+25, 28, 14, -0.2, 0, Math.PI*2); ctx.fill();
 
-  // Eros sleeping — revealed as lamp gets closer
-  if (rev > 0.15) {
-    const erosAlpha = Math.min(1, (rev - 0.15) * 2);
-    const erosSpr = sprites['eros_sleep'];
-    if (erosSpr) {
+  const erosSz = 100;
+
+  if (G.bedPhase < 3) {
+    // Eros sleeping — fades in as lamp approaches
+    if (rev > 0.1) {
+      const erosAlpha = Math.min(1, (rev - 0.1) * 1.8);
+      const erosSpr = sprites['eros_sleep'];
       ctx.globalAlpha = erosAlpha;
-      const sz = 80;
-      ctx.drawImage(erosSpr, cx - sz/2 + 5, cy - sz/2 - 5, sz, sz);
-      ctx.globalAlpha = 1;
-    } else {
-      // Fallback — sleeping figure shape
-      ctx.globalAlpha = erosAlpha;
-      ctx.fillStyle = '#e8ddd0';
-      ctx.beginPath(); ctx.ellipse(cx, cy, 30, 18, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#daa520';
-      ctx.beginPath(); ctx.arc(cx + 20, cy - 8, 10, 0, Math.PI*2); ctx.fill();
+      if (erosSpr) {
+        ctx.drawImage(erosSpr, cx - erosSz/2, cy - erosSz/2 - 5, erosSz, erosSz);
+      } else {
+        ctx.fillStyle = '#e8ddd0';
+        ctx.beginPath(); ctx.ellipse(cx, cy, 35, 20, 0, 0, Math.PI*2); ctx.fill();
+      }
       ctx.globalAlpha = 1;
     }
-  }
 
-  // Phase 1: Full reveal — Eros is clearly visible
-  if (G.bedPhase >= 1 && G.bedPhase < 3) {
-    // Golden glow around Eros
-    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 60);
-    glow.addColorStop(0, 'rgba(255,215,100,0.12)');
-    glow.addColorStop(1, 'rgba(255,200,80,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI*2); ctx.fill();
-  }
+    // Golden glow when fully revealed
+    if (G.bedPhase >= 1) {
+      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 70);
+      glow.addColorStop(0, 'rgba(255,215,100,0.15)');
+      glow.addColorStop(1, 'rgba(255,200,80,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(cx, cy, 70, 0, Math.PI*2); ctx.fill();
+    }
 
-  // Phase 3: Eros wakes and flies away — show flying sprite
-  if (G.bedPhase >= 3) {
-    const flyT = Math.min(1, (G.bedPhase === 3 ? 1 : 0));
-    const flyY = cy - flyT * 80;
+    // Oil drip flash
+    if (G.bedPhase === 2) {
+      // Drip particle
+      const dripY = cy - 40 + ((G.elapsed * 30) % 40);
+      ctx.fillStyle = 'rgba(255,200,80,0.6)';
+      ctx.beginPath(); ctx.arc(cx + 15, dripY, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+  } else {
+    // Phase 3: Eros FLIES AWAY — dramatic exit off the top of the screen
+    const flyT = G.bedFlyTimer || 0;
+    const flyProgress = Math.min(1, flyT / 2.0);  // 2 seconds to fly off
+    const ease = flyProgress * flyProgress;  // Accelerating
+
+    const flyX = cx + Math.sin(flyT * 3) * 30;  // Slight side-to-side
+    const flyY = cy - ease * (H + 100);  // Fly up and off screen
+    const flyAlpha = Math.max(0, 1 - flyProgress * 0.6);
+    const flySz = erosSz + flyProgress * 20;  // Gets slightly bigger as he flies toward camera
+
     const erosFly = sprites['eros_fly'];
-    if (erosFly) {
-      ctx.globalAlpha = Math.max(0, 1 - flyT * 0.5);
-      ctx.drawImage(erosFly, cx - 35, flyY - 35, 70, 70);
+    if (erosFly && flyAlpha > 0) {
+      ctx.globalAlpha = flyAlpha;
+      ctx.drawImage(erosFly, flyX - flySz/2, flyY - flySz/2, flySz, flySz);
       ctx.globalAlpha = 1;
+    }
+
+    // Golden trail particles
+    if (flyProgress < 0.8) {
+      for (let i = 0; i < 3; i++) {
+        const px = flyX + (Math.random()-0.5) * 30;
+        const py = flyY + 30 + Math.random() * 20;
+        ctx.fillStyle = `rgba(255,215,100,${0.3 * flyAlpha})`;
+        ctx.beginPath(); ctx.arc(px, py, 2 + Math.random()*2, 0, Math.PI*2); ctx.fill();
+      }
     }
   }
 
   // Text prompts
   ctx.textAlign = 'center';
   if (G.bedPhase === 0 && rev < 0.5) {
-    ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='italic 13px "Segoe UI"';
-    ctx.fillText('Move closer...', W/2, H-55);
+    ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('Move closer...', W/2, H-50);
   }
   if (G.bedPhase === 1) {
-    ctx.fillStyle='rgba(255,230,180,0.7)'; ctx.font='italic 14px "Segoe UI"';
-    ctx.fillText('It is... Eros. He sleeps peacefully.', W/2, H-70);
+    ctx.fillStyle='rgba(255,230,180,0.8)'; ctx.font='italic 15px "Segoe UI"';
+    ctx.fillText('It is... Eros. He sleeps peacefully.', W/2, H-60);
   }
-  if (G.bedPhase >= 2 && G.bedPhase < 3) {
-    ctx.fillStyle='rgba(255,200,100,0.8)'; ctx.font='italic 14px "Segoe UI"';
-    ctx.fillText('A drop of oil falls from the lamp...', W/2, H-70);
+  if (G.bedPhase === 2) {
+    ctx.fillStyle='rgba(255,200,100,0.9)'; ctx.font='italic 15px "Segoe UI"';
+    ctx.fillText('A drop of oil falls from the lamp...', W/2, H-60);
   }
   if (G.bedPhase >= 3) {
-    ctx.fillStyle='rgba(180,200,240,0.9)'; ctx.font='italic 14px "Segoe UI"';
-    ctx.fillText('Eros wakes. His eyes meet yours. He flies away.', W/2, H-50);
+    ctx.fillStyle='rgba(180,200,240,0.9)'; ctx.font='bold 16px "Segoe UI"';
+    ctx.fillText('Eros wakes. He flies away.', W/2, H-50);
   }
   ctx.textAlign = 'left';
 }
@@ -4266,47 +4287,52 @@ function render() {
   if (G.phase === 'cinematic') { renderCinematic(); return; }
 
   // === UNDERWORLD BACKGROUND ===
-  const depthRatio = Math.min(1, G.scroll / G.maxScroll);
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#060812');
-  bg.addColorStop(0.5, lerpC('#080a16', '#0a1210', depthRatio));
-  bg.addColorStop(1, lerpC('#0a0c18', '#081a0e', depthRatio));
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  const uwBg = sprites['underworld_bg'];
+  if (uwBg) {
+    // Tile the background vertically with scroll offset for parallax
+    const bgScrollY = (G.scroll * 0.3) % H;
+    ctx.drawImage(uwBg, 0, -bgScrollY, W, H);
+    ctx.drawImage(uwBg, 0, H - bgScrollY, W, H);
+  } else {
+    // Fallback gradient
+    const depthRatio = Math.min(1, G.scroll / G.maxScroll);
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#060812');
+    bg.addColorStop(0.5, lerpC('#080a16', '#0a1210', depthRatio));
+    bg.addColorStop(1, lerpC('#0a0c18', '#081a0e', depthRatio));
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  }
 
-  // Green underworld glow from below
-  const glowA = 0.05 + depthRatio * 0.1;
+  // Green underworld glow from below (always, on top of bg)
+  const depthRatio = Math.min(1, G.scroll / G.maxScroll);
+  const glowA = 0.04 + depthRatio * 0.08;
   const glow = ctx.createRadialGradient(W/2, H, 0, W/2, H, 300);
   glow.addColorStop(0, `rgba(0,80,40,${glowA})`);
   glow.addColorStop(1, 'rgba(0,60,30,0)');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
 
-  // === STAIRWAY ===
+  // === STAIRWAY PATH (gameplay boundary — invisible if bg is drawn) ===
   const pathL = G.pathCenter - G.pathWidth/2;
   const pathR = G.pathCenter + G.pathWidth/2;
 
-  // Path surface
-  ctx.fillStyle = '#12141e';
-  ctx.fillRect(pathL, 0, G.pathWidth, H);
-
-  // Step lines (scrolling)
-  ctx.strokeStyle = 'rgba(60,55,75,0.25)';
-  ctx.lineWidth = 1;
-  const stepOffset = (G.scroll * 0.5) % 25;
-  for (let y = stepOffset; y < H; y += 25) {
-    ctx.beginPath(); ctx.moveTo(pathL, y); ctx.lineTo(pathR, y); ctx.stroke();
-  }
-
-  // Walls
-  ctx.fillStyle = 'rgba(20,18,30,0.6)';
-  ctx.fillRect(0, 0, pathL, H);
-  ctx.fillRect(pathR, 0, W - pathR, H);
-
-  // Wall texture
-  ctx.strokeStyle = 'rgba(40,35,55,0.2)';
-  ctx.lineWidth = 1;
-  for (let y = stepOffset * 2; y < H; y += 40) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pathL, y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(pathR, y); ctx.lineTo(W, y); ctx.stroke();
+  if (!uwBg) {
+    // Only draw programmatic path if no background image
+    ctx.fillStyle = '#12141e';
+    ctx.fillRect(pathL, 0, G.pathWidth, H);
+    ctx.strokeStyle = 'rgba(60,55,75,0.25)'; ctx.lineWidth = 1;
+    const stepOffset = (G.scroll * 0.5) % 25;
+    for (let y = stepOffset; y < H; y += 25) {
+      ctx.beginPath(); ctx.moveTo(pathL, y); ctx.lineTo(pathR, y); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(20,18,30,0.6)';
+    ctx.fillRect(0, 0, pathL, H);
+    ctx.fillRect(pathR, 0, W - pathR, H);
+    ctx.strokeStyle = 'rgba(40,35,55,0.2)'; ctx.lineWidth = 1;
+    const stepOffset2 = (G.scroll * 0.5) % 40;
+    for (let y = stepOffset2; y < H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pathL, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pathR, y); ctx.lineTo(W, y); ctx.stroke();
+    }
   }
 
   // === SHADOW HANDS ===
@@ -4315,29 +4341,44 @@ function render() {
     if (screenY < -40 || screenY > H + 40) return;
     const hx = h.side === 'left' ? pathL : pathR;
     const dir = h.side === 'left' ? 1 : -1;
-    const alpha = h.phase === 'telegraph' ? 0.3 + Math.sin(G.elapsed*8)*0.15 : 0.65;
+    const alpha = h.phase === 'telegraph' ? 0.4 + Math.sin(G.elapsed*8)*0.15 : 0.75;
 
-    // Arm reaching from wall
-    ctx.fillStyle = `rgba(35,15,55,${alpha})`;
-    ctx.beginPath();
-    ctx.ellipse(hx + dir*h.extend*0.5, screenY, h.extend*0.5+5, 6, 0, 0, Math.PI*2);
-    ctx.fill();
-
-    // Fingers at the tip
-    for (let f = -1; f <= 1; f++) {
+    // Use ghostly_claw sprite
+    const clawSpr = sprites['hand'];
+    if (clawSpr) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      const sz = 48;
+      const tipX = hx + dir * h.extend;
+      if (dir < 0) {
+        ctx.translate(tipX, screenY);
+        ctx.scale(-1, 1);
+        ctx.drawImage(clawSpr, -sz/2, -sz/2, sz, sz);
+      } else {
+        ctx.drawImage(clawSpr, tipX - sz/2, screenY - sz/2, sz, sz);
+      }
+      ctx.restore();
+    } else {
+      // Programmatic fallback
+      ctx.fillStyle = `rgba(35,15,55,${alpha})`;
       ctx.beginPath();
-      ctx.ellipse(hx + dir*h.extend + dir*f*4, screenY + f*6, 8, 3.5, dir>0?0:Math.PI, 0, Math.PI*2);
+      ctx.ellipse(hx + dir*h.extend*0.5, screenY, h.extend*0.5+5, 6, 0, 0, Math.PI*2);
       ctx.fill();
+      for (let f = -1; f <= 1; f++) {
+        ctx.beginPath();
+        ctx.ellipse(hx + dir*h.extend + dir*f*4, screenY + f*6, 8, 3.5, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
     }
 
     // Purple glow
     ctx.fillStyle = `rgba(80,30,120,${alpha * 0.3})`;
-    ctx.beginPath(); ctx.arc(hx + dir*h.extend, screenY, 15, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx + dir*h.extend, screenY, 18, 0, Math.PI*2); ctx.fill();
 
     // Telegraph warning glow on wall
     if (h.phase === 'telegraph') {
-      ctx.fillStyle = `rgba(80,40,120,${0.15 + Math.sin(G.elapsed*6)*0.08})`;
-      ctx.beginPath(); ctx.arc(hx, screenY, 20, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(80,40,120,${0.2 + Math.sin(G.elapsed*6)*0.1})`;
+      ctx.beginPath(); ctx.arc(hx, screenY, 22, 0, Math.PI*2); ctx.fill();
     }
   });
 
@@ -4356,16 +4397,16 @@ function render() {
     ctx.fillStyle = tGlow;
     ctx.fillRect(t.x-35, screenY-35, 70, 70);
 
-    // Sprite or icon
+    // Sprite or icon — LARGE so it's visible
     const spr = t.data.sprite ? sprites[t.data.sprite] : null;
     if (spr) {
       ctx.globalAlpha = pulse;
-      ctx.drawImage(spr, t.x-18, screenY-18, 36, 36);
+      ctx.drawImage(spr, t.x-30, screenY-30, 60, 60);
       ctx.globalAlpha = 1;
     } else {
-      ctx.font = '24px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.font = '36px "Segoe UI"'; ctx.textAlign = 'center';
       ctx.globalAlpha = pulse;
-      ctx.fillText(t.data.icon, t.x, screenY + 7);
+      ctx.fillText(t.data.icon, t.x, screenY + 12);
       ctx.globalAlpha = 1;
     }
 
@@ -4433,7 +4474,7 @@ function renderPsyche() {
 
   const spr = sprites['psyche'];
   if (spr) {
-    ctx.drawImage(spr, G.px - 18, py - 28, 36, 44);
+    ctx.drawImage(spr, G.px - 30, py - 40, 60, 72);
   } else {
     // Programmatic
     ctx.fillStyle = '#e8ddd0';
@@ -4456,117 +4497,94 @@ function renderPsyche() {
 function renderEncounter() {
   const enc = G.currentEncounter;
 
+  // Full dark background
+  ctx.fillStyle = '#080a14';
+  ctx.fillRect(0, 0, W, H);
+
   if (enc.type === 'charon') {
-    // === RIVER STYX SCENE ===
-    // Dark water background
-    ctx.fillStyle = '#080c1a';
-    ctx.fillRect(0, 0, W, H);
-
-    // River
-    const riverGrad = ctx.createLinearGradient(0, H*0.4, 0, H);
+    // River Styx water
+    const riverGrad = ctx.createLinearGradient(0, H*0.5, 0, H);
     riverGrad.addColorStop(0, '#0a1428');
-    riverGrad.addColorStop(0.5, '#0c1830');
     riverGrad.addColorStop(1, '#081020');
-    ctx.fillStyle = riverGrad; ctx.fillRect(0, H*0.4, W, H*0.6);
-
-    // Water ripples
+    ctx.fillStyle = riverGrad; ctx.fillRect(0, H*0.5, W, H*0.5);
+    // Ripples
     ctx.strokeStyle = 'rgba(40,60,100,0.2)'; ctx.lineWidth = 1;
-    for (let r = 0; r < 8; r++) {
-      const ry = H*0.45 + r*25 + Math.sin(G.elapsed*1.5+r)*4;
+    for (let r = 0; r < 6; r++) {
+      const ry = H*0.55 + r*20 + Math.sin(G.elapsed*1.5+r)*4;
       ctx.beginPath(); ctx.moveTo(0, ry);
-      ctx.quadraticCurveTo(W*0.3, ry+Math.sin(G.elapsed*2+r)*6, W*0.6, ry);
-      ctx.quadraticCurveTo(W*0.8, ry-Math.sin(G.elapsed*2+r)*4, W, ry);
+      ctx.quadraticCurveTo(W*0.5, ry+Math.sin(G.elapsed*2+r)*6, W, ry);
       ctx.stroke();
     }
-
-    // Mist
-    for (let m = 0; m < 5; m++) {
-      ctx.fillStyle = `rgba(30,40,60,${0.05+Math.sin(G.elapsed+m)*0.02})`;
-      ctx.beginPath();
-      ctx.ellipse(100+m*140+Math.sin(G.elapsed*0.5+m)*20, H*0.38, 80, 20, 0, 0, Math.PI*2);
-      ctx.fill();
-    }
-
-    // Charon and boat
+    // Charon — BIG, centered
     const spr = sprites['charon'];
     if (spr) {
-      ctx.drawImage(spr, W/2-30, H*0.25-20, 60, 60);
-    } else {
-      // Boat
-      ctx.fillStyle = '#2a1e18';
-      ctx.beginPath();
-      ctx.moveTo(W/2-50, H*0.38); ctx.quadraticCurveTo(W/2, H*0.42, W/2+50, H*0.38);
-      ctx.lineTo(W/2+40, H*0.35); ctx.quadraticCurveTo(W/2, H*0.33, W/2-40, H*0.35);
-      ctx.closePath(); ctx.fill();
-      // Figure
-      ctx.fillStyle = '#1a1520';
-      ctx.beginPath(); ctx.ellipse(W/2, H*0.28, 12, 25, 0, 0, Math.PI*2); ctx.fill();
+      ctx.drawImage(spr, W/2 - 60, H*0.15, 120, 120);
     }
-
-    // Far bank
-    ctx.fillStyle = '#0a0e16';
-    ctx.fillRect(0, H*0.35, W, 8);
-
   } else {
-    // === CERBERUS CAVE SCENE ===
-    ctx.fillStyle = '#0a0810';
-    ctx.fillRect(0, 0, W, H);
-
-    // Cave walls
-    ctx.fillStyle = '#141018';
-    ctx.beginPath();
-    ctx.moveTo(0, 0); ctx.lineTo(150, 0); ctx.lineTo(100, H*0.4);
-    ctx.quadraticCurveTo(80, H*0.6, 0, H); ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(W, 0); ctx.lineTo(W-150, 0); ctx.lineTo(W-100, H*0.4);
-    ctx.quadraticCurveTo(W-80, H*0.6, W, H); ctx.closePath(); ctx.fill();
-
-    // Cave ceiling arch
+    // Cave for Cerberus
     ctx.fillStyle = '#0e0c14';
     ctx.beginPath();
-    ctx.moveTo(0, 0); ctx.quadraticCurveTo(W/2, 120, W, 0);
-    ctx.lineTo(W, 0); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
-
-    // Eerie green glow from behind Cerberus
-    const cGlow = ctx.createRadialGradient(W/2, H*0.4, 0, W/2, H*0.4, 150);
-    cGlow.addColorStop(0, 'rgba(0,60,30,0.12)');
+    ctx.moveTo(0,0); ctx.quadraticCurveTo(W/2, 100, W, 0);
+    ctx.lineTo(W,0); ctx.lineTo(0,0); ctx.closePath(); ctx.fill();
+    // Green glow
+    const cGlow = ctx.createRadialGradient(W/2, H*0.35, 0, W/2, H*0.35, 140);
+    cGlow.addColorStop(0, 'rgba(0,60,30,0.15)');
     cGlow.addColorStop(1, 'rgba(0,40,20,0)');
     ctx.fillStyle = cGlow; ctx.fillRect(0, 0, W, H);
-
-    // Cerberus
+    // Cerberus — BIG, centered
     const spr = sprites['cerberus'];
     if (spr) {
-      ctx.drawImage(spr, W/2-30, H*0.3-10, 60, 60);
-    } else {
-      // Three-headed silhouette
-      ctx.fillStyle = '#1a1218';
-      ctx.beginPath(); ctx.ellipse(W/2, H*0.38, 35, 22, 0, 0, Math.PI*2); ctx.fill();
-      for (let head = -1; head <= 1; head++) {
-        ctx.beginPath(); ctx.arc(W/2 + head*22, H*0.3, 10, 0, Math.PI*2); ctx.fill();
-        // Red eyes
-        ctx.fillStyle = '#cc2222';
-        ctx.beginPath(); ctx.arc(W/2 + head*22 + 3, H*0.3 - 2, 2, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#1a1218';
-      }
+      ctx.drawImage(spr, W/2 - 60, H*0.12, 120, 120);
     }
-
-    // Bones on ground
-    ctx.fillStyle = 'rgba(60,55,50,0.3)';
-    [[W/2-80,H*0.5],[W/2+60,H*0.52],[W/2-20,H*0.55]].forEach(([bx,by]) => {
-      ctx.beginPath(); ctx.ellipse(bx, by, 8, 2, Math.random(), 0, Math.PI*2); ctx.fill();
-    });
   }
 
-  // Prompt text (both encounters)
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  rr(ctx, W/2-180, H*0.6-10, 360, 70, 8); ctx.fill();
+  // === ENCOUNTER DIALOG BOX ===
+  const boxY = H * 0.48;
+  ctx.fillStyle = 'rgba(8,8,20,0.85)';
+  rr(ctx, 60, boxY, W-120, 180, 10); ctx.fill();
+  ctx.strokeStyle = 'rgba(200,180,140,0.3)'; ctx.lineWidth = 2;
+  rr(ctx, 60, boxY, W-120, 180, 10); ctx.stroke();
 
-  ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 16px "Segoe UI"'; ctx.textAlign = 'center';
-  ctx.fillText(enc.prompt, W/2, H*0.6 + 15);
-  ctx.fillStyle = '#c8b88a'; ctx.font = '15px "Segoe UI"';
-  ctx.fillText(enc.action, W/2, H*0.6 + 35);
-  ctx.fillStyle = 'rgba(255,215,100,0.5)'; ctx.font = '14px "Segoe UI"';
-  ctx.fillText('Click the correct item from your inventory (top-right) →', W/2, H*0.6 + 52);
+  // Prompt text
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 17px "Segoe UI"';
+  ctx.fillText(enc.prompt, W/2, boxY + 30);
+  ctx.fillStyle = '#c8b88a'; ctx.font = '14px "Segoe UI"';
+  ctx.fillText(enc.action, W/2, boxY + 52);
+
+  // === TWO LARGE ITEM CHOICE BUTTONS ===
+  const btnY = boxY + 75;
+  const btnW = 180, btnH = 70;
+  const gap = 30;
+
+  // COIN button (left)
+  const coinX = W/2 - btnW - gap/2;
+  const coinHover = G.coins > 0;
+  ctx.fillStyle = coinHover ? 'rgba(255,215,80,0.12)' : 'rgba(60,55,70,0.3)';
+  rr(ctx, coinX, btnY, btnW, btnH, 8); ctx.fill();
+  ctx.strokeStyle = coinHover ? 'rgba(255,215,100,0.5)' : 'rgba(80,75,90,0.3)';
+  ctx.lineWidth = 2;
+  rr(ctx, coinX, btnY, btnW, btnH, 8); ctx.stroke();
+  ctx.fillStyle = coinHover ? '#ffd700' : 'rgba(150,140,130,0.5)';
+  ctx.font = 'bold 28px "Segoe UI"';
+  ctx.fillText('🪙', coinX + btnW/2, btnY + 32);
+  ctx.font = 'bold 13px "Segoe UI"';
+  ctx.fillText(`Coin (${G.coins})`, coinX + btnW/2, btnY + 56);
+
+  // CAKE button (right)
+  const cakeX = W/2 + gap/2;
+  const cakeHover = G.cakes > 0;
+  ctx.fillStyle = cakeHover ? 'rgba(200,160,80,0.12)' : 'rgba(60,55,70,0.3)';
+  rr(ctx, cakeX, btnY, btnW, btnH, 8); ctx.fill();
+  ctx.strokeStyle = cakeHover ? 'rgba(200,170,100,0.5)' : 'rgba(80,75,90,0.3)';
+  ctx.lineWidth = 2;
+  rr(ctx, cakeX, btnY, btnW, btnH, 8); ctx.stroke();
+  ctx.fillStyle = cakeHover ? '#d4a040' : 'rgba(150,140,130,0.5)';
+  ctx.font = 'bold 28px "Segoe UI"';
+  ctx.fillText('🍰', cakeX + btnW/2, btnY + 32);
+  ctx.font = 'bold 13px "Segoe UI"';
+  ctx.fillText(`Barley Cake (${G.cakes})`, cakeX + btnW/2, btnY + 56);
+
   ctx.textAlign = 'left';
 }
 
@@ -4602,7 +4620,7 @@ function renderPersephoneScene() {
   // Persephone
   const spr = sprites['persephone'];
   if (spr) {
-    ctx.drawImage(spr, W/2-28, H*0.28, 56, 56);
+    ctx.drawImage(spr, W/2-60, H*0.18, 120, 120);
   } else {
     ctx.fillStyle = '#3a1848';
     ctx.beginPath(); ctx.ellipse(W/2, H*0.32, 15, 30, 0, 0, Math.PI*2); ctx.fill();
@@ -4637,10 +4655,10 @@ function renderPersephoneScene() {
     // Box appears with glow
     const boxPulse = 0.5 + Math.sin(G.elapsed*2)*0.3;
     ctx.fillStyle = `rgba(150,120,200,${boxPulse*0.2})`;
-    ctx.beginPath(); ctx.arc(W/2, H*0.62 + 55, 18, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(W/2, H*0.62 + 55, 35, 0, Math.PI*2); ctx.fill();
     const boxSpr = sprites['box'];
     if (boxSpr) {
-      ctx.drawImage(boxSpr, W/2-14, H*0.62 + 40, 28, 28);
+      ctx.drawImage(boxSpr, W/2-35, H*0.62 + 25, 70, 70);
     } else {
       ctx.fillStyle = '#2a1838';
       ctx.fillRect(W/2-10, H*0.62+45, 20, 16);
@@ -4930,8 +4948,14 @@ function renderComplete() {
         return;
       }
       if(G.phase==='encounter'){
-        if(x>W-112&&x<W-60&&y>14&&y<30&&G.coins>0){useItem('coin');return;}
-        if(x>W-112&&x<W-60&&y>30&&y<46&&G.cakes>0){useItem('cake');return;}
+        // Big centered choice buttons: coin on left, cake on right
+        const boxY = H * 0.48;
+        const btnY = boxY + 75;
+        const btnW = 180, btnH = 70, gap = 30;
+        const coinX = W/2 - btnW - gap/2;
+        const cakeX = W/2 + gap/2;
+        if(x>=coinX&&x<=coinX+btnW&&y>=btnY&&y<=btnY+btnH&&G.coins>0){useItem('coin');return;}
+        if(x>=cakeX&&x<=cakeX+btnW&&y>=btnY&&y<=btnY+btnH&&G.cakes>0){useItem('cake');return;}
         return;
       }
       if(G.phase==='boxChoice'){
