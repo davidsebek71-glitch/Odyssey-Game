@@ -2790,26 +2790,11 @@ function update(dt) {
   // Oil drain
   G.oil -= 1.85 * dt;
   if (G.oil <= 0) {
-    G.oil = 70;
-    // Return all placed slot items and inventory items back to the field
-    G.slots.forEach(s => {
-      if (s.placedItem) {
-        // Find the original item and un-pick it
-        const orig = G.items.find(it => it.data === s.placedItem || (it.data.id === s.placedItem.id && it.isReal));
-        if (orig) { orig.pickedUp = false; orig.discovered = false; orig.glow = 0; }
-        s.placedItem = null;
-      }
-      s.flash = 0; s.wrongFlash = 0;
-    });
-    G.inventory.forEach(invItem => {
-      const orig = G.items.find(it => it.data === invItem || (it.data.id === invItem.id && it.isReal));
-      if (orig) { orig.pickedUp = false; orig.discovered = false; orig.glow = 0; }
-    });
-    G.inventory = [];
-    // Also reset undiscovered items
-    G.items.forEach(it => { if (!it.pickedUp) { it.discovered = false; it.glow = 0; } });
-    G.dragging = null;
-    showFloat(W/2, H/2, '🛢️ Oil ran out! Room resets...', '#f97316');
+    G.oil = 60;
+    // Lamp flickers out briefly — but items stay collected
+    G.lampOn = false;
+    G.lampOutTimer = 2;
+    showFloat(W/2, H/2, 'Oil low! Lamp flickers...', '#f97316');
   }
 
   // Discover items
@@ -3097,11 +3082,17 @@ function placeItem(slotIdx) {
 }
 
 function getInventoryAt(mx, my) {
-  // Must match renderHUD inventory positions: ix = 14 + i*54 + 24, iy = 76
-  for (let i = 0; i < G.inventory.length; i++) {
-    const ix = 14 + i * 54 + 24;
-    const iy = 76;
-    if (Math.abs(mx - ix) < 26 && Math.abs(my - iy) < 22) return i;
+  // Matches renderHUD top-right inventory: sx = invX + 8 + i*(52+6), sy = invY + 20
+  const slotSz = 52, slotGap = 6;
+  const invCount = G.inventory.length;
+  if (invCount === 0) return -1;
+  const invTotalW = invCount * (slotSz + slotGap) + 16;
+  const invX = W - invTotalW - 6;
+  const invY = 6;
+  for (let i = 0; i < invCount; i++) {
+    const sx = invX + 8 + i * (slotSz + slotGap);
+    const sy = invY + 20;
+    if (mx >= sx && mx <= sx + slotSz && my >= sy && my <= sy + slotSz) return i;
   }
   return -1;
 }
@@ -3659,7 +3650,7 @@ function renderBedchamber() {
 }
 
 function renderHUD() {
-  // Oil meter
+  // Oil meter (top-left)
   ctx.fillStyle='rgba(0,0,0,0.7)'; rr(ctx,10,10,175,34,6); ctx.fill();
   const lampSpr = sprites['oil_lamp'];
   if (lampSpr) {
@@ -3668,54 +3659,87 @@ function renderHUD() {
     ctx.fillText('OIL',40,26);
   } else {
     ctx.fillStyle='rgba(200,180,140,0.6)'; ctx.font='bold 13px "Segoe UI"'; ctx.textAlign='left';
-    ctx.fillText('🛢️ OIL',18,28);
+    ctx.fillText('OIL',18,28);
   }
   ctx.fillStyle='rgba(255,255,255,0.08)'; rr(ctx,62,20,110,10,3); ctx.fill();
   const oilC = G.oil>50?'#ffd700':G.oil>25?'#f97316':'#ef4444';
   ctx.fillStyle=oilC; rr(ctx,62,20,Math.max(0,G.oil)*1.1,10,3); ctx.fill();
   ctx.strokeStyle='rgba(200,180,140,0.2)'; ctx.lineWidth=1; rr(ctx,62,20,110,10,3); ctx.stroke();
 
-  // Room title
-  const roomNames = ['The Hall — Story Wall','The Chamber — Altar','The Inner Chamber'];
-  ctx.fillStyle='rgba(0,0,0,0.55)'; rr(ctx,W/2-130,6,260,24,4); ctx.fill();
+  // Room title (top-center)
+  const roomNames = ['The Hall \u2014 Story Wall','The Chamber \u2014 Altar','The Inner Chamber'];
+  ctx.fillStyle='rgba(0,0,0,0.55)'; rr(ctx,W/2-120,6,240,24,4); ctx.fill();
   ctx.fillStyle='rgba(220,200,160,0.6)'; ctx.font='bold 12px "Segoe UI"'; ctx.textAlign='center';
   ctx.fillText(`Room ${G.roomIdx+1}: ${roomNames[G.roomIdx]||''}`, W/2, 22);
 
-  // Inventory bar
-  const invW = Math.max(90, G.inventory.length*56+24);
-  ctx.fillStyle='rgba(0,0,0,0.65)'; rr(ctx,5,46,invW,46,6); ctx.fill();
-  ctx.strokeStyle='rgba(60,55,80,0.3)'; ctx.lineWidth=1; rr(ctx,5,46,invW,46,6); ctx.stroke();
-  ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText(G.selectedItem !== null ? 'Click a slot to place ▼' : (G.inventory.length > 0 ? 'Click item, then click slot ▼' : 'Find items with lamp'), 12, 57);
+  // === INVENTORY (top-right corner) ===
+  const slotSz = 52;
+  const slotGap = 6;
+  const invCount = G.inventory.length;
+  const invTotalW = invCount > 0 ? invCount * (slotSz + slotGap) + 16 : 90;
+  const invX = W - invTotalW - 6;
+  const invY = 6;
+
+  ctx.fillStyle='rgba(0,0,0,0.75)'; rr(ctx, invX, invY, invTotalW, slotSz + 26, 6); ctx.fill();
+  ctx.strokeStyle='rgba(80,70,100,0.4)'; ctx.lineWidth=1; rr(ctx, invX, invY, invTotalW, slotSz + 26, 6); ctx.stroke();
+
+  ctx.font='bold 10px "Segoe UI"'; ctx.textAlign='center';
+  if (G.selectedItem !== null) {
+    ctx.fillStyle='rgba(255,215,100,0.8)';
+    ctx.fillText('Now click a slot to place \u25BC', invX + invTotalW/2, invY + 13);
+  } else if (invCount > 0) {
+    ctx.fillStyle='rgba(200,180,140,0.5)';
+    ctx.fillText('Click an item to select', invX + invTotalW/2, invY + 13);
+  } else {
+    ctx.fillStyle='rgba(200,180,140,0.35)';
+    ctx.fillText('Collected items', invX + invTotalW/2, invY + 13);
+  }
 
   G.inventory.forEach((item, i) => {
-    const ix = 14 + i*54 + 24;
-    const iy = 76;
-    const isSelected = (G.selectedItem === i);
+    const sx = invX + 8 + i * (slotSz + slotGap);
+    const sy = invY + 20;
+    const isSel = (G.selectedItem === i);
 
-    // Slot background — golden glow if selected
-    if (isSelected) {
-      ctx.fillStyle = 'rgba(255,210,80,0.25)';
-      rr(ctx, ix-24, iy-20, 48, 40, 4); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,215,100,0.7)'; ctx.lineWidth = 2;
-      rr(ctx, ix-24, iy-20, 48, 40, 4); ctx.stroke();
-    } else {
-      ctx.fillStyle = 'rgba(40,36,55,0.8)';
-      rr(ctx, ix-22, iy-18, 44, 36, 3); ctx.fill();
-      ctx.strokeStyle = 'rgba(200,180,140,0.25)'; ctx.lineWidth=1;
-      rr(ctx, ix-22, iy-18, 44, 36, 3); ctx.stroke();
+    if (isSel) {
+      ctx.fillStyle = 'rgba(255,210,80,0.3)';
+      rr(ctx, sx-3, sy-3, slotSz+6, slotSz+6, 5); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,215,100,0.85)'; ctx.lineWidth = 2.5;
+      rr(ctx, sx-3, sy-3, slotSz+6, slotSz+6, 5); ctx.stroke();
     }
 
+    ctx.fillStyle = 'rgba(30,26,45,0.85)';
+    rr(ctx, sx, sy, slotSz, slotSz, 4); ctx.fill();
+    ctx.strokeStyle = isSel ? 'rgba(255,215,100,0.6)' : 'rgba(100,90,120,0.4)';
+    ctx.lineWidth = 1.5;
+    rr(ctx, sx, sy, slotSz, slotSz, 4); ctx.stroke();
+
     const spr = item.spriteKey ? sprites[item.spriteKey] : null;
+    const icoSz = slotSz - 8;
     if (spr) {
-      ctx.drawImage(spr, ix - 14, iy - 14, 28, 28);
+      ctx.drawImage(spr, sx + 4, sy + 4, icoSz, icoSz);
     } else {
-      ctx.font = '22px "Segoe UI"'; ctx.textAlign = 'center';
-      ctx.fillText(item.icon, ix, iy + 7);
+      ctx.font = `${icoSz-2}px "Segoe UI"`; ctx.textAlign = 'center';
+      ctx.fillText(item.icon, sx + slotSz/2, sy + slotSz/2 + 12);
     }
   });
 
-  // Lives
+  // === SELECTED ITEM floating next to Psyche ===
+  if (G.selectedItem !== null && G.selectedItem < G.inventory.length) {
+    const sel = G.inventory[G.selectedItem];
+    const spr = sel.spriteKey ? sprites[sel.spriteKey] : null;
+    const fx = G.lampX + (G.facingRight !== false ? 32 : -32);
+    const fy = G.lampY - 28 + Math.sin(G.elapsed * 3) * 4;
+    ctx.fillStyle = 'rgba(255,215,100,0.2)';
+    ctx.beginPath(); ctx.arc(fx, fy, 20, 0, Math.PI*2); ctx.fill();
+    if (spr) {
+      ctx.drawImage(spr, fx - 16, fy - 16, 32, 32);
+    } else {
+      ctx.font = '24px "Segoe UI"'; ctx.textAlign = 'center';
+      ctx.fillText(sel.icon, fx, fy + 8);
+    }
+  }
+
+  // Lives (bottom-left)
   ctx.fillStyle='rgba(0,0,0,0.5)'; rr(ctx,10,H-32,145,22,6); ctx.fill();
   ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='11px "Segoe UI"'; ctx.textAlign='left';
   ctx.fillText(`${GAME.totalHearts} lives remaining (no heart loss)`,18,H-17);
