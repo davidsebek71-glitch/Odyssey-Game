@@ -2855,33 +2855,56 @@ function update(dt) {
   G.sisters = G.sisters.filter(s => {
     s.timer -= dt;
 
-    if (s.phase === 'approach') {
-      // Walk from wall edge toward Psyche
-      s.approachProgress += dt * 0.4;  // Takes ~2.5s to cross
-      const t = Math.min(1, s.approachProgress);
-      const ease = t * t * (3 - 2 * t);  // Smooth ease in-out
-      s.x = s.startX + (s.targetX - s.startX) * ease;
-      s.y = s.startY + (s.targetY - s.startY) * ease;
+    if (s.phase === 'chasing') {
+      // Chase Psyche in real-time
+      const dx = G.lampX - s.x;
+      const dy = G.lampY - s.y;
+      const dist = Math.hypot(dx, dy);
 
-      if (t >= 1) {
-        s.phase = 'warning';
-        s.timer = 1.5;  // Pause next to Psyche, visible in the light
+      if (dist > 3) {
+        s.x += (dx / dist) * s.speed;
+        s.y += (dy / dist) * s.speed;
+        // Face toward Psyche
+        s.side = dx > 0 ? 'left' : 'right';
+      }
+
+      // Close enough to blow out the lamp — within 45px
+      if (dist < 45) {
+        s.phase = 'blowing';
+        s.blowTimer = 1.2;
+        G.lampOn = false;
+        G.lampOutTimer = 4;
+        showFloat(G.lampX, G.lampY - 25, 'Lamp blown out!', 'rgba(150,180,220,0.9)');
+        shake();
+      }
+
+      // Give up after timer expires — retreat
+      if (s.timer <= 0) {
+        s.phase = 'retreating';
+        s.retreatStartX = s.x;
+        s.retreatStartY = s.y;
+        s.timer = 1.5;
       }
     }
-    else if (s.phase === 'warning' && s.timer <= 0) {
-      s.phase = 'gust'; s.timer = 1.5;
-      // Blow out the lamp
-      G.lampOn = false; G.lampOutTimer = 3.5;
-      showFloat(G.lampX, G.lampY-20, 'Lamp blown out!', 'rgba(150,180,220,0.9)');
-      shake();
+    else if (s.phase === 'blowing') {
+      // Pause next to Psyche while blowing
+      s.blowTimer -= dt;
+      if (s.blowTimer <= 0) {
+        s.phase = 'retreating';
+        s.retreatStartX = s.x;
+        s.retreatStartY = s.y;
+        s.timer = 1.5;
+      }
     }
-    else if (s.phase === 'gust') {
-      // Retreat back to wall
-      const retreatT = Math.min(1, (1.5 - s.timer) / 1.2);
-      s.x = s.targetX + (s.startX - s.targetX) * retreatT;
+    else if (s.phase === 'retreating') {
+      // Fade back toward the wall
+      const wallX = s.side === 'right' ? W + 30 : -30;
+      const retreatT = Math.min(1, (1.5 - s.timer) / 1.5);
+      s.x = s.retreatStartX + (wallX - s.retreatStartX) * retreatT;
+      if (s.timer <= 0) return false;  // Remove
     }
 
-    return s.timer > -2;
+    return true;
   });
 
   // Check puzzle solved
@@ -2919,10 +2942,8 @@ function update(dt) {
 
 function spawnSister() {
   const side = Math.random() > 0.5 ? 'left' : 'right';
-  const startX = side === 'left' ? 20 : W - 20;
-  // Target: just outside Psyche's lamp radius
-  const targetX = G.lampX + (side === 'left' ? -50 : 50);
-  const targetY = G.lampY + (Math.random()-0.5) * 30;
+  const startX = side === 'left' ? 30 : W - 30;
+  const startY = 150 + Math.random() * 250;
   const whispers = [
     "He is hiding something...", "Why does he fear the light?",
     "What kind of husband hides?", "Your sisters know the truth...",
@@ -2930,16 +2951,14 @@ function spawnSister() {
   ];
   G.sisters.push({
     side,
-    startX: startX,
-    startY: targetY,
     x: startX,
-    y: targetY,
-    targetX: targetX,
-    targetY: targetY,
-    gustY: targetY,
-    phase: 'approach',  // approach → warning → gust
-    timer: 2.5,         // time to walk in
-    approachProgress: 0
+    y: startY,
+    speed: 1.2,           // Pixels per frame — slower than Psyche so player can evade
+    phase: 'chasing',     // chasing → blowing → retreating
+    timer: 12,            // Give up after 12 seconds if she can't reach Psyche
+    blowTimer: 0,
+    retreatStartX: 0,
+    retreatStartY: 0
   });
   const el = document.createElement('div');
   el.className = 'whisper-text';
@@ -2947,7 +2966,7 @@ function spawnSister() {
   el.style.color = 'rgba(100,140,180,0.7)';
   el.style.left = side==='left' ? '30px' : '';
   el.style.right = side==='right' ? '30px' : '';
-  el.style.top = (Math.max(50, Math.min(H-80, targetY))-30)+'px';
+  el.style.top = (Math.max(50, Math.min(H-80, startY))-30)+'px';
   container.appendChild(el);
   setTimeout(()=>el.remove(), 4000);
 }
@@ -3531,67 +3550,69 @@ function renderSlots() {
 
 function renderSisters() {
   G.sisters.forEach(s => {
-    if (s.timer < -1 && s.phase === 'gust') return;
-
     let alpha;
-    if (s.phase === 'approach') {
-      alpha = Math.min(0.8, s.approachProgress * 1.5);
-    } else if (s.phase === 'warning') {
-      alpha = 0.8 + Math.sin(G.elapsed * 6) * 0.1;  // Pulsing at full visibility
+    if (s.phase === 'chasing') {
+      alpha = 0.8;
+    } else if (s.phase === 'blowing') {
+      alpha = 0.85 + Math.sin(G.elapsed * 8) * 0.1;
+    } else if (s.phase === 'retreating') {
+      alpha = Math.max(0, s.timer / 1.5) * 0.7;
     } else {
-      alpha = Math.max(0, s.timer * 0.6);
+      alpha = 0.5;
     }
 
-    // Draw sister sprite
+    // Sister sprite
     const spr = sprites['sister'];
+    const sz = 64;
+    const facingRight = s.side === 'left';  // She faces toward Psyche
+
     if (spr) {
       ctx.save();
       ctx.globalAlpha = alpha;
-      const sz = 64;
-      if (s.side === 'right') {
+      if (facingRight) {
+        ctx.drawImage(spr, s.x - sz/2, s.y - sz/2, sz, sz);
+      } else {
         ctx.translate(s.x, s.y - sz/2);
         ctx.scale(-1, 1);
         ctx.drawImage(spr, -sz/2, 0, sz, sz);
-      } else {
-        ctx.drawImage(spr, s.x - sz/2, s.y - sz/2, sz, sz);
       }
       ctx.restore();
     } else {
       // Programmatic fallback
-      ctx.fillStyle = `rgba(50,30,70,${alpha * 0.7})`;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = 'rgba(50,30,70,0.8)';
       ctx.beginPath(); ctx.ellipse(s.x, s.y, 14, 32, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = `rgba(120,150,200,${alpha * 0.5})`;
+      ctx.fillStyle = 'rgba(120,150,200,0.6)';
       ctx.beginPath(); ctx.arc(s.x-3, s.y-12, 2.5, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(s.x+3, s.y-12, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
     }
 
-    // Eerie glow during approach and warning
-    if (s.phase === 'approach' || s.phase === 'warning') {
-      const glowR = s.phase === 'warning' ? 55 : 35;
-      const glowA = s.phase === 'warning' ? 0.2 : 0.1;
-      const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
-      glow.addColorStop(0, `rgba(100,130,200,${glowA})`);
+    // Eerie glow trail while chasing
+    if (s.phase === 'chasing') {
+      const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 40);
+      glow.addColorStop(0, 'rgba(100,130,200,0.12)');
       glow.addColorStop(1, 'rgba(80,110,180,0)');
       ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(s.x, s.y, glowR, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s.x, s.y, 40, 0, Math.PI*2); ctx.fill();
     }
 
-    // Wind gust lines — from sister toward Psyche
-    if (s.phase === 'gust') {
-      const gustAlpha = Math.max(0, s.timer) * 0.6;
+    // Blow animation — wind lines from sister to lamp
+    if (s.phase === 'blowing') {
+      const gustAlpha = 0.5 + Math.sin(G.elapsed * 10) * 0.15;
       ctx.strokeStyle = `rgba(160,190,230,${gustAlpha})`;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       const dx = G.lampX - s.x;
       const dy = G.lampY - s.y;
       const dist = Math.hypot(dx, dy) || 1;
       const nx = dx / dist, ny = dy / dist;
-      for (let g = 0; g < 8; g++) {
-        const startDist = 20 + g * 15;
-        const gx = s.x + nx * startDist + ny * (Math.sin(G.elapsed * 12 + g) * 10);
-        const gy = s.y + ny * startDist - nx * (Math.sin(G.elapsed * 12 + g) * 10);
+      for (let g = 0; g < 6; g++) {
+        const offset = Math.sin(G.elapsed * 14 + g * 1.5) * 8;
+        const gx = s.x + nx * (10 + g * 8) + ny * offset;
+        const gy = s.y + ny * (10 + g * 8) - nx * offset;
         ctx.beginPath();
         ctx.moveTo(gx, gy);
-        ctx.lineTo(gx + nx * 30, gy + ny * 30);
+        ctx.lineTo(gx + nx * 20, gy + ny * 20);
         ctx.stroke();
       }
     }
