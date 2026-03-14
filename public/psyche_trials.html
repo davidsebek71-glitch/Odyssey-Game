@@ -130,6 +130,7 @@ loadSprite('fragment_lamp','fragment_lamp.png');
 loadSprite('fragment_betrayal','fragment_betrayal.png');
 loadSprite('inscription_plaque','inscription_plaque.png');
 loadSprite('inscription_complete','inscription_complete.png');
+loadSprite('fragment_false_serpent','fragment_false_serpent.png');
 loadSprite('mural_slot','mural_slot.png');
 
 // ================================================================
@@ -2553,8 +2554,8 @@ const STORY_FRAGMENTS = [
 
 // False fragments (sister lies) — look similar but don't belong
 const FALSE_FRAGMENTS = [
-  { id:'f0', icon:'🐍', title:'The Serpent', desc:'A monster lurks in the palace', color:'#5080a0', whisper:'He was always a monster...' },
-  { id:'f1', icon:'⛓️', title:'The Prison', desc:'Psyche was trapped against her will', color:'#5080a0', whisper:'You were never free...' }
+  { id:'f0', icon:'🐍', title:'The Serpent', desc:'A monster lurks in the palace', color:'#5080a0', whisper:'He was always a monster...', spriteKey:'fragment_false_serpent' },
+  { id:'f1', icon:'⛓️', title:'The Prison', desc:'Psyche was trapped against her will', color:'#5080a0', whisper:'You were never free...', spriteKey:'fragment_false_serpent' }
 ];
 
 // ============================================================
@@ -3048,11 +3049,11 @@ function placeItem(slotIdx) {
 }
 
 function getInventoryAt(mx, my) {
-  const invY = 52;
-  const invStartX = 10;
+  // Must match renderHUD inventory positions: ix = 14 + i*54 + 24, iy = 76
   for (let i = 0; i < G.inventory.length; i++) {
-    const ix = invStartX + i * 55 + 25;
-    if (Math.abs(mx - ix) < 25 && Math.abs(my - invY - 18) < 22) return i;
+    const ix = 14 + i * 54 + 24;
+    const iy = 76;
+    if (Math.abs(mx - ix) < 26 && Math.abs(my - iy) < 22) return i;
   }
   return -1;
 }
@@ -3060,7 +3061,7 @@ function getInventoryAt(mx, my) {
 function getSlotAt(mx, my) {
   for (let i = 0; i < G.slots.length; i++) {
     const s = G.slots[i];
-    if (Math.abs(mx - s.x) < 40 && Math.abs(my - s.y) < 35) return i;
+    if (Math.abs(mx - s.x) < 45 && Math.abs(my - s.y) < 38) return i;
   }
   return -1;
 }
