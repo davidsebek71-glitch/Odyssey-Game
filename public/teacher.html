@@ -2462,7 +2462,7 @@
                                     ⚡ ${alliance.display_points || alliance.total_points} pts
                                 </div>
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px;">
-                                    Members: ${alliance.member_names?.length > 0 ? alliance.member_names.join(', ') : 'None'}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
+                                    Members: ${Array.isArray(alliance.member_names) ? (alliance.member_names.length > 0 ? alliance.member_names.join(', ') : 'None') : (alliance.member_names || 'None')}${alliance.ghost_names?.length > 0 ? ', ' + alliance.ghost_names.map(n => '<span style="color: #ffffff;">👻 ' + n + '</span>').join(', ') : ''}
                                 </div>
                             </div>
                             <div style="display: flex; gap: 8px;">
