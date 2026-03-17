@@ -778,6 +778,49 @@ app.post('/api/teacher/disband-alliance', authenticateToken, (req, res) => {
   }
 });
 
+// Teacher: Remove an empty alliance (no real members, only ghosts or truly empty)
+app.post('/api/teacher/remove-empty-alliance', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const { alliance_id } = req.body;
+    if (!alliance_id) return res.status(400).json({ error: 'Missing alliance_id' });
+
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+
+    // Count real (non-ghost) members
+    const realCount = query(
+      'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+      [alliance_id]
+    )[0].count;
+
+    if (realCount > 0) {
+      return res.status(400).json({ error: `Cannot remove — alliance still has ${realCount} real member(s). Use Disband instead.` });
+    }
+
+    // Remove orphaned ghost students from this alliance
+    const ghostCount = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND is_ghost = 1', [alliance_id])[0].count;
+    if (ghostCount > 0) {
+      run('UPDATE students SET alliance_id = NULL WHERE alliance_id = ? AND is_ghost = 1', [alliance_id]);
+    }
+
+    // Clean up related data
+    try { run('DELETE FROM god_assignments WHERE alliance_id = ?', [alliance_id]); } catch(e) {}
+    try { run('DELETE FROM building_activations WHERE alliance_id = ?', [alliance_id]); } catch(e) {}
+    try { run("UPDATE alliance_invitations SET status = 'cancelled' WHERE alliance_id = ? AND status = 'pending'", [alliance_id]); } catch(e) {}
+
+    // Delete the alliance
+    run('DELETE FROM alliances WHERE alliance_id = ?', [alliance_id]);
+
+    saveDatabase();
+    console.log(`🗑️ Teacher removed empty alliance ${alliance_id} (${alliance.alliance_name}) — ${ghostCount} ghost(s) cleaned up`);
+    res.json({ success: true, message: `Removed empty alliance "${alliance.alliance_name}"${ghostCount > 0 ? ` (${ghostCount} ghost member(s) cleaned up)` : ''}.` });
+  } catch (err) {
+    console.error('Remove empty alliance error:', err);
+    res.status(500).json({ error: 'Failed to remove alliance' });
+  }
+});
+
 // Teacher: Recalculate alliance points from approved submissions
 // Useful for fixing point discrepancies or after reforming alliances
 app.post('/api/teacher/recalculate-alliance-points', authenticateToken, (req, res) => {
@@ -2396,7 +2439,7 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
     const allQuizAttempts = query('SELECT student_id, portal_id, passed FROM myth_quiz_attempts WHERE passed = 1');
     let allMythCompletions = [];
     try {
-      allMythCompletions = query('SELECT student_id, portal_id, teacher_approved FROM student_myth_completion WHERE teacher_approved = 1');
+      allMythCompletions = query('SELECT student_id, portal_id, teacher_approved, points_earned FROM student_myth_completion WHERE teacher_approved = 1');
     } catch (e) { /* table may not exist yet */ }
     
     // Calculate grades for each student - return BOTH ages for Classical students
@@ -2445,21 +2488,40 @@ app.get('/api/teacher/grade-overview', authenticateToken, (req, res) => {
           const portalId = idx + 1;
           const aliases = mythAliases[mythName] || [mythName];
           
-          // Reading guide points (comp_conn for this myth in classical section)
-          const guidePoints = studentRecords
-            .filter(r => r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a))
-            .reduce((sum, r) => sum + r.points_earned, 0);
+          // Reading guide: actual points from grade_records
+          const guideRecord = studentRecords.find(r => 
+            r.assignment_type === 'comp_conn' && r.section === 'classical' && aliases.some(a => r.myth_god === a)
+          );
+          const guidePoints = guideRecord ? guideRecord.points_earned : 0;
+          // Guide max from assignments_ref
+          const guideRef = classicalAssignments.find(a => 
+            a.assignment_type === 'comp_conn' && a.section === 'classical' && aliases.some(al => a.myth_god === al)
+          );
+          const guideMax = guideRef ? guideRef.max_points : 12;
           
-          // Quiz points (10 if passed)
-          const quizPassed = studentQuizzes.some(q => q.portal_id === portalId);
-          const quizPoints = quizPassed ? 10 : 0;
+          // Quiz: actual points from grade_records (not hardcoded 10)
+          const quizRecord = studentRecords.find(r => 
+            r.assignment_type === 'quiz' && r.section === 'classical' && aliases.some(a => r.myth_god === a)
+          );
+          const quizPoints = quizRecord ? quizRecord.points_earned : 0;
+          // Quiz max from assignments_ref
+          const quizRef = classicalAssignments.find(a => 
+            a.assignment_type === 'quiz' && a.section === 'classical' && aliases.some(al => a.myth_god === al)
+          );
+          const quizMax = quizRef ? quizRef.max_points : 10;
           
-          // Portal assignment points (15 if approved)
+          // Portal assignment: actual points from student_myth_completion
           const completion = studentCompletions.find(c => c.portal_id === portalId);
-          const portalPoints = completion ? 15 : 0;
+          const portalPoints = completion ? (completion.points_earned || 15) : 0;
+          // Portal max: use the highest creative assignment max for this myth
+          const creativeRef = classicalAssignments.filter(a => 
+            a.section === 'classical_creative' && aliases.some(al => a.myth_god === al)
+          );
+          const portalMax = creativeRef.length > 0 ? Math.max(...creativeRef.map(a => a.max_points)) : 15;
           
-          const earned = Math.min(guidePoints, 12) + quizPoints + portalPoints;
-          classicalMyths[mythName] = { earned, guide: Math.min(guidePoints, 12), quiz: quizPoints, portal: portalPoints };
+          const mythMax = guideMax + quizMax + portalMax;
+          const earned = guidePoints + quizPoints + portalPoints;
+          classicalMyths[mythName] = { earned, guide: guidePoints, quiz: quizPoints, portal: portalPoints, max: mythMax, guideMax, quizMax, portalMax };
         });
         
         const claBonus = studentRecords.filter(r => r.section === 'bonus' && r.age === 'Classical').reduce((sum, r) => sum + r.points_earned, 0);
@@ -2526,10 +2588,22 @@ app.put('/api/teacher/student/:student_id', authenticateToken, async (req, res) 
     run(`UPDATE students SET name = ?, class_period = ?, alliance_id = ? WHERE student_id = ?`, 
       [name.trim(), class_period, alliance_id || null, student_id]);
     
-    // Check if old alliance is now empty and delete it
+    // Check if old alliance is now empty (no real members) and clean it up
     if (oldAllianceId && (classChanged || allianceChanged)) {
-      const remainingMembers = query('SELECT COUNT(*) as count FROM students WHERE alliance_id = ?', [oldAllianceId])[0];
-      if (remainingMembers.count === 0) {
+      const remainingReal = query(
+        'SELECT COUNT(*) as count FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+        [oldAllianceId]
+      )[0];
+      if (remainingReal.count === 0) {
+        // Remove any orphaned ghost students from this alliance
+        const orphanedGhosts = query(
+          'SELECT student_id FROM students WHERE alliance_id = ? AND is_ghost = 1',
+          [oldAllianceId]
+        );
+        if (orphanedGhosts.length > 0) {
+          run('UPDATE students SET alliance_id = NULL WHERE alliance_id = ? AND is_ghost = 1', [oldAllianceId]);
+          console.log(`👻 Removed ${orphanedGhosts.length} orphaned ghost(s) from alliance ${oldAllianceId}`);
+        }
         run('DELETE FROM alliances WHERE alliance_id = ?', [oldAllianceId]);
         console.log(`🗑️ Deleted empty alliance ${oldAllianceId}`);
       }
@@ -8534,12 +8608,26 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       // Table may not exist yet
     }
 
+    // Alias map: myth_portals.myth_name → assignments_ref.myth_god values
+    // (portal names use '&' format, assignments_ref uses short/'and' format)
+    const portalMythAliases = {
+      'Pandora': ['Pandora'],
+      'Phaethon': ['Phaethon'],
+      'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
+      'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
+      'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
+      'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
+      'Constellations': ['Constellations']
+    };
+
     // Build enriched portal data
     const enrichedPortals = portals.map(portal => {
+      const aliases = portalMythAliases[portal.myth_name] || [portal.myth_name];
+
       // Check reading guide completion (comp_conn for this myth in classical section)
       const hasReadingGuide = gradeRecords.some(g => 
         g.assignment_type === 'comp_conn' && 
-        g.myth_god === portal.myth_name && 
+        aliases.includes(g.myth_god) && 
         g.section === 'classical' &&
         g.points_earned > 0
       );
@@ -8551,7 +8639,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       // Check creative work (legacy: word_cloud or mural for this myth)
       const hasCreative = gradeRecords.some(g => 
         (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && 
-        g.myth_god === portal.myth_name && 
+        aliases.includes(g.myth_god) && 
         g.section === 'classical_creative' &&
         g.points_earned > 0
       );
@@ -8566,7 +8654,7 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       // Get actual reading guide score from grade_records
       const guideGrade = gradeRecords.find(g => 
         g.assignment_type === 'comp_conn' && 
-        g.myth_god === portal.myth_name && 
+        aliases.includes(g.myth_god) && 
         g.section === 'classical'
       );
       const guideEarned = guideGrade ? guideGrade.points_earned : 0;
