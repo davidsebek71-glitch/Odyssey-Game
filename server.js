@@ -8636,9 +8636,9 @@ app.get('/api/student/myth-portals', authenticateToken, (req, res) => {
       const quizResult = quizAttempts.find(q => q.portal_id === portal.portal_id);
       const quizPassed = quizResult ? 1 : 0;
       
-      // Check creative work (legacy: word_cloud or mural for this myth)
+      // Check creative work (word_cloud, mural, creative, or cer for this myth)
       const hasCreative = gradeRecords.some(g => 
-        (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && 
+        (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural' || g.assignment_type === 'creative' || g.assignment_type === 'cer') && 
         aliases.includes(g.myth_god) && 
         g.section === 'classical_creative' &&
         g.points_earned > 0
@@ -8916,20 +8916,21 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
         const quizScore = quizPass ? quizPass.score : 0;
         const quizTotal = quizPass ? quizPass.total_questions : 10;
         
-        // Creative work (word_cloud or mural in classical_creative)
+        // Creative work (word_cloud, mural, creative, or cer in classical_creative)
         const creativeGrades = studentGrades.filter(g => 
-          (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural') && 
+          (g.assignment_type === 'word_cloud' || g.assignment_type === 'mural' || g.assignment_type === 'creative' || g.assignment_type === 'cer') && 
           g.section === 'classical_creative' && aliases.some(a => g.myth_god === a));
         const hasCreative = creativeGrades.length > 0;
         const creativeDetails = creativeGrades.map(g => ({
-          type: g.assignment_type === 'word_cloud' ? 'Word Cloud' : 'Pixton',
+          type: g.assignment_type === 'word_cloud' ? 'Word Cloud' : g.assignment_type === 'mural' ? 'Pixton' : g.assignment_type === 'cer' ? 'CER' : 'Creative',
           earned: g.points_earned || 0,
-          possible: g.ref_max_points || 12
+          possible: g.ref_max_points || 20
         }));
         
         // Virtue earned check (from student_myth_completion)
         const completion = completions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
         const virtueEarned = completion ? completion.virtue_claimed === 1 : false;
+        const assignmentApproved = completion ? completion.teacher_approved === 1 : false;
         
         return {
           portal_id: p.portal_id,
@@ -8943,8 +8944,10 @@ app.get('/api/teacher/myth-completion-overview', authenticateToken, (req, res) =
           quiz_score: quizScore,
           quiz_total: quizTotal,
           quiz_pct: quizTotal > 0 ? Math.round((quizScore / quizTotal) * 100) : 0,
-          has_creative: hasCreative,
+          has_creative: hasCreative || assignmentApproved,
           creative_details: creativeDetails,
+          assignment_approved: assignmentApproved,
+          assignment_points: completion ? (completion.points_earned || 0) : 0,
           virtue_earned: virtueEarned
         };
       });

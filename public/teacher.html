@@ -5160,6 +5160,8 @@
                                 const pct = c.possible > 0 ? Math.round((c.earned / c.possible) * 100) : 0;
                                 tipLines.push('🎨 ' + c.type + ': ' + c.earned + '/' + c.possible + ' (' + pct + '%)');
                             });
+                        } else if (myth.assignment_approved) {
+                            tipLines.push('🎨 Creative: ' + (myth.assignment_points || 0) + ' pts ✓ (approved)');
                         } else {
                             tipLines.push('🎨 Creative: —');
                         }
@@ -5170,6 +5172,10 @@
                             // All three areas complete — virtue earned
                             cellContent = '🌟';
                             cellBg = 'rgba(74,222,128,0.1)';
+                        } else if (myth.has_guide && myth.quiz_passed && myth.has_creative) {
+                            // All three done, virtue not yet claimed
+                            cellContent = '✅';
+                            cellBg = 'rgba(74,222,128,0.05)';
                         } else if (myth.has_guide && myth.quiz_passed) {
                             // Guide + quiz passed, missing creative
                             cellContent = '🟡';
