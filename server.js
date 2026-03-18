@@ -10012,6 +10012,84 @@ app.get('/api/diag/virtue-pipeline/:studentId', authenticateToken, (req, res) =>
   }
 });
 
+// DIAGNOSTIC: System-wide virtue audit — find ALL mismatches across all students
+app.get('/api/diag/virtue-audit', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  try {
+    const students = query('SELECT student_id, name, class_period FROM students ORDER BY class_period, name');
+    const portals = query('SELECT portal_id, myth_name, virtue_english FROM myth_portals ORDER BY portal_id');
+    const allCompletions = query('SELECT * FROM student_myth_completion');
+    const allQuizPasses = query('SELECT student_id, portal_id FROM myth_quiz_attempts WHERE passed = 1');
+    const allGrades = query(
+      `SELECT gr.student_id, gr.points_earned, ar.assignment_type, ar.section, ar.myth_god
+       FROM grade_records gr JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+       WHERE ar.section IN ('classical', 'classical_creative') AND gr.points_earned > 0`
+    );
+
+    // Alias map matching the dashboard logic
+    const portalAliases = {
+      'Pandora': ['Pandora'], 'Phaethon': ['Phaethon'],
+      'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
+      'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
+      'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
+      'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
+      'Constellations': ['Constellations']
+    };
+
+    const mismatches = [];
+    const stats = { total_students: students.length, total_checked: 0, virtues_ready: 0, missing_rows: 0, already_claimed: 0 };
+
+    students.forEach(s => {
+      portals.forEach(p => {
+        stats.total_checked++;
+        const aliases = portalAliases[p.myth_name] || [p.myth_name];
+
+        // Dashboard logic: virtueReady
+        const hasQuiz = allQuizPasses.some(q => q.student_id === s.student_id && q.portal_id === p.portal_id);
+        const hasGuide = allGrades.some(g => g.student_id === s.student_id && g.assignment_type === 'comp_conn' && g.section === 'classical' && aliases.includes(g.myth_god));
+        const hasCreative = allGrades.some(g => g.student_id === s.student_id && ['word_cloud','mural','creative','cer'].includes(g.assignment_type) && g.section === 'classical_creative' && aliases.includes(g.myth_god));
+
+        const completion = allCompletions.find(c => c.student_id === s.student_id && c.portal_id === p.portal_id);
+        const assignmentApproved = completion ? completion.teacher_approved === 1 : false;
+        const virtueClaimed = completion ? completion.virtue_claimed === 1 : false;
+
+        const dashboardReady = hasQuiz && hasGuide && (assignmentApproved || hasCreative) && !virtueClaimed;
+
+        if (virtueClaimed) stats.already_claimed++;
+        if (dashboardReady) stats.virtues_ready++;
+
+        // Check for mismatch: dashboard shows ready but myth_completion row is missing
+        if (dashboardReady && !assignmentApproved) {
+          stats.missing_rows++;
+          mismatches.push({
+            student: s.name,
+            period: s.class_period,
+            student_id: s.student_id,
+            myth: p.myth_name,
+            portal_id: p.portal_id,
+            issue: 'Dashboard shows virtue ready but student_myth_completion row is missing or not approved',
+            has_quiz: hasQuiz,
+            has_guide: hasGuide,
+            has_creative: hasCreative,
+            has_completion_row: !!completion,
+            note: 'Fix applied: claim-virtue endpoint will auto-create row when student clicks Claim'
+          });
+        }
+      });
+    });
+
+    res.json({
+      stats,
+      mismatches,
+      message: mismatches.length === 0 
+        ? 'All virtue pipelines are consistent — no mismatches found.' 
+        : `Found ${mismatches.length} mismatch(es). These students will see "Claim Your Virtue" and the claim WILL work thanks to the auto-recovery fix.`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // HEALTH CHECK
 // ====================
 
