@@ -8699,29 +8699,11 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
     const { portal_id } = req.body;
     if (!portal_id) return res.status(400).json({ error: 'Missing portal_id' });
     
-    // Check that teacher has approved
-    const completion = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
-    if (!completion.length || !completion[0].teacher_approved) {
-      return res.status(400).json({ error: 'Assignment not yet approved' });
-    }
-    if (completion[0].virtue_claimed) {
-      return res.status(400).json({ error: 'Virtue already claimed' });
-    }
-    
-    // Get portal data (needed for myth_name in guide check)
+    // Get portal data first (needed for all checks)
     const portal = query('SELECT * FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
     if (!portal) return res.status(404).json({ error: 'Portal not found' });
     
-    // Check quiz passed
-    const quizCheck = query(
-      'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
-      [student_id, portal_id]
-    );
-    if (!quizCheck.length) {
-      return res.status(400).json({ error: 'You must pass the quiz before claiming this virtue' });
-    }
-    
-    // Check reading guide completed
+    // Alias map for myth_god matching across tables
     const mythAliases = {
       'Pandora': ['Pandora'],
       'Phaethon': ['Phaethon'],
@@ -8733,6 +8715,17 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
     };
     const aliases = mythAliases[portal.myth_name] || [portal.myth_name];
     const placeholders = aliases.map(() => '?').join(',');
+    
+    // Check quiz passed
+    const quizCheck = query(
+      'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
+      [student_id, portal_id]
+    );
+    if (!quizCheck.length) {
+      return res.status(400).json({ error: 'You must pass the quiz before claiming this virtue' });
+    }
+    
+    // Check reading guide completed
     const guideCheck = query(
       `SELECT 1 FROM grade_records gr
        JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
@@ -8743,6 +8736,50 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
     );
     if (!guideCheck.length) {
       return res.status(400).json({ error: 'You must complete the Reading Guide before claiming this virtue' });
+    }
+    
+    // Check creative/CER assignment completed (grade record exists in classical_creative)
+    const creativeCheck = query(
+      `SELECT gr.points_earned, ar.assignment_type FROM grade_records gr
+       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+       WHERE gr.student_id = ? AND ar.section = 'classical_creative'
+       AND ar.assignment_type IN ('word_cloud', 'mural', 'creative', 'cer')
+       AND ar.myth_god IN (${placeholders})
+       AND gr.points_earned > 0 LIMIT 1`,
+      [student_id, ...aliases]
+    );
+    
+    // Check student_myth_completion row
+    let completion = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
+    
+    if (!completion.length || !completion[0].teacher_approved) {
+      // No myth_completion row — check if creative grade record exists as proof of completion
+      // (the bridge may have failed to create the row even though the assignment was approved)
+      if (creativeCheck.length) {
+        // All requirements verified via grade_records — auto-create the missing row
+        const path = (creativeCheck[0].assignment_type === 'cer') ? 'analytical' : 'creative';
+        const pts = creativeCheck[0].points_earned;
+        
+        if (completion.length) {
+          // Row exists but teacher_approved = 0 — update it
+          run(`UPDATE student_myth_completion SET assignment_path = ?, teacher_approved = 1, approved_at = CURRENT_TIMESTAMP, points_earned = ? WHERE student_id = ? AND portal_id = ?`,
+            [path, pts, student_id, portal_id]);
+        } else {
+          // No row at all — create it
+          run(`INSERT INTO student_myth_completion (student_id, portal_id, assignment_path, teacher_approved, approved_at, points_earned) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, ?)`,
+            [student_id, portal_id, path, pts]);
+        }
+        console.log(`🔧 Auto-created myth_completion for student ${student_id}, portal ${portal_id} (bridge recovery)`);
+        
+        // Re-fetch the row
+        completion = query('SELECT * FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portal_id]);
+      } else {
+        return res.status(400).json({ error: 'Assignment not yet approved' });
+      }
+    }
+    
+    if (completion[0].virtue_claimed) {
+      return res.status(400).json({ error: 'Virtue already claimed' });
     }
     
     // Mark virtue as claimed
