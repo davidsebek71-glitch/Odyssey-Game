@@ -1700,10 +1700,10 @@ function seedReferenceData() {
       const erosPassage = "Psyche\u2019s sisters returned to the palace a second time, their voices sweet but their intentions sharp. \u201cHave you seen your husband\u2019s face yet?\u201d they asked, knowing the answer. \u201cWhat kind of husband hides himself in darkness? Surely he must be a monster \u2014 why else would he forbid you from looking at him?\u201d Night after night, Psyche had lain beside someone who was gentle and kind, whose voice made her feel safe. But her sisters\u2019 words planted a seed she could not ignore. That evening, after Eros had fallen asleep, Psyche lit an oil lamp and held it above the bed. What she saw was no monster \u2014 it was the most beautiful face she had ever seen. A drop of hot oil fell from the lamp onto his shoulder, and Eros awoke. The look in his eyes was not anger. It was heartbreak.";
 
       const echoQuestions = [
-        [4, 'ECHO : VOICE :: SHADOW : ____________', 'Darkness', 'Light', 'Shape', 'Night', 'c', 'analogy', null, null],
-        [4, 'NARCISSUS : REFLECTION :: MOTH : ____________', 'Wings', 'Flame', 'Night', 'Cocoon', 'b', 'analogy', null, null],
-        [4, 'ECHO : REPETITION :: NARCISSUS : ____________', 'Beauty', 'Self-absorption', 'Strength', 'Wisdom', 'b', 'analogy', null, null],
-        [4, 'CURSE : PUNISHMENT :: VANITY : ____________', 'Beauty', 'Downfall', 'Mirror', 'Pride', 'b', 'analogy', null, null],
+        [4, 'ECHO : REPEAT :: NARCISSUS : ____________', 'Stare', 'Run', 'Speak', 'Hide', 'a', 'analogy', null, null],
+        [4, 'CURSED : BLESSED :: SILENCE : ____________', 'Loneliness', 'Speech', 'Sadness', 'Punishment', 'b', 'analogy', null, null],
+        [4, 'CURSE : SILENCE :: VANITY : ____________', 'Beauty', 'Kindness', 'Death', 'Strength', 'c', 'analogy', null, null],
+        [4, 'REFLECTION : POOL :: ECHO : ____________', 'Forest', 'Mountain', 'Cave', 'River', 'c', 'analogy', null, null],
         [4, 'Based on the passage, why does the author say Echo could only "catch the tail end of what others spoke"?', 'Echo was hard of hearing and missed the beginning of sentences', "Hera\u2019s curse took away Echo\u2019s ability to form her own words, leaving her only able to repeat", 'Echo was too shy to speak first in any conversation', 'The other nymphs spoke too quickly for Echo to understand', 'b', 'comprehension', echoPassage, 4],
         [4, 'The passage describes Echo as "a living mirror." This comparison most likely suggests that ____________.', 'Echo could only reflect back what Narcissus said, just as a mirror reflects an image', 'Echo was as beautiful as Narcissus', "Echo was made of glass by Hera\u2019s curse", 'Echo and Narcissus were exactly alike', 'a', 'comprehension', null, 4],
         [4, 'The author includes the detail about Hera saying "Since you love words so much, you shall keep them" to show that ____________.', 'Hera was generous and gave Echo a gift', "Hera\u2019s punishment was cruelly ironic, twisting Echo\u2019s greatest strength into her curse", 'Hera wanted Echo to become a better listener', "Hera was impressed by Echo\u2019s clever speaking", 'b', 'comprehension', null, 4],
@@ -1736,6 +1736,44 @@ function seedReferenceData() {
     }
   } catch (e) {
     console.log('Migration note: V95 quiz upgrade -', e.message);
+  }
+
+  // V96: Replace Echo & Narcissus analogies with simplified synonym/antonym/cause-effect/part-whole set
+  try {
+    // Detect by checking if old first analogy still exists
+    let colA = 'option_a', colB = 'option_b', colC = 'option_c', colD = 'option_d';
+    try {
+      const tableInfo = db.exec("PRAGMA table_info(myth_quiz_questions)");
+      const colNames = tableInfo[0] ? tableInfo[0].values.map(r => r[1]) : [];
+      if (colNames.includes('answer_a')) {
+        colA = 'answer_a'; colB = 'answer_b'; colC = 'answer_c'; colD = 'answer_d';
+      }
+    } catch(e) {}
+
+    const oldCheck = db.exec("SELECT COUNT(*) FROM myth_quiz_questions WHERE portal_id = 4 AND question_text LIKE '%ECHO : VOICE :: SHADOW%'");
+    const hasOld = oldCheck[0] ? oldCheck[0].values[0][0] : 0;
+
+    if (hasOld > 0) {
+      console.log('📝 V96: Replacing Echo analogy questions with simplified set...');
+      // Delete only the 4 old analogies
+      db.run("DELETE FROM myth_quiz_questions WHERE portal_id = 4 AND question_type = 'analogy'");
+
+      // Insert 4 new analogies
+      const newAnalogies = [
+        [4, 'ECHO : REPEAT :: NARCISSUS : ____________', 'Stare', 'Run', 'Speak', 'Hide', 'a', 'analogy', null, null],
+        [4, 'CURSED : BLESSED :: SILENCE : ____________', 'Loneliness', 'Speech', 'Sadness', 'Punishment', 'b', 'analogy', null, null],
+        [4, 'CURSE : SILENCE :: VANITY : ____________', 'Beauty', 'Kindness', 'Death', 'Strength', 'c', 'analogy', null, null],
+        [4, 'REFLECTION : POOL :: ECHO : ____________', 'Forest', 'Mountain', 'Cave', 'River', 'c', 'analogy', null, null],
+      ];
+      newAnalogies.forEach(q => {
+        db.run(`INSERT INTO myth_quiz_questions (portal_id, question_text, ${colA}, ${colB}, ${colC}, ${colD}, correct_answer, question_type, passage_text, passage_group) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, q);
+      });
+      console.log('\u2705 V96: Echo analogies replaced (4 questions)');
+    } else {
+      console.log('\u2705 V96: Echo analogies already updated');
+    }
+  } catch (e) {
+    console.log('Migration note: V96 Echo analogy update -', e.message);
   }
 
   // ==================== END MIGRATIONS ====================
