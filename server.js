@@ -9902,6 +9902,79 @@ app.get('/api/diag/battle-questions', authenticateToken, (req, res) => {
   }
 });
 
+// DIAGNOSTIC: Virtue claim pipeline for a specific student
+app.get('/api/diag/virtue-pipeline/:studentId', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  try {
+    const sid = parseInt(req.params.studentId);
+    const student = query('SELECT student_id, name, class_period FROM students WHERE student_id = ?', [sid])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // 1. All submissions for this student (with section, category, myth_god, status)
+    const submissions = query(
+      `SELECT submission_id, category, section, myth_god, points_claimed, max_points, status, submitted_at, reviewed_at
+       FROM point_submissions WHERE student_id = ? ORDER BY submitted_at DESC`, [sid]
+    );
+
+    // 2. All myth completion rows
+    const mythCompletions = query(
+      'SELECT * FROM student_myth_completion WHERE student_id = ?', [sid]
+    );
+
+    // 3. All classical grade records
+    const gradeRecords = query(
+      `SELECT gr.record_id, gr.assignment_id, gr.points_earned, gr.points_possible, gr.submission_id,
+              ar.section, ar.assignment_type, ar.myth_god, ar.display_name
+       FROM grade_records gr
+       JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+       WHERE gr.student_id = ? AND ar.section IN ('classical', 'classical_creative')
+       ORDER BY ar.myth_god, ar.assignment_type`, [sid]
+    );
+
+    // 4. Quiz attempts
+    const quizAttempts = query(
+      'SELECT portal_id, passed, score, percentage FROM myth_quiz_attempts WHERE student_id = ?', [sid]
+    );
+
+    // 5. Portal definitions for reference
+    const portals = query('SELECT portal_id, myth_name, virtue_english FROM myth_portals ORDER BY portal_id');
+
+    // Build per-portal summary
+    const portalSummary = portals.map(p => {
+      const completion = mythCompletions.find(mc => mc.portal_id === p.portal_id);
+      const quiz = quizAttempts.find(q => q.portal_id === p.portal_id && q.passed === 1);
+      const guide = gradeRecords.find(g => g.assignment_type === 'comp_conn' && g.section === 'classical' && g.myth_god === p.myth_name && g.points_earned > 0);
+      const creative = gradeRecords.filter(g => 
+        ['word_cloud', 'mural', 'creative', 'cer'].includes(g.assignment_type) && 
+        g.section === 'classical_creative' && g.myth_god === p.myth_name && g.points_earned > 0
+      );
+      const subs = submissions.filter(s => s.myth_god === p.myth_name);
+
+      return {
+        portal_id: p.portal_id,
+        myth_name: p.myth_name,
+        virtue: p.virtue_english,
+        has_quiz_pass: !!quiz,
+        has_reading_guide: !!guide,
+        guide_points: guide ? guide.points_earned : 0,
+        creative_grade_records: creative.map(c => ({ type: c.assignment_type, earned: c.points_earned, display: c.display_name })),
+        myth_completion_row: completion || 'MISSING',
+        teacher_approved: completion ? completion.teacher_approved : 'NO ROW',
+        virtue_claimed: completion ? completion.virtue_claimed : 'NO ROW',
+        submissions: subs.map(s => ({ id: s.submission_id, cat: s.category, section: s.section, status: s.status, pts: s.points_claimed }))
+      };
+    });
+
+    res.json({
+      student,
+      portal_summary: portalSummary,
+      raw: { submissions_count: submissions.length, myth_completions: mythCompletions, grade_records_classical: gradeRecords.length, quiz_attempts: quizAttempts }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // HEALTH CHECK
 // ====================
 
