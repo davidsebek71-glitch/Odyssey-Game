@@ -9184,18 +9184,24 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
           )[0];
           
           if (quizAssignment) {
-            // Check if grade record already exists
+            const pointsEarned = Math.round((correct / questions.length) * quizAssignment.max_points);
             const existingGrade = query(
-              'SELECT record_id FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+              'SELECT record_id, points_earned FROM grade_records WHERE student_id = ? AND assignment_id = ?',
               [req.user.id, quizAssignment.assignment_id]
             )[0];
-            
+
             if (!existingGrade) {
-              const pointsEarned = Math.round((correct / questions.length) * quizAssignment.max_points);
               run(`INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
                    VALUES (?, ?, ?, ?)`,
                 [req.user.id, quizAssignment.assignment_id, pointsEarned, quizAssignment.max_points]);
               console.log(`✅ Quiz grade recorded: ${portal.myth_name} - ${pointsEarned}/${quizAssignment.max_points}`);
+            } else if (pointsEarned > existingGrade.points_earned) {
+              // Retake with better score — update to best
+              run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
+                [pointsEarned, existingGrade.record_id]);
+              console.log(`✅ Quiz grade IMPROVED: ${portal.myth_name} - prev:${existingGrade.points_earned} new:${pointsEarned}/${quizAssignment.max_points}`);
+            } else {
+              console.log(`✅ Quiz grade KEPT: ${portal.myth_name} - prev:${existingGrade.points_earned} new:${pointsEarned}, keeping best`);
             }
           }
         }
@@ -9227,19 +9233,11 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
 
-    // Max 2 scoring attempts
+    // Track attempt count for logging (no hard cap — best score always wins)
     const attemptCount = query(
       'SELECT COUNT(*) as cnt FROM daedalus_game_results WHERE student_id = ?',
       [student_id]
     )[0]?.cnt || 0;
-
-    if (attemptCount >= 2) {
-      return res.json({ 
-        success: true, 
-        alreadyCompleted: true, 
-        message: 'Maximum attempts reached (2). No additional score recorded.' 
-      });
-    }
 
     const totalQuestions = questions.length;
     const firstAttemptCorrect = questions.filter(q => q.isCorrect && q.firstAttempt).length;
@@ -9297,11 +9295,16 @@ app.post('/api/student/daedalus-complete', authenticateToken, (req, res) => {
           )[0];
 
           if (existingGrade) {
-            // Second attempt: average with first, round up
-            gradePointsEarned = Math.ceil((existingGrade.points_earned + thisAttemptScore) / 2);
-            run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
-              [gradePointsEarned, existingGrade.record_id]);
-            console.log(`✅ Daedalus grade AVERAGED: ${student.name} - attempt1:${existingGrade.points_earned} attempt2:${thisAttemptScore} avg:${gradePointsEarned}/${quizAssignment.max_points}`);
+            // Subsequent attempt: keep best score (mastery = credit)
+            if (thisAttemptScore > existingGrade.points_earned) {
+              gradePointsEarned = thisAttemptScore;
+              run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
+                [gradePointsEarned, existingGrade.record_id]);
+              console.log(`✅ Daedalus grade IMPROVED: ${student.name} - prev:${existingGrade.points_earned} new:${thisAttemptScore}/${quizAssignment.max_points}`);
+            } else {
+              gradePointsEarned = existingGrade.points_earned;
+              console.log(`✅ Daedalus grade KEPT: ${student.name} - prev:${existingGrade.points_earned} new:${thisAttemptScore}, keeping best`);
+            }
           } else {
             gradePointsEarned = thisAttemptScore;
             run(
@@ -9372,19 +9375,11 @@ app.post('/api/student/psyche-complete', authenticateToken, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
 
-    // Max 2 scoring attempts
+    // Track attempt count for logging (no hard cap — best score always wins)
     const attemptCount = query(
       'SELECT COUNT(*) as cnt FROM psyche_game_results WHERE student_id = ?',
       [student_id]
     )[0]?.cnt || 0;
-
-    if (attemptCount >= 2) {
-      return res.json({ 
-        success: true, 
-        alreadyCompleted: true, 
-        message: 'Maximum attempts reached (2). No additional score recorded.' 
-      });
-    }
 
     // Calculate score from virtue ratings
     const ratingScores = { 'Excellent': 100, 'Good': 75, 'Fair': 50, 'Needs Work': 25 };
@@ -9444,10 +9439,16 @@ app.post('/api/student/psyche-complete', authenticateToken, (req, res) => {
           )[0];
 
           if (existingGrade) {
-            gradePointsEarned = Math.ceil((existingGrade.points_earned + thisAttemptScore) / 2);
-            run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
-              [gradePointsEarned, existingGrade.record_id]);
-            console.log(`✅ Psyche grade AVERAGED: ${student.name} - attempt1:${existingGrade.points_earned} attempt2:${thisAttemptScore} avg:${gradePointsEarned}/${quizAssignment.max_points}`);
+            // Subsequent attempt: keep best score (mastery = credit)
+            if (thisAttemptScore > existingGrade.points_earned) {
+              gradePointsEarned = thisAttemptScore;
+              run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
+                [gradePointsEarned, existingGrade.record_id]);
+              console.log(`✅ Psyche grade IMPROVED: ${student.name} - prev:${existingGrade.points_earned} new:${thisAttemptScore}/${quizAssignment.max_points}`);
+            } else {
+              gradePointsEarned = existingGrade.points_earned;
+              console.log(`✅ Psyche grade KEPT: ${student.name} - prev:${existingGrade.points_earned} new:${thisAttemptScore}, keeping best`);
+            }
           } else {
             gradePointsEarned = thisAttemptScore;
             run(
@@ -11215,6 +11216,116 @@ app.get('/api/trade/market/my-bids', authenticateToken, (req, res) => {
 
 // Start server
 // --- Admin: Diagnose and repair buildings_owned from building_activations ---
+// ================================================================
+// ONE-TIME MIGRATION: Fix quiz grades to best score across all students
+// POST /api/admin/fix-quiz-best-scores?dry_run=true  (preview)
+// POST /api/admin/fix-quiz-best-scores               (apply fixes)
+// ================================================================
+app.post('/api/admin/fix-quiz-best-scores', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const dryRun = req.query.dry_run === 'true';
+    const report = [];
+    let fixCount = 0;
+
+    // ── Portal myth_name → assignments_ref myth_god mapping ──
+    const mythGodMap = {
+      'Pandora':          'Pandora',
+      'Phaethon':         'Phaethon',
+      'Orpheus & Eurydice': 'Orpheus',
+      'Echo & Narcissus': 'Echo and Narcissus',
+      'Icarus & Daedalus': 'Icarus',
+      'Eros & Psyche':    'Eros and Psyche',
+      'Constellations':   'Constellations'
+    };
+
+    const portals = query('SELECT portal_id, myth_name FROM myth_portals ORDER BY portal_id');
+    const students = query('SELECT student_id, name FROM students WHERE is_active = 1 OR is_active IS NULL');
+
+    students.forEach(student => {
+      portals.forEach(portal => {
+        const mythGod = mythGodMap[portal.myth_name] || portal.myth_name;
+
+        // Find the quiz assignment record for this myth
+        const quizAssignment = query(
+          "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?",
+          [mythGod]
+        )[0];
+        if (!quizAssignment) return;
+
+        // Get the student's best passing attempt percentage for this portal
+        const bestAttempt = query(
+          `SELECT MAX(percentage) as best_pct, MAX(score) as best_score, MAX(total_questions) as total_q
+           FROM myth_quiz_attempts
+           WHERE student_id = ? AND portal_id = ? AND passed = 1`,
+          [student.student_id, portal.portal_id]
+        )[0];
+
+        if (!bestAttempt || bestAttempt.best_pct === null) return; // never passed
+
+        const bestPointsEarned = Math.round((bestAttempt.best_score / bestAttempt.total_q) * quizAssignment.max_points);
+
+        // Check existing grade record
+        const existingGrade = query(
+          'SELECT record_id, points_earned FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+          [student.student_id, quizAssignment.assignment_id]
+        )[0];
+
+        if (!existingGrade) {
+          // No grade recorded at all despite a passing attempt — insert it
+          report.push({
+            student: student.name,
+            myth: portal.myth_name,
+            action: 'INSERT',
+            old_points: null,
+            new_points: bestPointsEarned,
+            max_points: quizAssignment.max_points
+          });
+          if (!dryRun) {
+            run(
+              'INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible) VALUES (?, ?, ?, ?)',
+              [student.student_id, quizAssignment.assignment_id, bestPointsEarned, quizAssignment.max_points]
+            );
+          }
+          fixCount++;
+        } else if (bestPointsEarned > existingGrade.points_earned) {
+          // Grade exists but best attempt is higher — update it
+          report.push({
+            student: student.name,
+            myth: portal.myth_name,
+            action: 'UPDATE',
+            old_points: existingGrade.points_earned,
+            new_points: bestPointsEarned,
+            max_points: quizAssignment.max_points
+          });
+          if (!dryRun) {
+            run(
+              'UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
+              [bestPointsEarned, existingGrade.record_id]
+            );
+          }
+          fixCount++;
+        }
+      });
+    });
+
+    if (!dryRun && fixCount > 0) saveDatabase();
+
+    res.json({
+      dry_run: dryRun,
+      fixes_found: fixCount,
+      message: dryRun
+        ? `Dry run complete. ${fixCount} grade record(s) would be updated. POST without ?dry_run=true to apply.`
+        : `Migration complete. ${fixCount} grade record(s) updated to best score.`,
+      details: report
+    });
+
+  } catch (err) {
+    console.error('fix-quiz-best-scores error:', err);
+    res.status(500).json({ error: 'Migration failed', details: err.message });
+  }
+});
+
 app.get('/api/admin/repair-buildings', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
   try {
