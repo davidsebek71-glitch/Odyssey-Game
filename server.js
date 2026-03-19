@@ -11309,15 +11309,74 @@ app.post('/api/admin/fix-quiz-best-scores', authenticateToken, (req, res) => {
       });
     });
 
-    if (!dryRun && fixCount > 0) saveDatabase();
+    // ── Fix passed=0 in myth_quiz_attempts for Daedalus (portal 5) ──
+    // Students who completed the game but whose attempts were all recorded as passed=0
+    // (due to first-attempt scoring < 80%) should have passed=1 if they ever completed the game
+    let passFixes = 0;
+    const passFixReport = [];
+
+    // Portal 5: Daedalus — any student with a completed daedalus_game_results entry
+    const daedalusCompletions = query(
+      'SELECT DISTINCT student_id FROM daedalus_game_results WHERE completed = 1'
+    );
+    daedalusCompletions.forEach(row => {
+      const hasPassed = query(
+        'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 5 AND passed = 1 LIMIT 1',
+        [row.student_id]
+      )[0];
+      if (!hasPassed) {
+        const student = students.find(s => s.student_id === row.student_id);
+        passFixReport.push({ student: student ? student.name : row.student_id, portal: 'Icarus & Daedalus', action: 'SET passed=1' });
+        if (!dryRun) {
+          // Insert a passed=1 record so the side quest unlock check finds it
+          run(
+            `INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at)
+             SELECT student_id, portal_id, score, total_questions, MAX(percentage), 1, CURRENT_TIMESTAMP
+             FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 5
+             GROUP BY student_id`,
+            [row.student_id]
+          );
+        }
+        passFixes++;
+      }
+    });
+
+    // Portal 6: Psyche — same logic
+    const psycheCompletions = query(
+      'SELECT DISTINCT student_id FROM psyche_game_results WHERE completed_at IS NOT NULL'
+    );
+    psycheCompletions.forEach(row => {
+      const hasPassed = query(
+        'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 6 AND passed = 1 LIMIT 1',
+        [row.student_id]
+      )[0];
+      if (!hasPassed) {
+        const student = students.find(s => s.student_id === row.student_id);
+        passFixReport.push({ student: student ? student.name : row.student_id, portal: 'Eros & Psyche', action: 'SET passed=1' });
+        if (!dryRun) {
+          run(
+            `INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at)
+             SELECT student_id, portal_id, score, total_questions, MAX(percentage), 1, CURRENT_TIMESTAMP
+             FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 6
+             GROUP BY student_id`,
+            [row.student_id]
+          );
+        }
+        passFixes++;
+      }
+    });
+
+    if (!dryRun && (fixCount > 0 || passFixes > 0)) saveDatabase();
 
     res.json({
       dry_run: dryRun,
-      fixes_found: fixCount,
+      grade_fixes: fixCount,
+      pass_fixes: passFixes,
       message: dryRun
-        ? `Dry run complete. ${fixCount} grade record(s) would be updated. POST without ?dry_run=true to apply.`
-        : `Migration complete. ${fixCount} grade record(s) updated to best score.`,
-      details: report
+        ? `Dry run: ${fixCount} grade record(s) and ${passFixes} quiz pass flag(s) would be updated.`
+        : `Migration complete. ${fixCount} grade record(s) and ${passFixes} quiz pass flag(s) updated.`,
+      grade_details: report,
+      pass_details: passFixReport
     });
 
   } catch (err) {
