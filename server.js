@@ -11240,7 +11240,7 @@ app.post('/api/admin/fix-quiz-best-scores', authenticateToken, (req, res) => {
     };
 
     const portals = query('SELECT portal_id, myth_name FROM myth_portals ORDER BY portal_id');
-    const students = query('SELECT student_id, name FROM students WHERE is_active = 1 OR is_active IS NULL');
+    const students = query('SELECT student_id, name FROM students');
 
     students.forEach(student => {
       portals.forEach(portal => {
