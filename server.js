@@ -25,6 +25,46 @@ let dbReady = false;
 initDatabase().then(() => {
   dbReady = true;
   console.log('✅ Database initialized');
+
+  // V97 backfill: unlock game quests for students who already passed the quizzes
+  // before this feature was deployed. Safe to re-run — INSERT OR IGNORE skips existing rows.
+  try {
+    const triggerMap = [
+      { portal_id: 3, trigger_ref: 'Orpheus Quiz' },
+      { portal_id: 4, trigger_ref: 'Echo and Narcissus Quiz' },
+      { portal_id: 6, trigger_ref: 'Eros and Psyche Quiz' }
+    ];
+    let backfilled = 0;
+    triggerMap.forEach(({ portal_id, trigger_ref }) => {
+      const quest = query(
+        "SELECT quest_id FROM side_quests_ref WHERE quest_type = 'game_link' AND unlock_trigger_ref = ?",
+        [trigger_ref]
+      )[0];
+      if (!quest) return;
+      // Find all students who have ever passed this quiz
+      const passedStudents = query(
+        'SELECT DISTINCT student_id FROM myth_quiz_attempts WHERE portal_id = ? AND passed = 1',
+        [portal_id]
+      );
+      passedStudents.forEach(({ student_id }) => {
+        run(
+          `INSERT OR IGNORE INTO side_quest_availability (student_id, quest_id, status, unlocked_at)
+           VALUES (?, ?, 'available', ?)`,
+          [student_id, quest.quest_id, Math.floor(Date.now() / 1000)]
+        );
+        backfilled++;
+      });
+    });
+    if (backfilled > 0) {
+      saveDatabase();
+      console.log(`🔓 V97 backfill: unlocked game quests for ${backfilled} existing quiz passes`);
+    } else {
+      console.log('✅ V97 backfill: no existing quiz passes to backfill');
+    }
+  } catch (backfillErr) {
+    console.error('V97 backfill error (non-fatal):', backfillErr.message);
+  }
+
 }).catch(err => {
   console.error('❌ Database initialization failed:', err);
   process.exit(1);
@@ -9210,6 +9250,40 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
       }
     }
     
+    // Auto-unlock game-type side quest if this portal has one and student passed at 80%+
+    if (passed && [3, 4, 6].includes(parseInt(portal_id))) {
+      try {
+        const portalForUnlock = query('SELECT myth_name FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
+        if (portalForUnlock) {
+          // Map portal myth_name to assignments_ref myth_god naming used in unlock_trigger_ref
+          const triggerNameMap = {
+            'Orpheus':          'Orpheus Quiz',
+            'Echo and Narcissus': 'Echo and Narcissus Quiz',
+            'Eros and Psyche':  'Eros and Psyche Quiz'
+          };
+          const triggerName = triggerNameMap[portalForUnlock.myth_name];
+          if (triggerName) {
+            const quest = query(
+              "SELECT quest_id FROM side_quests_ref WHERE quest_type = 'game_link' AND unlock_trigger_ref = ?",
+              [triggerName]
+            )[0];
+            if (quest) {
+              // INSERT OR IGNORE — safe on retakes, won't overwrite if already unlocked/completed
+              db.run(
+                `INSERT OR IGNORE INTO side_quest_availability (student_id, quest_id, status, unlocked_at)
+                 VALUES (?, ?, 'available', ?)`,
+                [req.user.id, quest.quest_id, Math.floor(Date.now() / 1000)]
+              );
+              console.log(`🔓 Game quest unlocked: student ${req.user.id} → quest ${quest.quest_id} (${triggerName})`);
+            }
+          }
+        }
+      } catch (unlockErr) {
+        // Non-fatal — quiz grade was already recorded successfully
+        console.error('Game quest unlock error:', unlockErr.message);
+      }
+    }
+
     saveDatabase();
     
     res.json({ score, correct, total: questions.length, passed, results });
@@ -9463,23 +9537,10 @@ app.post('/api/student/psyche-complete', authenticateToken, (req, res) => {
         console.error('Psyche grade recording error:', gradeErr.message);
       }
 
-      // Award alliance points if passed
-      if (passed) {
-        alliancePointsAwarded = correctCount + (starRating || 0);
-        if (alliancePointsAwarded > 0) {
-          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
-            [alliancePointsAwarded, student.alliance_id]);
-          run(
-            `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
-             VALUES (?, ?, ?, 'quiz', ?)`,
-            [student.alliance_id, student_id, alliancePointsAwarded, `Trials of Psyche — ${percentage}%, ${starRating} stars`]
-          );
-        }
-      }
     }
 
     saveDatabase();
-    console.log(`💘 Psyche: ${student.name} — ${percentage}%, ${starRating} stars, ${passed ? 'PASSED' : 'NOT PASSED'}, box:${boxChoice ? 'opened' : 'sealed'}, ${alliancePointsAwarded} AP`);
+    console.log(`💘 Psyche: ${student.name} — ${percentage}%, ${starRating} stars, ${passed ? 'PASSED' : 'NOT PASSED'}, box:${boxChoice ? 'opened' : 'sealed'}`);
 
     res.json({
       success: true,
@@ -9487,8 +9548,7 @@ app.post('/api/student/psyche-complete', authenticateToken, (req, res) => {
       passed,
       percentage,
       starRating,
-      gradePointsEarned,
-      alliancePointsAwarded
+      gradePointsEarned
     });
   } catch (err) {
     console.error('Psyche complete error:', err);
@@ -9496,7 +9556,8 @@ app.post('/api/student/psyche-complete', authenticateToken, (req, res) => {
   }
 });
 
-// --- Student: Orpheus game completion — awards 10 alliance points (one-time) ---
+// --- Student: Orpheus game completion (legacy endpoint — kept for game file compatibility) ---
+// Points are no longer awarded here. Scroll tracking is via /api/side-quest/game-complete.
 app.post('/api/student/orpheus-complete', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
@@ -9504,7 +9565,7 @@ app.post('/api/student/orpheus-complete', authenticateToken, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
 
-    // Verify quiz was actually passed for portal 3 (Orpheus)
+    // Verify quiz was passed for portal 3 (Orpheus)
     const quizPassed = query(
       'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 3 AND passed = 1 LIMIT 1',
       [student_id]
@@ -9513,33 +9574,257 @@ app.post('/api/student/orpheus-complete', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Orpheus quiz not yet passed' });
     }
 
-    // Check if points already awarded (one-time only)
-    const alreadyAwarded = query(
-      "SELECT 1 FROM point_transactions WHERE student_id = ? AND category = 'game' AND reason LIKE '%Orpheus Underworld%' LIMIT 1",
-      [student_id]
-    )[0];
-
-    if (alreadyAwarded) {
-      return res.json({ success: true, alreadyAwarded: true, pointsAwarded: 0, message: 'Points already awarded for this game.' });
-    }
-
-    // Award 10 points to the alliance
-    const pointsToAward = 10;
-    run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
-      [pointsToAward, student.alliance_id]);
-    run(
-      `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason)
-       VALUES (?, ?, ?, 'game', ?)`,
-      [student.alliance_id, student_id, pointsToAward, `Orpheus Underworld Game — completed by ${student.name}`]
-    );
-
-    saveDatabase();
-    console.log(`🎵 Orpheus Game: ${student.name} completed — ${pointsToAward} points awarded to alliance ${student.alliance_id}`);
-
-    res.json({ success: true, alreadyAwarded: false, pointsAwarded: pointsToAward });
+    console.log(`🎵 Orpheus Game: ${student.name} completed (legacy endpoint — scroll tracked via side-quest/game-complete)`);
+    res.json({ success: true, alreadyAwarded: false, pointsAwarded: 0 });
   } catch (err) {
     console.error('Orpheus complete error:', err);
     res.status(500).json({ error: 'Failed to record Orpheus game completion' });
+  }
+});
+
+// ================================================================
+// SIDE QUEST GAME COMPLETION — Scroll issuance + alliance tracking
+// ================================================================
+
+// POST /api/side-quest/game-complete
+// Called by game files on completion. Tracks per-student completion,
+// and issues a scroll to the alliance when all members have finished.
+app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { quest_id } = req.body;
+    if (!quest_id) return res.status(400).json({ error: 'Missing quest_id' });
+
+    const student = query(
+      'SELECT student_id, name, alliance_id FROM students WHERE student_id = ?',
+      [student_id]
+    )[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
+
+    const quest = query(
+      "SELECT quest_id, quest_name, quest_type, reward_name FROM side_quests_ref WHERE quest_id = ? AND quest_type = 'game_link'",
+      [quest_id]
+    )[0];
+    if (!quest) return res.status(404).json({ error: 'Game quest not found' });
+
+    // Confirm this student has the quest unlocked
+    const availability = query(
+      "SELECT id, status FROM side_quest_availability WHERE student_id = ? AND quest_id = ?",
+      [student_id, quest_id]
+    )[0];
+    if (!availability) return res.status(403).json({ error: 'Quest not unlocked for this student' });
+    if (availability.status === 'completed') {
+      return res.json({ success: true, alreadyCompleted: true, scrollIssued: false });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    // Mark this student as completed
+    run(
+      `UPDATE side_quest_availability SET status = 'completed', completed_at = ? WHERE student_id = ? AND quest_id = ?`,
+      [now, student_id, quest_id]
+    );
+
+    // Record in side_quest_completions for teacher visibility
+    run(
+      `INSERT OR IGNORE INTO side_quest_completions
+         (student_id, quest_id, alliance_id, status, completion_source, completed_at_timestamp, submitted_at)
+       VALUES (?, ?, ?, 'approved', 'game_self_report', ?, CURRENT_TIMESTAMP)`,
+      [student_id, quest_id, student.alliance_id, now]
+    );
+
+    console.log(`🎮 Game complete: ${student.name} — quest ${quest.quest_name}`);
+
+    // Check if all active alliance members have now completed this quest
+    const allianceMembers = query(
+      'SELECT student_id FROM students WHERE alliance_id = ?',
+      [student.alliance_id]
+    );
+
+    // Count how many members have completed (status = 'completed')
+    const completedRows = query(
+      "SELECT COUNT(*) as cnt FROM side_quest_availability WHERE quest_id = ? AND status = 'completed' AND student_id IN (SELECT student_id FROM students WHERE alliance_id = ?)",
+      [quest_id, student.alliance_id]
+    )[0];
+    const completedCount = completedRows ? completedRows.cnt : 0;
+    const totalMembers = allianceMembers.length;
+    const allDone = totalMembers > 0 && completedCount >= totalMembers;
+
+    let scrollIssued = false;
+
+    if (allDone) {
+      // Check if scroll already issued to this alliance for this quest
+      const scrollTypeMap = {
+        'Orpheus in the Underworld': 'orpheus_bargain',
+        "Echo's Lament":             'echo_reflection',
+        'The Trials of Psyche':      'psyche_lantern'
+      };
+      const scrollType = scrollTypeMap[quest.quest_name];
+
+      if (scrollType) {
+        const existingScroll = query(
+          'SELECT id FROM alliance_scrolls WHERE alliance_id = ? AND scroll_type = ? AND played_at IS NULL',
+          [student.alliance_id, scrollType]
+        )[0];
+
+        if (!existingScroll) {
+          run(
+            `INSERT INTO alliance_scrolls (alliance_id, scroll_type, earned_at)
+             VALUES (?, ?, ?)`,
+            [student.alliance_id, scrollType, now]
+          );
+          scrollIssued = true;
+          console.log(`📜 Scroll issued: ${scrollType} → alliance ${student.alliance_id} (${quest.quest_name})`);
+        }
+      }
+    }
+
+    saveDatabase();
+
+    res.json({
+      success: true,
+      alreadyCompleted: false,
+      scrollIssued,
+      allianceProgress: { completed: completedCount, total: totalMembers }
+    });
+  } catch (err) {
+    console.error('Game complete error:', err);
+    res.status(500).json({ error: 'Failed to record game completion' });
+  }
+});
+
+// GET /api/side-quest/availability/:studentId
+// Returns game-quest unlock/completion status for a student.
+// Used by student dashboard to show locked/available/complete states.
+app.get('/api/side-quest/availability/:studentId', authenticateToken, (req, res) => {
+  try {
+    const student_id = parseInt(req.params.studentId);
+    // Students can only query their own availability
+    if (req.user.id !== student_id && req.user.type !== 'teacher') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const rows = query(
+      `SELECT sqa.quest_id, sqa.status, sqa.unlocked_at, sqa.completed_at,
+              sqr.quest_name, sqr.reward_name, sqr.game_url, sqr.icon,
+              sqr.description, sqr.unlock_trigger_ref
+       FROM side_quest_availability sqa
+       JOIN side_quests_ref sqr ON sqr.quest_id = sqa.quest_id
+       WHERE sqa.student_id = ? AND sqr.quest_type = 'game_link'`,
+      [student_id]
+    );
+
+    res.json({ success: true, quests: rows });
+  } catch (err) {
+    console.error('Side quest availability error:', err);
+    res.status(500).json({ error: 'Failed to fetch quest availability' });
+  }
+});
+
+// POST /api/teacher/side-quest/manual-complete
+// Allows teacher to mark an individual student complete on a game quest
+// (e.g. for absences). Issues scroll if this completes the alliance.
+app.post('/api/teacher/side-quest/manual-complete', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  try {
+    const { student_id, quest_id } = req.body;
+    if (!student_id || !quest_id) return res.status(400).json({ error: 'Missing student_id or quest_id' });
+
+    const student = query(
+      'SELECT student_id, name, alliance_id FROM students WHERE student_id = ?',
+      [student_id]
+    )[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
+
+    const quest = query(
+      "SELECT quest_id, quest_name, quest_type FROM side_quests_ref WHERE quest_id = ? AND quest_type = 'game_link'",
+      [quest_id]
+    )[0];
+    if (!quest) return res.status(404).json({ error: 'Game quest not found' });
+
+    const now = Math.floor(Date.now() / 1000);
+
+    // Upsert availability row to completed
+    const existing = query(
+      'SELECT id, status FROM side_quest_availability WHERE student_id = ? AND quest_id = ?',
+      [student_id, quest_id]
+    )[0];
+
+    if (existing) {
+      if (existing.status === 'completed') {
+        return res.json({ success: true, alreadyCompleted: true, scrollIssued: false });
+      }
+      run(
+        `UPDATE side_quest_availability SET status = 'completed', completed_at = ? WHERE student_id = ? AND quest_id = ?`,
+        [now, student_id, quest_id]
+      );
+    } else {
+      run(
+        `INSERT INTO side_quest_availability (student_id, quest_id, status, unlocked_at, completed_at)
+         VALUES (?, ?, 'completed', ?, ?)`,
+        [student_id, quest_id, now, now]
+      );
+    }
+
+    // Record in side_quest_completions
+    run(
+      `INSERT OR IGNORE INTO side_quest_completions
+         (student_id, quest_id, alliance_id, status, completion_source, completed_at_timestamp, submitted_at)
+       VALUES (?, ?, ?, 'approved', 'teacher_manual', ?, CURRENT_TIMESTAMP)`,
+      [student_id, quest_id, student.alliance_id, now]
+    );
+
+    console.log(`📋 Teacher manual complete: ${student.name} — quest ${quest.quest_name}`);
+
+    // Check alliance completion and issue scroll if all done
+    const allianceMembers = query(
+      'SELECT student_id FROM students WHERE alliance_id = ?',
+      [student.alliance_id]
+    );
+    const completedRows = query(
+      "SELECT COUNT(*) as cnt FROM side_quest_availability WHERE quest_id = ? AND status = 'completed' AND student_id IN (SELECT student_id FROM students WHERE alliance_id = ?)",
+      [quest_id, student.alliance_id]
+    )[0];
+    const completedCount = completedRows ? completedRows.cnt : 0;
+    const totalMembers = allianceMembers.length;
+    const allDone = totalMembers > 0 && completedCount >= totalMembers;
+
+    let scrollIssued = false;
+    if (allDone) {
+      const scrollTypeMap = {
+        'Orpheus in the Underworld': 'orpheus_bargain',
+        "Echo's Lament":             'echo_reflection',
+        'The Trials of Psyche':      'psyche_lantern'
+      };
+      const scrollType = scrollTypeMap[quest.quest_name];
+      if (scrollType) {
+        const existingScroll = query(
+          'SELECT id FROM alliance_scrolls WHERE alliance_id = ? AND scroll_type = ? AND played_at IS NULL',
+          [student.alliance_id, scrollType]
+        )[0];
+        if (!existingScroll) {
+          run(
+            `INSERT INTO alliance_scrolls (alliance_id, scroll_type, earned_at) VALUES (?, ?, ?)`,
+            [student.alliance_id, scrollType, now]
+          );
+          scrollIssued = true;
+          console.log(`📜 Scroll issued (manual): ${scrollType} → alliance ${student.alliance_id}`);
+        }
+      }
+    }
+
+    saveDatabase();
+    res.json({
+      success: true,
+      alreadyCompleted: false,
+      scrollIssued,
+      allianceProgress: { completed: completedCount, total: totalMembers }
+    });
+  } catch (err) {
+    console.error('Manual complete error:', err);
+    res.status(500).json({ error: 'Failed to manually complete quest' });
   }
 });
 
