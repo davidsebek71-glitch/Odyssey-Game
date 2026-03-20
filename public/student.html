@@ -3250,7 +3250,7 @@
                 🗺️ Side Quest Portal
                 <button onclick="closeSideQuestPortal()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
             </div>
-            <p style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">Complete these adventure quests to unlock special rewards for your alliance. <strong>All alliance members must complete</strong> a quest to earn its reward!</p>
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">Complete Field Quests to unlock alliance rewards. Play Myth Portal games — unlocked by passing each quiz at 80%+ — to earn powerful Fate Wheel scrolls for your alliance.</p>
             
             <!-- Alliance Tech Display -->
             <div id="alliance-techs-display" style="margin-bottom: 20px; padding: 10px; background: rgba(255,215,0,0.1); border-radius: 8px; border: 1px solid rgba(255,215,0,0.3); display: none;">
@@ -6210,20 +6210,33 @@
         
         let sideQuestData = null;
 
+        let gameQuestAvailability = {}; // quest_id → {status, unlocked_at, completed_at}
+
         async function openSideQuestPortal() {
             document.getElementById('side-quest-portal-modal').classList.add('show');
             document.getElementById('side-quests-grid').innerHTML = 'Loading...';
             
             try {
-                // Fetch both side quest data and FA status in parallel
-                const [sqResponse, faResponse] = await Promise.all([
+                const studentId = dashboardData && dashboardData.student ? dashboardData.student.student_id : null;
+
+                // Fetch side quests, FA status, and game quest availability in parallel
+                const [sqResponse, faResponse, availResponse] = await Promise.all([
                     fetch(`${API_URL}/student/side-quests`, { headers }),
-                    fetch(`${API_URL}/student/forbidden-archive-status`, { headers }).catch(() => null)
+                    fetch(`${API_URL}/student/forbidden-archive-status`, { headers }).catch(() => null),
+                    studentId ? fetch(`${API_URL}/side-quest/availability/${studentId}`, { headers }).catch(() => null) : Promise.resolve(null)
                 ]);
                 const data = await sqResponse.json();
                 
                 if (faResponse && faResponse.ok) {
                     faStatus = await faResponse.json();
+                }
+
+                if (availResponse && availResponse.ok) {
+                    const availData = await availResponse.json();
+                    gameQuestAvailability = {};
+                    (availData.quests || []).forEach(q => {
+                        gameQuestAvailability[q.quest_id] = q;
+                    });
                 }
                 
                 if (!data.hasAlliance) {
@@ -6291,7 +6304,151 @@
             } catch (e) { console.log('FA status load failed'); }
         }
         
+        function renderGameQuestCard(quest) {
+            const avail = gameQuestAvailability[quest.quest_id];
+            const status = avail ? avail.status : 'locked';
+            const icon = quest.icon || GOD_ICONS[quest.god_associated] || '🎮';
+            const token = localStorage.getItem('token');
+
+            // Alliance progress bar (how many members have completed)
+            const completedCount = quest.completed_count || 0;
+            const memberCount = quest.member_count || 0;
+            const progressPct = memberCount > 0 ? Math.round((completedCount / memberCount) * 100) : 0;
+            const progressHtml = `
+                <div style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 5px;">Alliance Progress: ${completedCount}/${memberCount} members</div>
+                    <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
+                        <div style="background: ${quest.all_complete ? '#4ade80' : '#a78bfa'}; height: 100%; width: ${progressPct}%; transition: width 0.3s;"></div>
+                    </div>
+                    ${quest.completed_members && quest.completed_members.length > 0 ? `<div style="font-size: 10px; color: #4ade80; margin-top: 4px;">✓ ${quest.completed_members.join(', ')}</div>` : ''}
+                </div>`;
+
+            let statusBadge = '';
+            let cardStyle = '';
+            let buttonHtml = '';
+
+            if (status === 'locked') {
+                statusBadge = `<span style="background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">🔒 LOCKED</span>`;
+                cardStyle = 'opacity: 0.6;';
+                buttonHtml = `<div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center;">Complete the ${quest.unlock_trigger_ref} at 80% or higher to unlock</div>`;
+            } else if (status === 'completed') {
+                statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">✓ YOU COMPLETED</span>`;
+                cardStyle = 'border-color: #4ade80;';
+                if (quest.all_complete) {
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">🏆 SCROLL EARNED!</span>`;
+                    cardStyle = 'border-color: #4ade80; background: rgba(74,222,128,0.1);';
+                }
+            } else {
+                // available
+                statusBadge = `<span style="background: rgba(167,139,250,0.3); padding: 3px 8px; border-radius: 10px; font-size: 11px; color: #c4b5fd;">⚡ UNLOCKED</span>`;
+                cardStyle = 'border-color: rgba(167,139,250,0.5); background: rgba(167,139,250,0.05);';
+                const gameUrl = `${quest.game_url}?token=${encodeURIComponent(token)}`;
+                buttonHtml = `<a href="${gameUrl}" target="_blank" style="display: block; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; text-align: center; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">▶ Play Game</a>`;
+            }
+
+            return `
+                <div style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 15px; ${cardStyle}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                        <div style="font-size: 36px;">${icon}</div>
+                        <div style="text-align: right;">${statusBadge}</div>
+                    </div>
+                    <div style="font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 5px;">${quest.quest_name}</div>
+                    <div style="font-size: 12px; color: #ffd700; margin-bottom: 8px;">${quest.god_associated}</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 10px; line-height: 1.4;">${quest.description}</div>
+                    <div style="background: rgba(167,139,250,0.1); padding: 8px; border-radius: 6px; margin-bottom: 10px; border: 1px solid rgba(167,139,250,0.2);">
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.6);">Alliance Scroll Reward:</div>
+                        <div style="font-size: 14px; color: #c4b5fd; font-weight: bold;">📜 ${quest.reward_name}</div>
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.7);">${quest.reward_description}</div>
+                    </div>
+                    ${progressHtml}
+                    ${buttonHtml}
+                </div>`;
+        }
+
         function renderSideQuests(data) {
+            const grid = document.getElementById('side-quests-grid');
+
+            const fieldQuests = data.quests.filter(q => q.quest_type !== 'game_link' && q.quest_name !== 'The Forbidden Archive');
+            const faQuest = data.quests.find(q => q.quest_name === 'The Forbidden Archive');
+            const gameQuests = data.quests.filter(q => q.quest_type === 'game_link');
+
+            let html = '';
+
+            // ── FIELD QUESTS SECTION ──────────────────────────────────────
+            if (fieldQuests.length > 0 || faQuest) {
+                html += `<div style="grid-column: 1 / -1; margin-bottom: 4px;">
+                    <div style="font-size: 13px; font-weight: bold; color: rgba(255,215,0,0.9); text-transform: uppercase; letter-spacing: 2px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,215,0,0.2); margin-bottom: 12px;">⚔️ Field Quests</div>
+                </div>`;
+            }
+
+            // Standard google_form quests (non-special)
+            fieldQuests.forEach(quest => {
+                const icon = SIDE_QUEST_ICONS[quest.quest_name] || GOD_ICONS[quest.god_associated] || '🏛️';
+                let statusBadge = '';
+                let cardStyle = '';
+                let buttonHtml = '';
+                const progressHtml = `
+                    <div style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 5px;">Alliance Progress: ${quest.completed_count}/${quest.member_count} members</div>
+                        <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
+                            <div style="background: ${quest.all_complete ? '#4ade80' : '#fbbf24'}; height: 100%; width: ${quest.member_count > 0 ? (quest.completed_count/quest.member_count)*100 : 0}%;"></div>
+                        </div>
+                        ${quest.completed_members.length > 0 ? `<div style="font-size: 10px; color: #4ade80; margin-top: 4px;">✓ ${quest.completed_members.join(', ')}</div>` : ''}
+                        ${quest.pending_members.length > 0 ? `<div style="font-size: 10px; color: #fbbf24; margin-top: 2px;">⏳ ${quest.pending_members.join(', ')}</div>` : ''}
+                    </div>`;
+                if (quest.reward_earned) {
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">🏆 REWARD EARNED!</span>`;
+                    cardStyle = 'border-color: #4ade80; background: rgba(74,222,128,0.1);';
+                } else if (quest.my_status === 'approved') {
+                    statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">✓ YOU COMPLETED</span>`;
+                    cardStyle = 'border-color: #4ade80;';
+                } else if (quest.my_status === 'pending') {
+                    statusBadge = `<span style="background: #fbbf24; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">⏳ PENDING APPROVAL</span>`;
+                    cardStyle = 'border-color: #fbbf24;';
+                } else {
+                    statusBadge = `<span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 10px; font-size: 11px;">○ Not Started</span>`;
+                    const escapedQuestName = quest.quest_name.replace(/'/g, "\\'");
+                    buttonHtml = `
+                        <a href="${quest.form_url}" target="_blank" class="btn btn-secondary" style="width: 48%; margin-top: 10px; padding: 8px; text-align: center; text-decoration: none; display: inline-block;">▶ Start Quest</a>
+                        <button class="btn btn-primary" style="width: 48%; margin-top: 10px; padding: 8px;" onclick="submitSideQuest(${quest.quest_id}, '${escapedQuestName}')">✓ I Completed It</button>`;
+                }
+                html += `
+                    <div style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 15px; ${cardStyle}">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <div style="font-size: 36px;">${SIDE_QUEST_ICONS[quest.quest_name] || quest.icon || icon}</div>
+                            <div style="text-align: right;">${statusBadge}</div>
+                        </div>
+                        <div style="font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 5px;">${quest.quest_name}</div>
+                        <div style="font-size: 12px; color: #ffd700; margin-bottom: 8px;">${quest.god_associated}</div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.7); margin-bottom: 10px; line-height: 1.4;">${quest.description}</div>
+                        <div style="background: rgba(74,222,128,0.1); padding: 8px; border-radius: 6px; margin-bottom: 10px;">
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.6);">Reward:</div>
+                            <div style="font-size: 14px; color: #4ade80; font-weight: bold;">${quest.reward_name}</div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.7);">${quest.reward_description}</div>
+                        </div>
+                        ${progressHtml}
+                        <div style="display: flex; justify-content: space-between; gap: 4%;">${buttonHtml}</div>
+                    </div>`;
+            });
+
+            // Forbidden Archive (special field quest)
+            if (faQuest) html += renderFACard(faQuest);
+
+            // ── MYTH PORTALS SECTION ─────────────────────────────────────
+            if (gameQuests.length > 0) {
+                html += `<div style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 4px;">
+                    <div style="font-size: 13px; font-weight: bold; color: rgba(167,139,250,0.9); text-transform: uppercase; letter-spacing: 2px; padding-bottom: 8px; border-bottom: 1px solid rgba(167,139,250,0.2); margin-bottom: 12px;">🎮 Myth Portals</div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px; margin-top: -8px;">Pass the quiz at 80% or higher to unlock each game. All alliance members must complete for your alliance to earn the scroll.</div>
+                </div>`;
+                gameQuests.forEach(quest => {
+                    html += renderGameQuestCard(quest);
+                });
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function renderSideQuestsLEGACY_UNUSED(data) {
             const grid = document.getElementById('side-quests-grid');
             
             grid.innerHTML = data.quests.map(quest => {
