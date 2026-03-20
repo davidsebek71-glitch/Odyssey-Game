@@ -2457,31 +2457,30 @@
             const nameInput = document.getElementById('new-ghost-name');
             const name = nameInput ? nameInput.value.trim() : '';
             if (!name) { alert('Enter a name for the ghost player.'); return; }
-
             try {
-                const resp = await fetch(`${API_URL}/teacher/create-ghost`, {
+                const resp = await fetch(API_URL + '/teacher/create-ghost', {
                     method: 'POST',
-                    headers,
-                    body: JSON.stringify({ name })
+                    headers: headers,
+                    body: JSON.stringify({ name: name })
                 });
                 const data = await resp.json();
                 if (data.success) {
                     if (nameInput) nameInput.value = '';
-                    openStudentManagementModal(); // refresh to show new ghost
+                    openStudentManagementModal();
                 } else {
                     alert('Error: ' + (data.error || 'Could not create ghost'));
                 }
             } catch (err) {
-                alert('Failed to create ghost player: ' + err.message);
+                alert('Failed to create ghost: ' + err.message);
             }
         }
 
-        async function removeGhostFromAlliance(ghostId, allianceName, allianceId) {
-            if (!confirm(`Remove ghost from "${allianceName}"?\n\nThey will return to the ghost pool and can be re-assigned later.`)) return;
+        async function removeGhostFromAlliance(ghostId, allianceName) {
+            if (!confirm('Remove ghost from "' + allianceName + '"?\n\nThey return to the pool and can be re-assigned later.')) return;
             try {
-                const resp = await fetch(`${API_URL}/teacher/remove-ghost`, {
+                const resp = await fetch(API_URL + '/teacher/remove-ghost', {
                     method: 'POST',
-                    headers,
+                    headers: headers,
                     body: JSON.stringify({ ghost_student_id: ghostId })
                 });
                 const data = await resp.json();
@@ -2528,7 +2527,7 @@
                                     ⚡ ${alliance.display_points || alliance.total_points} pts
                                 </div>
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 6px;">
-                                    Members: ${Array.isArray(alliance.member_names) ? (alliance.member_names.length > 0 ? alliance.member_names.join(', ') : 'None') : (alliance.member_names || 'None')}${alliance.ghost_members?.length > 0 ? ', ' + alliance.ghost_members.map(g => `<span style="color:#e9d5ff;">👻 ${g.name} <button onclick="removeGhostFromAlliance(${g.student_id}, '${alliance.alliance_name.replace(/'/g,"\\'")}', '${alliance.alliance_id}')" style="background:rgba(239,68,68,0.25);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;padding:1px 7px;border-radius:5px;cursor:pointer;font-size:11px;margin-left:4px;">Remove</button></span>`).join(', ') : ''}
+                                    Members: ${Array.isArray(alliance.member_names) ? (alliance.member_names.length > 0 ? alliance.member_names.join(', ') : 'None') : (alliance.member_names || 'None')}${(alliance.ghost_members||[]).length > 0 ? ', ' + (alliance.ghost_members||[]).map(g => '<span style="color:#e9d5ff;">👻 ' + g.name + ' <button onclick="removeGhostFromAlliance(' + g.student_id + ', \'' + alliance.alliance_name.replace(/'/g,"\'")+  '\')" style="background:rgba(239,68,68,0.25);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;padding:1px 7px;border-radius:5px;cursor:pointer;font-size:11px;margin-left:4px;">Remove</button></span>').join(', ') : ''}
                                 </div>
                             </div>
                             <div style="display: flex; gap: 8px;">
@@ -6374,55 +6373,44 @@
                 `;
             });
             
-            // --- Ghost Player Pool section ---
-            const allGhosts = data.students.filter(s => s.is_ghost);
+            // --- Ghost Player Panel ---
+            const allGhosts = (data.students || []).filter(s => s.is_ghost);
             const poolGhosts = allGhosts.filter(s => !s.alliance_id);
             const assignedGhosts = allGhosts.filter(s => s.alliance_id);
 
-            let ghostHtml = `
-                <div style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.4); border-radius: 12px; padding: 18px; margin-bottom: 24px;">
-                    <div style="font-size: 16px; font-weight: 700; color: #c4b5fd; margin-bottom: 14px;">👻 Ghost Players</div>
+            let poolRows = poolGhosts.length === 0
+                ? '<div style="color:rgba(255,255,255,0.3);font-size:13px;">No ghosts in pool</div>'
+                : poolGhosts.map(function(g) {
+                    return '<div style="background:rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;margin-bottom:4px;color:#e9d5ff;font-size:13px;">👻 ' + g.name + '</div>';
+                  }).join('');
 
-                    <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap;">
-                        <div>
-                            <label style="font-size: 12px; color: rgba(255,255,255,0.6); display: block; margin-bottom: 4px;">Ghost Name</label>
-                            <input id="new-ghost-name" type="text" placeholder="e.g. Shade of Achilles"
-                                style="background: rgba(255,255,255,0.1); border: 1px solid rgba(139,92,246,0.5); color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 14px; width: 220px;" />
-                        </div>
-                        <button onclick="createGhostPlayer()"
-                            style="background: rgba(139,92,246,0.3); border: 1px solid rgba(139,92,246,0.6); color: #c4b5fd; padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap;">
-                            ➕ Create Ghost
-                        </button>
-                    </div>
+            let assignedRows = assignedGhosts.length === 0
+                ? '<div style="color:rgba(255,255,255,0.3);font-size:13px;">None assigned</div>'
+                : assignedGhosts.map(function(g) {
+                    return '<div style="background:rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;margin-bottom:4px;color:#e9d5ff;font-size:13px;">👻 ' + g.name + '<span style="color:rgba(255,255,255,0.4);font-size:11px;margin-left:6px;">(' + (g.alliance_name || '?') + ')</span></div>';
+                  }).join('');
 
-                    <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 10px;">
-                        Ghost math: each ghost adds <strong style="color:#c4b5fd">avg pts per real member</strong> to the alliance's display score (e.g. 3 real members, 300 pts → each ghost shows +100 pts).
-                    </div>
-
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 200px;">
-                            <div style="font-size: 12px; color: rgba(139,92,246,0.8); font-weight: 600; margin-bottom: 6px;">AVAILABLE POOL (${poolGhosts.length})</div>
-                            ${poolGhosts.length === 0
-                                ? '<div style="color:rgba(255,255,255,0.3);font-size:13px;">No ghosts in pool</div>'
-                                : poolGhosts.map(g => `
-                                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;margin-bottom:4px;">
-                                        <span style="color:#e9d5ff;font-size:13px;">👻 ${g.name}</span>
-                                    </div>`).join('')
-                            }
-                        </div>
-                        <div style="flex: 1; min-width: 200px;">
-                            <div style="font-size: 12px; color: rgba(139,92,246,0.8); font-weight: 600; margin-bottom: 6px;">ASSIGNED (${assignedGhosts.length})</div>
-                            ${assignedGhosts.length === 0
-                                ? '<div style="color:rgba(255,255,255,0.3);font-size:13px;">None assigned</div>'
-                                : assignedGhosts.map(g => `
-                                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);padding:6px 10px;border-radius:6px;margin-bottom:4px;">
-                                        <span style="color:#e9d5ff;font-size:13px;">👻 ${g.name} <span style="color:rgba(255,255,255,0.4);font-size:11px;">(${g.alliance_name || '?'})</span></span>
-                                    </div>`).join('')
-                            }
-                        </div>
-                    </div>
-                </div>
-            `;
+            let ghostHtml = '<div style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.4);border-radius:12px;padding:18px;margin-bottom:24px;">'
+                + '<div style="font-size:16px;font-weight:700;color:#c4b5fd;margin-bottom:14px;">👻 Ghost Players</div>'
+                + '<div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">'
+                +   '<div>'
+                +     '<label style="font-size:12px;color:rgba(255,255,255,0.6);display:block;margin-bottom:4px;">Ghost Name</label>'
+                +     '<input id="new-ghost-name" type="text" placeholder="e.g. Shade of Achilles" style="background:rgba(255,255,255,0.15);border:1px solid rgba(139,92,246,0.6);color:#fff;padding:8px 12px;border-radius:8px;font-size:14px;width:220px;" />'
+                +   '</div>'
+                +   '<button onclick="createGhostPlayer()" style="background:rgba(139,92,246,0.3);border:1px solid rgba(139,92,246,0.6);color:#c4b5fd;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap;">➕ Create Ghost</button>'
+                + '</div>'
+                + '<div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:12px;">Ghost math: each ghost adds <strong style="color:#c4b5fd">avg pts per real member</strong> to display score (e.g. 3 members, 300 pts → each ghost = +100 display pts).</div>'
+                + '<div style="display:flex;gap:20px;flex-wrap:wrap;">'
+                +   '<div style="flex:1;min-width:180px;">'
+                +     '<div style="font-size:12px;color:rgba(139,92,246,0.8);font-weight:600;margin-bottom:6px;">AVAILABLE POOL (' + poolGhosts.length + ')</div>'
+                +     poolRows
+                +   '</div>'
+                +   '<div style="flex:1;min-width:180px;">'
+                +     '<div style="font-size:12px;color:rgba(139,92,246,0.8);font-weight:600;margin-bottom:6px;">ASSIGNED (' + assignedGhosts.length + ')</div>'
+                +     assignedRows
+                +   '</div>'
+                + '</div>'
+                + '</div>';
 
             content.innerHTML = ghostHtml + html;
         }
