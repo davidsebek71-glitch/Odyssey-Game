@@ -1463,6 +1463,29 @@
                 </div>
             </div>
 
+            <!-- STEP 1B: Scroll Declaration (shown only if alliance holds scrolls) -->
+            <div id="scroll-declaration-step" style="display: none;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 22px; color: #ffd700; font-weight: 700; margin-bottom: 6px;">
+                        Spinning for: <span id="scroll-step-alliance-name"></span>
+                    </div>
+                </div>
+                <div style="background: rgba(167,139,250,0.1); border: 2px solid rgba(167,139,250,0.4); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                    <div style="font-size: 16px; font-weight: bold; color: #c4b5fd; margin-bottom: 6px; text-align: center; letter-spacing: 1px;">⚡ SCROLLS AVAILABLE — Play one or pass?</div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: 16px;">Playing a scroll commits it before the spin. The effect fires based on what fate lands.</div>
+                    <div id="scroll-cards-container" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 16px;"></div>
+                    <div style="text-align: center;">
+                        <button onclick="selectScroll(null)" id="scroll-pass-btn" class="btn-fate" style="background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); padding: 10px 28px; font-size: 14px; border: 2px solid rgba(255,255,255,0.2);">
+                            Pass — No Scroll
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-buttons" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="backToAllianceSelect()">← Back</button>
+                    <button type="button" id="declare-and-spin-btn" class="btn-fate" onclick="declareAndSpin()" disabled style="opacity: 0.4; cursor: not-allowed;">🎲 SPIN THE WHEEL 🎲</button>
+                </div>
+            </div>
+
             <!-- STEP 2: Spinning Wheel -->
             <div id="spinning-wheel-step" style="display: none;">
                 <div style="text-align: center; margin-bottom: 20px;">
@@ -3249,7 +3272,9 @@
             document.getElementById('fate-wheel-modal').classList.remove('classical-age');
             document.getElementById('fate-reveal-overlay').className = '';
             document.getElementById('alliance-selection-step').style.display = 'block';
+            document.getElementById('scroll-declaration-step').style.display = 'none';
             document.getElementById('spinning-wheel-step').style.display = 'none';
+            selectedScrollId = null;
         }
 
         async function loadFatesToday() {
@@ -3284,7 +3309,9 @@
             }
         }
 
-        function startWheelSpin() {
+        let selectedScrollId = null; // null = no scroll played, set to scroll id if playing one
+
+        async function startWheelSpin() {
             const select = document.getElementById('fate-alliance');
             const allianceId = parseInt(select.value);
             
@@ -3295,9 +3322,117 @@
 
             selectedAllianceId = allianceId;
             selectedAllianceName = select.options[select.selectedIndex].dataset.name;
+            selectedScrollId = null; // reset from any previous spin
 
+            // Check if this alliance holds any scrolls
+            try {
+                const scrollRes = await fetch(`${API_URL}/fate/alliance-scrolls/${allianceId}`, { headers });
+                const scrollData = await scrollRes.json();
+                const scrolls = scrollData.scrolls || [];
+
+                if (scrolls.length > 0) {
+                    // Show scroll declaration step
+                    showScrollStep(scrolls);
+                    return;
+                }
+            } catch (err) {
+                console.log('Scroll check failed, proceeding without scrolls:', err);
+            }
+
+            // No scrolls — proceed directly to wheel
+            proceedToWheel();
+        }
+
+        function showScrollStep(scrolls) {
+            document.getElementById('alliance-selection-step').style.display = 'none';
+            document.getElementById('scroll-declaration-step').style.display = 'block';
+            document.getElementById('spinning-wheel-step').style.display = 'none';
+            document.getElementById('scroll-step-alliance-name').textContent = selectedAllianceName;
+
+            const container = document.getElementById('scroll-cards-container');
+            container.innerHTML = scrolls.map(s => `
+                <div id="scroll-card-${s.id}"
+                     onclick="selectScroll(${s.id})"
+                     style="cursor: pointer; background: rgba(255,255,255,0.05); border: 2px solid rgba(167,139,250,0.3);
+                            border-radius: 10px; padding: 14px 18px; min-width: 200px; max-width: 240px;
+                            transition: all 0.2s; text-align: center;">
+                    <div style="font-size: 13px; font-weight: bold; color: #c4b5fd; margin-bottom: 6px;">📜 ${s.name}</div>
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.4; margin-bottom: 6px;">${s.effect}</div>
+                    <div style="font-size: 10px; color: rgba(167,139,250,0.6); font-style: italic;">${s.myth}</div>
+                </div>`).join('');
+
+            // Reset declaration state
+            document.getElementById('declare-and-spin-btn').disabled = true;
+            document.getElementById('declare-and-spin-btn').style.opacity = '0.4';
+            document.getElementById('declare-and-spin-btn').style.cursor = 'not-allowed';
+            document.getElementById('scroll-pass-btn').style.borderColor = 'rgba(255,255,255,0.2)';
+            document.getElementById('scroll-pass-btn').style.background = 'rgba(255,255,255,0.15)';
+            document.getElementById('scroll-pass-btn').style.color = 'rgba(255,255,255,0.7)';
+        }
+
+        function selectScroll(scrollId) {
+            // scrollId null = pass, integer = play that scroll
+            selectedScrollId = scrollId;
+
+            // Update card highlight states
+            document.querySelectorAll('[id^="scroll-card-"]').forEach(card => {
+                card.style.borderColor = 'rgba(167,139,250,0.3)';
+                card.style.background = 'rgba(255,255,255,0.05)';
+            });
+            document.getElementById('scroll-pass-btn').style.borderColor = 'rgba(255,255,255,0.2)';
+            document.getElementById('scroll-pass-btn').style.background = 'rgba(255,255,255,0.15)';
+            document.getElementById('scroll-pass-btn').style.color = 'rgba(255,255,255,0.7)';
+
+            if (scrollId === null) {
+                // Pass selected
+                document.getElementById('scroll-pass-btn').style.borderColor = '#ffd700';
+                document.getElementById('scroll-pass-btn').style.background = 'rgba(255,215,0,0.15)';
+                document.getElementById('scroll-pass-btn').style.color = '#ffd700';
+            } else {
+                const card = document.getElementById(`scroll-card-${scrollId}`);
+                if (card) {
+                    card.style.borderColor = '#c4b5fd';
+                    card.style.background = 'rgba(167,139,250,0.2)';
+                }
+            }
+
+            // Enable spin button
+            const spinBtn = document.getElementById('declare-and-spin-btn');
+            spinBtn.disabled = false;
+            spinBtn.style.opacity = '1';
+            spinBtn.style.cursor = 'pointer';
+        }
+
+        async function declareAndSpin() {
+            // Record the declaration (play or pass) then proceed to wheel
+            try {
+                await fetch(`${API_URL}/fate/play-scroll`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        scroll_id: selectedScrollId,  // null = pass
+                        alliance_id: selectedAllianceId
+                    })
+                });
+            } catch (err) {
+                console.error('Scroll declaration failed:', err);
+                // Non-fatal — proceed to spin regardless
+            }
+
+            document.getElementById('scroll-declaration-step').style.display = 'none';
+            proceedToWheel();
+        }
+
+        function backToAllianceSelect() {
+            document.getElementById('scroll-declaration-step').style.display = 'none';
+            document.getElementById('alliance-selection-step').style.display = 'block';
+            selectedScrollId = null;
+        }
+
+        function proceedToWheel() {
             // Show wheel step — go fullscreen
             document.getElementById('alliance-selection-step').style.display = 'none';
+            document.getElementById('scroll-declaration-step').style.display = 'none';
             document.getElementById('spinning-wheel-step').style.display = 'block';
             document.getElementById('selected-alliance-name').textContent = selectedAllianceName;
             const wheelModal = document.getElementById('fate-wheel-modal');
@@ -3318,6 +3453,7 @@
             // Draw the wheel
             drawFateWheel();
         }
+
 
         function drawFateWheel() {
             wheelCanvas = document.getElementById('fate-wheel-canvas');
