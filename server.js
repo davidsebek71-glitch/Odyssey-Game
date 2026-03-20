@@ -5200,6 +5200,105 @@ app.post('/api/teacher/use-reverse-card/:alliance_id', authenticateToken, (req, 
   }
 });
 
+// ==================== FATE SCROLL ENDPOINTS ====================
+
+// GET /api/fate/alliance-scrolls/:allianceId
+// Returns all unplayed scrolls held by an alliance.
+// Called by teacher dashboard when an alliance is selected in the Fate Wheel tab.
+app.get('/api/fate/alliance-scrolls/:allianceId', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  try {
+    const alliance_id = parseInt(req.params.allianceId);
+    if (!alliance_id) return res.status(400).json({ error: 'Invalid alliance_id' });
+
+    const scrolls = query(
+      `SELECT id, scroll_type, earned_at
+       FROM alliance_scrolls
+       WHERE alliance_id = ? AND played_at IS NULL
+       ORDER BY earned_at ASC`,
+      [alliance_id]
+    );
+
+    const scrollMeta = {
+      orpheus_bargain: {
+        name: "Orpheus's Bargain",
+        effect: 'Halves any negative fate outcome',
+        myth: 'Orpheus & Eurydice'
+      },
+      echo_reflection: {
+        name: "Echo's Reflection",
+        effect: 'Redirects a steal or give fate — stolen points go to next alliance on leaderboard',
+        myth: 'Echo & Narcissus'
+      },
+      psyche_lantern: {
+        name: "Psyche's Lantern",
+        effect: 'Doubles any positive fate outcome. No protection against negative fates.',
+        myth: 'Eros & Psyche'
+      }
+    };
+
+    const scrollsWithMeta = scrolls.map(s => ({
+      ...s,
+      ...(scrollMeta[s.scroll_type] || { name: s.scroll_type, effect: '', myth: '' })
+    }));
+
+    res.json({ success: true, scrolls: scrollsWithMeta });
+  } catch (err) {
+    console.error('Get alliance scrolls error:', err);
+    res.status(500).json({ error: 'Failed to fetch alliance scrolls' });
+  }
+});
+
+// POST /api/fate/play-scroll
+// Teacher declares a scroll active for the upcoming spin, or passes.
+// Records played_at on the scroll. Fate resolution reads this to apply the effect.
+app.post('/api/fate/play-scroll', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  try {
+    const { scroll_id, alliance_id } = req.body;
+    if (!alliance_id) return res.status(400).json({ error: 'Missing alliance_id' });
+
+    if (!scroll_id) {
+      console.log(`📜 Scroll pass: alliance ${alliance_id} chose not to play a scroll`);
+      return res.json({ success: true, scrollPlayed: false });
+    }
+
+    const scroll = query(
+      'SELECT id, alliance_id, scroll_type, played_at FROM alliance_scrolls WHERE id = ?',
+      [scroll_id]
+    )[0];
+
+    if (!scroll) return res.status(404).json({ error: 'Scroll not found' });
+    if (scroll.alliance_id !== alliance_id) return res.status(403).json({ error: 'Scroll does not belong to this alliance' });
+    if (scroll.played_at !== null) return res.status(400).json({ error: 'Scroll already played' });
+
+    const now = Math.floor(Date.now() / 1000);
+    run('UPDATE alliance_scrolls SET played_at = ? WHERE id = ?', [now, scroll_id]);
+
+    const scrollMeta = {
+      orpheus_bargain: { name: "Orpheus's Bargain", effectDescription: 'Halves any negative fate outcome' },
+      echo_reflection: { name: "Echo's Reflection", effectDescription: 'Redirects steal/give fate to next alliance on leaderboard' },
+      psyche_lantern: { name: "Psyche's Lantern", effectDescription: 'Doubles any positive fate outcome' }
+    };
+    const meta = scrollMeta[scroll.scroll_type] || { name: scroll.scroll_type, effectDescription: '' };
+
+    console.log(`📜 Scroll played: ${scroll.scroll_type} by alliance ${alliance_id}`);
+    saveDatabase();
+
+    res.json({
+      success: true,
+      scrollPlayed: true,
+      scrollId: scroll_id,
+      scrollType: scroll.scroll_type,
+      scrollName: meta.name,
+      effectDescription: meta.effectDescription
+    });
+  } catch (err) {
+    console.error('Play scroll error:', err);
+    res.status(500).json({ error: 'Failed to record scroll play' });
+  }
+});
+
 // ==================== FORBIDDEN ARCHIVE ENDPOINTS ====================
 
 // Get FA unlock status and progress for student's alliance
