@@ -1296,26 +1296,46 @@ async function sendGameResults() {
     const btn = document.getElementById('overlay-btn');
     const totalRounds = STAGES.reduce((sum, s) => sum + s.rounds, 0);
 
-    try {
-        resultArea.innerHTML = `
-            <div style="color:#4ade80;font-weight:600;font-size:13px;">✅ Game Complete!</div>
-            <div style="color:rgba(200,180,255,0.5);font-size:11px;margin-top:4px;">Results recorded. Choose your assignment below.</div>
+    if (!ODYSSEY_TOKEN || !odysseyHeaders) {
+        if (resultArea) resultArea.innerHTML = `
+            <div style="color:rgba(200,180,255,0.5);font-size:11px;margin-top:4px;">Launch from Odyssey dashboard for results to be recorded.</div>
         `;
-        if (btn) {
-            btn.textContent = 'Choose Your Assignment →';
-            btn.style.opacity = '1';
-            btn.style.pointerEvents = 'auto';
+        if (btn) { btn.textContent = 'Choose Your Assignment →'; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+        return;
+    }
+
+    try {
+        const resp = await fetch(`${API_BASE}/api/side-quest/game-complete`, {
+            method: 'POST',
+            headers: odysseyHeaders,
+            body: JSON.stringify({ game_url: '/echo_lament.html' })
+        });
+        const data = await resp.json();
+
+        if (data.success && !data.alreadyCompleted) {
+            const scrollMsg = data.scrollIssued
+                ? `<div style="color:#c4b5fd;font-size:11px;margin-top:4px;">📜 Alliance scroll earned! All members complete.</div>`
+                : data.allianceProgress
+                    ? `<div style="color:rgba(200,180,255,0.6);font-size:11px;margin-top:4px;">Alliance progress: ${data.allianceProgress.completed}/${data.allianceProgress.total} members complete.</div>`
+                    : '';
+            resultArea.innerHTML = `
+                <div style="color:#4ade80;font-weight:600;font-size:13px;">✅ Quest Complete!</div>
+                ${scrollMsg}
+            `;
+        } else if (data.alreadyCompleted) {
+            resultArea.innerHTML = `<div style="color:#4ade80;font-size:12px;">✅ Already recorded.</div>`;
+        } else {
+            resultArea.innerHTML = `<div style="color:#ef4444;font-size:12px;">⚠️ ${data.error || 'Error saving results.'}</div>`;
         }
+
+        if (btn) { btn.textContent = 'Choose Your Assignment →'; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
     } catch (err) {
-        resultArea.innerHTML = `
+        console.error('sendGameResults error:', err);
+        if (resultArea) resultArea.innerHTML = `
             <div style="color:#ef4444;font-weight:600;font-size:13px;">⚠️ Error Saving</div>
             <div style="color:rgba(200,180,255,0.5);font-size:11px;margin-top:4px;">Your game is complete. Results will sync when you return to the dashboard.</div>
         `;
-        if (btn) {
-            btn.textContent = 'Return to Dashboard →';
-            btn.style.opacity = '1';
-            btn.style.pointerEvents = 'auto';
-        }
+        if (btn) { btn.textContent = 'Return to Dashboard →'; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
     }
 }
 

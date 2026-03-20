@@ -5029,12 +5029,17 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
     
     let pointsChange = rolledValue; // For regular choices, this is the total
     let stealDetails = null;
+
+    // Resolve scroll modifier before DB writes
+    const fateIsStealing = fate.fate_type === 'steal_choice' && rolledValue > 0;
+    const scrollResult = applyScrollModifier(alliance_id, alliance, rolledValue, fate.fate_type, fateIsStealing);
+    const modifiedRolledValue = scrollResult.pointsChange;
     
     if (fate.fate_type === 'steal_choice') {
       // STEAL-CHOICE: rolledValue is PER ALLIANCE
       // Positive = spinner steals FROM each other alliance
       // Negative = spinner gives TO each other alliance
-      const perAlliance = rolledValue;
+      const perAlliance = rolledValue; // keep original per-alliance amount for other alliances
       
       // Get all other alliances in the same period
       const allPeriodAlliances = query(`
@@ -5046,44 +5051,79 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       `, [alliance_id, alliance_id]);
       
       const numAlliances = allPeriodAlliances.length;
-      const totalForSpinner = perAlliance * numAlliances;
-      
-      // Apply total to spinning alliance
-      run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-          [totalForSpinner, alliance_id]);
-      run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
-           VALUES (?, ?, ?, ?, ?)`, 
-          [alliance_id, totalForSpinner, 'fate', 
-           `Fate: ${fate.fate_name} (${choice.risk_level} ${success ? 'success' : 'failure'} — ${perAlliance > 0 ? 'stole' : 'gave'} ${Math.abs(perAlliance)} per alliance × ${numAlliances})`, teacher_id]);
-      
-      // Apply inverse to each other alliance
-      allPeriodAlliances.forEach(other => {
-        const otherChange = -perAlliance; // inverse: if spinner steals +8, others lose 8
+
+      if (scrollResult.scrollTriggered && scrollResult.redirectTarget && perAlliance > 0) {
+        // Echo's Reflection: stolen points redirected to next-ranked alliance
+        const redirect = scrollResult.redirectTarget;
+        const totalStolen = perAlliance * numAlliances;
+
+        // Each other alliance still loses the same amount
+        allPeriodAlliances.forEach(other => {
+          run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?',
+              [perAlliance, other.alliance_id]);
+          run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`,
+              [other.alliance_id, -perAlliance, 'fate',
+               `Fate: ${fate.fate_name} (Echo's Reflection — points to ${redirect.alliance_name})`, teacher_id]);
+        });
+        // Redirect goes to next-ranked alliance, not spinner
+        run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
+            [totalStolen, redirect.alliance_id]);
+        run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`,
+            [redirect.alliance_id, totalStolen, 'fate',
+             `Fate: ${fate.fate_name} (Echo's Reflection from ${alliance.alliance_name})`, teacher_id]);
+
+        pointsChange = 0; // spinner got nothing
+        stealDetails = {
+          perAlliance,
+          alliancesAffected: numAlliances,
+          totalChange: 0,
+          echoRedirect: { allianceName: redirect.alliance_name, pointsReceived: totalStolen },
+          affectedAlliances: allPeriodAlliances.map(a => ({ name: a.alliance_name, pointsChange: -perAlliance }))
+        };
+      } else {
+        // Normal steal/give — apply modifiedRolledValue to spinner's total
+        // For orpheus_bargain on a negative steal: modifiedRolledValue is halved
+        const modifiedPerAlliance = numAlliances > 0 ? Math.ceil(modifiedRolledValue / numAlliances) : modifiedRolledValue;
+        const totalForSpinner = modifiedRolledValue;
+
         run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-            [otherChange, other.alliance_id]);
+            [totalForSpinner, alliance_id]);
         run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
              VALUES (?, ?, ?, ?, ?)`, 
-            [other.alliance_id, otherChange, 'fate', 
-             `Fate: ${fate.fate_name} (${otherChange > 0 ? 'gained from' : 'lost to'} ${alliance.alliance_name})`, teacher_id]);
-      });
-      
-      pointsChange = totalForSpinner;
-      stealDetails = {
-        perAlliance,
-        alliancesAffected: numAlliances,
-        totalChange: totalForSpinner,
-        affectedAlliances: allPeriodAlliances.map(a => ({
-          name: a.alliance_name,
-          pointsChange: -perAlliance
-        }))
-      };
+            [alliance_id, totalForSpinner, 'fate', 
+             `Fate: ${fate.fate_name} (${choice.risk_level} ${success ? 'success' : 'failure'} — ${perAlliance > 0 ? 'stole' : 'gave'} ${Math.abs(perAlliance)} per alliance × ${numAlliances})${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+        
+        allPeriodAlliances.forEach(other => {
+          const otherChange = -perAlliance;
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
+              [otherChange, other.alliance_id]);
+          run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
+               VALUES (?, ?, ?, ?, ?)`, 
+              [other.alliance_id, otherChange, 'fate', 
+               `Fate: ${fate.fate_name} (${otherChange > 0 ? 'gained from' : 'lost to'} ${alliance.alliance_name})`, teacher_id]);
+        });
+        
+        pointsChange = totalForSpinner;
+        stealDetails = {
+          perAlliance,
+          alliancesAffected: numAlliances,
+          totalChange: totalForSpinner,
+          affectedAlliances: allPeriodAlliances.map(a => ({
+            name: a.alliance_name,
+            pointsChange: -perAlliance
+          }))
+        };
+      }
     } else {
-      // REGULAR CHOICE: apply flat points to this alliance only
+      // REGULAR CHOICE: apply modified flat points to this alliance only
+      const finalPoints = modifiedRolledValue;
       run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-          [pointsChange, alliance_id]);
+          [finalPoints, alliance_id]);
       run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
            VALUES (?, ?, ?, ?, ?)`, 
-          [alliance_id, pointsChange, 'fate', `Fate: ${fate.fate_name} (${choice.risk_level} choice - ${success ? 'success' : 'failure'})`, teacher_id]);
+          [alliance_id, finalPoints, 'fate',
+           `Fate: ${fate.fate_name} (${choice.risk_level} choice - ${success ? 'success' : 'failure'})${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+      pointsChange = finalPoints;
     }
     
     // Log the fate outcome
@@ -5482,6 +5522,103 @@ app.post('/api/student/use-reverse-card', authenticateToken, (req, res) => {
   }
 });
 
+// ================================================================
+// SCROLL MODIFIER — Applied to fate outcomes when a scroll was played
+// Called by both spin-fate and process-fate-choice before DB writes.
+// Returns { pointsChange, scrollTriggered, scrollType, scrollNote, redirectTarget }
+// scrollTriggered: true if the scroll's condition was met and effect fired
+// redirectTarget: only set for echo_reflection — the alliance to receive points instead
+// ================================================================
+function applyScrollModifier(alliance_id, alliance, pointsChange, fateType, fateIsStealing) {
+  // Look up most recently played scroll for this alliance (played in last 10 minutes, not yet marked triggered)
+  const tenMinutesAgo = Math.floor(Date.now() / 1000) - 600;
+  const scroll = query(
+    `SELECT id, scroll_type FROM alliance_scrolls
+     WHERE alliance_id = ? AND played_at IS NOT NULL AND played_at >= ? AND triggered IS NULL
+     ORDER BY played_at DESC LIMIT 1`,
+    [alliance_id, tenMinutesAgo]
+  )[0];
+
+  if (!scroll) {
+    return { pointsChange, scrollTriggered: false, scrollType: null, scrollNote: '', redirectTarget: null };
+  }
+
+  let modified = pointsChange;
+  let triggered = false;
+  let scrollNote = '';
+  let redirectTarget = null;
+
+  if (scroll.scroll_type === 'orpheus_bargain') {
+    // Halve any negative outcome (round toward zero)
+    if (pointsChange < 0) {
+      modified = Math.ceil(pointsChange / 2); // e.g. -10 → -5
+      triggered = true;
+      scrollNote = `Orpheus's Bargain: loss halved (${pointsChange} → ${modified})`;
+    } else {
+      // Positive fate — scroll wasted, no effect
+      triggered = false;
+      scrollNote = `Orpheus's Bargain: positive fate landed, no effect`;
+    }
+  }
+
+  else if (scroll.scroll_type === 'echo_reflection') {
+    // On steal/give (interactive) fates: redirect stolen points to next-ranked alliance
+    // On non-interactive fates: no effect
+    if (fateType === 'interactive' || fateType === 'steal_choice') {
+      if (fateIsStealing) {
+        // Spinner was stealing — redirect those points to next alliance above spinner on leaderboard
+        const periodAlliances = query(
+          `SELECT alliance_id, alliance_name, total_points FROM alliances
+           WHERE class_period = ? AND is_disbanded = 0 ORDER BY total_points DESC`,
+          [alliance.class_period]
+        );
+        const spinnerIdx = periodAlliances.findIndex(a => a.alliance_id === alliance_id);
+        // Next alliance ranked ABOVE spinner (lower index = higher rank)
+        const targetIdx = spinnerIdx > 0 ? spinnerIdx - 1 : null;
+        if (targetIdx !== null) {
+          redirectTarget = periodAlliances[targetIdx];
+          triggered = true;
+          scrollNote = `Echo's Reflection: steal redirected — points go to ${redirectTarget.alliance_name} instead`;
+        } else {
+          // Spinner is already top-ranked — reflection has nowhere to redirect
+          triggered = false;
+          scrollNote = `Echo's Reflection: spinner is top-ranked, no redirect possible`;
+        }
+      } else {
+        // Give fate — not a steal, no effect
+        triggered = false;
+        scrollNote = `Echo's Reflection: give fate (not a steal), no effect`;
+      }
+    } else {
+      triggered = false;
+      scrollNote = `Echo's Reflection: non-interactive fate, no effect`;
+    }
+  }
+
+  else if (scroll.scroll_type === 'psyche_lantern') {
+    // Double any positive outcome
+    if (pointsChange > 0) {
+      modified = pointsChange * 2;
+      triggered = true;
+      scrollNote = `Psyche's Lantern: gain doubled (${pointsChange} → ${modified})`;
+    } else {
+      // Negative or zero fate — scroll wasted, no effect
+      triggered = false;
+      scrollNote = `Psyche's Lantern: negative/zero fate landed, no effect`;
+    }
+  }
+
+  // Record triggered status on the scroll
+  run(
+    `UPDATE alliance_scrolls SET triggered = ? WHERE id = ?`,
+    [triggered ? 'yes' : 'no', scroll.id]
+  );
+
+  console.log(`📜 Scroll [${scroll.scroll_type}]: ${scrollNote}`);
+
+  return { pointsChange: modified, scrollTriggered: triggered, scrollType: scroll.scroll_type, scrollNote, redirectTarget };
+}
+
 app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
   try {
     const { alliance_id, fate_id } = req.body;
@@ -5505,63 +5642,101 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
       pointsChange: 0,
       resultType: fate.fate_type
     };
-    
-    // Process fate based on type
+
+    // Resolve scroll modifier BEFORE any DB writes
+    // We need to know the raw pointsChange first, then modify it
+    let rawPointsChange = 0;
+    let fateIsStealing = false;
+
     if (fate.fate_type === 'simple_points') {
-      // Simple point addition/subtraction
-      const pointsChange = fate.point_effect || 0;
+      rawPointsChange = fate.point_effect || 0;
+    } else if (fate.fate_type === 'interactive') {
+      const allAlliancesForCount = query('SELECT alliance_id FROM alliances WHERE alliance_id != ? AND is_disbanded = 0', [alliance_id]);
+      const transferAmount = fate.transfer_amount || 0;
+      if (fate.steals_from_others) {
+        rawPointsChange = transferAmount * allAlliancesForCount.length;
+        fateIsStealing = true;
+      } else if (fate.gives_to_others) {
+        rawPointsChange = -(transferAmount * allAlliancesForCount.length);
+      }
+    }
+    // battle and special: no pointsChange to modify, skip scroll resolution
+
+    let scrollResult = { pointsChange: rawPointsChange, scrollTriggered: false, scrollType: null, scrollNote: '', redirectTarget: null };
+    if (fate.fate_type === 'simple_points' || fate.fate_type === 'interactive') {
+      scrollResult = applyScrollModifier(alliance_id, alliance, rawPointsChange, fate.fate_type, fateIsStealing);
+    }
+    const finalPointsChange = scrollResult.pointsChange;
+    
+    // Process fate based on type (now using finalPointsChange)
+    if (fate.fate_type === 'simple_points') {
       run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-          [pointsChange, alliance_id]);
+          [finalPointsChange, alliance_id]);
       
       run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
            VALUES (?, ?, ?, ?, ?)`, 
-          [alliance_id, pointsChange, 'fate', `Fate: ${fate.fate_name}`, teacher_id]);
+          [alliance_id, finalPointsChange, 'fate',
+           `Fate: ${fate.fate_name}${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
       
-      result.pointsChange = pointsChange;
+      result.pointsChange = finalPointsChange;
     } 
     else if (fate.fate_type === 'interactive') {
-      // Steals from or gives to other alliances
-      const allAlliances = query('SELECT alliance_id, total_points FROM alliances WHERE alliance_id != ?', [alliance_id]);
+      const allAlliances = query('SELECT alliance_id, total_points, alliance_name FROM alliances WHERE alliance_id != ? AND is_disbanded = 0', [alliance_id]);
       const transferAmount = fate.transfer_amount || 0;
       
       if (fate.steals_from_others) {
-        // This alliance gains from each other alliance
-        const totalGain = transferAmount * allAlliances.length;
-        run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-            [totalGain, alliance_id]);
-        
-        allAlliances.forEach(other => {
-          run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', 
-              [transferAmount, other.alliance_id]);
-          run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
-               VALUES (?, ?, ?, ?, ?)`, 
-              [other.alliance_id, -transferAmount, 'fate', `Fate: ${fate.fate_name} (stolen by ${alliance.alliance_name})`, teacher_id]);
-        });
-        
-        run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
-             VALUES (?, ?, ?, ?, ?)`, 
-            [alliance_id, totalGain, 'fate', `Fate: ${fate.fate_name} (stole from each alliance)`, teacher_id]);
-        
-        result.pointsChange = totalGain;
+        if (scrollResult.scrollTriggered && scrollResult.redirectTarget) {
+          // Echo's Reflection: stolen points go to next-ranked alliance instead of spinner
+          const redirect = scrollResult.redirectTarget;
+          const totalStolen = transferAmount * allAlliances.length;
+
+          // Spinner gets nothing — redirect absorbs the steal
+          allAlliances.forEach(other => {
+            run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?',
+                [transferAmount, other.alliance_id]);
+            run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`,
+                [other.alliance_id, -transferAmount, 'fate',
+                 `Fate: ${fate.fate_name} (Echo's Reflection — points redirected to ${redirect.alliance_name})`, teacher_id]);
+          });
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?',
+              [totalStolen, redirect.alliance_id]);
+          run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`,
+              [redirect.alliance_id, totalStolen, 'fate',
+               `Fate: ${fate.fate_name} (Echo's Reflection redirect from ${alliance.alliance_name})`, teacher_id]);
+
+          result.pointsChange = 0; // spinner received nothing
+          result.echoRedirect = { allianceName: redirect.alliance_name, pointsReceived: totalStolen };
+        } else {
+          // Normal steal
+          const totalGain = finalPointsChange;
+          run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
+              [totalGain, alliance_id]);
+          allAlliances.forEach(other => {
+            run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', 
+                [transferAmount, other.alliance_id]);
+            run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`, 
+                [other.alliance_id, -transferAmount, 'fate', `Fate: ${fate.fate_name} (stolen by ${alliance.alliance_name})`, teacher_id]);
+          });
+          run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`, 
+              [alliance_id, totalGain, 'fate',
+               `Fate: ${fate.fate_name} (stole from each alliance)${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+          result.pointsChange = totalGain;
+        }
       } 
       else if (fate.gives_to_others) {
-        // This alliance loses to each other alliance
-        const totalLoss = transferAmount * allAlliances.length;
+        const totalLoss = Math.abs(finalPointsChange);
+        const perAlliance = transferAmount; // each other alliance still gets the base amount
         run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', 
             [totalLoss, alliance_id]);
-        
         allAlliances.forEach(other => {
           run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-              [transferAmount, other.alliance_id]);
-          run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
-               VALUES (?, ?, ?, ?, ?)`, 
-              [other.alliance_id, transferAmount, 'fate', `Fate: ${fate.fate_name} (gift from ${alliance.alliance_name})`, teacher_id]);
+              [perAlliance, other.alliance_id]);
+          run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`, 
+              [other.alliance_id, perAlliance, 'fate', `Fate: ${fate.fate_name} (gift from ${alliance.alliance_name})`, teacher_id]);
         });
-        
-        run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
-             VALUES (?, ?, ?, ?, ?)`, 
-            [alliance_id, -totalLoss, 'fate', `Fate: ${fate.fate_name} (gave to each alliance)`, teacher_id]);
-        
+        run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`, 
+            [alliance_id, -totalLoss, 'fate',
+             `Fate: ${fate.fate_name} (gave to each alliance)${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
         result.pointsChange = -totalLoss;
       }
     }
@@ -5579,6 +5754,8 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
       // Special fates (Countdown, Reverse Card) handled manually by teacher
       result.specialInstructions = fate.description;
     }
+
+    result.scrollResult = scrollResult.scrollType ? scrollResult : null;
     
     // Log the fate spin
     run(`INSERT INTO fate_spins (alliance_id, fate_id, fate_name, result_type, points_change, teacher_id) 
@@ -9691,8 +9868,8 @@ app.post('/api/student/orpheus-complete', authenticateToken, (req, res) => {
 app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
   try {
     const student_id = req.user.id;
-    const { quest_id } = req.body;
-    if (!quest_id) return res.status(400).json({ error: 'Missing quest_id' });
+    const { quest_id, game_url } = req.body;
+    if (!quest_id && !game_url) return res.status(400).json({ error: 'Missing quest_id or game_url' });
 
     const student = query(
       'SELECT student_id, name, alliance_id FROM students WHERE student_id = ?',
@@ -9701,10 +9878,16 @@ app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
     if (!student) return res.status(404).json({ error: 'Student not found' });
     if (!student.alliance_id) return res.status(400).json({ error: 'Student has no alliance' });
 
-    const quest = query(
-      "SELECT quest_id, quest_name, quest_type, reward_name FROM side_quests_ref WHERE quest_id = ? AND quest_type = 'game_link'",
-      [quest_id]
-    )[0];
+    // Resolve quest by quest_id or game_url
+    const quest = quest_id
+      ? query(
+          "SELECT quest_id, quest_name, quest_type, reward_name FROM side_quests_ref WHERE quest_id = ? AND quest_type = 'game_link'",
+          [quest_id]
+        )[0]
+      : query(
+          "SELECT quest_id, quest_name, quest_type, reward_name FROM side_quests_ref WHERE game_url = ? AND quest_type = 'game_link'",
+          [game_url]
+        )[0];
     if (!quest) return res.status(404).json({ error: 'Game quest not found' });
 
     // Confirm this student has the quest unlocked

@@ -339,10 +339,21 @@ function renderResults() {
 }
 
 async function submitResults() {
-  if(token){try{await fetch(window.location.origin+'/api/student/psyche-complete',{
-    method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-    body:JSON.stringify({completed:true,heartsRemaining:GAME.totalHearts,virtues:GAME.virtues,starRating:GAME.starRating,boxChoice:GAME.boxChoice})
-  });}catch(e){console.error(e);}}
+  if(token){
+    try{
+      await fetch(window.location.origin+'/api/student/psyche-complete',{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({completed:true,heartsRemaining:GAME.totalHearts,virtues:GAME.virtues,starRating:GAME.starRating,boxChoice:GAME.boxChoice})
+      });
+    }catch(e){console.error(e);}
+    // Scroll tracking via unified game-complete endpoint
+    try{
+      await fetch(window.location.origin+'/api/side-quest/game-complete',{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({game_url:'/psyche_trials.html'})
+      });
+    }catch(e){console.error(e);}
+  }
   window.location.href='/student.html?openPortal=6'+(token?'&token='+token:'');
 }
 

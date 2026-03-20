@@ -70,14 +70,22 @@ const token = urlParams.get('token');
 async function awardPoints() {
     if (!token) return { success: false, alreadyAwarded: false, pointsAwarded: 0 };
     try {
-        const resp = await fetch('/api/student/orpheus-complete', {
+        // Legacy endpoint (kept for compatibility — no longer awards points)
+        await fetch('/api/student/orpheus-complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({})
         });
-        return await resp.json();
+        // Scroll tracking via unified game-complete endpoint
+        const scrollResp = await fetch('/api/side-quest/game-complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ game_url: '/orpheus_game.html' })
+        });
+        const scrollData = await scrollResp.json();
+        return { success: true, alreadyAwarded: scrollData.alreadyCompleted || false, pointsAwarded: 0, scrollData };
     } catch (e) {
-        console.error('Error awarding points:', e);
+        console.error('Error recording Orpheus completion:', e);
         return { success: false, alreadyAwarded: false, pointsAwarded: 0 };
     }
 }
