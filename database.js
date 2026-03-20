@@ -1291,6 +1291,12 @@ function runMigrations() {
       console.log('  Adding hecatoncheires_cards column to students...');
       db.run('ALTER TABLE students ADD COLUMN hecatoncheires_cards INTEGER DEFAULT 0');
     }
+
+    // Ghost player support — is_ghost flag (added retroactively for live DBs)
+    if (!studentColNames.includes('is_ghost')) {
+      console.log('  Adding is_ghost column to students...');
+      db.run('ALTER TABLE students ADD COLUMN is_ghost INTEGER DEFAULT 0');
+    }
     
     console.log('✅ Classical Age migrations complete');
   } catch (err) {

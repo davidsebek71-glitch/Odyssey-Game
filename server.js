@@ -718,16 +718,33 @@ app.get('/api/teacher/alliances', authenticateToken, (req, res) => {
         a.total_points,
         a.buildings_owned,
         a.is_disbanded,
-        a.created_at,
-        COUNT(s.student_id) as member_count,
-        GROUP_CONCAT(s.name, ', ') as member_names
+        a.created_at
       FROM alliances a
-      LEFT JOIN students s ON a.alliance_id = s.alliance_id
       WHERE a.is_disbanded = 0
-      GROUP BY a.alliance_id
       ORDER BY a.class_period, a.total_points DESC
     `);
-    
+
+    // Enrich each alliance with separated real/ghost member data
+    alliances.forEach(alliance => {
+      const realMembers = query(
+        'SELECT student_id, name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) ORDER BY name',
+        [alliance.alliance_id]
+      );
+      const ghostMembers = query(
+        'SELECT student_id, name FROM students WHERE alliance_id = ? AND is_ghost = 1 ORDER BY name',
+        [alliance.alliance_id]
+      );
+      alliance.member_names = realMembers.map(m => m.name);
+      alliance.member_count = realMembers.length;
+      alliance.real_member_count = realMembers.length;
+      alliance.ghost_members = ghostMembers; // [{student_id, name}]
+      alliance.ghost_names = ghostMembers.map(m => m.name);
+      alliance.ghost_count = ghostMembers.length;
+      // Ghost display bonus (same formula as leaderboard)
+      const ghostPointsEach = realMembers.length > 0 ? Math.round(alliance.total_points / realMembers.length) : 0;
+      alliance.display_points = alliance.total_points + (ghostPointsEach * ghostMembers.length);
+    });
+
     res.json(alliances);
   } catch (err) {
     console.error('Get alliances error:', err);
@@ -986,6 +1003,7 @@ app.get('/api/teacher/students', authenticateToken, (req, res) => {
         s.class_period,
         s.alliance_id,
         s.scout_status,
+        s.is_ghost,
         a.alliance_name,
         a.current_age as alliance_age
       FROM students s
@@ -2720,6 +2738,72 @@ app.delete('/api/teacher/student/:student_id', authenticateToken, (req, res) => 
   } catch (err) {
     console.error('Delete student error:', err);
     res.status(500).json({ error: 'Failed to delete student' });
+  }
+});
+
+// Create a ghost player (teacher only)
+// Ghost players have no login — they pad alliance display points proportionally
+app.post('/api/teacher/create-ghost', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+
+    const ghostName = name.trim();
+
+    // Generate a unique dummy email — never used for login
+    const slug = ghostName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const ts = Date.now();
+    const email = `ghost_${slug}_${ts}@odyssey.internal`;
+
+    // Dummy password hash — bcrypt hash of a random UUID, impossible to reverse
+    const dummyHash = '$2b$10$GHOSTPLAYERXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'.substring(0, 60);
+
+    run(
+      'INSERT INTO students (name, email, password_hash, is_ghost, class_period, alliance_id) VALUES (?, ?, ?, 1, NULL, NULL)',
+      [ghostName, email, dummyHash]
+    );
+    saveDatabase();
+
+    const ghost = query('SELECT student_id, name, is_ghost FROM students WHERE email = ?', [email])[0];
+    console.log(`👻 Teacher created ghost player: ${ghostName} (id ${ghost.student_id})`);
+
+    res.json({ success: true, ghost });
+  } catch (err) {
+    console.error('Create ghost error:', err);
+    res.status(500).json({ error: 'Failed to create ghost player' });
+  }
+});
+
+// Remove a ghost player from an alliance (teacher only)
+// Sets alliance_id = NULL, returning them to the pool
+app.post('/api/teacher/remove-ghost', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+
+    const { ghost_student_id } = req.body;
+    if (!ghost_student_id) return res.status(400).json({ error: 'ghost_student_id required' });
+
+    const ghost = query(
+      'SELECT student_id, name, alliance_id, is_ghost FROM students WHERE student_id = ?',
+      [ghost_student_id]
+    )[0];
+
+    if (!ghost) return res.status(404).json({ error: 'Student not found' });
+    if (!ghost.is_ghost) return res.status(400).json({ error: 'Not a ghost player' });
+    if (!ghost.alliance_id) return res.status(400).json({ error: 'Ghost is not in any alliance' });
+
+    const allianceName = query('SELECT alliance_name FROM alliances WHERE alliance_id = ?', [ghost.alliance_id])[0]?.alliance_name || 'unknown';
+
+    run('UPDATE students SET alliance_id = NULL WHERE student_id = ?', [ghost_student_id]);
+    saveDatabase();
+
+    console.log(`👻 Teacher removed ghost ${ghost.name} from alliance ${allianceName}`);
+    res.json({ success: true, message: `👻 ${ghost.name} removed from ${allianceName}` });
+  } catch (err) {
+    console.error('Remove ghost error:', err);
+    res.status(500).json({ error: 'Failed to remove ghost player' });
   }
 });
 
