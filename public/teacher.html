@@ -3327,6 +3327,7 @@
             // Check if this alliance holds any scrolls
             try {
                 const scrollRes = await fetch(`${API_URL}/fate/alliance-scrolls/${allianceId}`, { headers });
+                if (!scrollRes.ok) throw new Error(`Scroll endpoint returned ${scrollRes.status}`);
                 const scrollData = await scrollRes.json();
                 const scrolls = scrollData.scrolls || [];
 
@@ -4338,7 +4339,12 @@
             
             // Show final total with dramatic reveal
             await new Promise(r => setTimeout(r, 400));
-            const totalAmount = Math.abs(sd.totalChange);
+            // Compute total defensively: multiply perAlliance × count as ground truth
+            // (totalChange should equal this, but guard against server version skew)
+            const computedTotal = Math.abs(sd.perAlliance) * sd.alliancesAffected;
+            const totalAmount = (sd.totalChange !== undefined && sd.totalChange !== null)
+                ? Math.abs(sd.totalChange)
+                : computedTotal;
             totalDiv.innerHTML = `
                 <div style="font-size: 20px; color: rgba(255,255,255,0.5); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 2px;">
                     Total ${isPositive ? 'Stolen' : 'Given'}
