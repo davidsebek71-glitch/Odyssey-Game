@@ -1778,6 +1778,165 @@ function seedReferenceData() {
 
   // ==================== END MIGRATIONS ====================
   // ==================== END MIGRATIONS ====================
+
+  // V97: Myth Portal Side Quests + Alliance Scrolls
+  // Phase 1 — adds new columns and tables for game-link side quests and scroll system.
+  // All ALTER TABLE statements use safe ADD COLUMN with defaults — existing rows unaffected.
+
+  // --- side_quests_ref: add quest_type and game_url columns ---
+  try {
+    const sqrCols = db.exec('PRAGMA table_info(side_quests_ref)');
+    const sqrColNames = sqrCols[0] ? sqrCols[0].values.map(r => r[1]) : [];
+    if (!sqrColNames.includes('quest_type')) {
+      db.run("ALTER TABLE side_quests_ref ADD COLUMN quest_type TEXT DEFAULT 'google_form'");
+      console.log('  V97: Added quest_type to side_quests_ref');
+    }
+    if (!sqrColNames.includes('game_url')) {
+      db.run('ALTER TABLE side_quests_ref ADD COLUMN game_url TEXT DEFAULT NULL');
+      console.log('  V97: Added game_url to side_quests_ref');
+    }
+    if (!sqrColNames.includes('unlock_trigger_ref')) {
+      db.run('ALTER TABLE side_quests_ref ADD COLUMN unlock_trigger_ref TEXT DEFAULT NULL');
+      console.log('  V97: Added unlock_trigger_ref to side_quests_ref');
+    }
+    if (!sqrColNames.includes('portal_id_ref')) {
+      db.run('ALTER TABLE side_quests_ref ADD COLUMN portal_id_ref INTEGER DEFAULT NULL');
+      console.log('  V97: Added portal_id_ref to side_quests_ref');
+    }
+    console.log('✅ V97: side_quests_ref columns verified');
+  } catch (e) {
+    console.log('Migration note: V97 side_quests_ref columns -', e.message);
+  }
+
+  // --- side_quest_completions: add completion_source and completed_at_timestamp ---
+  try {
+    const sqcCols2 = db.exec('PRAGMA table_info(side_quest_completions)');
+    const sqcColNames2 = sqcCols2[0] ? sqcCols2[0].values.map(r => r[1]) : [];
+    if (!sqcColNames2.includes('completion_source')) {
+      db.run("ALTER TABLE side_quest_completions ADD COLUMN completion_source TEXT DEFAULT 'teacher_approval'");
+      console.log('  V97: Added completion_source to side_quest_completions');
+    }
+    if (!sqcColNames2.includes('completed_at_timestamp')) {
+      db.run('ALTER TABLE side_quest_completions ADD COLUMN completed_at_timestamp INTEGER DEFAULT NULL');
+      console.log('  V97: Added completed_at_timestamp to side_quest_completions');
+    }
+    console.log('✅ V97: side_quest_completions columns verified');
+  } catch (e) {
+    console.log('Migration note: V97 side_quest_completions columns -', e.message);
+  }
+
+  // --- New table: side_quest_availability (per-student unlock tracking for game-link quests) ---
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS side_quest_availability (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL,
+        quest_id INTEGER NOT NULL,
+        status TEXT DEFAULT 'locked',
+        unlocked_at INTEGER DEFAULT NULL,
+        completed_at INTEGER DEFAULT NULL,
+        FOREIGN KEY (student_id) REFERENCES students(student_id),
+        FOREIGN KEY (quest_id) REFERENCES side_quests_ref(quest_id),
+        UNIQUE(student_id, quest_id)
+      )
+    `);
+    console.log('✅ V97: side_quest_availability table ready');
+  } catch (e) {
+    console.log('Migration note: V97 side_quest_availability -', e.message);
+  }
+
+  // --- New table: alliance_scrolls ---
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS alliance_scrolls (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        alliance_id INTEGER NOT NULL,
+        scroll_type TEXT NOT NULL,
+        earned_at INTEGER NOT NULL,
+        played_at INTEGER DEFAULT NULL,
+        triggered TEXT DEFAULT NULL,
+        fate_id INTEGER DEFAULT NULL,
+        FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
+      )
+    `);
+    console.log('✅ V97: alliance_scrolls table ready');
+  } catch (e) {
+    console.log('Migration note: V97 alliance_scrolls -', e.message);
+  }
+
+  // --- Seed the three game-link side quests (idempotent — checks by quest_name) ---
+  try {
+    const gameQuests = [
+      {
+        quest_name: "Orpheus's Descent",
+        god_associated: 'Orpheus',
+        description: "Orpheus journeys into the Underworld to rescue Eurydice. Guide him through the darkness — but can you resist looking back?",
+        reward_type: 'scroll',
+        reward_name: "Orpheus's Bargain",
+        reward_description: 'When played before a Fate spin, halves any negative fate outcome.',
+        game_url: '/orpheus_game.html',
+        icon: '🎵',
+        quest_type: 'game_link',
+        unlock_trigger_ref: 'Orpheus Quiz',
+        portal_id_ref: 3
+      },
+      {
+        quest_name: "Echo's Lament",
+        god_associated: 'Echo and Narcissus',
+        description: "Echo can only repeat the words of others. Help her survive the cruelest fate of all — to love someone who cannot love back.",
+        reward_type: 'scroll',
+        reward_name: "Echo's Reflection",
+        reward_description: 'When played before a Fate spin, redirects a steal or give fate — stolen points go upward on the leaderboard instead.',
+        game_url: '/echo_lament.html',
+        icon: '🌊',
+        quest_type: 'game_link',
+        unlock_trigger_ref: 'Echo and Narcissus Quiz',
+        portal_id_ref: 4
+      },
+      {
+        quest_name: "Trials of Psyche",
+        god_associated: 'Eros and Psyche',
+        description: "Psyche must complete four impossible tasks to prove her worth to Aphrodite. Face the trials and earn the gods' blessing.",
+        reward_type: 'scroll',
+        reward_name: "Psyche's Lantern",
+        reward_description: 'When played before a Fate spin, doubles any positive fate outcome. No protection against negative fates.',
+        game_url: '/psyche_trials.html',
+        icon: '🕯️',
+        quest_type: 'game_link',
+        unlock_trigger_ref: 'Eros and Psyche Quiz',
+        portal_id_ref: 6
+      }
+    ];
+
+    for (const q of gameQuests) {
+      const existing = db.exec(
+        `SELECT quest_id FROM side_quests_ref WHERE quest_name = '${q.quest_name.replace(/'/g, "''")}'`
+      );
+      if (!existing[0] || existing[0].values.length === 0) {
+        db.run(
+          `INSERT INTO side_quests_ref
+            (quest_name, god_associated, description, reward_type, reward_name, reward_description,
+             form_url, icon, age, quest_type, game_url, unlock_trigger_ref, portal_id_ref)
+           VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 'Classical', ?, ?, ?, ?)`,
+          [q.quest_name, q.god_associated, q.description, q.reward_type, q.reward_name,
+           q.reward_description, q.icon, q.quest_type, q.game_url, q.unlock_trigger_ref, q.portal_id_ref]
+        );
+        console.log(`  V97: Seeded game quest — ${q.quest_name}`);
+      } else {
+        // Update game_url, quest_type, unlock_trigger_ref, portal_id_ref in case they changed
+        db.run(
+          `UPDATE side_quests_ref SET
+             quest_type = ?, game_url = ?, unlock_trigger_ref = ?, portal_id_ref = ?
+           WHERE quest_name = ?`,
+          [q.quest_type, q.game_url, q.unlock_trigger_ref, q.portal_id_ref, q.quest_name]
+        );
+        console.log(`  V97: Verified game quest — ${q.quest_name}`);
+      }
+    }
+    console.log('✅ V97: Game-link side quests seeded');
+  } catch (e) {
+    console.log('Migration note: V97 game quest seeding -', e.message);
+  }
   
   // ==================== CLASSICAL AGE SEED DATA ====================
   // Always run Classical seeding — it has its own internal guards
