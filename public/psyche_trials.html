@@ -48,6 +48,12 @@ const urlParams = new URLSearchParams(window.location.search);
 const token = urlParams.get('token');
 
 // ================================================================
+// DEV MODE — shows level select screen on load.
+// Set to false before deploying to Railway.
+// ================================================================
+const DEV_MODE = true;
+
+// ================================================================
 // SPRITES
 // ================================================================
 const IMG_BASE = '/images/classical/Psyche/';
@@ -91,48 +97,37 @@ loadSprite('wool','golden_wool_tuft.png');
 loadSprite('reed','reed_river.png');
 loadSprite('psyche','Psyche_Standing.png');
 loadSprite('psyche_lamp','Psyche_Lamp.png');
-loadSprite('sister','Psyche_Sister.png');
-loadSprite('eros_sleep','Eros_Sleeping.png');
-loadSprite('eros_fly','Eros_Flying.png');
-loadSprite('psyche_wing','Psyche_Winged.png');
-loadSprite('charon','Charon.png');
-loadSprite('cerberus','Cerberus.png');
-loadSprite('persephone','Persephone.png');
-loadSprite('box','persephones_box.png');
-loadSprite('hand','ghostly_claw.png');
-loadSprite('feast','golden_feast.png');
-loadSprite('coins','glittering_coins.png');
-loadSprite('soul','soul_crying.png');
 loadSprite('zeus','Zeus.png');
 loadSprite('aphrodite','Aphrodite.png');
 loadScene('scene_intro','scene_aphrodite_on_throne.png');
 loadScene('scene_rams','scene_golden_rams_sunset.png');
-loadScene('scene_palace','scene_dark_palace.png');
-loadScene('scene_descent','scene_underworld_descent.png');
-loadScene('scene_rescue','scene_rescue_and_ascension.png');
-loadScene('scene_ascend','scene_psyche_ascension.png');
-loadSprite('golden_arrow','golden_arrow.png');
-loadSprite('rose_petals','rose_petals.png');
-loadSprite('white_feather','white_feather.png');
-loadSprite('story_fragment','story_fragment.png');
-loadSprite('wall_inscription','wall_inscription.png');
 loadSprite('sort_zone','sort_zone_marker.png');
 loadSprite('ground','ground_surface_tile.png');
-loadSprite('oil_lamp','oil_lamp.png');
 loadSprite('thorn_bush','thorny_bush.png');
 loadScene('sky_sunrise','sky_sunrise.png');
 loadSprite('path_tile','path_tile.png');
-// Palace (Trial 3)
-loadScene('palace_bg','palace_bg.png');
-loadSprite('fragment_eros','fragment_eros.png');
-loadSprite('fragment_palace','fragment_palace.png');
-loadSprite('fragment_lamp','fragment_lamp.png');
-loadSprite('fragment_betrayal','fragment_betrayal.png');
-loadSprite('inscription_plaque','inscription_plaque.png');
-loadSprite('inscription_complete','inscription_complete.png');
-loadSprite('fragment_false_serpent','fragment_false_serpent.png');
-loadSprite('mural_slot','mural_slot.png');
-loadScene('underworld_bg','underworld_descent_bg.png');
+// Trial 3 — Eagle's Flight
+loadSprite('eagle_fly','eagle_fly.png');
+loadSprite('eagle_grip_low','eagle_grip_low.png');
+loadSprite('eagle_full','eagle_full.png');
+loadSprite('storm_cloud','hazard_cloud_storm.png');
+loadSprite('rival_eagle','hazard_eagle_descent.png');
+loadSprite('lightning_bolt','hazard_lightning_bolt.png');
+loadSprite('soul_rising','descent_hazard_soul_rising.png');
+loadScene('mountain_bg','mountain_bg.png');
+// Trial 4 — Eros vs Thanatos
+loadSprite('eros_idle','Eros_Battle_Ready.png');
+loadSprite('eros_shoot','Eros_Aiming.png');
+loadSprite('eros_dash','Eros_Wing_Dash.png');
+loadSprite('eros_shield','Eros_Wing_Shield.png');
+loadSprite('thanatos_idle','Thanatos_Combat_Stance.png');
+loadSprite('thanatos_attack','Thanatos_Attack.png');
+loadSprite('thanatos_phase2','Thanatos_Phase_2.png');
+loadSprite('arrow_proj','Projectile_Arrow.png');
+loadSprite('shadow_bolt','Projectile_Shadow_Bolt.png');
+loadSprite('shade_soldier','Soldier_Shade.png');
+loadSprite('psyche_down','Psyche_Unconscious.png');
+loadScene('arena_bg','scene_arena_background.png');
 
 // ================================================================
 // SHARED HELPERS
@@ -165,7 +160,7 @@ const GAME = {
   hearts: 4,
   elapsed: 0,
   particles: [],
-  virtues: { precision:{score:0,rating:''}, patience:{score:0,rating:''}, trust:{score:0,rating:''}, resolve:{score:0,rating:''} },
+  virtues: { precision:{score:0,rating:''}, patience:{score:0,rating:''}, humility:{score:0,rating:''}, devotion:{score:0,rating:''} },
   starRating: 0,
   boxChoice: null,
   storyCard: null,
@@ -194,8 +189,8 @@ function loseHeart() {
 const STORIES = {
   intro:{title:'The Trials of Psyche',text:'Eros is gone. Aphrodite, furious that a mortal dared to\nlove her son, declares Psyche must complete four\nimpossible tasks to prove her worth.\n\n"If you truly love him," Aphrodite says, "then survive this."',scene:'scene_intro',btn:'Begin the Trials'},
   toRams:{title:'The Golden Rams',text:'"Your next task," Aphrodite sneers.\n"Bring me golden wool from the rams of Helios.\nThey will crush anyone foolish enough to approach."\n\nA river reed whispers: "Wait. Be patient.\nWhen the rams rest, the wool catches on the thorns."',scene:'scene_rams',btn:'Enter the Field'},
-  toPalace:{title:'The Dark Palace',text:'Aphrodite demands proof of Eros\'s divine nature.\nPsyche returns to the palace where she once lived with Eros.\n\nThe halls are dark now. She lights her oil lamp\nand steps inside. But her sisters are waiting,\nwhispering lies in the shadows.',scene:'scene_palace',btn:'Enter the Palace'},
-  toDescent:{title:'The Underworld',text:'"One final task," Aphrodite says.\n"Descend to the Underworld.\nAsk Persephone for a box of divine beauty."\n\n"Do not stop. Do not help anyone. Do not look back."\n\nPsyche takes two coins and two barley cakes.\nShe begins the descent.',scene:'scene_descent',btn:'Begin the Descent'}
+  toEagle:{title:'The Water of the Styx',text:'"Your third task," Aphrodite declares.\n"Bring me water from the source of the River Styx.\nNo mortal can reach it — the mountain is impossible."\n\nPsyche stands at the foot of Mount Olympus, defeated.\nThen — a shadow falls across her.\nZeus\'s eagle descends.\n\n"Give me the jug," it says. "I will carry it for you."',scene:'scene_rams',btn:'Send the Eagle'},
+  toEros:{title:'The Final Trial',text:'Psyche opened the box.\nSleep — divine, infinite sleep — poured out.\nShe collapsed where she stood.\n\nOn Olympus, Eros felt it.\nThe wound from the burning oil had healed.\nBut Psyche was dying.\n\nHe descended. Not as a god fleeing — as a warrior.\nThanatos, god of death, stood between them.\n\n"She is mine," Thanatos said.\n\n"No," said Eros. "She is mine."',scene:'scene_intro',btn:'Fight for Psyche'}
 };
 
 function showStory(key, cb) { GAME.storyCard = STORIES[key]; GAME.storyCallback = cb; GAME.phase = 'story'; }
@@ -260,9 +255,9 @@ function startTrial(num) {
 function trialComplete(num, virtueKey, virtueData) {
   GAME.virtues[virtueKey] = virtueData;
   if (num===1) showStory('toRams', ()=>startTrial(2));
-  else if (num===2) showStory('toPalace', ()=>startTrial(3));
-  else if (num===3) showStory('toDescent', ()=>startTrial(4));
-  else if (num===4) { GAME.boxChoice = virtueData.boxChoice; startCinematic(); }
+  else if (num===2) showStory('toEagle', ()=>startTrial(3));
+  else if (num===3) showStory('toEros', ()=>startTrial(4));
+  else if (num===4) { startCinematic(); }
 }
 
 // ================================================================
@@ -319,7 +314,7 @@ function renderResults() {
   ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';ctx.fillText('TRIALS COMPLETE',W/2,55);
   const stars='\u2B50'.repeat(GAME.starRating)+(GAME.starRating===4?'\u2728':'');
   ctx.font='28px "Segoe UI"';ctx.fillText(stars,W/2,90);
-  const vd=[{i:'\u2696\uFE0F',n:'Precision',k:'precision'},{i:'\u{1F54A}\uFE0F',n:'Patience',k:'patience'},{i:'\u{1F526}',n:'Trust',k:'trust'},{i:'\u{1F6E1}\uFE0F',n:'Resolve',k:'resolve'}];
+  const vd=[{i:'\u2696\uFE0F',n:'Precision',k:'precision'},{i:'\u{1F54A}\uFE0F',n:'Patience',k:'patience'},{i:'\u{1FAB6}',n:'Humility',k:'humility'},{i:'\u2764\uFE0F',n:'Devotion',k:'devotion'}];
   const rc={Excellent:'#4ade80',Good:'#60a5fa',Fair:'#fbbf24','Needs Work':'#f87171'};
   vd.forEach((v,i)=>{
     const d=GAME.virtues[v.k],y=120+i*55;
@@ -2542,1978 +2537,1869 @@ function startGame() { G.phase = 'playing'; }
 })();
 
 // ================================================================
-// TRIAL 3: THE DARK PALACE
+// TRIAL 3: THE EAGLE'S FLIGHT
+// Zeus's eagle carries the jug to the Styx source and back.
+// Two phases: ASCENT (scroll up) then DESCENT (scroll down).
+// Hazards knock the jug — grip meter must stay above 0.
+// Virtue earned: Humility
 // ================================================================
 const Trial3 = (function(){
+
+// ── Constants ───────────────────────────────────────────────
+const GRIP_MAX      = 100;
+const GRIP_REGEN    = 4;      // per second, when no hit
+const GRIP_HIT      = 22;     // lost per hazard hit
+const EAGLE_SPEED_X = 220;    // px/s lateral
+const ASCENT_SCROLL = 90;     // px/s scroll speed up
+const DESCENT_SCROLL= 165;    // px/s — heavier jug, faster descent
+const WIND_INTERVAL = 4.5;    // seconds between wind gusts
+const WIND_FORCE    = 180;    // px/s push strength
+const WIND_DUR      = 1.8;    // gust duration in seconds
+
+// Hazard types
+const HZ = { CLOUD:0, RIVAL:1, LIGHTNING:2, SOUL:3 };
+
+// ── State ────────────────────────────────────────────────────
+let G = {};
+function freshState() {
+  return {
+    phase: 'tutorial',   // tutorial|ascent|summit|descent|complete
+    elapsed: 0,
+    // Eagle position (center of sprite)
+    ex: W/2, ey: H*0.65,
+    // Scroll
+    scrollY: 0,          // total px scrolled
+    ascentDist: 2400,    // px to scroll before summit
+    descentDist: 2400,
+    scrolled: 0,
+    // Grip
+    grip: GRIP_MAX,
+    gripHitTimer: 0,     // invuln after hit
+    // Hazards: {type, x, y, vx, vy, w, h, phase, timer}
+    hazards: [],
+    hazSpawnTimer: 0,
+    hazSpawnInterval: 1.6,   // tighter start — was 2.2
+    // Wind gust state
+    windTimer: WIND_INTERVAL * 0.6,  // first gust comes earlier
+    windActive: false,
+    windDir: 0,              // -1 left, +1 right
+    windTimeLeft: 0,
+    windAlpha: 0,            // for visual indicator
+    // Particles
+    particles: [],
+    // Summit
+    summitTimer: 0,
+    // Stats
+    hits: 0,
+    heartsLost: 0,
+    // Mouse/touch target
+    targetX: W/2,
+  };
+}
+
+// ── Hazard factory ───────────────────────────────────────────
+function spawnHazard(phase) {
+  const type = phase === 'descent'
+    ? (Math.random()<0.4 ? HZ.SOUL : (Math.random()<0.5 ? HZ.CLOUD : HZ.LIGHTNING))
+    : (Math.random()<0.35 ? HZ.CLOUD : Math.random()<0.5 ? HZ.RIVAL : HZ.LIGHTNING);
+
+  const h = { type, phase:'active', timer:0 };
+
+  if (type === HZ.CLOUD) {
+    h.x = 40 + Math.random()*(W-120);
+    h.y = -80;
+    h.w = 100 + Math.random()*60; h.h = 55;
+    h.vx = (Math.random()-0.5)*40;
+    h.vy = (phase==='descent' ? -1 : 1) * (50 + Math.random()*30);
+  } else if (type === HZ.RIVAL) {
+    // Comes from left or right edge, crosses screen
+    const fromLeft = Math.random()<0.5;
+    h.x = fromLeft ? -60 : W+60;
+    h.y = 80 + Math.random()*(H-200);
+    h.w = 56; h.h = 48;
+    h.vx = fromLeft ? (120+Math.random()*60) : -(120+Math.random()*60);
+    h.vy = (Math.random()-0.5)*30;
+  } else if (type === HZ.LIGHTNING) {
+    h.x = 40 + Math.random()*(W-80);
+    h.y = -80;
+    h.w = 20; h.h = 72;
+    h.vx = 0;
+    h.vy = 0;
+    h.phase = 'warning'; // warning → strike → fade
+    h.timer = 1.1;       // warning duration
+  } else if (type === HZ.SOUL) {
+    // Souls rise upward during descent
+    h.x = 30 + Math.random()*(W-60);
+    h.y = H + 40;
+    h.w = 40; h.h = 56;
+    h.vx = (Math.random()-0.5)*25;
+    h.vy = -(80 + Math.random()*50);
+  }
+  G.hazards.push(h);
+}
+
+// ── Particles ────────────────────────────────────────────────
+function spawnParticles(x,y,n,color) {
+  for(let i=0;i<n;i++) {
+    G.particles.push({
+      x,y,
+      vx:(Math.random()-0.5)*120,
+      vy:(Math.random()-0.5)*120-40,
+      life:0.5+Math.random()*0.3,
+      ml:0.8,
+      color,
+      size:2+Math.random()*3
+    });
+  }
+}
+
+// ── Update ───────────────────────────────────────────────────
+function update(dt) {
+  if(G.phase==='tutorial'||G.phase==='complete') return;
+  G.elapsed += dt;
+
+  // Eagle lateral movement — mouse/touch or arrow keys
+  const moveL = keys['ArrowLeft']||keys['a']||keys['A'];
+  const moveR = keys['ArrowRight']||keys['d']||keys['D'];
+  if(moveL) G.targetX = Math.max(40, G.ex - EAGLE_SPEED_X*dt*2);
+  if(moveR) G.targetX = Math.min(W-40, G.ex + EAGLE_SPEED_X*dt*2);
+  // Smooth follow to target (set by mouse)
+  G.ex += (G.targetX - G.ex) * Math.min(1, dt*8);
+  G.ex = Math.max(40, Math.min(W-40, G.ex));
+
+  // Vertical bob
+  G.ey = H*0.6 + Math.sin(G.elapsed*2.2)*12;
+
+  // Grip regen
+  if(G.gripHitTimer > 0) G.gripHitTimer -= dt;
+  else G.grip = Math.min(GRIP_MAX, G.grip + GRIP_REGEN*dt);
+
+  // ── Wind gust ──
+  if(G.phase==='ascent'||G.phase==='descent'){
+    if(G.windActive){
+      G.windTimeLeft -= dt;
+      G.windAlpha = Math.min(1, G.windTimeLeft/0.4);
+      // Push eagle — player must correct
+      G.targetX += G.windDir * WIND_FORCE * dt;
+      G.targetX = Math.max(40, Math.min(W-40, G.targetX));
+      if(G.windTimeLeft<=0){ G.windActive=false; G.windAlpha=0; }
+    } else {
+      G.windTimer -= dt;
+      if(G.windTimer<=0){
+        G.windActive=true;
+        G.windDir = Math.random()<0.5 ? -1 : 1;
+        G.windTimeLeft = WIND_DUR;
+        G.windAlpha = 1;
+        G.windTimer = WIND_INTERVAL + (Math.random()-0.5)*1.5;
+        showFloat(W/2, 80,
+          G.windDir < 0 ? '💨 Wind from the right!' : '💨 Wind from the left!',
+          'rgba(180,200,255,0.9)', 13);
+      }
+    }
+  }
+
+  // ── ASCENT ──
+  if(G.phase==='ascent') {
+    G.scrolled += ASCENT_SCROLL*dt;
+
+    // Spawn hazards — compress harder toward summit
+    G.hazSpawnTimer -= dt;
+    const progress = Math.min(1, G.scrolled/G.ascentDist);
+    const interval = G.hazSpawnInterval * (1 - progress*0.65);
+    if(G.hazSpawnTimer <= 0) {
+      spawnHazard('ascent');
+      G.hazSpawnTimer = interval + Math.random()*0.5;
+    }
+
+    if(G.scrolled >= G.ascentDist) {
+      G.phase = 'summit';
+      G.summitTimer = 3.5;
+      G.hazards = [];
+      G.windActive = false;
+      spawnParticles(G.ex, G.ey, 20, '#60c8ff');
+    }
+  }
+
+  // ── SUMMIT ──
+  if(G.phase==='summit') {
+    G.summitTimer -= dt;
+    if(G.summitTimer <= 0) {
+      G.phase = 'descent';
+      G.scrolled = 0;
+      G.windTimer = WIND_INTERVAL * 0.4; // wind hits sooner on descent
+    }
+  }
+
+  // ── DESCENT ──
+  if(G.phase==='descent') {
+    G.scrolled += DESCENT_SCROLL*dt;
+
+    G.hazSpawnTimer -= dt;
+    const progress = Math.min(1, G.scrolled/G.descentDist);
+    const interval = (G.hazSpawnInterval*0.75) * (1 - progress*0.5);
+    if(G.hazSpawnTimer <= 0) {
+      spawnHazard('descent');
+      G.hazSpawnTimer = interval + Math.random()*0.4;
+    }
+
+    if(G.scrolled >= G.descentDist) {
+      G.phase = 'complete';
+    }
+  }
+
+  // ── Hazard update ──
+  G.hazards = G.hazards.filter(h => {
+    h.timer -= dt;
+
+    if(h.type === HZ.LIGHTNING) {
+      if(h.phase==='warning' && h.timer<=0) {
+        h.phase='strike'; h.timer=0.22; h.y=-5;
+      } else if(h.phase==='strike') {
+        h.y = -5; // stays at top, just visible
+        if(h.timer<=0){h.phase='fade';h.timer=0.3;}
+      } else if(h.phase==='fade'&&h.timer<=0) return false;
+    } else {
+      h.x += h.vx*dt;
+      h.y += h.vy*dt;
+      // Remove if off screen
+      if(h.y > H+100 || h.y < -200 || h.x < -200 || h.x > W+200) return false;
+    }
+
+    // Collision with eagle (if not invuln)
+    if(G.gripHitTimer <= 0) {
+      let hit = false;
+      const ex=G.ex, ey=G.ey;
+      if(h.type===HZ.LIGHTNING && h.phase==='strike') {
+        // Lightning hits if eagle near its X
+        if(Math.abs(ex-h.x)<28) hit=true;
+      } else {
+        const hw=h.w*0.45, hh=h.h*0.45;
+        if(Math.abs(ex-h.x)<hw+28 && Math.abs(ey-h.y)<hh+28) hit=true;
+      }
+      if(hit) {
+        G.grip -= GRIP_HIT;
+        G.gripHitTimer = 1.2;
+        G.hits++;
+        spawnParticles(ex, ey, 10, '#ff8040');
+        showFloat(ex, ey-40, '-Grip!', '#ff8040', 14);
+        if(G.grip <= 0) {
+          G.grip = 0;
+          // Jug dropped — lose heart, reset phase
+          G.hearts = (G.hearts||4) - 1;
+          GAME.totalHearts--;
+          G.heartsLost++;
+          showFloat(W/2, H/2, '💧 Jug slipped!', '#ef4444', 16);
+          shake();
+          // Reset to start of current phase
+          setTimeout(()=>{
+            if(G.phase==='ascent') { G.scrolled=0; G.hazards=[]; G.grip=GRIP_MAX; }
+            if(G.phase==='descent'){ G.scrolled=0; G.hazards=[]; G.grip=GRIP_MAX; }
+            if(GAME.totalHearts<=0) G.phase='complete';
+          }, 1000);
+        }
+      }
+    }
+
+    return true;
+  });
+
+  // Particles
+  G.particles = G.particles.filter(p=>{
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.vy+=60*dt;
+    p.life-=dt; return p.life>0;
+  });
+}
+
+// ── Render ───────────────────────────────────────────────────
+function render() {
+  ctx.clearRect(0,0,W,H);
+  if(G.phase==='tutorial'){renderTutorial();return;}
+  if(G.phase==='complete'){renderComplete();return;}
+
+  // Background — scrolling mountain
+  const bgSpr = sprites['mountain_bg'];
+  if(bgSpr) {
+    // Parallax tile
+    const scrollOff = (G.scrolled*0.35) % H;
+    ctx.drawImage(bgSpr, 0, scrollOff, W, H);
+    ctx.drawImage(bgSpr, 0, scrollOff-H, W, H);
+  } else {
+    // Programmatic mountain bg
+    const phase = G.phase;
+    const skyTop = phase==='descent' ? '#1a0a30' : '#0a0818';
+    const skyBot = phase==='descent' ? '#0a1828' : '#14082a';
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, skyTop);
+    grad.addColorStop(1, skyBot);
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+
+    // Parallax rock layers
+    const scroll = G.scrolled;
+    ctx.fillStyle='rgba(20,15,35,0.9)';
+    // Far layer
+    for(let i=0;i<6;i++){
+      const rx=(i*180+scroll*0.1)%W-60;
+      const rh=60+Math.sin(i*1.7)*30;
+      ctx.fillRect(rx,H-rh,100,rh);
+    }
+    // Near layer L
+    ctx.fillStyle='rgba(10,8,20,1)';
+    ctx.fillRect(0,100,55,H-100);
+    ctx.fillRect(W-55,80,55,H-80);
+    // Rock edge detail
+    ctx.fillStyle='rgba(40,30,60,0.7)';
+    for(let i=0;i<8;i++){
+      const jag = 8+Math.sin(i*2.3+scroll*0.01)*6;
+      ctx.fillRect(0, 100+i*60, 55+jag, 4);
+      ctx.fillRect(W-55-jag, 80+i*60, 55+jag, 4);
+    }
+
+    // Stars (only during ascent night sky)
+    if(phase==='ascent') {
+      ctx.fillStyle='rgba(255,255,255,0.6)';
+      for(let i=0;i<20;i++){
+        const sx=(i*137+73)%W;
+        const sy=(i*97+41)%220;
+        const twinkle=Math.sin(G.elapsed*2+i)*0.4+0.6;
+        ctx.globalAlpha=twinkle*0.7;
+        ctx.fillRect(sx,sy,1+(i%2),1+(i%3===0?1:0));
+      }
+      ctx.globalAlpha=1;
+    }
+
+    // Lightning flashes in bg
+    if(Math.sin(G.elapsed*7)*Math.sin(G.elapsed*3.1)>0.85){
+      ctx.fillStyle='rgba(180,160,255,0.04)';
+      ctx.fillRect(0,0,W,H);
+    }
+  }
+
+  // Summit glow when arriving
+  if(G.phase==='summit') {
+    const t=Math.min(1,(3.5-G.summitTimer)/1.5);
+    const glow=ctx.createRadialGradient(W/2,H*0.3,0,W/2,H*0.3,200);
+    glow.addColorStop(0,`rgba(100,200,255,${t*0.25})`);
+    glow.addColorStop(1,'rgba(80,160,255,0)');
+    ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    ctx.fillStyle=`rgba(180,230,255,${t})`;
+    ctx.font='bold 18px "Segoe UI"';
+    ctx.fillText('The Source of the Styx!', W/2, H*0.28);
+    ctx.fillStyle=`rgba(140,200,255,${t*0.8})`;
+    ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('The eagle fills the jug with divine water...', W/2, H*0.28+28);
+    ctx.textAlign='left';
+    // Glowing spring
+    const sg=ctx.createRadialGradient(W/2,H*0.42,0,W/2,H*0.42,70);
+    sg.addColorStop(0,`rgba(160,220,255,${t*0.6})`);
+    sg.addColorStop(1,'rgba(80,160,255,0)');
+    ctx.fillStyle=sg; ctx.fillRect(0,0,W,H);
+  }
+
+  // Descent arrival glow
+  if(G.phase==='descent' && G.scrolled > G.descentDist-200) {
+    const t=(G.scrolled-(G.descentDist-200))/200;
+    ctx.fillStyle=`rgba(240,200,100,${t*0.15})`;
+    ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    ctx.fillStyle=`rgba(240,214,138,${t})`;
+    ctx.font='bold 18px "Segoe UI"';
+    ctx.fillText('Psyche waits below...', W/2, H*0.8);
+    ctx.textAlign='left';
+  }
+
+  // ── Hazards ──
+  G.hazards.forEach(h=>{
+    if(h.type===HZ.CLOUD){
+      const spr=sprites['storm_cloud'];
+      if(spr){
+        ctx.drawImage(spr, h.x-h.w/2, h.y-h.h/2, h.w, h.h);
+      } else {
+        ctx.fillStyle='rgba(30,20,60,0.85)';
+        ctx.beginPath();
+        ctx.ellipse(h.x,h.y,h.w/2,h.h/2,0,0,Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle='rgba(50,35,80,0.7)';
+        ctx.beginPath();
+        ctx.ellipse(h.x-20,h.y-8,h.w/3,h.h/2.5,0,0,Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(h.x+18,h.y-5,h.w/3.5,h.h/2.8,0,0,Math.PI*2);
+        ctx.fill();
+        // Lightning inside
+        ctx.strokeStyle='rgba(200,180,80,0.6)';ctx.lineWidth=1.5;
+        ctx.beginPath();
+        ctx.moveTo(h.x-4,h.y-10);
+        ctx.lineTo(h.x+2,h.y);
+        ctx.lineTo(h.x-2,h.y);
+        ctx.lineTo(h.x+5,h.y+12);
+        ctx.stroke();
+      }
+    } else if(h.type===HZ.RIVAL){
+      const spr=sprites['rival_eagle'];
+      if(spr){
+        ctx.save();
+        if(h.vx>0){ctx.scale(-1,1);ctx.drawImage(spr,-(h.x+h.w/2),h.y-h.h/2,h.w,h.h);}
+        else ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+        ctx.restore();
+      } else {
+        ctx.fillStyle='#1a1828';
+        // Simple eagle silhouette
+        ctx.beginPath();
+        ctx.ellipse(h.x,h.y,22,10,0,0,Math.PI*2); ctx.fill();
+        // Wings
+        ctx.beginPath();
+        const wd=h.vx>0?1:-1;
+        ctx.moveTo(h.x,h.y-4);
+        ctx.lineTo(h.x-wd*40,h.y-18);
+        ctx.lineTo(h.x-wd*28,h.y-2);
+        ctx.moveTo(h.x,h.y-4);
+        ctx.lineTo(h.x+wd*40,h.y-18);
+        ctx.lineTo(h.x+wd*28,h.y-2);
+        ctx.fillStyle='#1a1828'; ctx.fill();
+        ctx.fillStyle='#e03030';
+        ctx.beginPath();ctx.arc(h.x+(h.vx>0?-18:18),h.y-3,3,0,Math.PI*2);ctx.fill();
+      }
+    } else if(h.type===HZ.LIGHTNING){
+      if(h.phase==='warning'){
+        // Faint column showing where bolt will strike
+        const warnAlpha=0.2+Math.sin(G.elapsed*12)*0.12;
+        ctx.strokeStyle=`rgba(240,220,80,${warnAlpha})`;
+        ctx.lineWidth=2;ctx.setLineDash([6,6]);
+        ctx.beginPath();ctx.moveTo(h.x,0);ctx.lineTo(h.x,H);ctx.stroke();
+        ctx.setLineDash([]);
+      } else if(h.phase==='strike'){
+        const spr=sprites['lightning_bolt'];
+        if(spr){
+          ctx.drawImage(spr,h.x-10,0,20,H);
+        } else {
+          ctx.strokeStyle='rgba(255,240,100,0.95)';ctx.lineWidth=4;
+          ctx.shadowColor='rgba(255,220,50,0.8)';ctx.shadowBlur=12;
+          ctx.beginPath();
+          ctx.moveTo(h.x,0);
+          ctx.lineTo(h.x-8,H*0.25);
+          ctx.lineTo(h.x+6,H*0.5);
+          ctx.lineTo(h.x-5,H*0.75);
+          ctx.lineTo(h.x+3,H);
+          ctx.stroke();
+          ctx.shadowBlur=0;
+        }
+        // Flash
+        ctx.fillStyle='rgba(255,240,100,0.08)';
+        ctx.fillRect(0,0,W,H);
+      } else if(h.phase==='fade'){
+        ctx.strokeStyle=`rgba(255,240,100,${h.timer/0.3*0.4})`;
+        ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(h.x,0);ctx.lineTo(h.x,H);ctx.stroke();
+      }
+    } else if(h.type===HZ.SOUL){
+      const spr=sprites['soul_rising'];
+      if(spr){
+        ctx.globalAlpha=0.85;
+        ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+        ctx.globalAlpha=1;
+      } else {
+        const sa=0.6+Math.sin(G.elapsed*4+h.x)*0.2;
+        ctx.globalAlpha=sa;
+        ctx.fillStyle='rgba(140,180,220,0.8)';
+        ctx.beginPath();ctx.ellipse(h.x,h.y-8,12,18,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(h.x,h.y+18,8,24,0,0,Math.PI*2);ctx.fill();
+        // Eyes
+        ctx.fillStyle='rgba(200,220,255,0.9)';
+        ctx.beginPath();ctx.arc(h.x-5,h.y-12,3,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(h.x+5,h.y-12,3,0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=1;
+      }
+    }
+  });
+
+  // ── Eagle ──
+  const eagleKey = G.phase==='descent'
+    ? 'eagle_full'
+    : (G.grip<30 ? 'eagle_grip_low' : 'eagle_fly');
+  const eagleSpr = sprites[eagleKey] || sprites['eagle_fly'];
+  const eSize = 96;
+  const hitFlicker = G.gripHitTimer>0 && Math.sin(G.elapsed*20)>0;
+
+  if(eagleSpr && !hitFlicker){
+    ctx.drawImage(eagleSpr, G.ex-eSize/2, G.ey-eSize/2, eSize, eSize);
+  } else if(!eagleSpr){
+    // Programmatic eagle fallback
+    ctx.save();
+    if(hitFlicker) ctx.globalAlpha=0.4;
+    // Body
+    ctx.fillStyle='#8B5E1A';
+    ctx.beginPath();ctx.ellipse(G.ex,G.ey,22,14,0,0,Math.PI*2);ctx.fill();
+    // Head (white)
+    ctx.fillStyle='#EEE8DC';
+    ctx.beginPath();ctx.ellipse(G.ex+20,G.ey-6,12,10,0.3,0,Math.PI*2);ctx.fill();
+    // Beak
+    ctx.fillStyle='#D4A020';
+    ctx.beginPath();ctx.moveTo(G.ex+31,G.ey-6);ctx.lineTo(G.ex+40,G.ey-3);ctx.lineTo(G.ex+31,G.ey);ctx.closePath();ctx.fill();
+    // Wings
+    ctx.fillStyle='#6B420E';
+    ctx.beginPath();
+    ctx.moveTo(G.ex-5,G.ey-4);
+    ctx.lineTo(G.ex-60,G.ey-35);
+    ctx.lineTo(G.ex-40,G.ey+4);
+    ctx.closePath();ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(G.ex-5,G.ey-4);
+    ctx.lineTo(G.ex+50,G.ey-30);
+    ctx.lineTo(G.ex+35,G.ey+5);
+    ctx.closePath();ctx.fill();
+    // Jug
+    ctx.fillStyle = G.phase==='descent' ? '#8090B0' : '#C4742A';
+    ctx.beginPath();ctx.ellipse(G.ex,G.ey+30,10,14,0,0,Math.PI*2);ctx.fill();
+    if(G.phase==='descent'){
+      // Glowing water hint
+      ctx.fillStyle='rgba(100,180,220,0.5)';
+      ctx.beginPath();ctx.ellipse(G.ex,G.ey+24,5,4,0,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    ctx.restore();
+  }
+
+  // ── Particles ──
+  G.particles.forEach(p=>{
+    ctx.globalAlpha=Math.max(0,p.life/p.ml);
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // ── HUD ──
+  renderHUD();
+}
+
+function renderHUD(){
+  // Grip meter
+  ctx.fillStyle='rgba(0,0,0,0.65)';rr(ctx,10,10,200,38,6);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='bold 11px "Segoe UI"';ctx.textAlign='left';
+  ctx.fillText(G.phase==='descent'?'🏺 JUG GRIP':'🏺 JUG GRIP',16,25);
+  // Bar bg
+  ctx.fillStyle='rgba(255,255,255,0.08)';rr(ctx,16,28,180,10,4);ctx.fill();
+  // Bar fill
+  const gripPct=G.grip/GRIP_MAX;
+  const gripColor=gripPct>0.6?'#4ade80':gripPct>0.3?'#fbbf24':'#ef4444';
+  ctx.fillStyle=gripColor;rr(ctx,16,28,Math.max(0,180*gripPct),10,4);ctx.fill();
+  ctx.strokeStyle='rgba(200,180,140,0.2)';ctx.lineWidth=1;rr(ctx,16,28,180,10,4);ctx.stroke();
+
+  // Progress bar
+  const total = G.phase==='descent' ? G.descentDist : G.ascentDist;
+  const pct = G.phase==='summit' ? 1 : Math.min(1,G.scrolled/total);
+  ctx.fillStyle='rgba(0,0,0,0.65)';rr(ctx,10,55,200,28,6);ctx.fill();
+  const label = G.phase==='ascent'?'↑ Ascending':'↓ Returning';
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='11px "Segoe UI"';
+  ctx.fillText(G.phase==='summit'?'Summit reached!':label,16,68);
+  ctx.fillStyle='rgba(255,255,255,0.06)';rr(ctx,16,70,180,8,3);ctx.fill();
+  ctx.fillStyle='rgba(100,180,255,0.7)';rr(ctx,16,70,180*pct,8,3);ctx.fill();
+
+  // Hearts
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,W-110,10,100,32,6);ctx.fill();
+  ctx.font='16px "Segoe UI"';
+  const hearts=Math.max(0,Math.min(4,GAME.totalHearts));
+  for(let i=0;i<4;i++){
+    ctx.fillStyle=i<hearts?'#ef4444':'rgba(100,80,80,0.3)';
+    ctx.fillText('\u2665',W-102+i*23,30);
+  }
+
+  // Phase label
+  if(G.phase==='ascent'||G.phase==='descent'){
+    ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,W/2-90,10,180,24,4);ctx.fill();
+    ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='bold 12px "Segoe UI"';ctx.textAlign='center';
+    ctx.fillText(G.phase==='ascent'
+      ? '⬆ Fly to the Styx source'
+      : '⬇ Return the water to Psyche', W/2, 27);
+    ctx.textAlign='left';
+  }
+
+  // Hit flash overlay
+  if(G.gripHitTimer>0 && G.gripHitTimer>0.9){
+    ctx.fillStyle='rgba(255,80,20,0.15)';
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // Wind gust indicator
+  if(G.windActive && G.windAlpha>0){
+    const windLabel = G.windDir<0 ? '← ← ← WIND' : 'WIND → → →';
+    const windX = G.windDir<0 ? 60 : W-60;
+    ctx.fillStyle=`rgba(140,180,255,${G.windAlpha*0.85})`;
+    ctx.font=`bold 13px "Segoe UI"`;ctx.textAlign='center';
+    ctx.fillText(windLabel, windX, H*0.55);
+    // Arrow lines
+    ctx.strokeStyle=`rgba(140,180,255,${G.windAlpha*0.4})`;ctx.lineWidth=1.5;
+    for(let i=0;i<3;i++){
+      const ly=H*0.5+i*18;
+      ctx.beginPath();
+      ctx.moveTo(windX-30,ly);ctx.lineTo(windX+30,ly);
+      ctx.stroke();
+    }
+    ctx.textAlign='left';
+  }
+
+  // Controls hint
+  ctx.fillStyle='rgba(200,180,140,0.3)';ctx.font='10px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText('← → Arrow keys or mouse to steer the eagle',W/2,H-8);
+  ctx.textAlign='left';
+}
+
+function renderTutorial(){
+  ctx.fillStyle='rgba(0,0,0,0.92)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText('"Some things are too great to carry alone."',W/2,75);
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  [
+    'Psyche cannot reach the Styx source herself.',
+    'Zeus\'s eagle takes the jug — and the burden with it.',
+    '',
+    'Steer the eagle LEFT and RIGHT with arrow keys',
+    'or move your mouse to guide the flight path.',
+    '',
+    '⬆  Phase 1: Fly UP to the Styx summit',
+    '   Dodge storm clouds, rival eagles, and lightning',
+    '   💨 Wind gusts will push you sideways — correct fast!',
+    '',
+    '⬇  Phase 2: Fly DOWN with the filled jug',
+    '   Souls of the dead rise to block your path',
+    '   Wind is stronger — jug makes the eagle heavier',
+    '',
+    '🏺 Watch the JUG GRIP meter — if it hits zero, the jug falls!',
+    '   Grip recovers slowly between hits.',
+  ].forEach((l,i)=>{
+    ctx.fillStyle=l===''?'transparent':
+      l.startsWith('⬆')||l.startsWith('⬇')?'rgba(100,180,255,0.9)':
+      l.startsWith('🏺')?'rgba(255,180,80,0.9)':'rgba(180,165,130,0.8)';
+    ctx.fillText(l,W/2,130+i*25);
+  });
+
+  const p=0.7+Math.sin(G.elapsed*3)*0.3;
+  ctx.fillStyle=`rgba(240,214,138,${p*0.12})`;rr(ctx,W/2-80,480,160,40,8);ctx.fill();
+  ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`;ctx.lineWidth=1.5;rr(ctx,W/2-80,480,160,40,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText('Send the Eagle',W/2,505);
+  ctx.textAlign='left';
+}
+
+function renderComplete(){
+  ctx.fillStyle='rgba(0,0,0,0.92)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText('Trial III Complete',W/2,100);
+
+  const gripScore = Math.round((G.grip/GRIP_MAX)*60);
+  const heartScore = Math.round(Math.max(0,(GAME.totalHearts/10))*40);
+  const combined = gripScore + heartScore;
+  let rating,rc;
+  if(combined>=85){rating='Excellent';rc='#4ade80';}
+  else if(combined>=65){rating='Good';rc='#60a5fa';}
+  else if(combined>=45){rating='Fair';rc='#fbbf24';}
+  else{rating='Needs Work';rc='#f87171';}
+
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  ctx.fillText(`Jug Grip Remaining: ${Math.round(G.grip)}%`,W/2,155);
+  ctx.fillText(`Times Slipped: ${G.hits} hits`,W/2,180);
+  ctx.fillText(`Hearts Lost: ${G.heartsLost}`,W/2,205);
+
+  ctx.fillStyle=rc;ctx.font='bold 20px "Segoe UI"';
+  ctx.fillText(`🪶 Humility: ${rating}`,W/2,260);
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
+  ctx.fillText('"She accepted help. That took more strength than pride."',W/2,300);
+
+  ctx.fillStyle='rgba(74,222,128,0.12)';rr(ctx,W/2-90,355,180,38,8);ctx.fill();
+  ctx.strokeStyle='rgba(74,222,128,0.4)';ctx.lineWidth=1;rr(ctx,W/2-90,355,180,38,8);ctx.stroke();
+  ctx.fillStyle='#4ade80';ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText('Continue to Trial 4 →',W/2,379);
+  ctx.textAlign='left';
+}
+
+// ── Input ────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e=>{
+  if(GAME.phase!=='trial3') return;
+  const p=getPos(e);
+  G.targetX = Math.max(40, Math.min(W-40, p.x));
+});
+canvas.addEventListener('touchmove', e=>{
+  if(GAME.phase!=='trial3') return;
+  const p=getPos(e);
+  G.targetX = Math.max(40, Math.min(W-40, p.x));
+},{passive:true});
+
+return {
+  init(){ G=freshState(); G.elapsed=0; },
+  update(dt){ G.elapsed+=dt; update(dt); },
+  render(){ render(); },
+  click(x,y){
+    if(G.phase==='tutorial'){
+      if(x>W/2-80&&x<W/2+80&&y>480&&y<520){
+        G.phase='ascent'; G.hazSpawnTimer=2.0;
+      }
+      return;
+    }
+    if(G.phase==='complete'){
+      if(x>W/2-90&&x<W/2+90&&y>355&&y<393){
+        const gripScore=Math.round((G.grip/GRIP_MAX)*60);
+        const heartScore=Math.round(Math.max(0,(GAME.totalHearts/10))*40);
+        const combined=gripScore+heartScore;
+        let rating;
+        if(combined>=85)rating='Excellent';
+        else if(combined>=65)rating='Good';
+        else if(combined>=45)rating='Fair';
+        else rating='Needs Work';
+        trialComplete(3,'humility',{score:combined,rating});
+      }
+      return;
+    }
+  },
+  mousemove(x,y){ G.targetX=Math.max(40,Math.min(W-40,x)); },
+  mouseup(x,y){},
+  G:()=>G
+};
+})();
 
 
 // ============================================================
 // SPRITES
 // ============================================================
 
-// ============================================================
-// ROOM 1: THE STORY WALL
-// Fragments of a mural showing Eros & Psyche's story.
-// Player finds fragments scattered in darkness, then arranges
-// them in chronological order on the empty mural panel.
-// ============================================================
-const STORY_FRAGMENTS = [
-  { id:0, icon:'💘', title:'Eros Strikes', desc:'Eros sees Psyche and falls in love', color:'#e8a040', spriteKey:'fragment_eros' },
-  { id:1, icon:'🏛️', title:'The Invisible Palace', desc:'Psyche lives in a palace, never seeing her husband', color:'#c090d0', spriteKey:'fragment_palace' },
-  { id:2, icon:'🪔', title:'The Oil Lamp', desc:'Psyche lights a lamp to see Eros\'s face', color:'#f0d060', spriteKey:'fragment_lamp' },
-  { id:3, icon:'💔', title:'The Betrayal', desc:'Oil drops on Eros — he wakes and flies away', color:'#e06060', spriteKey:'fragment_betrayal' }
-];
-
-// False fragments (sister lies) — look similar but don't belong
-const FALSE_FRAGMENTS = [
-  { id:'f0', icon:'🐍', title:'The Serpent', desc:'A monster lurks in the palace', color:'#5080a0', whisper:'He was always a monster...', spriteKey:'fragment_false_serpent' },
-  { id:'f1', icon:'⛓️', title:'The Prison', desc:'Psyche was trapped against her will', color:'#5080a0', whisper:'You were never free...', spriteKey:'fragment_false_serpent' }
-];
-
-// ============================================================
-// ROOM 2: THE OFFERING ALTAR
-// Find divine objects and match them to the correct altar slot
-// by reading the symbol hint on each slot.
-// ============================================================
-const ALTAR_OBJECTS = [
-  { id:0, icon:'🪶', name:'White Feather', symbol:'🦋', symbolHint:'Wings of the soul', color:'#e8d8c0', spriteKey:'white_feather' },
-  { id:1, icon:'🏹', name:'Golden Arrow', symbol:'💘', symbolHint:'Weapon of love', color:'#d4a020', spriteKey:'golden_arrow' },
-  { id:2, icon:'🌹', name:'Rose Petals', symbol:'❤️', symbolHint:'Where love bloomed', color:'#d06080', spriteKey:'rose_petals' },
-  { id:3, icon:'✨', name:'Divine Light', symbol:'☀️', symbolHint:'Radiance of the gods', color:'#f0e080', spriteKey:'oil_lamp' }
-];
-
-const FALSE_OBJECTS = [
-  { id:'f0', icon:'💀', name:'Skull Fragment', symbol:null, color:'#6090a0', whisper:'Death was always near...' },
-  { id:'f1', icon:'🐍', name:'Dark Scale', symbol:null, color:'#5080a0', whisper:'A serpent lived here...' }
-];
-
-// ============================================================
-// STATE
-// ============================================================
-  let G = {};
-function freshState() {
-  return {
-    phase: 'tutorial',
-    elapsed: 0,
-    // Lamp / Psyche position
-    lampX: W/2, lampY: H/2,
-    lampTX: W/2, lampTY: H/2,
-    lampR: 84,
-    lampOn: true, lampOutTimer: 0,
-    facingRight: true,
-    // Floor bounds — Psyche can't walk on walls
-    floorL: 50, floorR: W-50, floorT: 90, floorB: H-40,
-    // Oil
-    oil: 100,
-    // Room
-    roomIdx: 0, // 0=Story Wall, 1=Altar, 2=Bedchamber
-    // Clue items scattered in darkness
-    items: [],
-    inventory: [],
-    // Puzzle panel / altar
-    slots: [],
-    puzzleSolved: false,
-    // Hint paintings on walls (discoverable with lamp)
-    hints: [],
-    // Sisters
-    sisters: [],
-    sisterTimer: 0,
-    sisterAttacksLeft: 0,
-    // Scoring
-    falseCollected: 0,
-    wrongPlacements: 0,
-    // Bedchamber
-    bedReveal: 0, bedPhase: 0, bedFlyTimer: 0,
-    // UI state
-    selectedItem: null,   // Index in inventory of currently selected item
-    dragging: null,       // Legacy — kept for mouseup compat
-    dragX: 0, dragY: 0,
-    hoveredSlot: -1,
-    // Particles
-    particles: [],
-    // Hearts (display only — Trial 3 uses oil, not hearts)
-    totalHearts: GAME.totalHearts, hearts: Math.min(4, GAME.totalHearts),
-    // Cold flash
-    coldFlash: 0
-  };
-}
-
-// ============================================================
-// ROOM SETUP
-// ============================================================
-function setupRoom(idx) {
-  G.roomIdx = idx;
-  G.items = [];
-  G.inventory = [];
-  G.slots = [];
-  G.hints = [];
-  G.puzzleSolved = false;
-  G.sisters = [];
-  G.dragging = null;
-  G.hoveredSlot = -1;
-
-  if (idx === 0) {
-    // ROOM 1: Story Wall
-    G.sisterAttacksLeft = 3;
-    G.sisterTimer = 8 + Math.random() * 2;
-    G.oil = Math.min(100, G.oil + 5);
-
-    // Scatter story fragments — spread across floor, clear of inscription area (top-left)
-    const positions = [
-      {x:520, y:200}, {x:560, y:400}, {x:140, y:420}, {x:180, y:320}
-    ];
-    const shuffled = [...positions].sort(() => Math.random() - 0.5);
-    STORY_FRAGMENTS.forEach((frag, i) => {
-      G.items.push({
-        x: shuffled[i].x, y: shuffled[i].y,
-        data: frag, found: false, discovered: false, glow: 0,
-        isReal: true, pickedUp: false
-      });
-    });
-
-    // False fragment — bottom center, away from everything
-    G.items.push({
-      x: 340 + (Math.random()-0.5)*40, y: 380 + (Math.random()-0.5)*30,
-      data: FALSE_FRAGMENTS[0], found: false, discovered: false, glow: 0,
-      isReal: false, pickedUp: false
-    });
-
-    // Mural panel slots (bottom-center, 4 slots in a row)
-    const slotY = H - 80;
-    const slotStartX = W/2 - 150;
-    for (let i = 0; i < 4; i++) {
-      G.slots.push({
-        x: slotStartX + i * 100, y: slotY,
-        label: `${i+1}`,
-        symbolHint: ['First', 'Second', 'Third', 'Fourth'][i],
-        correctId: i,
-        placedItem: null,
-        flash: 0, wrongFlash: 0
-      });
-    }
-
-    // Hint: Ancient inscription — complete static sprite, positioned on left wall
-    G.hints.push({
-      x: 60, y: 110, w: 340, h: 118,
-      title: 'Ancient Inscription',
-      lines: ['Love struck first', 'Then a hidden palace', 'Light revealed truth', 'And love was lost'],
-      discovered: false, glow: 0
-    });
-  }
-  else if (idx === 1) {
-    // ROOM 2: Offering Altar
-    G.sisterAttacksLeft = 3;
-    G.sisterTimer = 10 + Math.random() * 4;
-    G.oil = Math.min(85, G.oil + 5);
-
-    const positions = [
-      {x:100, y:180}, {x:540, y:200}, {x:140, y:400}, {x:500, y:420}
-    ];
-    const shuffled = [...positions].sort(() => Math.random() - 0.5);
-    ALTAR_OBJECTS.forEach((obj, i) => {
-      G.items.push({
-        x: shuffled[i].x, y: shuffled[i].y,
-        data: obj, found: false, discovered: false, glow: 0,
-        isReal: true, pickedUp: false
-      });
-    });
-
-    // False objects
-    FALSE_OBJECTS.forEach((obj, i) => {
-      G.items.push({
-        x: 300 + (Math.random()-0.5)*150, y: 250 + (Math.random()-0.5)*120,
-        data: obj, found: false, discovered: false, glow: 0,
-        isReal: false, pickedUp: false
-      });
-    });
-
-    // Altar slots (right side, vertical)
-    const slotX = W - 90;
-    for (let i = 0; i < 4; i++) {
-      G.slots.push({
-        x: slotX, y: 160 + i * 95,
-        label: ALTAR_OBJECTS[i].symbol,
-        symbolHint: ALTAR_OBJECTS[i].symbolHint,
-        correctId: i,
-        placedItem: null,
-        flash: 0, wrongFlash: 0
-      });
-    }
-
-    // Hint: Stone carving showing what each symbol means
-    G.hints.push({
-      x: 320, y: 160, w: 190, h: 90,
-      title: '🪨 Stone Carving',
-      lines: ['🦋 = feathers that fly', '💘 = the archer\'s tool', '❤️ = petals of the heart', '☀️ = light from above'],
-      discovered: false, glow: 0
-    });
-  }
-  else if (idx === 2) {
-    // Bedchamber
-    G.phase = 'bedchamber';
-    G.bedPhase = 0;
-    G.bedReveal = 0;
-    G.lampOn = true;
-  }
-}
-
-// ============================================================
-// UPDATE
-// ============================================================
-function update(dt) {
-  G.particles = G.particles.filter(p => {
-    p.x+=p.vx; p.y+=p.vy; p.vy+=1*dt; p.life-=dt; return p.life>0;
-  });
-  if (G.coldFlash > 0) G.coldFlash -= dt * 2;
-
-  if (G.phase === 'roomTransition') return;
-  if (G.phase === 'bridge') {
-    G.bridgeTimer += dt;
-    const line = G.bridgeLines[G.bridgeStep];
-    if (line && G.bridgeTimer >= line.pause) {
-      G.bridgeStep++;
-      G.bridgeTimer = 0;
-      if (G.bridgeStep >= G.bridgeLines.length) {
-        // Bridge complete — go to bedchamber (Eros reveal)
-        G.roomIdx = 2;
-        setupRoom(2);
-        // setupRoom(2) sets phase to 'bedchamber'
-      }
-    }
-    return;
-  }
-  if (G.phase !== 'playing' && G.phase !== 'bedchamber') return;
-
-  G.elapsed += dt;
-
-  // Lamp smoothing + floor bounds — Psyche IS the cursor, with slight weight
-  const clampedTX = Math.max(G.floorL, Math.min(G.floorR, G.lampTX));
-  const clampedTY = Math.max(G.floorT, Math.min(G.floorB, G.lampTY));
-  G.lampX += (clampedTX - G.lampX) * 0.08;
-  G.lampY += (clampedTY - G.lampY) * 0.08;
-
-  if (!G.lampOn) {
-    G.lampOutTimer -= dt;
-    if (G.lampOutTimer <= 0) G.lampOn = true;
-  }
-
-  if (G.phase === 'bedchamber') { updateBedchamber(dt); return; }
-
-  // Oil drain
-  G.oil -= 1.85 * dt;
-  if (G.oil <= 0) {
-    G.oil = 60;
-    // Lamp flickers out briefly — but items stay collected
-    G.lampOn = false;
-    G.lampOutTimer = 2;
-    showFloat(W/2, H/2, 'Oil low! Lamp flickers...', '#f97316');
-  }
-
-  // Discover items
-  if (G.lampOn) {
-    G.items.forEach(it => {
-      if (it.pickedUp) return;
-      const dist = Math.hypot(it.x - G.lampX, it.y - G.lampY);
-      if (dist < G.lampR * 0.75) {
-        it.discovered = true;
-        it.glow = Math.min(1, it.glow + dt * 3);
-      } else {
-        it.glow = Math.max(0, it.glow - dt * 1.5);
-      }
-    });
-
-    // Discover hints (paintings/inscriptions on walls)
-    G.hints.forEach(h => {
-      const dist = Math.hypot((h.x + h.w/2) - G.lampX, (h.y + h.h/2) - G.lampY);
-      if (dist < G.lampR) {
-        h.discovered = true;
-        h.glow = Math.min(1, h.glow + dt * 2.5);
-      } else {
-        h.glow = Math.max(0, h.glow - dt * 1);
-      }
-    });
-  }
-
-  // Slot flashes
-  G.slots.forEach(s => {
-    if (s.flash > 0) s.flash -= dt * 2;
-    if (s.wrongFlash > 0) s.wrongFlash -= dt * 2;
-  });
-
-  // Sisters
-  if (G.sisterAttacksLeft > 0) {
-    G.sisterTimer -= dt;
-    if (G.sisterTimer <= 0) {
-      spawnSister();
-      G.sisterAttacksLeft--;
-      G.sisterTimer = 10 + Math.random() * 5;
-    }
-  }
-  G.sisters = G.sisters.filter(s => {
-    s.timer -= dt;
-
-    if (s.phase === 'chasing') {
-      // Chase Psyche in real-time
-      const dx = G.lampX - s.x;
-      const dy = G.lampY - s.y;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist > 3) {
-        s.x += (dx / dist) * s.speed;
-        s.y += (dy / dist) * s.speed;
-        // Face toward Psyche
-        s.side = dx > 0 ? 'left' : 'right';
-      }
-
-      // Close enough to blow out the lamp — within 45px
-      if (dist < 45) {
-        s.phase = 'blowing';
-        s.blowTimer = 1.2;
-        G.lampOn = false;
-        G.lampOutTimer = 4;
-        showFloat(G.lampX, G.lampY - 25, 'Lamp blown out!', 'rgba(150,180,220,0.9)');
-        shake();
-      }
-
-      // Give up after timer expires — retreat
-      if (s.timer <= 0) {
-        s.phase = 'retreating';
-        s.retreatStartX = s.x;
-        s.retreatStartY = s.y;
-        s.timer = 1.5;
-      }
-    }
-    else if (s.phase === 'blowing') {
-      // Pause next to Psyche while blowing
-      s.blowTimer -= dt;
-      if (s.blowTimer <= 0) {
-        s.phase = 'retreating';
-        s.retreatStartX = s.x;
-        s.retreatStartY = s.y;
-        s.timer = 1.5;
-      }
-    }
-    else if (s.phase === 'retreating') {
-      // Fade back toward the wall
-      const wallX = s.side === 'right' ? W + 30 : -30;
-      const retreatT = Math.min(1, (1.5 - s.timer) / 1.5);
-      s.x = s.retreatStartX + (wallX - s.retreatStartX) * retreatT;
-      if (s.timer <= 0) return false;  // Remove
-    }
-
-    return true;
-  });
-
-  // Check puzzle solved
-  if (!G.puzzleSolved && G.slots.length > 0 && G.slots.every(s => s.placedItem !== null)) {
-    const allCorrect = G.slots.every(s => s.placedItem && s.placedItem.id === s.correctId);
-    if (allCorrect) {
-      G.puzzleSolved = true;
-      spawnP(W/2, H/2, 15, '#ffd700');
-
-      // Bridge straight to bedchamber — skip Room 2
-      G.phase = 'bridge';
-      G.bridgeStep = 0;
-      G.bridgeTimer = 0;
-      G.bridgeLines = [
-        { icon: '✨', text: 'The mural glows. The story is in order.', pause: 2.5 },
-        { icon: '🚪', text: 'A hidden door grinds open behind the wall.', pause: 2.5 },
-        { icon: '🤫', text: 'Someone is here. You can hear soft breathing.', pause: 2.5 },
-        { icon: '🪔', text: 'Your oil lamp flickers. Move closer to see the truth.', pause: 3 }
-      ];
-    }
-  }
-}
-
-function spawnSister() {
-  const side = Math.random() > 0.5 ? 'left' : 'right';
-  const startX = side === 'left' ? 30 : W - 30;
-  const startY = 150 + Math.random() * 250;
-  const whispers = [
-    "He is hiding something...", "Why does he fear the light?",
-    "What kind of husband hides?", "Your sisters know the truth...",
-    "A monster wears a gentle face..."
-  ];
-  G.sisters.push({
-    side,
-    x: startX,
-    y: startY,
-    speed: 1.2,           // Pixels per frame — slower than Psyche so player can evade
-    phase: 'chasing',     // chasing → blowing → retreating
-    timer: 12,            // Give up after 12 seconds if she can't reach Psyche
-    blowTimer: 0,
-    retreatStartX: 0,
-    retreatStartY: 0
-  });
-  const el = document.createElement('div');
-  el.className = 'whisper-text';
-  el.textContent = `"${whispers[Math.floor(Math.random()*whispers.length)]}"`;
-  el.style.color = 'rgba(100,140,180,0.7)';
-  el.style.left = side==='left' ? '30px' : '';
-  el.style.right = side==='right' ? '30px' : '';
-  el.style.top = (Math.max(50, Math.min(H-80, startY))-30)+'px';
-  container.appendChild(el);
-  setTimeout(()=>el.remove(), 4000);
-}
-
-// ============================================================
-// CLICK / DRAG
-// ============================================================
-function handleClick(mx, my) {
-  if (G.phase !== 'playing') return;
-  if (!G.lampOn) return;
-
-  // HUD clicks use mouse position (mx, my)
-  // World clicks use Psyche's position (G.lampX, G.lampY)
-  const px = G.lampX, py = G.lampY;
-
-  // === STEP 1: If holding a selected item, try to place on slot ===
-  if (G.selectedItem !== null) {
-    // Check slots using Psyche's position (she walks to the slot)
-    const slotIdx = getSlotAt(px, py);
-    if (slotIdx >= 0) {
-      const slot = G.slots[slotIdx];
-      if (slot.placedItem) {
-        G.inventory.push(slot.placedItem);
-        slot.placedItem = null;
-      }
-      const item = G.inventory[G.selectedItem];
-      slot.placedItem = item;
-      G.inventory.splice(G.selectedItem, 1);
-      G.selectedItem = null;
-
-      if (item.id === slot.correctId) {
-        slot.flash = 0.6;
-        spawnP(slot.x, slot.y, 5, '#ffd700');
-      } else {
-        slot.wrongFlash = 0.5;
-        G.wrongPlacements++;
-        G.oil = Math.max(0, G.oil - 5);
-        showFloat(slot.x, slot.y - 30, 'Wrong spot! -5% oil', '#f97316');
-      }
-      return;
-    }
-    // Also check via mouse (for clicking slots directly)
-    const slotIdx2 = getSlotAt(mx, my);
-    if (slotIdx2 >= 0) {
-      const slot = G.slots[slotIdx2];
-      if (slot.placedItem) {
-        G.inventory.push(slot.placedItem);
-        slot.placedItem = null;
-      }
-      const item = G.inventory[G.selectedItem];
-      slot.placedItem = item;
-      G.inventory.splice(G.selectedItem, 1);
-      G.selectedItem = null;
-
-      if (item.id === slot.correctId) {
-        slot.flash = 0.6;
-        spawnP(slot.x, slot.y, 5, '#ffd700');
-      } else {
-        slot.wrongFlash = 0.5;
-        G.wrongPlacements++;
-        G.oil = Math.max(0, G.oil - 5);
-        showFloat(slot.x, slot.y - 30, 'Wrong spot! -5% oil', '#f97316');
-      }
-      return;
-    }
-    // Click elsewhere = deselect
-    G.selectedItem = null;
-    return;
-  }
-
-  // === STEP 2: Click inventory (uses mouse — it's a HUD element) ===
-  const invIdx = getInventoryAt(mx, my);
-  if (invIdx >= 0) {
-    G.selectedItem = invIdx;
-    return;
-  }
-
-  // === STEP 3: Click slot to retrieve placed item (mouse or Psyche) ===
-  let clickedSlot = getSlotAt(mx, my);
-  if (clickedSlot < 0) clickedSlot = getSlotAt(px, py);
-  if (clickedSlot >= 0) {
-    const slot = G.slots[clickedSlot];
-    if (slot.placedItem) {
-      G.inventory.push(slot.placedItem);
-      slot.placedItem = null;
-      return;
-    }
-  }
-
-  // === STEP 4: Pick up world item — uses PSYCHE position ===
-  for (let i = G.items.length - 1; i >= 0; i--) {
-    const it = G.items[i];
-    if (it.pickedUp || !it.discovered || it.glow < 0.3) continue;
-    if (Math.hypot(it.x - px, it.y - py) > 50) continue;
-
-    if (it.isReal) {
-      it.pickedUp = true;
-      G.inventory.push(it.data);
-      spawnP(it.x, it.y, 8, it.data.color);
-      showFloat(it.x, it.y-15, `${it.data.title || it.data.name}`, '#ffd700');
-    } else {
-      it.pickedUp = true;
-      G.falseCollected++;
-      G.oil = Math.max(0, G.oil - 15);
-      G.coldFlash = 0.5;
-      spawnP(it.x, it.y, 5, '#4488cc');
-      showFloat(it.x, it.y-15, 'False clue! -15% oil', '#6495ed');
-      if (it.data.whisper) {
-        const el = document.createElement('div');
-        el.className = 'whisper-text';
-        el.textContent = `"${it.data.whisper}"`;
-        el.style.color = 'rgba(100,140,180,0.7)';
-        el.style.left = (it.x - 60) + 'px'; el.style.top = (it.y + 20) + 'px';
-        container.appendChild(el);
-        setTimeout(()=>el.remove(), 3000);
-      }
-    }
-    return;
-  }
-}
-
-function handleMouseUp(mx, my) {
-  if (G.dragging === null) return;
-  const slotIdx = getSlotAt(mx, my);
-  if (slotIdx >= 0) {
-    placeItem(slotIdx);
-  }
-  G.dragging = null;
-}
-
-function placeItem(slotIdx) {
-  if (G.dragging === null) return;
-  const slot = G.slots[slotIdx];
-  if (slot.placedItem) {
-    // Slot already has an item — swap back to inventory
-    G.inventory.push(slot.placedItem);
-    slot.placedItem = null;
-  }
-  const item = G.inventory[G.dragging];
-  slot.placedItem = item;
-  G.inventory.splice(G.dragging, 1);
-  G.dragging = null;
-
-  // Check if correct
-  if (item.id === slot.correctId) {
-    slot.flash = 0.6;
-    spawnP(slot.x, slot.y, 5, '#ffd700');
-  } else {
-    slot.wrongFlash = 0.5;
-    G.wrongPlacements++;
-    G.oil = Math.max(0, G.oil - 5);
-    showFloat(slot.x, slot.y - 30, '✗ Wrong spot! -5% oil', '#f97316');
-  }
-}
-
-function getInventoryAt(mx, my) {
-  // Matches renderHUD top-right inventory: sx = invX + 8 + i*(52+6), sy = invY + 20
-  const slotSz = 52, slotGap = 6;
-  const invCount = G.inventory.length;
-  if (invCount === 0) return -1;
-  const invTotalW = invCount * (slotSz + slotGap) + 16;
-  const invX = W - invTotalW - 6;
-  const invY = 6;
-  for (let i = 0; i < invCount; i++) {
-    const sx = invX + 8 + i * (slotSz + slotGap);
-    const sy = invY + 20;
-    if (mx >= sx && mx <= sx + slotSz && my >= sy && my <= sy + slotSz) return i;
-  }
-  return -1;
-}
-
-function getSlotAt(mx, my) {
-  for (let i = 0; i < G.slots.length; i++) {
-    const s = G.slots[i];
-    if (Math.abs(mx - s.x) < 45 && Math.abs(my - s.y) < 38) return i;
-  }
-  return -1;
-}
-
-// ============================================================
-// BEDCHAMBER
-// ============================================================
-function updateBedchamber(dt) {
-  const cx = W/2, cy = H/2 - 20;
-  if (G.bedPhase === 0) {
-    if (G.lampOn && Math.hypot(G.lampX-cx, G.lampY-cy) < 100) {
-      G.bedReveal += dt * 0.15;
-    }
-    if (G.bedReveal >= 1) {
-      G.bedPhase = 1;  // Eros revealed
-      setTimeout(()=>{ G.bedPhase = 2; }, 2000);   // Oil drips
-      setTimeout(()=>{ G.bedPhase = 3; G.bedFlyTimer = 0; }, 3500); // Eros wakes
-      setTimeout(()=>{ G.phase = 'complete'; }, 6000);
-    }
-  }
-  // Animate Eros flying away
-  if (G.bedPhase === 3) {
-    if (!G.bedFlyTimer) G.bedFlyTimer = 0;
-    G.bedFlyTimer += dt;
-  }
-}
-
-// ============================================================
-// RENDER
-// ============================================================
-function render() {
-  ctx.clearRect(0, 0, W, H);
-
-  // Cursor
-  container.style.cursor = (G.phase==='playing'||G.phase==='bedchamber')
-    ? (G.dragging !== null ? 'grabbing' : 'none') : 'default';
-
-  if (G.phase === 'tutorial') { renderTutorial(); return; }
-  if (G.phase === 'complete') { renderComplete(); return; }
-
-  // ---- LAYER 1: Draw full scene at normal brightness ----
-  renderWalls();
-  renderFurniture();
-
-  if (G.phase === 'bedchamber') {
-    renderBedchamber();
-  } else {
-    renderItems();
-    renderHints();
-    renderSlots();
-  }
-
-  // ---- LAYER 2: DARKNESS + LAMP REVEAL ----
-  if (G.lampOn) {
-    const flicker = G.lampR + Math.sin(G.elapsed * 8) * 4 + Math.sin(G.elapsed * 13) * 2;
-    const lx = G.lampX, ly = G.lampY - 5;
-
-    // Build darkness mask on offscreen canvas (opaque black with transparent hole)
-    if (!G._darkCanvas) {
-      G._darkCanvas = document.createElement('canvas');
-      G._darkCanvas.width = W;
-      G._darkCanvas.height = H;
-    }
-    const dc = G._darkCanvas;
-    const dx = dc.getContext('2d');
-
-    // Fill solid black
-    dx.clearRect(0, 0, W, H);
-    dx.fillStyle = '#000';
-    dx.fillRect(0, 0, W, H);
-
-    // Punch transparent hole using destination-out on the OFFSCREEN canvas
-    dx.globalCompositeOperation = 'destination-out';
-    const hole = dx.createRadialGradient(lx, ly, 0, lx, ly, flicker);
-    hole.addColorStop(0, 'rgba(0,0,0,1)');
-    hole.addColorStop(0.3, 'rgba(0,0,0,1)');
-    hole.addColorStop(0.6, 'rgba(0,0,0,0.8)');
-    hole.addColorStop(0.85, 'rgba(0,0,0,0.3)');
-    hole.addColorStop(1, 'rgba(0,0,0,0)');
-    dx.fillStyle = hole;
-    dx.fillRect(0, 0, W, H);
-    dx.globalCompositeOperation = 'source-over';
-
-    // Draw the darkness mask onto the main canvas at 88% opacity
-    ctx.globalAlpha = 0.88;
-    ctx.drawImage(dc, 0, 0);
-    ctx.globalAlpha = 1;
-
-    // Warm SNES glow — visible golden light around Psyche
-    const wg1 = ctx.createRadialGradient(lx, ly, 0, lx, ly, flicker * 0.65);
-    wg1.addColorStop(0, 'rgba(255,200,80,0.16)');
-    wg1.addColorStop(0.4, 'rgba(255,180,60,0.08)');
-    wg1.addColorStop(1, 'rgba(255,140,30,0)');
-    ctx.fillStyle = wg1;
-    ctx.fillRect(0, 0, W, H);
-
-    // Bright inner flame core
-    const wg2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, 35);
-    wg2.addColorStop(0, 'rgba(255,235,160,0.22)');
-    wg2.addColorStop(1, 'rgba(255,200,100,0)');
-    ctx.fillStyle = wg2;
-    ctx.fillRect(lx - 40, ly - 40, 80, 80);
-
-    // ---- PSYCHE WITH LAMP (drawn ABOVE darkness so always visible) ----
-    // Track facing direction based on lamp movement
-    const moveDx = G.lampTX - G.lampX;
-    if (Math.abs(moveDx) > 1) G.facingRight = moveDx > 0;
-
-    const psycheSpr = sprites['psyche_lamp'];
-    if (psycheSpr) {
-      const sz = 76;
-      ctx.save();
-      ctx.translate(G.lampX, G.lampY - sz*0.4 + sz/2);
-      if (G.facingRight === false) ctx.scale(-1, 1);
-      ctx.drawImage(psycheSpr, -sz/2, -sz/2, sz, sz);
-      ctx.restore();
-    } else {
-      // Programmatic Psyche fallback
-      ctx.fillStyle = '#e8ddd0';
-      ctx.beginPath(); ctx.arc(G.lampX, G.lampY - 14, 6, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#f0ece4';
-      ctx.beginPath();
-      ctx.moveTo(G.lampX, G.lampY - 8); ctx.lineTo(G.lampX - 8, G.lampY + 6); ctx.lineTo(G.lampX + 8, G.lampY + 6);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#ffd700';
-      ctx.beginPath(); ctx.arc(G.lampX + 9, G.lampY - 10, 3, 0, Math.PI*2); ctx.fill();
-    }
-  } else {
-    // Lamp is out — near total darkness
-    ctx.fillStyle = 'rgba(5,5,16,0.92)';
-    ctx.fillRect(0, 0, W, H);
-  }
-
-  // Lamp out message
-  if (!G.lampOn) {
-    ctx.fillStyle = 'rgba(150,180,220,0.5)';
-    ctx.font = 'italic 16px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText(`Lamp out... ${Math.ceil(G.lampOutTimer)}s`, W/2, H/2);
-    ctx.textAlign = 'left';
-  }
-
-  // Cold flash
-  if (G.coldFlash > 0) {
-    ctx.fillStyle = `rgba(40,60,100,${G.coldFlash * 0.25})`;
-    ctx.fillRect(0, 0, W, H);
-  }
-
-  // Particles (above darkness)
-  G.particles.forEach(p => {
-    ctx.globalAlpha = Math.max(0, p.life/p.ml);
-    ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(p.life/p.ml),0,Math.PI*2); ctx.fill();
-  });
-  ctx.globalAlpha = 1;
-
-  // ---- SISTERS (above darkness so player sees them approach) ----
-  if (G.phase === 'playing' || G.phase === 'bedchamber') renderSisters();
-
-  // ---- HUD (always visible, above everything) ----
-  if (G.phase === 'playing') renderHUD();
-
-  // Dragging item (above darkness so you can see what you're dragging)
-  if (G.dragging !== null && G.phase === 'playing') {
-    const item = G.inventory[G.dragging];
-    if (item) {
-      ctx.fillStyle = 'rgba(255,215,100,0.2)';
-      ctx.beginPath(); ctx.arc(G.dragX, G.dragY, 26, 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha = 0.9;
-      const spr = item.spriteKey ? sprites[item.spriteKey] : null;
-      if (spr) {
-        ctx.drawImage(spr, G.dragX - 20, G.dragY - 20, 40, 40);
-      } else {
-        ctx.font = '32px "Segoe UI"'; ctx.textAlign = 'center';
-        ctx.fillText(item.icon, G.dragX, G.dragY + 10);
-      }
-      ctx.globalAlpha = 1;
-      ctx.textAlign = 'left';
-    }
-  }
-
-  // Narrative bridge between rooms
-  if (G.phase === 'bridge') {
-    ctx.fillStyle = 'rgba(0,0,0,0.88)';
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.textAlign = 'center';
-    const step = G.bridgeStep;
-    const timer = G.bridgeTimer;
-
-    // Show all completed lines (faded) plus current line (bright)
-    G.bridgeLines.forEach((line, i) => {
-      if (i > step) return; // Not yet reached
-      const isCurrent = (i === step);
-      const y = 180 + i * 55;
-
-      // Fade in for current line
-      let alpha;
-      if (isCurrent) {
-        alpha = Math.min(1, timer * 2); // Fade in over 0.5s
-      } else {
-        alpha = 0.35; // Past lines stay dim
-      }
-
-      // Icon
-      ctx.globalAlpha = alpha;
-      ctx.font = '28px "Segoe UI"';
-      ctx.fillText(line.icon, W/2, y - 8);
-
-      // Text
-      ctx.fillStyle = isCurrent ? '#f0d68a' : 'rgba(200,180,140,0.6)';
-      ctx.font = isCurrent ? '15px "Segoe UI"' : '15px "Segoe UI"';
-      ctx.fillText(line.text, W/2, y + 22);
-
-      ctx.globalAlpha = 1;
-    });
-
-    ctx.textAlign = 'left';
-  }
-
-  // Old room transition fallback
-  if (G.phase === 'roomTransition') {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#4ade80'; ctx.font = 'bold 20px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText('✓ Puzzle Solved!', W/2, H/2 - 10);
-    ctx.textAlign = 'left';
-  }
-}
-
-function renderWalls() {
-  const bg = sprites['palace_bg'];
-  if (bg) {
-    ctx.drawImage(bg, 0, 0, W, H);
-  } else {
-    // Fallback — dark purple stone floor
-    ctx.fillStyle = '#1c1828';
-    ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(50,45,65,0.2)'; ctx.lineWidth = 1;
-    for (let x = 0; x < W; x += 48) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-    for (let y = 0; y < H; y += 48) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
-    // Fallback walls
-    ctx.fillStyle = 'rgba(12,10,22,0.6)';
-    ctx.fillRect(0,0,W,50); ctx.fillRect(0,0,40,H); ctx.fillRect(W-40,0,40,H);
-  }
-}
-
-function renderFurniture() {
-  if (G.roomIdx === 0) {
-    // Story mural — dark recessed panel at bottom
-    const mx = W/2 - 220, my = H - 130, mw = 440, mh = 90;
-    ctx.fillStyle = 'rgba(10,8,20,0.55)';
-    rr(ctx, mx, my, mw, mh, 4); ctx.fill();
-    ctx.strokeStyle = 'rgba(80,70,100,0.4)'; ctx.lineWidth = 2;
-    rr(ctx, mx, my, mw, mh, 4); ctx.stroke();
-    ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = 'bold 12px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText('▾ STORY MURAL — arrange in order ▾', W/2, my - 6);
-    ctx.textAlign = 'left';
-  } else if (G.roomIdx === 1) {
-    // Offering altar — dark panel on right
-    const ax = W - 155, ay = 110, aw = 125, ah = 430;
-    ctx.fillStyle = 'rgba(10,8,20,0.55)';
-    rr(ctx, ax, ay, aw, ah, 4); ctx.fill();
-    ctx.strokeStyle = 'rgba(80,70,100,0.4)'; ctx.lineWidth = 2;
-    rr(ctx, ax, ay, aw, ah, 4); ctx.stroke();
-    ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = 'bold 13px "Segoe UI"'; ctx.textAlign = 'center';
-    ctx.fillText('ALTAR', ax + aw/2, ay + 18);
-    ctx.textAlign = 'left';
-  }
-}
-
-function renderItems() {
-  // Item color tints for visual distinction
-  const ITEM_TINTS = {
-    '#e8a040': 'rgba(255,180,60,',   // Eros Strikes — warm orange
-    '#c090d0': 'rgba(180,130,220,',  // Invisible Palace — purple
-    '#f0d060': 'rgba(255,220,80,',   // Oil Lamp — bright gold
-    '#e06060': 'rgba(230,80,80,',    // Betrayal — red
-    '#e8d8c0': 'rgba(240,220,180,',  // White Feather — cream
-    '#d4a020': 'rgba(220,170,40,',   // Golden Arrow — gold
-    '#d06080': 'rgba(220,80,130,',   // Rose Petals — pink
-    '#f0e080': 'rgba(250,230,120,',  // Divine Light — yellow
-    '#5080a0': 'rgba(80,130,180,',   // False — cold blue
-    '#6090a0': 'rgba(90,140,170,',   // False — cold teal
-  };
-
-  G.items.forEach(it => {
-    if (it.pickedUp) return;
-    if (it.glow <= 0 && !it.discovered) return;
-    const dist = Math.hypot(it.x - G.lampX, it.y - G.lampY);
-    if (dist > G.lampR * 1.3) return;
-
-    const a = it.glow;
-    const tint = ITEM_TINTS[it.data.color] || 'rgba(200,180,140,';
-    const sz = 56;
-
-    // Ground glow — colored per item
-    const ag = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, sz * 0.7);
-    ag.addColorStop(0, tint + (a*0.35) + ')');
-    ag.addColorStop(0.5, tint + (a*0.12) + ')');
-    ag.addColorStop(1, tint + '0)');
-    ctx.fillStyle = ag;
-    ctx.beginPath(); ctx.arc(it.x, it.y, sz*0.7, 0, Math.PI*2); ctx.fill();
-
-    if (a > 0.15) {
-      ctx.globalAlpha = a;
-
-      // Draw sprite with color tint overlay
-      const sprKey = it.data.spriteKey;
-      const spr = sprKey ? sprites[sprKey] : null;
-      // Gentle float animation
-      const bob = Math.sin(G.elapsed * 2.5 + it.x * 0.1) * 3;
-
-      if (spr) {
-        ctx.drawImage(spr, it.x - sz/2, it.y - sz/2 + bob, sz, sz);
-      } else {
-        // Emoji fallback only if sprite failed to load
-        ctx.font = '38px "Segoe UI"'; ctx.textAlign = 'center';
-        ctx.fillText(it.data.icon, it.x, it.y + 12 + bob);
-      }
-
-      // SNES-style pickup indicator: bouncing down-arrow when close
-      if (dist < 55 && a > 0.5) {
-        const arrowBob = Math.sin(G.elapsed * 5) * 4;
-        ctx.fillStyle = `rgba(255,255,255,${a * 0.7})`;
-        ctx.beginPath();
-        ctx.moveTo(it.x, it.y - sz/2 - 6 + arrowBob);
-        ctx.lineTo(it.x - 6, it.y - sz/2 - 14 + arrowBob);
-        ctx.lineTo(it.x + 6, it.y - sz/2 - 14 + arrowBob);
-        ctx.closePath(); ctx.fill();
-        // Item name — small, clean, below the item
-        ctx.fillStyle = it.isReal ? `rgba(255,230,150,${a*0.85})` : `rgba(130,170,200,${a*0.75})`;
-        ctx.font = 'bold 12px "Segoe UI"'; ctx.textAlign = 'center';
-        ctx.fillText(it.data.title || it.data.name, it.x, it.y + sz/2 + 12 + bob);
-      }
-
-      ctx.textAlign = 'left';
-      ctx.globalAlpha = 1;
-    }
-  });
-}
-
-function renderHints() {
-  G.hints.forEach(h => {
-    if (h.glow <= 0 && !h.discovered) return;
-    const a = h.glow;
-
-    ctx.globalAlpha = a;
-
-    // Draw the complete inscription as a single static sprite
-    const spr = sprites['inscription_complete'] || sprites['inscription_plaque'];
-    if (spr) {
-      // Draw at the hint's position, sized to fit naturally
-      const pw = 340, ph = 118;
-      const px = h.x + h.w/2 - pw/2, py = h.y + h.h/2 - ph/2;
-      ctx.drawImage(spr, px, py, pw, ph);
-    } else {
-      // Last resort fallback
-      const pw = 200, ph = 100;
-      const px = h.x + h.w/2 - pw/2, py = h.y + h.h/2 - ph/2;
-      ctx.fillStyle = 'rgba(45,38,55,0.92)';
-      rr(ctx, px, py, pw, ph, 4); ctx.fill();
-      ctx.fillStyle = '#f0d68a'; ctx.font = 'bold 12px "Segoe UI"'; ctx.textAlign = 'center';
-      ctx.fillText('Ancient Inscription', px+pw/2, py+20);
-      ctx.fillStyle = 'rgba(200,180,140,0.8)'; ctx.font = '11px "Segoe UI"';
-      h.lines.forEach((line, i) => { ctx.fillText(line, px+pw/2, py+40+i*16); });
-      ctx.textAlign = 'left';
-    }
-
-    ctx.globalAlpha = 1;
-  });
-}
-
-function renderSlots() {
-  G.slots.forEach((s, i) => {
-    const w = 85, h = 68;
-
-    // Slot background — use mural_slot sprite
-    const slotSpr = sprites['mural_slot'];
-    if (slotSpr) {
-      ctx.drawImage(slotSpr, s.x - w/2, s.y - h/2, w, h);
-    } else {
-      ctx.fillStyle = s.placedItem ? 'rgba(25,30,22,0.7)' : 'rgba(15,12,25,0.75)';
-      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.fill();
-      ctx.strokeStyle = 'rgba(70,65,90,0.4)'; ctx.lineWidth = 2;
-      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.stroke();
-    }
-
-    // Flash overlays
-    if (s.wrongFlash > 0) {
-      ctx.fillStyle = `rgba(180,50,40,${s.wrongFlash*0.35})`;
-      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.fill();
-    }
-    if (s.flash > 0) {
-      ctx.fillStyle = `rgba(50,180,80,${s.flash*0.3})`;
-      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.fill();
-    }
-
-    // Correct placement green border
-    if (s.placedItem && s.placedItem.id === s.correctId) {
-      ctx.strokeStyle = 'rgba(100,200,100,0.5)'; ctx.lineWidth = 2;
-      rr(ctx, s.x-w/2, s.y-h/2, w, h, 5); ctx.stroke();
-    }
-
-    ctx.textAlign = 'center';
-
-    if (s.placedItem) {
-      // Placed item — always try sprite
-      const sprKey = s.placedItem.spriteKey;
-      const spr = sprKey ? sprites[sprKey] : null;
-      if (spr) {
-        ctx.drawImage(spr, s.x - 22, s.y - 22, 44, 44);
-      } else {
-        ctx.font = '30px "Segoe UI"';
-        ctx.fillText(s.placedItem.icon, s.x, s.y + 10);
-      }
-    } else {
-      // Empty slot — show number hint
-      if (G.roomIdx === 0) {
-        ctx.fillStyle = 'rgba(200,180,140,0.4)'; ctx.font = 'bold 18px "Segoe UI"';
-        ctx.fillText(s.label, s.x, s.y + 2);
-        ctx.fillStyle = 'rgba(200,180,140,0.25)'; ctx.font = '10px "Segoe UI"';
-        ctx.fillText(s.symbolHint, s.x, s.y + 18);
-      } else {
-        ctx.font = '24px "Segoe UI"';
-        ctx.fillText(s.label, s.x, s.y + 2);
-        ctx.fillStyle = 'rgba(200,180,140,0.3)'; ctx.font = '10px "Segoe UI"';
-        ctx.fillText(s.symbolHint, s.x, s.y + 18);
-      }
-    }
-
-    // Highlight when player has an item selected and hovers near slot
-    if (G.selectedItem !== null) {
-      const lampDist = Math.hypot(G.lampX - s.x, G.lampY - s.y);
-      if (lampDist < 80) {
-        ctx.strokeStyle = 'rgba(255,215,100,0.5)'; ctx.lineWidth = 2.5;
-        rr(ctx, s.x-w/2-3, s.y-h/2-3, w+6, h+6, 7); ctx.stroke();
-      }
-    }
-
-    ctx.textAlign = 'left';
-  });
-}
-
-function renderSisters() {
-  G.sisters.forEach(s => {
-    let alpha;
-    if (s.phase === 'chasing') {
-      alpha = 0.8;
-    } else if (s.phase === 'blowing') {
-      alpha = 0.85 + Math.sin(G.elapsed * 8) * 0.1;
-    } else if (s.phase === 'retreating') {
-      alpha = Math.max(0, s.timer / 1.5) * 0.7;
-    } else {
-      alpha = 0.5;
-    }
-
-    // Sister sprite
-    const spr = sprites['sister'];
-    const sz = 64;
-    const facingRight = s.side === 'left';  // She faces toward Psyche
-
-    if (spr) {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      if (facingRight) {
-        ctx.drawImage(spr, s.x - sz/2, s.y - sz/2, sz, sz);
-      } else {
-        ctx.translate(s.x, s.y - sz/2);
-        ctx.scale(-1, 1);
-        ctx.drawImage(spr, -sz/2, 0, sz, sz);
-      }
-      ctx.restore();
-    } else {
-      // Programmatic fallback
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = 'rgba(50,30,70,0.8)';
-      ctx.beginPath(); ctx.ellipse(s.x, s.y, 14, 32, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = 'rgba(120,150,200,0.6)';
-      ctx.beginPath(); ctx.arc(s.x-3, s.y-12, 2.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(s.x+3, s.y-12, 2.5, 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-
-    // Eerie glow trail while chasing
-    if (s.phase === 'chasing') {
-      const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 40);
-      glow.addColorStop(0, 'rgba(100,130,200,0.12)');
-      glow.addColorStop(1, 'rgba(80,110,180,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(s.x, s.y, 40, 0, Math.PI*2); ctx.fill();
-    }
-
-    // Blow animation — wind lines from sister to lamp
-    if (s.phase === 'blowing') {
-      const gustAlpha = 0.5 + Math.sin(G.elapsed * 10) * 0.15;
-      ctx.strokeStyle = `rgba(160,190,230,${gustAlpha})`;
-      ctx.lineWidth = 2.5;
-      const dx = G.lampX - s.x;
-      const dy = G.lampY - s.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const nx = dx / dist, ny = dy / dist;
-      for (let g = 0; g < 6; g++) {
-        const offset = Math.sin(G.elapsed * 14 + g * 1.5) * 8;
-        const gx = s.x + nx * (10 + g * 8) + ny * offset;
-        const gy = s.y + ny * (10 + g * 8) - nx * offset;
-        ctx.beginPath();
-        ctx.moveTo(gx, gy);
-        ctx.lineTo(gx + nx * 20, gy + ny * 20);
-        ctx.stroke();
-      }
-    }
-  });
-}
-
-function renderBedchamber() {
-  const cx=W/2, cy=H/2-20, rev=G.bedReveal;
-
-  // Bed/couch
-  ctx.fillStyle = `rgba(60,40,35,${0.3+rev*0.5})`;
-  rr(ctx, cx-90, cy+10, 180, 50, 8); ctx.fill();
-  ctx.strokeStyle = `rgba(90,65,50,${rev*0.4})`; ctx.lineWidth = 2;
-  rr(ctx, cx-90, cy+10, 180, 50, 8); ctx.stroke();
-  ctx.fillStyle = `rgba(180,170,155,${rev*0.5})`;
-  ctx.beginPath(); ctx.ellipse(cx-55, cy+25, 28, 14, -0.2, 0, Math.PI*2); ctx.fill();
-
-  const erosSz = 100;
-
-  if (G.bedPhase < 3) {
-    // Eros sleeping — fades in as lamp approaches
-    if (rev > 0.1) {
-      const erosAlpha = Math.min(1, (rev - 0.1) * 1.8);
-      const erosSpr = sprites['eros_sleep'];
-      ctx.globalAlpha = erosAlpha;
-      if (erosSpr) {
-        ctx.drawImage(erosSpr, cx - erosSz/2, cy - erosSz/2 - 5, erosSz, erosSz);
-      } else {
-        ctx.fillStyle = '#e8ddd0';
-        ctx.beginPath(); ctx.ellipse(cx, cy, 35, 20, 0, 0, Math.PI*2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // Golden glow when fully revealed
-    if (G.bedPhase >= 1) {
-      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 70);
-      glow.addColorStop(0, 'rgba(255,215,100,0.15)');
-      glow.addColorStop(1, 'rgba(255,200,80,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(cx, cy, 70, 0, Math.PI*2); ctx.fill();
-    }
-
-    // Oil drip flash
-    if (G.bedPhase === 2) {
-      // Drip particle
-      const dripY = cy - 40 + ((G.elapsed * 30) % 40);
-      ctx.fillStyle = 'rgba(255,200,80,0.6)';
-      ctx.beginPath(); ctx.arc(cx + 15, dripY, 2.5, 0, Math.PI*2); ctx.fill();
-    }
-  } else {
-    // Phase 3: Eros FLIES AWAY — dramatic exit off the top of the screen
-    const flyT = G.bedFlyTimer || 0;
-    const flyProgress = Math.min(1, flyT / 2.0);  // 2 seconds to fly off
-    const ease = flyProgress * flyProgress;  // Accelerating
-
-    const flyX = cx + Math.sin(flyT * 3) * 30;  // Slight side-to-side
-    const flyY = cy - ease * (H + 100);  // Fly up and off screen
-    const flyAlpha = Math.max(0, 1 - flyProgress * 0.6);
-    const flySz = erosSz + flyProgress * 20;  // Gets slightly bigger as he flies toward camera
-
-    const erosFly = sprites['eros_fly'];
-    if (erosFly && flyAlpha > 0) {
-      ctx.globalAlpha = flyAlpha;
-      ctx.drawImage(erosFly, flyX - flySz/2, flyY - flySz/2, flySz, flySz);
-      ctx.globalAlpha = 1;
-    }
-
-    // Golden trail particles
-    if (flyProgress < 0.8) {
-      for (let i = 0; i < 3; i++) {
-        const px = flyX + (Math.random()-0.5) * 30;
-        const py = flyY + 30 + Math.random() * 20;
-        ctx.fillStyle = `rgba(255,215,100,${0.3 * flyAlpha})`;
-        ctx.beginPath(); ctx.arc(px, py, 2 + Math.random()*2, 0, Math.PI*2); ctx.fill();
-      }
-    }
-  }
-
-  // Text prompts
-  ctx.textAlign = 'center';
-  if (G.bedPhase === 0 && rev < 0.5) {
-    ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='italic 14px "Segoe UI"';
-    ctx.fillText('Move closer...', W/2, H-50);
-  }
-  if (G.bedPhase === 1) {
-    ctx.fillStyle='rgba(255,230,180,0.8)'; ctx.font='italic 15px "Segoe UI"';
-    ctx.fillText('It is... Eros. He sleeps peacefully.', W/2, H-60);
-  }
-  if (G.bedPhase === 2) {
-    ctx.fillStyle='rgba(255,200,100,0.9)'; ctx.font='italic 15px "Segoe UI"';
-    ctx.fillText('A drop of oil falls from the lamp...', W/2, H-60);
-  }
-  if (G.bedPhase >= 3) {
-    ctx.fillStyle='rgba(180,200,240,0.9)'; ctx.font='bold 16px "Segoe UI"';
-    ctx.fillText('Eros wakes. He flies away.', W/2, H-50);
-  }
-  ctx.textAlign = 'left';
-}
-
-function renderHUD() {
-  // Oil meter (top-left)
-  ctx.fillStyle='rgba(0,0,0,0.7)'; rr(ctx,10,10,175,34,6); ctx.fill();
-  const lampSpr = sprites['oil_lamp'];
-  if (lampSpr) {
-    ctx.drawImage(lampSpr, 14, 12, 22, 22);
-    ctx.fillStyle='rgba(200,180,140,0.6)'; ctx.font='bold 11px "Segoe UI"'; ctx.textAlign='left';
-    ctx.fillText('OIL',40,26);
-  } else {
-    ctx.fillStyle='rgba(200,180,140,0.6)'; ctx.font='bold 13px "Segoe UI"'; ctx.textAlign='left';
-    ctx.fillText('OIL',18,28);
-  }
-  ctx.fillStyle='rgba(255,255,255,0.08)'; rr(ctx,62,20,110,10,3); ctx.fill();
-  const oilC = G.oil>50?'#ffd700':G.oil>25?'#f97316':'#ef4444';
-  ctx.fillStyle=oilC; rr(ctx,62,20,Math.max(0,G.oil)*1.1,10,3); ctx.fill();
-  ctx.strokeStyle='rgba(200,180,140,0.2)'; ctx.lineWidth=1; rr(ctx,62,20,110,10,3); ctx.stroke();
-
-  // Room title (top-center)
-  const roomNames = ['The Hall \u2014 Story Wall','The Chamber \u2014 Altar','The Inner Chamber'];
-  ctx.fillStyle='rgba(0,0,0,0.55)'; rr(ctx,W/2-120,6,240,24,4); ctx.fill();
-  ctx.fillStyle='rgba(220,200,160,0.6)'; ctx.font='bold 12px "Segoe UI"'; ctx.textAlign='center';
-  ctx.fillText(`Room ${G.roomIdx+1}: ${roomNames[G.roomIdx]||''}`, W/2, 22);
-
-  // === INVENTORY (top-right corner) ===
-  const slotSz = 52;
-  const slotGap = 6;
-  const invCount = G.inventory.length;
-  const invTotalW = invCount > 0 ? invCount * (slotSz + slotGap) + 16 : 90;
-  const invX = W - invTotalW - 6;
-  const invY = 6;
-
-  ctx.fillStyle='rgba(0,0,0,0.75)'; rr(ctx, invX, invY, invTotalW, slotSz + 26, 6); ctx.fill();
-  ctx.strokeStyle='rgba(80,70,100,0.4)'; ctx.lineWidth=1; rr(ctx, invX, invY, invTotalW, slotSz + 26, 6); ctx.stroke();
-
-  ctx.font='bold 10px "Segoe UI"'; ctx.textAlign='center';
-  if (G.selectedItem !== null) {
-    ctx.fillStyle='rgba(255,215,100,0.8)';
-    ctx.fillText('Now click a slot to place \u25BC', invX + invTotalW/2, invY + 13);
-  } else if (invCount > 0) {
-    ctx.fillStyle='rgba(200,180,140,0.5)';
-    ctx.fillText('Click an item to select', invX + invTotalW/2, invY + 13);
-  } else {
-    ctx.fillStyle='rgba(200,180,140,0.35)';
-    ctx.fillText('Collected items', invX + invTotalW/2, invY + 13);
-  }
-
-  G.inventory.forEach((item, i) => {
-    const sx = invX + 8 + i * (slotSz + slotGap);
-    const sy = invY + 20;
-    const isSel = (G.selectedItem === i);
-
-    if (isSel) {
-      ctx.fillStyle = 'rgba(255,210,80,0.3)';
-      rr(ctx, sx-3, sy-3, slotSz+6, slotSz+6, 5); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,215,100,0.85)'; ctx.lineWidth = 2.5;
-      rr(ctx, sx-3, sy-3, slotSz+6, slotSz+6, 5); ctx.stroke();
-    }
-
-    ctx.fillStyle = 'rgba(30,26,45,0.85)';
-    rr(ctx, sx, sy, slotSz, slotSz, 4); ctx.fill();
-    ctx.strokeStyle = isSel ? 'rgba(255,215,100,0.6)' : 'rgba(100,90,120,0.4)';
-    ctx.lineWidth = 1.5;
-    rr(ctx, sx, sy, slotSz, slotSz, 4); ctx.stroke();
-
-    const spr = item.spriteKey ? sprites[item.spriteKey] : null;
-    const icoSz = slotSz - 8;
-    if (spr) {
-      ctx.drawImage(spr, sx + 4, sy + 4, icoSz, icoSz);
-    } else {
-      ctx.font = `${icoSz-2}px "Segoe UI"`; ctx.textAlign = 'center';
-      ctx.fillText(item.icon, sx + slotSz/2, sy + slotSz/2 + 12);
-    }
-  });
-
-  // === SELECTED ITEM floating next to Psyche ===
-  if (G.selectedItem !== null && G.selectedItem < G.inventory.length) {
-    const sel = G.inventory[G.selectedItem];
-    const spr = sel.spriteKey ? sprites[sel.spriteKey] : null;
-    const fx = G.lampX + (G.facingRight !== false ? 32 : -32);
-    const fy = G.lampY - 28 + Math.sin(G.elapsed * 3) * 4;
-    ctx.fillStyle = 'rgba(255,215,100,0.2)';
-    ctx.beginPath(); ctx.arc(fx, fy, 20, 0, Math.PI*2); ctx.fill();
-    if (spr) {
-      ctx.drawImage(spr, fx - 16, fy - 16, 32, 32);
-    } else {
-      ctx.font = '24px "Segoe UI"'; ctx.textAlign = 'center';
-      ctx.fillText(sel.icon, fx, fy + 8);
-    }
-  }
-
-  // Lives (bottom-left)
-  ctx.fillStyle='rgba(0,0,0,0.5)'; rr(ctx,10,H-32,145,22,6); ctx.fill();
-  ctx.fillStyle='rgba(200,180,140,0.4)'; ctx.font='11px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText(`${GAME.totalHearts} lives remaining (no heart loss)`,18,H-17);
-  ctx.textAlign='left';
-}
-
-function renderTutorial() {
-  ctx.fillStyle='rgba(0,0,0,0.88)'; ctx.fillRect(0,0,W,H);
-  ctx.textAlign='center';
-  ctx.fillStyle='#f0d68a'; ctx.font='bold 22px "Segoe UI"';
-  ctx.fillText('"Seek the truth in darkness."',W/2,80);
-  ctx.font='14px "Segoe UI"';
-  [
-    {t:'The palace is dark. Your lamp reveals a small circle of light.',c:'#c8b88a'},
-    {t:'Explore to find hidden clues — then solve the puzzle.',c:'#c8b88a'},
-    {t:'',c:''},
-    {t:'Room 1: Find story fragments → arrange in chronological order',c:'#e8d8a8'},
-    {t:'Room 2: Find divine objects → match to altar symbols',c:'#e8d8a8'},
-    {t:'',c:''},
-    {t:'REAL clues glow warm gold ✨',c:'#ffd700'},
-    {t:'FALSE clues shimmer cold blue 🧊 — cost 15% oil!',c:'#6495ed'},
-    {t:'',c:''},
-    {t:'Pick up clues, then DRAG from inventory to puzzle slots.',c:'#c8b88a'},
-    {t:'Wrong placement costs 5% oil. Sisters blow out your lamp!',c:'#f97316'},
-    {t:'',c:''},
-    {t:'No hearts lost — but oil is precious.',c:'#a09878'},
-  ].forEach((l,i)=>{
-    if(l.t){ctx.fillStyle=l.c;ctx.fillText(l.t,W/2,120+i*24);}
-  });
-
-  const p=0.7+Math.sin(G.elapsed*3)*0.3;
-  ctx.fillStyle=`rgba(240,214,138,${p*0.12})`; rr(ctx,W/2-70,490,140,40,8); ctx.fill();
-  ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`; ctx.lineWidth=1.5; rr(ctx,W/2-70,490,140,40,8); ctx.stroke();
-  ctx.fillStyle='#f0d68a'; ctx.font='bold 15px "Segoe UI"';
-  ctx.fillText('Enter the Palace',W/2,515);
-  ctx.textAlign='left';
-}
-
-function renderComplete() {
-  ctx.fillStyle='rgba(0,0,0,0.88)'; ctx.fillRect(0,0,W,H);
-  ctx.textAlign='center';
-  ctx.fillStyle='#f0d68a'; ctx.font='bold 24px "Segoe UI"';
-  ctx.fillText('Trial III Complete',W/2,130);
-
-  let rating,rc;
-  const mistakes = G.falseCollected + G.wrongPlacements;
-  if(mistakes===0){rating='Excellent';rc='#4ade80';}
-  else if(mistakes<=2){rating='Good';rc='#60a5fa';}
-  else if(mistakes<=4){rating='Fair';rc='#fbbf24';}
-  else{rating='Needs Work';rc='#f87171';}
-
-  ctx.fillStyle='#c8b88a'; ctx.font='14px "Segoe UI"';
-  ctx.fillText(`False Clues Collected: ${G.falseCollected}`,W/2,195);
-  ctx.fillText(`Wrong Placements: ${G.wrongPlacements}`,W/2,223);
-  ctx.fillText(`Oil Remaining: ${Math.round(G.oil)}%`,W/2,251);
-
-  ctx.fillStyle=rc; ctx.font='bold 20px "Segoe UI"';
-  ctx.fillText(`🔦 Trust: ${rating}`,W/2,310);
-  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='italic 13px "Segoe UI"';
-  ctx.fillText('"You sought truth beyond doubt."',W/2,355);
-
-  ctx.fillStyle='rgba(240,214,138,0.12)'; rr(ctx,W/2-60,390,120,36,8); ctx.fill();
-  ctx.strokeStyle='rgba(240,214,138,0.4)'; ctx.lineWidth=1; rr(ctx,W/2-60,390,120,36,8); ctx.stroke();
-  ctx.fillStyle='#f0d68a'; ctx.font='bold 14px "Segoe UI"';
-  ctx.fillText('Continue →',W/2,413);
-  ctx.textAlign='left';
-}
-
-// ============================================================
-// INPUT
-// ============================================================
-
-
-
-
-
-
-
-// ============================================================
-// HELPERS
-// ============================================================
-
-
-
-  return {
-    init(){ G=freshState(); setupRoom(0); G.phase='tutorial'; },
-    update(dt){ G.elapsed+=dt; update(dt); },
-    render(){ render(); },
-    click(x,y){
-      if(G.phase==='tutorial'){if(x>W/2-70&&x<W/2+70&&y>490&&y<530){G.phase='playing';}return;}
-      if(G.phase==='complete'){
-        const mistakes=G.falseCollected+G.wrongPlacements;
-        let rating;
-        if(mistakes===0)rating='Excellent';else if(mistakes<=2)rating='Good';
-        else if(mistakes<=4)rating='Fair';else rating='Needs Work';
-        trialComplete(3,'trust',{score:Math.max(0,100-mistakes*15),rating});
-        return;
-      }
-      handleClick(x,y);
-    },
-    mousemove(x,y){
-      G.lampTX=x;G.lampTY=y;
-      if(G.dragging!==null){G.dragX=x;G.dragY=y;}
-      G.hoveredSlot=getSlotAt(x,y);
-    },
-    mouseup(x,y){ handleMouseUp(x,y); },
-    G: ()=>G
-  };
-})();
-
 // ================================================================
-// TRIAL 4: STAIRWAY OF SHADOWS — Donkey Kong Descent
+// TRIAL 4: EROS VS. THANATOS — Street Fighter Style
+// Greek-aesthetic fighting game. Eros battles Thanatos to
+// reclaim Psyche's soul. Three moves: shoot, dash, shield.
+// Three boss phases. Virtue earned: Devotion.
 // ================================================================
 const Trial4 = (function(){
 
-const GRAVITY = 0.45;
-const JUMP_FORCE = -9;
-const MOVE_SPEED = 3.5;
-const PLAT_H = 14;
-const SCROLL_SPEED = 0.6;
+// ── Constants ────────────────────────────────────────────────
+const FLOOR_Y      = 470;   // where characters stand
+const EROS_X       = 130;   // fixed X (Eros stays left)
+const THANATOS_X   = 550;   // Thanatos stays right
+const EROS_HP_MAX  = 100;
+const THAN_HP_MAX  = 120;
 
-function buildLevel() {
-  const platforms = [];
-  const items = [];
-  const temptations = [];
-  const hands = [];
-  let py = 120;
-  const platW = 260;
+// Timings (seconds)
+const SHOOT_COOLDOWN = 0.55;
+const DASH_COOLDOWN  = 1.8;
+const SHIELD_DUR     = 0.7;
+const SHIELD_COOLDOWN= 2.2;
 
-  const layout = [
-    { side: 'center', items: [], label: 'START' },
-    { side: 'left', items: ['coin','coin'], tempt: 'feast' },
-    { side: 'right', items: ['cake'], hand: 'left' },
-    { side: 'left', items: ['coin'], tempt: 'soul' },
-    { side: 'center', type: 'charon', label: 'CHARON' },
-    { side: 'right', items: ['cake'], hand: 'right' },
-    { side: 'left', items: [], tempt: 'coins_pile' },
-    { side: 'center', type: 'cerberus', label: 'CERBERUS' },
-    { side: 'right', items: ['coin'], hand: 'left' },
-    { side: 'left', items: ['cake'], tempt: 'feast' },
-    { side: 'center', type: 'charon', label: 'CHARON 2' },
-    { side: 'right', items: ['cake'], hand: 'right' },
-    { side: 'center', type: 'cerberus', label: 'CERBERUS 2' },
-    { side: 'center', type: 'persephone', label: 'PERSEPHONE' },
-  ];
+// Thanatos AI intervals per phase
+const AI_INTERVAL = [2.8, 1.4, 0.8];  // Phase 1 much slower — students need to learn
 
-  layout.forEach((p, i) => {
-    let px;
-    if (p.side === 'left') px = 60;
-    else if (p.side === 'right') px = W - platW - 60;
-    else px = (W - platW) / 2;
-
-    platforms.push({
-      x: px, y: py, w: platW, h: PLAT_H,
-      type: p.type || 'normal', label: p.label || '', cleared: false
-    });
-
-    if (p.items) {
-      p.items.forEach((itemType, j) => {
-        items.push({
-          type: itemType,
-          x: px + 40 + j * 60 + Math.random() * 30,
-          y: py - 20,
-          collected: false
-        });
-      });
-    }
-
-    if (p.tempt) {
-      temptations.push({
-        sprite: p.tempt,
-        x: px + platW - 50,
-        y: py - 25,
-        touched: false
-      });
-    }
-
-    if (p.hand) {
-      hands.push({
-        side: p.hand,
-        worldY: py + 50,
-        phase: 'idle',
-        extend: 0,
-        timer: Math.random() * 2
-      });
-    }
-
-    py += 130;
-  });
-
-  return { platforms, items, temptations, hands, totalHeight: py };
-}
-
-let G;
-function freshState() {
-  const level = buildLevel();
+// ── State ────────────────────────────────────────────────────
+let G = {};
+function freshState(){
   return {
-    phase: 'tutorial',
+    phase: 'tutorial',   // tutorial|dummy|fighting|victory|defeat|complete
     elapsed: 0,
-    px: W/2, py: 80,
-    vx: 0, vy: 0,
-    onGround: false,
-    facingRight: true,
-    cameraY: 0,
-    autoScroll: 0,
-    platforms: level.platforms,
-    items: level.items,
-    temptations: level.temptations,
-    hands: level.hands,
-    totalHeight: level.totalHeight,
-    coins: 0, cakes: 0,
-    hearts: Math.min(4, GAME.totalHearts),
-    totalHearts: GAME.totalHearts,
-    temptsTouched: 0,
-    resisted: 0,
-    wrongOffers: 0,
-    encounterNPC: null,
-    encounterTimer: 0,
-    boxChoice: null,
+
+    // Eros
+    erosHP: EROS_HP_MAX,
+    erosShielding: false,
+    erosShieldTimer: 0,
+    erosShieldCooldown: 0,
+    erosShootCooldown: 0,
+    erosDashCooldown: 0,
+    erosDashing: false,
+    erosDashTimer: 0,
+    erosDashDir: 1,
+    erosX: EROS_X,
+    erosAnim: 'idle',   // idle|shoot|dash|shield|hit
+    erosAnimTimer: 0,
+    erosHitTimer: 0,    // invuln after hit
+
+    // Thanatos
+    thanHP: THAN_HP_MAX,
+    thanPhase: 1,       // 1|2|3
+    thanAnim: 'idle',
+    thanAnimTimer: 0,
+    thanAttackTimer: AI_INTERVAL[0],
+    thanShades: [],     // phase 2 shade soldiers
+    thanRaging: false,  // phase 3 deathstorm
+
+    // Projectiles
+    arrows: [],         // {x,y,vx,vy}
+    shadowBolts: [],    // {x,y,vx,vy,blocked}
+    shadeBolts: [],     // from shade soldiers
+
+    // Particles
     particles: [],
+
+    // Fight result
+    result: null,       // 'victory'|'defeat'
+    resultTimer: 0,
+
+    // Round flash
     hitFlash: 0,
-    invulnTimer: 0
+    flashColor: 'rgba(255,255,255,0)',
+
+    // Psyche pulse (she's in the corner — visible all fight)
+    psychePulse: 0,
+
+    // Stats for virtue scoring
+    arrowsLanded: 0,
+    hitsTaken: 0,
+    dashesUsed: 0,
+    shieldsUsed: 0,
+    boltsBlocked: 0,
+    // Combat dummy state
+    dummyHP: 40,
+    dummyHPMax: 40,
+    dummyArrows: [],   // dummy fires slow easy bolts
+    dummyFireTimer: 3.5,
+    dummyComplete: false,
   };
 }
 
-function spawnP(x, y, n, color) {
-  for (let i = 0; i < n; i++) {
+// ── Particles ────────────────────────────────────────────────
+function spawnP(x,y,n,color){
+  for(let i=0;i<n;i++){
     G.particles.push({
-      x, y, vx: (Math.random()-0.5)*4, vy: (Math.random()-1)*3,
-      color, life: 0.6 + Math.random()*0.4, size: 2+Math.random()*2
+      x,y,
+      vx:(Math.random()-0.5)*180,
+      vy:(Math.random())*(-120)-20,
+      life:0.4+Math.random()*0.3,
+      ml:0.7, color,
+      size:2+Math.random()*3
     });
   }
 }
 
-function update(dt) {
-  if (G.phase === 'tutorial' || G.phase === 'complete' || G.phase === 'boxChoice') return;
-  G.elapsed += dt;
+// ── Eros actions ─────────────────────────────────────────────
+function erosShoot(){
+  if(G.erosShootCooldown>0||G.erosDashing) return;
+  G.erosAnim='shoot'; G.erosAnimTimer=0.35;
+  G.erosShootCooldown=SHOOT_COOLDOWN;
+  // Arrow travels right toward Thanatos
+  G.arrows.push({
+    x: G.erosX+50, y: FLOOR_Y-55,
+    vx: 520, vy: 0,
+    hit: false
+  });
+}
 
-  if (G.phase === 'encounter') {
-    G.encounterTimer -= dt;
-    if (G.encounterTimer <= 0) {
-      G.encounterNPC.cleared = true;
-      G.phase = 'playing';
+function erosDash(){
+  if(G.erosDashCooldown>0||G.erosDashing) return;
+  G.erosDashing=true;
+  G.erosDashTimer=0.28;
+  G.erosDashCooldown=DASH_COOLDOWN;
+  G.erosDashDir=1;
+  G.erosAnim='dash'; G.erosAnimTimer=0.28;
+  G.dashesUsed=(G.dashesUsed||0)+1;
+}
+
+function erosShield(){
+  if(G.erosShieldCooldown>0||G.erosShielding) return;
+  G.erosShielding=true;
+  G.erosShieldTimer=SHIELD_DUR;
+  G.erosShieldCooldown=SHIELD_COOLDOWN;
+  G.erosAnim='shield'; G.erosAnimTimer=SHIELD_DUR;
+  G.shieldsUsed=(G.shieldsUsed||0)+1;
+}
+
+// ── Thanatos AI ───────────────────────────────────────────────
+function thanatosAI(dt){
+  G.thanAttackTimer -= dt;
+  if(G.thanAttackTimer>0) return;
+
+  const phase=G.thanPhase;
+  G.thanAttackTimer = AI_INTERVAL[phase-1] + (Math.random()*0.4-0.2);
+
+  if(phase===1){
+    // Single shadow bolt
+    thanShoot(1);
+  } else if(phase===2){
+    // Shadow bolt + spawn shade if < 3 active
+    thanShoot(1);
+    if(G.thanShades.length<3){
+      spawnShade();
     }
+  } else {
+    // Phase 3: rapid fire 2 bolts + always shades
+    thanShoot(2);
+    if(G.thanShades.length<5) spawnShade();
+  }
+
+  G.thanAnim='attack'; G.thanAnimTimer=0.4;
+}
+
+function thanShoot(count){
+  for(let i=0;i<count;i++){
+    const delay=i*0.22;
+    setTimeout(()=>{
+      if(G.phase!=='fighting') return;
+      G.shadowBolts.push({
+        x: THANATOS_X-55,
+        y: FLOOR_Y-65 + (Math.random()-0.5)*30,
+        vx: -(340 + Math.random()*80),
+        vy: (Math.random()-0.5)*40,
+        hit: false, blocked: false
+      });
+    }, delay*1000);
+  }
+}
+
+function spawnShade(){
+  G.thanShades.push({
+    x: THANATOS_X - 80 - Math.random()*60,
+    y: FLOOR_Y,
+    vx: -(55 + Math.random()*30),
+    hp: 1,
+    anim: 'walk',
+    animTimer: 0,
+    dead: false,
+    deathTimer: 0
+  });
+}
+
+// ── Update ────────────────────────────────────────────────────
+function update(dt){
+  if(G.phase==='tutorial'||G.phase==='complete') return;
+  G.elapsed+=dt;
+  G.psychePulse+=dt;
+
+  // ── COMBAT DUMMY PHASE ──
+  if(G.phase==='dummy'){
+    if(G.erosShootCooldown>0) G.erosShootCooldown-=dt;
+    if(G.erosDashCooldown>0)  G.erosDashCooldown-=dt;
+    if(G.erosShieldCooldown>0)G.erosShieldCooldown-=dt;
+    if(G.erosAnimTimer>0){G.erosAnimTimer-=dt;if(G.erosAnimTimer<=0)G.erosAnim='idle';}
+    if(G.hitFlash>0) G.hitFlash-=dt;
+    if(G.erosHitTimer>0) G.erosHitTimer-=dt;
+
+    // Movement
+    const moveL=keys['ArrowLeft']||keys['a'];
+    const moveR=keys['ArrowRight']||keys['d'];
+    if(moveL) G.erosX=Math.max(60,G.erosX-180*dt);
+    if(moveR) G.erosX=Math.min(320,G.erosX+180*dt);
+
+    // Shield timer
+    if(G.erosShielding){G.erosShieldTimer-=dt;if(G.erosShieldTimer<=0)G.erosShielding=false;}
+
+    // Dummy fires a single slow bolt every few seconds
+    G.dummyFireTimer-=dt;
+    if(G.dummyFireTimer<=0){
+      G.dummyArrows.push({x:480,y:390,vx:-180,vy:0,hit:false,blocked:false});
+      G.dummyFireTimer=3.8+Math.random()*1.2;
+    }
+
+    // Dummy arrows
+    G.dummyArrows=G.dummyArrows.filter(b=>{
+      b.x+=b.vx*dt;
+      if(b.blocked||b.hit||b.x<-20) return false;
+      if(G.erosShielding&&b.x<G.erosX+60&&b.x>G.erosX-30){
+        b.blocked=true;
+        G.boltsBlocked++;
+        spawnP(G.erosX+40,380,6,'#7c3aed');
+        showFloat(G.erosX,360,'BLOCKED!','#a78bfa',13);
+        return false;
+      }
+      if(G.erosHitTimer<=0&&b.x<G.erosX+40&&b.x>G.erosX-30&&b.y>350&&b.y<430){
+        b.hit=true;
+        G.erosHP=Math.max(0,G.erosHP-8);
+        G.hitsTaken++;
+        G.erosHitTimer=0.8;
+        G.erosAnim='hit';G.erosAnimTimer=0.2;
+        G.hitFlash=0.25;G.flashColor='rgba(255,50,50,0.15)';
+        spawnP(G.erosX,380,6,'#ef4444');
+        showFloat(G.erosX,360,'-8','#ef4444',14);
+        shake();
+        return false;
+      }
+      return true;
+    });
+
+    // Player arrows hit dummy
+    G.arrows=G.arrows.filter(a=>{
+      a.x+=a.vx*dt;
+      if(a.hit||a.x>W+20) return false;
+      if(a.x>455&&a.x<535&&!a.hit){
+        a.hit=true;
+        const dmg=15+Math.floor(Math.random()*8);
+        G.dummyHP=Math.max(0,G.dummyHP-dmg);
+        G.arrowsLanded++;
+        spawnP(500,370,8,'#a855f7');
+        showFloat(500,350,`-${dmg}`,'#c084fc',14);
+        if(G.dummyHP<=0&&!G.dummyComplete){
+          G.dummyComplete=true;
+          G.dummyHP=0;
+          setTimeout(()=>{
+            // Reset Eros HP before real fight, keep stats
+            G.erosHP=EROS_HP_MAX;
+            G.erosHitTimer=0;
+            G.erosShielding=false;
+            G.erosX=EROS_X;
+            G.arrows=[];
+            G.dummyArrows=[];
+            G.phase='fighting';
+            showFloat(W/2,H/2-30,'Training complete! Now face Thanatos!','#f0d68a',15);
+          },1800);
+        }
+        return false;
+      }
+      return true;
+    });
+
+    updateParticles(dt);
     return;
   }
 
-  const moveL = keys['ArrowLeft'] || keys['a'];
-  const moveR = keys['ArrowRight'] || keys['d'];
-  const jump = keys[' '] || keys['ArrowUp'] || keys['w'];
-
-  if (moveL) { G.vx = -MOVE_SPEED; G.facingRight = false; }
-  else if (moveR) { G.vx = MOVE_SPEED; G.facingRight = true; }
-  else G.vx *= 0.7;
-
-  if (jump && G.onGround) {
-    G.vy = JUMP_FORCE;
-    G.onGround = false;
+  if(G.phase==='victory'||G.phase==='defeat'){
+    G.resultTimer+=dt;
+    if(G.resultTimer>3.5) G.phase='complete';
+    updateParticles(dt);
+    return;
   }
 
-  G.vy += GRAVITY;
-  G.px += G.vx;
-  G.py += G.vy;
-  G.px = Math.max(25, Math.min(W - 25, G.px));
+  // Timers
+  if(G.erosShootCooldown>0) G.erosShootCooldown-=dt;
+  if(G.erosDashCooldown>0)  G.erosDashCooldown-=dt;
+  if(G.erosShieldCooldown>0)G.erosShieldCooldown-=dt;
+  if(G.erosAnimTimer>0){G.erosAnimTimer-=dt;if(G.erosAnimTimer<=0)G.erosAnim='idle';}
+  if(G.thanAnimTimer>0){G.thanAnimTimer-=dt;if(G.thanAnimTimer<=0)G.thanAnim='idle';}
+  if(G.hitFlash>0) G.hitFlash-=dt;
+  if(G.erosHitTimer>0) G.erosHitTimer-=dt;
 
-  G.onGround = false;
-  G.platforms.forEach(p => {
-    if (G.vy >= 0 &&
-        G.px > p.x + 10 && G.px < p.x + p.w - 10 &&
-        G.py >= p.y - 2 && G.py <= p.y + p.h + G.vy + 2) {
-      G.py = p.y;
-      G.vy = 0;
-      G.onGround = true;
+  // Eros dash movement
+  if(G.erosDashing){
+    G.erosDashTimer-=dt;
+    G.erosX+=G.erosDashDir*520*dt;
+    G.erosX=Math.max(60,Math.min(THANATOS_X-80,G.erosX));
+    if(G.erosDashTimer<=0){
+      G.erosDashing=false;
+      // Snap back toward home
+      G.erosX=EROS_X;
     }
-  });
-
-  G.autoScroll += SCROLL_SPEED;
-  const targetCam = Math.max(G.autoScroll, G.py - H * 0.4);
-  G.cameraY += (targetCam - G.cameraY) * 0.08;
-
-  if (G.py < G.cameraY + 20) {
-    G.py = G.cameraY + 20;
-    G.vy = Math.max(G.vy, 1);
-  }
-
-  if (G.py > G.cameraY + H + 50) {
-    G.hearts--; GAME.totalHearts--;
-    G.hitFlash = 0.3;
-    let best = null, bestDist = 99999;
-    G.platforms.forEach(p => {
-      const d = Math.abs(p.y - G.cameraY - H*0.3);
-      if (p.y > G.cameraY && d < bestDist) { best = p; bestDist = d; }
-    });
-    if (best) { G.px = best.x + best.w/2; G.py = best.y - 5; }
-    else { G.py = G.cameraY + 100; }
-    G.vy = 0;
-    if (G.hearts <= 0 || GAME.totalHearts <= 0) G.phase = 'complete';
-  }
-
-  if (G.invulnTimer > 0) G.invulnTimer -= dt;
-  if (G.hitFlash > 0) G.hitFlash -= dt;
-
-  // Items
-  G.items.forEach(item => {
-    if (item.collected) return;
-    if (Math.abs(G.px - item.x) < 28 && Math.abs(G.py - item.y) < 28) {
-      item.collected = true;
-      const sy = item.y - G.cameraY;
-      if (item.type === 'coin') { G.coins++; showFloat(item.x, sy-10, '+1 Coin', '#ffd700'); }
-      else { G.cakes++; showFloat(item.x, sy-10, '+1 Cake', '#d4a040'); }
-      spawnP(item.x, sy, 5, item.type === 'coin' ? '#ffd700' : '#d4a040');
-    }
-  });
-
-  // Temptations
-  G.temptations.forEach(t => {
-    if (t.touched) return;
-    if (Math.abs(G.px - t.x) < 30 && Math.abs(G.py - t.y) < 30 && G.invulnTimer <= 0) {
-      t.touched = true;
-      G.temptsTouched++;
-      G.hearts--; GAME.totalHearts--;
-      G.hitFlash = 0.3;
-      G.invulnTimer = 1;
-      showFloat(t.x, t.y - G.cameraY - 15, 'Tempted! -1 heart', '#ef4444');
-    }
-    if (!t.touched && G.py > t.y + 60) {
-      t.touched = true;
-      G.resisted++;
-      showFloat(t.x, t.y - G.cameraY, 'Resisted!', '#80d080');
-    }
-  });
-
-  // Shadow hands
-  G.hands.forEach(h => {
-    h.timer += dt;
-    const cycle = h.timer % 2.8;
-    if (cycle < 1.5) { h.phase = 'idle'; h.extend = 0; }
-    else if (cycle < 2.3) { h.phase = 'extend'; h.extend = ((cycle-1.5)/0.8)*80; }
-    else { h.phase = 'retract'; h.extend = Math.max(0, 80-((cycle-2.3)/0.5)*80); }
-
-    if (h.extend > 30 && G.invulnTimer <= 0) {
-      const hx = h.side === 'left' ? h.extend : W - h.extend;
-      if (Math.abs(G.px - hx) < 25 && Math.abs(G.py - h.worldY) < 30) {
-        G.hearts--; GAME.totalHearts--;
-        G.hitFlash = 0.3;
-        G.invulnTimer = 1.5;
-        showFloat(G.px, G.py - G.cameraY - 20, 'Shadow grab!', '#8040a0');
-      }
-    }
-  });
-
-  // NPC encounters
-  G.platforms.forEach(p => {
-    if (p.cleared || (p.type !== 'charon' && p.type !== 'cerberus')) return;
-    if (Math.abs(G.py - p.y) < 10 && G.px > p.x && G.px < p.x + p.w) {
-      const npcX = p.x + p.w/2;
-      if (Math.abs(G.px - npcX) < 50) {
-        if (p.type === 'charon' && G.coins > 0) {
-          G.coins--;
-          G.phase = 'encounter'; G.encounterNPC = p; G.encounterTimer = 1.5;
-          showFloat(npcX, p.y - G.cameraY - 30, 'Coin accepted!', '#ffd700');
-          spawnP(npcX, p.y - G.cameraY, 8, '#ffd700');
-        } else if (p.type === 'cerberus' && G.cakes > 0) {
-          G.cakes--;
-          G.phase = 'encounter'; G.encounterNPC = p; G.encounterTimer = 1.5;
-          showFloat(npcX, p.y - G.cameraY - 30, 'Cake accepted!', '#d4a040');
-          spawnP(npcX, p.y - G.cameraY, 8, '#d4a040');
-        } else if (p.type === 'charon') {
-          G.wrongOffers++; G.px -= G.facingRight ? 40 : -40; G.invulnTimer = 0.5;
-          showFloat(npcX, p.y - G.cameraY - 20, 'Need a coin!', '#ef4444');
-        } else {
-          G.wrongOffers++; G.px -= G.facingRight ? 40 : -40; G.invulnTimer = 0.5;
-          showFloat(npcX, p.y - G.cameraY - 20, 'Need a cake!', '#ef4444');
-        }
-      }
-    }
-  });
-
-  // Persephone
-  const persPlat = G.platforms.find(p => p.type === 'persephone');
-  if (persPlat && !persPlat.cleared && Math.abs(G.py - persPlat.y) < 10 &&
-      G.px > persPlat.x && G.px < persPlat.x + persPlat.w) {
-    G.phase = 'boxChoice';
-  }
-
-  // Particles
-  G.particles = G.particles.filter(p => {
-    p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= dt;
-    return p.life > 0;
-  });
-
-  if (G.hearts <= 0 || GAME.totalHearts <= 0) G.phase = 'complete';
-}
-
-// === RENDER ===
-function render() {
-  ctx.clearRect(0, 0, W, H);
-  if (G.phase === 'tutorial') { renderTutorial(); return; }
-  if (G.phase === 'complete') { renderComplete(); return; }
-
-  // Background
-  const uwBg = sprites['underworld_bg'];
-  if (uwBg) {
-    const bgOff = (G.cameraY * 0.3) % H;
-    ctx.drawImage(uwBg, 0, -bgOff, W, H);
-    ctx.drawImage(uwBg, 0, H - bgOff, W, H);
   } else {
-    ctx.fillStyle = '#060812'; ctx.fillRect(0, 0, W, H);
+    // Keyboard movement (optional repositioning)
+    const moveL=keys['ArrowLeft']||keys['a'];
+    const moveR=keys['ArrowRight']||keys['d'];
+    if(moveL) G.erosX=Math.max(60,G.erosX-180*dt);
+    if(moveR) G.erosX=Math.min(320,G.erosX+180*dt);
   }
 
-  // Glow
-  const glow = ctx.createRadialGradient(W/2, H, 0, W/2, H, 300);
-  glow.addColorStop(0, 'rgba(0,80,40,0.08)');
-  glow.addColorStop(1, 'rgba(0,60,30,0)');
-  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  // Shield timer
+  if(G.erosShielding){
+    G.erosShieldTimer-=dt;
+    if(G.erosShieldTimer<=0) G.erosShielding=false;
+  }
 
-  // Platforms
-  G.platforms.forEach(p => {
-    const sy = p.y - G.cameraY;
-    if (sy < -30 || sy > H + 30) return;
-    ctx.fillStyle = p.type === 'normal' ? '#1c1828' : '#1a1520';
-    ctx.fillRect(p.x, sy, p.w, p.h);
-    ctx.fillStyle = 'rgba(70,60,90,0.5)';
-    ctx.fillRect(p.x, sy, p.w, 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(p.x, sy + p.h, p.w, 4);
-    ctx.strokeStyle = 'rgba(80,70,100,0.3)'; ctx.lineWidth = 1;
-    for (let kx = p.x+10; kx < p.x+p.w-10; kx += 20) {
-      ctx.beginPath(); ctx.moveTo(kx, sy+3); ctx.lineTo(kx+10, sy+3);
-      ctx.lineTo(kx+10, sy+8); ctx.lineTo(kx+5, sy+8); ctx.stroke();
+  // Thanatos AI
+  thanatosAI(dt);
+
+  // Check phase transitions
+  const hpPct=G.thanHP/THAN_HP_MAX;
+  if(hpPct<=0.5&&G.thanPhase<2){
+    G.thanPhase=2;
+    G.thanAttackTimer=0.5;
+    G.hitFlash=0.4; G.flashColor='rgba(120,0,180,0.25)';
+    showFloat(THANATOS_X, FLOOR_Y-160, 'PHASE 2 — Thanatos Unleashed!','#c084fc',14);
+    G.thanAnim='phase2'; G.thanAnimTimer=1.0;
+  }
+  if(hpPct<=0.2&&G.thanPhase<3){
+    G.thanPhase=3;
+    G.thanAttackTimer=0.3;
+    G.hitFlash=0.5; G.flashColor='rgba(180,0,0,0.2)';
+    showFloat(THANATOS_X, FLOOR_Y-160, '⚡ DEATHSTORM! ⚡','#ef4444',16);
+    G.thanAnim='phase2'; G.thanAnimTimer=1.2;
+  }
+
+  // ── Arrows ──
+  G.arrows = G.arrows.filter(a=>{
+    a.x+=a.vx*dt; a.y+=a.vy*dt;
+    if(a.hit||a.x>W+20) return false;
+    // Hit Thanatos
+    if(a.x>THANATOS_X-50&&a.x<THANATOS_X+50&&!a.hit){
+      a.hit=true;
+      const dmg=18+Math.floor(Math.random()*6);
+      G.thanHP=Math.max(0,G.thanHP-dmg);
+      G.arrowsLanded++;
+      spawnP(THANATOS_X-30,FLOOR_Y-80,10,'#a855f7');
+      showFloat(THANATOS_X-30,FLOOR_Y-100,`-${dmg}`,'#c084fc',15);
+      G.thanAnim='hit'; G.thanAnimTimer=0.2;
+      if(G.thanHP<=0) endFight('victory');
+      return false;
     }
+    return true;
+  });
 
-    if (!p.cleared) {
-      const cx = p.x + p.w/2;
-      if (p.type === 'charon') {
-        const spr = sprites['charon'];
-        if (spr) ctx.drawImage(spr, cx-45, sy-95, 90, 90);
-        ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='bold 11px "Segoe UI"'; ctx.textAlign='center';
-        ctx.fillText('Charon — needs Coin', cx, sy-100); ctx.textAlign='left';
-      } else if (p.type === 'cerberus') {
-        const spr = sprites['cerberus'];
-        if (spr) ctx.drawImage(spr, cx-45, sy-95, 90, 90);
-        ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='bold 11px "Segoe UI"'; ctx.textAlign='center';
-        ctx.fillText('Cerberus — needs Cake', cx, sy-100); ctx.textAlign='left';
-      } else if (p.type === 'persephone') {
-        const spr = sprites['persephone'];
-        if (spr) ctx.drawImage(spr, cx-55, sy-115, 110, 110);
-        ctx.fillStyle='rgba(180,150,220,0.6)'; ctx.font='bold 12px "Segoe UI"'; ctx.textAlign='center';
-        ctx.fillText('Persephone', cx, sy-120); ctx.textAlign='left';
+  // ── Shadow bolts ──
+  G.shadowBolts = G.shadowBolts.filter(b=>{
+    b.x+=b.vx*dt; b.y+=b.vy*dt;
+    if(b.blocked||b.hit||b.x<-20) return false;
+    // Check shield block
+    if(G.erosShielding&&b.x<G.erosX+60&&b.x>G.erosX-30){
+      b.blocked=true;
+      G.boltsBlocked++;
+      spawnP(G.erosX+40,FLOOR_Y-60,8,'#7c3aed');
+      showFloat(G.erosX,FLOOR_Y-100,'BLOCKED!','#a78bfa',13);
+      return false;
+    }
+    // Check dash invuln
+    if(G.erosDashing) return true;
+    // Hit Eros
+    if(G.erosHitTimer<=0&&b.x<G.erosX+40&&b.x>G.erosX-30&&b.y>FLOOR_Y-120&&b.y<FLOOR_Y){
+      b.hit=true;
+      const dmg=12+Math.floor(Math.random()*6);
+      G.erosHP=Math.max(0,G.erosHP-dmg);
+      G.hitsTaken++;
+      GAME.totalHearts=Math.max(0,GAME.totalHearts-1);
+      G.erosHitTimer=0.9;
+      G.erosAnim='hit'; G.erosAnimTimer=0.25;
+      G.hitFlash=0.3; G.flashColor='rgba(255,50,50,0.2)';
+      spawnP(G.erosX,FLOOR_Y-60,10,'#ef4444');
+      showFloat(G.erosX,FLOOR_Y-100,`-${dmg}`,'#ef4444',15);
+      shake();
+      if(G.erosHP<=0) endFight('defeat');
+      return false;
+    }
+    return true;
+  });
+
+  // ── Shade soldiers ──
+  G.thanShades = G.thanShades.filter(s=>{
+    if(s.dead){
+      s.deathTimer-=dt;
+      return s.deathTimer>0;
+    }
+    s.x+=s.vx*dt;
+    s.animTimer+=dt;
+    // Hit Eros
+    if(G.erosHitTimer<=0&&Math.abs(s.x-G.erosX)<40){
+      s.dead=true; s.deathTimer=0.4;
+      G.erosHP=Math.max(0,G.erosHP-8);
+      G.hitsTaken++;
+      GAME.totalHearts=Math.max(0,GAME.totalHearts-1);
+      G.erosHitTimer=1.0;
+      G.erosAnim='hit'; G.erosAnimTimer=0.25;
+      spawnP(G.erosX,FLOOR_Y-40,8,'#6b21a8');
+      showFloat(G.erosX,FLOOR_Y-90,'-8 Shade!','#a855f7',13);
+      shake();
+      if(G.erosHP<=0) endFight('defeat');
+    }
+    // Arrow hits shade
+    G.arrows.forEach(a=>{
+      if(a.hit) return;
+      if(Math.abs(a.x-s.x)<30&&!s.dead){
+        a.hit=true;
+        s.dead=true; s.deathTimer=0.4;
+        spawnP(s.x,FLOOR_Y-40,8,'#7c3aed');
+        showFloat(s.x,FLOOR_Y-70,'Shade down!','#c084fc',12);
       }
-    }
+    });
+    // Off screen
+    if(s.x<-30){ s.dead=true; s.deathTimer=0; }
+    return true;
   });
 
-  // Items
-  G.items.forEach(item => {
-    if (item.collected) return;
-    const sy = item.y - G.cameraY;
-    if (sy < -30 || sy > H + 30) return;
-    const bob = Math.sin(G.elapsed * 3 + item.x * 0.01) * 3;
-    if (item.type === 'coin') {
-      ctx.fillStyle = '#ffd700';
-      ctx.beginPath(); ctx.arc(item.x, sy+bob, 10, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#b8960a';
-      ctx.beginPath(); ctx.arc(item.x, sy+bob, 7, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 10px "Segoe UI"'; ctx.textAlign = 'center';
-      ctx.fillText('$', item.x, sy+bob+4); ctx.textAlign='left';
-    } else {
-      ctx.fillStyle = '#d4a040';
-      rr(ctx, item.x-10, sy+bob-6, 20, 12, 4); ctx.fill();
-      ctx.fillStyle = '#b8860b';
-      rr(ctx, item.x-8, sy+bob-4, 16, 8, 3); ctx.fill();
-    }
-  });
-
-  // Temptations
-  G.temptations.forEach(t => {
-    if (t.touched) return;
-    const sy = t.y - G.cameraY;
-    if (sy < -40 || sy > H + 40) return;
-    const pulse = 0.6 + Math.sin(G.elapsed*3)*0.2;
-    const tg = ctx.createRadialGradient(t.x, sy, 0, t.x, sy, 35);
-    tg.addColorStop(0, 'rgba(255,200,80,'+pulse*0.25+')');
-    tg.addColorStop(1, 'rgba(255,180,60,0)');
-    ctx.fillStyle = tg; ctx.beginPath(); ctx.arc(t.x, sy, 35, 0, Math.PI*2); ctx.fill();
-    const spr = sprites[t.sprite];
-    if (spr) { ctx.globalAlpha=pulse; ctx.drawImage(spr, t.x-25, sy-25, 50, 50); ctx.globalAlpha=1; }
-    ctx.fillStyle='rgba(255,100,100,0.5)'; ctx.font='bold 10px "Segoe UI"'; ctx.textAlign='center';
-    ctx.fillText('DANGER', t.x, sy-30); ctx.textAlign='left';
-  });
-
-  // Shadow hands
-  G.hands.forEach(h => {
-    const sy = h.worldY - G.cameraY;
-    if (sy < -50 || sy > H + 50 || h.extend < 5) return;
-    const clawSpr = sprites['hand'];
-    const hx = h.side === 'left' ? h.extend : W - h.extend;
-    const alpha = h.phase === 'retract' ? 0.5 : 0.8;
-    if (clawSpr) {
-      ctx.save(); ctx.globalAlpha=alpha; const sz=48;
-      if (h.side==='right') { ctx.translate(hx,sy); ctx.scale(-1,1); ctx.drawImage(clawSpr,-sz/2,-sz/2,sz,sz); }
-      else ctx.drawImage(clawSpr, hx-sz/2, sy-sz/2, sz, sz);
-      ctx.restore();
-    } else {
-      ctx.fillStyle='rgba(80,30,120,'+alpha+')';
-      ctx.beginPath(); ctx.ellipse(hx,sy,20,8,0,0,Math.PI*2); ctx.fill();
-    }
-    if (h.phase==='idle'&&(h.timer%2.8)>1.0) {
-      const wallX=h.side==='left'?0:W;
-      ctx.fillStyle='rgba(80,40,120,0.15)';
-      ctx.beginPath(); ctx.arc(wallX,sy,20,0,Math.PI*2); ctx.fill();
-    }
-  });
-
-  // Psyche
-  const psy = G.py - G.cameraY;
-  const blink = G.invulnTimer > 0 && Math.sin(G.elapsed*20) > 0;
-  if (!blink) {
-    const spr = sprites['psyche'];
-    if (spr) {
-      ctx.save();
-      if (!G.facingRight) { ctx.translate(G.px, psy-35); ctx.scale(-1,1); ctx.drawImage(spr,-25,-5,50,60); }
-      else ctx.drawImage(spr, G.px-25, psy-40, 50, 60);
-      ctx.restore();
-    } else {
-      ctx.fillStyle='#f0ece4';
-      ctx.beginPath(); ctx.arc(G.px, psy-16, 8, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(G.px,psy-8); ctx.lineTo(G.px-10,psy+8); ctx.lineTo(G.px+10,psy+8); ctx.closePath(); ctx.fill();
-    }
-  }
-
-  // Particles
-  G.particles.forEach(p => {
-    ctx.globalAlpha=Math.max(0,p.life/0.8); ctx.fillStyle=p.color;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
-  }); ctx.globalAlpha=1;
-
-  // Encounter overlay
-  if (G.phase==='encounter'&&G.encounterNPC) {
-    ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#f0d68a'; ctx.font='bold 20px "Segoe UI"'; ctx.textAlign='center';
-    ctx.fillText(G.encounterNPC.type==='charon'?'Charon lets you pass...':'Cerberus is satisfied...', W/2, H/2);
-    ctx.textAlign='left';
-  }
-
-  // Box choice
-  if (G.phase==='boxChoice') {
-    ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,W,H);
-    const boxSpr=sprites['box'];
-    if (boxSpr) ctx.drawImage(boxSpr, W/2-40, H*0.2, 80, 80);
-    ctx.textAlign='center';
-    ctx.fillStyle='#f0d68a'; ctx.font='bold 18px "Segoe UI"';
-    ctx.fillText('Persephone gives you a box.', W/2, H*0.5);
-    ctx.fillStyle='#c8b88a'; ctx.font='14px "Segoe UI"';
-    ctx.fillText('"Do not open it."', W/2, H*0.5+24);
-    const btnW=200, btnH=50;
-    ctx.fillStyle='rgba(180,50,50,0.2)'; rr(ctx,W/2-btnW-15,H*0.65,btnW,btnH,8); ctx.fill();
-    ctx.strokeStyle='rgba(200,100,100,0.5)'; ctx.lineWidth=2; rr(ctx,W/2-btnW-15,H*0.65,btnW,btnH,8); ctx.stroke();
-    ctx.fillStyle='#e08080'; ctx.font='bold 15px "Segoe UI"';
-    ctx.fillText('Open the Box', W/2-btnW/2-15, H*0.65+30);
-    ctx.fillStyle='rgba(80,150,80,0.2)'; rr(ctx,W/2+15,H*0.65,btnW,btnH,8); ctx.fill();
-    ctx.strokeStyle='rgba(100,200,100,0.5)'; ctx.lineWidth=2; rr(ctx,W/2+15,H*0.65,btnW,btnH,8); ctx.stroke();
-    ctx.fillStyle='#80d080'; ctx.font='bold 15px "Segoe UI"';
-    ctx.fillText('Carry Sealed', W/2+btnW/2+15, H*0.65+30);
-    ctx.textAlign='left';
-  }
-
-  // Hit flash
-  if (G.hitFlash > 0) {
-    ctx.fillStyle='rgba(180,40,40,'+G.hitFlash*0.3+')'; ctx.fillRect(0,0,W,H);
-  }
-
-  // HUD
-  renderHUD();
+  updateParticles(dt);
 }
 
-function renderHUD() {
-  ctx.fillStyle='rgba(0,0,0,0.6)'; rr(ctx,10,10,130,50,6); ctx.fill();
-  ctx.font='18px "Segoe UI"';
-  for (let i=0;i<4;i++) {
-    ctx.fillStyle=i<G.hearts?'#ef4444':'rgba(100,80,80,0.3)';
-    ctx.fillText('\u2665', 18+i*26, 30);
+function updateParticles(dt){
+  G.particles=G.particles.filter(p=>{
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.vy+=80*dt;
+    p.life-=dt; return p.life>0;
+  });
+}
+
+function endFight(result){
+  if(G.phase!=='fighting') return;
+  G.result=result;
+  G.phase=result;
+  G.resultTimer=0;
+  if(result==='victory'){
+    spawnP(W/2,H/2,30,'#ffd700');
+    spawnP(THANATOS_X,FLOOR_Y-80,20,'#a855f7');
   }
-  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='11px "Segoe UI"'; ctx.textAlign='left';
-  ctx.fillText(GAME.totalHearts+' lives \u00b7 '+G.resisted+' resisted', 18, 50);
+}
 
-  ctx.fillStyle='rgba(0,0,0,0.7)'; rr(ctx,W-130,10,120,50,6); ctx.fill();
-  ctx.strokeStyle='rgba(80,70,100,0.4)'; ctx.lineWidth=1; rr(ctx,W-130,10,120,50,6); ctx.stroke();
-  ctx.fillStyle='#ffd700'; ctx.font='16px "Segoe UI"';
-  ctx.fillText('\ud83e\ude99 \u00d7'+G.coins, W-120, 32);
-  ctx.fillStyle='#d4a040';
-  ctx.fillText('\ud83c\udf70 \u00d7'+G.cakes, W-120, 50);
+// ── Render ────────────────────────────────────────────────────
+function render(){
+  ctx.clearRect(0,0,W,H);
+  if(G.phase==='tutorial'){renderTutorial();return;}
+  if(G.phase==='dummy'){renderDummy();return;}
+  if(G.phase==='complete'){renderComplete();return;}
 
-  ctx.fillStyle='rgba(200,180,140,0.3)'; ctx.font='10px "Segoe UI"'; ctx.textAlign='center';
-  ctx.fillText('\u2190 \u2192 Move  \u00b7  SPACE Jump  \u00b7  Avoid temptations', W/2, H-8);
+  // ── Arena background ──
+  const arenaSpr=sprites['arena_bg'];
+  if(arenaSpr){
+    ctx.drawImage(arenaSpr,0,0,W,H);
+  } else {
+    // Programmatic arena
+    const bgGrad=ctx.createLinearGradient(0,0,0,H);
+    bgGrad.addColorStop(0,'#0c0814');
+    bgGrad.addColorStop(0.7,'#140a1e');
+    bgGrad.addColorStop(1,'#1a0a0a');
+    ctx.fillStyle=bgGrad; ctx.fillRect(0,0,W,H);
+
+    // Floor tiles
+    ctx.fillStyle='#0f0c18';
+    ctx.fillRect(0,FLOOR_Y+10,W,H-FLOOR_Y-10);
+    // Tile grid
+    ctx.strokeStyle='rgba(60,40,80,0.5)';ctx.lineWidth=1;
+    for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,FLOOR_Y+10);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=FLOOR_Y+10;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    // Floor line
+    ctx.fillStyle='rgba(80,50,120,0.6)';
+    ctx.fillRect(0,FLOOR_Y+8,W,3);
+
+    // Columns
+    const colColor='rgba(20,12,32,0.95)';
+    [[30,80],[W-110,80]].forEach(([cx])=>{
+      ctx.fillStyle=colColor;
+      ctx.fillRect(cx,60,80,FLOOR_Y-55);
+      ctx.fillStyle='rgba(50,30,70,0.8)';
+      ctx.fillRect(cx,55,80,14);
+      ctx.fillRect(cx,FLOOR_Y-10,80,20);
+      // Highlight edge
+      ctx.fillStyle='rgba(80,50,110,0.4)';
+      ctx.fillRect(cx,60,4,FLOOR_Y-60);
+    });
+
+    // Torch glows
+    const tg1=ctx.createRadialGradient(120,FLOOR_Y-60,0,120,FLOOR_Y-60,120);
+    tg1.addColorStop(0,'rgba(200,120,20,0.12)');
+    tg1.addColorStop(1,'rgba(180,80,10,0)');
+    ctx.fillStyle=tg1;ctx.fillRect(0,0,W,H);
+    const tg2=ctx.createRadialGradient(W-120,FLOOR_Y-60,0,W-120,FLOOR_Y-60,120);
+    tg2.addColorStop(0,'rgba(120,20,200,0.1)');
+    tg2.addColorStop(1,'rgba(100,10,180,0)');
+    ctx.fillStyle=tg2;ctx.fillRect(0,0,W,H);
+
+    // Fog along floor
+    const fogGrad=ctx.createLinearGradient(0,FLOOR_Y-20,0,FLOOR_Y+30);
+    fogGrad.addColorStop(0,'rgba(60,20,100,0)');
+    fogGrad.addColorStop(0.5,`rgba(60,20,100,${0.15+Math.sin(G.elapsed*0.8)*0.05})`);
+    fogGrad.addColorStop(1,'rgba(40,10,80,0)');
+    ctx.fillStyle=fogGrad;ctx.fillRect(0,FLOOR_Y-20,W,50);
+  }
+
+  // ── Psyche (rescue objective — bottom right corner) ──
+  renderPsyche();
+
+  // ── Health bars ──
+  renderHealthBars();
+
+  // ── Shade soldiers ──
+  G.thanShades.forEach(s=>{
+    const alpha = s.dead ? Math.max(0,s.deathTimer/0.4)*0.6 : 0.85;
+    const spr=sprites['shade_soldier'];
+    if(spr){
+      ctx.globalAlpha=alpha;
+      ctx.drawImage(spr,s.x-20,FLOOR_Y-55,40,55);
+      ctx.globalAlpha=1;
+    } else {
+      ctx.globalAlpha=alpha;
+      ctx.fillStyle='rgba(80,60,140,0.9)';
+      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-30,12,25,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-58,9,10,0,0,Math.PI*2);ctx.fill();
+      // Spear
+      ctx.strokeStyle='rgba(140,100,180,0.8)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(s.x-14,FLOOR_Y-65);ctx.lineTo(s.x-14,FLOOR_Y-5);ctx.stroke();
+      // Eyes
+      ctx.fillStyle='rgba(220,230,255,0.9)';
+      ctx.beginPath();ctx.arc(s.x-4,FLOOR_Y-60,2.5,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(s.x+4,FLOOR_Y-60,2.5,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  });
+
+  // ── Arrows ──
+  G.arrows.forEach(a=>{
+    const spr=sprites['arrow_proj'];
+    if(spr){
+      ctx.drawImage(spr,a.x-24,a.y-6,48,12);
+    } else {
+      ctx.fillStyle='#f0d060';
+      ctx.fillRect(a.x-22,a.y-2,44,4);
+      ctx.fillStyle='#fff8c0';
+      ctx.fillRect(a.x+16,a.y-3,8,6);
+      // Tip
+      ctx.fillStyle='#ffd700';
+      ctx.beginPath();ctx.moveTo(a.x+22,a.y);ctx.lineTo(a.x+14,a.y-4);ctx.lineTo(a.x+14,a.y+4);ctx.closePath();ctx.fill();
+    }
+  });
+
+  // ── Shadow bolts ──
+  G.shadowBolts.forEach(b=>{
+    const spr=sprites['shadow_bolt'];
+    if(spr){
+      ctx.drawImage(spr,b.x-24,b.y-6,48,12);
+    } else {
+      ctx.fillStyle='#4c1d95';
+      ctx.fillRect(b.x-22,b.y-3,44,6);
+      ctx.fillStyle='rgba(140,80,220,0.7)';
+      ctx.fillRect(b.x-22,b.y-5,8,10);
+      ctx.fillStyle='rgba(80,20,160,0.5)';
+      ctx.fillRect(b.x+8,b.y-2,16,4);
+    }
+  });
+
+  // ── Eros ──
+  renderEros();
+
+  // ── Thanatos ──
+  renderThanatos();
+
+  // ── Particles ──
+  G.particles.forEach(p=>{
+    ctx.globalAlpha=Math.max(0,p.life/p.ml);
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // ── Hit flash ──
+  if(G.hitFlash>0){
+    ctx.fillStyle=G.flashColor;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // ── Phase banner ──
+  if(G.thanPhase>=2){
+    ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,W/2-80,6,160,20,4);ctx.fill();
+    ctx.fillStyle=G.thanPhase===3?'#ef4444':'#c084fc';
+    ctx.font=`bold 12px "Segoe UI"`;ctx.textAlign='center';
+    ctx.fillText(G.thanPhase===3?'⚡ DEATHSTORM ⚡':'☠ Phase 2 — Unleashed',W/2,20);
+    ctx.textAlign='left';
+  }
+
+  // ── Victory/Defeat overlay ──
+  if(G.phase==='victory'||G.phase==='defeat'){
+    const t=Math.min(1,G.resultTimer/0.6);
+    ctx.fillStyle=`rgba(0,0,0,${t*0.65})`;ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    if(G.phase==='victory'){
+      ctx.fillStyle=`rgba(240,214,138,${t})`;ctx.font='bold 32px "Segoe UI"';
+      ctx.fillText('VICTORY',W/2,H/2-30);
+      ctx.fillStyle=`rgba(200,180,255,${t*0.8})`;ctx.font='italic 16px "Segoe UI"';
+      ctx.fillText('Thanatos falls. Eros reaches Psyche.',W/2,H/2+10);
+      if(G.resultTimer>1.2){
+        ctx.fillStyle=`rgba(200,255,200,${Math.min(1,(G.resultTimer-1.2)/0.5)})`;
+        ctx.font='14px "Segoe UI"';
+        ctx.fillText('Eros wipes the sleep from her eyes...',W/2,H/2+40);
+      }
+    } else {
+      ctx.fillStyle=`rgba(239,68,68,${t})`;ctx.font='bold 32px "Segoe UI"';
+      ctx.fillText('FALLEN',W/2,H/2-20);
+      ctx.fillStyle=`rgba(200,180,200,${t*0.7})`;ctx.font='16px "Segoe UI"';
+      ctx.fillText('"Love endures. Try again."',W/2,H/2+20);
+    }
+    ctx.textAlign='left';
+  }
+}
+
+function renderPsyche(){
+  const px=W-90, py=FLOOR_Y;
+  const pulse=0.5+Math.sin(G.psychePulse*1.8)*0.3;
+  // Glow around her
+  const glow=ctx.createRadialGradient(px,py-30,0,px,py-30,55);
+  glow.addColorStop(0,`rgba(240,200,100,${pulse*0.18})`);
+  glow.addColorStop(1,'rgba(220,180,80,0)');
+  ctx.fillStyle=glow;ctx.fillRect(px-55,py-80,110,90);
+
+  const spr=sprites['psyche_down'];
+  if(spr){
+    ctx.drawImage(spr,px-40,py-30,80,30);
+  } else {
+    // Psyche lying down — programmatic
+    ctx.fillStyle='rgba(220,210,190,0.9)';
+    ctx.beginPath();ctx.ellipse(px,py-14,38,12,0,0,Math.PI*2);ctx.fill();
+    // Head
+    ctx.fillStyle='rgba(200,185,165,0.9)';
+    ctx.beginPath();ctx.ellipse(px+30,py-20,10,9,0.2,0,Math.PI*2);ctx.fill();
+    // Hair
+    ctx.fillStyle='rgba(90,55,25,0.9)';
+    ctx.beginPath();ctx.ellipse(px+33,py-24,8,6,0.5,0,Math.PI*2);ctx.fill();
+    // Dress folds
+    ctx.fillStyle='rgba(240,235,220,0.7)';
+    ctx.fillRect(px-28,py-16,56,8);
+    // Gold pulse outline
+    ctx.strokeStyle=`rgba(240,200,80,${pulse*0.5})`;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.ellipse(px,py-14,40,14,0,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.fillStyle='rgba(200,180,140,0.45)';ctx.font='italic 10px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText('Psyche',px,py+8);
   ctx.textAlign='left';
 }
 
-function renderTutorial() {
-  ctx.fillStyle='rgba(0,0,0,0.9)'; ctx.fillRect(0,0,W,H);
+function renderEros(){
+  const ex=G.erosX, ey=FLOOR_Y;
+  const anim=G.erosAnim;
+  const hitFlicker=G.erosHitTimer>0&&Math.sin(G.elapsed*18)>0;
+
+  let sprKey='eros_idle';
+  if(anim==='shoot') sprKey='eros_shoot';
+  else if(anim==='dash') sprKey='eros_dash';
+  else if(anim==='shield') sprKey='eros_shield';
+
+  const spr=sprites[sprKey]||sprites['eros_idle'];
+
+  ctx.save();
+  if(hitFlicker) ctx.globalAlpha=0.35;
+
+  if(spr){
+    ctx.drawImage(spr,ex-32,ey-95,64,95);
+  } else {
+    // Programmatic Eros
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.beginPath();ctx.ellipse(ex,ey+2,28,8,0,0,Math.PI*2);ctx.fill();
+
+    if(anim==='shield'){
+      // Wings folded forward
+      ctx.fillStyle='rgba(220,215,200,0.9)';
+      ctx.beginPath();ctx.ellipse(ex+10,ey-50,35,55,0.2,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(240,220,180,0.6)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.ellipse(ex+10,ey-50,35,55,0.2,0,Math.PI*2);ctx.stroke();
+    } else if(anim==='dash'){
+      // Horizontal dash body
+      ctx.fillStyle='rgba(220,215,200,0.5)';
+      ctx.beginPath();ctx.ellipse(ex-10,ey-45,50,15,0.15,0,Math.PI*2);ctx.fill();
+      // Wings swept back
+      ctx.fillStyle='rgba(230,225,210,0.7)';
+      ctx.beginPath();
+      ctx.moveTo(ex+20,ey-50);ctx.lineTo(ex-40,ey-80);ctx.lineTo(ex-20,ey-40);ctx.closePath();ctx.fill();
+    } else {
+      // Wings
+      const wingSpread = anim==='shoot' ? 28 : 20;
+      ctx.fillStyle='rgba(230,225,210,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(ex-10,ey-60);
+      ctx.lineTo(ex-10-wingSpread,ey-90);
+      ctx.lineTo(ex,ey-55);
+      ctx.closePath();ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(ex-10,ey-60);
+      ctx.lineTo(ex+wingSpread,ey-88);
+      ctx.lineTo(ex+5,ey-52);
+      ctx.closePath();ctx.fill();
+      // Body
+      ctx.fillStyle='#e8ddd0';
+      ctx.beginPath();ctx.ellipse(ex,ey-45,12,28,0,0,Math.PI*2);ctx.fill();
+      // Tunic
+      ctx.fillStyle='rgba(255,252,240,0.9)';
+      ctx.fillRect(ex-11,ey-52,22,30);
+      ctx.fillStyle='rgba(200,180,100,0.6)';
+      ctx.fillRect(ex-11,ey-52,22,3);
+      // Head
+      ctx.fillStyle='#e0cfa0';
+      ctx.beginPath();ctx.ellipse(ex,ey-76,10,11,0,0,Math.PI*2);ctx.fill();
+      // Hair
+      ctx.fillStyle='#c8a820';
+      ctx.beginPath();ctx.ellipse(ex,ey-84,9,6,0,0,Math.PI*2);ctx.fill();
+      // Bow (when shooting)
+      if(anim==='shoot'){
+        ctx.strokeStyle='#b8900a';ctx.lineWidth=2.5;
+        ctx.beginPath();ctx.arc(ex+20,ey-55,18,-0.8,0.8);ctx.stroke();
+        ctx.strokeStyle='rgba(200,200,180,0.7)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(ex+20+18*Math.cos(-0.8),ey-55+18*Math.sin(-0.8));
+        ctx.lineTo(ex+20+18*Math.cos(0.8),ey-55+18*Math.sin(0.8));ctx.stroke();
+      } else {
+        // Bow at side
+        ctx.strokeStyle='#b8900a';ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(ex+16,ey-40,12,-0.5,0.5);ctx.stroke();
+      }
+    }
+
+    // Shield glow when shielding
+    if(G.erosShielding){
+      ctx.strokeStyle='rgba(200,180,255,0.5)';ctx.lineWidth=3;
+      ctx.beginPath();ctx.ellipse(ex+10,ey-50,38,58,0.2,0,Math.PI*2);ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+
+  // Cooldown indicators (small dots below character)
+  const dotY=ey+14;
+  // Shoot CD
+  const sFrac=Math.max(0,G.erosShootCooldown/SHOOT_COOLDOWN);
+  ctx.fillStyle=sFrac>0?'rgba(100,100,100,0.5)':'rgba(240,200,80,0.8)';
+  ctx.beginPath();ctx.arc(ex-16,dotY,4,0,Math.PI*2);ctx.fill();
+  // Dash CD
+  const dFrac=Math.max(0,G.erosDashCooldown/DASH_COOLDOWN);
+  ctx.fillStyle=dFrac>0?'rgba(100,100,100,0.5)':'rgba(100,180,255,0.8)';
+  ctx.beginPath();ctx.arc(ex,dotY,4,0,Math.PI*2);ctx.fill();
+  // Shield CD
+  const shFrac=Math.max(0,G.erosShieldCooldown/SHIELD_COOLDOWN);
+  ctx.fillStyle=shFrac>0?'rgba(100,100,100,0.5)':'rgba(180,140,255,0.8)';
+  ctx.beginPath();ctx.arc(ex+16,dotY,4,0,Math.PI*2);ctx.fill();
+}
+
+function renderThanatos(){
+  const tx=THANATOS_X, ty=FLOOR_Y;
+  const anim=G.thanAnim;
+  const phase=G.thanPhase;
+
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.beginPath();ctx.ellipse(tx,ty+2,35,10,0,0,Math.PI*2);ctx.fill();
+
+  const spr = phase>=2 ? (sprites['thanatos_phase2']||sprites['thanatos_idle']) : sprites['thanatos_idle'];
+  const attackSpr = sprites['thanatos_attack'];
+
+  const useSpr = anim==='attack'&&attackSpr ? attackSpr : spr;
+
+  if(useSpr){
+    ctx.save();ctx.scale(-1,1);
+    ctx.drawImage(useSpr,-(tx+40),ty-110,80,110);
+    ctx.restore();
+  } else {
+    // Programmatic Thanatos
+    ctx.save();
+    const rageAlpha=phase===3?0.15+Math.sin(G.elapsed*6)*0.08:0;
+    if(rageAlpha>0){
+      ctx.fillStyle=`rgba(180,0,40,${rageAlpha})`;
+      ctx.beginPath();ctx.ellipse(tx,ty-60,55,80,0,0,Math.PI*2);ctx.fill();
+    }
+
+    // Wings (large, dark)
+    const wingW=phase>=2?65:50;
+    ctx.fillStyle=phase>=2?'rgba(20,8,35,0.95)':'rgba(15,8,28,0.9)';
+    ctx.beginPath();
+    ctx.moveTo(tx+10,ty-70);
+    ctx.lineTo(tx+10+wingW,ty-110-phase*8);
+    ctx.lineTo(tx+10+wingW*0.6,ty-60);
+    ctx.closePath();ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(tx+10,ty-70);
+    ctx.lineTo(tx-wingW+10,ty-108-phase*8);
+    ctx.lineTo(tx-wingW*0.5+10,ty-58);
+    ctx.closePath();ctx.fill();
+    // Robe
+    ctx.fillStyle='rgba(12,6,22,0.97)';
+    ctx.beginPath();
+    ctx.moveTo(tx-24,ty-80);ctx.lineTo(tx+24,ty-80);
+    ctx.lineTo(tx+32,ty);ctx.lineTo(tx-32,ty);ctx.closePath();ctx.fill();
+    // Robe highlight
+    ctx.strokeStyle='rgba(80,30,120,0.5)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(tx-22,ty-78);ctx.lineTo(tx-30,ty);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(tx+22,ty-78);ctx.lineTo(tx+30,ty);ctx.stroke();
+    // Body
+    ctx.fillStyle='rgba(25,12,40,0.95)';
+    ctx.beginPath();ctx.ellipse(tx,ty-90,14,22,0,0,Math.PI*2);ctx.fill();
+    // Head — pale
+    ctx.fillStyle='rgba(200,195,185,0.95)';
+    ctx.beginPath();ctx.ellipse(tx,ty-110,13,14,0,0,Math.PI*2);ctx.fill();
+    // Hood shadow
+    ctx.fillStyle='rgba(8,4,18,0.8)';
+    ctx.beginPath();ctx.ellipse(tx,ty-114,13,8,0,0,Math.PI*2);ctx.fill();
+    // Eyes — hollow
+    ctx.fillStyle='rgba(20,5,40,0.95)';
+    ctx.beginPath();ctx.ellipse(tx-5,ty-110,4,5,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(tx+5,ty-110,4,5,0,0,Math.PI*2);ctx.fill();
+    // Eye glow (phase 2+)
+    if(phase>=2){
+      ctx.fillStyle='rgba(180,40,220,0.7)';
+      ctx.beginPath();ctx.arc(tx-5,ty-110,2,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(tx+5,ty-110,2,0,Math.PI*2);ctx.fill();
+    }
+    // Attack arm extended
+    if(anim==='attack'){
+      ctx.fillStyle='rgba(20,10,35,0.9)';
+      ctx.beginPath();ctx.moveTo(tx-16,ty-90);ctx.lineTo(tx-55,ty-85);ctx.lineTo(tx-50,ty-78);ctx.lineTo(tx-14,ty-80);ctx.closePath();ctx.fill();
+      // Energy at palm
+      ctx.fillStyle=`rgba(140,40,220,${0.6+Math.sin(G.elapsed*10)*0.3})`;
+      ctx.beginPath();ctx.arc(tx-55,ty-82,7,0,Math.PI*2);ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // Phase energy crackle (phase 3)
+  if(phase===3){
+    for(let i=0;i<3;i++){
+      const cx=tx+(Math.random()-0.5)*60;
+      const cy=ty-40-Math.random()*80;
+      ctx.strokeStyle=`rgba(200,50,255,${0.3+Math.random()*0.4})`;ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(Math.random()-0.5)*20,cy-12);ctx.stroke();
+    }
+  }
+}
+
+function renderHealthBars(){
+  // ── Eros bar (left) ──
+  const barH=18, barY=10;
+  const erosPct=Math.max(0,G.erosHP/EROS_HP_MAX);
+  // BG panel
+  ctx.fillStyle='rgba(0,0,0,0.8)';rr(ctx,10,barY,260,barH+28,6);ctx.fill();
+  ctx.strokeStyle='rgba(200,180,140,0.2)';ctx.lineWidth=1;rr(ctx,10,barY,260,barH+28,6);ctx.stroke();
+  // Name
+  ctx.fillStyle='#f0d68a';ctx.font='bold 12px "Segoe UI"';ctx.textAlign='left';
+  ctx.fillText('EROS',16,barY+13);
+  // Bar bg
+  ctx.fillStyle='rgba(255,255,255,0.06)';rr(ctx,16,barY+16,248,barH,4);ctx.fill();
+  // Bar fill — gold/green
+  const erosColor=erosPct>0.5?'#4ade80':erosPct>0.25?'#fbbf24':'#ef4444';
+  ctx.fillStyle=erosColor;rr(ctx,16,barY+16,Math.max(0,248*erosPct),barH,4);ctx.fill();
+  // Shine
+  ctx.fillStyle='rgba(255,255,255,0.12)';rr(ctx,16,barY+16,Math.max(0,248*erosPct),barH/2,4);ctx.fill();
+  ctx.strokeStyle='rgba(200,180,140,0.25)';ctx.lineWidth=1;rr(ctx,16,barY+16,248,barH,4);ctx.stroke();
+
+  // ── Thanatos bar (right) ──
+  const thanPct=Math.max(0,G.thanHP/THAN_HP_MAX);
+  ctx.fillStyle='rgba(0,0,0,0.8)';rr(ctx,W-270,barY,260,barH+28,6);ctx.fill();
+  ctx.strokeStyle='rgba(200,180,140,0.2)';ctx.lineWidth=1;rr(ctx,W-270,barY,260,barH+28,6);ctx.stroke();
+  ctx.fillStyle='#c084fc';ctx.font='bold 12px "Segoe UI"';ctx.textAlign='right';
+  ctx.fillText('THANATOS',W-16,barY+13);
+  // Bar bg (fills right to left)
+  ctx.fillStyle='rgba(255,255,255,0.06)';rr(ctx,W-264,barY+16,248,barH,4);ctx.fill();
+  const thanBarW=248*thanPct;
+  const thanColor=thanPct>0.5?'#a855f7':thanPct>0.25?'#ec4899':'#ef4444';
+  // Fill from right
+  ctx.fillStyle=thanColor;
+  rr(ctx,W-264+(248-thanBarW),barY+16,Math.max(0,thanBarW),barH,4);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.12)';
+  rr(ctx,W-264+(248-thanBarW),barY+16,Math.max(0,thanBarW),barH/2,4);ctx.fill();
+  ctx.strokeStyle='rgba(200,180,140,0.25)';ctx.lineWidth=1;rr(ctx,W-264,barY+16,248,barH,4);ctx.stroke();
+
+  // Phase indicator below Thanatos bar
+  ctx.textAlign='right';ctx.fillStyle='rgba(180,140,220,0.6)';ctx.font='10px "Segoe UI"';
+  ctx.fillText(`Phase ${G.thanPhase}/3`,W-16,barY+46);
+
+  // ── Controls reminder (bottom) ──
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,W/2-170,H-28,340,22,4);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='10px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText('Z / Click = Arrow  ·  X / Double-click = Dash  ·  Space / Right-click = Shield',W/2,H-13);
+  ctx.textAlign='left';
+}
+
+function renderTutorial(){
+  ctx.fillStyle='rgba(0,0,0,0.94)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 22px "Segoe UI"';
+  ctx.fillText('"She is mine," said Eros. "She is mine."',W/2,65);
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  [
+    'Psyche lies unconscious. Thanatos stands between you.',
+    'Fight through three phases to reclaim her.',
+    '',
+    '🏹  Z key or CLICK → Fire Arrow  (your main attack)',
+    '💨  X key or DOUBLE-CLICK → Wing Dash  (invincible, closes gap)',
+    '🛡  SPACE or RIGHT-CLICK → Wing Shield  (blocks one bolt)',
+    '',
+    '← → Arrow keys: reposition left and right',
+    '',
+    'Phase 1: Shadow bolts — dodge or block',
+    'Phase 2: Shade soldiers join the fight — shoot them down',
+    'Phase 3: Deathstorm — rapid fire, maximum shades',
+    '',
+    'The colored dots below Eros show cooldown status.',
+    '🟡 Gold = Shoot  🔵 Blue = Dash  🟣 Purple = Shield',
+  ].forEach((l,i)=>{
+    ctx.fillStyle=l===''?'transparent':
+      l.startsWith('🏹')||l.startsWith('💨')||l.startsWith('🛡')?'rgba(200,200,255,0.9)':
+      l.startsWith('Phase')?'rgba(200,150,255,0.8)':
+      l.includes('Gold')||l.includes('Blue')||l.includes('Purple')?'rgba(200,200,150,0.7)':
+      'rgba(180,165,130,0.8)';
+    ctx.fillText(l,W/2,115+i*23);
+  });
+
+  const p=0.7+Math.sin((G.elapsed||0)*3)*0.3;
+  ctx.fillStyle=`rgba(240,214,138,${p*0.12})`;rr(ctx,W/2-80,490,160,40,8);ctx.fill();
+  ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`;ctx.lineWidth=1.5;rr(ctx,W/2-80,490,160,40,8);ctx.stroke();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+  ctx.fillText('Fight for Psyche',W/2,515);
+  ctx.textAlign='left';
+}
+
+function renderComplete(){
+  ctx.fillStyle='rgba(0,0,0,0.94)';ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+
+  const won = G.result==='victory';
+  ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';
+  ctx.fillText(won?'Trial IV Complete':'Trial IV — Fallen',W/2,90);
+
+  if(won){
+    ctx.fillStyle='rgba(200,170,255,0.7)';ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('"Eros reached her. He wiped the sleep from her eyes.',W/2,135);
+    ctx.fillText('Psyche woke to find him there — and wept."',W/2,158);
+  } else {
+    ctx.fillStyle='rgba(200,150,150,0.7)';ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('"Even gods fall. But love tries again."',W/2,140);
+  }
+
+  // Score
+  const hitScore=Math.max(0,50-G.hitsTaken*8);
+  const arrowScore=Math.min(40,G.arrowsLanded*4);
+  const blockScore=Math.min(10,G.boltsBlocked*2);
+  const combined=hitScore+arrowScore+blockScore+(won?0:0);
+  let rating,rc;
+  if(combined>=80&&won){rating='Excellent';rc='#4ade80';}
+  else if(combined>=55&&won){rating='Good';rc='#60a5fa';}
+  else if(won){rating='Fair';rc='#fbbf24';}
+  else{rating='Needs Work';rc='#f87171';}
+
+  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+  ctx.fillText(`Arrows Landed: ${G.arrowsLanded}`,W/2,215);
+  ctx.fillText(`Bolts Blocked: ${G.boltsBlocked}`,W/2,240);
+  ctx.fillText(`Times Hit: ${G.hitsTaken}`,W/2,265);
+
+  ctx.fillStyle=rc;ctx.font='bold 20px "Segoe UI"';
+  ctx.fillText(`❤️ Devotion: ${rating}`,W/2,320);
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
+  ctx.fillText('"He fought not for glory — but for her."',W/2,360);
+
+  ctx.fillStyle='rgba(74,222,128,0.12)';rr(ctx,W/2-80,400,160,38,8);ctx.fill();
+  ctx.strokeStyle='rgba(74,222,128,0.4)';ctx.lineWidth=1;rr(ctx,W/2-80,400,160,38,8);ctx.stroke();
+  ctx.fillStyle='#4ade80';ctx.font='bold 14px "Segoe UI"';
+  ctx.fillText(won?'The Trials Are Over →':'Try Again →',W/2,424);
+  ctx.textAlign='left';
+}
+
+// ── Input ────────────────────────────────────────────────────
+let lastClickTime=0;
+return {
+  init(){ G=freshState(); G.elapsed=0; },
+  update(dt){ G.elapsed+=dt; update(dt); },
+  render(){ render(); },
+  click(x,y){
+    if(G.phase==='tutorial'){
+      if(x>W/2-80&&x<W/2+80&&y>490&&y<530){ G.phase='fighting'; }
+      return;
+    }
+    if(G.phase==='complete'){
+      if(x>W/2-80&&x<W/2+80&&y>400&&y<438){
+        if(G.result==='victory'){
+          trialComplete(4,'devotion',{
+            score:Math.max(0,Math.min(100,Math.max(0,50-G.hitsTaken*8)+Math.min(40,G.arrowsLanded*4)+Math.min(10,G.boltsBlocked*2))),
+            rating: G.arrowsLanded>=8&&G.hitsTaken<=3?'Excellent':G.arrowsLanded>=5?'Good':G.hitsTaken<=6?'Fair':'Needs Work'
+          });
+        } else {
+          // Retry
+          G=freshState(); G.elapsed=0; G.phase='fighting';
+        }
+      }
+      return;
+    }
+    if(G.phase!=='fighting') return;
+    // Double-click = dash
+    const now=Date.now();
+    if(now-lastClickTime<280){ erosDash(); }
+    else { erosShoot(); }
+    lastClickTime=now;
+  },
+  mousemove(x,y){},
+  mouseup(x,y){},
+  keydown(key){
+    if(G.phase!=='fighting') return;
+    if(key==='z'||key==='Z') erosShoot();
+    if(key==='x'||key==='X') erosDash();
+    if(key===' ') erosShield();
+  },
+  G:()=>G
+};
+})();
+
+// ================================================================
+// DEV LEVEL SELECT
+// ================================================================
+const LEVEL_SELECT_BTNS = [
+  { label:'Trial I',   sub:'Sorting the Seeds',     virtue:'Precision', color:'#f0d68a', trial:1 },
+  { label:'Trial II',  sub:'The Golden Rams',        virtue:'Patience',  color:'#4ade80', trial:2 },
+  { label:'Trial III', sub:"The Eagle's Flight",     virtue:'Humility',  color:'#60a5fa', trial:3 },
+  { label:'Trial IV',  sub:'Eros vs. Thanatos',      virtue:'Devotion',  color:'#c084fc', trial:4 },
+  { label:'Full Game', sub:'Play from the beginning',virtue:'',          color:'#e2e8f0', trial:0 },
+];
+
+function renderDevSelect(){
+  ctx.fillStyle='rgba(5,5,15,0.97)'; ctx.fillRect(0,0,W,H);
+
+  // Header
   ctx.textAlign='center';
   ctx.fillStyle='#f0d68a'; ctx.font='bold 22px "Segoe UI"';
-  ctx.fillText('"Resist temptation. Descend with resolve."', W/2, 80);
-  ctx.font='14px "Segoe UI"'; ctx.fillStyle='rgba(220,200,160,0.8)';
-  const lines = [
-    '\u2190 \u2192 Arrow keys to move left and right',
-    'SPACE or \u2191 to jump between platforms',
-    '',
-    'Collect COINS for Charon (the ferryman)',
-    'Collect CAKES for Cerberus (the three-headed dog)',
-    '',
-    'AVOID the golden temptations \u2014 they cost hearts',
-    'DODGE shadow hands reaching from the walls',
-    '',
-    'Walk to Charon/Cerberus with the right item to pass',
-    'Reach Persephone at the bottom to complete the trial',
-  ];
-  lines.forEach((l, i) => ctx.fillText(l, W/2, 130 + i*26));
+  ctx.fillText('THE TRIALS OF PSYCHE', W/2, 52);
+  ctx.fillStyle='rgba(200,180,140,0.5)'; ctx.font='13px "Segoe UI"';
+  ctx.fillText('— Developer Level Select —', W/2, 76);
 
-  ctx.fillStyle='#f0d68a'; ctx.font='bold 16px "Segoe UI"';
-  rr(ctx, W/2-70, 480, 140, 36, 6);
-  ctx.fillStyle='rgba(255,215,100,0.15)'; ctx.fill();
-  ctx.strokeStyle='rgba(255,215,100,0.4)'; ctx.lineWidth=2;
-  rr(ctx, W/2-70, 480, 140, 36, 6); ctx.stroke();
-  ctx.fillStyle='#f0d68a';
-  ctx.fillText('Begin Descent', W/2, 503);
-  ctx.textAlign='left';
-}
+  // Divider
+  ctx.strokeStyle='rgba(200,180,140,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(80,90); ctx.lineTo(W-80,90); ctx.stroke();
 
-function renderComplete() {
-  ctx.fillStyle='rgba(0,0,0,0.9)'; ctx.fillRect(0,0,W,H);
+  // Buttons
+  const btnW=480, btnH=58, btnX=(W-btnW)/2;
+  LEVEL_SELECT_BTNS.forEach((btn, i)=>{
+    const btnY = 112 + i*72;
+    const isFullGame = btn.trial===0;
+
+    // Button bg
+    ctx.fillStyle=`rgba(255,255,255,0.04)`;
+    rr(ctx, btnX, btnY, btnW, btnH, 8); ctx.fill();
+    ctx.strokeStyle=`${btn.color}44`; ctx.lineWidth=1.5;
+    rr(ctx, btnX, btnY, btnW, btnH, 8); ctx.stroke();
+
+    // Color accent bar on left
+    if(!isFullGame){
+      ctx.fillStyle=btn.color;
+      rr(ctx, btnX, btnY, 5, btnH, 4); ctx.fill();
+    }
+
+    // Trial label
+    ctx.textAlign='left';
+    ctx.fillStyle=btn.color; ctx.font=`bold 16px "Segoe UI"`;
+    ctx.fillText(btn.label, btnX+22, btnY+22);
+
+    // Sub label
+    ctx.fillStyle='rgba(200,180,140,0.7)'; ctx.font='13px "Segoe UI"';
+    ctx.fillText(btn.sub, btnX+22, btnY+42);
+
+    // Virtue tag (right side)
+    if(btn.virtue){
+      ctx.textAlign='right';
+      ctx.fillStyle=`${btn.color}99`; ctx.font='italic 12px "Segoe UI"';
+      ctx.fillText(btn.virtue, btnX+btnW-16, btnY+35);
+    }
+
+    // Arrow
+    ctx.textAlign='right';
+    ctx.fillStyle=`${btn.color}66`; ctx.font='16px "Segoe UI"';
+    ctx.fillText('→', btnX+btnW-8, btnY+36);
+  });
+
+  // Footer note
   ctx.textAlign='center';
-  ctx.fillStyle='#f0d68a'; ctx.font='bold 24px "Segoe UI"';
-  ctx.fillText('Trial 4 Complete', W/2, 100);
-  const bad=G.temptsTouched+G.wrongOffers;
-  let rating;
-  if(bad===0)rating='Excellent';else if(bad<=2)rating='Good';
-  else if(bad<=4)rating='Fair';else rating='Needs Work';
-  ctx.font='16px "Segoe UI"'; ctx.fillStyle='rgba(220,200,160,0.8)';
-  ctx.fillText('Rating: '+rating, W/2, 150);
-  ctx.fillText('Score: '+Math.max(0,100-bad*15), W/2, 180);
-  ctx.fillText('Hearts: '+G.hearts, W/2, 210);
-  ctx.fillText('Temptations: '+G.temptsTouched, W/2, 240);
-  ctx.fillText('Resisted: '+G.resisted, W/2, 270);
-  if (G.boxChoice!==null) ctx.fillText('Box: '+(G.boxChoice?'Opened':'Carried Sealed'), W/2, 300);
-
-  rr(ctx,W/2-60,330,120,34,6);
-  ctx.fillStyle='rgba(255,215,100,0.15)'; ctx.fill();
-  ctx.strokeStyle='rgba(255,215,100,0.4)'; ctx.lineWidth=2;
-  rr(ctx,W/2-60,330,120,34,6); ctx.stroke();
-  ctx.fillStyle='#f0d68a'; ctx.font='bold 15px "Segoe UI"';
-  ctx.fillText('Continue \u2192', W/2, 352);
+  ctx.fillStyle='rgba(120,110,100,0.5)'; ctx.font='11px "Segoe UI"';
+  ctx.fillText('DEV MODE — set DEV_MODE = false before deploying to Railway', W/2, H-18);
   ctx.textAlign='left';
 }
 
-  return {
-    init(){ G=freshState(); G.phase='tutorial'; },
-    update(dt){ update(dt); },
-    render(){ render(); },
-    click(x,y){
-      if(G.phase==='tutorial'){if(x>W/2-70&&x<W/2+70&&y>480&&y<516){G.phase='playing';}return;}
-      if(G.phase==='complete'){
-        if(x>W/2-60&&x<W/2+60&&y>330&&y<364){
-          const bad=G.temptsTouched+G.wrongOffers;
-          let rating;
-          if(bad===0)rating='Excellent';else if(bad<=2)rating='Good';
-          else if(bad<=4)rating='Fair';else rating='Needs Work';
-          trialComplete(4,'resolve',{score:Math.max(0,100-bad*15),rating,boxChoice:G.boxChoice});
-        }
-        return;
+function clickDevSelect(x, y){
+  const btnW=480, btnH=58, btnX=(W-btnW)/2;
+  LEVEL_SELECT_BTNS.forEach(btn=>{
+    const btnY = 112 + (btn.trial===0 ? 4 : btn.trial-1) * 72;
+    if(x>=btnX && x<=btnX+btnW && y>=btnY && y<=btnY+btnH){
+      if(btn.trial===0){
+        // Full game — normal intro flow
+        GAME.phase='story';
+        showStory('intro',()=>startTrial(1));
+      } else {
+        // Jump straight to chosen trial, seed prior virtues
+        if(btn.trial>=2) GAME.virtues.precision={score:80,rating:'Good'};
+        if(btn.trial>=3) GAME.virtues.patience ={score:80,rating:'Good'};
+        if(btn.trial>=4) GAME.virtues.humility ={score:80,rating:'Good'};
+        startTrial(btn.trial);
       }
-      if(G.phase==='boxChoice'){
-        const btnW=200,btnH=50;
-        if(x>W/2-btnW-15&&x<W/2-15&&y>H*0.65&&y<H*0.65+btnH){G.boxChoice=true;G.phase='complete';}
-        if(x>W/2+15&&x<W/2+btnW+15&&y>H*0.65&&y<H*0.65+btnH){G.boxChoice=false;G.phase='complete';}
-        return;
-      }
-    },
-    mousemove(x,y){},
-    mouseup(x,y){},
-    G: ()=>G
-  };
-})();
+    }
+  });
+}
 
 // ================================================================
 // INPUT ROUTING
 // ================================================================
 canvas.addEventListener('mousedown',(e)=>{
   const p=getPos(e);
+  // Dev level select
+  if(GAME.phase==='devselect'){ clickDevSelect(p.x,p.y); return; }
+  // Right-click = Shield in Trial 4
+  if(e.button===2&&GAME.phase==='trial4'){
+    if(GAME.trial&&GAME.trial.keydown) GAME.trial.keydown(' ');
+    e.preventDefault(); return;
+  }
   if(GAME.phase==='story'){
     const btnY=H-140;
     if(p.x>W/2-80&&p.x<W/2+80&&p.y>btnY&&p.y<btnY+40){
@@ -4526,7 +4412,9 @@ canvas.addEventListener('mousedown',(e)=>{
     return;
   }
   if(GAME.trial&&GAME.trial.click) GAME.trial.click(p.x,p.y);
+
 });
+canvas.addEventListener('contextmenu',(e)=>e.preventDefault());
 canvas.addEventListener('mousemove',(e)=>{
   const p=getPos(e);
   if(GAME.trial&&GAME.trial.mousemove) GAME.trial.mousemove(p.x,p.y);
@@ -4538,6 +4426,12 @@ canvas.addEventListener('mouseup',(e)=>{
 canvas.addEventListener('touchstart',(e)=>{e.preventDefault();canvas.dispatchEvent(new MouseEvent('mousedown',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}));},{passive:false});
 canvas.addEventListener('touchmove',(e)=>{e.preventDefault();canvas.dispatchEvent(new MouseEvent('mousemove',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY}));},{passive:false});
 canvas.addEventListener('touchend',(e)=>{e.preventDefault();canvas.dispatchEvent(new MouseEvent('mouseup',{}));},{passive:false});
+// Keydown routing — Trial 4 combat keys
+document.addEventListener('keydown',(e)=>{
+  if(GAME.phase==='trial4'&&GAME.trial&&GAME.trial.keydown){
+    GAME.trial.keydown(e.key);
+  }
+});
 
 // ================================================================
 // MAIN LOOP
@@ -4550,6 +4444,7 @@ function gameLoop(ts){
   ctx.clearRect(0,0,W,H);
 
   if(GAME.phase==='loading'){/* handled by HTML overlay */}
+  else if(GAME.phase==='devselect'){renderDevSelect();}
   else if(GAME.phase==='story'){renderStoryCard();}
   else if(GAME.phase.startsWith('trial')&&GAME.trial){GAME.trial.update(dt);GAME.trial.render();}
   else if(GAME.phase==='cinematic'){updateCinematicEnd(dt);renderCinematicEnd();}
@@ -4558,9 +4453,8 @@ function gameLoop(ts){
   GAME.particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life/p.ml);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size*(p.life/p.ml),0,Math.PI*2);ctx.fill();});
   ctx.globalAlpha=1;
 
-  // Cursor
-  if(GAME.phase==='trial3'){const g=Trial3.G();container.style.cursor=(g.phase==='playing'||g.phase==='bedchamber')?'none':'default';}
-  else{container.style.cursor='default';}
+  // Cursor — default for all trials
+  container.style.cursor='default';
 
   requestAnimationFrame(gameLoop);
 }
@@ -4569,14 +4463,16 @@ function checkLoaded(){
   if(spritesLoaded>=spritesTotal){
     document.getElementById('loading-screen').style.opacity='0';
     setTimeout(()=>{document.getElementById('loading-screen').style.display='none';
-      // Dev skip: ?trial=2, ?trial=3, or ?trial=4
-      const devTrial = parseInt(urlParams.get('trial'));
-      if(devTrial >= 2 && devTrial <= 4){
-        console.log('DEV SKIP → Trial '+devTrial);
-        if(devTrial >= 2) GAME.virtues.precision = {score:80,rating:'Good'};
-        if(devTrial >= 3) GAME.virtues.patience = {score:80,rating:'Good'};
-        if(devTrial >= 4) GAME.virtues.trust = {score:80,rating:'Good'};
-        startTrial(devTrial);
+      // Dev mode — show level select screen
+      const urlTrial = parseInt(urlParams.get('trial'));
+      if(DEV_MODE){
+        GAME.phase='devselect';
+      } else if(urlTrial >= 1 && urlTrial <= 4){
+        // URL param still works in production for teacher testing
+        if(urlTrial>=2) GAME.virtues.precision={score:80,rating:'Good'};
+        if(urlTrial>=3) GAME.virtues.patience ={score:80,rating:'Good'};
+        if(urlTrial>=4) GAME.virtues.humility ={score:80,rating:'Good'};
+        startTrial(urlTrial);
       } else {
         showStory('intro',()=>startTrial(1));
       }
