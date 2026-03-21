@@ -3317,12 +3317,9 @@ app.post('/api/alliance/invite', authenticateToken, (req, res) => {
     }
     
     if (invited.is_ghost) {
-      // Ghost-specific checks
+      // Ghost-specific checks — total member cap (real+ghost <= 4) already enforced above
       if (realMemberCount >= 4) {
-        return res.status(400).json({ error: 'Your alliance already has 4+ real members' });
-      }
-      if (ghostMemberCount >= 2) {
-        return res.status(400).json({ error: 'Your alliance already has 2 ghost members (max 2)' });
+        return res.status(400).json({ error: 'Your alliance already has 4 real members — no ghosts needed' });
       }
       
       // Auto-accept: directly assign ghost to alliance
@@ -3539,7 +3536,9 @@ app.get('/api/alliance/available-students', authenticateToken, (req, res) => {
         [currentStudent.alliance_id]
       )[0].count;
       
-      if (realMemberCount < 4 && ghostMemberCount < 2) {
+      const totalMemberCount = realMemberCount + ghostMemberCount;
+      
+      if (totalMemberCount < 4) {
         ghostStudents = query(`
           SELECT student_id, name, NULL as class_period, 1 as is_ghost
           FROM students
@@ -5165,20 +5164,23 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
           affectedAlliances: allPeriodAlliances.map(a => ({ name: a.alliance_name, pointsChange: -perAlliance }))
         };
       } else {
-        // Normal steal/give — apply modifiedRolledValue to spinner's total
-        // For orpheus_bargain on a negative steal: modifiedRolledValue is halved
-        const modifiedPerAlliance = numAlliances > 0 ? Math.ceil(modifiedRolledValue / numAlliances) : modifiedRolledValue;
-        const totalForSpinner = modifiedRolledValue;
+        // Normal steal/give — spinner total = per-alliance amount × number of other alliances
+        // When Orpheus's Bargain is active on a negative (give) fate, modifiedRolledValue is halved,
+        // so we derive the per-victim amount from that to keep the books balanced.
+        const effectivePerAlliance = (scrollResult.scrollTriggered && scrollResult.scrollType === 'orpheus_bargain')
+          ? (numAlliances > 0 ? Math.ceil(modifiedRolledValue / numAlliances) : modifiedRolledValue)
+          : perAlliance;
+        const totalForSpinner = effectivePerAlliance * numAlliances;
 
         run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
             [totalForSpinner, alliance_id]);
         run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
              VALUES (?, ?, ?, ?, ?)`, 
             [alliance_id, totalForSpinner, 'fate', 
-             `Fate: ${fate.fate_name} (${choice.risk_level} ${success ? 'success' : 'failure'} — ${perAlliance > 0 ? 'stole' : 'gave'} ${Math.abs(perAlliance)} per alliance × ${numAlliances})${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+             `Fate: ${fate.fate_name} (${choice.risk_level} ${success ? 'success' : 'failure'} — ${effectivePerAlliance > 0 ? 'stole' : 'gave'} ${Math.abs(effectivePerAlliance)} per alliance × ${numAlliances})${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
         
         allPeriodAlliances.forEach(other => {
-          const otherChange = -perAlliance;
+          const otherChange = -effectivePerAlliance;
           run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
               [otherChange, other.alliance_id]);
           run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
@@ -5189,12 +5191,12 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
         
         pointsChange = totalForSpinner;
         stealDetails = {
-          perAlliance,
+          perAlliance: effectivePerAlliance,
           alliancesAffected: numAlliances,
           totalChange: totalForSpinner,
           affectedAlliances: allPeriodAlliances.map(a => ({
             name: a.alliance_name,
-            pointsChange: -perAlliance
+            pointsChange: -effectivePerAlliance
           }))
         };
       }
@@ -12755,4 +12757,116 @@ app.listen(PORT, () => {
       console.error('Retroactive badge scan error:', err);
     }
   }, 5000);
+});
+
+// ====================
+// ADMIN: Diagnose student point history for alliance transfers
+// ====================
+app.get('/api/admin/student-point-history', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { names } = req.query; // comma-separated student names
+    if (!names) return res.status(400).json({ error: 'Provide ?names=Blake,Ethan,Lukas' });
+
+    const nameList = names.split(',').map(n => n.trim());
+    const results = [];
+
+    nameList.forEach(name => {
+      const students = query('SELECT student_id, name, alliance_id, class_period, is_ghost FROM students WHERE name LIKE ?', [`%${name}%`]);
+      
+      students.forEach(student => {
+        let currentAlliance = null;
+        if (student.alliance_id) {
+          currentAlliance = query('SELECT alliance_id, alliance_name, total_points FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+        }
+
+        // Contribution history (populated at disband time)
+        const contributions = query(
+          'SELECT * FROM student_contributions WHERE student_id = ? ORDER BY contribution_date DESC',
+          [student.student_id]
+        );
+
+        // Point transactions attributed to this student
+        const studentTransactions = query(
+          'SELECT transaction_id, alliance_id, amount, category, reason, timestamp FROM point_transactions WHERE student_id = ? ORDER BY timestamp DESC LIMIT 50',
+          [student.student_id]
+        );
+
+        // Alliance-level summaries for all alliances this student has been in
+        const allianceIds = [...new Set([
+          ...(student.alliance_id ? [student.alliance_id] : []),
+          ...contributions.map(c => c.alliance_id)
+        ])];
+
+        const allianceTransactionSummaries = allianceIds.map(aid => {
+          const allianceInfo = query('SELECT alliance_id, alliance_name, total_points, is_disbanded FROM alliances WHERE alliance_id = ?', [aid])[0];
+          const total = query('SELECT SUM(amount) as total FROM point_transactions WHERE alliance_id = ?', [aid])[0];
+          return {
+            alliance_id: aid,
+            alliance_name: allianceInfo ? allianceInfo.alliance_name : 'Unknown',
+            is_disbanded: allianceInfo ? allianceInfo.is_disbanded : null,
+            current_total_points: allianceInfo ? allianceInfo.total_points : null,
+            transaction_sum: total ? total.total : 0
+          };
+        });
+
+        results.push({
+          student_id: student.student_id,
+          name: student.name,
+          class_period: student.class_period,
+          current_alliance_id: student.alliance_id,
+          currentAlliance,
+          contributions,
+          recentStudentTransactions: studentTransactions,
+          allianceTransactionSummaries
+        });
+      });
+    });
+
+    res.json({ results });
+  } catch (err) {
+    console.error('Student point history error:', err);
+    res.status(500).json({ error: 'Failed to query student history' });
+  }
+});
+
+// ADMIN: Restore points to an alliance (one-time migration, supports dry_run)
+app.post('/api/admin/restore-alliance-points', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { alliance_id, amount, reason, dry_run } = req.body;
+    if (!alliance_id || amount === undefined) return res.status(400).json({ error: 'alliance_id and amount required' });
+
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+
+    if (dry_run) {
+      return res.json({
+        dry_run: true,
+        alliance_name: alliance.alliance_name,
+        current_points: alliance.total_points,
+        would_add: amount,
+        new_total: alliance.total_points + amount
+      });
+    }
+
+    run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', [amount, alliance_id]);
+    run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, 'admin', ?, ?)`,
+        [alliance_id, amount, reason || `Admin point restoration: ${amount} pts`, req.user.id]);
+    saveDatabase();
+
+    const updated = query('SELECT total_points FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    console.log(`🔧 Admin restored ${amount} pts to alliance ${alliance_id} (${alliance.alliance_name}): ${alliance.total_points} → ${updated.total_points}`);
+    
+    res.json({
+      success: true,
+      alliance_name: alliance.alliance_name,
+      previous_points: alliance.total_points,
+      added: amount,
+      new_total: updated.total_points
+    });
+  } catch (err) {
+    console.error('Restore points error:', err);
+    res.status(500).json({ error: 'Failed to restore points' });
+  }
 });
