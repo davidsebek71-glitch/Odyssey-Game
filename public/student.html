@@ -10133,22 +10133,6 @@
                 }
             }
 
-            // Portal 6 (Psyche) uses the Trials of Psyche game instead of regular quiz
-            if (portalId === 6) {
-                try {
-                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
-                    const statusData = await statusRes.json();
-                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 6) : false;
-                    if (!hasPassed) {
-                        window.location.href = `/psyche_trials.html?token=${token}`;
-                        return;
-                    }
-                    // If already passed, fall through to show assignments panel
-                } catch (err) {
-                    console.error('Error checking Psyche status:', err);
-                }
-            }
-
             // Portal 3 (Orpheus) uses the Orpheus game after quiz
             // When returning from the game, skip the quiz intro and go straight to assignments
             if (portalId === 3) {
