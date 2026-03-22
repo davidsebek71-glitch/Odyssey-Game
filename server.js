@@ -10067,15 +10067,31 @@ app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
 
 // GET /api/side-quest/availability/:studentId
 // Returns game-quest unlock/completion status for a student.
-// Used by student dashboard to show locked/available/complete states.
+// A quest only shows as 'available' when ALL alliance members have passed
+// the required quiz at 80%+. Individual unlock rows are written per-student
+// but the display status is gated on the whole alliance.
 app.get('/api/side-quest/availability/:studentId', authenticateToken, (req, res) => {
   try {
     const student_id = parseInt(req.params.studentId);
-    // Students can only query their own availability
     if (req.user.id !== student_id && req.user.type !== 'teacher') {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // Get the student's alliance
+    const student = query(
+      'SELECT alliance_id FROM students WHERE student_id = ?',
+      [student_id]
+    )[0];
+    const alliance_id = student ? student.alliance_id : null;
+
+    // Map unlock_trigger_ref → portal_id so we can check alliance quiz completion
+    const triggerToPortal = {
+      'Orpheus Quiz':              3,
+      'Echo and Narcissus Quiz':   4,
+      'Eros and Psyche Quiz':      6
+    };
+
+    // Get all game-link quests this student has a row for
     const rows = query(
       `SELECT sqa.quest_id, sqa.status, sqa.unlocked_at, sqa.completed_at,
               sqr.quest_name, sqr.reward_name, sqr.game_url, sqr.icon,
@@ -10086,7 +10102,41 @@ app.get('/api/side-quest/availability/:studentId', authenticateToken, (req, res)
       [student_id]
     );
 
-    res.json({ success: true, quests: rows });
+    // For each quest, check if the WHOLE alliance has passed the required quiz.
+    // If not, override status to 'locked' regardless of individual row status.
+    const enriched = rows.map(row => {
+      // Already completed by this student — always show, regardless of alliance
+      if (row.status === 'completed') return row;
+
+      const portal_id = triggerToPortal[row.unlock_trigger_ref];
+      if (!portal_id || !alliance_id) {
+        // No alliance or unknown trigger — keep locked
+        return { ...row, status: 'locked' };
+      }
+
+      // Get all alliance members
+      const members = query(
+        'SELECT student_id FROM students WHERE alliance_id = ?',
+        [alliance_id]
+      );
+      if (members.length === 0) return { ...row, status: 'locked' };
+
+      // Check every member has passed this portal's quiz at 80%+
+      const allPassed = members.every(m => {
+        const attempt = query(
+          'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
+          [m.student_id, portal_id]
+        );
+        return attempt.length > 0;
+      });
+
+      if (!allPassed) return { ...row, status: 'locked' };
+
+      // Alliance has fully passed — return the real status ('available' or 'completed')
+      return row;
+    });
+
+    res.json({ success: true, quests: enriched });
   } catch (err) {
     console.error('Side quest availability error:', err);
     res.status(500).json({ error: 'Failed to fetch quest availability' });
