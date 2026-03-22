@@ -87,6 +87,25 @@ function loadScene(n, f) {
     document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%'; };
   img.src=IMG_BASE+f;
 }
+// Sprite with WHITE background removal (for images with white instead of magenta)
+function loadSpriteWhite(n, f) {
+  spritesTotal++;
+  const img = new Image();
+  img.onload = () => {
+    const tc = document.createElement('canvas');
+    tc.width=img.width; tc.height=img.height;
+    const tx=tc.getContext('2d'); tx.drawImage(img,0,0);
+    const d=tx.getImageData(0,0,tc.width,tc.height);
+    for(let i=0;i<d.data.length;i+=4)
+      if(d.data[i]>230&&d.data[i+1]>230&&d.data[i+2]>230) d.data[i+3]=0;
+    tx.putImageData(d,0,0);
+    sprites[n]=tc; spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';
+  };
+  img.onerror=()=>{spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';};
+  img.src=IMG_BASE+f;
+}
 loadSprite('seed_types','seed_types.png');
 loadSprite('sorting_bins','sorting_bins.png');
 loadSprite('ants_marching','ants_marching.png');
@@ -114,7 +133,7 @@ loadSprite('storm_cloud','hazard_cloud_storm.png');
 loadSprite('harpy','hazard_eagle_descent.png');
 loadSprite('cave_rocks','cave_rocks.png');
 loadSprite('wind_streak','wind_streak.png');
-loadScene('cliff_wall','cliff_wall.png');
+loadSpriteWhite('cliff_wall','cliff_wall.png');
 loadScene('sky_bg','sky_bg.png');
 loadScene('mountain_bg','mountain_bg.png');
 loadScene('scene_cliffs','scene_cliffs_stormy.png');
@@ -2688,8 +2707,9 @@ function update(dt) {
   // Track lateral velocity for sprite flip
   G.vx = (G.ex - prevEx) / Math.max(dt, 0.001);
 
-  // ── VERTICAL — gravity + flap, full screen freedom ──
+  // ── VERTICAL — gravity + flap + dive, full screen freedom ──
   const flapKey = keys[' ']||keys['ArrowUp']||keys['w']||keys['W'];
+  const diveKey = keys['ArrowDown']||keys['s']||keys['S'];
   if(G.flapCooldown>0) G.flapCooldown-=dt;
 
   if(G.phase==='ascent'||G.phase==='summit'){
@@ -2699,6 +2719,8 @@ function update(dt) {
       G.flapCooldown = FLAP_COOLDOWN;
       spawnParticles(G.ex, G.ey+28, 4, 'rgba(180,210,255,0.5)');
     }
+    // DOWN = active dive — cuts through air to dodge hazards
+    if(diveKey){ G.vy = Math.min(G.vy + 280*dt, 220); }
     G.ey += G.vy*dt;
     if(G.ey<40){ G.ey=40; G.vy=Math.max(0,G.vy); }
     if(G.ey>H-40){
@@ -2713,11 +2735,14 @@ function update(dt) {
     }
   } else if(G.phase==='descent'){
     G.vy += GRAVITY*0.55*dt;
+    // UP/Space = brake (protect jug)
     if(flapKey && G.flapCooldown<=0){
-      G.vy = Math.max(G.vy - BRAKE_FORCE*dt*5, -120);
-      G.flapCooldown = 0.11;
+      G.vy = Math.max(G.vy - BRAKE_FORCE*dt*5, -140);
+      G.flapCooldown = 0.10;
       spawnParticles(G.ex, G.ey+28, 3, 'rgba(100,190,220,0.5)');
     }
+    // DOWN = dive faster (intentional, accept grip risk)
+    if(diveKey){ G.vy = Math.min(G.vy + 320*dt, 280); }
     if(G.vy > JUG_SLOSH_SPEED && G.gripHitTimer<=0){
       G.grip = Math.max(0, G.grip - JUG_SLOSH_GRIP*dt*60);
       if(G.grip<=0) triggerJugSlip();
@@ -2914,9 +2939,9 @@ function render() {
     const srcStoneX = 290;
     const srcStoneW = 433;
     const tileH = srcH * (CLIFF_W / srcStoneW);
-    const off = (G.scrolled * 1.0) % tileH;
-    // Draw stone slightly wider than CLIFF_W so jagged edge overruns the clip
-    // This hides any white fringe at the right edge
+    // Ascent scrolls up (positive), descent scrolls down (negative offset)
+    const cliffScroll = G.phase==='descent' ? -(G.scrolled * 1.0) : (G.scrolled * 1.0);
+    const off = ((cliffScroll % tileH) + tileH) % tileH;
     const drawW = CLIFF_W + 12;
     ctx.save();
     ctx.beginPath(); ctx.rect(0,0,CLIFF_W,H); ctx.clip();
@@ -3235,9 +3260,9 @@ function renderHUD(){
   // Controls hint — changes by phase
   ctx.fillStyle='rgba(200,180,140,0.3)';ctx.font='10px "Segoe UI"';ctx.textAlign='center';
   if(G.phase==='ascent'){
-    ctx.fillText('← → to steer  |  SPACE / ↑ to flap wings  |  Keep flying — gravity pulls you down!',W/2,H-8);
+    ctx.fillText('← → to steer  |  ↑/Space = flap up  |  ↓ = dive down',W/2,H-8);
   } else if(G.phase==='descent'){
-    ctx.fillText('← → to steer  |  SPACE / ↑ to BRAKE  |  Too fast = jug sloshes — protect the water!',W/2,H-8);
+    ctx.fillText('← → to steer  |  ↑/Space = BRAKE  |  ↓ = dive (watch the jug!)',W/2,H-8);
   } else {
     ctx.fillText('← → Arrow keys or mouse to steer the eagle',W/2,H-8);
   }
