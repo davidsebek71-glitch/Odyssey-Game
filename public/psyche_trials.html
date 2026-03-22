@@ -129,14 +129,13 @@ loadSprite('path_tile','path_tile.png');
 loadSprite('eagle_fly','eagle_fly.png');
 loadSprite('eagle_grip_low','eagle_grip_low.png');
 loadSprite('eagle_full','eagle_full.png');
-loadSprite('storm_cloud','hazard_cloud_storm.png');
+loadSprite('storm_cloud','hazard_storm_cloud.png');
 loadSprite('harpy','hazard_eagle_descent.png');
-loadSprite('cave_rocks','cave_rocks.png');
+loadSprite('soul_rising','descent_hazard_soul_rising.png');
 loadSprite('wind_streak','wind_streak.png');
 loadSpriteWhite('cliff_wall','cliff_wall.png');
 loadScene('sky_bg','sky_bg.png');
 loadScene('mountain_bg','mountain_bg.png');
-loadScene('scene_cliffs','scene_cliffs_stormy.png');
 loadScene('scene_styx','scene_styx_background.png');
 // Trial 4 — Eros vs Thanatos
 loadSprite('eros_idle','Eros_Battle_Ready.png');
@@ -3042,17 +3041,18 @@ function render() {
   // ── HAZARDS ──
   G.hazards.forEach(h=>{
     if(h.type===HZ.CLOUD){
-      // Always draw programmatic cloud — sprite has lightning baked in
-      // Dark storm cloud, reads clearly against bright sky
-      ctx.fillStyle='rgba(80,85,110,0.88)';
-      ctx.beginPath();ctx.ellipse(h.x,h.y,h.w/2,h.h/2,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='rgba(95,100,130,0.75)';
-      ctx.beginPath();ctx.ellipse(h.x-h.w*0.22,h.y-h.h*0.18,h.w/2.8,h.h/2.0,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(h.x+h.w*0.18,h.y-h.h*0.14,h.w/3.0,h.h/2.2,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(h.x+h.w*0.02,h.y-h.h*0.28,h.w/3.5,h.h/2.5,0,0,Math.PI*2);ctx.fill();
-      // Dark underside for depth
-      ctx.fillStyle='rgba(50,52,70,0.6)';
-      ctx.beginPath();ctx.ellipse(h.x,h.y+h.h*0.15,h.w/2.2,h.h/3.5,0,0,Math.PI*2);ctx.fill();
+      const spr=sprites['storm_cloud'];
+      if(spr){
+        ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+      } else {
+        ctx.fillStyle='rgba(80,85,110,0.88)';
+        ctx.beginPath();ctx.ellipse(h.x,h.y,h.w/2,h.h/2,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='rgba(95,100,130,0.75)';
+        ctx.beginPath();ctx.ellipse(h.x-h.w*0.22,h.y-h.h*0.18,h.w/2.8,h.h/2.0,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(h.x+h.w*0.18,h.y-h.h*0.14,h.w/3.0,h.h/2.2,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='rgba(50,52,70,0.6)';
+        ctx.beginPath();ctx.ellipse(h.x,h.y+h.h*0.15,h.w/2.2,h.h/3.5,0,0,Math.PI*2);ctx.fill();
+      }
     } else if(h.type===HZ.HARPY){
       const spr=sprites['harpy'];
       ctx.save();
@@ -3087,44 +3087,39 @@ function render() {
       }
       ctx.restore();
     } else if(h.type===HZ.SOUL){
+      const spr=sprites['soul_rising'];
       ctx.save();
       const sa=0.8+Math.sin(G.elapsed*3+h.x*0.05)*0.15;
       ctx.globalAlpha=sa;
-      const gx=h.x, gy=h.y, gw=h.w*0.48, gh=h.h*0.48;
-
-      // Blue glow
-      const glow=ctx.createRadialGradient(gx,gy,0,gx,gy,gw*1.8);
-      glow.addColorStop(0,'rgba(100,160,255,0.3)');
-      glow.addColorStop(1,'rgba(60,100,220,0)');
-      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(gx,gy,gw*1.8,0,Math.PI*2);ctx.fill();
-
-      // Classic ghost body: dome top + wavy bottom skirt
-      ctx.fillStyle='rgba(215,228,255,0.95)';
-      ctx.beginPath();
-      ctx.arc(gx, gy-gh*0.05, gw, Math.PI, 0, false);   // dome
-      ctx.lineTo(gx+gw, gy+gh*0.65);                      // right side
-      // Three wavy bumps on bottom
-      ctx.quadraticCurveTo(gx+gw*0.65,gy+gh*0.95, gx+gw*0.33,gy+gh*0.65);
-      ctx.quadraticCurveTo(gx,          gy+gh*0.98, gx-gw*0.33,gy+gh*0.65);
-      ctx.quadraticCurveTo(gx-gw*0.65,gy+gh*0.95, gx-gw,   gy+gh*0.65);
-      ctx.lineTo(gx-gw, gy-gh*0.05);
-      ctx.closePath();ctx.fill();
-
-      // Dark eyes
-      ctx.fillStyle='rgba(20,40,120,0.92)';
-      ctx.beginPath();ctx.ellipse(gx-gw*0.34,gy-gh*0.08,gw*0.2,gw*0.26,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(gx+gw*0.34,gy-gh*0.08,gw*0.2,gw*0.26,0,0,Math.PI*2);ctx.fill();
-      // White highlights on eyes
-      ctx.fillStyle='rgba(255,255,255,0.9)';
-      ctx.beginPath();ctx.ellipse(gx-gw*0.26,gy-gh*0.14,gw*0.1,gw*0.12,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(gx+gw*0.42,gy-gh*0.14,gw*0.1,gw*0.12,0,0,Math.PI*2);ctx.fill();
-
-      // Wisp trail
-      ctx.strokeStyle='rgba(150,190,255,0.45)';ctx.lineWidth=2.5;ctx.lineCap='round';
-      ctx.beginPath();
-      ctx.moveTo(gx,gy+gh*0.85);
-      ctx.quadraticCurveTo(gx+Math.sin(G.elapsed*3.5)*10,gy+gh*1.3,gx,gy+gh*1.65);
-      ctx.stroke();
+      if(spr){
+        ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+      } else {
+        const gx=h.x,gy=h.y,gw=h.w*0.48,gh=h.h*0.48;
+        const glow=ctx.createRadialGradient(gx,gy,0,gx,gy,gw*1.8);
+        glow.addColorStop(0,'rgba(100,160,255,0.3)');
+        glow.addColorStop(1,'rgba(60,100,220,0)');
+        ctx.fillStyle=glow;ctx.beginPath();ctx.arc(gx,gy,gw*1.8,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='rgba(215,228,255,0.95)';
+        ctx.beginPath();
+        ctx.arc(gx,gy-gh*0.05,gw,Math.PI,0,false);
+        ctx.lineTo(gx+gw,gy+gh*0.65);
+        ctx.quadraticCurveTo(gx+gw*0.65,gy+gh*0.95,gx+gw*0.33,gy+gh*0.65);
+        ctx.quadraticCurveTo(gx,gy+gh*0.98,gx-gw*0.33,gy+gh*0.65);
+        ctx.quadraticCurveTo(gx-gw*0.65,gy+gh*0.95,gx-gw,gy+gh*0.65);
+        ctx.lineTo(gx-gw,gy-gh*0.05);
+        ctx.closePath();ctx.fill();
+        ctx.fillStyle='rgba(20,40,120,0.92)';
+        ctx.beginPath();ctx.ellipse(gx-gw*0.34,gy-gh*0.08,gw*0.2,gw*0.26,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(gx+gw*0.34,gy-gh*0.08,gw*0.2,gw*0.26,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.9)';
+        ctx.beginPath();ctx.ellipse(gx-gw*0.26,gy-gh*0.14,gw*0.1,gw*0.12,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(gx+gw*0.42,gy-gh*0.14,gw*0.1,gw*0.12,0,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='rgba(150,190,255,0.45)';ctx.lineWidth=2.5;ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(gx,gy+gh*0.85);
+        ctx.quadraticCurveTo(gx+Math.sin(G.elapsed*3.5)*10,gy+gh*1.3,gx,gy+gh*1.65);
+        ctx.stroke();
+      }
       ctx.restore();
     }
   });
