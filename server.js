@@ -10077,56 +10077,68 @@ app.get('/api/side-quest/availability/:studentId', authenticateToken, (req, res)
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    // Get the student's alliance
+    // Get student's alliance
     const student = query(
       'SELECT alliance_id FROM students WHERE student_id = ?',
       [student_id]
     )[0];
     const alliance_id = student ? student.alliance_id : null;
 
-    // Get ALL game-link quests with portal_id_ref included, LEFT JOIN availability row
+    // Get ALL game-link quests from ref table
     const allGameQuests = query(
-      `SELECT sqr.quest_id, sqr.quest_name, sqr.reward_name, sqr.game_url, sqr.icon,
-              sqr.description, sqr.unlock_trigger_ref, sqr.portal_id_ref,
-              sqa.status, sqa.unlocked_at, sqa.completed_at
-       FROM side_quests_ref sqr
-       LEFT JOIN side_quest_availability sqa
-         ON sqa.quest_id = sqr.quest_id AND sqa.student_id = ?
-       WHERE sqr.quest_type = 'game_link'
-       ORDER BY sqr.quest_id`,
-      [student_id]
+      `SELECT quest_id, quest_name, reward_name, game_url, icon,
+              description, unlock_trigger_ref, portal_id_ref
+       FROM side_quests_ref
+       WHERE quest_type = 'game_link'
+       ORDER BY quest_id`
     );
 
-    // Get all alliance members once, reuse across all quests
+    // Get this student's availability rows (may be empty)
+    const myAvailRows = query(
+      `SELECT quest_id, status, unlocked_at, completed_at
+       FROM side_quest_availability
+       WHERE student_id = ?`,
+      [student_id]
+    );
+    const availMap = {};
+    myAvailRows.forEach(r => { availMap[r.quest_id] = r; });
+
+    // Get all non-ghost alliance members
     const members = alliance_id ? query(
       'SELECT student_id, name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
       [alliance_id]
     ) : [];
 
-    const enriched = allGameQuests.map(row => {
-      // Already completed — always show as completed regardless of alliance state
-      if (row.status === 'completed') {
+    const enriched = allGameQuests.map(quest => {
+      const avail = availMap[quest.quest_id] || null;
+      const currentStatus = avail ? avail.status : null;
+
+      // Already completed — always show as completed
+      if (currentStatus === 'completed') {
         return {
-          ...row,
+          ...quest,
+          status: 'completed',
+          unlocked_at: avail.unlocked_at,
+          completed_at: avail.completed_at,
           quiz_passed_count: members.length,
           quiz_member_count: members.length,
           quiz_passed_names: members.map(m => m.name)
         };
       }
 
-      const portal_id = row.portal_id_ref;
+      const portal_id = quest.portal_id_ref;
       if (!portal_id || !alliance_id || members.length === 0) {
-        return { ...row, status: 'locked', quiz_passed_count: 0, quiz_member_count: members.length, quiz_passed_names: [] };
+        return { ...quest, status: 'locked', quiz_passed_count: 0, quiz_member_count: members.length, quiz_passed_names: [] };
       }
 
-      // Check each alliance member — has this student passed the required quiz?
+      // Check each alliance member's quiz pass for this portal
       const passedNames = [];
       const allPassed = members.every(m => {
-        const attempt = query(
+        const rows = query(
           'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
           [m.student_id, portal_id]
         );
-        const passed = attempt.length > 0;
+        const passed = rows.length > 0;
         if (passed) passedNames.push(m.name);
         return passed;
       });
@@ -10138,11 +10150,17 @@ app.get('/api/side-quest/availability/:studentId', authenticateToken, (req, res)
       };
 
       if (!allPassed) {
-        return { ...row, status: 'locked', ...quizMeta };
+        return { ...quest, status: 'locked', ...quizMeta };
       }
 
-      // All passed — use existing row status or default to 'available'
-      return { ...row, status: row.status || 'available', ...quizMeta };
+      // All passed — available (or keep existing status if row exists)
+      return {
+        ...quest,
+        status: currentStatus || 'available',
+        unlocked_at: avail ? avail.unlocked_at : null,
+        completed_at: avail ? avail.completed_at : null,
+        ...quizMeta
+      };
     });
 
     res.json({ success: true, quests: enriched });
