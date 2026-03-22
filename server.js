@@ -10065,6 +10065,60 @@ app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
   }
 });
 
+// GET /api/diag/quest-availability/:studentId  — TEMP DIAGNOSTIC, remove after debugging
+app.get('/api/diag/quest-availability/:studentId', (req, res) => {
+  try {
+    const student_id = parseInt(req.params.studentId);
+    const results = {};
+
+    // Step 1
+    try {
+      results.gameQuests = query("SELECT quest_id, quest_name, portal_id_ref, unlock_trigger_ref FROM side_quests_ref WHERE quest_type = 'game_link'");
+      results.step1 = 'ok';
+    } catch(e) { results.step1 = 'FAIL: ' + e.message; }
+
+    // Step 2
+    try {
+      const s = query('SELECT student_id, alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+      results.student = s || null;
+      results.step2 = 'ok';
+    } catch(e) { results.step2 = 'FAIL: ' + e.message; }
+
+    // Step 3
+    try {
+      results.availRows = query('SELECT quest_id, status FROM side_quest_availability WHERE student_id = ?', [student_id]);
+      results.step3 = 'ok';
+    } catch(e) { results.step3 = 'FAIL: ' + e.message; }
+
+    // Step 4
+    const alliance_id = results.student ? results.student.alliance_id : null;
+    try {
+      results.members = alliance_id ? query('SELECT student_id, name FROM students WHERE alliance_id = ?', [alliance_id]) : [];
+      results.step4 = 'ok';
+    } catch(e) { results.step4 = 'FAIL: ' + e.message; }
+
+    // Step 5 — quiz check for each member/portal combo
+    results.quizChecks = [];
+    if (results.members && results.gameQuests) {
+      results.members.forEach(m => {
+        results.gameQuests.forEach(q => {
+          if (!q.portal_id_ref) return;
+          try {
+            const rows = query('SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1', [m.student_id, q.portal_id_ref]);
+            results.quizChecks.push({ member: m.name, quest: q.quest_name, portal: q.portal_id_ref, passed: rows.length > 0, step5: 'ok' });
+          } catch(e) {
+            results.quizChecks.push({ member: m.name, quest: q.quest_name, portal: q.portal_id_ref, step5: 'FAIL: ' + e.message });
+          }
+        });
+      });
+    }
+
+    res.json(results);
+  } catch(e) {
+    res.json({ outerError: e.message });
+  }
+});
+
 // GET /api/side-quest/availability/:studentId
 // Returns game-quest unlock/completion status for a student.
 // Returns ALL game-link quests — even ones with no availability row yet.
