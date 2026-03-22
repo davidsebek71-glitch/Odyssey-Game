@@ -113,8 +113,10 @@ loadSprite('eagle_full','eagle_full.png');
 loadSprite('storm_cloud','hazard_cloud_storm.png');
 loadSprite('rival_eagle','hazard_eagle_descent.png');
 loadSprite('lightning_bolt','hazard_lightning_bolt.png');
-loadSprite('soul_rising','descent_hazard_soul_rising.png');
+loadScene('soul_rising','descent_hazard_soul_rising.png');
 loadScene('mountain_bg','mountain_bg.png');
+loadScene('scene_cliffs','scene_cliffs_stormy.png');
+loadScene('scene_styx','scene_styx_background.png');
 // Trial 4 — Eros vs Thanatos
 loadSprite('eros_idle','Eros_Battle_Ready.png');
 loadSprite('eros_shoot','Eros_Aiming.png');
@@ -2817,83 +2819,173 @@ function render() {
   if(G.phase==='tutorial'){renderTutorial();return;}
   if(G.phase==='complete'){renderComplete();return;}
 
-  // Background — scrolling mountain
+  // Background — scrolling mountain with cliff face
   const bgSpr = sprites['mountain_bg'];
+  const cliffSpr = sprites['scene_cliffs'];
+
   if(bgSpr) {
-    // Parallax tile
+    // mountain_bg exists — tile vertically
     const scrollOff = (G.scrolled*0.35) % H;
     ctx.drawImage(bgSpr, 0, scrollOff, W, H);
     ctx.drawImage(bgSpr, 0, scrollOff-H, W, H);
   } else {
-    // Programmatic mountain bg
+    // ── Programmatic storm mountain background ──
     const phase = G.phase;
-    const skyTop = phase==='descent' ? '#1a0a30' : '#0a0818';
-    const skyBot = phase==='descent' ? '#0a1828' : '#14082a';
+
+    // Sky gradient — deep purple-black storm
     const grad = ctx.createLinearGradient(0,0,0,H);
-    grad.addColorStop(0, skyTop);
-    grad.addColorStop(1, skyBot);
+    if(phase==='descent'){
+      grad.addColorStop(0,'#0d0520');
+      grad.addColorStop(0.6,'#130830');
+      grad.addColorStop(1,'#0a1520');
+    } else {
+      grad.addColorStop(0,'#060312');
+      grad.addColorStop(0.5,'#0d0622');
+      grad.addColorStop(1,'#100830');
+    }
     ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
 
-    // Parallax rock layers
-    const scroll = G.scrolled;
-    ctx.fillStyle='rgba(20,15,35,0.9)';
-    // Far layer
-    for(let i=0;i<6;i++){
-      const rx=(i*180+scroll*0.1)%W-60;
-      const rh=60+Math.sin(i*1.7)*30;
-      ctx.fillRect(rx,H-rh,100,rh);
-    }
-    // Near layer L
-    ctx.fillStyle='rgba(10,8,20,1)';
-    ctx.fillRect(0,100,55,H-100);
-    ctx.fillRect(W-55,80,55,H-80);
-    // Rock edge detail
-    ctx.fillStyle='rgba(40,30,60,0.7)';
-    for(let i=0;i<8;i++){
-      const jag = 8+Math.sin(i*2.3+scroll*0.01)*6;
-      ctx.fillRect(0, 100+i*60, 55+jag, 4);
-      ctx.fillRect(W-55-jag, 80+i*60, 55+jag, 4);
-    }
+    // Far mountains — dark silhouettes
+    ctx.fillStyle='rgba(15,8,28,0.95)';
+    const scroll = G.scrolled * 0.08;
+    const mPts = [
+      [0,420],[80,340],[160,370],[240,310],[320,350],
+      [400,300],[460,330],[540,280],[620,320],[680,360],[680,H],[0,H]
+    ];
+    ctx.beginPath();
+    mPts.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y+scroll%60-30):ctx.lineTo(x,y+scroll%60-30));
+    ctx.closePath(); ctx.fill();
 
-    // Stars (only during ascent night sky)
-    if(phase==='ascent') {
-      ctx.fillStyle='rgba(255,255,255,0.6)';
-      for(let i=0;i<20;i++){
+    // Mid mountains — slightly lighter
+    ctx.fillStyle='rgba(10,5,20,0.98)';
+    const m2 = [
+      [0,460],[60,400],[130,430],[200,390],[280,420],
+      [370,380],[440,410],[520,370],[600,400],[680,420],[680,H],[0,H]
+    ];
+    ctx.beginPath();
+    m2.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+    ctx.closePath(); ctx.fill();
+
+    // Storm clouds in sky — animated
+    const cloudTime = G.elapsed * 0.4;
+    [[W*0.25, H*0.15, 80], [W*0.65, H*0.22, 65], [W*0.45, H*0.08, 90]].forEach(([cx,cy,r],i)=>{
+      const drift = Math.sin(cloudTime + i*1.7)*15;
+      const cg = ctx.createRadialGradient(cx+drift,cy,10,cx+drift,cy,r);
+      cg.addColorStop(0,'rgba(30,12,55,0.9)');
+      cg.addColorStop(0.6,'rgba(20,8,40,0.7)');
+      cg.addColorStop(1,'rgba(10,4,25,0)');
+      ctx.fillStyle=cg;
+      ctx.beginPath();ctx.ellipse(cx+drift,cy,r,r*0.5,0,0,Math.PI*2);ctx.fill();
+    });
+
+    // Stars — only visible through cloud gaps
+    if(phase==='ascent'||phase==='summit'){
+      for(let i=0;i<25;i++){
         const sx=(i*137+73)%W;
-        const sy=(i*97+41)%220;
-        const twinkle=Math.sin(G.elapsed*2+i)*0.4+0.6;
-        ctx.globalAlpha=twinkle*0.7;
-        ctx.fillRect(sx,sy,1+(i%2),1+(i%3===0?1:0));
+        const sy=(i*97+41)%200;
+        const twinkle=Math.sin(G.elapsed*2.5+i*0.8)*0.5+0.5;
+        ctx.fillStyle=`rgba(200,210,255,${twinkle*0.7})`;
+        ctx.fillRect(sx,sy,i%3===0?2:1,i%3===0?2:1);
       }
-      ctx.globalAlpha=1;
     }
 
-    // Lightning flashes in bg
-    if(Math.sin(G.elapsed*7)*Math.sin(G.elapsed*3.1)>0.85){
-      ctx.fillStyle='rgba(180,160,255,0.04)';
-      ctx.fillRect(0,0,W,H);
+    // Background lightning flashes — distant
+    const lt1 = Math.sin(G.elapsed*3.1)*Math.sin(G.elapsed*7.3);
+    if(lt1 > 0.88){
+      const lx = W*0.3 + Math.sin(G.elapsed*5)*W*0.3;
+      const lg = ctx.createRadialGradient(lx,H*0.15,0,lx,H*0.15,180);
+      lg.addColorStop(0,'rgba(180,160,255,0.18)');
+      lg.addColorStop(1,'rgba(140,120,220,0)');
+      ctx.fillStyle=lg; ctx.fillRect(0,0,W,H);
     }
+    const lt2 = Math.sin(G.elapsed*5.7)*Math.sin(G.elapsed*2.9);
+    if(lt2 > 0.92){
+      ctx.strokeStyle='rgba(200,180,255,0.25)';ctx.lineWidth=1.5;
+      const bx = W*0.6+Math.sin(G.elapsed*4)*60;
+      ctx.beginPath();ctx.moveTo(bx,0);ctx.lineTo(bx-10,80);ctx.lineTo(bx+5,80);ctx.lineTo(bx-8,160);ctx.stroke();
+    }
+  }
+
+  // ── Cliff face overlay — left and right edges ──
+  // Use scene_cliffs if available, otherwise draw programmatic cliffs
+  if(cliffSpr){
+    // Left cliff — draw the cliffs image cropped to left 40% of frame
+    const cw = cliffSpr.width || cliffSpr.naturalWidth || 800;
+    const ch = cliffSpr.height || cliffSpr.naturalHeight || 1200;
+    const scrollPct = (G.scrolled * 0.55) % ch;
+    ctx.save();
+    ctx.beginPath();ctx.rect(0,0,200,H);ctx.clip();
+    ctx.drawImage(cliffSpr, 0, scrollPct, cw*0.45, ch, 0, 0, 200, H);
+    ctx.drawImage(cliffSpr, 0, scrollPct-ch, cw*0.45, ch, 0, 0, 200, H);
+    // Dark vignette to blend cliff into sky
+    const cv = ctx.createLinearGradient(0,0,200,0);
+    cv.addColorStop(0,'rgba(0,0,0,0)');
+    cv.addColorStop(0.7,'rgba(0,0,0,0)');
+    cv.addColorStop(1,'rgba(6,3,18,0.85)');
+    ctx.fillStyle=cv;ctx.fillRect(0,0,200,H);
+    ctx.restore();
+  } else {
+    // Programmatic cliff — left edge
+    const scroll = G.scrolled * 0.55;
+    ctx.fillStyle='#080514';
+    for(let seg=0;seg<12;seg++){
+      const segY = ((seg*80 - scroll*0.6) % (H+80)) - 40;
+      const jag = 30 + Math.sin(seg*2.1+G.scrolled*0.003)*20;
+      ctx.beginPath();
+      ctx.moveTo(0,segY);
+      ctx.lineTo(jag+10,segY+15);
+      ctx.lineTo(jag-5,segY+30);
+      ctx.lineTo(jag+15,segY+50);
+      ctx.lineTo(jag,segY+80);
+      ctx.lineTo(0,segY+80);
+      ctx.closePath();ctx.fill();
+    }
+    // Cliff edge highlight
+    ctx.strokeStyle='rgba(50,35,80,0.6)';ctx.lineWidth=2;
+    ctx.beginPath();
+    for(let seg=0;seg<12;seg++){
+      const segY = ((seg*80 - scroll*0.6) % (H+80)) - 40;
+      const jag = 30 + Math.sin(seg*2.1+G.scrolled*0.003)*20;
+      if(seg===0) ctx.moveTo(jag,segY); else ctx.lineTo(jag,segY);
+      ctx.lineTo(jag+10,segY+15);
+      ctx.lineTo(jag-5,segY+30);
+      ctx.lineTo(jag+15,segY+50);
+    }
+    ctx.stroke();
   }
 
   // Summit glow when arriving
   if(G.phase==='summit') {
     const t=Math.min(1,(3.5-G.summitTimer)/1.5);
-    const glow=ctx.createRadialGradient(W/2,H*0.3,0,W/2,H*0.3,200);
-    glow.addColorStop(0,`rgba(100,200,255,${t*0.25})`);
-    glow.addColorStop(1,'rgba(80,160,255,0)');
-    ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
+    // Show the Styx source scene if available
+    const styxSpr = sprites['scene_styx'];
+    if(styxSpr && t > 0.3){
+      ctx.globalAlpha = Math.min(1,(t-0.3)/0.4);
+      ctx.drawImage(styxSpr, 0, 0, W, H);
+      ctx.globalAlpha = 1;
+      // Overlay text on top of scene
+      ctx.fillStyle=`rgba(0,0,0,${0.35*(1-t)})`;ctx.fillRect(0,0,W,H);
+    } else {
+      const glow=ctx.createRadialGradient(W/2,H*0.3,0,W/2,H*0.3,200);
+      glow.addColorStop(0,`rgba(100,200,255,${t*0.35})`);
+      glow.addColorStop(1,'rgba(80,160,255,0)');
+      ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
+    }
     ctx.textAlign='center';
     ctx.fillStyle=`rgba(180,230,255,${t})`;
     ctx.font='bold 18px "Segoe UI"';
+    ctx.shadowColor='rgba(100,200,255,0.6)';ctx.shadowBlur=12;
     ctx.fillText('The Source of the Styx!', W/2, H*0.28);
+    ctx.shadowBlur=0;
     ctx.fillStyle=`rgba(140,200,255,${t*0.8})`;
     ctx.font='italic 14px "Segoe UI"';
     ctx.fillText('The eagle fills the jug with divine water...', W/2, H*0.28+28);
     ctx.textAlign='left';
-    // Glowing spring
-    const sg=ctx.createRadialGradient(W/2,H*0.42,0,W/2,H*0.42,70);
-    sg.addColorStop(0,`rgba(160,220,255,${t*0.6})`);
-    sg.addColorStop(1,'rgba(80,160,255,0)');
+    // Glowing spring ripple
+    const sg=ctx.createRadialGradient(W/2,H*0.55,0,W/2,H*0.55,80+Math.sin(G.elapsed*3)*10);
+    sg.addColorStop(0,`rgba(160,220,255,${t*0.7})`);
+    sg.addColorStop(0.5,`rgba(80,160,220,${t*0.3})`);
+    sg.addColorStop(1,'rgba(60,120,200,0)');
     ctx.fillStyle=sg; ctx.fillRect(0,0,W,H);
   }
 
@@ -2996,9 +3088,21 @@ function render() {
     } else if(h.type===HZ.SOUL){
       const spr=sprites['soul_rising'];
       if(spr){
-        ctx.globalAlpha=0.85;
-        ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
+        // Clip render to avoid any magenta edge bleed
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(h.x, h.y, h.w*0.45, h.h*0.48, 0, 0, Math.PI*2);
+        ctx.clip();
+        const sa=0.6+Math.sin(G.elapsed*3+h.x)*0.2;
+        ctx.globalAlpha=sa;
+        ctx.drawImage(spr, h.x-h.w/2, h.y-h.h/2, h.w, h.h);
         ctx.globalAlpha=1;
+        ctx.restore();
+        // Ghostly glow around the soul
+        const sg=ctx.createRadialGradient(h.x,h.y,0,h.x,h.y,h.w*0.6);
+        sg.addColorStop(0,`rgba(140,180,220,${0.12+Math.sin(G.elapsed*4)*0.05})`);
+        sg.addColorStop(1,'rgba(100,140,200,0)');
+        ctx.fillStyle=sg;ctx.beginPath();ctx.arc(h.x,h.y,h.w*0.6,0,Math.PI*2);ctx.fill();
       } else {
         const sa=0.6+Math.sin(G.elapsed*4+h.x)*0.2;
         ctx.globalAlpha=sa;
