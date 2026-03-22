@@ -288,13 +288,76 @@ function renderStoryCard() {
 // ================================================================
 // TRIAL FLOW
 // ================================================================
+const TRIAL_TITLES = [
+  null, // index 0 unused
+  {title:'TRIAL I', sub:'The Sorting of the Seeds', virtue:'Precision', color:'#f0d68a'},
+  {title:'TRIAL II', sub:'The Golden Rams of Helios', virtue:'Patience', color:'#60a5fa'},
+  {title:'TRIAL III', sub:'The Water of the Styx', virtue:'Humility', color:'#80d8ff'},
+  {title:'TRIAL IV', sub:'Eros vs. Thanatos', virtue:'Devotion', color:'#c084fc'},
+];
+
 function startTrial(num) {
-  GAME.phase = 'trial'+num;
-  GAME.hearts = Math.min(4, GAME.totalHearts);
-  if (num===1) { GAME.trial = Trial1; Trial1.init(); }
-  if (num===2) { GAME.trial = Trial2; Trial2.init(); }
-  if (num===3) { GAME.trial = Trial3; Trial3.init(); }
-  if (num===4) { GAME.trial = Trial4; Trial4.init(); }
+  // Show title card first, then init trial
+  GAME.titleNum=num;
+  GAME.titleTimer=0;
+  GAME.phase='title';
+}
+
+function updateTitle(dt){
+  GAME.titleTimer+=dt;
+  if(GAME.titleTimer>3.0){
+    const num=GAME.titleNum;
+    GAME.phase='trial'+num;
+    GAME.hearts=Math.min(4,GAME.totalHearts);
+    if(num===1){GAME.trial=Trial1;Trial1.init();}
+    if(num===2){GAME.trial=Trial2;Trial2.init();}
+    if(num===3){GAME.trial=Trial3;Trial3.init();}
+    if(num===4){GAME.trial=Trial4;Trial4.init();}
+  }
+}
+
+function renderTitle(){
+  const t=GAME.titleTimer;
+  const info=TRIAL_TITLES[GAME.titleNum];
+  if(!info) return;
+
+  ctx.fillStyle='rgba(5,5,15,0.97)';ctx.fillRect(0,0,W,H);
+
+  // Fade in
+  const fadeIn=Math.min(1,t/0.8);
+  ctx.globalAlpha=fadeIn;
+
+  // Roman numeral — big and centered
+  ctx.textAlign='center';
+  ctx.fillStyle=info.color;ctx.font='bold 52px "Segoe UI"';
+  ctx.fillText(info.title,W/2,H*0.38);
+
+  // Subtitle
+  ctx.fillStyle='#c8b88a';ctx.font='italic 20px "Segoe UI"';
+  ctx.fillText(info.sub,W/2,H*0.48);
+
+  // Virtue earned
+  if(t>1.0){
+    const vFade=Math.min(1,(t-1.0)/0.6);
+    ctx.globalAlpha=vFade;
+    ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';
+    ctx.fillText('Virtue: '+info.virtue,W/2,H*0.58);
+  }
+
+  // Decorative line
+  ctx.globalAlpha=fadeIn*0.3;
+  ctx.strokeStyle=info.color;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(W*0.25,H*0.42);ctx.lineTo(W*0.75,H*0.42);ctx.stroke();
+
+  // Fade out at end
+  if(t>2.2){
+    const fadeOut=(t-2.2)/0.8;
+    ctx.globalAlpha=1;
+    ctx.fillStyle=`rgba(5,5,15,${fadeOut})`;ctx.fillRect(0,0,W,H);
+  }
+
+  ctx.globalAlpha=1;
+  ctx.textAlign='left';
 }
 
 function trialComplete(num, virtueKey, virtueData) {
@@ -308,38 +371,171 @@ function trialComplete(num, virtueKey, virtueData) {
 // ================================================================
 // CINEMATIC ENDING
 // ================================================================
-function startCinematic() { GAME.phase='cinematic'; GAME.cinematicTimer=0; GAME.cinematicPhase=0; }
+function startCinematic() {
+  GAME.phase='cinematic';
+  GAME.cinematicTimer=0;
+  GAME.cinematicPhase=0;
+  GAME.cinErosX=160;       // Eros starts left
+  GAME.cinPsycheStand=false;
+}
 
 function updateCinematicEnd(dt) {
   GAME.cinematicTimer+=dt;
-  if(GAME.cinematicTimer>2.5&&GAME.cinematicPhase===0) GAME.cinematicPhase=1;
-  if(GAME.cinematicTimer>5.5&&GAME.cinematicPhase===1) GAME.cinematicPhase=2;
-  if(GAME.cinematicTimer>8.5&&GAME.cinematicPhase===2) GAME.cinematicPhase=3;
-  if(GAME.cinematicTimer>11) showResults();
+  const t=GAME.cinematicTimer;
+
+  // Phase 0 (0-3s): Thanatos fades, arena darkens
+  if(t>3.0&&GAME.cinematicPhase===0) GAME.cinematicPhase=1;
+
+  // Phase 1 (3-7s): Eros walks toward Psyche
+  if(GAME.cinematicPhase===1){
+    GAME.cinErosX+= 80*dt;
+    if(GAME.cinErosX>W*0.55) GAME.cinErosX=W*0.55;
+    if(t>7.0) GAME.cinematicPhase=2;
+  }
+
+  // Phase 2 (7-9s): Psyche wakes — kneeling to standing
+  if(GAME.cinematicPhase===2){
+    if(t>8.0) GAME.cinPsycheStand=true;
+    if(t>9.5) GAME.cinematicPhase=3;
+  }
+
+  // Phase 3 (9.5-13s): Zeus speaks, golden light
+  if(t>13.0&&GAME.cinematicPhase===3) GAME.cinematicPhase=4;
+
+  // Phase 4 (13-15s): "Love endures" → results
+  if(t>15.5) showResults();
 }
 
 function renderCinematicEnd() {
-  const t=GAME.cinematicTimer,p=GAME.cinematicPhase;
-  const lt=Math.min(1,t/10);
-  const bg=ctx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,lerpC('#080a16','#3a2858',lt));
-  bg.addColorStop(1,lerpC('#0a0c18','#c8943a',lt));
-  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  const t=GAME.cinematicTimer, p=GAME.cinematicPhase;
+
+  // Background — arena fading to golden sky
+  const skyT=Math.min(1,t/12);
+  const arenaSpr=sprites['arena_bg'];
+  const skyBgSpr=sprites['sky_bg'];
+
+  if(skyT<0.5){
+    // Arena darkening
+    if(arenaSpr){ctx.globalAlpha=1-skyT*1.5;ctx.drawImage(arenaSpr,0,0,W,H);ctx.globalAlpha=1;}
+    ctx.fillStyle=`rgba(5,5,15,${skyT*1.5})`;ctx.fillRect(0,0,W,H);
+  } else {
+    // Transition to golden sky
+    const skyFade=(skyT-0.5)*2;
+    ctx.fillStyle='rgba(5,5,15,1)';ctx.fillRect(0,0,W,H);
+    if(skyBgSpr){
+      ctx.globalAlpha=skyFade*0.6;
+      const sw=skyBgSpr.naturalWidth||skyBgSpr.width||1024;
+      const sh=skyBgSpr.naturalHeight||skyBgSpr.height||1536;
+      ctx.drawImage(skyBgSpr,0,0,sw,sh, 0,0,W,H);
+      ctx.globalAlpha=1;
+    }
+    // Golden overlay
+    const goldGrad=ctx.createLinearGradient(0,0,0,H);
+    goldGrad.addColorStop(0,`rgba(60,40,20,${1-skyFade*0.7})`);
+    goldGrad.addColorStop(1,`rgba(200,150,50,${skyFade*0.3})`);
+    ctx.fillStyle=goldGrad;ctx.fillRect(0,0,W,H);
+  }
+
+  // Ground
+  if(p>=1){
+    ctx.fillStyle='rgba(40,30,20,0.8)';ctx.fillRect(0,H*0.82,W,H*0.18);
+  }
+
+  const groundY=H*0.82;
   ctx.textAlign='center';
+
+  // Phase 0: Thanatos collapses
   if(p===0){
-    if(GAME.boxChoice){ctx.fillStyle='rgba(200,170,220,.8)';ctx.font='italic 15px "Segoe UI"';ctx.fillText('Psyche opens the box. Sleep pours out...',W/2,H/2);}
-    else{ctx.fillStyle='rgba(200,170,220,.7)';ctx.font='italic 15px "Segoe UI"';ctx.fillText('Psyche resists. But the box trembles...',W/2,H/2-15);if(t>1.5)ctx.fillText('Fate is not so easily denied. The box opens on its own.',W/2,H/2+15);}
-  }else if(p===1){
-    ctx.fillStyle='rgba(255,215,100,'+Math.min(1,(t-2.5)/2)+')';ctx.font='italic 15px "Segoe UI"';
-    ctx.fillText('Eros, healed by love, descends from the sky.',W/2,H/2-20);
-    ctx.fillText('He wipes the sleep from her eyes.',W/2,H/2+10);
-  }else if(p===2){
-    ctx.fillStyle='rgba(255,240,200,'+Math.min(1,(t-5.5)/1.5)+')';ctx.font='italic 15px "Segoe UI"';
-    ctx.fillText('"For enduring what no mortal should,',W/2,H/2-25);
-    ctx.fillText('I grant you immortality."',W/2,H/2+5);
-    ctx.fillStyle='rgba(200,180,255,.6)';ctx.font='15px "Segoe UI"';
-    ctx.fillText('Wings grow from Psyche\'s back.',W/2,H/2+35);
-  }else{ctx.fillStyle='#f0d68a';ctx.font='bold 20px "Segoe UI"';ctx.fillText('Love endures.',W/2,H/2);}
+    const thanSpr=sprites['thanatos_idle'];
+    if(thanSpr){
+      const fade=Math.max(0,1-t/2.5);
+      ctx.globalAlpha=fade;
+      ctx.drawImage(thanSpr,W*0.6-60,groundY-180,120,180);
+      ctx.globalAlpha=1;
+    }
+    if(t>1.0){
+      const txtFade=Math.min(1,(t-1.0)/1.0);
+      ctx.fillStyle=`rgba(200,170,220,${txtFade*0.8})`;ctx.font='italic 16px "Segoe UI"';
+      ctx.fillText('Thanatos falls...',W/2,H*0.35);
+    }
+  }
+
+  // Phase 1+: Eros walks toward Psyche
+  if(p>=1){
+    const erosSpr=sprites['eros_idle'];
+    if(erosSpr){
+      ctx.drawImage(erosSpr,GAME.cinErosX-120/2,groundY-180,120,180);
+    }
+
+    // Psyche — kneeling, then standing
+    const psycheX=W*0.65;
+    if(GAME.cinPsycheStand){
+      const standSpr=sprites['psyche'];
+      if(standSpr){
+        // Face left toward Eros
+        ctx.save();ctx.translate(psycheX,groundY-180*0.7);ctx.scale(-1,1);
+        ctx.drawImage(standSpr,-120*0.4,0,120*0.8,180*0.7);
+        ctx.restore();
+      }
+    } else {
+      const kneelSpr=sprites['psyche_kneel']||sprites['psyche_down'];
+      if(kneelSpr){
+        ctx.drawImage(kneelSpr,psycheX-45,groundY-100,90,100);
+      }
+    }
+  }
+
+  // Phase 1 text
+  if(p===1){
+    const txtFade=Math.min(1,(t-3.0)/1.5);
+    ctx.fillStyle=`rgba(255,215,100,${txtFade})`;ctx.font='italic 16px "Segoe UI"';
+    ctx.fillText('Eros crosses the battlefield to reach her.',W/2,H*0.25);
+  }
+
+  // Phase 2 text: Psyche wakes
+  if(p===2){
+    const txtFade=Math.min(1,(t-7.0)/1.0);
+    ctx.fillStyle=`rgba(255,240,200,${txtFade})`;ctx.font='italic 16px "Segoe UI"';
+    ctx.fillText('He wipes the sleep from her eyes.',W/2,H*0.22);
+    if(GAME.cinPsycheStand){
+      const wakeFade=Math.min(1,(t-8.0)/1.0);
+      ctx.fillStyle=`rgba(240,220,180,${wakeFade})`;ctx.font='italic 15px "Segoe UI"';
+      ctx.fillText('Psyche opens her eyes — and sees him there.',W/2,H*0.30);
+    }
+  }
+
+  // Phase 3: Zeus speaks, golden light intensifies
+  if(p===3){
+    // Golden light pulse
+    const glow=0.1+Math.sin((t-9.5)*2)*0.05;
+    ctx.fillStyle=`rgba(255,220,100,${glow})`;ctx.fillRect(0,0,W,H);
+
+    const zeusSpr=sprites['zeus'];
+    if(zeusSpr){
+      const zFade=Math.min(1,(t-9.5)/1.5);
+      ctx.globalAlpha=zFade*0.7;
+      ctx.drawImage(zeusSpr,W*0.15-50,H*0.15,100,130);
+      ctx.globalAlpha=1;
+    }
+
+    const txtFade=Math.min(1,(t-10.0)/1.0);
+    ctx.fillStyle=`rgba(255,240,200,${txtFade})`;ctx.font='italic 16px "Segoe UI"';
+    ctx.fillText('"For enduring what no mortal should..."',W/2,H*0.14);
+    if(t>11.0){
+      const t2=Math.min(1,(t-11.0)/1.0);
+      ctx.fillStyle=`rgba(255,215,100,${t2})`;ctx.font='bold 18px "Segoe UI"';
+      ctx.fillText('"I grant you immortality."',W/2,H*0.20);
+    }
+  }
+
+  // Phase 4: Love endures
+  if(p===4){
+    const finalFade=Math.min(1,(t-13.0)/1.5);
+    ctx.fillStyle=`rgba(5,5,15,${finalFade*0.6})`;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=`rgba(240,214,138,${finalFade})`;ctx.font='bold 28px "Segoe UI"';
+    ctx.fillText('Love endures.',W/2,H/2);
+  }
+
   ctx.textAlign='left';
 }
 
@@ -5133,6 +5329,7 @@ function gameLoop(ts){
   if(GAME.phase==='loading'){/* handled by HTML overlay */}
   else if(GAME.phase==='devselect'){renderDevSelect();}
   else if(GAME.phase==='story'){renderStoryCard();}
+  else if(GAME.phase==='title'){updateTitle(dt);renderTitle();}
   else if(GAME.phase.startsWith('trial')&&GAME.trial){GAME.trial.update(dt);GAME.trial.render();}
   else if(GAME.phase==='cinematic'){updateCinematicEnd(dt);renderCinematicEnd();}
   else if(GAME.phase==='results'){renderResults();}
