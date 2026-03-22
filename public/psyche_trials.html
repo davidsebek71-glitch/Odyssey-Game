@@ -3784,11 +3784,13 @@ return {
 const Trial4 = (function(){
 
 // ── Constants ────────────────────────────────────────────────
-const FLOOR_Y      = 470;   // where characters stand
-const EROS_X       = 130;   // fixed X (Eros stays left)
-const THANATOS_X   = 550;   // Thanatos stays right
+const FLOOR_Y      = 500;   // lower floor for SF2 proportions
+const EROS_X       = 160;   // fixed X (Eros stays left)
+const THANATOS_X   = 520;   // Thanatos stays right
 const EROS_HP_MAX  = 100;
 const THAN_HP_MAX  = 120;
+const CHAR_H       = 180;   // character render height
+const CHAR_W       = 120;   // character render width
 
 // Timings (seconds)
 const SHOOT_COOLDOWN = 0.55;
@@ -3885,7 +3887,7 @@ function erosShoot(){
   G.erosShootCooldown=SHOOT_COOLDOWN;
   // Arrow travels right toward Thanatos
   G.arrows.push({
-    x: G.erosX+50, y: FLOOR_Y-55,
+    x: G.erosX+60, y: FLOOR_Y-CHAR_H*0.55,
     vx: 520, vy: 0,
     hit: false
   });
@@ -3933,7 +3935,7 @@ function thanatosAI(dt){
     if(G.thanShades.length<5) spawnShade();
   }
 
-  G.thanAnim='attack'; G.thanAnimTimer=0.4;
+  G.thanAnim='attack'; G.thanAnimTimer=0.7;
 }
 
 function thanShoot(count){
@@ -3942,8 +3944,8 @@ function thanShoot(count){
     setTimeout(()=>{
       if(G.phase!=='fighting') return;
       G.shadowBolts.push({
-        x: THANATOS_X-55,
-        y: FLOOR_Y-65 + (Math.random()-0.5)*30,
+        x: THANATOS_X-65,
+        y: FLOOR_Y-CHAR_H*0.55 + (Math.random()-0.5)*30,
         vx: -(340 + Math.random()*80),
         vy: (Math.random()-0.5)*40,
         hit: false, blocked: false
@@ -3984,7 +3986,7 @@ function update(dt){
     const moveL=keys['ArrowLeft']||keys['a'];
     const moveR=keys['ArrowRight']||keys['d'];
     if(moveL) G.erosX=Math.max(60,G.erosX-180*dt);
-    if(moveR) G.erosX=Math.min(320,G.erosX+180*dt);
+    if(moveR) G.erosX=Math.min(THANATOS_X-CHAR_W,G.erosX+180*dt);
 
     // Shield timer
     if(G.erosShielding){G.erosShieldTimer-=dt;if(G.erosShieldTimer<=0)G.erosShielding=false;}
@@ -3992,7 +3994,7 @@ function update(dt){
     // Dummy fires a single slow bolt every few seconds
     G.dummyFireTimer-=dt;
     if(G.dummyFireTimer<=0){
-      G.dummyArrows.push({x:480,y:390,vx:-180,vy:0,hit:false,blocked:false});
+      G.dummyArrows.push({x:480,y:FLOOR_Y-CHAR_H*0.55,vx:-180,vy:0,hit:false,blocked:false});
       G.dummyFireTimer=3.8+Math.random()*1.2;
     }
 
@@ -4003,19 +4005,19 @@ function update(dt){
       if(G.erosShielding&&b.x<G.erosX+60&&b.x>G.erosX-30){
         b.blocked=true;
         G.boltsBlocked++;
-        spawnP(G.erosX+40,380,6,'#7c3aed');
-        showFloat(G.erosX,360,'BLOCKED!','#a78bfa',13);
+        spawnP(G.erosX+40,FLOOR_Y-CHAR_H*0.5,6,'#7c3aed');
+        showFloat(G.erosX,FLOOR_Y-CHAR_H*0.7,'BLOCKED!','#a78bfa',13);
         return false;
       }
-      if(G.erosHitTimer<=0&&b.x<G.erosX+40&&b.x>G.erosX-30&&b.y>350&&b.y<430){
+      if(G.erosHitTimer<=0&&b.x<G.erosX+40&&b.x>G.erosX-30&&b.y>FLOOR_Y-CHAR_H&&b.y<FLOOR_Y){
         b.hit=true;
         G.erosHP=Math.max(0,G.erosHP-8);
         G.hitsTaken++;
         G.erosHitTimer=0.8;
         G.erosAnim='hit';G.erosAnimTimer=0.2;
         G.hitFlash=0.25;G.flashColor='rgba(255,50,50,0.15)';
-        spawnP(G.erosX,380,6,'#ef4444');
-        showFloat(G.erosX,360,'-8','#ef4444',14);
+        spawnP(G.erosX,FLOOR_Y-CHAR_H*0.5,6,'#ef4444');
+        showFloat(G.erosX,FLOOR_Y-CHAR_H*0.7,'-8','#ef4444',14);
         shake();
         return false;
       }
@@ -4031,8 +4033,8 @@ function update(dt){
         const dmg=15+Math.floor(Math.random()*8);
         G.dummyHP=Math.max(0,G.dummyHP-dmg);
         G.arrowsLanded++;
-        spawnP(500,370,8,'#a855f7');
-        showFloat(500,350,`-${dmg}`,'#c084fc',14);
+        spawnP(500,FLOOR_Y-CHAR_H*0.5,8,'#a855f7');
+        showFloat(500,FLOOR_Y-CHAR_H*0.6,`-${dmg}`,'#c084fc',14);
         if(G.dummyHP<=0&&!G.dummyComplete){
           G.dummyComplete=true;
           G.dummyHP=0;
@@ -4077,7 +4079,7 @@ function update(dt){
   if(G.erosDashing){
     G.erosDashTimer-=dt;
     G.erosX+=G.erosDashDir*520*dt;
-    G.erosX=Math.max(60,Math.min(THANATOS_X-80,G.erosX));
+    G.erosX=Math.max(60,Math.min(THANATOS_X-CHAR_W,G.erosX));
     if(G.erosDashTimer<=0){
       G.erosDashing=false;
       // Snap back toward home
@@ -4088,7 +4090,7 @@ function update(dt){
     const moveL=keys['ArrowLeft']||keys['a'];
     const moveR=keys['ArrowRight']||keys['d'];
     if(moveL) G.erosX=Math.max(60,G.erosX-180*dt);
-    if(moveR) G.erosX=Math.min(320,G.erosX+180*dt);
+    if(moveR) G.erosX=Math.min(THANATOS_X-CHAR_W,G.erosX+180*dt);
   }
 
   // Shield timer
@@ -4106,14 +4108,14 @@ function update(dt){
     G.thanPhase=2;
     G.thanAttackTimer=0.5;
     G.hitFlash=0.4; G.flashColor='rgba(120,0,180,0.25)';
-    showFloat(THANATOS_X, FLOOR_Y-160, 'PHASE 2 — Thanatos Unleashed!','#c084fc',14);
+    showFloat(THANATOS_X, FLOOR_Y-CHAR_H-20, 'PHASE 2 — Thanatos Unleashed!','#c084fc',14);
     G.thanAnim='phase2'; G.thanAnimTimer=1.0;
   }
   if(hpPct<=0.2&&G.thanPhase<3){
     G.thanPhase=3;
     G.thanAttackTimer=0.3;
     G.hitFlash=0.5; G.flashColor='rgba(180,0,0,0.2)';
-    showFloat(THANATOS_X, FLOOR_Y-160, '⚡ DEATHSTORM! ⚡','#ef4444',16);
+    showFloat(THANATOS_X, FLOOR_Y-CHAR_H-20, '⚡ DEATHSTORM! ⚡','#ef4444',16);
     G.thanAnim='phase2'; G.thanAnimTimer=1.2;
   }
 
@@ -4122,14 +4124,14 @@ function update(dt){
     a.x+=a.vx*dt; a.y+=a.vy*dt;
     if(a.hit||a.x>W+20) return false;
     // Hit Thanatos
-    if(a.x>THANATOS_X-50&&a.x<THANATOS_X+50&&!a.hit){
+    if(a.x>THANATOS_X-60&&a.x<THANATOS_X+60&&!a.hit){
       a.hit=true;
       const dmg=18+Math.floor(Math.random()*6);
       G.thanHP=Math.max(0,G.thanHP-dmg);
       G.arrowsLanded++;
-      spawnP(THANATOS_X-30,FLOOR_Y-80,10,'#a855f7');
-      showFloat(THANATOS_X-30,FLOOR_Y-100,`-${dmg}`,'#c084fc',15);
-      G.thanAnim='hit'; G.thanAnimTimer=0.2;
+      spawnP(THANATOS_X-30,FLOOR_Y-CHAR_H*0.5,10,'#a855f7');
+      showFloat(THANATOS_X-30,FLOOR_Y-CHAR_H*0.7,`-${dmg}`,'#c084fc',15);
+      G.thanAnim='hit'; G.thanAnimTimer=0.35;
       if(G.thanHP<=0) endFight('victory');
       return false;
     }
@@ -4141,17 +4143,17 @@ function update(dt){
     b.x+=b.vx*dt; b.y+=b.vy*dt;
     if(b.blocked||b.hit||b.x<-20) return false;
     // Check shield block
-    if(G.erosShielding&&b.x<G.erosX+60&&b.x>G.erosX-30){
+    if(G.erosShielding&&b.x<G.erosX+70&&b.x>G.erosX-40){
       b.blocked=true;
       G.boltsBlocked++;
-      spawnP(G.erosX+40,FLOOR_Y-60,8,'#7c3aed');
-      showFloat(G.erosX,FLOOR_Y-100,'BLOCKED!','#a78bfa',13);
+      spawnP(G.erosX+50,FLOOR_Y-CHAR_H*0.5,8,'#7c3aed');
+      showFloat(G.erosX,FLOOR_Y-CHAR_H*0.7,'BLOCKED!','#a78bfa',13);
       return false;
     }
     // Check dash invuln
     if(G.erosDashing) return true;
     // Hit Eros
-    if(G.erosHitTimer<=0&&b.x<G.erosX+40&&b.x>G.erosX-30&&b.y>FLOOR_Y-120&&b.y<FLOOR_Y){
+    if(G.erosHitTimer<=0&&b.x<G.erosX+50&&b.x>G.erosX-40&&b.y>FLOOR_Y-CHAR_H&&b.y<FLOOR_Y){
       b.hit=true;
       const dmg=12+Math.floor(Math.random()*6);
       G.erosHP=Math.max(0,G.erosHP-dmg);
@@ -4160,8 +4162,8 @@ function update(dt){
       G.erosHitTimer=0.9;
       G.erosAnim='hit'; G.erosAnimTimer=0.25;
       G.hitFlash=0.3; G.flashColor='rgba(255,50,50,0.2)';
-      spawnP(G.erosX,FLOOR_Y-60,10,'#ef4444');
-      showFloat(G.erosX,FLOOR_Y-100,`-${dmg}`,'#ef4444',15);
+      spawnP(G.erosX,FLOOR_Y-CHAR_H*0.5,10,'#ef4444');
+      showFloat(G.erosX,FLOOR_Y-CHAR_H*0.7,`-${dmg}`,'#ef4444',15);
       shake();
       if(G.erosHP<=0) endFight('defeat');
       return false;
@@ -4178,26 +4180,26 @@ function update(dt){
     s.x+=s.vx*dt;
     s.animTimer+=dt;
     // Hit Eros
-    if(G.erosHitTimer<=0&&Math.abs(s.x-G.erosX)<40){
+    if(G.erosHitTimer<=0&&Math.abs(s.x-G.erosX)<50){
       s.dead=true; s.deathTimer=0.4;
       G.erosHP=Math.max(0,G.erosHP-8);
       G.hitsTaken++;
       GAME.totalHearts=Math.max(0,GAME.totalHearts-1);
       G.erosHitTimer=1.0;
       G.erosAnim='hit'; G.erosAnimTimer=0.25;
-      spawnP(G.erosX,FLOOR_Y-40,8,'#6b21a8');
-      showFloat(G.erosX,FLOOR_Y-90,'-8 Shade!','#a855f7',13);
+      spawnP(G.erosX,FLOOR_Y-CHAR_H*0.3,8,'#6b21a8');
+      showFloat(G.erosX,FLOOR_Y-CHAR_H*0.6,'-8 Shade!','#a855f7',13);
       shake();
       if(G.erosHP<=0) endFight('defeat');
     }
     // Arrow hits shade
     G.arrows.forEach(a=>{
       if(a.hit) return;
-      if(Math.abs(a.x-s.x)<30&&!s.dead){
+      if(Math.abs(a.x-s.x)<35&&!s.dead){
         a.hit=true;
         s.dead=true; s.deathTimer=0.4;
-        spawnP(s.x,FLOOR_Y-40,8,'#7c3aed');
-        showFloat(s.x,FLOOR_Y-70,'Shade down!','#c084fc',12);
+        spawnP(s.x,FLOOR_Y-CHAR_H*0.3,8,'#7c3aed');
+        showFloat(s.x,FLOOR_Y-CHAR_H*0.5,'Shade down!','#c084fc',12);
       }
     });
     // Off screen
@@ -4223,7 +4225,7 @@ function endFight(result){
   G.resultTimer=0;
   if(result==='victory'){
     spawnP(W/2,H/2,30,'#ffd700');
-    spawnP(THANATOS_X,FLOOR_Y-80,20,'#a855f7');
+    spawnP(THANATOS_X,FLOOR_Y-CHAR_H*0.5,20,'#a855f7');
   }
 }
 
@@ -4298,22 +4300,21 @@ function render(){
   G.thanShades.forEach(s=>{
     const alpha = s.dead ? Math.max(0,s.deathTimer/0.4)*0.6 : 0.85;
     const spr=sprites['shade_soldier'];
+    const shadeH=90, shadeW=55;
     if(spr){
       ctx.globalAlpha=alpha;
-      ctx.drawImage(spr,s.x-20,FLOOR_Y-55,40,55);
+      ctx.drawImage(spr,s.x-shadeW/2,FLOOR_Y-shadeH,shadeW,shadeH);
       ctx.globalAlpha=1;
     } else {
       ctx.globalAlpha=alpha;
       ctx.fillStyle='rgba(80,60,140,0.9)';
-      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-30,12,25,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-58,9,10,0,0,Math.PI*2);ctx.fill();
-      // Spear
+      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-45,16,35,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-82,12,14,0,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle='rgba(140,100,180,0.8)';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(s.x-14,FLOOR_Y-65);ctx.lineTo(s.x-14,FLOOR_Y-5);ctx.stroke();
-      // Eyes
+      ctx.beginPath();ctx.moveTo(s.x-18,FLOOR_Y-95);ctx.lineTo(s.x-18,FLOOR_Y-5);ctx.stroke();
       ctx.fillStyle='rgba(220,230,255,0.9)';
-      ctx.beginPath();ctx.arc(s.x-4,FLOOR_Y-60,2.5,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.arc(s.x+4,FLOOR_Y-60,2.5,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(s.x-5,FLOOR_Y-84,3,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(s.x+5,FLOOR_Y-84,3,0,Math.PI*2);ctx.fill();
       ctx.globalAlpha=1;
     }
   });
@@ -4338,14 +4339,18 @@ function render(){
   G.shadowBolts.forEach(b=>{
     const spr=sprites['shadow_bolt'];
     if(spr){
-      ctx.drawImage(spr,b.x-24,b.y-6,48,12);
+      ctx.drawImage(spr,b.x-32,b.y-10,64,20);
     } else {
-      ctx.fillStyle='#4c1d95';
-      ctx.fillRect(b.x-22,b.y-3,44,6);
-      ctx.fillStyle='rgba(140,80,220,0.7)';
-      ctx.fillRect(b.x-22,b.y-5,8,10);
-      ctx.fillStyle='rgba(80,20,160,0.5)';
-      ctx.fillRect(b.x+8,b.y-2,16,4);
+      // Larger, brighter programmatic bolt
+      ctx.fillStyle='#6d28d9';
+      ctx.fillRect(b.x-28,b.y-5,56,10);
+      ctx.fillStyle='rgba(180,120,255,0.8)';
+      ctx.fillRect(b.x-28,b.y-7,12,14);
+      ctx.fillStyle='rgba(120,50,200,0.6)';
+      ctx.fillRect(b.x+12,b.y-3,20,6);
+      // Glow trail
+      ctx.fillStyle='rgba(140,60,220,0.25)';
+      ctx.beginPath();ctx.ellipse(b.x,b.y,34,12,0,0,Math.PI*2);ctx.fill();
     }
   });
 
@@ -4404,36 +4409,36 @@ function render(){
 }
 
 function renderPsyche(){
-  const px=W-90, py=FLOOR_Y;
+  // Psyche unconscious — behind Thanatos, clearly visible
+  const px=THANATOS_X + 80, py=FLOOR_Y;
   const pulse=0.5+Math.sin(G.psychePulse*1.8)*0.3;
+
   // Glow around her
-  const glow=ctx.createRadialGradient(px,py-30,0,px,py-30,55);
+  const glow=ctx.createRadialGradient(px,py-40,0,px,py-40,80);
   glow.addColorStop(0,`rgba(240,200,100,${pulse*0.18})`);
   glow.addColorStop(1,'rgba(220,180,80,0)');
-  ctx.fillStyle=glow;ctx.fillRect(px-55,py-80,110,90);
+  ctx.fillStyle=glow;ctx.fillRect(px-80,py-120,160,130);
+
+  // Stone slab she lies on
+  ctx.fillStyle='rgba(60,50,70,0.8)';
+  rr(ctx,px-50,py-12,100,16,4);ctx.fill();
+  ctx.strokeStyle='rgba(100,80,120,0.5)';ctx.lineWidth=1;
+  rr(ctx,px-50,py-12,100,16,4);ctx.stroke();
 
   const spr=sprites['psyche_down'];
   if(spr){
-    ctx.drawImage(spr,px-40,py-30,80,30);
+    ctx.drawImage(spr,px-55,py-55,110,45);
   } else {
-    // Psyche lying down — programmatic
+    // Psyche lying down — programmatic, larger
     ctx.fillStyle='rgba(220,210,190,0.9)';
-    ctx.beginPath();ctx.ellipse(px,py-14,38,12,0,0,Math.PI*2);ctx.fill();
-    // Head
+    ctx.beginPath();ctx.ellipse(px,py-28,50,16,0,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='rgba(200,185,165,0.9)';
-    ctx.beginPath();ctx.ellipse(px+30,py-20,10,9,0.2,0,Math.PI*2);ctx.fill();
-    // Hair
+    ctx.beginPath();ctx.ellipse(px+38,py-36,14,12,0.2,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='rgba(90,55,25,0.9)';
-    ctx.beginPath();ctx.ellipse(px+33,py-24,8,6,0.5,0,Math.PI*2);ctx.fill();
-    // Dress folds
-    ctx.fillStyle='rgba(240,235,220,0.7)';
-    ctx.fillRect(px-28,py-16,56,8);
-    // Gold pulse outline
-    ctx.strokeStyle=`rgba(240,200,80,${pulse*0.5})`;ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.ellipse(px,py-14,40,14,0,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.ellipse(px+42,py-42,10,8,0.5,0,Math.PI*2);ctx.fill();
   }
-  ctx.fillStyle='rgba(200,180,140,0.45)';ctx.font='italic 10px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText('Psyche',px,py+8);
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 11px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText('Psyche',px,py+18);
   ctx.textAlign='left';
 }
 
@@ -4453,7 +4458,7 @@ function renderEros(){
   if(hitFlicker) ctx.globalAlpha=0.35;
 
   if(spr){
-    ctx.drawImage(spr,ex-32,ey-95,64,95);
+    ctx.drawImage(spr,ex-CHAR_W/2,ey-CHAR_H,CHAR_W,CHAR_H);
   } else {
     // Programmatic Eros
     // Shadow
@@ -4546,27 +4551,47 @@ function renderThanatos(){
   const anim=G.thanAnim;
   const phase=G.thanPhase;
 
-  // Shadow
+  // Shadow — scales with phase
+  const shadowR=phase>=2?45:35;
   ctx.fillStyle='rgba(0,0,0,0.4)';
-  ctx.beginPath();ctx.ellipse(tx,ty+2,35,10,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(tx,ty+2,shadowR,10,0,0,Math.PI*2);ctx.fill();
 
-  const spr = phase>=2 ? (sprites['thanatos_phase2']||sprites['thanatos_idle']) : sprites['thanatos_idle'];
-  const attackSpr = sprites['thanatos_attack'];
+  // Sprite selection — use all available poses
+  let useSpr;
+  if(anim==='attack'){
+    useSpr = sprites['thanatos_attack'] || sprites['thanatos_idle'];
+  } else if(anim==='hit'){
+    // Flash the idle sprite (hit flicker handles the visual)
+    useSpr = phase>=2 ? (sprites['thanatos_phase2']||sprites['thanatos_idle']) : sprites['thanatos_idle'];
+  } else if(anim==='phase2'){
+    // Phase transition pose
+    useSpr = sprites['thanatos_phase2'] || sprites['thanatos_idle'];
+  } else {
+    // Idle — use phase2 sprite when in phase 2+
+    useSpr = phase>=2 ? (sprites['thanatos_phase2']||sprites['thanatos_idle']) : sprites['thanatos_idle'];
+  }
 
-  const useSpr = anim==='attack'&&attackSpr ? attackSpr : spr;
+  // Phase 3 rage aura
+  if(phase===3){
+    const rageAlpha=0.12+Math.sin(G.elapsed*6)*0.06;
+    ctx.fillStyle=`rgba(180,0,40,${rageAlpha})`;
+    ctx.beginPath();ctx.ellipse(tx,ty-CHAR_H*0.4,CHAR_W*0.6,CHAR_H*0.5,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // Hit flicker
+  const hitFlicker=anim==='hit'&&Math.sin(G.elapsed*20)>0;
 
   if(useSpr){
-    ctx.save();ctx.scale(-1,1);
-    ctx.drawImage(useSpr,-(tx+40),ty-110,80,110);
+    ctx.save();
+    if(hitFlicker) ctx.globalAlpha=0.35;
+    ctx.scale(-1,1);
+    ctx.drawImage(useSpr,-(tx+CHAR_W/2),ty-CHAR_H,CHAR_W,CHAR_H);
+    ctx.globalAlpha=1;
     ctx.restore();
   } else {
-    // Programmatic Thanatos
+    // Programmatic Thanatos fallback
     ctx.save();
-    const rageAlpha=phase===3?0.15+Math.sin(G.elapsed*6)*0.08:0;
-    if(rageAlpha>0){
-      ctx.fillStyle=`rgba(180,0,40,${rageAlpha})`;
-      ctx.beginPath();ctx.ellipse(tx,ty-60,55,80,0,0,Math.PI*2);ctx.fill();
-    }
+    if(hitFlicker) ctx.globalAlpha=0.35;
 
     // Wings (large, dark)
     const wingW=phase>=2?65:50;
@@ -4630,6 +4655,80 @@ function renderThanatos(){
       ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(Math.random()-0.5)*20,cy-12);ctx.stroke();
     }
   }
+}
+
+// ── Dummy training phase render ─────────────────────────────
+function renderDummy(){
+  // Dark arena background
+  const bgGrad=ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0,'#0c0814');bgGrad.addColorStop(0.7,'#140a1e');bgGrad.addColorStop(1,'#1a0a0a');
+  ctx.fillStyle=bgGrad;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0f0c18';ctx.fillRect(0,FLOOR_Y+10,W,H-FLOOR_Y-10);
+  ctx.fillStyle='rgba(80,50,120,0.6)';ctx.fillRect(0,FLOOR_Y+8,W,3);
+
+  // Training dummy (right side)
+  const dx=480,dy=FLOOR_Y;
+  const dummyPct=Math.max(0,G.dummyHP/G.dummyHPMax);
+  // Dummy body
+  ctx.fillStyle='rgba(60,40,80,0.9)';
+  ctx.fillRect(dx-20,dy-100,40,90);
+  ctx.fillStyle='rgba(80,60,100,0.9)';
+  ctx.beginPath();ctx.arc(dx,dy-110,22,0,Math.PI*2);ctx.fill();
+  // HP bar
+  ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(dx-30,dy-140,60,8);
+  ctx.fillStyle=dummyPct>0.5?'#a855f7':'#ef4444';
+  ctx.fillRect(dx-30,dy-140,60*dummyPct,8);
+  // Label
+  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='10px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText('TRAINING DUMMY',dx,dy-148);
+  if(G.dummyComplete){ctx.fillStyle='#4ade80';ctx.font='bold 14px "Segoe UI"';ctx.fillText('DESTROYED!',dx,dy-80);}
+  ctx.textAlign='left';
+
+  // Eros
+  renderEros();
+
+  // Arrows
+  G.arrows.forEach(a=>{
+    const spr=sprites['arrow_proj'];
+    if(spr){ctx.drawImage(spr,a.x-24,a.y-6,48,12);}
+    else{ctx.fillStyle='#f0d060';ctx.fillRect(a.x-22,a.y-2,44,4);}
+  });
+
+  // Dummy bolts
+  G.dummyArrows.forEach(b=>{
+    ctx.fillStyle='#6d28d9';ctx.fillRect(b.x-20,b.y-4,40,8);
+    ctx.fillStyle='rgba(140,80,220,0.4)';
+    ctx.beginPath();ctx.ellipse(b.x,b.y,24,8,0,0,Math.PI*2);ctx.fill();
+  });
+
+  // Particles
+  G.particles.forEach(p=>{
+    ctx.globalAlpha=Math.max(0,p.life/p.ml);ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // Hit flash
+  if(G.hitFlash>0){ctx.fillStyle=G.flashColor;ctx.fillRect(0,0,W,H);}
+
+  // Health bar for Eros
+  const erosPct=Math.max(0,G.erosHP/EROS_HP_MAX);
+  ctx.fillStyle='rgba(0,0,0,0.8)';rr(ctx,10,10,200,24,6);ctx.fill();
+  ctx.fillStyle='#f0d68a';ctx.font='bold 11px "Segoe UI"';ctx.textAlign='left';
+  ctx.fillText('EROS',16,24);
+  ctx.fillStyle=erosPct>0.5?'#4ade80':'#fbbf24';
+  rr(ctx,60,14,144*erosPct,14,3);ctx.fill();
+
+  // Instructions
+  ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,W/2-170,H-28,340,22,4);ctx.fill();
+  ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='11px "Segoe UI"';ctx.textAlign='center';
+  ctx.fillText('Practice: Shoot (Z/click) · Shield (Space/right-click) · Dash (X/dbl-click)',W/2,H-13);
+
+  // Training banner
+  ctx.fillStyle='rgba(0,0,0,0.5)';rr(ctx,W/2-80,46,160,24,4);ctx.fill();
+  ctx.fillStyle='#fbbf24';ctx.font='bold 12px "Segoe UI"';
+  ctx.fillText('⚔ TRAINING PHASE',W/2,62);
+  ctx.textAlign='left';
 }
 
 function renderHealthBars(){
