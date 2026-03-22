@@ -4302,7 +4302,7 @@ function render(){
   G.thanShades.forEach(s=>{
     const alpha = s.dead ? Math.max(0,s.deathTimer/0.4)*0.6 : 0.85;
     const spr=sprites['shade_soldier'];
-    const shadeH=90, shadeW=55;
+    const shadeH=140, shadeW=85;
     if(spr){
       ctx.globalAlpha=alpha;
       ctx.drawImage(spr,s.x-shadeW/2,FLOOR_Y-shadeH,shadeW,shadeH);
@@ -4310,13 +4310,13 @@ function render(){
     } else {
       ctx.globalAlpha=alpha;
       ctx.fillStyle='rgba(80,60,140,0.9)';
-      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-45,16,35,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-82,12,14,0,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle='rgba(140,100,180,0.8)';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(s.x-18,FLOOR_Y-95);ctx.lineTo(s.x-18,FLOOR_Y-5);ctx.stroke();
+      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-55,22,50,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(s.x,FLOOR_Y-110,16,18,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(140,100,180,0.8)';ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(s.x-22,FLOOR_Y-130);ctx.lineTo(s.x-22,FLOOR_Y-5);ctx.stroke();
       ctx.fillStyle='rgba(220,230,255,0.9)';
-      ctx.beginPath();ctx.arc(s.x-5,FLOOR_Y-84,3,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.arc(s.x+5,FLOOR_Y-84,3,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(s.x-6,FLOOR_Y-114,4,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(s.x+6,FLOOR_Y-114,4,0,Math.PI*2);ctx.fill();
       ctx.globalAlpha=1;
     }
   });
@@ -4324,55 +4324,45 @@ function render(){
   // ── Arrows ──
   G.arrows.forEach(a=>{
     const spr=sprites['arrow_proj'];
-    const aw=90, ah=34;
-    // Bright energy trail — fully opaque gold streak
-    ctx.fillStyle='rgba(255,220,60,0.6)';
-    ctx.beginPath();ctx.ellipse(a.x-20,a.y,60,10,0,0,Math.PI*2);ctx.fill();
-    // Hot white-gold core glow
-    ctx.fillStyle='rgba(255,255,200,0.5)';
-    ctx.beginPath();ctx.ellipse(a.x+5,a.y,35,18,0,0,Math.PI*2);ctx.fill();
+    const aw=130, ah=50;
     if(spr){
       ctx.drawImage(spr,a.x-aw/2,a.y-ah/2,aw,ah);
     } else {
-      // Big opaque gold fireball
+      // Big solid gold arrow — no glow, just shape
       ctx.fillStyle='#ffd700';
-      ctx.beginPath();ctx.ellipse(a.x+5,a.y,32,16,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#fff8d0';
-      ctx.beginPath();ctx.ellipse(a.x+10,a.y,18,10,0,0,Math.PI*2);ctx.fill();
-      // Arrow tip
-      ctx.fillStyle='#ffec80';
-      ctx.beginPath();ctx.moveTo(a.x+40,a.y);ctx.lineTo(a.x+25,a.y-12);ctx.lineTo(a.x+25,a.y+12);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.ellipse(a.x,a.y,38,18,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fffbe0';
+      ctx.beginPath();ctx.ellipse(a.x+5,a.y,22,11,0,0,Math.PI*2);ctx.fill();
+      // Bold arrow tip
+      ctx.fillStyle='#ffd700';
+      ctx.beginPath();ctx.moveTo(a.x+48,a.y);ctx.lineTo(a.x+28,a.y-16);ctx.lineTo(a.x+28,a.y+16);ctx.closePath();ctx.fill();
+      // Tail feathers
+      ctx.fillStyle='#e6b800';
+      ctx.beginPath();ctx.moveTo(a.x-38,a.y);ctx.lineTo(a.x-50,a.y-12);ctx.lineTo(a.x-30,a.y);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(a.x-38,a.y);ctx.lineTo(a.x-50,a.y+12);ctx.lineTo(a.x-30,a.y);ctx.closePath();ctx.fill();
     }
   });
 
   // ── Shadow bolts ──
   G.shadowBolts.forEach(b=>{
     const spr=sprites['shadow_bolt'];
-    const bw=100, bh=38;
-    // Bright purple energy trail
-    ctx.fillStyle='rgba(160,60,255,0.5)';
-    ctx.beginPath();ctx.ellipse(b.x+20,b.y,65,12,0,0,Math.PI*2);ctx.fill();
-    // Menacing core glow
-    ctx.fillStyle='rgba(200,100,255,0.45)';
-    ctx.beginPath();ctx.ellipse(b.x-5,b.y,40,20,0,0,Math.PI*2);ctx.fill();
+    const bw=140, bh=55;
     if(spr){
       ctx.drawImage(spr,b.x-bw/2,b.y-bh/2,bw,bh);
     } else {
-      // Big opaque purple death orb
+      // Big solid purple death bolt — no glow, just shape
       ctx.fillStyle='#7c3aed';
-      ctx.beginPath();ctx.ellipse(b.x-5,b.y,35,18,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#c084fc';
-      ctx.beginPath();ctx.ellipse(b.x-8,b.y,20,12,0,0,Math.PI*2);ctx.fill();
-      // White-hot center
-      ctx.fillStyle='rgba(230,200,255,0.9)';
-      ctx.beginPath();ctx.ellipse(b.x-10,b.y,10,7,0,0,Math.PI*2);ctx.fill();
-      // Flying sparks
-      for(let i=0;i<2;i++){
-        const sx=b.x+20+Math.random()*30;
-        const sy=b.y+(Math.random()-0.5)*bh;
-        ctx.fillStyle='rgba(200,150,255,0.8)';
-        ctx.beginPath();ctx.arc(sx,sy,2+Math.random()*2,0,Math.PI*2);ctx.fill();
-      }
+      ctx.beginPath();ctx.ellipse(b.x,b.y,42,20,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#a855f7';
+      ctx.beginPath();ctx.ellipse(b.x-3,b.y,28,14,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#e0d0ff';
+      ctx.beginPath();ctx.ellipse(b.x-6,b.y,12,8,0,0,Math.PI*2);ctx.fill();
+      // Jagged bolt tip pointing left (toward Eros)
+      ctx.fillStyle='#6d28d9';
+      ctx.beginPath();ctx.moveTo(b.x-48,b.y);ctx.lineTo(b.x-30,b.y-18);ctx.lineTo(b.x-34,b.y-4);
+      ctx.lineTo(b.x-24,b.y-10);ctx.lineTo(b.x-28,b.y);
+      ctx.lineTo(b.x-24,b.y+10);ctx.lineTo(b.x-34,b.y+4);
+      ctx.lineTo(b.x-30,b.y+18);ctx.closePath();ctx.fill();
     }
   });
 
@@ -4558,30 +4548,16 @@ function renderThanatos(){
   const anim=G.thanAnim;
   const phase=G.thanPhase;
 
-  // Shadow — scales with phase
-  const shadowR=phase>=2?45:35;
-  ctx.fillStyle='rgba(0,0,0,0.4)';
-  ctx.beginPath();ctx.ellipse(tx,ty+2,shadowR,10,0,0,Math.PI*2);ctx.fill();
-
   // Sprite selection — use all available poses
   let useSpr;
   if(anim==='attack'){
-    // Use the new shadow bolt casting pose when shooting
     useSpr = sprites['thanatos_shoot'] || sprites['thanatos_attack'] || sprites['thanatos_idle'];
   } else if(anim==='hit'){
     useSpr = phase>=2 ? (sprites['thanatos_phase2']||sprites['thanatos_idle']) : sprites['thanatos_idle'];
   } else if(anim==='phase2'){
     useSpr = sprites['thanatos_phase2'] || sprites['thanatos_idle'];
   } else {
-    // Idle — use phase2 sprite when in phase 2+
     useSpr = phase>=2 ? (sprites['thanatos_phase2']||sprites['thanatos_idle']) : sprites['thanatos_idle'];
-  }
-
-  // Phase 3 rage aura
-  if(phase===3){
-    const rageAlpha=0.12+Math.sin(G.elapsed*6)*0.06;
-    ctx.fillStyle=`rgba(180,0,40,${rageAlpha})`;
-    ctx.beginPath();ctx.ellipse(tx,ty-CHAR_H*0.4,CHAR_W*0.6,CHAR_H*0.5,0,0,Math.PI*2);ctx.fill();
   }
 
   // Hit flicker
