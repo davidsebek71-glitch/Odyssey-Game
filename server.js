@@ -9619,9 +9619,12 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
         if (portalForUnlock) {
           // Map portal myth_name to assignments_ref myth_god naming used in unlock_trigger_ref
           const triggerNameMap = {
-            'Orpheus':          'Orpheus Quiz',
-            'Echo and Narcissus': 'Echo and Narcissus Quiz',
-            'Eros and Psyche':  'Eros and Psyche Quiz'
+            'Orpheus':              'Orpheus Quiz',
+            'Orpheus & Eurydice':   'Orpheus Quiz',
+            'Echo and Narcissus':   'Echo and Narcissus Quiz',
+            'Echo & Narcissus':     'Echo and Narcissus Quiz',
+            'Eros and Psyche':      'Eros and Psyche Quiz',
+            'Eros & Psyche':        'Eros and Psyche Quiz'
           };
           const triggerName = triggerNameMap[portalForUnlock.myth_name];
           if (triggerName) {
