@@ -2909,21 +2909,20 @@ function render() {
   const styxSpr=sprites['scene_styx'];
 
   if(skyBgSpr){
-    // sky_bg.png is 1024x1536 — tile vertically, draw only in play area (right of cliff)
+    // sky_bg.png — draw across FULL canvas width so sky shows through cliff transparency
     const srcW = skyBgSpr.naturalWidth||skyBgSpr.width||1024;
     const srcH = skyBgSpr.naturalHeight||skyBgSpr.height||1536;
-    const playW = W - CLIFF_W; // 520px play area
-    const tileH = srcH * (playW / srcW); // maintain aspect ratio
+    const tileH = srcH * (W / srcW); // scale to full canvas width
     const off = (G.scrolled * 0.15) % tileH; // slow parallax scroll
-    ctx.drawImage(skyBgSpr, 0,0, srcW,srcH,  CLIFF_W,off,       playW,tileH);
-    ctx.drawImage(skyBgSpr, 0,0, srcW,srcH,  CLIFF_W,off-tileH, playW,tileH);
+    ctx.drawImage(skyBgSpr, 0,0, srcW,srcH,  0,off,       W,tileH);
+    ctx.drawImage(skyBgSpr, 0,0, srcW,srcH,  0,off-tileH, W,tileH);
   } else {
     // ── Programmatic bright canyon sky ──
     const grad=ctx.createLinearGradient(0,0,0,H);
     grad.addColorStop(0,'#4a80c4');   // deep cornflower blue at top
     grad.addColorStop(0.5,'#6aa0d8');  // mid blue
     grad.addColorStop(1,'#88b8e8');    // lighter horizon blue
-    ctx.fillStyle=grad;ctx.fillRect(CLIFF_W,0,W-CLIFF_W,H);
+    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
 
     // Background clouds — fluffy white, scrolling slowly, no lightning
     const cloudScroll=(G.scrolled*0.12)%H;
@@ -2965,10 +2964,7 @@ function render() {
     ctx.closePath();ctx.fill();
   }
 
-  // ── CLIFF WALL — left edge, brown stone tile ──
-  // Fill cliff zone with stone base color first — eliminates any bleed-through
-  ctx.fillStyle='#5c3d1e';
-  ctx.fillRect(0,0,CLIFF_W,H);
+  // ── CLIFF WALL — left edge, stone tile over sky ──
   const cliffWallSpr = sprites['cliff_wall'];
 
   if(cliffWallSpr){
