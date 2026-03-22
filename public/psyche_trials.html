@@ -165,11 +165,13 @@ loadSprite('eros_dash','Eros_Wing_Dash.png');
 loadSprite('eros_shield','Eros_Wing_Shield.png');
 loadSprite('thanatos_idle','Thanatos_Combat_Stance.png');
 loadSprite('thanatos_attack','Thanatos_Attack.png');
+loadSprite('thanatos_shoot','Thanatos_Shadow_Bolt.png');
 loadSprite('thanatos_phase2','Thanatos_Phase_2.png');
 loadSprite('arrow_proj','Projectile_Arrow.png');
 loadSprite('shadow_bolt','Projectile_Shadow_Bolt.png');
 loadSprite('shade_soldier','Soldier_Shade.png');
 loadSprite('psyche_down','Psyche_Unconscious.png');
+loadSprite('psyche_kneel','Psyche_Kneeling.png');
 loadScene('arena_bg','scene_arena_background.png');
 
 // ================================================================
@@ -4322,35 +4324,68 @@ function render(){
   // ── Arrows ──
   G.arrows.forEach(a=>{
     const spr=sprites['arrow_proj'];
+    const aw=80, ah=28; // SF2-sized projectile
+    // Glow trail behind arrow
+    const trailGrad=ctx.createLinearGradient(a.x-60,a.y,a.x+aw/2,a.y);
+    trailGrad.addColorStop(0,'rgba(255,215,0,0)');
+    trailGrad.addColorStop(1,'rgba(255,215,0,0.35)');
+    ctx.fillStyle=trailGrad;
+    ctx.beginPath();ctx.ellipse(a.x-10,a.y,50,14,0,0,Math.PI*2);ctx.fill();
+    // Outer glow
+    ctx.fillStyle='rgba(255,240,100,0.2)';
+    ctx.beginPath();ctx.ellipse(a.x+10,a.y,aw*0.6,ah,0,0,Math.PI*2);ctx.fill();
     if(spr){
-      ctx.drawImage(spr,a.x-24,a.y-6,48,12);
+      ctx.drawImage(spr,a.x-aw/2,a.y-ah/2,aw,ah);
     } else {
-      ctx.fillStyle='#f0d060';
-      ctx.fillRect(a.x-22,a.y-2,44,4);
-      ctx.fillStyle='#fff8c0';
-      ctx.fillRect(a.x+16,a.y-3,8,6);
-      // Tip
+      // Bold gold arrow — chunky SF2 hadouken style
       ctx.fillStyle='#ffd700';
-      ctx.beginPath();ctx.moveTo(a.x+22,a.y);ctx.lineTo(a.x+14,a.y-4);ctx.lineTo(a.x+14,a.y+4);ctx.closePath();ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(a.x+aw/2,a.y);
+      ctx.lineTo(a.x+10,a.y-ah/2);
+      ctx.lineTo(a.x-aw/2+10,a.y-ah/3);
+      ctx.lineTo(a.x-aw/2,a.y);
+      ctx.lineTo(a.x-aw/2+10,a.y+ah/3);
+      ctx.lineTo(a.x+10,a.y+ah/2);
+      ctx.closePath();ctx.fill();
+      // Inner bright core
+      ctx.fillStyle='#fffbe0';
+      ctx.beginPath();ctx.ellipse(a.x+5,a.y,18,8,0,0,Math.PI*2);ctx.fill();
     }
   });
 
   // ── Shadow bolts ──
   G.shadowBolts.forEach(b=>{
     const spr=sprites['shadow_bolt'];
+    const bw=90, bh=32; // Big, menacing
+    // Dark energy trail
+    const trailGrad=ctx.createLinearGradient(b.x+60,b.y,b.x-bw/2,b.y);
+    trailGrad.addColorStop(0,'rgba(100,20,200,0)');
+    trailGrad.addColorStop(1,'rgba(100,20,200,0.35)');
+    ctx.fillStyle=trailGrad;
+    ctx.beginPath();ctx.ellipse(b.x+10,b.y,55,16,0,0,Math.PI*2);ctx.fill();
+    // Outer menace glow
+    ctx.fillStyle='rgba(160,40,255,0.18)';
+    ctx.beginPath();ctx.ellipse(b.x-10,b.y,bw*0.6,bh,0,0,Math.PI*2);ctx.fill();
     if(spr){
-      ctx.drawImage(spr,b.x-32,b.y-10,64,20);
+      ctx.drawImage(spr,b.x-bw/2,b.y-bh/2,bw,bh);
     } else {
-      // Larger, brighter programmatic bolt
+      // Chunky purple death bolt
       ctx.fillStyle='#6d28d9';
-      ctx.fillRect(b.x-28,b.y-5,56,10);
-      ctx.fillStyle='rgba(180,120,255,0.8)';
-      ctx.fillRect(b.x-28,b.y-7,12,14);
-      ctx.fillStyle='rgba(120,50,200,0.6)';
-      ctx.fillRect(b.x+12,b.y-3,20,6);
-      // Glow trail
-      ctx.fillStyle='rgba(140,60,220,0.25)';
-      ctx.beginPath();ctx.ellipse(b.x,b.y,34,12,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(b.x-bw/2,b.y);
+      ctx.lineTo(b.x-10,b.y-bh/2);
+      ctx.lineTo(b.x+bw/2-10,b.y-bh/3);
+      ctx.lineTo(b.x+bw/2,b.y);
+      ctx.lineTo(b.x+bw/2-10,b.y+bh/3);
+      ctx.lineTo(b.x-10,b.y+bh/2);
+      ctx.closePath();ctx.fill();
+      // Hot purple core
+      ctx.fillStyle='rgba(200,140,255,0.9)';
+      ctx.beginPath();ctx.ellipse(b.x-5,b.y,22,10,0,0,Math.PI*2);ctx.fill();
+      // Spark flickers
+      const sparkX=b.x-bw/2+Math.random()*20;
+      ctx.fillStyle='rgba(220,180,255,0.7)';
+      ctx.beginPath();ctx.arc(sparkX,b.y+(Math.random()-0.5)*bh,3,0,Math.PI*2);ctx.fill();
     }
   });
 
@@ -4409,36 +4444,36 @@ function render(){
 }
 
 function renderPsyche(){
-  // Psyche unconscious — behind Thanatos, clearly visible
-  const px=THANATOS_X + 80, py=FLOOR_Y;
+  // Psyche kneeling — behind Thanatos, clearly visible as the rescue objective
+  const px=THANATOS_X + 90, py=FLOOR_Y;
+  const psycheH=130, psycheW=90;
   const pulse=0.5+Math.sin(G.psychePulse*1.8)*0.3;
 
-  // Glow around her
-  const glow=ctx.createRadialGradient(px,py-40,0,px,py-40,80);
-  glow.addColorStop(0,`rgba(240,200,100,${pulse*0.18})`);
+  // Soft golden glow around her
+  const glow=ctx.createRadialGradient(px,py-psycheH*0.4,0,px,py-psycheH*0.4,90);
+  glow.addColorStop(0,`rgba(240,200,100,${pulse*0.15})`);
   glow.addColorStop(1,'rgba(220,180,80,0)');
-  ctx.fillStyle=glow;ctx.fillRect(px-80,py-120,160,130);
+  ctx.fillStyle=glow;ctx.fillRect(px-90,py-psycheH-20,180,psycheH+40);
 
-  // Stone slab she lies on
-  ctx.fillStyle='rgba(60,50,70,0.8)';
-  rr(ctx,px-50,py-12,100,16,4);ctx.fill();
-  ctx.strokeStyle='rgba(100,80,120,0.5)';ctx.lineWidth=1;
-  rr(ctx,px-50,py-12,100,16,4);ctx.stroke();
-
-  const spr=sprites['psyche_down'];
+  const spr=sprites['psyche_kneel']||sprites['psyche_down'];
   if(spr){
-    ctx.drawImage(spr,px-55,py-55,110,45);
+    ctx.drawImage(spr,px-psycheW/2,py-psycheH,psycheW,psycheH);
   } else {
-    // Psyche lying down — programmatic, larger
+    // Programmatic kneeling Psyche
     ctx.fillStyle='rgba(220,210,190,0.9)';
-    ctx.beginPath();ctx.ellipse(px,py-28,50,16,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(px,py-50,22,40,0,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='rgba(200,185,165,0.9)';
-    ctx.beginPath();ctx.ellipse(px+38,py-36,14,12,0.2,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(px,py-95,14,14,0,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='rgba(90,55,25,0.9)';
-    ctx.beginPath();ctx.ellipse(px+42,py-42,10,8,0.5,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(px-4,py-105,12,10,-0.3,0,Math.PI*2);ctx.fill();
   }
+
+  // Gold pulse ring
+  ctx.strokeStyle=`rgba(240,200,80,${pulse*0.35})`;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(px,py-psycheH*0.4,psycheW*0.55,psycheH*0.5,0,0,Math.PI*2);ctx.stroke();
+
   ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 11px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText('Psyche',px,py+18);
+  ctx.fillText('Psyche',px,py+16);
   ctx.textAlign='left';
 }
 
@@ -4559,12 +4594,11 @@ function renderThanatos(){
   // Sprite selection — use all available poses
   let useSpr;
   if(anim==='attack'){
-    useSpr = sprites['thanatos_attack'] || sprites['thanatos_idle'];
+    // Use the new shadow bolt casting pose when shooting
+    useSpr = sprites['thanatos_shoot'] || sprites['thanatos_attack'] || sprites['thanatos_idle'];
   } else if(anim==='hit'){
-    // Flash the idle sprite (hit flicker handles the visual)
     useSpr = phase>=2 ? (sprites['thanatos_phase2']||sprites['thanatos_idle']) : sprites['thanatos_idle'];
   } else if(anim==='phase2'){
-    // Phase transition pose
     useSpr = sprites['thanatos_phase2'] || sprites['thanatos_idle'];
   } else {
     // Idle — use phase2 sprite when in phase 2+
@@ -4584,8 +4618,8 @@ function renderThanatos(){
   if(useSpr){
     ctx.save();
     if(hitFlicker) ctx.globalAlpha=0.35;
-    ctx.scale(-1,1);
-    ctx.drawImage(useSpr,-(tx+CHAR_W/2),ty-CHAR_H,CHAR_W,CHAR_H);
+    // Sprites already face left toward Eros — no flip needed
+    ctx.drawImage(useSpr,tx-CHAR_W/2,ty-CHAR_H,CHAR_W,CHAR_H);
     ctx.globalAlpha=1;
     ctx.restore();
   } else {
