@@ -115,6 +115,7 @@ loadSprite('harpy','hazard_eagle_descent.png');
 loadSprite('cave_rocks','cave_rocks.png');
 loadSprite('wind_streak','wind_streak.png');
 loadScene('cliff_wall','cliff_wall.png');
+loadScene('sky_bg','sky_bg.png');
 loadScene('mountain_bg','mountain_bg.png');
 loadScene('scene_cliffs','scene_cliffs_stormy.png');
 loadScene('scene_styx','scene_styx_background.png');
@@ -2597,8 +2598,6 @@ function freshState() {
     hazards: [],
     hazSpawnTimer: 1.2,
     hazSpawnInterval: 2.0,
-    rocks: [],
-    rockSpawnTimer: 4.0,
     particles: [],
     summitTimer: 0,
     summitPhase: 0,
@@ -2649,17 +2648,6 @@ function spawnHazard(phase) {
     h.vy = -(spd*0.9+30+Math.random()*30);
   }
   G.hazards.push(h);
-}
-
-function spawnRock() {
-  // Single ledge jutting 200px from cliff edge into lane 1 — eagle must dodge right
-  G.rocks.push({
-    x: CLIFF_W,           // starts at cliff edge
-    y: -50,
-    w: 200,               // juts 200px into play area — blocks lane 1
-    h: 45,
-    spd: G.currentScroll || SCROLL_START
-  });
 }
 
 // ── Particles ────────────────────────────────────────────────
@@ -2774,11 +2762,9 @@ function update(dt) {
       if(ascentProgress>0.5&&Math.random()<0.35) spawnHazard('ascent');
       G.hazSpawnTimer=spawnInterval+Math.random()*0.35;
     }
-    G.rockSpawnTimer-=dt;
-    if(G.rockSpawnTimer<=0){spawnRock();G.rockSpawnTimer=2.8+Math.random()*2.2;}
     if(G.scrolled>=G.ascentDist){
       G.phase='summit';G.summitTimer=5.0;G.summitPhase=0;
-      G.hazards=[];G.rocks=[];G.windActive=false;G.vy=-50;
+      G.hazards=[];G.windActive=false;G.vy=-50;
       spawnParticles(G.ex,G.ey,25,'#80d8ff');
     }
   }
@@ -2800,27 +2786,10 @@ function update(dt) {
     const prog=Math.min(1,G.scrolled/G.descentDist);
     const interval=G.hazSpawnInterval*(1-prog*0.4);
     if(G.hazSpawnTimer<=0){spawnHazard('descent');G.hazSpawnTimer=interval+Math.random()*0.4;}
-    G.rockSpawnTimer-=dt;
-    if(G.rockSpawnTimer<=0){spawnRock();G.rockSpawnTimer=3.5+Math.random()*2.0;}
     if(G.scrolled>=G.descentDist) G.phase='complete';
   }
 
   // ── ROCKS — scroll with world ──
-  G.rocks=G.rocks.filter(r=>{
-    r.y+=currentScroll*dt;
-    if(r.y>H+80) return false;
-    if(G.gripHitTimer<=0&&G.ex<r.x+r.w&&G.ey>r.y-20&&G.ey<r.y+r.h+20){
-      G.grip=Math.max(0,G.grip-GRIP_HIT*1.5);
-      G.gripHitTimer=0.9;G.hits++;
-      G.targetX=Math.min(W-40,G.ex+100);
-      G.vy=FLAP_IMPULSE*0.35;
-      spawnParticles(G.ex,G.ey,10,'#8080a0');
-      showFloat(G.ex,G.ey-38,'💥 Rock!','#c0c0e0',13);
-      if(G.grip<=0) triggerJugSlip();
-    }
-    return true;
-  });
-
   // ── HAZARDS — all rush toward eagle ──
   G.hazards=G.hazards.filter(h=>{
     h.timer+=dt;
@@ -2858,7 +2827,7 @@ function triggerJugSlip(){
   showFloat(W/2,H/2,'💧 Jug slipped!','#ef4444',16);
   shake();
   setTimeout(()=>{
-    G.grip=GRIP_MAX;G.vy=0;G.hazards=[];G.rocks=[];
+    G.grip=GRIP_MAX;G.vy=0;G.hazards=[];
     if(G.phase==='ascent') G.scrolled=Math.max(0,G.scrolled-500);
     if(G.phase==='descent') G.scrolled=Math.max(0,G.scrolled-400);
     if(GAME.totalHearts<=0) G.phase='complete';
@@ -2880,17 +2849,21 @@ function render() {
   const styxSpr=sprites['scene_styx'];
 
   if(skyBgSpr){
-    // New sky tile — seamless
-    const off=(G.scrolled*0.2)%H;
-    ctx.drawImage(skyBgSpr,0,off,W,H);
-    ctx.drawImage(skyBgSpr,0,off-H,W,H);
+    // sky_bg.png is 1024x1536 — tile vertically, draw only in play area (right of cliff)
+    const srcW = skyBgSpr.naturalWidth||skyBgSpr.width||1024;
+    const srcH = skyBgSpr.naturalHeight||skyBgSpr.height||1536;
+    const playW = W - CLIFF_W; // 520px play area
+    const tileH = srcH * (playW / srcW); // maintain aspect ratio
+    const off = (G.scrolled * 0.15) % tileH; // slow parallax scroll
+    ctx.drawImage(skyBgSpr, 0,0, srcW,srcH,  CLIFF_W,off,       playW,tileH);
+    ctx.drawImage(skyBgSpr, 0,0, srcW,srcH,  CLIFF_W,off-tileH, playW,tileH);
   } else {
     // ── Programmatic bright canyon sky ──
     const grad=ctx.createLinearGradient(0,0,0,H);
     grad.addColorStop(0,'#4a80c4');   // deep cornflower blue at top
     grad.addColorStop(0.5,'#6aa0d8');  // mid blue
     grad.addColorStop(1,'#88b8e8');    // lighter horizon blue
-    ctx.fillStyle=grad;ctx.fillRect(130,0,W-130,H);
+    ctx.fillStyle=grad;ctx.fillRect(CLIFF_W,0,W-CLIFF_W,H);
 
     // Background clouds — fluffy white, scrolling slowly, no lightning
     const cloudScroll=(G.scrolled*0.12)%H;
@@ -2933,22 +2906,22 @@ function render() {
   }
 
   // ── CLIFF WALL — left edge, brown stone tile ──
-  // cliff_wall.png: 1024x1536, stone occupies left 73% (~746px), white bg on right
-  // We display the stone portion at CLIFF_W wide, tile vertically
   const cliffWallSpr = sprites['cliff_wall'];
 
   if(cliffWallSpr){
-    const srcW = cliffWallSpr.naturalWidth  || cliffWallSpr.width  || 1024;
     const srcH = cliffWallSpr.naturalHeight || cliffWallSpr.height || 1536;
-    // Stone is centered: starts at ~290px, ends at ~723px (433px wide)
+    // Stone centered in image: x=290 to x=723 (433px wide)
     const srcStoneX = 290;
     const srcStoneW = 433;
     const tileH = srcH * (CLIFF_W / srcStoneW);
     const off = (G.scrolled * 1.0) % tileH;
+    // Draw stone slightly wider than CLIFF_W so jagged edge overruns the clip
+    // This hides any white fringe at the right edge
+    const drawW = CLIFF_W + 12;
     ctx.save();
     ctx.beginPath(); ctx.rect(0,0,CLIFF_W,H); ctx.clip();
-    ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off,       CLIFF_W,tileH);
-    ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off-tileH, CLIFF_W,tileH);
+    ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off,       drawW,tileH);
+    ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off-tileH, drawW,tileH);
     ctx.restore();
   } else {
     // Programmatic fallback — warm brown stone bands matching cliff_wall palette
@@ -3024,97 +2997,51 @@ function render() {
     ctx.textAlign='left';
   }
 
-  // ── ROCK LEDGE — brown stone jutting from cliff face ──
-  G.rocks.forEach(r=>{
-    const tipX = r.x + r.w;
-    ctx.save();
-    // Use cliff_wall sprite clipped to ledge shape if available
-    const rwSpr = sprites['cliff_wall'];
-    if(rwSpr){
-      const srcH = rwSpr.naturalHeight||rwSpr.height||1536;
-      // Clip to ledge shape
-      ctx.beginPath();
-      ctx.moveTo(0, r.y);
-      ctx.lineTo(tipX, r.y);
-      ctx.lineTo(tipX-12, r.y+r.h);
-      ctx.lineTo(0, r.y+r.h);
-      ctx.closePath();
-      ctx.clip();
-      // Draw stone strip from same source crop as cliff wall
-      ctx.drawImage(rwSpr, 290,0, 433,srcH, 0,r.y-r.h*2, CLIFF_W*6,r.h*5);
-    } else {
-      // Programmatic — warm brown matching cliff palette
-      // Top surface (bright)
-      ctx.fillStyle='#7a5228';
-      ctx.fillRect(0, r.y, tipX, r.h*0.3);
-      // Main face
-      ctx.fillStyle='#5c3d1a';
-      ctx.beginPath();
-      ctx.moveTo(0,r.y+r.h*0.3);
-      ctx.lineTo(tipX,r.y+r.h*0.3);
-      ctx.lineTo(tipX-12,r.y+r.h);
-      ctx.lineTo(0,r.y+r.h);
-      ctx.closePath();ctx.fill();
-      // Underside shadow
-      ctx.fillStyle='#3a2008';
-      ctx.beginPath();
-      ctx.moveTo(tipX,r.y+r.h*0.3);
-      ctx.lineTo(tipX-12,r.y+r.h);
-      ctx.lineTo(tipX-4,r.y+r.h+4);
-      ctx.lineTo(tipX+6,r.y+r.h*0.3+3);
-      ctx.closePath();ctx.fill();
-    }
-    ctx.restore();
-    // Danger glow at the tip
-    const rg=ctx.createRadialGradient(tipX-20,r.y+r.h*0.5,0,tipX-20,r.y+r.h*0.5,70);
-    rg.addColorStop(0,'rgba(220,80,50,0.3)');
-    rg.addColorStop(1,'rgba(180,40,20,0)');
-    ctx.fillStyle=rg;ctx.fillRect(tipX-80,r.y-15,100,r.h+30);
-  });
-
   // ── HAZARDS ──
   G.hazards.forEach(h=>{
     if(h.type===HZ.CLOUD){
-      const spr=sprites['storm_cloud'];
-      if(spr){
-        ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
-      } else {
-        // Pure storm cloud — no lightning, just a dark wide obstacle
-        ctx.fillStyle='rgba(25,15,50,0.92)';
-        ctx.beginPath();ctx.ellipse(h.x,h.y,h.w/2,h.h/2,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='rgba(40,28,72,0.8)';
-        ctx.beginPath();ctx.ellipse(h.x-h.w*0.22,h.y-h.h*0.15,h.w/3,h.h/2.2,0,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(h.x+h.w*0.2,h.y-h.h*0.1,h.w/3.2,h.h/2.5,0,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(h.x+h.w*0.05,h.y-h.h*0.22,h.w/4,h.h/2.8,0,0,Math.PI*2);ctx.fill();
-      }
+      // Always draw programmatic cloud — sprite has lightning baked in
+      // Dark storm cloud, reads clearly against bright sky
+      ctx.fillStyle='rgba(80,85,110,0.88)';
+      ctx.beginPath();ctx.ellipse(h.x,h.y,h.w/2,h.h/2,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(95,100,130,0.75)';
+      ctx.beginPath();ctx.ellipse(h.x-h.w*0.22,h.y-h.h*0.18,h.w/2.8,h.h/2.0,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(h.x+h.w*0.18,h.y-h.h*0.14,h.w/3.0,h.h/2.2,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(h.x+h.w*0.02,h.y-h.h*0.28,h.w/3.5,h.h/2.5,0,0,Math.PI*2);ctx.fill();
+      // Dark underside for depth
+      ctx.fillStyle='rgba(50,52,70,0.6)';
+      ctx.beginPath();ctx.ellipse(h.x,h.y+h.h*0.15,h.w/2.2,h.h/3.5,0,0,Math.PI*2);ctx.fill();
     } else if(h.type===HZ.HARPY){
       const spr=sprites['harpy'];
       ctx.save();
+      // Draw shadow/warning below harpy so player can see it coming
+      ctx.fillStyle='rgba(80,0,0,0.2)';
+      ctx.beginPath();ctx.ellipse(h.x,h.y+h.h*0.6,h.w*0.5,12,0,0,Math.PI*2);ctx.fill();
       if(spr){
-        // Flip based on direction toward eagle
+        // Render at 90x75 — big enough to see clearly against sky
+        const dw=90, dh=75;
         const facingLeft=h.x>G.ex;
-        if(facingLeft){ctx.translate(h.x+h.w/2,h.y);ctx.scale(-1,1);ctx.drawImage(spr,-h.w/2,-h.h/2,h.w,h.h);}
-        else ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
-      } else {
-        // Programmatic harpy — dark winged creature with red eyes
-        ctx.fillStyle='#2a1040';
-        ctx.beginPath();ctx.ellipse(h.x,h.y,18,12,0,0,Math.PI*2);ctx.fill();
-        const wd=h.x>G.ex?-1:1;
-        ctx.beginPath();ctx.moveTo(h.x,h.y-4);
-        ctx.lineTo(h.x-wd*45,h.y-28);ctx.lineTo(h.x-wd*30,h.y+2);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.moveTo(h.x,h.y-4);
-        ctx.lineTo(h.x+wd*45,h.y-28);ctx.lineTo(h.x+wd*30,h.y+2);ctx.closePath();ctx.fill();
-        // Red eyes
-        ctx.fillStyle='#cc2020';
-        ctx.beginPath();ctx.arc(h.x+(wd*6),h.y-4,4,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.arc(h.x+(wd*6),h.y-4,2,0,Math.PI*2);
-        ctx.fillStyle='#ff4040';ctx.fill();
-        // Trailing feathers
-        ctx.globalAlpha=0.4;ctx.fillStyle='#3a1560';
-        for(let f=0;f<3;f++){
-          ctx.beginPath();ctx.ellipse(h.x-wd*(f*8),h.y+f*5,5,12,0.5,0,Math.PI*2);ctx.fill();
+        if(facingLeft){
+          ctx.translate(h.x,h.y);ctx.scale(-1,1);
+          ctx.drawImage(spr,-dw/2,-dh/2,dw,dh);
+        } else {
+          ctx.drawImage(spr,h.x-dw/2,h.y-dh/2,dw,dh);
         }
-        ctx.globalAlpha=1;
+      } else {
+        // Programmatic harpy — dark purple with vivid red eyes, large wings
+        ctx.fillStyle='#3a1858';
+        ctx.beginPath();ctx.ellipse(h.x,h.y,22,14,0,0,Math.PI*2);ctx.fill();
+        const wd=h.x>G.ex?-1:1;
+        // Wide swept wings
+        ctx.beginPath();ctx.moveTo(h.x,h.y-6);
+        ctx.lineTo(h.x-wd*60,h.y-38);ctx.lineTo(h.x-wd*40,h.y+4);ctx.closePath();ctx.fill();
+        ctx.beginPath();ctx.moveTo(h.x,h.y-6);
+        ctx.lineTo(h.x+wd*60,h.y-38);ctx.lineTo(h.x+wd*40,h.y+4);ctx.closePath();ctx.fill();
+        // Bright red eyes — visible from distance
+        ctx.fillStyle='#ff2020';
+        ctx.beginPath();ctx.arc(h.x+(wd*7),h.y-5,6,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#ff8080';
+        ctx.beginPath();ctx.arc(h.x+(wd*7),h.y-5,3,0,Math.PI*2);ctx.fill();
       }
       ctx.restore();
     } else if(h.type===HZ.SOUL){
@@ -3333,7 +3260,6 @@ function renderTutorial(){
     '⬆  Phase 1: Fly UP to the Styx summit',
     '   Dodge storm clouds and Aphrodite\'s harpies',
     '   💨 Wind gusts push you sideways — correct fast!',
-    '   Watch out for rock outcrops jutting from the cliff!',
     '',
     '⬇  Phase 2: Fly DOWN — but protect the sacred water',
     '   Press SPACE / ↑ to BRAKE — dive too fast and the jug sloshes!',
