@@ -2668,7 +2668,7 @@ function spawnHazard(phase) {
   const spd = G.currentScroll || SCROLL_START;
 
   if(type === HZ.CLOUD){
-    const laneIdx = 1 + Math.floor(Math.random()*3);
+    const laneIdx = Math.floor(Math.random()*4);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*50;
     h.y = phase==='descent' ? H+70 : -70;
     h.w = 150+Math.random()*70; h.h = 55;
@@ -2676,7 +2676,7 @@ function spawnHazard(phase) {
     // Clouds move at world scroll speed — same as background, feels embedded
     h.vy = phase==='descent' ? -(spd*0.9+20) : spd*0.9+20;
   } else if(type === HZ.HARPY){
-    const laneIdx = 1 + Math.floor(Math.random()*3);
+    const laneIdx = Math.floor(Math.random()*4);
     h.laneCX = LANE_CX[laneIdx]; // store lane center for constrained homing
     h.x = h.laneCX;              // spawn exactly on lane center
     h.w = 80; h.h = 68;          // larger — clearly visible
@@ -2692,7 +2692,7 @@ function spawnHazard(phase) {
       h.vy = spd + 80 + Math.random()*40;
     }
   } else if(type === HZ.SOUL){
-    const laneIdx = 1 + Math.floor(Math.random()*3);
+    const laneIdx = Math.floor(Math.random()*4);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*55;
     h.y = H+55;
     h.w = 70; h.h = 95;
@@ -3132,19 +3132,15 @@ function render() {
     } else if(h.type===HZ.HARPY){
       const spr=sprites['harpy'];
       ctx.save();
-      // Draw shadow/warning below harpy so player can see it coming
-      ctx.fillStyle='rgba(80,0,0,0.2)';
-      ctx.beginPath();ctx.ellipse(h.x,h.y+h.h*0.6,h.w*0.5,12,0,0,Math.PI*2);ctx.fill();
       if(spr){
         // Render at 90x75 — big enough to see clearly against sky
         const dw=90, dh=75;
-        const facingLeft=h.x>G.ex;
-        if(facingLeft){
-          ctx.translate(h.x,h.y);ctx.scale(-1,1);
-          ctx.drawImage(spr,-dw/2,-dh/2,dw,dh);
-        } else {
-          ctx.drawImage(spr,h.x-dw/2,h.y-dh/2,dw,dh);
-        }
+        ctx.translate(h.x,h.y);
+        // During descent, harpies rise from below — flip vertically
+        if(G.phase==='descent') ctx.scale(1,-1);
+        // Face toward eagle horizontally
+        if(h.x>G.ex) ctx.scale(-1,1);
+        ctx.drawImage(spr,-dw/2,-dh/2,dw,dh);
       } else {
         // Programmatic harpy — dark purple with vivid red eyes, large wings
         ctx.fillStyle='#3a1858';
