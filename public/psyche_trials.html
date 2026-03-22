@@ -2570,6 +2570,8 @@ const WIND_DUR        = 2.5;
 // Lane centers (invisible to player — spawn logic only):
 // Cliff=0-160px, L1=160-280, L2=280-400, L3=400-520, L4=520-640
 const LANE_CX = [220, 340, 460, 580];
+const CLIFF_W = 160;         // display width of cliff wall
+const CLIFF_STONE_FRAC = 0.73; // stone occupies 73% of cliff_wall.png width
 
 const HZ = { CLOUD:0, HARPY:1, ROCK:2, SOUL:3 };
 
@@ -2932,27 +2934,21 @@ function render() {
 
   // ── CLIFF WALL — left edge, brown stone tile ──
   // cliff_wall.png: 1024x1536, stone occupies left 73% (~746px), white bg on right
-  // We display the stone portion at 160px wide, tile vertically
+  // We display the stone portion at CLIFF_W wide, tile vertically
   const cliffWallSpr = sprites['cliff_wall'];
-  const CLIFF_W = 160; // display width of cliff
-  const CLIFF_STONE_FRAC = 0.73; // stone occupies 73% of source image width
 
   if(cliffWallSpr){
     const srcW = cliffWallSpr.naturalWidth  || cliffWallSpr.width  || 1024;
     const srcH = cliffWallSpr.naturalHeight || cliffWallSpr.height || 1536;
-    const srcStoneW = srcW * CLIFF_STONE_FRAC; // only draw the stone portion
-    // Scroll at world speed for parallax feel
-    const tileH = srcH * (CLIFF_W / srcStoneW); // displayed tile height
+    // Stone is centered: starts at ~290px, ends at ~723px (433px wide)
+    const srcStoneX = 290;
+    const srcStoneW = 433;
+    const tileH = srcH * (CLIFF_W / srcStoneW);
     const off = (G.scrolled * 1.0) % tileH;
     ctx.save();
     ctx.beginPath(); ctx.rect(0,0,CLIFF_W,H); ctx.clip();
-    // Draw two tiles for seamless scroll
-    ctx.drawImage(cliffWallSpr, 0,0, srcStoneW,srcH,  0,off,       CLIFF_W,tileH);
-    ctx.drawImage(cliffWallSpr, 0,0, srcStoneW,srcH,  0,off-tileH, CLIFF_W,tileH);
-    // Soft blend at right edge into sky
-    const edgeGrad = ctx.createLinearGradient(CLIFF_W-30,0,CLIFF_W,0);
-    edgeGrad.addColorStop(0,'rgba(255,255,255,0)');
-    edgeGrad.addColorStop(1,'rgba(255,255,255,0)'); // no blend needed, stone edge is natural
+    ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off,       CLIFF_W,tileH);
+    ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off-tileH, CLIFF_W,tileH);
     ctx.restore();
   } else {
     // Programmatic fallback — warm brown stone bands matching cliff_wall palette
@@ -3035,9 +3031,7 @@ function render() {
     // Use cliff_wall sprite clipped to ledge shape if available
     const rwSpr = sprites['cliff_wall'];
     if(rwSpr){
-      const srcW = rwSpr.naturalWidth||rwSpr.width||1024;
       const srcH = rwSpr.naturalHeight||rwSpr.height||1536;
-      const srcStoneW = srcW * CLIFF_STONE_FRAC;
       // Clip to ledge shape
       ctx.beginPath();
       ctx.moveTo(0, r.y);
@@ -3046,9 +3040,8 @@ function render() {
       ctx.lineTo(0, r.y+r.h);
       ctx.closePath();
       ctx.clip();
-      // Draw a horizontal strip of the cliff texture
-      const scaleX = CLIFF_W / srcStoneW;
-      ctx.drawImage(rwSpr, 0,0, srcStoneW,srcH, 0,r.y - r.h*2, CLIFF_W*6,r.h*5);
+      // Draw stone strip from same source crop as cliff wall
+      ctx.drawImage(rwSpr, 290,0, 433,srcH, 0,r.y-r.h*2, CLIFF_W*6,r.h*5);
     } else {
       // Programmatic — warm brown matching cliff palette
       // Top surface (bright)
