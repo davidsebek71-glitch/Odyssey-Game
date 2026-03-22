@@ -3801,7 +3801,7 @@ const SHIELD_DUR     = 1.2;
 const SHIELD_COOLDOWN= 1.0;
 
 // Thanatos AI intervals per phase
-const AI_INTERVAL = [2.5, 1.5, 0.7];  // Phase 1 learn, Phase 2 pressure, Phase 3 intense
+const AI_INTERVAL = [2.5, 1.5, 0.8];  // Phase 1 learn, Phase 2 pressure, Phase 3 intense
 
 // ── State ────────────────────────────────────────────────────
 let G = {};
@@ -3978,9 +3978,9 @@ function thanatosAI(dt){
       spawnShade();
     }
   } else {
-    // Phase 3: rapid fire 2 bolts + always shades
-    thanShoot(2);
-    if(G.thanShades.length<5) spawnShade();
+    // Phase 3: single fast bolt + shades (cap 4)
+    thanShoot(1);
+    if(G.thanShades.length<4) spawnShade();
   }
 
   G.thanAnim='attack'; G.thanAnimTimer=0.7;
