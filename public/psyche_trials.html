@@ -2597,9 +2597,9 @@ const EAGLE_ACCEL     = 10;
 const GRAVITY         = 100;    // more air time per flap
 const FLAP_IMPULSE    = -220;
 const FLAP_COOLDOWN   = 0.15;
-const SCROLL_START    = 88;
-const SCROLL_PEAK     = 176;
-const DESCENT_SCROLL  = 120;
+const SCROLL_START    = 62;
+const SCROLL_PEAK     = 123;
+const DESCENT_SCROLL  = 84;
 const BRAKE_FORCE     = 140;
 const JUG_SLOSH_SPEED = 180;
 const JUG_SLOSH_GRIP  = 7;
@@ -2670,26 +2670,25 @@ function spawnHazard(phase) {
     h.vy = phase==='descent' ? -(spd*0.9+20) : spd*0.9+20;
   } else if(type === HZ.HARPY){
     const laneIdx = 1 + Math.floor(Math.random()*3);
-    h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*45;
-    h.w = 62; h.h = 52;
+    h.laneCX = LANE_CX[laneIdx]; // store lane center for constrained homing
+    h.x = h.laneCX;              // spawn exactly on lane center
+    h.w = 80; h.h = 68;          // larger — clearly visible
     h.phase = 'diving';
     h.timer = 0;
     if(phase === 'descent'){
-      // On descent: harpies rise from bottom — oncoming from below
       h.y = H + 70;
       h.vx = 0;
-      h.vy = -(spd + 80 + Math.random()*40); // negative = upward
+      h.vy = -(spd + 80 + Math.random()*40);
     } else {
-      // On ascent: harpies dive from top
       h.y = -70;
       h.vx = 0;
-      h.vy = spd + 80 + Math.random()*40; // positive = downward
+      h.vy = spd + 80 + Math.random()*40;
     }
   } else if(type === HZ.SOUL){
     const laneIdx = 1 + Math.floor(Math.random()*3);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*55;
     h.y = H+55;
-    h.w = 44; h.h = 60;
+    h.w = 70; h.h = 95;
     h.vx = (Math.random()-0.5)*15;
     h.vy = -(spd*0.9+30+Math.random()*30);
   }
@@ -2766,10 +2765,10 @@ function update(dt) {
     }
   } else if(G.phase==='descent'){
     G.vy += GRAVITY*0.55*dt;
-    // UP/Space = brake (protect jug)
+    // UP/Space = instant brake impulse — same responsiveness as flap on ascent
     if(flapKey && G.flapCooldown<=0){
-      G.vy = Math.max(G.vy - BRAKE_FORCE*dt*5, -140);
-      G.flapCooldown = 0.10;
+      G.vy = -120;  // instant upward push
+      G.flapCooldown = FLAP_COOLDOWN;
       spawnParticles(G.ex, G.ey+28, 3, 'rgba(100,190,220,0.5)');
     }
     // DOWN = instant dive (accepts grip risk)
@@ -2853,10 +2852,13 @@ function update(dt) {
   G.hazards=G.hazards.filter(h=>{
     h.timer+=dt;
     if(h.type===HZ.HARPY&&h.phase==='diving'){
-      // Homing — increases aggression with ascent progress
-      const homing=2.0+ascentProgress*3.0;
-      h.vx+=(G.ex-h.x)*homing*dt;
-      h.vx=Math.max(-220,Math.min(220,h.vx));
+      // Zig-zag within lane ±60px of spawn center — not full-screen homing
+      const laneMin = (h.laneCX||h.x) - 60;
+      const laneMax = (h.laneCX||h.x) + 60;
+      const targetX = Math.max(laneMin, Math.min(laneMax, G.ex));
+      const homing = 1.5 + ascentProgress*2.0;
+      h.vx += (targetX - h.x) * homing * dt;
+      h.vx = Math.max(-100, Math.min(100, h.vx));
     }
     h.x+=h.vx*dt; h.y+=h.vy*dt;
     if(h.y>H+100||h.y<-200||h.x<-200||h.x>W+200) return false;
@@ -2978,9 +2980,9 @@ function render() {
     // Ascent scrolls up (positive), descent scrolls down (negative offset)
     const cliffScroll = G.phase==='descent' ? -(G.scrolled * 1.0) : (G.scrolled * 1.0);
     const off = ((cliffScroll % tileH) + tileH) % tileH;
-    const drawW = CLIFF_W + 12;
+    const drawW = CLIFF_W + 20;
     ctx.save();
-    ctx.beginPath(); ctx.rect(0,0,CLIFF_W,H); ctx.clip();
+    ctx.beginPath(); ctx.rect(0,0,drawW,H); ctx.clip();
     ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off,       drawW,tileH);
     ctx.drawImage(cliffWallSpr, srcStoneX,0, srcStoneW,srcH,  0,off-tileH, drawW,tileH);
     ctx.restore();
