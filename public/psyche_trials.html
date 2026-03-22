@@ -3452,14 +3452,20 @@ function renderCutsceneIntro(){
   // ── Dialogue text ──
   ctx.textAlign='center';
   if(G.csBeat>=1&&G.csBeat<5){
-    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W*0.25-140,groundY-zeusSize-52,280,40,6);ctx.fill();
-    ctx.fillStyle='#f0d68a';ctx.font='italic 14px "Segoe UI"';
-    ctx.fillText('"Take my eagle. She will carry the jug for you."',W*0.25,groundY-zeusSize-28);
+    const zt='"Take my eagle. She will carry the jug for you."';
+    ctx.font='italic 14px "Segoe UI"';
+    const zbw=Math.max(280, ctx.measureText(zt).width+40);
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W*0.25-zbw/2,groundY-zeusSize-52,zbw,40,6);ctx.fill();
+    ctx.fillStyle='#f0d68a';
+    ctx.fillText(zt,W*0.25,groundY-zeusSize-28);
   }
   if(G.csBeat>=3&&G.csBeat<5){
-    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W*0.55-130,groundY-psycheSize-52,260,40,6);ctx.fill();
-    ctx.fillStyle='#dcc8a0';ctx.font='italic 14px "Segoe UI"';
-    ctx.fillText('"I cannot do this alone. Thank you."',W*0.55+2,groundY-psycheSize-28);
+    const pt='"I cannot do this alone. Thank you."';
+    ctx.font='italic 14px "Segoe UI"';
+    const pbw=Math.max(260, ctx.measureText(pt).width+40);
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W*0.55-pbw/2+2,groundY-psycheSize-52,pbw,40,6);ctx.fill();
+    ctx.fillStyle='#dcc8a0';
+    ctx.fillText(pt,W*0.55+2,groundY-psycheSize-28);
   }
 
   // ── Click prompt ──
@@ -3568,16 +3574,20 @@ function renderCutsceneOutro(){
       ? '"The water is yours. Not a drop was spilled."'
       : '"The jug is empty. The water was lost."';
     const line1Color = G.csWon ? '#f0d68a' : '#f87171';
-    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-160,groundY*0.42,320,40,6);ctx.fill();
-    ctx.fillStyle=line1Color;ctx.font='italic 15px "Segoe UI"';
+    ctx.font='italic 15px "Segoe UI"';
+    const bw1=Math.max(320, ctx.measureText(line1).width+40);
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-bw1/2,groundY*0.42,bw1,40,6);ctx.fill();
+    ctx.fillStyle=line1Color;
     ctx.fillText(line1,W/2,groundY*0.42+26);
   }
   if(G.csBeat>=2){
     const line2 = G.csWon
       ? '"Accepting help took more strength than pride."'
       : '"Even in failure, she had the courage to ask for help."';
-    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-140,groundY*0.42+52,280,40,6);ctx.fill();
-    ctx.fillStyle='#dcc8a0';ctx.font='italic 14px "Segoe UI"';
+    ctx.font='italic 14px "Segoe UI"';
+    const bw2=Math.max(320, ctx.measureText(line2).width+40);
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-bw2/2,groundY*0.42+52,bw2,40,6);ctx.fill();
+    ctx.fillStyle='#dcc8a0';
     ctx.fillText(line2,W/2,groundY*0.42+78);
   }
 
