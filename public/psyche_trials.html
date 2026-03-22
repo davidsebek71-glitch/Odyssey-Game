@@ -114,6 +114,7 @@ loadSprite('storm_cloud','hazard_cloud_storm.png');
 loadSprite('harpy','hazard_eagle_descent.png');
 loadSprite('cave_rocks','cave_rocks.png');
 loadSprite('wind_streak','wind_streak.png');
+loadScene('cliff_wall','cliff_wall.png');
 loadScene('mountain_bg','mountain_bg.png');
 loadScene('scene_cliffs','scene_cliffs_stormy.png');
 loadScene('scene_styx','scene_styx_background.png');
@@ -2551,24 +2552,24 @@ const Trial3 = (function(){
 const GRIP_MAX        = 100;
 const GRIP_REGEN      = 6;
 const GRIP_HIT        = 18;
-const EAGLE_SPEED_X   = 520;    // fast lateral snap — race car steering
-const EAGLE_ACCEL     = 14;     // smooth follow speed
-const GRAVITY         = 130;    // lighter gravity — full air control
-const FLAP_IMPULSE    = -270;   // vy on flap
-const FLAP_COOLDOWN   = 0.13;
-const SCROLL_START    = 220;    // px/s scroll at start
-const SCROLL_PEAK     = 440;    // px/s scroll at summit — builds speed
-const DESCENT_SCROLL  = 300;
-const BRAKE_FORCE     = 320;
-const JUG_SLOSH_SPEED = 320;
-const JUG_SLOSH_GRIP  = 10;
-const WIND_INTERVAL   = 4.5;
-const WIND_FORCE      = 210;    // strong gusts — car on slick road
-const WIND_DUR        = 2.0;
+const EAGLE_SPEED_X   = 300;    // snappy but controllable
+const EAGLE_ACCEL     = 10;
+const GRAVITY         = 100;    // more air time per flap
+const FLAP_IMPULSE    = -220;
+const FLAP_COOLDOWN   = 0.15;
+const SCROLL_START    = 88;
+const SCROLL_PEAK     = 176;
+const DESCENT_SCROLL  = 120;
+const BRAKE_FORCE     = 140;
+const JUG_SLOSH_SPEED = 180;
+const JUG_SLOSH_GRIP  = 7;
+const WIND_INTERVAL   = 6.0;
+const WIND_FORCE      = 120;
+const WIND_DUR        = 2.5;
 
-// Lane centers (invisible — spawn logic only)
-// L1 cliff: 130-250 (rocks only), L2: 250-370, L3: 370-490, L4: 490-640
-const LANE_CX = [190, 310, 430, 565];
+// Lane centers (invisible to player — spawn logic only):
+// Cliff=0-160px, L1=160-280, L2=280-400, L3=400-520, L4=520-640
+const LANE_CX = [220, 340, 460, 580];
 
 const HZ = { CLOUD:0, HARPY:1, ROCK:2, SOUL:3 };
 
@@ -2578,7 +2579,7 @@ function freshState() {
   return {
     phase: 'tutorial',
     elapsed: 0,
-    ex: 400, ey: H*0.55,
+    ex: 420, ey: H*0.55,
     vy: 0,
     flapCooldown: 0,
     ascentDist: 2800,
@@ -2592,16 +2593,16 @@ function freshState() {
     windTimeLeft: 0,
     windAlpha: 0,
     hazards: [],
-    hazSpawnTimer: 1.0,
-    hazSpawnInterval: 1.8,
+    hazSpawnTimer: 1.2,
+    hazSpawnInterval: 2.0,
     rocks: [],
-    rockSpawnTimer: 3.0,
+    rockSpawnTimer: 4.0,
     particles: [],
     summitTimer: 0,
     summitPhase: 0,
     hits: 0,
     heartsLost: 0,
-    targetX: 400,
+    targetX: 420,
   };
 }
 
@@ -2613,50 +2614,48 @@ function spawnHazard(phase) {
   if(phase==='descent'){
     type = Math.random()<0.5 ? HZ.SOUL : Math.random()<0.5 ? HZ.HARPY : HZ.CLOUD;
   } else {
-    // Ascent: harpy-heavy — they ARE the oncoming traffic
-    type = Math.random()<0.6 ? HZ.HARPY : HZ.CLOUD;
+    type = Math.random()<0.55 ? HZ.HARPY : HZ.CLOUD;
   }
 
   const h = { type, phase:'active', timer:0 };
   const spd = G.currentScroll || SCROLL_START;
 
   if(type === HZ.CLOUD){
-    // Wide obstacle — forces full lane dodge. Lanes 2-4 only.
     const laneIdx = 1 + Math.floor(Math.random()*3);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*50;
     h.y = phase==='descent' ? H+70 : -70;
-    h.w = 160+Math.random()*80; h.h = 58;
-    h.vx = (Math.random()-0.5)*18;
-    h.vy = phase==='descent' ? -(spd*0.7+30) : spd*0.85+30;
+    h.w = 150+Math.random()*70; h.h = 55;
+    h.vx = (Math.random()-0.5)*15;
+    // Clouds move at world scroll speed — same as background, feels embedded
+    h.vy = phase==='descent' ? -(spd*0.9+20) : spd*0.9+20;
   } else if(type === HZ.HARPY){
-    // Rush straight down in a lane — oncoming traffic
     const laneIdx = 1 + Math.floor(Math.random()*3);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*45;
     h.y = -70;
     h.w = 62; h.h = 52;
     h.vx = 0;
-    h.vy = spd*0.95 + 70 + Math.random()*50;
+    // Harpies move faster than scroll — they're oncoming traffic
+    h.vy = spd + 80 + Math.random()*40;
     h.phase = 'diving';
     h.timer = 0;
   } else if(type === HZ.SOUL){
-    // Rise from below during descent
     const laneIdx = 1 + Math.floor(Math.random()*3);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*55;
     h.y = H+55;
     h.w = 44; h.h = 60;
-    h.vx = (Math.random()-0.5)*18;
-    h.vy = -(DESCENT_SCROLL*0.75+Math.random()*45);
+    h.vx = (Math.random()-0.5)*15;
+    h.vy = -(spd*0.9+30+Math.random()*30);
   }
   G.hazards.push(h);
 }
 
 function spawnRock() {
-  // Rock outcrop juts from left cliff (lane 1 only) — scrolls with world
+  // Single ledge jutting 200px from cliff edge into lane 1 — eagle must dodge right
   G.rocks.push({
-    x: 128,
-    y: -65,
-    w: 85+Math.random()*45,
-    h: 55+Math.random()*25,
+    x: CLIFF_W,           // starts at cliff edge
+    y: -50,
+    w: 200,               // juts 200px into play area — blocks lane 1
+    h: 45,
     spd: G.currentScroll || SCROLL_START
   });
 }
@@ -2691,11 +2690,11 @@ function update(dt) {
   // ── LATERAL MOVEMENT — race car snap steering ──
   const moveL = keys['ArrowLeft']||keys['a']||keys['A'];
   const moveR = keys['ArrowRight']||keys['d']||keys['D'];
-  if(moveL) G.targetX = Math.max(145, G.targetX - EAGLE_SPEED_X*dt);
+  if(moveL) G.targetX = Math.max(165, G.targetX - EAGLE_SPEED_X*dt);
   if(moveR) G.targetX = Math.min(W-40, G.targetX + EAGLE_SPEED_X*dt);
   const prevEx = G.ex;
   G.ex += (G.targetX - G.ex) * Math.min(1, dt*EAGLE_ACCEL);
-  G.ex = Math.max(145, Math.min(W-40, G.ex));
+  G.ex = Math.max(165, Math.min(W-40, G.ex));
   // Track lateral velocity for sprite flip
   G.vx = (G.ex - prevEx) / Math.max(dt, 0.001);
 
@@ -2873,72 +2872,113 @@ function render() {
   if(G.phase==='tutorial'){renderTutorial();return;}
   if(G.phase==='complete'){renderComplete();return;}
 
-  // ── BACKGROUND ──────────────────────────────────────────────
-  const bgSpr=sprites['mountain_bg'];
-  const cliffSpr=sprites['scene_cliffs'];
+  // ── BACKGROUND — bright canyon sky ──────────────────────────
+  const skyBgSpr=sprites['sky_bg'];
+  const cliffSpr=sprites['cliff_wall']||sprites['scene_cliffs'];
   const styxSpr=sprites['scene_styx'];
 
-  if(bgSpr){
-    const off=(G.scrolled*0.35)%H;
-    ctx.drawImage(bgSpr,0,off,W,H);
-    ctx.drawImage(bgSpr,0,off-H,W,H);
+  if(skyBgSpr){
+    // New sky tile — seamless
+    const off=(G.scrolled*0.2)%H;
+    ctx.drawImage(skyBgSpr,0,off,W,H);
+    ctx.drawImage(skyBgSpr,0,off-H,W,H);
   } else {
-    // Storm sky gradient
+    // ── Programmatic bright canyon sky ──
     const grad=ctx.createLinearGradient(0,0,0,H);
-    if(G.phase==='descent'){
-      grad.addColorStop(0,'#0d0520');grad.addColorStop(0.6,'#130830');grad.addColorStop(1,'#0a1520');
-    } else {
-      grad.addColorStop(0,'#060312');grad.addColorStop(0.5,'#0d0622');grad.addColorStop(1,'#100830');
-    }
-    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+    grad.addColorStop(0,'#4a80c4');   // deep cornflower blue at top
+    grad.addColorStop(0.5,'#6aa0d8');  // mid blue
+    grad.addColorStop(1,'#88b8e8');    // lighter horizon blue
+    ctx.fillStyle=grad;ctx.fillRect(130,0,W-130,H);
 
-    // Far mountain silhouettes
-    const sc=G.scrolled*0.06;
-    ctx.fillStyle='rgba(15,8,28,0.95)';
-    ctx.beginPath();
-    [[0,420],[80,340],[160,370],[240,310],[320,350],[400,300],[460,330],[540,280],[620,320],[680,360],[680,H],[0,H]]
-      .forEach(([x,y],i)=>i===0?ctx.moveTo(x,y+(sc%60)-30):ctx.lineTo(x,y+(sc%60)-30));
-    ctx.closePath();ctx.fill();
-    ctx.fillStyle='rgba(10,5,20,0.98)';
-    ctx.beginPath();
-    [[0,460],[60,400],[130,430],[200,390],[280,420],[370,380],[440,410],[520,370],[600,400],[680,420],[680,H],[0,H]]
-      .forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
-    ctx.closePath();ctx.fill();
-
-    // Stars
-    if(G.phase==='ascent'||G.phase==='summit'){
-      for(let i=0;i<25;i++){
-        const tw=Math.sin(G.elapsed*2.5+i*0.8)*0.5+0.5;
-        ctx.fillStyle=`rgba(200,210,255,${tw*0.7})`;
-        ctx.fillRect((i*137+73)%W,(i*97+41)%200,i%3===0?2:1,i%3===0?2:1);
+    // Background clouds — fluffy white, scrolling slowly, no lightning
+    const cloudScroll=(G.scrolled*0.12)%H;
+    const bgClouds=[
+      {x:260,y:80,w:140,h:55},{x:480,y:140,w:100,h:45},
+      {x:350,y:220,w:120,h:50},{x:580,y:60,w:90,h:40},
+      {x:200,y:310,w:110,h:48},{x:520,y:350,w:130,h:52},
+      {x:300,y:430,w:100,h:44},{x:600,y:480,w:85,h:38},
+      // Second tile for seamless scroll
+      {x:260,y:80+H,w:140,h:55},{x:480,y:140+H,w:100,h:45},
+      {x:350,y:220+H,w:120,h:50},{x:580,y:60+H,w:90,h:40},
+      {x:200,y:310+H,w:110,h:48},{x:520,y:350+H,w:130,h:52},
+    ];
+    bgClouds.forEach(c=>{
+      const cy=((c.y-cloudScroll)%H+H)%H;
+      if(cy>-60&&cy<H+60){
+        // White cloud with light grey shadow
+        ctx.fillStyle='rgba(230,238,248,0.85)';
+        ctx.beginPath();ctx.ellipse(c.x,cy,c.w/2,c.h/2,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(c.x-c.w*0.15,cy-c.h*0.1,c.w*0.35,c.h*0.42,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(c.x+c.w*0.18,cy-c.h*0.08,c.w*0.32,c.h*0.38,0,0,Math.PI*2);ctx.fill();
+        // Shadow underside
+        ctx.fillStyle='rgba(180,200,220,0.5)';
+        ctx.beginPath();ctx.ellipse(c.x,cy+c.h*0.18,c.w*0.45,c.h*0.28,0,0,Math.PI*2);ctx.fill();
       }
-    }
+    });
+
+    // Far canyon walls in background — muted blue-grey
+    const bgWallScroll=(G.scrolled*0.15)%800;
+    ctx.fillStyle='rgba(80,100,140,0.5)';
+    const farPts=[[130,200],[200,150],[260,180],[320,130],[380,160],[440,120],[520,150],[580,110],[640,140],[680,120],[680,H],[130,H]];
+    ctx.beginPath();
+    farPts.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y+(bgWallScroll%100)-50):ctx.lineTo(x,y+(bgWallScroll%100)-50));
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(60,80,120,0.7)';
+    const midPts=[[130,350],[180,300],[250,330],[330,280],[420,320],[500,270],[580,310],[640,260],[680,280],[680,H],[130,H]];
+    ctx.beginPath();
+    midPts.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y));
+    ctx.closePath();ctx.fill();
   }
 
-  // ── CLIFF FACE — scrolling left edge, 130px wide ──
-  if(cliffSpr){
-    const ch=cliffSpr.naturalHeight||cliffSpr.height||1200;
-    const cw=cliffSpr.naturalWidth||cliffSpr.width||800;
-    const off=(G.scrolled*0.55)%ch;
+  // ── CLIFF WALL — left edge, brown stone tile ──
+  // cliff_wall.png: 1024x1536, stone occupies left 73% (~746px), white bg on right
+  // We display the stone portion at 160px wide, tile vertically
+  const cliffWallSpr = sprites['cliff_wall'];
+  const CLIFF_W = 160; // display width of cliff
+  const CLIFF_STONE_FRAC = 0.73; // stone occupies 73% of source image width
+
+  if(cliffWallSpr){
+    const srcW = cliffWallSpr.naturalWidth  || cliffWallSpr.width  || 1024;
+    const srcH = cliffWallSpr.naturalHeight || cliffWallSpr.height || 1536;
+    const srcStoneW = srcW * CLIFF_STONE_FRAC; // only draw the stone portion
+    // Scroll at world speed for parallax feel
+    const tileH = srcH * (CLIFF_W / srcStoneW); // displayed tile height
+    const off = (G.scrolled * 1.0) % tileH;
     ctx.save();
-    ctx.beginPath();ctx.rect(0,0,130,H);ctx.clip();
-    ctx.drawImage(cliffSpr,0,off,cw,ch,0,0,130,H);
-    ctx.drawImage(cliffSpr,0,off-ch,cw,ch,0,0,130,H);
-    const cv=ctx.createLinearGradient(80,0,130,0);
-    cv.addColorStop(0,'rgba(6,3,18,0)');cv.addColorStop(1,'rgba(6,3,18,0.95)');
-    ctx.fillStyle=cv;ctx.fillRect(0,0,130,H);
+    ctx.beginPath(); ctx.rect(0,0,CLIFF_W,H); ctx.clip();
+    // Draw two tiles for seamless scroll
+    ctx.drawImage(cliffWallSpr, 0,0, srcStoneW,srcH,  0,off,       CLIFF_W,tileH);
+    ctx.drawImage(cliffWallSpr, 0,0, srcStoneW,srcH,  0,off-tileH, CLIFF_W,tileH);
+    // Soft blend at right edge into sky
+    const edgeGrad = ctx.createLinearGradient(CLIFF_W-30,0,CLIFF_W,0);
+    edgeGrad.addColorStop(0,'rgba(255,255,255,0)');
+    edgeGrad.addColorStop(1,'rgba(255,255,255,0)'); // no blend needed, stone edge is natural
     ctx.restore();
   } else {
-    // Programmatic cliff — narrower
-    const sc=G.scrolled*0.55;
-    ctx.fillStyle='#080514';
-    for(let s=0;s<14;s++){
-      const sy=((s*80-sc*0.6)%(H+80))-40;
-      const jag=28+Math.sin(s*2.1+G.scrolled*0.003)*18;
-      ctx.beginPath();ctx.moveTo(0,sy);ctx.lineTo(jag+10,sy+15);
-      ctx.lineTo(jag-5,sy+32);ctx.lineTo(jag+14,sy+52);ctx.lineTo(jag,sy+80);
-      ctx.lineTo(0,sy+80);ctx.closePath();ctx.fill();
+    // Programmatic fallback — warm brown stone bands matching cliff_wall palette
+    ctx.fillStyle='#5c3d1e';
+    ctx.fillRect(0,0,CLIFF_W,H);
+    const strata=[
+      {col:'#6b4826',h:24},{col:'#573518',h:18},{col:'#644020',h:28},
+      {col:'#4e2e10',h:20},{col:'#6a4522',h:22},{col:'#5a3a1a',h:26},
+      {col:'#624018',h:20},{col:'#503212',h:18},{col:'#684424',h:24},
+    ];
+    const totalH=strata.reduce((s,b)=>s+b.h,0);
+    let ry=-(G.scrolled%totalH);
+    for(let rep=0;rep<4;rep++){
+      strata.forEach(band=>{
+        if(ry<H&&ry+band.h>0){ctx.fillStyle=band.col;ctx.fillRect(0,ry,CLIFF_W-8,band.h);}
+        ry+=band.h;
+      });
     }
+    // Jagged right edge
+    ctx.fillStyle='#3a2008';
+    ctx.beginPath();ctx.moveTo(CLIFF_W-8,0);
+    for(let y=0;y<=H;y+=30){
+      const jag=Math.sin(y*0.07+G.scrolled*0.012)*6+4;
+      ctx.lineTo(CLIFF_W-8+jag,y);
+    }
+    ctx.lineTo(CLIFF_W,H);ctx.lineTo(CLIFF_W,0);ctx.closePath();ctx.fill();
   }
 
   // ── SUMMIT: Styx scene fades in ──
@@ -2988,26 +3028,55 @@ function render() {
     ctx.textAlign='left';
   }
 
-  // ── ROCK OUTCROPS — flush against left cliff, lane 1 ──
+  // ── ROCK LEDGE — brown stone jutting from cliff face ──
   G.rocks.forEach(r=>{
-    const spr=sprites['cave_rocks'];
-    if(spr){
-      // Draw flush from left edge, sprite anchored to cliff face
-      ctx.drawImage(spr, 0, r.y, r.x+r.w, r.h);
-    } else {
-      // Programmatic — dark angular chunk jutting right from cliff
-      ctx.fillStyle='#14102a';
+    const tipX = r.x + r.w;
+    ctx.save();
+    // Use cliff_wall sprite clipped to ledge shape if available
+    const rwSpr = sprites['cliff_wall'];
+    if(rwSpr){
+      const srcW = rwSpr.naturalWidth||rwSpr.width||1024;
+      const srcH = rwSpr.naturalHeight||rwSpr.height||1536;
+      const srcStoneW = srcW * CLIFF_STONE_FRAC;
+      // Clip to ledge shape
       ctx.beginPath();
-      ctx.moveTo(0,r.y);ctx.lineTo(r.x+r.w,r.y+r.h*0.2);
-      ctx.lineTo(r.x+r.w-8,r.y+r.h*0.8);ctx.lineTo(0,r.y+r.h);
+      ctx.moveTo(0, r.y);
+      ctx.lineTo(tipX, r.y);
+      ctx.lineTo(tipX-12, r.y+r.h);
+      ctx.lineTo(0, r.y+r.h);
+      ctx.closePath();
+      ctx.clip();
+      // Draw a horizontal strip of the cliff texture
+      const scaleX = CLIFF_W / srcStoneW;
+      ctx.drawImage(rwSpr, 0,0, srcStoneW,srcH, 0,r.y - r.h*2, CLIFF_W*6,r.h*5);
+    } else {
+      // Programmatic — warm brown matching cliff palette
+      // Top surface (bright)
+      ctx.fillStyle='#7a5228';
+      ctx.fillRect(0, r.y, tipX, r.h*0.3);
+      // Main face
+      ctx.fillStyle='#5c3d1a';
+      ctx.beginPath();
+      ctx.moveTo(0,r.y+r.h*0.3);
+      ctx.lineTo(tipX,r.y+r.h*0.3);
+      ctx.lineTo(tipX-12,r.y+r.h);
+      ctx.lineTo(0,r.y+r.h);
       ctx.closePath();ctx.fill();
-      ctx.strokeStyle='rgba(90,70,120,0.6)';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(r.x+r.w,r.y+r.h*0.2);ctx.lineTo(r.x+r.w-8,r.y+r.h*0.8);ctx.stroke();
+      // Underside shadow
+      ctx.fillStyle='#3a2008';
+      ctx.beginPath();
+      ctx.moveTo(tipX,r.y+r.h*0.3);
+      ctx.lineTo(tipX-12,r.y+r.h);
+      ctx.lineTo(tipX-4,r.y+r.h+4);
+      ctx.lineTo(tipX+6,r.y+r.h*0.3+3);
+      ctx.closePath();ctx.fill();
     }
-    // Danger glow at the jutting tip
-    const rg=ctx.createRadialGradient(r.x+r.w,r.y+r.h*0.5,0,r.x+r.w,r.y+r.h*0.5,60);
-    rg.addColorStop(0,'rgba(180,80,60,0.2)');rg.addColorStop(1,'rgba(140,40,40,0)');
-    ctx.fillStyle=rg;ctx.fillRect(r.x+r.w-60,r.y-20,80,r.h+40);
+    ctx.restore();
+    // Danger glow at the tip
+    const rg=ctx.createRadialGradient(tipX-20,r.y+r.h*0.5,0,tipX-20,r.y+r.h*0.5,70);
+    rg.addColorStop(0,'rgba(220,80,50,0.3)');
+    rg.addColorStop(1,'rgba(180,40,20,0)');
+    ctx.fillStyle=rg;ctx.fillRect(tipX-80,r.y-15,100,r.h+30);
   });
 
   // ── HAZARDS ──
@@ -3056,30 +3125,43 @@ function render() {
       }
       ctx.restore();
     } else if(h.type===HZ.SOUL){
-      const sa=0.7+Math.sin(G.elapsed*3+h.x*0.05)*0.2;
       ctx.save();
+      const sa=0.8+Math.sin(G.elapsed*3+h.x*0.05)*0.15;
       ctx.globalAlpha=sa;
-      // Outer glow
-      const sg=ctx.createRadialGradient(h.x,h.y,0,h.x,h.y,h.w);
-      sg.addColorStop(0,'rgba(200,220,255,0.4)');
-      sg.addColorStop(1,'rgba(120,160,220,0)');
-      ctx.fillStyle=sg;ctx.beginPath();ctx.arc(h.x,h.y,h.w,0,Math.PI*2);ctx.fill();
-      // Ghost body — bright white teardrop
-      ctx.fillStyle='rgba(230,240,255,0.92)';
+      const gx=h.x, gy=h.y, gw=h.w*0.48, gh=h.h*0.48;
+
+      // Blue glow
+      const glow=ctx.createRadialGradient(gx,gy,0,gx,gy,gw*1.8);
+      glow.addColorStop(0,'rgba(100,160,255,0.3)');
+      glow.addColorStop(1,'rgba(60,100,220,0)');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(gx,gy,gw*1.8,0,Math.PI*2);ctx.fill();
+
+      // Classic ghost body: dome top + wavy bottom skirt
+      ctx.fillStyle='rgba(215,228,255,0.95)';
       ctx.beginPath();
-      ctx.moveTo(h.x, h.y - h.h*0.45);
-      ctx.bezierCurveTo(h.x+h.w*0.4, h.y-h.h*0.15, h.x+h.w*0.38, h.y+h.h*0.22, h.x, h.y+h.h*0.46);
-      ctx.bezierCurveTo(h.x-h.w*0.38, h.y+h.h*0.22, h.x-h.w*0.4, h.y-h.h*0.15, h.x, h.y-h.h*0.45);
-      ctx.fill();
-      // Black hollow eyes
-      ctx.fillStyle='rgba(10,15,40,0.95)';
-      ctx.beginPath();ctx.ellipse(h.x-7,h.y-h.h*0.08,5,6,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(h.x+7,h.y-h.h*0.08,5,6,0,0,Math.PI*2);ctx.fill();
-      // Wisp tail
-      ctx.strokeStyle='rgba(200,220,255,0.5)';ctx.lineWidth=3;ctx.lineCap='round';
+      ctx.arc(gx, gy-gh*0.05, gw, Math.PI, 0, false);   // dome
+      ctx.lineTo(gx+gw, gy+gh*0.65);                      // right side
+      // Three wavy bumps on bottom
+      ctx.quadraticCurveTo(gx+gw*0.65,gy+gh*0.95, gx+gw*0.33,gy+gh*0.65);
+      ctx.quadraticCurveTo(gx,          gy+gh*0.98, gx-gw*0.33,gy+gh*0.65);
+      ctx.quadraticCurveTo(gx-gw*0.65,gy+gh*0.95, gx-gw,   gy+gh*0.65);
+      ctx.lineTo(gx-gw, gy-gh*0.05);
+      ctx.closePath();ctx.fill();
+
+      // Dark eyes
+      ctx.fillStyle='rgba(20,40,120,0.92)';
+      ctx.beginPath();ctx.ellipse(gx-gw*0.34,gy-gh*0.08,gw*0.2,gw*0.26,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(gx+gw*0.34,gy-gh*0.08,gw*0.2,gw*0.26,0,0,Math.PI*2);ctx.fill();
+      // White highlights on eyes
+      ctx.fillStyle='rgba(255,255,255,0.9)';
+      ctx.beginPath();ctx.ellipse(gx-gw*0.26,gy-gh*0.14,gw*0.1,gw*0.12,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(gx+gw*0.42,gy-gh*0.14,gw*0.1,gw*0.12,0,0,Math.PI*2);ctx.fill();
+
+      // Wisp trail
+      ctx.strokeStyle='rgba(150,190,255,0.45)';ctx.lineWidth=2.5;ctx.lineCap='round';
       ctx.beginPath();
-      ctx.moveTo(h.x,h.y+h.h*0.42);
-      ctx.quadraticCurveTo(h.x+Math.sin(G.elapsed*4+h.x)*12,h.y+h.h*0.75,h.x,h.y+h.h*0.95);
+      ctx.moveTo(gx,gy+gh*0.85);
+      ctx.quadraticCurveTo(gx+Math.sin(G.elapsed*3.5)*10,gy+gh*1.3,gx,gy+gh*1.65);
       ctx.stroke();
       ctx.restore();
     }
@@ -3351,7 +3433,7 @@ return {
       return;
     }
   },
-  mousemove(x,y){ G.targetX=Math.max(145,Math.min(W-40,x)); },
+  mousemove(x,y){ G.targetX=Math.max(165,Math.min(W-40,x)); },
   mousedown(x,y){
     // Click/tap anywhere = flap (during ascent) or brake (during descent)
     if(G.phase==='ascent'||G.phase==='descent') keys[' ']=true;
