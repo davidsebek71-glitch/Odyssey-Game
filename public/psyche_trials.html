@@ -3820,6 +3820,7 @@ function freshState(){
     erosDashing: false,
     erosDashTimer: 0,
     erosDashDir: 1,
+    erosDashHit: false,
     erosX: EROS_X,
     erosAnim: 'idle',   // idle|shoot|dash|shield|hit
     erosAnimTimer: 0,
@@ -4124,14 +4125,37 @@ function update(dt){
   if(G.hitFlash>0) G.hitFlash-=dt;
   if(G.erosHitTimer>0) G.erosHitTimer-=dt;
 
-  // Eros dash movement
+  // Eros dash movement — Wing Sweep: kills shades in path
   if(G.erosDashing){
     G.erosDashTimer-=dt;
     G.erosX+=G.erosDashDir*520*dt;
     G.erosX=Math.max(60,Math.min(THANATOS_X-CHAR_W,G.erosX));
+
+    // Wing Sweep — destroy any shades Eros passes through
+    G.thanShades.forEach(s=>{
+      if(!s.dead && Math.abs(s.x-G.erosX)<60){
+        s.dead=true; s.deathTimer=0.4;
+        spawnP(s.x,FLOOR_Y-CHAR_H*0.4,10,'#60a5fa');
+        showFloat(s.x,FLOOR_Y-CHAR_H*0.6,'💨 SWEPT!','#60a5fa',13);
+      }
+    });
+
+    // Phase 3 bonus: if dash reaches Thanatos, deal heavy contact damage
+    if(G.thanPhase>=3 && G.erosX>=THANATOS_X-CHAR_W-10 && !G.erosDashHit){
+      G.erosDashHit=true;
+      const dmg=25+Math.floor(Math.random()*10);
+      G.thanHP=Math.max(0,G.thanHP-dmg);
+      G.arrowsLanded++;
+      spawnP(THANATOS_X-40,FLOOR_Y-CHAR_H*0.5,15,'#60a5fa');
+      showFloat(THANATOS_X-40,FLOOR_Y-CHAR_H*0.7,`💥 -${dmg}`,'#38bdf8',16);
+      G.thanAnim='hit'; G.thanAnimTimer=0.5;
+      shake();
+      if(G.thanHP<=0) endFight('victory');
+    }
+
     if(G.erosDashTimer<=0){
       G.erosDashing=false;
-      // Snap back toward home
+      G.erosDashHit=false;
       G.erosX=EROS_X;
     }
   } else {
@@ -4826,7 +4850,7 @@ function renderHealthBars(){
   // ── Controls reminder (bottom) ──
   ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,W/2-170,H-28,340,22,4);ctx.fill();
   ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='10px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText('Z = Arrow  ·  X = Dash  ·  Space = Shield  ·  Z then Space = ⚡ DIVINE BARRAGE',W/2,H-13);
+  ctx.fillText('Z = Arrow  ·  X = Wing Sweep  ·  Space = Shield  ·  Z+Space = ⚡ BARRAGE',W/2,H-13);
   ctx.textAlign='left';
 }
 
@@ -4841,7 +4865,7 @@ function renderTutorial(){
     'Fight through three phases to reclaim her.',
     '',
     '🏹  Z key or CLICK → Fire Arrow  (your main attack)',
-    '💨  X key or DOUBLE-CLICK → Wing Dash  (invincible dodge)',
+    '💨  X key or DOUBLE-CLICK → Wing Sweep  (destroys shades, Phase 3: hits Thanatos!)',
     '🛡  SPACE or RIGHT-CLICK → Wing Shield  (blocks bolts)',
     '⚡  Z then SPACE quickly → DIVINE BARRAGE  (stuns Thanatos!)',
     '',
