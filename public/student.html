@@ -6233,14 +6233,10 @@
 
                 if (availResponse && availResponse.ok) {
                     const availData = await availResponse.json();
-                    console.log('[DIAG] availability raw response:', JSON.stringify(availData).substring(0, 2000));
                     gameQuestAvailability = {};
                     (availData.quests || []).forEach(q => {
                         gameQuestAvailability[q.quest_id] = q;
                     });
-                    console.log('[DIAG] gameQuestAvailability keys:', Object.keys(gameQuestAvailability), 'sample:', JSON.stringify(Object.values(gameQuestAvailability)[0]));
-                } else {
-                    console.log('[DIAG] availability response not ok:', availResponse ? availResponse.status : 'null');
                 }
                 
                 if (!data.hasAlliance) {
@@ -6310,7 +6306,6 @@
         
         function renderGameQuestCard(quest) {
             const avail = gameQuestAvailability[quest.quest_id];
-            console.log(`[DIAG] renderGameQuestCard quest_id=${quest.quest_id} (type=${typeof quest.quest_id}), avail=`, avail ? JSON.stringify({status: avail.status, qpc: avail.quiz_passed_count, qmc: avail.quiz_member_count}) : 'UNDEFINED', 'keys in map:', Object.keys(gameQuestAvailability));
             const status = avail ? avail.status : 'locked';
             const icon = quest.icon || GOD_ICONS[quest.god_associated] || '🎮';
             const token = localStorage.getItem('token');
