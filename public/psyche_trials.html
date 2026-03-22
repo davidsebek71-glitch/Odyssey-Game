@@ -3797,11 +3797,11 @@ const CHAR_W       = 120;   // character render width
 // Timings (seconds)
 const SHOOT_COOLDOWN = 0.55;
 const DASH_COOLDOWN  = 1.8;
-const SHIELD_DUR     = 0.7;
-const SHIELD_COOLDOWN= 2.2;
+const SHIELD_DUR     = 1.2;
+const SHIELD_COOLDOWN= 1.0;
 
 // Thanatos AI intervals per phase
-const AI_INTERVAL = [2.8, 1.4, 0.8];  // Phase 1 much slower — students need to learn
+const AI_INTERVAL = [2.8, 1.2, 0.5];  // Phase 1 slow, Phase 3 relentless
 
 // ── State ────────────────────────────────────────────────────
 let G = {};
@@ -4302,7 +4302,7 @@ function render(){
   G.thanShades.forEach(s=>{
     const alpha = s.dead ? Math.max(0,s.deathTimer/0.4)*0.6 : 0.85;
     const spr=sprites['shade_soldier'];
-    const shadeH=140, shadeW=85;
+    const shadeH=CHAR_H, shadeW=CHAR_W-10;
     if(spr){
       ctx.globalAlpha=alpha;
       ctx.drawImage(spr,s.x-shadeW/2,FLOOR_Y-shadeH,shadeW,shadeH);
@@ -4324,45 +4324,55 @@ function render(){
   // ── Arrows ──
   G.arrows.forEach(a=>{
     const spr=sprites['arrow_proj'];
-    const aw=130, ah=50;
+    const aw=160, ah=60;
     if(spr){
       ctx.drawImage(spr,a.x-aw/2,a.y-ah/2,aw,ah);
     } else {
-      // Big solid gold arrow — no glow, just shape
+      // Massive bright gold energy arrow
       ctx.fillStyle='#ffd700';
-      ctx.beginPath();ctx.ellipse(a.x,a.y,38,18,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(a.x,a.y,48,22,0,0,Math.PI*2);ctx.fill();
+      // White-hot core
+      ctx.fillStyle='#ffffff';
+      ctx.beginPath();ctx.ellipse(a.x+5,a.y,28,13,0,0,Math.PI*2);ctx.fill();
       ctx.fillStyle='#fffbe0';
-      ctx.beginPath();ctx.ellipse(a.x+5,a.y,22,11,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(a.x+5,a.y,20,10,0,0,Math.PI*2);ctx.fill();
       // Bold arrow tip
       ctx.fillStyle='#ffd700';
-      ctx.beginPath();ctx.moveTo(a.x+48,a.y);ctx.lineTo(a.x+28,a.y-16);ctx.lineTo(a.x+28,a.y+16);ctx.closePath();ctx.fill();
-      // Tail feathers
+      ctx.beginPath();ctx.moveTo(a.x+58,a.y);ctx.lineTo(a.x+34,a.y-20);ctx.lineTo(a.x+34,a.y+20);ctx.closePath();ctx.fill();
+      // Tail
       ctx.fillStyle='#e6b800';
-      ctx.beginPath();ctx.moveTo(a.x-38,a.y);ctx.lineTo(a.x-50,a.y-12);ctx.lineTo(a.x-30,a.y);ctx.closePath();ctx.fill();
-      ctx.beginPath();ctx.moveTo(a.x-38,a.y);ctx.lineTo(a.x-50,a.y+12);ctx.lineTo(a.x-30,a.y);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(a.x-48,a.y);ctx.lineTo(a.x-62,a.y-14);ctx.lineTo(a.x-38,a.y);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(a.x-48,a.y);ctx.lineTo(a.x-62,a.y+14);ctx.lineTo(a.x-38,a.y);ctx.closePath();ctx.fill();
     }
   });
 
   // ── Shadow bolts ──
   G.shadowBolts.forEach(b=>{
     const spr=sprites['shadow_bolt'];
-    const bw=140, bh=55;
+    const bw=180, bh=70;
     if(spr){
       ctx.drawImage(spr,b.x-bw/2,b.y-bh/2,bw,bh);
     } else {
-      // Big solid purple death bolt — no glow, just shape
-      ctx.fillStyle='#7c3aed';
-      ctx.beginPath();ctx.ellipse(b.x,b.y,42,20,0,0,Math.PI*2);ctx.fill();
+      // Massive bright purple bolt — high contrast on dark arena
       ctx.fillStyle='#a855f7';
-      ctx.beginPath();ctx.ellipse(b.x-3,b.y,28,14,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#e0d0ff';
-      ctx.beginPath();ctx.ellipse(b.x-6,b.y,12,8,0,0,Math.PI*2);ctx.fill();
-      // Jagged bolt tip pointing left (toward Eros)
-      ctx.fillStyle='#6d28d9';
-      ctx.beginPath();ctx.moveTo(b.x-48,b.y);ctx.lineTo(b.x-30,b.y-18);ctx.lineTo(b.x-34,b.y-4);
-      ctx.lineTo(b.x-24,b.y-10);ctx.lineTo(b.x-28,b.y);
-      ctx.lineTo(b.x-24,b.y+10);ctx.lineTo(b.x-34,b.y+4);
-      ctx.lineTo(b.x-30,b.y+18);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.ellipse(b.x,b.y,55,28,0,0,Math.PI*2);ctx.fill();
+      // Bright magenta ring
+      ctx.fillStyle='#d946ef';
+      ctx.beginPath();ctx.ellipse(b.x-4,b.y,38,20,0,0,Math.PI*2);ctx.fill();
+      // White-hot center so it reads instantly
+      ctx.fillStyle='#ffffff';
+      ctx.beginPath();ctx.ellipse(b.x-6,b.y,20,12,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#f0e0ff';
+      ctx.beginPath();ctx.ellipse(b.x-6,b.y,14,8,0,0,Math.PI*2);ctx.fill();
+      // Jagged bolt leading edge
+      ctx.fillStyle='#7c3aed';
+      ctx.beginPath();
+      ctx.moveTo(b.x-60,b.y);
+      ctx.lineTo(b.x-40,b.y-22);ctx.lineTo(b.x-46,b.y-6);
+      ctx.lineTo(b.x-32,b.y-14);ctx.lineTo(b.x-38,b.y);
+      ctx.lineTo(b.x-32,b.y+14);ctx.lineTo(b.x-46,b.y+6);
+      ctx.lineTo(b.x-40,b.y+22);
+      ctx.closePath();ctx.fill();
     }
   });
 
