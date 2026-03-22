@@ -112,8 +112,8 @@ loadSprite('eagle_grip_low','eagle_grip_low.png');
 loadSprite('eagle_full','eagle_full.png');
 loadSprite('storm_cloud','hazard_cloud_storm.png');
 loadSprite('harpy','hazard_eagle_descent.png');
-loadSprite('rock_outcrop','cave_rocks.png');
-loadScene('soul_rising','descent_hazard_soul_rising.png');
+loadSprite('cave_rocks','cave_rocks.png');
+loadSprite('wind_streak','wind_streak.png');
 loadScene('mountain_bg','mountain_bg.png');
 loadScene('scene_cliffs','scene_cliffs_stormy.png');
 loadScene('scene_styx','scene_styx_background.png');
@@ -2548,24 +2548,28 @@ function startGame() { G.phase = 'playing'; }
 const Trial3 = (function(){
 
 // ── Constants ───────────────────────────────────────────────
-const GRIP_MAX       = 100;
-const GRIP_REGEN     = 5;      // per second when no hit
-const GRIP_HIT       = 20;     // lost per hazard hit
-const EAGLE_SPEED_X  = 240;    // px/s lateral
-const GRAVITY        = 180;    // px/s² downward pull
-const FLAP_IMPULSE   = -280;   // vy on flap (negative = up)
-const FLAP_COOLDOWN  = 0.18;   // min seconds between flaps
-const ASCENT_SCROLL  = 85;     // scroll speed up
-const DESCENT_SCROLL = 150;    // scroll speed down
-const BRAKE_SPEED    = 220;    // how fast UP key slows descent
-const JUG_SLOSH_SPEED= 260;    // vy that triggers grip loss on descent
-const JUG_SLOSH_GRIP = 8;      // grip lost per frame of over-speed descent
-const WIND_INTERVAL  = 5.0;
-const WIND_FORCE     = 160;
-const WIND_DUR       = 2.0;
-const FLOOR_Y        = H - 60; // eagle cannot go below this
+const GRIP_MAX        = 100;
+const GRIP_REGEN      = 6;
+const GRIP_HIT        = 18;
+const EAGLE_SPEED_X   = 520;    // fast lateral snap — race car steering
+const EAGLE_ACCEL     = 14;     // smooth follow speed
+const GRAVITY         = 130;    // lighter gravity — full air control
+const FLAP_IMPULSE    = -270;   // vy on flap
+const FLAP_COOLDOWN   = 0.13;
+const SCROLL_START    = 220;    // px/s scroll at start
+const SCROLL_PEAK     = 440;    // px/s scroll at summit — builds speed
+const DESCENT_SCROLL  = 300;
+const BRAKE_FORCE     = 320;
+const JUG_SLOSH_SPEED = 320;
+const JUG_SLOSH_GRIP  = 10;
+const WIND_INTERVAL   = 4.5;
+const WIND_FORCE      = 210;    // strong gusts — car on slick road
+const WIND_DUR        = 2.0;
 
-// Hazard types — lightning replaced with HARPY, added ROCK
+// Lane centers (invisible — spawn logic only)
+// L1 cliff: 130-250 (rocks only), L2: 250-370, L3: 370-490, L4: 490-640
+const LANE_CX = [190, 310, 430, 565];
+
 const HZ = { CLOUD:0, HARPY:1, ROCK:2, SOUL:3 };
 
 // ── State ────────────────────────────────────────────────────
@@ -2574,88 +2578,86 @@ function freshState() {
   return {
     phase: 'tutorial',
     elapsed: 0,
-    // Eagle position and physics
-    ex: W/2, ey: H*0.55,
-    vy: 0,             // vertical velocity — positive = falling
-    flapCooldown: 0,   // time until next flap allowed
-    // Scroll
+    ex: 400, ey: H*0.55,
+    vy: 0,
+    flapCooldown: 0,
     ascentDist: 2800,
     descentDist: 2800,
     scrolled: 0,
-    // Grip
     grip: GRIP_MAX,
     gripHitTimer: 0,
-    // Wind
     windTimer: WIND_INTERVAL * 0.5,
     windActive: false,
     windDir: 0,
     windTimeLeft: 0,
     windAlpha: 0,
-    // Hazards
     hazards: [],
     hazSpawnTimer: 1.0,
     hazSpawnInterval: 1.8,
-    // Rock outcrops on cliff edge
     rocks: [],
     rockSpawnTimer: 3.0,
-    // Particles
     particles: [],
-    // Summit
     summitTimer: 0,
-    summitPhase: 0,    // 0=arriving 1=zeus_speaks 2=departing
-    // Stats
+    summitPhase: 0,
     hits: 0,
     heartsLost: 0,
-    // Mouse target X
-    targetX: W/2,
+    targetX: 400,
   };
 }
 
 // ── Hazard factory ───────────────────────────────────────────
+// Lane centers (invisible to player — spawn logic only):
+// L1=190 (cliff lane, rocks only), L2=310, L3=430, L4=565
 function spawnHazard(phase) {
-  const type = phase === 'descent'
-    ? (Math.random()<0.45 ? HZ.SOUL : Math.random()<0.5 ? HZ.CLOUD : HZ.HARPY)
-    : (Math.random()<0.3 ? HZ.CLOUD : Math.random()<0.55 ? HZ.HARPY : HZ.CLOUD);
+  let type;
+  if(phase==='descent'){
+    type = Math.random()<0.5 ? HZ.SOUL : Math.random()<0.5 ? HZ.HARPY : HZ.CLOUD;
+  } else {
+    // Ascent: harpy-heavy — they ARE the oncoming traffic
+    type = Math.random()<0.6 ? HZ.HARPY : HZ.CLOUD;
+  }
 
   const h = { type, phase:'active', timer:0 };
+  const spd = G.currentScroll || SCROLL_START;
 
-  if (type === HZ.CLOUD) {
-    h.x = 200 + Math.random()*(W-320); // keep clear of cliff
-    h.y = phase==='descent' ? H+60 : -80;
-    h.w = 110 + Math.random()*60; h.h = 52;
-    h.vx = (Math.random()-0.5)*35;
-    h.vy = phase==='descent' ? -(55+Math.random()*30) : (55+Math.random()*30);
-  } else if (type === HZ.HARPY) {
-    // Harpy dives from top — targets eagle X with some randomness
-    const fromLeft = Math.random()<0.5;
-    h.x = fromLeft ? W*0.4 + Math.random()*W*0.2 : W*0.5 + Math.random()*W*0.3;
+  if(type === HZ.CLOUD){
+    // Wide obstacle — forces full lane dodge. Lanes 2-4 only.
+    const laneIdx = 1 + Math.floor(Math.random()*3);
+    h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*50;
+    h.y = phase==='descent' ? H+70 : -70;
+    h.w = 160+Math.random()*80; h.h = 58;
+    h.vx = (Math.random()-0.5)*18;
+    h.vy = phase==='descent' ? -(spd*0.7+30) : spd*0.85+30;
+  } else if(type === HZ.HARPY){
+    // Rush straight down in a lane — oncoming traffic
+    const laneIdx = 1 + Math.floor(Math.random()*3);
+    h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*45;
     h.y = -70;
-    h.w = 56; h.h = 48;
-    h.targetX = G.ex + (Math.random()-0.5)*100; // aim near eagle
-    h.vx = 0; // set in update based on target
-    h.vy = 160 + Math.random()*80;
+    h.w = 62; h.h = 52;
+    h.vx = 0;
+    h.vy = spd*0.95 + 70 + Math.random()*50;
     h.phase = 'diving';
-    h.swoopX = h.x;
     h.timer = 0;
-  } else if (type === HZ.SOUL) {
-    h.x = 200 + Math.random()*(W-280);
-    h.y = H + 50;
-    h.w = 42; h.h = 58;
-    h.vx = (Math.random()-0.5)*20;
-    h.vy = -(90 + Math.random()*55);
+  } else if(type === HZ.SOUL){
+    // Rise from below during descent
+    const laneIdx = 1 + Math.floor(Math.random()*3);
+    h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*55;
+    h.y = H+55;
+    h.w = 44; h.h = 60;
+    h.vx = (Math.random()-0.5)*18;
+    h.vy = -(DESCENT_SCROLL*0.75+Math.random()*45);
   }
   G.hazards.push(h);
 }
 
-// Rock outcrops — jut from left cliff, player must dodge right
 function spawnRock() {
+  // Rock outcrop juts from left cliff (lane 1 only) — scrolls with world
   G.rocks.push({
-    x: 150 + Math.random()*50,  // from cliff edge
-    y: -40,
-    w: 60 + Math.random()*40,
-    h: 30,
-    vy: ASCENT_SCROLL,           // scrolls at same speed as world
-    passed: false
+    x: 128,
+    y: -65,
+    w: 85+Math.random()*45,
+    h: 55+Math.random()*25,
+    spd: G.currentScroll || SCROLL_START
   });
 }
 
@@ -2679,69 +2681,66 @@ function update(dt) {
   if(G.phase==='tutorial'||G.phase==='complete') return;
   G.elapsed += dt;
 
-  // ── EAGLE LATERAL MOVEMENT ──
+  // Current scroll speed — escalates with ascent progress (racing acceleration)
+  const ascentProgress = G.phase==='ascent' ? Math.min(1, G.scrolled/G.ascentDist) : 0;
+  const currentScroll = G.phase==='ascent'
+    ? SCROLL_START + (SCROLL_PEAK - SCROLL_START)*ascentProgress
+    : DESCENT_SCROLL;
+  G.currentScroll = currentScroll; // expose to render for streak speed
+
+  // ── LATERAL MOVEMENT — race car snap steering ──
   const moveL = keys['ArrowLeft']||keys['a']||keys['A'];
   const moveR = keys['ArrowRight']||keys['d']||keys['D'];
-  if(moveL) G.targetX = Math.max(220, G.ex - EAGLE_SPEED_X*dt*2);
-  if(moveR) G.targetX = Math.min(W-40, G.ex + EAGLE_SPEED_X*dt*2);
-  G.ex += (G.targetX - G.ex) * Math.min(1, dt*9);
-  G.ex = Math.max(220, Math.min(W-40, G.ex));
+  if(moveL) G.targetX = Math.max(145, G.targetX - EAGLE_SPEED_X*dt);
+  if(moveR) G.targetX = Math.min(W-40, G.targetX + EAGLE_SPEED_X*dt);
+  const prevEx = G.ex;
+  G.ex += (G.targetX - G.ex) * Math.min(1, dt*EAGLE_ACCEL);
+  G.ex = Math.max(145, Math.min(W-40, G.ex));
+  // Track lateral velocity for sprite flip
+  G.vx = (G.ex - prevEx) / Math.max(dt, 0.001);
 
-  // ── MECHANIC 1: GRAVITY + WING FLAP ──
+  // ── VERTICAL — gravity + flap, full screen freedom ──
   const flapKey = keys[' ']||keys['ArrowUp']||keys['w']||keys['W'];
-  if(G.phase==='ascent'||G.phase==='summit') {
-    // Apply gravity
-    G.vy += GRAVITY * dt;
-    // Flap on key/button press
-    if(G.flapCooldown>0) G.flapCooldown-=dt;
+  if(G.flapCooldown>0) G.flapCooldown-=dt;
+
+  if(G.phase==='ascent'||G.phase==='summit'){
+    G.vy += GRAVITY*dt;
     if(flapKey && G.flapCooldown<=0){
       G.vy = FLAP_IMPULSE;
       G.flapCooldown = FLAP_COOLDOWN;
-      spawnParticles(G.ex, G.ey+30, 4, 'rgba(180,200,255,0.6)');
+      spawnParticles(G.ex, G.ey+28, 4, 'rgba(180,210,255,0.5)');
     }
-    // Move eagle vertically
-    G.ey += G.vy * dt;
-    // Clamp: can't go above top or below floor
-    if(G.ey < 60)      { G.ey=60; G.vy=Math.max(0,G.vy); }
-    if(G.ey > FLOOR_Y) {
-      // Hit the mountain — lose grip, bounce back
-      G.ey = FLOOR_Y;
-      G.vy = FLAP_IMPULSE * 0.5;
+    G.ey += G.vy*dt;
+    if(G.ey<40){ G.ey=40; G.vy=Math.max(0,G.vy); }
+    if(G.ey>H-40){
+      G.ey=H-40; G.vy=FLAP_IMPULSE*0.4;
       if(G.gripHitTimer<=0){
-        G.grip = Math.max(0, G.grip - GRIP_HIT);
-        G.gripHitTimer = 0.8;
-        G.hits++;
-        spawnParticles(G.ex, G.ey, 8, '#ff8040');
-        showFloat(G.ex, G.ey-40, '💥 Hit the mountain!', '#ff8040', 13);
-        triggerJugSlip();
+        G.grip=Math.max(0,G.grip-GRIP_HIT);
+        G.gripHitTimer=0.7; G.hits++;
+        spawnParticles(G.ex,G.ey,6,'#ff8040');
+        showFloat(G.ex,G.ey-36,'💥 Mountain floor!','#ff8040',12);
+        if(G.grip<=0) triggerJugSlip();
       }
     }
-  } else if(G.phase==='descent') {
-    // ── MECHANIC 3: DESCENT — gravity helps, but brake to protect jug ──
-    G.vy += GRAVITY * 0.6 * dt; // weaker gravity — jug is heavy, we're coming down
-
-    // UP key / flap = brake (slow descent, protect grip)
+  } else if(G.phase==='descent'){
+    G.vy += GRAVITY*0.55*dt;
     if(flapKey && G.flapCooldown<=0){
-      G.vy = Math.max(G.vy - BRAKE_SPEED*dt*4, -80); // brake, small upward allowed
-      G.flapCooldown = 0.12;
-      spawnParticles(G.ex, G.ey+30, 3, 'rgba(100,180,220,0.5)');
+      G.vy = Math.max(G.vy - BRAKE_FORCE*dt*5, -120);
+      G.flapCooldown = 0.11;
+      spawnParticles(G.ex, G.ey+28, 3, 'rgba(100,190,220,0.5)');
     }
-    if(G.flapCooldown>0) G.flapCooldown-=dt;
-
-    // Too fast = jug sloshing, grip drains
     if(G.vy > JUG_SLOSH_SPEED && G.gripHitTimer<=0){
       G.grip = Math.max(0, G.grip - JUG_SLOSH_GRIP*dt*60);
-      if(G.grip<=1) triggerJugSlip();
+      if(G.grip<=0) triggerJugSlip();
     }
-
-    G.ey += G.vy * dt;
-    if(G.ey < 60)      { G.ey=60; G.vy=20; }
-    if(G.ey > FLOOR_Y) { G.ey=FLOOR_Y; G.vy=0; }
+    G.ey += G.vy*dt;
+    if(G.ey<40){ G.ey=40; G.vy=20; }
+    if(G.ey>H-40){ G.ey=H-40; G.vy=0; }
   }
 
   // Grip regen
   if(G.gripHitTimer>0) G.gripHitTimer-=dt;
-  else G.grip = Math.min(GRIP_MAX, G.grip + GRIP_REGEN*dt);
+  else G.grip=Math.min(GRIP_MAX, G.grip+GRIP_REGEN*dt);
 
   // ── WIND GUST ──
   if(G.phase==='ascent'||G.phase==='descent'){
@@ -2749,59 +2748,48 @@ function update(dt) {
       G.windTimeLeft-=dt;
       G.windAlpha=Math.min(1,G.windTimeLeft/0.4);
       G.targetX+=G.windDir*WIND_FORCE*dt;
-      G.targetX=Math.max(220,Math.min(W-40,G.targetX));
+      G.targetX=Math.max(145,Math.min(W-40,G.targetX));
       if(G.windTimeLeft<=0){G.windActive=false;G.windAlpha=0;}
     } else {
       G.windTimer-=dt;
       if(G.windTimer<=0){
         G.windActive=true;
         G.windDir=Math.random()<0.5?-1:1;
-        G.windTimeLeft=WIND_DUR+(Math.random()-0.5)*0.8;
+        G.windTimeLeft=WIND_DUR+(Math.random()-0.5)*0.6;
         G.windAlpha=1;
         G.windTimer=WIND_INTERVAL+(Math.random()-0.5)*1.5;
-        showFloat(W/2,70,
-          G.windDir<0?'💨 Wind from the right!':'💨 Wind from the left!',
-          'rgba(180,210,255,0.9)',13);
+        showFloat(W/2,70,G.windDir<0?'💨 Wind from the right!':'💨 Wind from the left!','rgba(180,210,255,0.9)',13);
       }
     }
   }
 
   // ── ASCENT ──
-  if(G.phase==='ascent') {
-    G.scrolled += ASCENT_SCROLL*dt;
+  if(G.phase==='ascent'){
+    G.scrolled+=currentScroll*dt;
     G.hazSpawnTimer-=dt;
-    const prog=Math.min(1,G.scrolled/G.ascentDist);
-    const interval=G.hazSpawnInterval*(1-prog*0.6);
-    if(G.hazSpawnTimer<=0){spawnHazard('ascent');G.hazSpawnTimer=interval+Math.random()*0.5;}
-    // ── MECHANIC 4: ROCK OUTCROPS ──
+    const spawnInterval=G.hazSpawnInterval*(1-ascentProgress*0.55);
+    if(G.hazSpawnTimer<=0){
+      spawnHazard('ascent');
+      if(ascentProgress>0.5&&Math.random()<0.35) spawnHazard('ascent');
+      G.hazSpawnTimer=spawnInterval+Math.random()*0.35;
+    }
     G.rockSpawnTimer-=dt;
-    if(G.rockSpawnTimer<=0){spawnRock();G.rockSpawnTimer=3.5+Math.random()*2.5;}
+    if(G.rockSpawnTimer<=0){spawnRock();G.rockSpawnTimer=2.8+Math.random()*2.2;}
     if(G.scrolled>=G.ascentDist){
       G.phase='summit';G.summitTimer=5.0;G.summitPhase=0;
-      G.hazards=[];G.rocks=[];G.windActive=false;
-      G.vy=-60; // eagle rises gently to summit
+      G.hazards=[];G.rocks=[];G.windActive=false;G.vy=-50;
       spawnParticles(G.ex,G.ey,25,'#80d8ff');
     }
   }
 
-  // ── MECHANIC 5: SUMMIT — Zeus speaks ──
+  // ── SUMMIT ──
   if(G.phase==='summit'){
     G.summitTimer-=dt;
-    G.vy=Math.max(G.vy-GRAVITY*0.5*dt,-30); // float gently
-    G.ey=Math.max(H*0.35,G.ey+G.vy*dt);
-    if(G.summitPhase===0&&G.summitTimer<3.8){
-      G.summitPhase=1;
-      showFloat(W/2,H*0.18,'"Well done, chosen eagle."','#f0d68a',15);
-    }
-    if(G.summitPhase===1&&G.summitTimer<2.0){
-      G.summitPhase=2;
-      showFloat(W/2,H*0.22,'"Carry the sacred water — do not spill a drop."','rgba(180,230,255,0.9)',13);
-    }
-    if(G.summitTimer<=0){
-      G.phase='descent';G.scrolled=0;G.vy=40;
-      G.windTimer=WIND_INTERVAL*0.4;
-      G.hazSpawnTimer=2.0;
-    }
+    G.vy=Math.max(G.vy-GRAVITY*0.4*dt,-25);
+    G.ey=Math.max(H*0.3,G.ey+G.vy*dt);
+    if(G.summitPhase===0&&G.summitTimer<3.8){G.summitPhase=1;showFloat(W/2,H*0.17,'"Well done, chosen eagle."','#f0d68a',15);}
+    if(G.summitPhase===1&&G.summitTimer<2.0){G.summitPhase=2;showFloat(W/2,H*0.23,'"Do not spill a drop."','rgba(180,230,255,0.9)',13);}
+    if(G.summitTimer<=0){G.phase='descent';G.scrolled=0;G.vy=50;G.windTimer=WIND_INTERVAL*0.4;G.hazSpawnTimer=1.8;}
   }
 
   // ── DESCENT ──
@@ -2809,97 +2797,75 @@ function update(dt) {
     G.scrolled+=DESCENT_SCROLL*dt;
     G.hazSpawnTimer-=dt;
     const prog=Math.min(1,G.scrolled/G.descentDist);
-    const interval=(G.hazSpawnInterval*0.8)*(1-prog*0.4);
+    const interval=G.hazSpawnInterval*(1-prog*0.4);
     if(G.hazSpawnTimer<=0){spawnHazard('descent');G.hazSpawnTimer=interval+Math.random()*0.4;}
-    // Rocks during descent too
     G.rockSpawnTimer-=dt;
-    if(G.rockSpawnTimer<=0){spawnRock();G.rockSpawnTimer=4.0+Math.random()*2.0;}
+    if(G.rockSpawnTimer<=0){spawnRock();G.rockSpawnTimer=3.5+Math.random()*2.0;}
     if(G.scrolled>=G.descentDist) G.phase='complete';
   }
 
-  // ── ROCKS UPDATE ──
+  // ── ROCKS — scroll with world ──
   G.rocks=G.rocks.filter(r=>{
-    r.y+=r.vy*dt;
-    if(r.y>H+60) return false;
-    // Collision
-    if(G.gripHitTimer<=0&&G.ex<r.x+r.w&&G.ex>r.x-20&&G.ey>r.y-10&&G.ey<r.y+r.h+10){
-      G.grip=Math.max(0,G.grip-GRIP_HIT*1.3);
-      G.gripHitTimer=1.0;G.hits++;
-      G.vy=FLAP_IMPULSE*0.4; // bounce off
-      G.targetX=Math.min(W-40,G.ex+80); // push right
-      spawnParticles(G.ex,G.ey,10,'#a0a0c0');
-      showFloat(G.ex,G.ey-40,'💥 Rock!','#c0c0e0',13);
-      triggerJugSlip();
+    r.y+=currentScroll*dt;
+    if(r.y>H+80) return false;
+    if(G.gripHitTimer<=0&&G.ex<r.x+r.w&&G.ey>r.y-20&&G.ey<r.y+r.h+20){
+      G.grip=Math.max(0,G.grip-GRIP_HIT*1.5);
+      G.gripHitTimer=0.9;G.hits++;
+      G.targetX=Math.min(W-40,G.ex+100);
+      G.vy=FLAP_IMPULSE*0.35;
+      spawnParticles(G.ex,G.ey,10,'#8080a0');
+      showFloat(G.ex,G.ey-38,'💥 Rock!','#c0c0e0',13);
+      if(G.grip<=0) triggerJugSlip();
     }
     return true;
   });
 
-  // ── HAZARDS UPDATE ──
+  // ── HAZARDS — all rush toward eagle ──
   G.hazards=G.hazards.filter(h=>{
     h.timer+=dt;
-
-    if(h.type===HZ.HARPY){
-      // Home toward eagle X, then dive
-      if(h.phase==='diving'){
-        const dx=G.ex-h.x;
-        h.vx=dx*1.8; // track eagle horizontally
-        h.x+=h.vx*dt;
-        h.y+=h.vy*dt;
-        if(h.y>H+80) return false;
-        // Swoop back up after passing eagle
-        if(h.y>G.ey+60&&h.phase==='diving'){
-          h.phase='swooping';
-          h.vy=-200;
-        }
-      } else if(h.phase==='swooping'){
-        h.y+=h.vy*dt;
-        h.vy+=GRAVITY*0.5*dt;
-        if(h.y<-80) return false;
-      }
-    } else {
-      h.x+=h.vx*dt; h.y+=h.vy*dt;
-      if(h.y>H+120||h.y<-200||h.x<-200||h.x>W+200) return false;
+    if(h.type===HZ.HARPY&&h.phase==='diving'){
+      // Homing — increases aggression with ascent progress
+      const homing=2.0+ascentProgress*3.0;
+      h.vx+=(G.ex-h.x)*homing*dt;
+      h.vx=Math.max(-220,Math.min(220,h.vx));
     }
-
-    // Collision
+    h.x+=h.vx*dt; h.y+=h.vy*dt;
+    if(h.y>H+100||h.y<-200||h.x<-200||h.x>W+200) return false;
     if(G.gripHitTimer<=0){
-      const hw=h.w*0.4,hh=h.h*0.4;
-      const hit=Math.abs(G.ex-h.x)<hw+24&&Math.abs(G.ey-h.y)<hh+24;
-      if(hit){
+      const hw=h.w*0.38,hh=h.h*0.38;
+      if(Math.abs(G.ex-h.x)<hw+22&&Math.abs(G.ey-h.y)<hh+22){
         G.grip=Math.max(0,G.grip-GRIP_HIT);
-        G.gripHitTimer=1.1;G.hits++;
+        G.gripHitTimer=1.0;G.hits++;
         spawnParticles(G.ex,G.ey,10,'#ff8040');
-        const msg=h.type===HZ.HARPY?'🦅 Harpy strike!':h.type===HZ.SOUL?'👻 Soul chill!':'☁️ Turbulence!';
-        showFloat(G.ex,G.ey-40,msg,'#ff8040',13);
-        triggerJugSlip();
+        showFloat(G.ex,G.ey-38,h.type===HZ.HARPY?'🦅 Harpy!':h.type===HZ.SOUL?'👻 Soul!':'☁️ Turbulence!','#ff8040',13);
+        if(G.grip<=0) triggerJugSlip();
       }
     }
     return true;
   });
 
-  // Particles
   G.particles=G.particles.filter(p=>{
-    p.x+=p.vx*dt;p.y+=p.vy*dt;
-    p.vy+=60*dt;p.life-=dt;return p.life>0;
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=60*dt;p.life-=dt;return p.life>0;
   });
 }
 
-// ── Jug slip helper ──────────────────────────────────────────
+// ── Jug slip ────────────────────────────────────────────────
 function triggerJugSlip(){
-  if(G.grip>0) return; // only trigger at 0
+  if(G.grip>0) return;
   G.grip=0;
   GAME.totalHearts--;G.heartsLost++;
   showFloat(W/2,H/2,'💧 Jug slipped!','#ef4444',16);
   shake();
   setTimeout(()=>{
-    G.grip=GRIP_MAX;G.vy=0;
-    G.hazards=[];G.rocks=[];
-    if(G.phase==='ascent') G.scrolled=Math.max(0,G.scrolled-600);
-    if(G.phase==='descent') G.scrolled=Math.max(0,G.scrolled-500);
+    G.grip=GRIP_MAX;G.vy=0;G.hazards=[];G.rocks=[];
+    if(G.phase==='ascent') G.scrolled=Math.max(0,G.scrolled-500);
+    if(G.phase==='descent') G.scrolled=Math.max(0,G.scrolled-400);
     if(GAME.totalHearts<=0) G.phase='complete';
     G.gripHitTimer=2.0;
   },1200);
 }
+
+
 
 // ── Render ───────────────────────────────────────────────────
 function render() {
@@ -2949,22 +2915,21 @@ function render() {
     }
   }
 
-  // ── CLIFF FACE — scrolling left edge ──
+  // ── CLIFF FACE — scrolling left edge, 130px wide ──
   if(cliffSpr){
     const ch=cliffSpr.naturalHeight||cliffSpr.height||1200;
     const cw=cliffSpr.naturalWidth||cliffSpr.width||800;
     const off=(G.scrolled*0.55)%ch;
     ctx.save();
-    ctx.beginPath();ctx.rect(0,0,210,H);ctx.clip();
-    ctx.drawImage(cliffSpr,0,off,cw,ch,0,0,210,H);
-    ctx.drawImage(cliffSpr,0,off-ch,cw,ch,0,0,210,H);
-    // Blend edge into sky
-    const cv=ctx.createLinearGradient(140,0,210,0);
-    cv.addColorStop(0,'rgba(6,3,18,0)');cv.addColorStop(1,'rgba(6,3,18,0.92)');
-    ctx.fillStyle=cv;ctx.fillRect(0,0,210,H);
+    ctx.beginPath();ctx.rect(0,0,130,H);ctx.clip();
+    ctx.drawImage(cliffSpr,0,off,cw,ch,0,0,130,H);
+    ctx.drawImage(cliffSpr,0,off-ch,cw,ch,0,0,130,H);
+    const cv=ctx.createLinearGradient(80,0,130,0);
+    cv.addColorStop(0,'rgba(6,3,18,0)');cv.addColorStop(1,'rgba(6,3,18,0.95)');
+    ctx.fillStyle=cv;ctx.fillRect(0,0,130,H);
     ctx.restore();
   } else {
-    // Programmatic cliff
+    // Programmatic cliff — narrower
     const sc=G.scrolled*0.55;
     ctx.fillStyle='#080514';
     for(let s=0;s<14;s++){
@@ -3023,26 +2988,26 @@ function render() {
     ctx.textAlign='left';
   }
 
-  // ── ROCK OUTCROPS ──
+  // ── ROCK OUTCROPS — flush against left cliff, lane 1 ──
   G.rocks.forEach(r=>{
-    const spr=sprites['rock_outcrop'];
+    const spr=sprites['cave_rocks'];
     if(spr){
-      ctx.drawImage(spr,r.x-10,r.y,r.w+10,r.h+10);
+      // Draw flush from left edge, sprite anchored to cliff face
+      ctx.drawImage(spr, 0, r.y, r.x+r.w, r.h);
     } else {
-      // Programmatic rock jutting from left cliff
-      ctx.fillStyle='#1a1530';
+      // Programmatic — dark angular chunk jutting right from cliff
+      ctx.fillStyle='#14102a';
       ctx.beginPath();
-      ctx.moveTo(r.x-15,r.y);ctx.lineTo(r.x+r.w,r.y+r.h*0.3);
-      ctx.lineTo(r.x+r.w-10,r.y+r.h);ctx.lineTo(r.x-15,r.y+r.h*0.85);
+      ctx.moveTo(0,r.y);ctx.lineTo(r.x+r.w,r.y+r.h*0.2);
+      ctx.lineTo(r.x+r.w-8,r.y+r.h*0.8);ctx.lineTo(0,r.y+r.h);
       ctx.closePath();ctx.fill();
-      // Highlight edge
-      ctx.strokeStyle='rgba(80,60,110,0.7)';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(r.x+r.w,r.y+r.h*0.3);ctx.lineTo(r.x+r.w-10,r.y+r.h);ctx.stroke();
-      // Danger glow
-      const rg=ctx.createRadialGradient(r.x+r.w*0.5,r.y+r.h*0.5,0,r.x+r.w*0.5,r.y+r.h*0.5,r.w*0.6);
-      rg.addColorStop(0,'rgba(180,80,80,0.15)');rg.addColorStop(1,'rgba(140,40,40,0)');
-      ctx.fillStyle=rg;ctx.fillRect(r.x-10,r.y-10,r.w+20,r.h+20);
+      ctx.strokeStyle='rgba(90,70,120,0.6)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(r.x+r.w,r.y+r.h*0.2);ctx.lineTo(r.x+r.w-8,r.y+r.h*0.8);ctx.stroke();
     }
+    // Danger glow at the jutting tip
+    const rg=ctx.createRadialGradient(r.x+r.w,r.y+r.h*0.5,0,r.x+r.w,r.y+r.h*0.5,60);
+    rg.addColorStop(0,'rgba(180,80,60,0.2)');rg.addColorStop(1,'rgba(140,40,40,0)');
+    ctx.fillStyle=rg;ctx.fillRect(r.x+r.w-60,r.y-20,80,r.h+40);
   });
 
   // ── HAZARDS ──
@@ -3052,11 +3017,13 @@ function render() {
       if(spr){
         ctx.drawImage(spr,h.x-h.w/2,h.y-h.h/2,h.w,h.h);
       } else {
-        ctx.fillStyle='rgba(30,20,60,0.88)';
+        // Pure storm cloud — no lightning, just a dark wide obstacle
+        ctx.fillStyle='rgba(25,15,50,0.92)';
         ctx.beginPath();ctx.ellipse(h.x,h.y,h.w/2,h.h/2,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='rgba(50,35,80,0.7)';
-        ctx.beginPath();ctx.ellipse(h.x-22,h.y-8,h.w/3,h.h/2.5,0,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(h.x+20,h.y-5,h.w/3.5,h.h/2.8,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='rgba(40,28,72,0.8)';
+        ctx.beginPath();ctx.ellipse(h.x-h.w*0.22,h.y-h.h*0.15,h.w/3,h.h/2.2,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(h.x+h.w*0.2,h.y-h.h*0.1,h.w/3.2,h.h/2.5,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.ellipse(h.x+h.w*0.05,h.y-h.h*0.22,h.w/4,h.h/2.8,0,0,Math.PI*2);ctx.fill();
       }
     } else if(h.type===HZ.HARPY){
       const spr=sprites['harpy'];
@@ -3088,54 +3055,56 @@ function render() {
         ctx.globalAlpha=1;
       }
       ctx.restore();
-      // Danger shadow on ground
-      ctx.fillStyle='rgba(120,20,20,0.12)';
-      ctx.beginPath();ctx.ellipse(h.x,FLOOR_Y+5,30,8,0,0,Math.PI*2);ctx.fill();
     } else if(h.type===HZ.SOUL){
-      // Always use programmatic ghost — avoids magenta sprite issues
-      const sa=0.55+Math.sin(G.elapsed*3.5+h.x*0.05)*0.25;
+      const sa=0.7+Math.sin(G.elapsed*3+h.x*0.05)*0.2;
+      ctx.save();
       ctx.globalAlpha=sa;
-      // Glow aura
-      const sg=ctx.createRadialGradient(h.x,h.y,0,h.x,h.y,h.w*0.7);
-      sg.addColorStop(0,'rgba(120,160,220,0.5)');sg.addColorStop(1,'rgba(80,120,200,0)');
-      ctx.fillStyle=sg;ctx.beginPath();ctx.arc(h.x,h.y,h.w*0.7,0,Math.PI*2);ctx.fill();
-      // Body — ethereal teardrop shape
-      ctx.fillStyle='rgba(160,200,240,0.85)';
+      // Outer glow
+      const sg=ctx.createRadialGradient(h.x,h.y,0,h.x,h.y,h.w);
+      sg.addColorStop(0,'rgba(200,220,255,0.4)');
+      sg.addColorStop(1,'rgba(120,160,220,0)');
+      ctx.fillStyle=sg;ctx.beginPath();ctx.arc(h.x,h.y,h.w,0,Math.PI*2);ctx.fill();
+      // Ghost body — bright white teardrop
+      ctx.fillStyle='rgba(230,240,255,0.92)';
       ctx.beginPath();
-      ctx.moveTo(h.x,h.y-h.h*0.45);
-      ctx.bezierCurveTo(h.x+h.w*0.35,h.y-h.h*0.2,h.x+h.w*0.3,h.y+h.h*0.2,h.x,h.y+h.h*0.45);
-      ctx.bezierCurveTo(h.x-h.w*0.3,h.y+h.h*0.2,h.x-h.w*0.35,h.y-h.h*0.2,h.x,h.y-h.h*0.45);
+      ctx.moveTo(h.x, h.y - h.h*0.45);
+      ctx.bezierCurveTo(h.x+h.w*0.4, h.y-h.h*0.15, h.x+h.w*0.38, h.y+h.h*0.22, h.x, h.y+h.h*0.46);
+      ctx.bezierCurveTo(h.x-h.w*0.38, h.y+h.h*0.22, h.x-h.w*0.4, h.y-h.h*0.15, h.x, h.y-h.h*0.45);
       ctx.fill();
-      // Dark hollow eyes
-      ctx.fillStyle='rgba(20,30,60,0.9)';
-      ctx.beginPath();ctx.ellipse(h.x-7,h.y-h.h*0.1,5,7,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(h.x+7,h.y-h.h*0.1,5,7,0,0,Math.PI*2);ctx.fill();
+      // Black hollow eyes
+      ctx.fillStyle='rgba(10,15,40,0.95)';
+      ctx.beginPath();ctx.ellipse(h.x-7,h.y-h.h*0.08,5,6,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(h.x+7,h.y-h.h*0.08,5,6,0,0,Math.PI*2);ctx.fill();
       // Wisp tail
-      ctx.strokeStyle='rgba(140,180,230,0.4)';ctx.lineWidth=3;
-      ctx.beginPath();ctx.moveTo(h.x,h.y+h.h*0.4);
-      ctx.quadraticCurveTo(h.x+Math.sin(G.elapsed*4)*15,h.y+h.h*0.7,h.x,h.y+h.h);ctx.stroke();
-      ctx.globalAlpha=1;
+      ctx.strokeStyle='rgba(200,220,255,0.5)';ctx.lineWidth=3;ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(h.x,h.y+h.h*0.42);
+      ctx.quadraticCurveTo(h.x+Math.sin(G.elapsed*4+h.x)*12,h.y+h.h*0.75,h.x,h.y+h.h*0.95);
+      ctx.stroke();
+      ctx.restore();
     }
   });
 
-  // ── EAGLE ──
+  // ── EAGLE — flip to face direction of travel ──
   const eagleKey=G.phase==='descent'?'eagle_full':(G.grip<30?'eagle_grip_low':'eagle_fly');
   const eagleSpr=sprites[eagleKey]||sprites['eagle_fly'];
-  const eSize=96;
+  const eSize=90;
   const hitFlicker=G.gripHitTimer>0&&Math.sin(G.elapsed*22)>0;
 
-  // Wing flap tilt — eagle tilts up on flap
-  const tilt=Math.max(-0.25,Math.min(0.25,-G.vy*0.001));
+  // Bank into turns like a race car
+  const tilt=Math.max(-0.3,Math.min(0.3,(G.vx||0)*0.0012));
+  // Face left when moving left
+  const facingLeft = (G.vx||0) < -15;
 
   ctx.save();
   ctx.translate(G.ex,G.ey);
-  ctx.rotate(tilt);
+  if(facingLeft) ctx.scale(-1,1);  // flip sprite
+  ctx.rotate(tilt * (facingLeft?-1:1));
   if(hitFlicker) ctx.globalAlpha=0.35;
 
   if(eagleSpr){
     ctx.drawImage(eagleSpr,-eSize/2,-eSize/2,eSize,eSize);
   } else {
-    // Programmatic eagle
     ctx.fillStyle='#8B5E1A';
     ctx.beginPath();ctx.ellipse(0,0,22,14,0,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#EEE8DC';
@@ -3155,6 +3124,34 @@ function render() {
   ctx.globalAlpha=1;
   ctx.restore();
 
+  // ── SPEED STREAKS — wind lines rushing past ──
+  if(G.phase==='ascent'||G.phase==='descent'){
+    const spd = G.currentScroll||SCROLL_START;
+    const streakAlpha = Math.min(0.55, (spd-SCROLL_START)/(SCROLL_PEAK-SCROLL_START)*0.55 + 0.1);
+    const windSpr = sprites['wind_streak'];
+    if(windSpr && streakAlpha>0.05){
+      // Multiple streaks at different Y positions, scrolling past
+      ctx.globalAlpha=streakAlpha;
+      for(let s=0;s<5;s++){
+        const sy = ((G.elapsed*spd*0.4 + s*140)%H) - 20;
+        ctx.drawImage(windSpr, 150+s*15, sy, 180, 30);
+      }
+      ctx.globalAlpha=1;
+    } else if(streakAlpha>0.08) {
+      // Programmatic speed lines
+      ctx.save();
+      for(let s=0;s<6;s++){
+        const sy=((G.elapsed*spd*0.4+s*110)%H)-10;
+        const len=60+s*20;
+        const alpha=streakAlpha*(0.5+s*0.08);
+        ctx.strokeStyle=`rgba(200,220,255,${alpha})`;
+        ctx.lineWidth=1+s%2;
+        ctx.beginPath();ctx.moveTo(200+s*60,sy);ctx.lineTo(200+s*60+len,sy);ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   // ── PARTICLES ──
   G.particles.forEach(p=>{
     ctx.globalAlpha=Math.max(0,p.life/p.ml);
@@ -3162,17 +3159,6 @@ function render() {
     ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
   });
   ctx.globalAlpha=1;
-
-  // ── FLOOR DANGER ZONE ── visual indicator when eagle is close to mountain
-  if(G.ey>FLOOR_Y-80){
-    const danger=(G.ey-(FLOOR_Y-80))/80;
-    ctx.fillStyle=`rgba(200,60,40,${danger*0.25})`;
-    ctx.fillRect(0,FLOOR_Y-10,W,H-(FLOOR_Y-10));
-    ctx.strokeStyle=`rgba(220,80,60,${danger*0.6})`;ctx.lineWidth=3;
-    ctx.setLineDash([10,6]);
-    ctx.beginPath();ctx.moveTo(0,FLOOR_Y);ctx.lineTo(W,FLOOR_Y);ctx.stroke();
-    ctx.setLineDash([]);
-  }
 
   // ── HUD ──
   renderHUD();
@@ -3365,7 +3351,7 @@ return {
       return;
     }
   },
-  mousemove(x,y){ G.targetX=Math.max(220,Math.min(W-40,x)); },
+  mousemove(x,y){ G.targetX=Math.max(145,Math.min(W-40,x)); },
   mousedown(x,y){
     // Click/tap anywhere = flap (during ascent) or brake (during descent)
     if(G.phase==='ascent'||G.phase==='descent') keys[' ']=true;
