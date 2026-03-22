@@ -51,7 +51,7 @@ const token = urlParams.get('token');
 // DEV MODE — shows level select screen on load.
 // Set to false before deploying to Railway.
 // ================================================================
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // ================================================================
 // SPRITES
@@ -290,10 +290,10 @@ function renderStoryCard() {
 // ================================================================
 const TRIAL_TITLES = [
   null, // index 0 unused
-  {title:'TRIAL I', sub:'The Sorting of the Seeds', virtue:'Precision', color:'#f0d68a'},
-  {title:'TRIAL II', sub:'The Golden Rams of Helios', virtue:'Patience', color:'#60a5fa'},
-  {title:'TRIAL III', sub:'The Water of the Styx', virtue:'Humility', color:'#80d8ff'},
-  {title:'TRIAL IV', sub:'Eros vs. Thanatos', virtue:'Devotion', color:'#c084fc'},
+  {title:'TRIAL I', sub:'The Sorting of the Seeds', virtue:'Precision', color:'#f0d68a', scene:'scene_intro'},
+  {title:'TRIAL II', sub:'The Golden Rams of Helios', virtue:'Patience', color:'#60a5fa', scene:'scene_rams'},
+  {title:'TRIAL III', sub:'The Water of the Styx', virtue:'Humility', color:'#80d8ff', scene:'sky_bg'},
+  {title:'TRIAL IV', sub:'Eros vs. Thanatos', virtue:'Devotion', color:'#c084fc', scene:'arena_bg'},
 ];
 
 function startTrial(num) {
@@ -321,37 +321,56 @@ function renderTitle(){
   const info=TRIAL_TITLES[GAME.titleNum];
   if(!info) return;
 
-  ctx.fillStyle='rgba(5,5,15,0.97)';ctx.fillRect(0,0,W,H);
+  // Dark base
+  ctx.fillStyle='#050515';ctx.fillRect(0,0,W,H);
 
-  // Fade in
-  const fadeIn=Math.min(1,t/0.8);
-  ctx.globalAlpha=fadeIn;
+  // Scene image as dim background
+  const sceneSpr=sprites[info.scene];
+  if(sceneSpr){
+    const fadeIn=Math.min(0.35,t/2.0);
+    ctx.globalAlpha=fadeIn;
+    const sw=sceneSpr.naturalWidth||sceneSpr.width||W;
+    const sh=sceneSpr.naturalHeight||sceneSpr.height||H;
+    ctx.drawImage(sceneSpr,0,0,sw,sh, 0,0,W,H);
+    ctx.globalAlpha=1;
+  }
+
+  // Dark vignette overlay
+  ctx.fillStyle='rgba(5,5,15,0.6)';ctx.fillRect(0,0,W,H);
+  const vigGrad=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.6);
+  vigGrad.addColorStop(0,'rgba(5,5,15,0)');
+  vigGrad.addColorStop(1,'rgba(5,5,15,0.7)');
+  ctx.fillStyle=vigGrad;ctx.fillRect(0,0,W,H);
+
+  // Content fade in
+  const textFade=Math.min(1,t/0.8);
+  ctx.globalAlpha=textFade;
+  ctx.textAlign='center';
+
+  // Decorative lines above and below title
+  ctx.strokeStyle=`${info.color}55`;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(W*0.2,H*0.33);ctx.lineTo(W*0.8,H*0.33);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W*0.2,H*0.53);ctx.lineTo(W*0.8,H*0.53);ctx.stroke();
 
   // Roman numeral — big and centered
-  ctx.textAlign='center';
-  ctx.fillStyle=info.color;ctx.font='bold 52px "Segoe UI"';
-  ctx.fillText(info.title,W/2,H*0.38);
+  ctx.fillStyle=info.color;ctx.font='bold 56px "Segoe UI"';
+  ctx.fillText(info.title,W/2,H*0.40);
 
   // Subtitle
-  ctx.fillStyle='#c8b88a';ctx.font='italic 20px "Segoe UI"';
-  ctx.fillText(info.sub,W/2,H*0.48);
+  ctx.fillStyle='#ddd0b8';ctx.font='italic 22px "Segoe UI"';
+  ctx.fillText(info.sub,W/2,H*0.49);
 
-  // Virtue earned
+  // Virtue earned — fades in after a beat
   if(t>1.0){
     const vFade=Math.min(1,(t-1.0)/0.6);
     ctx.globalAlpha=vFade;
-    ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='14px "Segoe UI"';
-    ctx.fillText('Virtue: '+info.virtue,W/2,H*0.58);
+    ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='14px "Segoe UI"';
+    ctx.fillText('Virtue: '+info.virtue,W/2,H*0.60);
   }
 
-  // Decorative line
-  ctx.globalAlpha=fadeIn*0.3;
-  ctx.strokeStyle=info.color;ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(W*0.25,H*0.42);ctx.lineTo(W*0.75,H*0.42);ctx.stroke();
-
-  // Fade out at end
+  // Fade out to black at end
   if(t>2.2){
-    const fadeOut=(t-2.2)/0.8;
+    const fadeOut=Math.min(1,(t-2.2)/0.8);
     ctx.globalAlpha=1;
     ctx.fillStyle=`rgba(5,5,15,${fadeOut})`;ctx.fillRect(0,0,W,H);
   }
