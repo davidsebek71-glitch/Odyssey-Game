@@ -2619,7 +2619,7 @@ const HZ = { CLOUD:0, HARPY:1, ROCK:2, SOUL:3 };
 let G = {};
 function freshState() {
   return {
-    phase: 'tutorial',
+    phase: 'cutscene_intro',
     elapsed: 0,
     ex: 420, ey: H*0.55,
     vy: 0,
@@ -2643,6 +2643,12 @@ function freshState() {
     hits: 0,
     heartsLost: 0,
     targetX: 420,
+    // Cutscene state
+    csTimer: 0,
+    csBeat: 0,
+    csReady: false,      // true when click-to-advance is available
+    csEagleX: 0,
+    csEagleY: 0,
   };
 }
 
@@ -2713,6 +2719,48 @@ function spawnParticles(x,y,n,color) {
 // ── Update ───────────────────────────────────────────────────
 function update(dt) {
   if(G.phase==='tutorial'||G.phase==='complete') return;
+
+  // ── CUTSCENE INTRO — Zeus gives eagle to Psyche ──
+  if(G.phase==='cutscene_intro'){
+    G.csTimer+=dt;
+    // Beat 0: fade in scene (0-1.5s)
+    // Beat 1: Zeus speaks (1.5s)
+    // Beat 2: Eagle hops forward (3.0s)
+    // Beat 3: Psyche speaks (4.5s)
+    // Beat 4: click ready (5.5s)
+    // Beat 5: eagle launches (after click)
+    if(G.csBeat===0&&G.csTimer>=1.5){G.csBeat=1;}
+    if(G.csBeat===1&&G.csTimer>=3.0){G.csBeat=2;}
+    if(G.csBeat===2&&G.csTimer>=4.5){G.csBeat=3;}
+    if(G.csBeat===3&&G.csTimer>=5.5){G.csBeat=4;G.csReady=true;}
+    // Beat 5: eagle flies up off screen
+    if(G.csBeat===5){
+      G.csEagleY-=320*dt;
+      if(G.csEagleY<-120){
+        // Transition to gameplay tutorial
+        G.phase='tutorial';
+      }
+    }
+    return;
+  }
+
+  // ── CUTSCENE OUTRO — Eagle returns to Psyche ──
+  if(G.phase==='cutscene_outro'){
+    G.csTimer+=dt;
+    // Beat 0: eagle descends from top (0s+)
+    if(G.csBeat===0){
+      G.csEagleY+=180*dt;
+      const landY=H*0.72;
+      if(G.csEagleY>=landY){G.csEagleY=landY;G.csBeat=1;G.csTimer=0;}
+    }
+    // Beat 1: pause, text appears (0-1.5s)
+    if(G.csBeat===1&&G.csTimer>=1.5){G.csBeat=2;}
+    // Beat 2: second line (1.5-3.0s)
+    if(G.csBeat===2&&G.csTimer>=3.0){G.csBeat=3;G.csReady=true;}
+    // Beat 3: click ready → go to score screen
+    return;
+  }
+
   G.elapsed += dt;
 
   // Current scroll speed — escalates with ascent progress (racing acceleration)
@@ -2844,7 +2892,11 @@ function update(dt) {
     const prog=Math.min(1,G.scrolled/G.descentDist);
     const interval=G.hazSpawnInterval*(1-prog*0.4);
     if(G.hazSpawnTimer<=0){spawnHazard('descent');G.hazSpawnTimer=interval+Math.random()*0.4;}
-    if(G.scrolled>=G.descentDist) G.phase='complete';
+    if(G.scrolled>=G.descentDist){
+      G.phase='cutscene_outro';G.csTimer=0;G.csBeat=0;G.csReady=false;
+      G.csEagleX=W*0.55;G.csEagleY=-80;
+      G.hazards=[];
+    }
   }
 
   // ── ROCKS — scroll with world ──
@@ -2901,6 +2953,8 @@ function triggerJugSlip(){
 // ── Render ───────────────────────────────────────────────────
 function render() {
   ctx.clearRect(0,0,W,H);
+  if(G.phase==='cutscene_intro'){renderCutsceneIntro();return;}
+  if(G.phase==='cutscene_outro'){renderCutsceneOutro();return;}
   if(G.phase==='tutorial'){renderTutorial();return;}
   if(G.phase==='complete'){renderComplete();return;}
 
@@ -3299,11 +3353,236 @@ function renderHUD(){
   ctx.textAlign='left';
 }
 
-function renderTutorial(){
-  ctx.fillStyle='rgba(0,0,0,0.92)';ctx.fillRect(0,0,W,H);
+// ── Cutscene: Intro — Zeus gives Psyche the eagle ───────────
+function renderCutsceneIntro(){
+  // Full-width sky background
+  const skyBgSpr=sprites['sky_bg'];
+  if(skyBgSpr){
+    const srcW=skyBgSpr.naturalWidth||skyBgSpr.width||1024;
+    const srcH=skyBgSpr.naturalHeight||skyBgSpr.height||1536;
+    ctx.drawImage(skyBgSpr,0,0,srcW,srcH, 0,0,W,H);
+  } else {
+    const grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,'#4a80c4');grad.addColorStop(1,'#88b8e8');
+    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+  }
+
+  // Mountain background at bottom
+  const mtSpr=sprites['mountain_bg'];
+  if(mtSpr){
+    const mw=mtSpr.naturalWidth||mtSpr.width||1024;
+    const mh=mtSpr.naturalHeight||mtSpr.height||512;
+    const drawH=H*0.45;const drawW=drawH*(mw/mh);
+    ctx.drawImage(mtSpr,0,0,mw,mh, (W-drawW)/2,H-drawH,drawW,drawH);
+  }
+
+  // Ground strip
+  ctx.fillStyle='#4a3520';ctx.fillRect(0,H*0.82,W,H*0.18);
+  ctx.fillStyle='#3a2810';ctx.fillRect(0,H*0.82,W,4);
+  // Grass tufts
+  ctx.fillStyle='#5a7a3a';
+  for(let gx=10;gx<W;gx+=35){
+    const gh=6+Math.sin(gx*0.7)*3;
+    ctx.fillRect(gx,H*0.82-gh,3,gh);
+    ctx.fillRect(gx+8,H*0.82-gh+2,2,gh-2);
+  }
+
+  const fadeIn=Math.min(1,G.csTimer/1.2);
+  ctx.globalAlpha=fadeIn;
+
+  // ── Characters on ground ──
+  const groundY=H*0.82;
+  const zeusSpr=sprites['zeus'];
+  const psycheSpr=sprites['psyche'];
+  const eagleSpr=sprites['eagle_full'];
+
+  // Zeus — left side
+  const zeusX=W*0.25, zeusSize=130;
+  if(zeusSpr){
+    ctx.drawImage(zeusSpr, zeusX-zeusSize/2, groundY-zeusSize, zeusSize, zeusSize);
+  } else {
+    ctx.fillStyle='#c0a060';ctx.fillRect(zeusX-15,groundY-80,30,80);
+  }
+
+  // Psyche — right side
+  const psycheX=W*0.70, psycheSize=90;
+  if(psycheSpr){
+    ctx.drawImage(psycheSpr, psycheX-psycheSize/2, groundY-psycheSize, psycheSize, psycheSize);
+  } else {
+    ctx.fillStyle='#e8ddd0';ctx.fillRect(psycheX-12,groundY-65,24,65);
+  }
+
+  // Eagle — between them, hops forward at beat 2
+  const eagleRestX=W*0.30, eagleReadyX=W*0.48;
+  const eagleGroundY=groundY-55;
+  let eX=eagleRestX, eY=eagleGroundY;
+  if(G.csBeat>=2&&G.csBeat<5){
+    const hopT=Math.min(1,(G.csTimer-3.0)/1.0);
+    eX=eagleRestX+(eagleReadyX-eagleRestX)*hopT;
+    // Small hop arc
+    eY=eagleGroundY - Math.sin(hopT*Math.PI)*40;
+  }
+  if(G.csBeat===5){
+    eX=G.csEagleX||eagleReadyX;
+    eY=G.csEagleY;
+  }
+  // Store eagle position for launch beat
+  if(G.csBeat<5){G.csEagleX=eX;G.csEagleY=eY;}
+
+  const eagleSize=80;
+  if(eagleSpr){
+    ctx.save();
+    ctx.translate(eX,eY);
+    // Gentle wing flap during hover
+    if(G.csBeat>=2){
+      const wobble=Math.sin(G.csTimer*5)*0.06;
+      ctx.rotate(wobble);
+    }
+    ctx.drawImage(eagleSpr,-eagleSize/2,-eagleSize/2,eagleSize,eagleSize);
+    ctx.restore();
+  } else {
+    ctx.fillStyle='#8B5E1A';
+    ctx.beginPath();ctx.ellipse(eX,eY,20,12,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Dialogue text ──
   ctx.textAlign='center';
-  ctx.fillStyle='#f0d68a';ctx.font='bold 22px "Segoe UI"';
-  ctx.fillText('"Some things are too great to carry alone."',W/2,75);
+  if(G.csBeat>=1&&G.csBeat<5){
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W*0.25-140,groundY-zeusSize-52,280,40,6);ctx.fill();
+    ctx.fillStyle='#f0d68a';ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('"Take my eagle. She will carry the jug for you."',W*0.25,groundY-zeusSize-28);
+  }
+  if(G.csBeat>=3&&G.csBeat<5){
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W*0.55-130,groundY-psycheSize-52,260,40,6);ctx.fill();
+    ctx.fillStyle='#dcc8a0';ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('"I cannot do this alone. Thank you."',W*0.55+2,groundY-psycheSize-28);
+  }
+
+  // ── Click prompt ──
+  if(G.csReady && G.csBeat===4){
+    const p=0.6+Math.sin(G.csTimer*3)*0.4;
+    ctx.fillStyle=`rgba(240,214,138,${p*0.12})`;rr(ctx,W/2-80,H*0.90,160,40,8);ctx.fill();
+    ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`;ctx.lineWidth=1.5;rr(ctx,W/2-80,H*0.90,160,40,8);ctx.stroke();
+    ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+    ctx.fillText('Send the Eagle',W/2,H*0.90+25);
+  }
+
+  // Title overlay — fades in then out
+  if(G.csTimer<3.0){
+    const titleAlpha=G.csTimer<1.0?G.csTimer: G.csTimer>2.2?Math.max(0,1-(G.csTimer-2.2)/0.8):1;
+    ctx.globalAlpha=titleAlpha;
+    ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';
+    ctx.fillText('Trial III: The Water of the Styx',W/2,50);
+    ctx.fillStyle='rgba(200,180,140,0.6)';ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('"Some things are too great to carry alone."',W/2,78);
+  }
+
+  ctx.globalAlpha=1;
+  ctx.textAlign='left';
+}
+
+// ── Cutscene: Outro — Eagle returns to Psyche ───────────────
+function renderCutsceneOutro(){
+  // Sky background
+  const skyBgSpr=sprites['sky_bg'];
+  if(skyBgSpr){
+    const srcW=skyBgSpr.naturalWidth||skyBgSpr.width||1024;
+    const srcH=skyBgSpr.naturalHeight||skyBgSpr.height||1536;
+    ctx.drawImage(skyBgSpr,0,0,srcW,srcH, 0,0,W,H);
+  } else {
+    const grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,'#4a80c4');grad.addColorStop(1,'#88b8e8');
+    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+  }
+
+  // Mountain background
+  const mtSpr=sprites['mountain_bg'];
+  if(mtSpr){
+    const mw=mtSpr.naturalWidth||mtSpr.width||1024;
+    const mh=mtSpr.naturalHeight||mtSpr.height||512;
+    const drawH=H*0.45;const drawW=drawH*(mw/mh);
+    ctx.drawImage(mtSpr,0,0,mw,mh, (W-drawW)/2,H-drawH,drawW,drawH);
+  }
+
+  // Ground strip
+  ctx.fillStyle='#4a3520';ctx.fillRect(0,H*0.82,W,H*0.18);
+  ctx.fillStyle='#3a2810';ctx.fillRect(0,H*0.82,W,4);
+  ctx.fillStyle='#5a7a3a';
+  for(let gx=10;gx<W;gx+=35){
+    const gh=6+Math.sin(gx*0.7)*3;
+    ctx.fillRect(gx,H*0.82-gh,3,gh);
+    ctx.fillRect(gx+8,H*0.82-gh+2,2,gh-2);
+  }
+
+  const groundY=H*0.82;
+
+  // Psyche — waiting on the right, facing left
+  const psycheSpr=sprites['psyche'];
+  const psycheX=W*0.62, psycheSize=90;
+  if(psycheSpr){
+    ctx.save();
+    ctx.translate(psycheX, groundY-psycheSize);
+    ctx.scale(-1,1);
+    ctx.drawImage(psycheSpr, -psycheSize/2, 0, psycheSize, psycheSize);
+    ctx.restore();
+  } else {
+    ctx.fillStyle='#e8ddd0';ctx.fillRect(psycheX-12,groundY-65,24,65);
+  }
+
+  // Eagle — descends from sky, lands near Psyche
+  const eagleSpr=sprites['eagle_full'];
+  const eagleSize=80;
+  const eX=G.csEagleX;
+  const eY=G.csEagleY;
+
+  if(eagleSpr){
+    ctx.save();
+    ctx.translate(eX,eY);
+    if(G.csBeat===0){
+      // Gentle wing wobble during descent
+      const wobble=Math.sin(G.csTimer*6)*0.08;
+      ctx.rotate(wobble);
+    }
+    ctx.drawImage(eagleSpr,-eagleSize/2,-eagleSize/2,eagleSize,eagleSize);
+    ctx.restore();
+  } else {
+    ctx.fillStyle='#8B5E1A';
+    ctx.beginPath();ctx.ellipse(eX,eY,20,12,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // Jug glow when eagle has landed
+  if(G.csBeat>=1){
+    const glow=0.3+Math.sin(G.csTimer*2.5)*0.15;
+    ctx.fillStyle=`rgba(100,180,220,${glow})`;
+    ctx.beginPath();ctx.ellipse(eX,eY+10,12,8,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Dialogue ──
+  ctx.textAlign='center';
+  if(G.csBeat>=1){
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-160,groundY*0.42,320,40,6);ctx.fill();
+    ctx.fillStyle='#f0d68a';ctx.font='italic 15px "Segoe UI"';
+    ctx.fillText('"The water is yours. Not a drop was spilled."',W/2,groundY*0.42+26);
+  }
+  if(G.csBeat>=2){
+    ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-140,groundY*0.42+52,280,40,6);ctx.fill();
+    ctx.fillStyle='#dcc8a0';ctx.font='italic 14px "Segoe UI"';
+    ctx.fillText('"Accepting help took more strength than pride."',W/2,groundY*0.42+78);
+  }
+
+  // Click prompt
+  if(G.csReady){
+    const p=0.6+Math.sin(G.csTimer*3)*0.4;
+    ctx.fillStyle=`rgba(240,214,138,${p*0.12})`;rr(ctx,W/2-80,H*0.90,160,40,8);ctx.fill();
+    ctx.strokeStyle=`rgba(240,214,138,${p*0.5})`;ctx.lineWidth=1.5;rr(ctx,W/2-80,H*0.90,160,40,8);ctx.stroke();
+    ctx.fillStyle='#f0d68a';ctx.font='bold 15px "Segoe UI"';
+    ctx.fillText('View Results',W/2,H*0.90+25);
+  }
+  ctx.globalAlpha=1;
+  ctx.textAlign='left';
+}
+
+function renderTutorial(){
   ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
   [
     'Psyche cannot reach the Styx source herself.',
@@ -3386,6 +3665,26 @@ return {
   update(dt){ G.elapsed+=dt; update(dt); },
   render(){ render(); },
   click(x,y){
+    // ── Cutscene Intro: click "Send the Eagle" → eagle launches ──
+    if(G.phase==='cutscene_intro'){
+      if(G.csReady && G.csBeat===4){
+        const btnY=H*0.90;
+        if(x>W/2-80&&x<W/2+80&&y>btnY&&y<btnY+40){
+          G.csBeat=5; G.csReady=false;
+        }
+      }
+      return;
+    }
+    // ── Cutscene Outro: click "View Results" → score screen ──
+    if(G.phase==='cutscene_outro'){
+      if(G.csReady){
+        const btnY=H*0.90;
+        if(x>W/2-80&&x<W/2+80&&y>btnY&&y<btnY+40){
+          G.phase='complete';
+        }
+      }
+      return;
+    }
     if(G.phase==='tutorial'){
       if(x>W/2-80&&x<W/2+80&&y>480&&y<520){
         G.phase='ascent'; G.hazSpawnTimer=2.0;
