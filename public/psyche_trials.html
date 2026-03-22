@@ -2649,6 +2649,7 @@ function freshState() {
     csReady: false,      // true when click-to-advance is available
     csEagleX: 0,
     csEagleY: 0,
+    csWon: false,        // true if descent completed, false if all hearts lost
   };
 }
 
@@ -2895,7 +2896,7 @@ function update(dt) {
     if(G.scrolled>=G.descentDist){
       G.phase='cutscene_outro';G.csTimer=0;G.csBeat=0;G.csReady=false;
       G.csEagleX=W*0.55;G.csEagleY=-80;
-      G.hazards=[];
+      G.hazards=[];G.csWon=true;
     }
   }
 
@@ -2945,7 +2946,7 @@ function triggerJugSlip(){
     if(G.phase==='descent') G.scrolled=Math.max(0,G.scrolled-400);
     if(GAME.totalHearts<=0){
       G.phase='cutscene_outro';G.csTimer=0;G.csBeat=0;G.csReady=false;
-      G.csEagleX=W*0.55;G.csEagleY=-80;G.hazards=[];
+      G.csEagleX=W*0.55;G.csEagleY=-80;G.hazards=[];G.csWon=false;
     }
     G.gripHitTimer=2.0;
   },1200);
@@ -3557,24 +3558,31 @@ function renderCutsceneOutro(){
     ctx.beginPath();ctx.ellipse(eX,eY,20,12,0,0,Math.PI*2);ctx.fill();
   }
 
-  // Jug glow when eagle has landed
-  if(G.csBeat>=1){
+  // Jug glow when eagle has landed — only on win
+  if(G.csBeat>=1 && G.csWon){
     const glow=0.3+Math.sin(G.csTimer*2.5)*0.15;
     ctx.fillStyle=`rgba(100,180,220,${glow})`;
     ctx.beginPath();ctx.ellipse(eX,eY+10,12,8,0,0,Math.PI*2);ctx.fill();
   }
 
-  // ── Dialogue ──
+  // ── Dialogue — win vs loss ──
   ctx.textAlign='center';
   if(G.csBeat>=1){
+    const line1 = G.csWon
+      ? '"The water is yours. Not a drop was spilled."'
+      : '"The jug is empty. The water was lost."';
+    const line1Color = G.csWon ? '#f0d68a' : '#f87171';
     ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-160,groundY*0.42,320,40,6);ctx.fill();
-    ctx.fillStyle='#f0d68a';ctx.font='italic 15px "Segoe UI"';
-    ctx.fillText('"The water is yours. Not a drop was spilled."',W/2,groundY*0.42+26);
+    ctx.fillStyle=line1Color;ctx.font='italic 15px "Segoe UI"';
+    ctx.fillText(line1,W/2,groundY*0.42+26);
   }
   if(G.csBeat>=2){
+    const line2 = G.csWon
+      ? '"Accepting help took more strength than pride."'
+      : '"Even in failure, she had the courage to ask for help."';
     ctx.fillStyle='rgba(0,0,0,0.55)';rr(ctx,W/2-140,groundY*0.42+52,280,40,6);ctx.fill();
     ctx.fillStyle='#dcc8a0';ctx.font='italic 14px "Segoe UI"';
-    ctx.fillText('"Accepting help took more strength than pride."',W/2,groundY*0.42+78);
+    ctx.fillText(line2,W/2,groundY*0.42+78);
   }
 
   // Click prompt
@@ -3626,32 +3634,57 @@ function renderTutorial(){
 function renderComplete(){
   ctx.fillStyle='rgba(0,0,0,0.92)';ctx.fillRect(0,0,W,H);
   ctx.textAlign='center';
-  ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';
-  ctx.fillText('Trial III Complete',W/2,100);
 
-  const gripScore = Math.round((G.grip/GRIP_MAX)*60);
-  const heartScore = Math.round(Math.max(0,(GAME.totalHearts/10))*40);
-  const combined = gripScore + heartScore;
-  let rating,rc;
-  if(combined>=85){rating='Excellent';rc='#4ade80';}
-  else if(combined>=65){rating='Good';rc='#60a5fa';}
-  else if(combined>=45){rating='Fair';rc='#fbbf24';}
-  else{rating='Needs Work';rc='#f87171';}
+  if(G.csWon){
+    // ── WIN SCREEN ──
+    ctx.fillStyle='#f0d68a';ctx.font='bold 24px "Segoe UI"';
+    ctx.fillText('Trial III Complete',W/2,100);
 
-  ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
-  ctx.fillText(`Jug Grip Remaining: ${Math.round(G.grip)}%`,W/2,155);
-  ctx.fillText(`Times Slipped: ${G.hits} hits`,W/2,180);
-  ctx.fillText(`Hearts Lost: ${G.heartsLost}`,W/2,205);
+    const gripScore = Math.round((G.grip/GRIP_MAX)*60);
+    const heartScore = Math.round(Math.max(0,(GAME.totalHearts/10))*40);
+    const combined = gripScore + heartScore;
+    let rating,rc;
+    if(combined>=85){rating='Excellent';rc='#4ade80';}
+    else if(combined>=65){rating='Good';rc='#60a5fa';}
+    else if(combined>=45){rating='Fair';rc='#fbbf24';}
+    else{rating='Needs Work';rc='#f87171';}
 
-  ctx.fillStyle=rc;ctx.font='bold 20px "Segoe UI"';
-  ctx.fillText(`🪶 Humility: ${rating}`,W/2,260);
-  ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
-  ctx.fillText('"She accepted help. That took more strength than pride."',W/2,300);
+    ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+    ctx.fillText(`Jug Grip Remaining: ${Math.round(G.grip)}%`,W/2,155);
+    ctx.fillText(`Times Slipped: ${G.hits} hits`,W/2,180);
+    ctx.fillText(`Hearts Lost: ${G.heartsLost}`,W/2,205);
 
-  ctx.fillStyle='rgba(74,222,128,0.12)';rr(ctx,W/2-90,355,180,38,8);ctx.fill();
-  ctx.strokeStyle='rgba(74,222,128,0.4)';ctx.lineWidth=1;rr(ctx,W/2-90,355,180,38,8);ctx.stroke();
-  ctx.fillStyle='#4ade80';ctx.font='bold 14px "Segoe UI"';
-  ctx.fillText('Continue to Trial 4 →',W/2,379);
+    ctx.fillStyle=rc;ctx.font='bold 20px "Segoe UI"';
+    ctx.fillText(`🪶 Humility: ${rating}`,W/2,260);
+    ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
+    ctx.fillText('"She accepted help. That took more strength than pride."',W/2,300);
+
+    ctx.fillStyle='rgba(74,222,128,0.12)';rr(ctx,W/2-90,355,180,38,8);ctx.fill();
+    ctx.strokeStyle='rgba(74,222,128,0.4)';ctx.lineWidth=1;rr(ctx,W/2-90,355,180,38,8);ctx.stroke();
+    ctx.fillStyle='#4ade80';ctx.font='bold 14px "Segoe UI"';
+    ctx.fillText('Continue to Trial 4 →',W/2,379);
+  } else {
+    // ── FAIL SCREEN ──
+    ctx.fillStyle='#f87171';ctx.font='bold 24px "Segoe UI"';
+    ctx.fillText('Trial III Failed',W/2,100);
+
+    ctx.fillStyle='#c8b88a';ctx.font='14px "Segoe UI"';
+    ctx.fillText('The sacred water was lost.',W/2,150);
+    ctx.fillText(`Times Slipped: ${G.hits} hits`,W/2,180);
+    ctx.fillText(`Hearts Lost: ${G.heartsLost}`,W/2,205);
+
+    ctx.fillStyle='#f87171';ctx.font='bold 20px "Segoe UI"';
+    ctx.fillText('🪶 Humility: Needs Work',W/2,260);
+    ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='italic 13px "Segoe UI"';
+    ctx.fillText('"The mountain does not move. You must try again."',W/2,300);
+
+    // Retry button
+    const p=0.6+Math.sin(G.elapsed*3)*0.4;
+    ctx.fillStyle=`rgba(248,113,113,${p*0.15})`;rr(ctx,W/2-90,355,180,38,8);ctx.fill();
+    ctx.strokeStyle=`rgba(248,113,113,${p*0.5})`;ctx.lineWidth=1;rr(ctx,W/2-90,355,180,38,8);ctx.stroke();
+    ctx.fillStyle='#f87171';ctx.font='bold 14px "Segoe UI"';
+    ctx.fillText('↺ Try Again',W/2,379);
+  }
   ctx.textAlign='left';
 }
 
@@ -3700,15 +3733,23 @@ return {
     }
     if(G.phase==='complete'){
       if(x>W/2-90&&x<W/2+90&&y>355&&y<393){
-        const gripScore=Math.round((G.grip/GRIP_MAX)*60);
-        const heartScore=Math.round(Math.max(0,(GAME.totalHearts/10))*40);
-        const combined=gripScore+heartScore;
-        let rating;
-        if(combined>=85)rating='Excellent';
-        else if(combined>=65)rating='Good';
-        else if(combined>=45)rating='Fair';
-        else rating='Needs Work';
-        trialComplete(3,'humility',{score:combined,rating});
+        if(G.csWon){
+          // WIN — advance to Trial 4
+          const gripScore=Math.round((G.grip/GRIP_MAX)*60);
+          const heartScore=Math.round(Math.max(0,(GAME.totalHearts/10))*40);
+          const combined=gripScore+heartScore;
+          let rating;
+          if(combined>=85)rating='Excellent';
+          else if(combined>=65)rating='Good';
+          else if(combined>=45)rating='Fair';
+          else rating='Needs Work';
+          trialComplete(3,'humility',{score:combined,rating});
+        } else {
+          // FAIL — restart Trial 3 with fresh hearts
+          GAME.totalHearts=Math.max(4,GAME.totalHearts);
+          if(GAME.totalHearts<=0) GAME.totalHearts=4;
+          G=freshState(); G.elapsed=0;
+        }
       }
       return;
     }
