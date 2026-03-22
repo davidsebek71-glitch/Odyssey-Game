@@ -2943,7 +2943,10 @@ function triggerJugSlip(){
     G.grip=GRIP_MAX;G.vy=0;G.hazards=[];
     if(G.phase==='ascent') G.scrolled=Math.max(0,G.scrolled-500);
     if(G.phase==='descent') G.scrolled=Math.max(0,G.scrolled-400);
-    if(GAME.totalHearts<=0) G.phase='complete';
+    if(GAME.totalHearts<=0){
+      G.phase='cutscene_outro';G.csTimer=0;G.csBeat=0;G.csReady=false;
+      G.csEagleX=W*0.55;G.csEagleY=-80;G.hazards=[];
+    }
     G.gripHitTimer=2.0;
   },1200);
 }
@@ -3404,10 +3407,14 @@ function renderCutsceneIntro(){
     ctx.fillStyle='#c0a060';ctx.fillRect(zeusX-15,groundY-80,30,80);
   }
 
-  // Psyche — right side
+  // Psyche — right side, facing left toward Zeus
   const psycheX=W*0.70, psycheSize=90;
   if(psycheSpr){
-    ctx.drawImage(psycheSpr, psycheX-psycheSize/2, groundY-psycheSize, psycheSize, psycheSize);
+    ctx.save();
+    ctx.translate(psycheX, groundY-psycheSize);
+    ctx.scale(-1,1);
+    ctx.drawImage(psycheSpr, -psycheSize/2, 0, psycheSize, psycheSize);
+    ctx.restore();
   } else {
     ctx.fillStyle='#e8ddd0';ctx.fillRect(psycheX-12,groundY-65,24,65);
   }
