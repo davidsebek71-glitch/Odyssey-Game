@@ -3789,19 +3789,19 @@ const Trial4 = (function(){
 const FLOOR_Y      = 500;   // lower floor for SF2 proportions
 const EROS_X       = 160;   // fixed X (Eros stays left)
 const THANATOS_X   = 520;   // Thanatos stays right
-const EROS_HP_MAX  = 100;
-const THAN_HP_MAX  = 120;
+const EROS_HP_MAX  = 120;
+const THAN_HP_MAX  = 300;
 const CHAR_H       = 180;   // character render height
 const CHAR_W       = 120;   // character render width
 
 // Timings (seconds)
-const SHOOT_COOLDOWN = 0.55;
+const SHOOT_COOLDOWN = 0.7;
 const DASH_COOLDOWN  = 1.8;
 const SHIELD_DUR     = 1.2;
 const SHIELD_COOLDOWN= 1.0;
 
 // Thanatos AI intervals per phase
-const AI_INTERVAL = [2.8, 1.2, 0.5];  // Phase 1 slow, Phase 3 relentless
+const AI_INTERVAL = [2.5, 1.5, 0.7];  // Phase 1 learn, Phase 2 pressure, Phase 3 intense
 
 // ── State ────────────────────────────────────────────────────
 let G = {};
@@ -3933,25 +3933,23 @@ function erosShield(){
 function triggerDivineBarrage(){
   G.comboReady=false;
   G.comboWindow=0;
-  G.comboCooldown=6.0;
-  G.erosAnim='shoot'; G.erosAnimTimer=0.8;
-  // Fire 3 rapid arrows in a spread
-  for(let i=0;i<3;i++){
+  G.comboCooldown=8.0;
+  G.erosAnim='shoot'; G.erosAnimTimer=0.6;
+  // Fire 2 powered arrows in quick succession
+  for(let i=0;i<2;i++){
     setTimeout(()=>{
       if(G.phase!=='fighting') return;
       G.arrows.push({
-        x: G.erosX+60, y: FLOOR_Y-CHAR_H*0.55 + (i-1)*25,
-        vx: 600, vy: (i-1)*20,
+        x: G.erosX+60, y: FLOOR_Y-CHAR_H*0.55 + (i===0?-12:12),
+        vx: 620, vy: (i===0?-10:10),
         hit: false
       });
-    }, i*120);
+    }, i*150);
   }
-  // Stun Thanatos — stops his attacks
-  G.thanStunTimer=2.0;
-  G.thanAnim='hit'; G.thanAnimTimer=2.0;
-  // Clear incoming bolts as a reward
-  G.shadowBolts=[];
-  spawnP(G.erosX+40,FLOOR_Y-CHAR_H*0.5,15,'#ffd700');
+  // Brief stun — interrupts Thanatos attack cycle but doesn't lock him out
+  G.thanStunTimer=1.2;
+  G.thanAnim='hit'; G.thanAnimTimer=1.2;
+  spawnP(G.erosX+40,FLOOR_Y-CHAR_H*0.5,12,'#ffd700');
   showFloat(G.erosX+60,FLOOR_Y-CHAR_H*0.8,'⚡ DIVINE BARRAGE! ⚡','#ffd700',16);
   shake();
 }
@@ -4177,7 +4175,7 @@ function update(dt){
     // Hit Thanatos
     if(a.x>THANATOS_X-60&&a.x<THANATOS_X+60&&!a.hit){
       a.hit=true;
-      const dmg=18+Math.floor(Math.random()*6);
+      const dmg=10+Math.floor(Math.random()*6);
       G.thanHP=Math.max(0,G.thanHP-dmg);
       G.arrowsLanded++;
       spawnP(THANATOS_X-30,FLOOR_Y-CHAR_H*0.5,10,'#a855f7');
@@ -4206,7 +4204,7 @@ function update(dt){
     // Hit Eros
     if(G.erosHitTimer<=0&&b.x<G.erosX+50&&b.x>G.erosX-40&&b.y>FLOOR_Y-CHAR_H&&b.y<FLOOR_Y){
       b.hit=true;
-      const dmg=12+Math.floor(Math.random()*6);
+      const dmg=8+Math.floor(Math.random()*6);
       G.erosHP=Math.max(0,G.erosHP-dmg);
       G.hitsTaken++;
       GAME.totalHearts=Math.max(0,GAME.totalHearts-1);
@@ -4605,7 +4603,7 @@ function renderEros(){
   ctx.fillStyle=shFrac>0?'rgba(100,100,100,0.5)':'rgba(180,140,255,0.8)';
   ctx.beginPath();ctx.arc(ex+16,dotY,4,0,Math.PI*2);ctx.fill();
   // Combo CD (larger dot — special move)
-  const cFrac=Math.max(0,G.comboCooldown/6.0);
+  const cFrac=Math.max(0,G.comboCooldown/8.0);
   ctx.fillStyle=cFrac>0?'rgba(100,100,100,0.5)':'rgba(255,100,100,0.9)';
   ctx.beginPath();ctx.arc(ex+32,dotY,5,0,Math.PI*2);ctx.fill();
   // Combo ready flash
