@@ -10165,8 +10165,8 @@ app.get('/api/side-quest/availability/:studentId', authenticateToken, (req, res)
 
     res.json({ success: true, quests: enriched });
   } catch (err) {
-    console.error('Side quest availability error:', err);
-    res.status(500).json({ error: 'Failed to fetch quest availability' });
+    console.error('Side quest availability error:', err.message, err.stack);
+    res.status(500).json({ error: 'Failed to fetch quest availability', detail: err.message });
   }
 });
 
