@@ -10110,30 +10110,40 @@ app.get('/api/side-quest/availability/:studentId', authenticateToken, (req, res)
 
       const portal_id = triggerToPortal[row.unlock_trigger_ref];
       if (!portal_id || !alliance_id) {
-        // No alliance or unknown trigger — keep locked
-        return { ...row, status: 'locked' };
+        return { ...row, status: 'locked', quiz_passed_count: 0, quiz_member_count: 0, quiz_passed_names: [] };
       }
 
-      // Get all alliance members
+      // Get all alliance members (no ghosts)
       const members = query(
-        'SELECT student_id FROM students WHERE alliance_id = ?',
+        'SELECT student_id, name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
         [alliance_id]
       );
-      if (members.length === 0) return { ...row, status: 'locked' };
+      if (members.length === 0) {
+        return { ...row, status: 'locked', quiz_passed_count: 0, quiz_member_count: 0, quiz_passed_names: [] };
+      }
 
-      // Check every member has passed this portal's quiz at 80%+
+      // Check every member — who has passed this portal's quiz at 80%+?
+      const passedNames = [];
       const allPassed = members.every(m => {
         const attempt = query(
           'SELECT 1 FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1 LIMIT 1',
           [m.student_id, portal_id]
         );
-        return attempt.length > 0;
+        const passed = attempt.length > 0;
+        if (passed) passedNames.push(m.name);
+        return passed;
       });
 
-      if (!allPassed) return { ...row, status: 'locked' };
+      const quizMeta = {
+        quiz_passed_count: passedNames.length,
+        quiz_member_count: members.length,
+        quiz_passed_names: passedNames
+      };
 
-      // Alliance has fully passed — return the real status ('available' or 'completed')
-      return row;
+      if (!allPassed) return { ...row, status: 'locked', ...quizMeta };
+
+      // Alliance has fully passed — return real status with quiz meta
+      return { ...row, ...quizMeta };
     });
 
     res.json({ success: true, quests: enriched });

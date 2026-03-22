@@ -6310,11 +6310,11 @@
             const icon = quest.icon || GOD_ICONS[quest.god_associated] || '🎮';
             const token = localStorage.getItem('token');
 
-            // Alliance progress bar (how many members have completed)
+            // Alliance progress bar — game completions (only meaningful when unlocked/completed)
             const completedCount = quest.completed_count || 0;
             const memberCount = quest.member_count || 0;
             const progressPct = memberCount > 0 ? Math.round((completedCount / memberCount) * 100) : 0;
-            const progressHtml = `
+            const progressHtml = status === 'locked' ? '' : `
                 <div style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
                     <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 5px;">Alliance Progress: ${completedCount}/${memberCount} members</div>
                     <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
@@ -6330,7 +6330,20 @@
             if (status === 'locked') {
                 statusBadge = `<span style="background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 10px; font-size: 11px; color: rgba(255,255,255,0.4);">🔒 LOCKED</span>`;
                 cardStyle = 'opacity: 0.6;';
-                buttonHtml = `<div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center;">Complete the ${quest.unlock_trigger_ref} at 80% or higher to unlock</div>`;
+                // Show quiz pass progress so students know what's needed
+                const qPassed = avail ? (avail.quiz_passed_count || 0) : 0;
+                const qTotal  = avail ? (avail.quiz_member_count || 0) : 0;
+                const qNames  = avail ? (avail.quiz_passed_names || []) : [];
+                const qPct    = qTotal > 0 ? Math.round((qPassed / qTotal) * 100) : 0;
+                const quizProgressHtml = qTotal > 0 ? `
+                    <div style="margin-bottom: 6px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 4px;">Quiz Progress: ${qPassed}/${qTotal} members passed</div>
+                        <div style="background: rgba(255,255,255,0.08); height: 5px; border-radius: 3px; overflow: hidden;">
+                            <div style="background: #a78bfa; height: 100%; width: ${qPct}%; transition: width 0.3s;"></div>
+                        </div>
+                        ${qNames.length > 0 ? `<div style="font-size: 10px; color: #a78bfa; margin-top: 3px;">✓ ${qNames.join(', ')}</div>` : ''}
+                    </div>` : '';
+                buttonHtml = `${quizProgressHtml}<div style="padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center;">Complete the ${quest.unlock_trigger_ref} at 80% or higher to unlock</div>`;
             } else if (status === 'completed') {
                 statusBadge = `<span style="background: #4ade80; color: #000; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">✓ YOU COMPLETED</span>`;
                 cardStyle = 'border-color: #4ade80;';
@@ -10130,6 +10143,22 @@
                     // If already passed, fall through to show assignments panel
                 } catch (err) {
                     console.error('Error checking Daedalus status:', err);
+                }
+            }
+
+            // Portal 6 (Psyche) uses the Trials of Psyche game instead of regular quiz
+            if (portalId === 6) {
+                try {
+                    const statusRes = await fetch(`${API_URL}/student/quiz-status`, { headers });
+                    const statusData = await statusRes.json();
+                    const hasPassed = statusData.passed ? statusData.passed.some(p => p.portal_id === 6) : false;
+                    if (!hasPassed) {
+                        window.location.href = `/psyche_trials.html?token=${token}`;
+                        return;
+                    }
+                    // If already passed, fall through to show assignments panel
+                } catch (err) {
+                    console.error('Error checking Psyche status:', err);
                 }
             }
 
