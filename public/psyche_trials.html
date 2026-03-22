@@ -87,6 +87,27 @@ function loadScene(n, f) {
     document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%'; };
   img.src=IMG_BASE+f;
 }
+// Sprite with PINK/DARK-MAGENTA background removal (R>150, G<100, B>100, R much > G)
+function loadSpritePink(n, f) {
+  spritesTotal++;
+  const img = new Image();
+  img.onload = () => {
+    const tc = document.createElement('canvas');
+    tc.width=img.width; tc.height=img.height;
+    const tx=tc.getContext('2d'); tx.drawImage(img,0,0);
+    const d=tx.getImageData(0,0,tc.width,tc.height);
+    for(let i=0;i<d.data.length;i+=4){
+      const r=d.data[i],g=d.data[i+1],b=d.data[i+2];
+      if(r>150 && g<110 && b>100 && (r-g)>80) d.data[i+3]=0;
+    }
+    tx.putImageData(d,0,0);
+    sprites[n]=tc; spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';
+  };
+  img.onerror=()=>{spritesLoaded++;
+    document.getElementById('loadBar').style.width=(spritesLoaded/spritesTotal*100)+'%';};
+  img.src=IMG_BASE+f;
+}
 // Sprite with WHITE background removal (for images with white instead of magenta)
 function loadSpriteWhite(n, f) {
   spritesTotal++;
@@ -131,7 +152,7 @@ loadSprite('eagle_grip_low','eagle_grip_low.png');
 loadSprite('eagle_full','eagle_full.png');
 loadSprite('storm_cloud','hazard_storm_cloud.png');
 loadSprite('harpy','hazard_eagle_descent.png');
-loadSprite('soul_rising','descent_hazard_soul_rising.png');
+loadSpritePink('soul_rising','descent_hazard_soul_rising.png');
 loadSprite('wind_streak','wind_streak.png');
 loadSpriteWhite('cliff_wall','cliff_wall.png');
 loadScene('sky_bg','sky_bg.png');
@@ -2883,7 +2904,6 @@ function render() {
 
   // ── BACKGROUND — bright canyon sky ──────────────────────────
   const skyBgSpr=sprites['sky_bg'];
-  const cliffSpr=sprites['cliff_wall']||sprites['scene_cliffs'];
   const styxSpr=sprites['scene_styx'];
 
   if(skyBgSpr){
