@@ -3859,10 +3859,16 @@ function freshState(){
     dashesUsed: 0,
     shieldsUsed: 0,
     boltsBlocked: 0,
+    // Combo attack — Divine Barrage
+    comboCooldown: 0,
+    comboReady: false,    // true when Z was pressed recently, waiting for Space
+    comboWindow: 0,       // time remaining in combo input window
+    // Thanatos stun
+    thanStunTimer: 0,
     // Combat dummy state
     dummyHP: 40,
     dummyHPMax: 40,
-    dummyArrows: [],   // dummy fires slow easy bolts
+    dummyArrows: [],
     dummyFireTimer: 3.5,
     dummyComplete: false,
   };
@@ -3893,6 +3899,11 @@ function erosShoot(){
     vx: 520, vy: 0,
     hit: false
   });
+  // Open combo window — press Space within 0.6s for Divine Barrage
+  if(G.comboCooldown<=0){
+    G.comboReady=true;
+    G.comboWindow=0.6;
+  }
 }
 
 function erosDash(){
@@ -3906,6 +3917,11 @@ function erosDash(){
 }
 
 function erosShield(){
+  // Check for combo: if Z was pressed recently and combo is available, trigger Divine Barrage
+  if(G.comboReady && G.comboCooldown<=0){
+    triggerDivineBarrage();
+    return;
+  }
   if(G.erosShieldCooldown>0||G.erosShielding) return;
   G.erosShielding=true;
   G.erosShieldTimer=SHIELD_DUR;
@@ -3914,8 +3930,39 @@ function erosShield(){
   G.shieldsUsed=(G.shieldsUsed||0)+1;
 }
 
+function triggerDivineBarrage(){
+  G.comboReady=false;
+  G.comboWindow=0;
+  G.comboCooldown=6.0;
+  G.erosAnim='shoot'; G.erosAnimTimer=0.8;
+  // Fire 3 rapid arrows in a spread
+  for(let i=0;i<3;i++){
+    setTimeout(()=>{
+      if(G.phase!=='fighting') return;
+      G.arrows.push({
+        x: G.erosX+60, y: FLOOR_Y-CHAR_H*0.55 + (i-1)*25,
+        vx: 600, vy: (i-1)*20,
+        hit: false
+      });
+    }, i*120);
+  }
+  // Stun Thanatos — stops his attacks
+  G.thanStunTimer=2.0;
+  G.thanAnim='hit'; G.thanAnimTimer=2.0;
+  // Clear incoming bolts as a reward
+  G.shadowBolts=[];
+  spawnP(G.erosX+40,FLOOR_Y-CHAR_H*0.5,15,'#ffd700');
+  showFloat(G.erosX+60,FLOOR_Y-CHAR_H*0.8,'⚡ DIVINE BARRAGE! ⚡','#ffd700',16);
+  shake();
+}
+
 // ── Thanatos AI ───────────────────────────────────────────────
 function thanatosAI(dt){
+  // Stunned — can't attack
+  if(G.thanStunTimer>0){
+    G.thanStunTimer-=dt;
+    return;
+  }
   G.thanAttackTimer -= dt;
   if(G.thanAttackTimer>0) return;
 
@@ -4072,6 +4119,8 @@ function update(dt){
   if(G.erosShootCooldown>0) G.erosShootCooldown-=dt;
   if(G.erosDashCooldown>0)  G.erosDashCooldown-=dt;
   if(G.erosShieldCooldown>0)G.erosShieldCooldown-=dt;
+  if(G.comboCooldown>0) G.comboCooldown-=dt;
+  if(G.comboWindow>0){G.comboWindow-=dt;if(G.comboWindow<=0)G.comboReady=false;}
   if(G.erosAnimTimer>0){G.erosAnimTimer-=dt;if(G.erosAnimTimer<=0)G.erosAnim='idle';}
   if(G.thanAnimTimer>0){G.thanAnimTimer-=dt;if(G.thanAnimTimer<=0)G.thanAnim='idle';}
   if(G.hitFlash>0) G.hitFlash-=dt;
@@ -4304,9 +4353,13 @@ function render(){
     const spr=sprites['shade_soldier'];
     const shadeH=CHAR_H, shadeW=CHAR_W-10;
     if(spr){
+      ctx.save();
       ctx.globalAlpha=alpha;
-      ctx.drawImage(spr,s.x-shadeW/2,FLOOR_Y-shadeH,shadeW,shadeH);
+      ctx.translate(s.x,FLOOR_Y);
+      ctx.scale(-1,1); // flip to face left (walking toward Eros)
+      ctx.drawImage(spr,-shadeW/2,-shadeH,shadeW,shadeH);
       ctx.globalAlpha=1;
+      ctx.restore();
     } else {
       ctx.globalAlpha=alpha;
       ctx.fillStyle='rgba(80,60,140,0.9)';
@@ -4551,6 +4604,15 @@ function renderEros(){
   const shFrac=Math.max(0,G.erosShieldCooldown/SHIELD_COOLDOWN);
   ctx.fillStyle=shFrac>0?'rgba(100,100,100,0.5)':'rgba(180,140,255,0.8)';
   ctx.beginPath();ctx.arc(ex+16,dotY,4,0,Math.PI*2);ctx.fill();
+  // Combo CD (larger dot — special move)
+  const cFrac=Math.max(0,G.comboCooldown/6.0);
+  ctx.fillStyle=cFrac>0?'rgba(100,100,100,0.5)':'rgba(255,100,100,0.9)';
+  ctx.beginPath();ctx.arc(ex+32,dotY,5,0,Math.PI*2);ctx.fill();
+  // Combo ready flash
+  if(G.comboReady&&G.comboCooldown<=0){
+    ctx.strokeStyle='#ffd700';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(ex+32,dotY,8,0,Math.PI*2);ctx.stroke();
+  }
 }
 
 function renderThanatos(){
@@ -4766,7 +4828,7 @@ function renderHealthBars(){
   // ── Controls reminder (bottom) ──
   ctx.fillStyle='rgba(0,0,0,0.6)';rr(ctx,W/2-170,H-28,340,22,4);ctx.fill();
   ctx.fillStyle='rgba(200,180,140,0.5)';ctx.font='10px "Segoe UI"';ctx.textAlign='center';
-  ctx.fillText('Z / Click = Arrow  ·  X / Double-click = Dash  ·  Space / Right-click = Shield',W/2,H-13);
+  ctx.fillText('Z = Arrow  ·  X = Dash  ·  Space = Shield  ·  Z then Space = ⚡ DIVINE BARRAGE',W/2,H-13);
   ctx.textAlign='left';
 }
 
@@ -4781,17 +4843,18 @@ function renderTutorial(){
     'Fight through three phases to reclaim her.',
     '',
     '🏹  Z key or CLICK → Fire Arrow  (your main attack)',
-    '💨  X key or DOUBLE-CLICK → Wing Dash  (invincible, closes gap)',
-    '🛡  SPACE or RIGHT-CLICK → Wing Shield  (blocks one bolt)',
+    '💨  X key or DOUBLE-CLICK → Wing Dash  (invincible dodge)',
+    '🛡  SPACE or RIGHT-CLICK → Wing Shield  (blocks bolts)',
+    '⚡  Z then SPACE quickly → DIVINE BARRAGE  (stuns Thanatos!)',
     '',
     '← → Arrow keys: reposition left and right',
     '',
     'Phase 1: Shadow bolts — dodge or block',
-    'Phase 2: Shade soldiers join the fight — shoot them down',
-    'Phase 3: Deathstorm — rapid fire, maximum shades',
+    'Phase 2: Shade soldiers join — shoot them down',
+    'Phase 3: Deathstorm — use Divine Barrage to survive!',
     '',
-    'The colored dots below Eros show cooldown status.',
-    '🟡 Gold = Shoot  🔵 Blue = Dash  🟣 Purple = Shield',
+    'Dots below Eros show cooldowns:',
+    '🟡 Shoot  🔵 Dash  🟣 Shield  🔴 Barrage',
   ].forEach((l,i)=>{
     ctx.fillStyle=l===''?'transparent':
       l.startsWith('🏹')||l.startsWith('💨')||l.startsWith('🛡')?'rgba(200,200,255,0.9)':
