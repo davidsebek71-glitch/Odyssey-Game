@@ -2602,7 +2602,7 @@ const SCROLL_PEAK     = 123;
 const DESCENT_SCROLL  = 84;
 const BRAKE_FORCE     = 140;
 const JUG_SLOSH_SPEED = 180;
-const JUG_SLOSH_GRIP  = 7;
+const JUG_SLOSH_GRIP  = 2;
 const WIND_INTERVAL   = 6.0;
 const WIND_FORCE      = 120;
 const WIND_DUR        = 2.5;
@@ -2737,8 +2737,8 @@ function update(dt) {
     if(G.csBeat===5){
       G.csEagleY-=320*dt;
       if(G.csEagleY<-120){
-        // Transition to gameplay tutorial
-        G.phase='tutorial';
+        // Straight into gameplay — no tutorial screen
+        G.phase='ascent'; G.hazSpawnTimer=2.0;
       }
     }
     return;
@@ -2882,7 +2882,7 @@ function update(dt) {
     G.ey=Math.max(H*0.3,G.ey+G.vy*dt);
     if(G.summitPhase===0&&G.summitTimer<3.8){G.summitPhase=1;showFloat(W/2,H*0.17,'"Well done, chosen eagle."','#f0d68a',15);}
     if(G.summitPhase===1&&G.summitTimer<2.0){G.summitPhase=2;showFloat(W/2,H*0.23,'"Do not spill a drop."','rgba(180,230,255,0.9)',13);}
-    if(G.summitTimer<=0){G.phase='descent';G.scrolled=0;G.vy=50;G.windTimer=WIND_INTERVAL*0.4;G.hazSpawnTimer=1.8;}
+    if(G.summitTimer<=0){G.phase='descent';G.scrolled=0;G.vy=50;G.windTimer=WIND_INTERVAL*0.4;G.hazSpawnTimer=1.8;G.gripHitTimer=3.0;G.grip=GRIP_MAX;}
   }
 
   // ── DESCENT ──
