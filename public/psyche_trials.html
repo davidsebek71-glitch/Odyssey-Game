@@ -2651,13 +2651,20 @@ function spawnHazard(phase) {
   } else if(type === HZ.HARPY){
     const laneIdx = 1 + Math.floor(Math.random()*3);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*45;
-    h.y = -70;
     h.w = 62; h.h = 52;
-    h.vx = 0;
-    // Harpies move faster than scroll — they're oncoming traffic
-    h.vy = spd + 80 + Math.random()*40;
     h.phase = 'diving';
     h.timer = 0;
+    if(phase === 'descent'){
+      // On descent: harpies rise from bottom — oncoming from below
+      h.y = H + 70;
+      h.vx = 0;
+      h.vy = -(spd + 80 + Math.random()*40); // negative = upward
+    } else {
+      // On ascent: harpies dive from top
+      h.y = -70;
+      h.vx = 0;
+      h.vy = spd + 80 + Math.random()*40; // positive = downward
+    }
   } else if(type === HZ.SOUL){
     const laneIdx = 1 + Math.floor(Math.random()*3);
     h.x = LANE_CX[laneIdx] + (Math.random()-0.5)*55;
@@ -2719,8 +2726,12 @@ function update(dt) {
       G.flapCooldown = FLAP_COOLDOWN;
       spawnParticles(G.ex, G.ey+28, 4, 'rgba(180,210,255,0.5)');
     }
-    // DOWN = active dive — cuts through air to dodge hazards
-    if(diveKey){ G.vy = Math.min(G.vy + 280*dt, 220); }
+    // DOWN = instant dive impulse (same responsiveness as flap)
+    if(diveKey && G.flapCooldown<=0){
+      G.vy = 220; // instant downward velocity
+      G.flapCooldown = FLAP_COOLDOWN;
+      spawnParticles(G.ex, G.ey-20, 3, 'rgba(180,210,255,0.4)');
+    }
     G.ey += G.vy*dt;
     if(G.ey<40){ G.ey=40; G.vy=Math.max(0,G.vy); }
     if(G.ey>H-40){
@@ -2741,8 +2752,11 @@ function update(dt) {
       G.flapCooldown = 0.10;
       spawnParticles(G.ex, G.ey+28, 3, 'rgba(100,190,220,0.5)');
     }
-    // DOWN = dive faster (intentional, accept grip risk)
-    if(diveKey){ G.vy = Math.min(G.vy + 320*dt, 280); }
+    // DOWN = instant dive (accepts grip risk)
+    if(diveKey && G.flapCooldown<=0){
+      G.vy = 280;
+      G.flapCooldown = 0.12;
+    }
     if(G.vy > JUG_SLOSH_SPEED && G.gripHitTimer<=0){
       G.grip = Math.max(0, G.grip - JUG_SLOSH_GRIP*dt*60);
       if(G.grip<=0) triggerJugSlip();
@@ -2931,6 +2945,9 @@ function render() {
   }
 
   // ── CLIFF WALL — left edge, brown stone tile ──
+  // Fill cliff zone with stone base color first — eliminates any bleed-through
+  ctx.fillStyle='#5c3d1e';
+  ctx.fillRect(0,0,CLIFF_W,H);
   const cliffWallSpr = sprites['cliff_wall'];
 
   if(cliffWallSpr){
