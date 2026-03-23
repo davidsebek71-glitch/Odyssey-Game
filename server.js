@@ -12856,7 +12856,7 @@ app.get('/api/admin/diagnose-alliance', authenticateToken, (req, res) => {
     const bonusGrades = {};
     nonGhostMembers.forEach(m => {
       bonusGrades[m.name] = query(`
-        SELECT ar.myth_god, ar.assignment_name, ar.section, gr.points_earned
+        SELECT ar.myth_god, ar.display_name, ar.section, gr.points_earned
         FROM grade_records gr
         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
         WHERE gr.student_id = ? AND ar.section = 'bonus' AND gr.points_earned > 0
@@ -12867,7 +12867,7 @@ app.get('/api/admin/diagnose-alliance', authenticateToken, (req, res) => {
     const allGrades = {};
     nonGhostMembers.forEach(m => {
       allGrades[m.name] = query(`
-        SELECT ar.myth_god, ar.assignment_name, ar.section, gr.points_earned
+        SELECT ar.myth_god, ar.display_name, ar.section, gr.points_earned
         FROM grade_records gr
         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
         WHERE gr.student_id = ? AND gr.points_earned > 0

@@ -1968,9 +1968,10 @@
         document.addEventListener('click', function(e) {
             const modal = document.getElementById('side-quest-modal');
             if (modal && e.target === modal) closeSideQuestModal();
-            // Close resource reassign dropdowns when clicking outside
-            if (!e.target.closest('[id^="reassign-dd-"]') && !e.target.closest('[onclick*="toggleResourceReassign"]')) {
-                document.querySelectorAll('[id^="reassign-dd-"]').forEach(dd => dd.style.display = 'none');
+            // Close resource reassign dropdown when clicking outside
+            const dd = document.getElementById('resource-reassign-dropdown');
+            if (dd && !dd.contains(e.target) && !e.target.closest('[onclick*="toggleResourceReassign"]')) {
+                dd.remove();
             }
         });
 
@@ -5595,12 +5596,12 @@
                     const allianceStudents = students.filter(s => s.alliance_id === a.alliance_id);
                     const expandId = 'trade-expand-' + period.replace(/\s/g,'') + '-' + a.alliance_id;
                     
-                    html += `<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;position:relative;">
+                    html += `<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;overflow:hidden;">
                         <div onclick="document.getElementById('${expandId}').style.display = document.getElementById('${expandId}').style.display === 'none' ? 'block' : 'none'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:${aIdx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
                             <div style="display:flex;align-items:center;gap:12px;">
                                 <span style="font-weight:600;color:#fff;">${a.alliance_name}</span>
                                 <span onclick="diagnoseAlliance(${a.alliance_id},'${a.alliance_name.replace(/'/g, "\\'")}')" style="font-size:12px;cursor:pointer;opacity:0.4;padding:2px 4px;" title="Diagnose alliance">🔍</span>
-                                ${res ? `<span onclick="event.stopPropagation();toggleResourceReassign(${a.alliance_id},'${res}')" style="background:rgba(234,179,8,0.15);padding:2px 8px;border-radius:4px;font-size:12px;cursor:pointer;position:relative;" title="Click to reassign resource">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]} <span style="font-size:9px;opacity:0.5;">✏️</span><span id="reassign-dd-${a.alliance_id}" style="display:none;position:absolute;top:100%;left:0;z-index:100;margin-top:4px;background:#1e1b3a;border:1px solid rgba(234,179,8,0.4);border-radius:6px;padding:4px;min-width:140px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">${['olive','grape','iron','grain'].map(r2 => `<div onclick="event.stopPropagation();reassignResource(${a.alliance_id},'${r2}','${a.alliance_name}')" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:${r2===res?'#fbbf24':'#fff'};font-weight:${r2===res?'700':'400'};background:${r2===res?'rgba(234,179,8,0.12)':'transparent'};" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='${r2===res?'rgba(234,179,8,0.12)':'transparent'}'">${TRADE_RESOURCE_ICONS[r2]} ${TRADE_RESOURCE_NAMES[r2]}${r2===res?' ✓':''}</div>`).join('')}</span></span>` : '<span style="color:rgba(255,255,255,0.3);font-size:12px;">No resource</span>'}
+                                ${res ? `<span onclick="event.stopPropagation();toggleResourceReassign(event,${a.alliance_id},'${res}','${a.alliance_name.replace(/'/g, "\\'")}')" style="background:rgba(234,179,8,0.15);padding:2px 8px;border-radius:4px;font-size:12px;cursor:pointer;" title="Click to reassign resource">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]} <span style="font-size:9px;opacity:0.5;">✏️</span></span>` : '<span style="color:rgba(255,255,255,0.3);font-size:12px;">No resource</span>'}
                                 ${hasShip ? '<span style="color:#4ade80;font-size:14px;" title="Transport Ship">⚓</span>' : '<span style="color:rgba(255,255,255,0.15);font-size:12px;" title="No Transport Ship">no ⚓</span>'}
                             </div>
                             <div style="display:flex;align-items:center;gap:12px;">
@@ -5831,22 +5832,29 @@
             }
         }
         
-        function toggleResourceReassign(allianceId, currentRes) {
-            // Close any other open dropdowns and reset z-index
-            document.querySelectorAll('[id^="reassign-dd-"]').forEach(dd => {
-                if (dd.id !== 'reassign-dd-' + allianceId) {
-                    dd.style.display = 'none';
-                    dd.closest('[style*="position:relative"]')?.style.removeProperty('z-index');
-                }
+        function toggleResourceReassign(evt, allianceId, currentRes, allianceName) {
+            evt.stopPropagation();
+            // Remove any existing dropdown
+            const old = document.getElementById('resource-reassign-dropdown');
+            if (old) { old.remove(); return; }
+            
+            const rect = evt.currentTarget.getBoundingClientRect();
+            const dd = document.createElement('div');
+            dd.id = 'resource-reassign-dropdown';
+            dd.style.cssText = `position:fixed;top:${rect.bottom + 4}px;left:${rect.left}px;z-index:99999;background:#1e1b3a;border:1px solid rgba(234,179,8,0.4);border-radius:6px;padding:4px;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,0.6);`;
+            
+            ['olive','grape','iron','grain'].forEach(r => {
+                const opt = document.createElement('div');
+                const isCurrent = r === currentRes;
+                opt.style.cssText = `display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:4px;cursor:pointer;font-size:13px;color:${isCurrent?'#fbbf24':'#fff'};font-weight:${isCurrent?'700':'400'};background:${isCurrent?'rgba(234,179,8,0.12)':'transparent'};`;
+                opt.innerHTML = `${TRADE_RESOURCE_ICONS[r]} ${TRADE_RESOURCE_NAMES[r]}${isCurrent?' ✓':''}`;
+                opt.onmouseover = () => opt.style.background = 'rgba(255,255,255,0.08)';
+                opt.onmouseout = () => opt.style.background = isCurrent ? 'rgba(234,179,8,0.12)' : 'transparent';
+                opt.onclick = (e) => { e.stopPropagation(); dd.remove(); reassignResource(allianceId, r, allianceName); };
+                dd.appendChild(opt);
             });
-            const dd = document.getElementById('reassign-dd-' + allianceId);
-            if (dd) {
-                const showing = dd.style.display === 'none';
-                dd.style.display = showing ? 'block' : 'none';
-                // Raise the parent row above others so dropdown isn't clipped
-                const parentRow = dd.closest('[style*="position:relative"]');
-                if (parentRow) parentRow.style.zIndex = showing ? '200' : '';
-            }
+            
+            document.body.appendChild(dd);
         }
         
         async function reassignResource(allianceId, newResource, allianceName) {
