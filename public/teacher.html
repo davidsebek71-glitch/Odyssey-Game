@@ -5595,10 +5595,11 @@
                     const allianceStudents = students.filter(s => s.alliance_id === a.alliance_id);
                     const expandId = 'trade-expand-' + period.replace(/\s/g,'') + '-' + a.alliance_id;
                     
-                    html += `<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;overflow:hidden;">
+                    html += `<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;position:relative;">
                         <div onclick="document.getElementById('${expandId}').style.display = document.getElementById('${expandId}').style.display === 'none' ? 'block' : 'none'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:${aIdx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
                             <div style="display:flex;align-items:center;gap:12px;">
                                 <span style="font-weight:600;color:#fff;">${a.alliance_name}</span>
+                                <span onclick="diagnoseAlliance(${a.alliance_id},'${a.alliance_name.replace(/'/g, "\\'")}')" style="font-size:12px;cursor:pointer;opacity:0.4;padding:2px 4px;" title="Diagnose alliance">🔍</span>
                                 ${res ? `<span onclick="event.stopPropagation();toggleResourceReassign(${a.alliance_id},'${res}')" style="background:rgba(234,179,8,0.15);padding:2px 8px;border-radius:4px;font-size:12px;cursor:pointer;position:relative;" title="Click to reassign resource">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]} <span style="font-size:9px;opacity:0.5;">✏️</span><span id="reassign-dd-${a.alliance_id}" style="display:none;position:absolute;top:100%;left:0;z-index:100;margin-top:4px;background:#1e1b3a;border:1px solid rgba(234,179,8,0.4);border-radius:6px;padding:4px;min-width:140px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">${['olive','grape','iron','grain'].map(r2 => `<div onclick="event.stopPropagation();reassignResource(${a.alliance_id},'${r2}','${a.alliance_name}')" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:${r2===res?'#fbbf24':'#fff'};font-weight:${r2===res?'700':'400'};background:${r2===res?'rgba(234,179,8,0.12)':'transparent'};" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='${r2===res?'rgba(234,179,8,0.12)':'transparent'}'">${TRADE_RESOURCE_ICONS[r2]} ${TRADE_RESOURCE_NAMES[r2]}${r2===res?' ✓':''}</div>`).join('')}</span></span>` : '<span style="color:rgba(255,255,255,0.3);font-size:12px;">No resource</span>'}
                                 ${hasShip ? '<span style="color:#4ade80;font-size:14px;" title="Transport Ship">⚓</span>' : '<span style="color:rgba(255,255,255,0.15);font-size:12px;" title="No Transport Ship">no ⚓</span>'}
                             </div>
@@ -5831,12 +5832,21 @@
         }
         
         function toggleResourceReassign(allianceId, currentRes) {
-            // Close any other open dropdowns first
+            // Close any other open dropdowns and reset z-index
             document.querySelectorAll('[id^="reassign-dd-"]').forEach(dd => {
-                if (dd.id !== 'reassign-dd-' + allianceId) dd.style.display = 'none';
+                if (dd.id !== 'reassign-dd-' + allianceId) {
+                    dd.style.display = 'none';
+                    dd.closest('[style*="position:relative"]')?.style.removeProperty('z-index');
+                }
             });
             const dd = document.getElementById('reassign-dd-' + allianceId);
-            if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+            if (dd) {
+                const showing = dd.style.display === 'none';
+                dd.style.display = showing ? 'block' : 'none';
+                // Raise the parent row above others so dropdown isn't clipped
+                const parentRow = dd.closest('[style*="position:relative"]');
+                if (parentRow) parentRow.style.zIndex = showing ? '200' : '';
+            }
         }
         
         async function reassignResource(allianceId, newResource, allianceName) {
@@ -5854,6 +5864,115 @@
                 }
             } catch (err) {
                 alert('Failed to reassign resource');
+            }
+        }
+        
+        async function diagnoseAlliance(allianceId, allianceName) {
+            event.stopPropagation();
+            try {
+                const res = await fetch(`${API_URL}/admin/diagnose-alliance?alliance_id=${allianceId}`, { headers });
+                const data = await res.json();
+                if (data.error) { alert('Error: ' + data.error); return; }
+                
+                // Build readable diagnostic display
+                const a = data.alliance;
+                const members = data.members.filter(m => !m.is_ghost);
+                const ghosts = data.members.filter(m => m.is_ghost);
+                
+                let html = `<div style="font-family:monospace;font-size:12px;line-height:1.6;color:#e2e8f0;">`;
+                
+                // Alliance summary
+                html += `<div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#fbbf24;font-size:14px;margin-bottom:6px;">${a.alliance_name} (ID: ${a.alliance_id})</div>
+                    <div>Age: <strong style="color:${a.current_age==='Classical'?'#60a5fa':a.current_age==='Heroic'?'#c084fc':'#fff'}">${a.current_age}</strong> · Points: <strong>${a.total_points}</strong> · Period: ${a.class_period}</div>
+                    <div>Buildings owned: <strong style="color:#4ade80;">${a.buildings_owned.length > 0 ? a.buildings_owned.join(', ') : 'NONE'}</strong></div>
+                    <div>Building activations: ${a.building_activations.length > 0 ? a.building_activations.map(b => b.building_name).join(', ') : 'NONE'}</div>
+                    <div>Map complete: ${a.civilization_map_complete ? '✅' : '❌'} · Reverse cards: ${a.reverse_cards} · Side quest rewards: ${JSON.stringify(a.side_quest_rewards)}</div>
+                </div>`;
+                
+                // Members
+                html += `<div style="background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#60a5fa;margin-bottom:6px;">Members (${members.length} active, ${ghosts.length} ghosts)</div>`;
+                members.forEach(m => {
+                    html += `<div>👤 ${m.name} (ID: ${m.student_id}) · Scout: ${m.scout_status || 'none'} · Map: ${m.has_map ? '✅' : '❌'} · Classical entered: ${m.classical_entered || 'no'}</div>`;
+                });
+                if (ghosts.length > 0) {
+                    html += `<div style="margin-top:4px;color:rgba(255,255,255,0.3);">Ghosts: ${ghosts.map(g => g.name + ' (ID:' + g.student_id + ')').join(', ')}</div>`;
+                }
+                html += `</div>`;
+                
+                // God assignments on alliance
+                html += `<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#c084fc;margin-bottom:6px;">God Assignments (alliance-level)</div>
+                    <div>${data.god_assignments.length > 0 ? data.god_assignments.map(g => '⚡ ' + g.god_name).join(', ') : '<span style="color:#f87171;">NONE</span>'}</div>
+                </div>`;
+                
+                // Alliance technologies
+                html += `<div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#4ade80;margin-bottom:6px;">Alliance Technologies</div>
+                    <div>${data.alliance_technologies.length > 0 ? data.alliance_technologies.map(t => '🔧 ' + t.tech_name).join(', ') : '<span style="color:#f87171;">NONE</span>'}</div>
+                </div>`;
+                
+                // Bonus grades per member
+                html += `<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#fbbf24;margin-bottom:6px;">Bonus Grades by Member</div>`;
+                Object.entries(data.bonus_grades_by_member).forEach(([name, grades]) => {
+                    html += `<div style="margin-bottom:4px;"><strong>${name}:</strong> ${grades.length > 0 ? grades.map(g => g.myth_god + ' (' + g.points_earned + 'pts)').join(', ') : '<span style="color:#f87171;">none</span>'}</div>`;
+                });
+                html += `</div>`;
+                
+                // Side quest completions
+                html += `<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#3b82f6;margin-bottom:6px;">Side Quest Completions</div>`;
+                Object.entries(data.side_quest_completions).forEach(([name, quests]) => {
+                    html += `<div style="margin-bottom:4px;"><strong>${name}:</strong> ${quests.length > 0 ? quests.map(q => q.quest_name + ' [' + q.status + ']').join(', ') : '<span style="color:#f87171;">none</span>'}</div>`;
+                });
+                html += `</div>`;
+                
+                // Building requirements
+                html += `<div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#f87171;margin-bottom:6px;">Building Requirement Status</div>`;
+                Object.entries(data.building_requirement_status).forEach(([bldg, info]) => {
+                    html += `<div>${info.requirement_met ? '✅' : '❌'} <strong>${bldg}</strong> (${info.god || 'special'}, ${info.age}) — ${info.detail}</div>`;
+                });
+                html += `</div>`;
+                
+                // Age readiness
+                const r = data.age_readiness;
+                html += `<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <div style="font-weight:700;color:#c084fc;margin-bottom:6px;">Age Readiness</div>
+                    <div>Current: ${r.currentAge} · Points: ${r.pointsHave}/${r.pointsThreshold} ${r.pointsMet?'✅':'❌'}</div>
+                    <div>Buildings: ${r.ownedRequired.length}/${r.requiredBuildings.length} ${r.buildingsMet?'✅':'❌'} — Have: [${r.ownedRequired.join(', ')}]</div>
+                    <div>Missing: [${r.requiredBuildings.filter(b => !r.ownedRequired.includes(b)).join(', ')}]</div>
+                    <div>Map: ${r.mapComplete?'✅':'❌'} · Overall: ${r.overallProgress}% · Ready: <strong style="color:${r.isReady?'#4ade80':'#f87171'}">${r.isReady?'YES':'NO'}</strong></div>
+                </div>`;
+                
+                // Copy raw JSON button
+                html += `<div style="text-align:center;margin-top:8px;">
+                    <button onclick="navigator.clipboard.writeText(JSON.stringify(${JSON.stringify(data).replace(/'/g, "\\'")},null,2)).then(()=>alert('Copied!'))" style="background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.3);color:#60a5fa;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">📋 Copy Raw JSON</button>
+                </div>`;
+                
+                html += `</div>`;
+                
+                // Show in modal
+                let modal = document.getElementById('diagnose-modal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'diagnose-modal';
+                    modal.className = 'modal';
+                    modal.innerHTML = `<div class="modal-content" style="max-width:800px;max-height:90vh;display:flex;flex-direction:column;background:#0f1628;border:1px solid rgba(96,165,250,0.3);border-radius:16px;overflow:hidden;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:rgba(96,165,250,0.08);border-bottom:1px solid rgba(96,165,250,0.15);flex-shrink:0;">
+                            <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#60a5fa;letter-spacing:1px;">🔍 Alliance Diagnostic</div>
+                            <button onclick="document.getElementById('diagnose-modal').classList.remove('show')" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;">✕</button>
+                        </div>
+                        <div id="diagnose-content" style="flex:1;overflow-y:auto;padding:16px;"></div>
+                    </div>`;
+                    document.body.appendChild(modal);
+                }
+                document.getElementById('diagnose-content').innerHTML = html;
+                modal.classList.add('show');
+            } catch (err) {
+                alert('Diagnostic failed: ' + err.message);
             }
         }
         
