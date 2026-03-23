@@ -10335,6 +10335,22 @@
                     link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODQ3MDY0ODc3NzIy/details",
                     points: 20
                 }
+            },
+            6: { // Eros & Psyche
+                analytical: {
+                    title: "The Scholar's Path",
+                    icon: "📜",
+                    name: "CER: Eros & Psyche",
+                    description: "Analyze the myth of Eros and Psyche using Claim, Evidence, and Reasoning. What does this myth teach about the relationship between love, trust, and sacrifice? Use evidence from the myth to support your claim.",
+                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODU3MDEyNTg4MjUy/details"
+                },
+                creative: {
+                    title: "The Creator's Path",
+                    icon: "🎨",
+                    name: "Eros & Psyche Creative",
+                    description: "Complete a creative project inspired by the myth of Eros and Psyche. Explore the themes of devotion, endurance, and what it means to fight for love against impossible odds.",
+                    link: "https://classroom.google.com/c/Nzg0MjYwMjg0NTIz/a/ODU3MDEyNTg4MjUy/details"
+                }
             }
         };
 
@@ -10474,6 +10490,33 @@
                             transition: all 0.2s;
                         " onmouseover="this.style.filter='brightness(1.15)';this.style.boxShadow='0 0 30px rgba(236,72,153,0.5)'" onmouseout="this.style.filter='';this.style.boxShadow='0 0 20px rgba(236,72,153,0.3)'">
                             🪞 Replay Echo's Lament
+                        </button>
+                    </div>`;
+                }
+
+                // Portal 6 (Eros & Psyche) — Trials of Psyche game button
+                if (portalId === 6) {
+                    html += `
+                    <div style="text-align: center; margin-bottom: 18px; padding: 16px; background: linear-gradient(135deg, rgba(244,114,182,0.15), rgba(219,39,119,0.1)); border: 2px solid rgba(244,114,182,0.4); border-radius: 12px; box-shadow: 0 0 20px rgba(244,114,182,0.15);">
+                        <div style="font-size: 24px; margin-bottom: 6px;">💘</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 16px; color: #f9a8d4; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px;">
+                            The Trials of Psyche
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">
+                            Guide Psyche through four impossible trials — sort the seeds, gather golden wool,<br>
+                            fly to the River Styx, and battle Thanatos to reunite with Eros!
+                        </div>
+                        <button onclick="window.location.href='/psyche_trials.html?token=${token}'" style="
+                            padding: 12px 28px;
+                            background: linear-gradient(135deg, #ec4899, #be185d);
+                            border: 2px solid #f9a8d4;
+                            border-radius: 10px; color: #fff;
+                            font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700;
+                            cursor: pointer; letter-spacing: 1px;
+                            box-shadow: 0 0 20px rgba(244,114,182,0.3);
+                            transition: all 0.2s;
+                        " onmouseover="this.style.filter='brightness(1.15)';this.style.boxShadow='0 0 30px rgba(244,114,182,0.5)'" onmouseout="this.style.filter='';this.style.boxShadow='0 0 20px rgba(244,114,182,0.3)'">
+                            💘 Play Trials of Psyche
                         </button>
                     </div>`;
                 }

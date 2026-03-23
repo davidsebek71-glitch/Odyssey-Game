@@ -9982,7 +9982,7 @@ app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
     // Confirm this student has the quest unlocked
     const availability = query(
       "SELECT id, status FROM side_quest_availability WHERE student_id = ? AND quest_id = ?",
-      [student_id, quest_id]
+      [student_id, quest.quest_id]
     )[0];
     if (!availability) return res.status(403).json({ error: 'Quest not unlocked for this student' });
     if (availability.status === 'completed') {
@@ -9994,7 +9994,7 @@ app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
     // Mark this student as completed
     run(
       `UPDATE side_quest_availability SET status = 'completed', completed_at = ? WHERE student_id = ? AND quest_id = ?`,
-      [now, student_id, quest_id]
+      [now, student_id, quest.quest_id]
     );
 
     // Record in side_quest_completions for teacher visibility
@@ -10002,7 +10002,7 @@ app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
       `INSERT OR IGNORE INTO side_quest_completions
          (student_id, quest_id, alliance_id, status, completion_source, completed_at_timestamp, submitted_at)
        VALUES (?, ?, ?, 'approved', 'game_self_report', ?, CURRENT_TIMESTAMP)`,
-      [student_id, quest_id, student.alliance_id, now]
+      [student_id, quest.quest_id, student.alliance_id, now]
     );
 
     console.log(`🎮 Game complete: ${student.name} — quest ${quest.quest_name}`);
@@ -10016,7 +10016,7 @@ app.post('/api/side-quest/game-complete', authenticateToken, (req, res) => {
     // Count how many members have completed (status = 'completed')
     const completedRows = query(
       "SELECT COUNT(*) as cnt FROM side_quest_availability WHERE quest_id = ? AND status = 'completed' AND student_id IN (SELECT student_id FROM students WHERE alliance_id = ?)",
-      [quest_id, student.alliance_id]
+      [quest.quest_id, student.alliance_id]
     )[0];
     const completedCount = completedRows ? completedRows.cnt : 0;
     const totalMembers = allianceMembers.length;
