@@ -1968,6 +1968,10 @@
         document.addEventListener('click', function(e) {
             const modal = document.getElementById('side-quest-modal');
             if (modal && e.target === modal) closeSideQuestModal();
+            // Close resource reassign dropdowns when clicking outside
+            if (!e.target.closest('[id^="reassign-dd-"]') && !e.target.closest('[onclick*="toggleResourceReassign"]')) {
+                document.querySelectorAll('[id^="reassign-dd-"]').forEach(dd => dd.style.display = 'none');
+            }
         });
 
         // V91: Reverse an accidental side quest approval
@@ -5595,7 +5599,7 @@
                         <div onclick="document.getElementById('${expandId}').style.display = document.getElementById('${expandId}').style.display === 'none' ? 'block' : 'none'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:${aIdx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
                             <div style="display:flex;align-items:center;gap:12px;">
                                 <span style="font-weight:600;color:#fff;">${a.alliance_name}</span>
-                                ${res ? `<span style="background:rgba(234,179,8,0.15);padding:2px 8px;border-radius:4px;font-size:12px;">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]}</span>` : '<span style="color:rgba(255,255,255,0.3);font-size:12px;">No resource</span>'}
+                                ${res ? `<span onclick="event.stopPropagation();toggleResourceReassign(${a.alliance_id},'${res}')" style="background:rgba(234,179,8,0.15);padding:2px 8px;border-radius:4px;font-size:12px;cursor:pointer;position:relative;" title="Click to reassign resource">${TRADE_RESOURCE_ICONS[res]} ${TRADE_RESOURCE_NAMES[res]} <span style="font-size:9px;opacity:0.5;">✏️</span><span id="reassign-dd-${a.alliance_id}" style="display:none;position:absolute;top:100%;left:0;z-index:100;margin-top:4px;background:#1e1b3a;border:1px solid rgba(234,179,8,0.4);border-radius:6px;padding:4px;min-width:140px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">${['olive','grape','iron','grain'].map(r2 => `<div onclick="event.stopPropagation();reassignResource(${a.alliance_id},'${r2}','${a.alliance_name}')" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;color:${r2===res?'#fbbf24':'#fff'};font-weight:${r2===res?'700':'400'};background:${r2===res?'rgba(234,179,8,0.12)':'transparent'};" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='${r2===res?'rgba(234,179,8,0.12)':'transparent'}'">${TRADE_RESOURCE_ICONS[r2]} ${TRADE_RESOURCE_NAMES[r2]}${r2===res?' ✓':''}</div>`).join('')}</span></span>` : '<span style="color:rgba(255,255,255,0.3);font-size:12px;">No resource</span>'}
                                 ${hasShip ? '<span style="color:#4ade80;font-size:14px;" title="Transport Ship">⚓</span>' : '<span style="color:rgba(255,255,255,0.15);font-size:12px;" title="No Transport Ship">no ⚓</span>'}
                             </div>
                             <div style="display:flex;align-items:center;gap:12px;">
@@ -5823,6 +5827,33 @@
                 }
             } catch (err) {
                 alert('Failed to inject supply');
+            }
+        }
+        
+        function toggleResourceReassign(allianceId, currentRes) {
+            // Close any other open dropdowns first
+            document.querySelectorAll('[id^="reassign-dd-"]').forEach(dd => {
+                if (dd.id !== 'reassign-dd-' + allianceId) dd.style.display = 'none';
+            });
+            const dd = document.getElementById('reassign-dd-' + allianceId);
+            if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        async function reassignResource(allianceId, newResource, allianceName) {
+            if (!confirm(`Reassign ${allianceName} to ${TRADE_RESOURCE_ICONS[newResource]} ${TRADE_RESOURCE_NAMES[newResource]}?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/trade/reassign/${allianceId}`, {
+                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resource: newResource })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await loadTradeManagement();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed'));
+                }
+            } catch (err) {
+                alert('Failed to reassign resource');
             }
         }
         

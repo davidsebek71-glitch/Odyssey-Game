@@ -12793,6 +12793,171 @@ app.get('/api/admin/debug-badges/:studentId', authenticateToken, (req, res) => {
   }
 });
 
+// ================================================================
+// DIAGNOSTIC: Alliance breakup analysis — shows what a student/alliance
+// has completed across all systems to identify what needs repair after
+// an improper alliance dissolution.
+// GET /api/admin/diagnose-alliance?alliance_id=X  (or student_id=X)
+// ================================================================
+app.get('/api/admin/diagnose-alliance', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const { alliance_id, student_id } = req.query;
+    
+    let targetAllianceId;
+    let targetStudent;
+    
+    if (student_id) {
+      targetStudent = query('SELECT s.*, a.alliance_name, a.current_age as alliance_age, a.buildings_owned, a.side_quest_rewards, a.civilization_map_complete, a.reverse_cards, a.total_points FROM students s LEFT JOIN alliances a ON s.alliance_id = a.alliance_id WHERE s.student_id = ?', [student_id])[0];
+      if (!targetStudent) return res.status(404).json({ error: 'Student not found' });
+      targetAllianceId = targetStudent.alliance_id;
+    } else if (alliance_id) {
+      targetAllianceId = parseInt(alliance_id);
+    } else {
+      return res.status(400).json({ error: 'Provide alliance_id or student_id' });
+    }
+    
+    // Get alliance info
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [targetAllianceId])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+    
+    // Get all members (including ghosts)
+    const members = query('SELECT student_id, name, is_ghost, scout_status, map_image, classical_entered FROM students WHERE alliance_id = ?', [targetAllianceId]);
+    const nonGhostMembers = members.filter(m => !m.is_ghost);
+    const nonGhostIds = nonGhostMembers.map(m => m.student_id);
+    
+    // 1. Buildings owned (from alliance JSON)
+    const buildingsOwned = JSON.parse(alliance.buildings_owned || '[]');
+    
+    // 2. Building activations (from DB records)
+    const buildingActivations = query('SELECT building_name, building_instance FROM building_activations WHERE alliance_id = ?', [targetAllianceId]);
+    
+    // 3. God assignments for this alliance
+    const godAssignments = query('SELECT god_name, completed_at FROM god_assignments WHERE alliance_id = ?', [targetAllianceId]);
+    
+    // 4. Alliance technologies
+    let allianceTechs = [];
+    try {
+      allianceTechs = query('SELECT tech_name, source_quest_id, unlocked_at FROM alliance_technologies WHERE alliance_id = ?', [targetAllianceId]);
+    } catch(e) {}
+    
+    // 5. Side quest completions for each member
+    const sideQuestCompletions = {};
+    nonGhostMembers.forEach(m => {
+      sideQuestCompletions[m.name] = query(`
+        SELECT sqc.*, sqr.quest_name, sqr.god_associated, sqr.reward_name
+        FROM side_quest_completions sqc
+        JOIN side_quests_ref sqr ON sqc.quest_id = sqr.quest_id
+        WHERE sqc.student_id = ?
+      `, [m.student_id]);
+    });
+    
+    // 6. Grade records — bonus assignments completed by each member
+    const bonusGrades = {};
+    nonGhostMembers.forEach(m => {
+      bonusGrades[m.name] = query(`
+        SELECT ar.myth_god, ar.assignment_name, ar.section, gr.points_earned
+        FROM grade_records gr
+        JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+        WHERE gr.student_id = ? AND ar.section = 'bonus' AND gr.points_earned > 0
+      `, [m.student_id]);
+    });
+    
+    // 7. All grade records for non-ghost members (for comprehensive view)
+    const allGrades = {};
+    nonGhostMembers.forEach(m => {
+      allGrades[m.name] = query(`
+        SELECT ar.myth_god, ar.assignment_name, ar.section, gr.points_earned
+        FROM grade_records gr
+        JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+        WHERE gr.student_id = ? AND gr.points_earned > 0
+        ORDER BY ar.myth_god, ar.section
+      `, [m.student_id]);
+    });
+    
+    // 8. Side quest rewards on alliance
+    const sideQuestRewards = JSON.parse(alliance.side_quest_rewards || '[]');
+    
+    // 9. Age readiness check
+    const readiness = calculateAgeReadiness(alliance);
+    
+    // 10. Age gate status for this period
+    let ageGate = null;
+    try {
+      ageGate = query('SELECT * FROM age_gates WHERE class_period = ?', [alliance.class_period])[0];
+    } catch(e) {}
+    
+    // 11. Building requirements check — which buildings can/can't be purchased
+    const buildingReqSummary = {};
+    const allBuildings = query('SELECT building_name, god_associated, requires_god_assignment, age_available FROM buildings_ref');
+    allBuildings.forEach(b => {
+      if (!b.requires_god_assignment && b.building_name !== 'Town Center' && b.building_name !== 'Granary') return;
+      
+      let met = false;
+      let detail = '';
+      
+      if (b.building_name === 'Town Center') {
+        // Needs Prometheus + Zeus grades from any member
+        for (const m of nonGhostMembers) {
+          const prom = query("SELECT COUNT(*) as cnt FROM grade_records gr JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id WHERE gr.student_id = ? AND ar.myth_god = 'Prometheus' AND gr.points_earned > 0", [m.student_id])[0];
+          const zeus = query("SELECT COUNT(*) as cnt FROM grade_records gr JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id WHERE gr.student_id = ? AND ar.myth_god = 'Zeus' AND gr.points_earned > 0", [m.student_id])[0];
+          if (prom.cnt > 0 && zeus.cnt > 0) { met = true; detail = `${m.name} has both`; break; }
+        }
+        if (!met) detail = 'No member has both Prometheus + Zeus grades';
+      } else if (b.building_name === 'Granary') {
+        met = allianceTechs.some(t => t.tech_name === 'Granary');
+        detail = met ? 'Demeter Side Quest completed' : 'Needs Demeter Side Quest (alliance_technologies)';
+      } else if (b.requires_god_assignment && b.god_associated) {
+        // Needs ALL non-ghost members to complete the bonus
+        const completedCount = nonGhostIds.length > 0 ? query(`
+          SELECT COUNT(DISTINCT gr.student_id) as cnt
+          FROM grade_records gr JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+          WHERE gr.student_id IN (${nonGhostIds.join(',')}) AND ar.section = 'bonus' AND ar.myth_god = ? AND gr.points_earned > 0
+        `, [b.god_associated])[0].cnt : 0;
+        met = completedCount >= nonGhostMembers.length;
+        detail = `${completedCount}/${nonGhostMembers.length} non-ghost members completed ${b.god_associated} bonus`;
+      }
+      
+      buildingReqSummary[b.building_name] = { requirement_met: met, detail, god: b.god_associated, age: b.age_available };
+    });
+    
+    res.json({
+      alliance: {
+        alliance_id: alliance.alliance_id,
+        alliance_name: alliance.alliance_name,
+        class_period: alliance.class_period,
+        current_age: alliance.current_age,
+        total_points: alliance.total_points,
+        buildings_owned: buildingsOwned,
+        building_activations: buildingActivations,
+        side_quest_rewards: sideQuestRewards,
+        civilization_map_complete: alliance.civilization_map_complete,
+        reverse_cards: alliance.reverse_cards
+      },
+      members: members.map(m => ({
+        student_id: m.student_id,
+        name: m.name,
+        is_ghost: m.is_ghost,
+        scout_status: m.scout_status,
+        has_map: !!m.map_image,
+        classical_entered: m.classical_entered
+      })),
+      non_ghost_count: nonGhostMembers.length,
+      god_assignments: godAssignments,
+      alliance_technologies: allianceTechs,
+      side_quest_completions: sideQuestCompletions,
+      bonus_grades_by_member: bonusGrades,
+      all_grades_by_member: allGrades,
+      building_requirement_status: buildingReqSummary,
+      age_readiness: readiness,
+      age_gate: ageGate
+    });
+  } catch (err) {
+    console.error('Diagnose alliance error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
