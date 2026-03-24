@@ -12540,9 +12540,20 @@
                 const bob = Math.sin(olympusAvatarTick * 0.06) * 2.5;
                 const curWP = getCurrentWaypoint(badgeCount);
                 const ap = wpToCanvas(curWP);
-                const sz = Math.max(18, cw * 0.028);
+                const sz = Math.max(54, cw * 0.084);
 
-                // Glow
+                // Gold glow ring under feet
+                const ringR = sz * 0.75;
+                const ringGrd = actx.createRadialGradient(ap.x, ap.y + sz * 0.85 + bob, 0, ap.x, ap.y + sz * 0.85 + bob, ringR);
+                ringGrd.addColorStop(0,   'rgba(255,215,0,0.55)');
+                ringGrd.addColorStop(0.4, 'rgba(255,180,0,0.3)');
+                ringGrd.addColorStop(1,   'rgba(255,140,0,0)');
+                actx.fillStyle = ringGrd;
+                actx.beginPath();
+                actx.ellipse(ap.x, ap.y + sz * 0.85 + bob, ringR, ringR * 0.35, 0, 0, Math.PI * 2);
+                actx.fill();
+
+                // Outer halo
                 const grd = actx.createRadialGradient(ap.x, ap.y + bob, 0, ap.x, ap.y + bob, sz * 1.4);
                 grd.addColorStop(0, 'rgba(255,215,0,0.55)');
                 grd.addColorStop(1, 'rgba(255,215,0,0)');
