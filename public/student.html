@@ -2138,6 +2138,22 @@
             0%, 100% { box-shadow: 0 0 15px rgba(255,215,0,0.3), inset 0 0 15px rgba(255,215,0,0.05); border-color: rgba(255,215,0,0.5); }
             50% { box-shadow: 0 0 30px rgba(255,215,0,0.6), inset 0 0 20px rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.9); }
         }
+        @keyframes hallBtnGlow {
+            0%, 100% {
+                box-shadow: 0 0 8px rgba(255,215,0,0.4), 0 0 20px rgba(255,215,0,0.2), 0 0 40px rgba(255,165,0,0.1);
+                border-color: rgba(255,215,0,0.6);
+                background: linear-gradient(135deg, #b8860b, #8B6914);
+            }
+            50% {
+                box-shadow: 0 0 18px rgba(255,215,0,1), 0 0 40px rgba(255,215,0,0.7), 0 0 70px rgba(255,165,0,0.5), 0 0 100px rgba(255,140,0,0.3);
+                border-color: #ffd700;
+                background: linear-gradient(135deg, #d4a017, #b8860b);
+            }
+        }
+        .hall-btn-has-badges {
+            animation: hallBtnGlow 1.4s ease-in-out infinite !important;
+            border: 2px solid rgba(255,215,0,0.6) !important;
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -2767,7 +2783,6 @@
             <button class="action-btn" onclick="openHallOfHonor()" id="hall-of-honor-btn" style="background: linear-gradient(135deg, #b8860b, #8B6914); position: relative;">
                 <span class="icon">🏆</span>
                 Hall of Honor
-                <span id="badge-notification-dot" style="display:none; position:absolute; top:4px; right:8px; width:12px; height:12px; background:#ff4444; border-radius:50%; animation: badgePulse 1s infinite;"></span>
             </button>
             <button class="action-btn" onclick="openInviteModal()" id="invite-btn">
                 <span class="icon">👥</span>
@@ -12151,17 +12166,17 @@
                 
                 // Show/hide flashing card
                 const card = document.getElementById('new-badge-card');
-                const dot = document.getElementById('badge-notification-dot');
+                const btn  = document.getElementById('hall-of-honor-btn');
                 if (unclaimedQueue.length > 0) {
-                    card.style.display = 'block';
-                    dot.style.display = 'block';
+                    card.style.display = 'none'; // card hidden — button glow is the notification
+                    if (btn) btn.classList.add('hall-btn-has-badges');
                     const countEl = document.getElementById('new-badge-count');
-                    countEl.textContent = unclaimedQueue.length === 1 
+                    if (countEl) countEl.textContent = unclaimedQueue.length === 1 
                         ? 'Tap to claim your badge!' 
                         : `${unclaimedQueue.length} badges to claim!`;
                 } else {
                     card.style.display = 'none';
-                    dot.style.display = 'none';
+                    if (btn) btn.classList.remove('hall-btn-has-badges');
                 }
             } catch (err) {
                 console.log('Badge load note:', err.message);
@@ -12204,12 +12219,11 @@
                 teacherNote.style.display = 'none';
             }
 
-            // Reset all elements to invisible immediately
+            // Reset all elements to invisible — clear any stale state
             const icon = document.getElementById('celeb-badge-icon');
             const name = document.getElementById('celeb-badge-name');
             const desc = document.getElementById('celeb-badge-desc');
             const btn  = document.getElementById('celeb-dismiss-btn');
-
             [icon, name, desc, teacherNote, btn].forEach(el => {
                 el.style.transition = 'none';
                 el.style.opacity = '0';
@@ -12217,19 +12231,18 @@
                 el.style.animation = 'none';
             });
 
-            // Force reflow so transitions start fresh
+            // Force reflow before starting transitions
             overlay.offsetHeight;
 
-            // Fade each element in via JS timeouts — no CSS animation dependency
-            const fadeIn = (el, delay, scale) => {
+            // JS-driven fade-ins — reliable on all browsers and Chromebooks
+            const fadeIn = (el, delay) => {
                 setTimeout(() => {
                     el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
                     el.style.opacity = '1';
-                    if (scale) el.style.transform = 'scale(1)';
                 }, delay);
             };
 
-            // Icon gets the bounce-in treatment
+            // Icon: spring bounce-in
             icon.style.transform = 'scale(0) rotate(-180deg)';
             setTimeout(() => {
                 icon.style.transition = 'opacity 0.4s ease, transform 0.6s cubic-bezier(0.34,1.56,0.64,1)';
@@ -12237,12 +12250,12 @@
                 icon.style.transform = 'scale(1) rotate(0deg)';
             }, 100);
 
-            fadeIn(name,        600);
-            fadeIn(desc,        900);
+            fadeIn(name, 600);
+            fadeIn(desc, 900);
             if (badge.awarded_by === 'teacher') fadeIn(teacherNote, 1100);
-            fadeIn(btn,         1300);
+            fadeIn(btn,  1300);
 
-            // Always guarantee button is visible after 2s — safety net for slow devices
+            // Safety net — always guarantee Continue button visible after 2s
             setTimeout(() => {
                 btn.style.transition = 'none';
                 btn.style.opacity = '1';
@@ -12304,19 +12317,22 @@
             // Remove from queue
             unclaimedQueue.shift();
             
-            // Update card
+            // Update button glow state
+            const btn = document.getElementById('hall-of-honor-btn');
             if (unclaimedQueue.length > 0) {
-                const countEl = document.getElementById('new-badge-count');
-                countEl.textContent = unclaimedQueue.length === 1 
-                    ? 'Tap to claim your badge!' 
-                    : `${unclaimedQueue.length} badges to claim!`;
+                if (btn) btn.classList.add('hall-btn-has-badges');
             } else {
+                if (btn) btn.classList.remove('hall-btn-has-badges');
                 document.getElementById('new-badge-card').style.display = 'none';
-                document.getElementById('badge-notification-dot').style.display = 'none';
             }
             
-            // Refresh badge data for grid
-            loadBadgeStatus();
+            // If Hall of Honor modal is still open, re-render the grid in place
+            const modal = document.getElementById('hall-of-honor-modal');
+            if (modal.classList.contains('show')) {
+                loadBadgeStatus().then(() => renderHallOfHonor());
+            } else {
+                loadBadgeStatus();
+            }
         }
         
         // Open Hall of Honor modal
@@ -12430,9 +12446,6 @@
         async function claimBadgeFromGrid(badge) {
             if (celebrationActive) return;
             celebrationActive = true;
-            
-            // Close the Hall of Honor modal
-            closeHallOfHonor();
             
             // Tell server this badge is claimed
             try {
