@@ -12958,6 +12958,209 @@ app.get('/api/admin/diagnose-alliance', authenticateToken, (req, res) => {
   }
 });
 
+// ================================================================
+// REPAIR: Fix alliance after improper dissolution
+// POST /api/admin/repair-alliance
+// Grants buildings, techs, god assignments, and age based on 
+// what non-ghost members have individually completed.
+// ================================================================
+app.post('/api/admin/repair-alliance', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const { alliance_id, dry_run } = req.body;
+    if (!alliance_id) return res.status(400).json({ error: 'alliance_id required' });
+    
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+    if (!alliance) return res.status(404).json({ error: 'Alliance not found' });
+    
+    const isDryRun = dry_run === true;
+    const report = [];
+    
+    // Get non-ghost members
+    const members = query('SELECT student_id, name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [alliance_id]);
+    const memberIds = members.map(m => m.student_id);
+    const memberCount = members.length;
+    
+    if (memberCount === 0) return res.status(400).json({ error: 'Alliance has no non-ghost members' });
+    
+    report.push(`Alliance: ${alliance.alliance_name} (ID: ${alliance_id}), ${memberCount} non-ghost members`);
+    
+    const currentBuildings = JSON.parse(alliance.buildings_owned || '[]');
+    let newBuildings = [...currentBuildings];
+    
+    // --- 1. Check bonus grades and grant god_assignments + buildings ---
+    const godBuildingMap = {
+      'Athena': 'Library',
+      'Ares': 'Wooden Wall', 
+      'Poseidon': 'Dock',
+      'Hades': null  // Hades bonus doesn't unlock a building
+    };
+    
+    // Check which bonuses ALL non-ghost members have completed
+    const bonusGods = query(`
+      SELECT ar.myth_god, COUNT(DISTINCT gr.student_id) as cnt
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id IN (${memberIds.join(',')}) AND ar.section = 'bonus' AND gr.points_earned > 0
+      GROUP BY ar.myth_god
+    `);
+    
+    bonusGods.forEach(bg => {
+      if (bg.cnt >= memberCount) {
+        // Grant god_assignment if not exists
+        const existing = query('SELECT assignment_id FROM god_assignments WHERE alliance_id = ? AND god_name = ?', [alliance_id, bg.myth_god]);
+        if (existing.length === 0) {
+          if (!isDryRun) run('INSERT INTO god_assignments (alliance_id, god_name) VALUES (?, ?)', [alliance_id, bg.myth_god]);
+          report.push(`+ God assignment: ${bg.myth_god}`);
+        }
+        
+        // Grant associated building if not owned
+        const building = godBuildingMap[bg.myth_god];
+        if (building && !newBuildings.includes(building)) {
+          newBuildings.push(building);
+          report.push(`+ Building: ${building} (from ${bg.myth_god} bonus)`);
+        }
+      }
+    });
+    
+    // Check Town Center (Prometheus + Zeus grades from any member)
+    let hasTownCenter = newBuildings.includes('Town Center');
+    if (!hasTownCenter) {
+      for (const m of members) {
+        const prom = query("SELECT COUNT(*) as cnt FROM grade_records gr JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id WHERE gr.student_id = ? AND ar.myth_god = 'Prometheus' AND gr.points_earned > 0", [m.student_id])[0];
+        const zeus = query("SELECT COUNT(*) as cnt FROM grade_records gr JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id WHERE gr.student_id = ? AND ar.myth_god = 'Zeus' AND gr.points_earned > 0", [m.student_id])[0];
+        if (prom.cnt > 0 && zeus.cnt > 0) {
+          newBuildings.push('Town Center');
+          report.push(`+ Building: Town Center (${m.name} has Prometheus + Zeus)`);
+          hasTownCenter = true;
+          break;
+        }
+      }
+    }
+    
+    // Always ensure House if they need it for advancement and don't have one
+    if (!newBuildings.includes('House')) {
+      newBuildings.push('House');
+      report.push('+ Building: House (required for advancement)');
+    }
+    
+    // Always ensure Fishing Ship if they don't have one (no special prereq)
+    if (!newBuildings.includes('Fishing Ship')) {
+      newBuildings.push('Fishing Ship');
+      report.push('+ Building: Fishing Ship (required for advancement)');
+    }
+    
+    // --- 2. Check side quest completions and grant alliance_technologies ---
+    const questTechMap = {
+      'The Ring of Many': { tech: 'Pickaxe', quest_id_hint: 1 },
+      'Panacea\'s Remedy': { tech: 'Handaxe', quest_id_hint: 2 },
+      'The Three Seeds': { tech: 'Granary', quest_id_hint: 3 },
+      'Hearth of Hestia': { tech: 'Sacred Flame', quest_id_hint: 4 }
+    };
+    
+    // Get all approved side quests for any member in this alliance
+    const approvedQuests = query(`
+      SELECT sqr.quest_name, sqr.quest_id, sqr.reward_name,
+             COUNT(DISTINCT sqc.student_id) as approved_count
+      FROM side_quest_completions sqc
+      JOIN side_quests_ref sqr ON sqc.quest_id = sqr.quest_id
+      WHERE sqc.student_id IN (${memberIds.join(',')}) AND sqc.status = 'approved'
+      GROUP BY sqr.quest_id
+    `);
+    
+    const currentRewards = JSON.parse(alliance.side_quest_rewards || '[]');
+    let newRewards = [...currentRewards];
+    
+    approvedQuests.forEach(q => {
+      if (q.approved_count >= memberCount) {
+        // All non-ghost members completed — grant tech
+        const mapping = questTechMap[q.quest_name];
+        if (mapping) {
+          const existingTech = query('SELECT tech_id FROM alliance_technologies WHERE alliance_id = ? AND tech_name = ?', [alliance_id, mapping.tech]);
+          if (existingTech.length === 0) {
+            if (!isDryRun) run('INSERT INTO alliance_technologies (alliance_id, tech_name, source_quest_id) VALUES (?, ?, ?)', [alliance_id, mapping.tech, q.quest_id]);
+            report.push(`+ Technology: ${mapping.tech} (from ${q.quest_name})`);
+          }
+          
+          // Grant Granary building if it's the Demeter quest
+          if (mapping.tech === 'Granary' && !newBuildings.includes('Granary')) {
+            newBuildings.push('Granary');
+            report.push('+ Building: Granary (from Demeter Side Quest)');
+          }
+          
+          // Add to side_quest_rewards
+          if (!newRewards.includes(q.quest_id)) {
+            newRewards.push(q.quest_id);
+            report.push(`+ Side quest reward: quest_id ${q.quest_id} (${q.quest_name})`);
+          }
+        }
+      }
+    });
+    
+    // --- 3. Update buildings_owned ---
+    if (JSON.stringify(newBuildings.sort()) !== JSON.stringify(currentBuildings.sort())) {
+      if (!isDryRun) run('UPDATE alliances SET buildings_owned = ? WHERE alliance_id = ?', [JSON.stringify(newBuildings), alliance_id]);
+      report.push(`Buildings updated: [${currentBuildings.join(', ')}] → [${newBuildings.join(', ')}]`);
+    }
+    
+    // --- 4. Update side_quest_rewards ---
+    if (JSON.stringify(newRewards.sort()) !== JSON.stringify(currentRewards.sort())) {
+      if (!isDryRun) run('UPDATE alliances SET side_quest_rewards = ? WHERE alliance_id = ?', [JSON.stringify(newRewards), alliance_id]);
+      report.push(`Side quest rewards updated: ${JSON.stringify(currentRewards)} → ${JSON.stringify(newRewards)}`);
+    }
+    
+    // --- 5. Set civilization_map_complete if all members have maps ---
+    if (!alliance.civilization_map_complete) {
+      const mapsCount = query('SELECT COUNT(*) as cnt FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) AND map_image IS NOT NULL', [alliance_id])[0].cnt;
+      if (mapsCount >= memberCount) {
+        if (!isDryRun) run('UPDATE alliances SET civilization_map_complete = 1 WHERE alliance_id = ?', [alliance_id]);
+        report.push('+ Map complete: set to 1');
+      }
+    }
+    
+    // --- 6. Create building_activations records for any new buildings ---
+    newBuildings.forEach(bName => {
+      const existing = query('SELECT activation_id FROM building_activations WHERE alliance_id = ? AND building_name = ?', [alliance_id, bName]);
+      if (existing.length === 0) {
+        if (!isDryRun) run('INSERT INTO building_activations (alliance_id, building_name, building_instance) VALUES (?, ?, 1)', [alliance_id, bName]);
+        report.push(`+ Building activation: ${bName}`);
+      }
+    });
+    
+    // --- 7. Check age advancement ---
+    // Recalculate after all changes
+    if (!isDryRun) {
+      const updatedAlliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
+      const readiness = calculateAgeReadiness(updatedAlliance);
+      
+      if (readiness.isReady && updatedAlliance.current_age === 'Archaic') {
+        // Check if Classical gate is open
+        const ageGate = query('SELECT classical_unlocked FROM age_gates WHERE class_period = ?', [updatedAlliance.class_period])[0];
+        if (ageGate && ageGate.classical_unlocked === 1) {
+          run('UPDATE alliances SET current_age = ? WHERE alliance_id = ?', ['Classical', alliance_id]);
+          report.push('🎉 AUTO-ADVANCED to Classical Age!');
+        } else {
+          report.push('⚠ Ready for Classical but gate is not open');
+        }
+      } else if (!readiness.isReady) {
+        report.push(`⚠ Not yet ready: buildings ${readiness.ownedRequired.length}/${readiness.requiredBuildings.length}, points ${readiness.pointsHave}/${readiness.pointsThreshold}, map ${readiness.mapComplete}`);
+      }
+    }
+    
+    if (!isDryRun) saveDatabase();
+    
+    res.json({
+      success: true,
+      dry_run: isDryRun,
+      alliance_name: alliance.alliance_name,
+      report
+    });
+  } catch (err) {
+    console.error('Repair alliance error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);

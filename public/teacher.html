@@ -5955,9 +5955,11 @@
                     <div>Map: ${r.mapComplete?'✅':'❌'} · Overall: ${r.overallProgress}% · Ready: <strong style="color:${r.isReady?'#4ade80':'#f87171'}">${r.isReady?'YES':'NO'}</strong></div>
                 </div>`;
                 
-                // Copy raw JSON button
-                html += `<div style="text-align:center;margin-top:8px;">
+                // Copy raw JSON button + Repair buttons
+                html += `<div style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap;">
                     <button onclick="navigator.clipboard.writeText(JSON.stringify(${JSON.stringify(data).replace(/'/g, "\\'")},null,2)).then(()=>alert('Copied!'))" style="background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.3);color:#60a5fa;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">📋 Copy Raw JSON</button>
+                    <button onclick="repairAlliance(${a.alliance_id},'${a.alliance_name.replace(/'/g,"\\'")}',true)" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🔍 Preview Repair (Dry Run)</button>
+                    <button onclick="repairAlliance(${a.alliance_id},'${a.alliance_name.replace(/'/g,"\\'")}',false)" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">🔧 Execute Repair</button>
                 </div>`;
                 
                 html += `</div>`;
@@ -5981,6 +5983,36 @@
                 modal.classList.add('show');
             } catch (err) {
                 alert('Diagnostic failed: ' + err.message);
+            }
+        }
+        
+        async function repairAlliance(allianceId, allianceName, dryRun) {
+            const action = dryRun ? 'preview what would be repaired' : 'EXECUTE REPAIR';
+            if (!confirm(`${action} for ${allianceName}?${dryRun ? '' : '\n\nThis will modify the database. Are you sure?'}`)) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/repair-alliance`, {
+                    method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ alliance_id: allianceId, dry_run: dryRun })
+                });
+                const data = await res.json();
+                if (data.error) { alert('Error: ' + data.error); return; }
+                
+                const title = dryRun ? '🔍 Repair Preview (Dry Run)' : '🔧 Repair Executed';
+                const reportHtml = data.report.map(line => {
+                    const color = line.startsWith('+') ? '#4ade80' : line.startsWith('🎉') ? '#fbbf24' : line.startsWith('⚠') ? '#f87171' : '#e2e8f0';
+                    return `<div style="color:${color};padding:2px 0;">${line}</div>`;
+                }).join('');
+                
+                document.getElementById('diagnose-content').innerHTML = `
+                    <div style="font-family:monospace;font-size:13px;line-height:1.8;">
+                        <div style="font-size:16px;font-weight:700;color:${dryRun?'#fbbf24':'#4ade80'};margin-bottom:12px;">${title}: ${data.alliance_name}</div>
+                        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:14px;">${reportHtml}</div>
+                        ${dryRun ? `<div style="text-align:center;margin-top:16px;">
+                            <button onclick="repairAlliance(${allianceId},'${allianceName.replace(/'/g,"\\'")}',false)" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">🔧 Execute Repair Now</button>
+                        </div>` : `<div style="text-align:center;margin-top:16px;color:#4ade80;font-weight:700;">✅ Repair complete. Refresh the dashboard to see changes.</div>`}
+                    </div>`;
+            } catch (err) {
+                alert('Repair failed: ' + err.message);
             }
         }
         
