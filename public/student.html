@@ -12399,6 +12399,7 @@
         ];
 
         let olympusImg = null;
+        let warriorAvatarImg = null;
         let olympusAnimFrame = null;
         let olympusAvatarTick = 0;
 
@@ -12408,6 +12409,14 @@
             img.onload = () => { olympusImg = img; cb(); };
             img.onerror = () => { olympusImg = null; cb(); };
             img.src = OLYMPUS_IMG_SRC;
+        }
+
+        function loadWarriorAvatar(cb) {
+            if (warriorAvatarImg) { cb(); return; }
+            const img = new Image();
+            img.onload  = () => { warriorAvatarImg = img; cb(); };
+            img.onerror = () => { warriorAvatarImg = null; cb(); };
+            img.src = '/images/classical/warrior_avatar/warrior_avatar.png';
         }
 
         function getCurrentWaypoint(badgeCount) {
@@ -12562,29 +12571,64 @@
                 actx.arc(ap.x, ap.y + bob, sz * 1.4, 0, Math.PI * 2);
                 actx.fill();
 
-                // Shadow
+                // Shadow under avatar
                 actx.fillStyle = 'rgba(0,0,0,0.35)';
                 actx.beginPath();
                 actx.ellipse(ap.x, ap.y + sz * 0.9 + bob, sz * 0.5, sz * 0.13, 0, 0, Math.PI * 2);
                 actx.fill();
 
-                // Pixel hero sprite
-                drawPixelHero(actx, ap.x - sz / 2, ap.y - sz + bob, sz);
+                // Warrior avatar image — crisp pixel rendering, centered above waypoint
+                actx.imageSmoothingEnabled = true;
+                actx.imageSmoothingQuality = 'high';
+                if (warriorAvatarImg) {
+                    // Circular clip so avatar sits cleanly on the mountain
+                    actx.save();
+                    actx.beginPath();
+                    actx.arc(ap.x, ap.y - sz * 0.1 + bob, sz * 0.72, 0, Math.PI * 2);
+                    actx.clip();
+                    // Gold border circle behind image
+                    actx.strokeStyle = '#ffd700';
+                    actx.lineWidth = 3;
+                    actx.stroke();
+                    actx.drawImage(warriorAvatarImg, ap.x - sz * 0.72, ap.y - sz * 0.82 + bob, sz * 1.44, sz * 1.44);
+                    actx.restore();
+                    // Gold ring border drawn outside the clip
+                    actx.beginPath();
+                    actx.arc(ap.x, ap.y - sz * 0.1 + bob, sz * 0.74, 0, Math.PI * 2);
+                    actx.strokeStyle = '#ffd700';
+                    actx.lineWidth = 2.5;
+                    actx.shadowColor = '#ffd700';
+                    actx.shadowBlur = 8;
+                    actx.stroke();
+                    actx.shadowBlur = 0;
+                } else {
+                    // Fallback: gold trophy emoji if image fails
+                    actx.font = `${sz}px serif`;
+                    actx.textAlign = 'center';
+                    actx.textBaseline = 'middle';
+                    actx.fillText('🏆', ap.x, ap.y - sz * 0.1 + bob);
+                }
 
-                // Name tag
-                const name = (typeof studentInfo !== 'undefined' && studentInfo?.name)
-                    ? studentInfo.name.split(' ')[0] : 'Hero';
-                const tagW = sz * 2.6;
-                actx.fillStyle = 'rgba(4,2,16,0.82)';
-                actx.fillRect(ap.x - tagW / 2, ap.y + sz * 0.3 + bob, tagW, sz * 0.52);
-                actx.strokeStyle = '#c8a020';
-                actx.lineWidth = 1;
-                actx.strokeRect(ap.x - tagW / 2, ap.y + sz * 0.3 + bob, tagW, sz * 0.52);
-                actx.fillStyle = '#f0d080';
-                actx.font = `bold ${sz * 0.26}px "Courier New", monospace`;
-                actx.textAlign = 'center';
-                actx.textBaseline = 'middle';
-                actx.fillText(name, ap.x, ap.y + sz * 0.56 + bob);
+                // Name tag — pull from localStorage student object
+                const _student = (() => { try { return JSON.parse(localStorage.getItem('user')); } catch(e) { return null; } })();
+                const name = _student?.name ? _student.name.split(' ')[0] : '';
+                if (name) {
+                    const tagW = sz * 2.4;
+                    const tagH = sz * 0.44;
+                    const tagY = ap.y + sz * 0.72 + bob;
+                    actx.fillStyle = 'rgba(4,2,16,0.88)';
+                    actx.beginPath();
+                    actx.rect(ap.x - tagW / 2, tagY, tagW, tagH);
+                    actx.fill();
+                    actx.strokeStyle = 'rgba(255,215,0,0.7)';
+                    actx.lineWidth = 1;
+                    actx.stroke();
+                    actx.fillStyle = '#f0d080';
+                    actx.font = `bold ${sz * 0.28}px "Cinzel", "Georgia", serif`;
+                    actx.textAlign = 'center';
+                    actx.textBaseline = 'middle';
+                    actx.fillText(name, ap.x, tagY + tagH / 2);
+                }
             } else {
                 // Fallback when image not loaded
                 ctx.fillStyle = '#0a0a20';
@@ -12739,7 +12783,7 @@
             }
 
             // Start the Olympus canvas animation
-            loadOlympusImage(() => startOlympusAnimation());
+            loadOlympusImage(() => loadWarriorAvatar(() => startOlympusAnimation()));
         }
         
         // Claim a badge directly from the grid
