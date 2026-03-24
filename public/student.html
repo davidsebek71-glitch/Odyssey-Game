@@ -2193,6 +2193,14 @@
             border: 2px solid rgba(255,255,255,0.08);
             background: rgba(0,0,0,0.3);
         }
+        /* Smaller slots inside the Olympus badge panel */
+        #hall-badge-grid .hall-badge-slot {
+            width: 36px; height: 36px;
+            border-radius: 7px;
+            border-width: 1px;
+        }
+        #hall-badge-grid .hall-badge-slot .badge-icon { font-size: 18px; }
+        #hall-badge-grid .hall-badge-slot .ring-indicator { width: 10px; height: 10px; font-size: 7px; }
         .hall-badge-slot.earned {
             background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(184,134,11,0.2));
             border-color: rgba(255,215,0,0.5);
@@ -3214,23 +3222,61 @@
 
     <!-- Hall of Honor Modal -->
     <div id="hall-of-honor-modal" class="modal" style="z-index: 1100;">
-        <div class="modal-content" style="max-width: 720px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, #0d0a1a 0%, #1a1028 50%, #0d0a1a 100%); border-color: rgba(255,215,0,0.4);">
-            <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span>🏆 Hall of Honor</span>
-                <button onclick="closeHallOfHonor()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
-            </div>
-            <!-- Tier Progress -->
-            <div id="hall-tier-section" style="margin-bottom: 16px; padding: 10px 14px; background: rgba(255,215,0,0.05); border-radius: 12px; border: 1px solid rgba(255,215,0,0.15);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span id="hall-tier-label" style="font-family: 'Cinzel', serif; font-size: 14px; color: #ffd700;">No Tier</span>
-                    <span id="hall-tier-count" style="font-size: 13px; color: rgba(255,255,255,0.6);">0 / 20</span>
+        <div class="modal-content" style="max-width: 1100px; width: 96vw; max-height: 92vh; padding: 0; overflow: hidden; background: #060412; border-color: rgba(255,215,0,0.5); border-radius: 16px;">
+
+            <!-- Header bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: linear-gradient(90deg, #0d0a1a, #1a1028, #0d0a1a); border-bottom: 1px solid rgba(255,215,0,0.25);">
+                <span style="font-family: 'Cinzel', serif; font-size: 18px; color: #ffd700; letter-spacing: 2px;">⚡ Hall of Honor</span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span id="hall-tier-label" style="font-family: 'Cinzel', serif; font-size: 13px; color: #ffd700; padding: 3px 12px; border-radius: 12px; border: 1px solid rgba(255,215,0,0.4);">No Tier</span>
+                    <span id="hall-tier-count" style="font-size: 12px; color: rgba(255,255,255,0.5);">0 badges</span>
+                    <button onclick="closeHallOfHonor()" style="background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 14px;">✕</button>
                 </div>
-                <div class="tier-bar"><div id="hall-tier-fill" class="tier-bar-fill" style="width: 0%;"></div></div>
-                <div id="hall-tier-next" style="font-size: 11px; color: rgba(255,255,255,0.4); text-align: right;"></div>
             </div>
-            <!-- Badge Grid -->
-            <div id="hall-badge-grid" style="display: flex; flex-direction: column; gap: 12px;">
-                <!-- Rows populated by JS -->
+
+            <!-- Tier progress bar — slim, full width -->
+            <div style="padding: 0 16px; background: rgba(0,0,0,0.3);">
+                <div style="position: relative; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                    <div id="hall-tier-fill" class="tier-bar-fill" style="width: 0%; height: 100%; border-radius: 3px; transition: width 1s ease;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 2px 0 4px;">
+                    <div id="hall-tier-next" style="font-size: 10px; color: rgba(255,255,255,0.35);"></div>
+                    <div style="font-size: 10px; color: rgba(255,255,255,0.3);">
+                        <span style="color: rgba(205,127,50,0.7);">🥉20</span>&nbsp;
+                        <span style="color: rgba(192,192,192,0.7);">🥈24</span>&nbsp;
+                        <span style="color: rgba(255,215,0,0.7);">🥇28</span>&nbsp;
+                        <span style="color: rgba(204,68,255,0.7);">🌟35</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main body: Olympus canvas left + badge panel right -->
+            <div style="display: flex; height: calc(92vh - 88px); overflow: hidden;">
+
+                <!-- LEFT: Olympus mountain canvas -->
+                <div style="flex: 1; position: relative; min-width: 0; background: #060412;">
+                    <canvas id="olympus-hall-canvas" style="display: block; width: 100%; height: 100%; object-fit: contain;"></canvas>
+                    <!-- Avatar layer -->
+                    <canvas id="olympus-hall-avatar" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+                    <!-- Tier marker labels on path -->
+                    <div id="olympus-tier-markers" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                </div>
+
+                <!-- RIGHT: Badge panel -->
+                <div style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid rgba(255,215,0,0.2); background: rgba(4,2,16,0.95); overflow: hidden;">
+                    <!-- Greek meander top border -->
+                    <div style="height: 5px; background: repeating-linear-gradient(90deg, #7050a0 0px, #7050a0 4px, transparent 4px, transparent 8px); flex-shrink: 0;"></div>
+
+                    <div style="flex: 1; overflow-y: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 6px;">
+                        <div id="hall-badge-grid" style="display: flex; flex-direction: column; gap: 6px;">
+                            <!-- Rows populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Greek meander bottom border -->
+                    <div style="height: 5px; background: repeating-linear-gradient(90deg, #7050a0 0px, #7050a0 4px, transparent 4px, transparent 8px); flex-shrink: 0;"></div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -12335,6 +12381,256 @@
             }
         }
         
+        // ── Olympus canvas system ──────────────────────────────────────────
+        const OLYMPUS_IMG_SRC = '/images/olympus_mountain.png';
+        const OLYMPUS_NATIVE  = { w: 1536, h: 1024 };
+        const OLYMPUS_WAYPOINTS = [
+          { badges:0,  tier:null,     x:426,  y:820 },
+          { badges:4,  tier:null,     x:975,  y:675 },
+          { badges:8,  tier:null,     x:477,  y:564 },
+          { badges:12, tier:null,     x:1070, y:490 },
+          { badges:16, tier:null,     x:725,  y:432 },
+          { badges:20, tier:'BRONZE', x:504,  y:394 },
+          { badges:24, tier:'SILVER', x:1013, y:323 },
+          { badges:28, tier:'GOLD',   x:833,  y:290 },
+          { badges:32, tier:null,     x:626,  y:257 },
+          { badges:35, tier:'LEGEND', x:773,  y:222 },
+          { badges:36, tier:'ASCEND', x:773,  y:148 },
+        ];
+
+        let olympusImg = null;
+        let olympusAnimFrame = null;
+        let olympusAvatarTick = 0;
+
+        function loadOlympusImage(cb) {
+            if (olympusImg) { cb(); return; }
+            const img = new Image();
+            img.onload = () => { olympusImg = img; cb(); };
+            img.onerror = () => { olympusImg = null; cb(); };
+            img.src = OLYMPUS_IMG_SRC;
+        }
+
+        function getCurrentWaypoint(badgeCount) {
+            let wp = OLYMPUS_WAYPOINTS[0];
+            for (let i = OLYMPUS_WAYPOINTS.length - 1; i >= 0; i--) {
+                if (badgeCount >= OLYMPUS_WAYPOINTS[i].badges) { wp = OLYMPUS_WAYPOINTS[i]; break; }
+            }
+            return wp;
+        }
+
+        function scaleWP(wp, cw, ch) {
+            return {
+                x: (wp.x / OLYMPUS_NATIVE.w) * cw,
+                y: (wp.y / OLYMPUS_NATIVE.h) * ch
+            };
+        }
+
+        function drawOlympusScene(badgeCount) {
+            const canvas  = document.getElementById('olympus-hall-canvas');
+            const aCanvas = document.getElementById('olympus-hall-avatar');
+            if (!canvas || !aCanvas) return;
+
+            const container = canvas.parentElement;
+            const cw = container.clientWidth;
+            const ch = container.clientHeight;
+
+            // Size both canvases to fill the container
+            [canvas, aCanvas].forEach(c => { c.width = cw; c.height = ch; });
+
+            const ctx  = canvas.getContext('2d');
+            const actx = aCanvas.getContext('2d');
+            ctx.clearRect(0, 0, cw, ch);
+            actx.clearRect(0, 0, cw, ch);
+
+            // Draw mountain image (contain)
+            if (olympusImg) {
+                const scale = Math.min(cw / OLYMPUS_NATIVE.w, ch / OLYMPUS_NATIVE.h);
+                const iw = OLYMPUS_NATIVE.w * scale;
+                const ih = OLYMPUS_NATIVE.h * scale;
+                const ix = (cw - iw) / 2;
+                const iy = (ch - ih) / 2;
+                ctx.drawImage(olympusImg, ix, iy, iw, ih);
+
+                // Re-scale waypoints to image position inside canvas
+                const wpToCanvas = (wp) => ({
+                    x: ix + (wp.x / OLYMPUS_NATIVE.w) * iw,
+                    y: iy + (wp.y / OLYMPUS_NATIVE.h) * ih
+                });
+
+                // Draw dim full path
+                ctx.beginPath();
+                ctx.setLineDash([4, 6]);
+                ctx.strokeStyle = 'rgba(255,215,0,0.2)';
+                ctx.lineWidth = 2;
+                OLYMPUS_WAYPOINTS.forEach((wp, i) => {
+                    const p = wpToCanvas(wp);
+                    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw completed gold path
+                let wpIdx = 0;
+                for (let i = OLYMPUS_WAYPOINTS.length - 1; i >= 0; i--) {
+                    if (badgeCount >= OLYMPUS_WAYPOINTS[i].badges) { wpIdx = i; break; }
+                }
+                if (wpIdx > 0) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'rgba(255,215,0,0.75)';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#ffd700';
+                    ctx.shadowBlur = 6;
+                    for (let i = 0; i <= wpIdx; i++) {
+                        const p = wpToCanvas(OLYMPUS_WAYPOINTS[i]);
+                        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+                    }
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Waypoint dots
+                OLYMPUS_WAYPOINTS.forEach((wp, i) => {
+                    const p    = wpToCanvas(wp);
+                    const done = badgeCount >= wp.badges;
+                    const isTier = ['BRONZE','SILVER','GOLD','LEGEND','ASCEND'].includes(wp.tier);
+                    const r = isTier ? 6 : 3;
+                    const tierColors = { BRONZE:'#cd7f32', SILVER:'#c0c0c0', GOLD:'#ffd700', LEGEND:'#cc44ff', ASCEND:'#ff9900' };
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = done ? (tierColors[wp.tier] || 'rgba(255,215,0,0.9)') : 'rgba(80,60,30,0.4)';
+                    ctx.fill();
+                    if (isTier && done) {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, r + 3, 0, Math.PI * 2);
+                        ctx.strokeStyle = tierColors[wp.tier];
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
+                });
+
+                // Tier labels
+                const markers = document.getElementById('olympus-tier-markers');
+                if (markers) {
+                    markers.innerHTML = '';
+                    OLYMPUS_WAYPOINTS.filter(wp => ['BRONZE','SILVER','GOLD','LEGEND'].includes(wp.tier)).forEach(wp => {
+                        const p = wpToCanvas(wp);
+                        const reached = badgeCount >= wp.badges;
+                        const colors  = { BRONZE:'#cd7f32', SILVER:'#c0c0c0', GOLD:'#ffd700', LEGEND:'#cc44ff' };
+                        const labels  = { BRONZE:'🥉', SILVER:'🥈', GOLD:'🥇', LEGEND:'🌟' };
+                        const el = document.createElement('div');
+                        const nearRight = (p.x / cw) > 0.6;
+                        el.style.cssText = `
+                            position:absolute; left:${p.x}px; top:${p.y}px;
+                            transform:translate(${nearRight ? '-100%' : '-50%'}, -130%);
+                            background:rgba(4,2,16,0.85);
+                            border:1px solid ${colors[wp.tier]};
+                            color:${colors[wp.tier]};
+                            border-radius:8px; padding:1px 7px;
+                            font-size:9px; font-weight:bold; letter-spacing:1px;
+                            white-space:nowrap; opacity:${reached ? 1 : 0.35};
+                            transition:opacity 0.5s; pointer-events:none;
+                        `;
+                        el.textContent = labels[wp.tier];
+                        markers.appendChild(el);
+                    });
+                }
+
+                // Avatar
+                olympusAvatarTick++;
+                const bob = Math.sin(olympusAvatarTick * 0.06) * 2.5;
+                const curWP = getCurrentWaypoint(badgeCount);
+                const ap = wpToCanvas(curWP);
+                const sz = Math.max(18, cw * 0.028);
+
+                // Glow
+                const grd = actx.createRadialGradient(ap.x, ap.y + bob, 0, ap.x, ap.y + bob, sz * 1.4);
+                grd.addColorStop(0, 'rgba(255,215,0,0.55)');
+                grd.addColorStop(1, 'rgba(255,215,0,0)');
+                actx.fillStyle = grd;
+                actx.beginPath();
+                actx.arc(ap.x, ap.y + bob, sz * 1.4, 0, Math.PI * 2);
+                actx.fill();
+
+                // Shadow
+                actx.fillStyle = 'rgba(0,0,0,0.35)';
+                actx.beginPath();
+                actx.ellipse(ap.x, ap.y + sz * 0.9 + bob, sz * 0.5, sz * 0.13, 0, 0, Math.PI * 2);
+                actx.fill();
+
+                // Pixel hero sprite
+                drawPixelHero(actx, ap.x - sz / 2, ap.y - sz + bob, sz);
+
+                // Name tag
+                const name = (typeof studentInfo !== 'undefined' && studentInfo?.name)
+                    ? studentInfo.name.split(' ')[0] : 'Hero';
+                const tagW = sz * 2.6;
+                actx.fillStyle = 'rgba(4,2,16,0.82)';
+                actx.fillRect(ap.x - tagW / 2, ap.y + sz * 0.3 + bob, tagW, sz * 0.52);
+                actx.strokeStyle = '#c8a020';
+                actx.lineWidth = 1;
+                actx.strokeRect(ap.x - tagW / 2, ap.y + sz * 0.3 + bob, tagW, sz * 0.52);
+                actx.fillStyle = '#f0d080';
+                actx.font = `bold ${sz * 0.26}px "Courier New", monospace`;
+                actx.textAlign = 'center';
+                actx.textBaseline = 'middle';
+                actx.fillText(name, ap.x, ap.y + sz * 0.56 + bob);
+            } else {
+                // Fallback when image not loaded
+                ctx.fillStyle = '#0a0a20';
+                ctx.fillRect(0, 0, cw, ch);
+                ctx.fillStyle = 'rgba(200,160,32,0.4)';
+                ctx.font = `${Math.max(12, cw * 0.018)}px "Courier New"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Loading Mt. Olympus...', cw / 2, ch / 2);
+            }
+        }
+
+        function drawPixelHero(ctx, x, y, size) {
+            const s = size / 16;
+            const rows = [
+                [0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0],
+                [0,0,0,0,1,2,2,2,2,1,0,0,0,0,0,0],
+                [0,0,0,0,1,2,3,3,2,1,0,0,0,0,0,0],
+                [0,0,0,0,1,3,2,2,3,1,0,0,0,0,0,0],
+                [0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0],
+                [0,0,0,1,1,4,4,4,4,1,1,0,0,0,0,0],
+                [0,0,1,4,4,4,4,4,4,4,4,1,0,0,0,0],
+                [0,0,1,4,2,4,4,4,4,2,4,1,0,0,0,0],
+                [0,0,0,1,4,4,4,4,4,4,1,0,0,0,0,0],
+                [0,0,0,0,1,4,4,4,4,1,0,0,0,0,0,0],
+                [0,0,0,1,4,1,4,4,1,4,1,0,0,0,0,0],
+                [0,0,1,4,4,1,0,0,1,4,4,1,0,0,0,0],
+                [0,0,1,4,4,0,0,0,0,4,4,1,0,0,0,0],
+                [0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+            ];
+            const colors = { 1:'#2a1a0a', 2:'#f0c080', 3:'#c09050', 4:'#c8a020' };
+            rows.forEach((row, ry) => {
+                row.forEach((val, rx) => {
+                    if (!colors[val]) return;
+                    ctx.fillStyle = colors[val];
+                    ctx.fillRect(Math.round(x + rx * s), Math.round(y + ry * s), Math.ceil(s), Math.ceil(s));
+                });
+            });
+        }
+
+        function startOlympusAnimation() {
+            stopOlympusAnimation();
+            const badgeCount = badgeData ? badgeData.total_earned : 0;
+            function loop() {
+                drawOlympusScene(badgeCount);
+                olympusAnimFrame = requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function stopOlympusAnimation() {
+            if (olympusAnimFrame) { cancelAnimationFrame(olympusAnimFrame); olympusAnimFrame = null; }
+        }
+        // ── End Olympus canvas system ──────────────────────────────────────
+
         // Open Hall of Honor modal
         function openHallOfHonor() {
             document.getElementById('hall-of-honor-modal').classList.add('show');
@@ -12343,6 +12639,7 @@
         
         function closeHallOfHonor() {
             document.getElementById('hall-of-honor-modal').classList.remove('show');
+            stopOlympusAnimation();
         }
         
         function renderHallOfHonor() {
@@ -12351,10 +12648,10 @@
             const grid = document.getElementById('hall-badge-grid');
             const tierConfig = TIER_CONFIG[badgeData.tier] || TIER_CONFIG.none;
             
-            // Update tier bar
+            // Update header tier label + count
             document.getElementById('hall-tier-label').textContent = tierConfig.label;
             document.getElementById('hall-tier-label').style.color = tierConfig.color;
-            document.getElementById('hall-tier-count').textContent = `${badgeData.total_earned} badges earned`;
+            document.getElementById('hall-tier-count').textContent = `${badgeData.total_earned} badges`;
             
             const fillPct = tierConfig.next 
                 ? Math.min(100, (badgeData.total_earned / tierConfig.target) * 100)
@@ -12363,7 +12660,7 @@
             
             const nextTier = tierConfig.next ? TIER_CONFIG[tierConfig.next] : null;
             document.getElementById('hall-tier-next').textContent = nextTier 
-                ? `${badgeData.badges_to_next} more for ${nextTier.label}` 
+                ? `${badgeData.badges_to_next} more → ${nextTier.label}` 
                 : '🏆 Maximum tier achieved!';
             
             // Group badges by row
@@ -12382,64 +12679,56 @@
                 if (rowBadges.length === 0 && rowNum < 7) continue;
                 
                 const category = rowBadges[0]?.category || categoryOrder[rowNum - 1];
-                const catName = CATEGORY_NAMES[category] || 'Unknown';
-
-                // Determine column count — Classical Age row has 7 badges, all others 6
-                const maxCol = rowBadges.length > 0 ? Math.max(...rowBadges.map(b => b.col_number), 6) : 6;
+                const catName  = CATEGORY_NAMES[category] || 'Unknown';
+                const maxCol   = rowBadges.length > 0 ? Math.max(...rowBadges.map(b => b.col_number), 6) : 6;
                 
                 const rowDiv = document.createElement('div');
                 rowDiv.innerHTML = `
-                    <div style="font-size: 11px; color: rgba(255,215,0,0.6); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 600;">${catName}</div>
-                    <div style="display: grid; grid-template-columns: repeat(${maxCol}, 1fr); gap: 8px;" id="hall-row-${rowNum}"></div>
+                    <div style="font-size: 9px; color: rgba(255,215,0,0.5); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; font-weight: 600; padding: 0 2px;">${catName}</div>
+                    <div style="display: grid; grid-template-columns: repeat(${maxCol}, 1fr); gap: 3px;" id="hall-row-${rowNum}"></div>
                 `;
                 grid.appendChild(rowDiv);
                 
                 const rowGrid = rowDiv.querySelector(`#hall-row-${rowNum}`);
                 
-                // Fill columns up to maxCol
                 for (let col = 1; col <= maxCol; col++) {
                     const badge = rowBadges.find(b => b.col_number === col);
-                    const slot = document.createElement('div');
+                    const slot  = document.createElement('div');
                     slot.className = 'hall-badge-slot';
                     
                     if (!badge) {
-                        // Empty slot
                         slot.classList.add('empty');
-                        slot.innerHTML = '<div class="badge-icon">?</div>';
+                        slot.innerHTML = '<div class="badge-icon" style="font-size:10px;opacity:0.2;">?</div>';
                     } else if (badge.age_available === 'heroic') {
-                        // Locked heroic
                         slot.classList.add('locked');
                         slot.innerHTML = `<div class="badge-icon">🔒</div>`;
                         slot.title = badge.badge_name + '\n' + badge.description;
                         slot.onclick = () => showBadgeDetail(badge);
                     } else if (badge.earned && badge.claimed) {
-                        // Earned AND claimed — full gold glow
                         slot.classList.add('earned');
                         slot.innerHTML = `<div class="badge-icon">${badge.icon}</div>`;
                         slot.title = badge.badge_name + ' ✅\n' + badge.description;
                         slot.onclick = () => showBadgeDetail(badge);
-                        
-                        // Ring indicator
                         if (badge.is_ring_badge && badge.ring_level > 0) {
                             const ringClass = badge.ring_level >= 2 ? 'ring-gold' : 'ring-bronze';
                             slot.innerHTML += `<div class="ring-indicator ${ringClass}">${badge.ring_level >= 2 ? '★' : '●'}</div>`;
                         }
                     } else if (badge.earned && !badge.claimed) {
-                        // Earned but NOT claimed — pulsing glow, tap to claim
                         slot.classList.add('unclaimed');
-                        slot.innerHTML = `<div class="badge-icon">${badge.icon}</div><div style="font-size:9px;color:rgba(255,215,0,0.8);margin-top:2px;">TAP!</div>`;
+                        slot.innerHTML = `<div class="badge-icon">${badge.icon}</div><div style="font-size:7px;color:rgba(255,215,0,0.9);margin-top:1px;line-height:1;">TAP!</div>`;
                         slot.title = badge.badge_name + ' — Tap to claim!\n' + badge.description;
                         slot.onclick = () => claimBadgeFromGrid(badge);
                     } else {
-                        // Not earned yet
                         slot.innerHTML = `<div class="badge-icon">${badge.icon}</div>`;
                         slot.title = badge.badge_name + '\n' + badge.description;
                         slot.onclick = () => showBadgeDetail(badge);
                     }
-                    
                     rowGrid.appendChild(slot);
                 }
             }
+
+            // Start the Olympus canvas animation
+            loadOlympusImage(() => startOlympusAnimation());
         }
         
         // Claim a badge directly from the grid
