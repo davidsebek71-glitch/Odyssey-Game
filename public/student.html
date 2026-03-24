@@ -3221,7 +3221,7 @@
     </div>
 
     <!-- Badge Detail Popup -->
-    <div id="badge-detail-popup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1200; justify-content:center; align-items:center;" onclick="this.style.display='none'">
+    <div id="badge-detail-popup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1200; justify-content:center; align-items:center;">
         <div onclick="event.stopPropagation()" style="background: linear-gradient(135deg, #1a1028, #0d0a1a); border: 2px solid rgba(255,215,0,0.5); border-radius: 20px; padding: 28px; max-width: 320px; width: 85%; text-align: center;">
             <div id="badge-detail-icon" style="font-size: 56px; margin-bottom: 10px;"></div>
             <div id="badge-detail-name" style="font-family: 'Cinzel', serif; font-size: 20px; color: #ffd700; margin-bottom: 6px;"></div>
@@ -12342,18 +12342,21 @@
                 
                 const category = rowBadges[0]?.category || categoryOrder[rowNum - 1];
                 const catName = CATEGORY_NAMES[category] || 'Unknown';
+
+                // Determine column count — Classical Age row has 7 badges, all others 6
+                const maxCol = rowBadges.length > 0 ? Math.max(...rowBadges.map(b => b.col_number), 6) : 6;
                 
                 const rowDiv = document.createElement('div');
                 rowDiv.innerHTML = `
                     <div style="font-size: 11px; color: rgba(255,215,0,0.6); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 600;">${catName}</div>
-                    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;" id="hall-row-${rowNum}"></div>
+                    <div style="display: grid; grid-template-columns: repeat(${maxCol}, 1fr); gap: 8px;" id="hall-row-${rowNum}"></div>
                 `;
                 grid.appendChild(rowDiv);
                 
                 const rowGrid = rowDiv.querySelector(`#hall-row-${rowNum}`);
                 
-                // Fill 6 columns
-                for (let col = 1; col <= 6; col++) {
+                // Fill columns up to maxCol
+                for (let col = 1; col <= maxCol; col++) {
                     const badge = rowBadges.find(b => b.col_number === col);
                     const slot = document.createElement('div');
                     slot.className = 'hall-badge-slot';
@@ -12425,11 +12428,20 @@
         function showBadgeDetail(badge) {
             const popup = document.getElementById('badge-detail-popup');
             popup.style.display = 'flex';
-            
+
+            // Close when clicking backdrop — stopPropagation prevents Hall of Honor from closing
+            popup.onclick = function(e) {
+                if (e.target === popup) {
+                    e.stopPropagation();
+                    popup.style.display = 'none';
+                    popup.onclick = null;
+                }
+            };
+
             document.getElementById('badge-detail-icon').textContent = badge.icon;
             document.getElementById('badge-detail-name').textContent = badge.badge_name;
             document.getElementById('badge-detail-desc').textContent = badge.description;
-            
+
             const statusEl = document.getElementById('badge-detail-status');
             if (badge.earned) {
                 statusEl.textContent = '✅ Earned';

@@ -1459,6 +1459,42 @@ function runMigrations() {
   } catch (err) {
     console.log('Creative/CER migration note:', err.message);
   }
+
+  // ==================== BADGE MIGRATION V98 ====================
+  // Adds Classical myth badges, moves Trader to Honors, adds Prometheus to Honors.
+  // Uses INSERT OR IGNORE so it is safe to run on any database state.
+  try {
+    const badgeMigrations = [
+      // Row 4: Classical Age myth badges (7 myths, 85% threshold)
+      ['class_pandora', 'Pandora', "Earn 85% or more of total points across the Pandora's Box reading guide, quiz, and creative assignment.", 'classical', 4, 1, '🏺', 'myth_score_85', 'Pandora', 'classical', 0],
+      ['class_phaethon', 'Phaethon', "Earn 85% or more of total points across the Phaethon's Chariot reading guide, quiz, and creative assignment.", 'classical', 4, 2, '☀️', 'myth_score_85', 'Phaethon', 'classical', 0],
+      ['class_orpheus', 'Orpheus', 'Earn 85% or more of total points across the Orpheus & Eurydice reading guide, quiz, and creative assignment.', 'classical', 4, 3, '🎵', 'myth_score_85', 'Orpheus', 'classical', 0],
+      ['class_echo', 'Echo & Narcissus', 'Earn 85% or more of total points across the Echo & Narcissus reading guide, quiz, and creative assignment.', 'classical', 4, 4, '🪞', 'myth_score_85', 'Echo and Narcissus', 'classical', 0],
+      ['class_icarus', 'Icarus', 'Earn 85% or more of total points across the Icarus & Daedalus reading guide, quiz, and creative assignment.', 'classical', 4, 5, '🪶', 'myth_score_85', 'Icarus', 'classical', 0],
+      ['class_psyche', 'Eros & Psyche', 'Earn 85% or more of total points across the Eros & Psyche reading guide, quiz, and creative assignment.', 'classical', 4, 6, '🦋', 'myth_score_85', 'Eros and Psyche', 'classical', 0],
+      ['class_constellations', 'Constellations', 'Earn 85% or more of total points across the Constellations reading guide, quiz, and creative assignment.', 'classical', 4, 7, '⭐', 'myth_score_85', 'Constellations', 'classical', 0],
+      // Row 7: Move Trader + add Prometheus to Honors & Distinctions
+      ['honor_trader', 'Trader', 'Complete a trade in the Trade System.', 'honors', 7, 2, '⚖️', 'trade_completed', '1', 'classical', 0],
+      ['god_prometheus', 'Prometheus', 'Complete the Prometheus bonus assignment with 70% or higher.', 'honors', 7, 3, '🔥', 'god_bonus', 'prometheus', 'archaic', 0],
+    ];
+    const migStmt = 'INSERT OR IGNORE INTO badges_ref (badge_id, badge_name, description, category, row_number, col_number, icon, unlock_type, unlock_value, age_available, is_ring_badge) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    let migAdded = 0;
+    badgeMigrations.forEach(b => {
+      const exists = db.exec(`SELECT 1 FROM badges_ref WHERE badge_id = '${b[0]}'`);
+      if (!exists[0]) {
+        db.run(migStmt, b);
+        migAdded++;
+      }
+    });
+    // Move old class_trader from Row 4 to Row 7 if it exists there
+    db.run("UPDATE badges_ref SET category = 'honors', row_number = 7, col_number = 2 WHERE badge_id = 'class_trader'");
+    // Deactivate old god_prometheus from Row 4 classical if it exists (now lives in honors row 7)
+    db.run("UPDATE badges_ref SET is_active = 0 WHERE badge_id = 'god_prometheus' AND row_number = 4");
+    if (migAdded > 0) console.log(`✅ Badge migration V98: added ${migAdded} new badges`);
+    else console.log('✅ Badge migration V98: all badges already present');
+  } catch (err) {
+    console.log('Badge migration V98 note:', err.message);
+  }
 }
 
 function seedReferenceData() {
@@ -2598,9 +2634,14 @@ function seedBadges() {
     ['god_demeter', 'Demeter', 'Complete the Demeter bonus assignment.', 'olympian_2', 3, 5, '🌾', 'god_bonus', 'demeter', 'archaic', 0],
     ['god_hades', 'Hades', 'Complete the Hades bonus assignment.', 'olympian_2', 3, 6, '💀', 'god_bonus', 'hades', 'archaic', 0],
 
-    // Row 4: Classical Age Content (Prometheus + Trader active, 4 open)
-    ['god_prometheus', 'Prometheus', 'Complete the Prometheus bonus assignment.', 'classical', 4, 1, '🔥', 'god_bonus', 'prometheus', 'archaic', 0],
-    ['class_trader', 'Trader', 'Complete a trade in the Trade System.', 'classical', 4, 6, '⚖️', 'trade_completed', '1', 'classical', 1],
+    // Row 4: Classical Age Content — one badge per myth (85% threshold: quiz + reading guide + creative/CER)
+    ['class_pandora', 'Pandora', "Earn 85% or more of total points across the Pandora's Box reading guide, quiz, and creative assignment.", 'classical', 4, 1, '🏺', 'myth_score_85', 'Pandora', 'classical', 0],
+    ['class_phaethon', 'Phaethon', "Earn 85% or more of total points across the Phaethon's Chariot reading guide, quiz, and creative assignment.", 'classical', 4, 2, '☀️', 'myth_score_85', 'Phaethon', 'classical', 0],
+    ['class_orpheus', 'Orpheus', 'Earn 85% or more of total points across the Orpheus & Eurydice reading guide, quiz, and creative assignment.', 'classical', 4, 3, '🎵', 'myth_score_85', 'Orpheus', 'classical', 0],
+    ['class_echo', 'Echo & Narcissus', 'Earn 85% or more of total points across the Echo & Narcissus reading guide, quiz, and creative assignment.', 'classical', 4, 4, '🪞', 'myth_score_85', 'Echo and Narcissus', 'classical', 0],
+    ['class_icarus', 'Icarus', 'Earn 85% or more of total points across the Icarus & Daedalus reading guide, quiz, and creative assignment.', 'classical', 4, 5, '🪶', 'myth_score_85', 'Icarus', 'classical', 0],
+    ['class_psyche', 'Eros & Psyche', 'Earn 85% or more of total points across the Eros & Psyche reading guide, quiz, and creative assignment.', 'classical', 4, 6, '🦋', 'myth_score_85', 'Eros and Psyche', 'classical', 0],
+    ['class_constellations', 'Constellations', 'Earn 85% or more of total points across the Constellations reading guide, quiz, and creative assignment.', 'classical', 4, 7, '⭐', 'myth_score_85', 'Constellations', 'classical', 0],
 
     // Row 5: Battle Arena Glory
     ['battle_warrior', 'Warrior', 'Win your first battle in the Arena.', 'battle', 5, 1, '🗡️', 'battle_wins', '1', 'archaic', 0],
@@ -2620,6 +2661,8 @@ function seedBadges() {
 
     // Row 7: Honors & Distinctions
     ['honor_fate_breaker', 'Fate Breaker', 'Your alliance uses a Reverse Card to cancel a negative Fate.', 'honors', 7, 1, '🔄', 'reverse_card_used', '1', 'any', 0],
+    ['honor_trader', 'Trader', 'Complete a trade in the Trade System.', 'honors', 7, 2, '⚖️', 'trade_completed', '1', 'classical', 0],
+    ['god_prometheus', 'Prometheus', 'Complete the Prometheus bonus assignment with 70% or higher.', 'honors', 7, 3, '🔥', 'god_bonus', 'prometheus', 'archaic', 0],
   ];
 
   const stmt = 'INSERT INTO badges_ref (badge_id, badge_name, description, category, row_number, col_number, icon, unlock_type, unlock_value, age_available, is_ring_badge) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';

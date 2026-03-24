@@ -12412,6 +12412,36 @@ function scanForBadges(studentId) {
           break;
         }
         
+        case 'myth_score_85': {
+          // Badge earned when student scores 85%+ across reading guide + quiz + creative/CER/word_cloud
+          // unlock_value is the myth_god string (e.g. 'Pandora', 'Echo and Narcissus')
+          const mythGod = badge.unlock_value;
+          try {
+            // Sum all points earned across the three assignment types for this myth
+            // section 'classical' covers comp_conn (reading guide) and quiz
+            // section 'classical_creative' covers creative, cer, word_cloud
+            const scoreResult = query(`
+              SELECT 
+                SUM(gr.points_earned)   AS total_earned,
+                SUM(gr.points_possible) AS total_possible
+              FROM grade_records gr
+              JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+              WHERE gr.student_id = ?
+                AND ar.myth_god = ?
+                AND ar.age = 'Classical'
+                AND ar.assignment_type IN ('comp_conn', 'quiz', 'creative', 'cer', 'word_cloud', 'mural')
+            `, [studentId, mythGod])[0];
+
+            if (scoreResult && scoreResult.total_possible > 0) {
+              const pct = scoreResult.total_earned / scoreResult.total_possible;
+              qualified = pct >= 0.85;
+            }
+          } catch (mythErr) {
+            console.log(`myth_score_85 check error for ${mythGod}:`, mythErr.message);
+          }
+          break;
+        }
+
         case 'heroic_content': {
           // Not yet available
           break;
