@@ -24,7 +24,8 @@
             pointer-events: none;
             background: 
                 radial-gradient(ellipse at 20% 50%, rgba(139, 69, 19, 0.15) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 50%, rgba(30, 58, 138, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(30, 58, 138, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 50%, rgba(88, 28, 135, 0.15) 0%, transparent 50%),
                 radial-gradient(ellipse at 50% 0%, rgba(180, 140, 60, 0.08) 0%, transparent 40%);
             z-index: 0;
             animation: bgShift 12s ease-in-out infinite alternate;
@@ -197,6 +198,42 @@
             0%, 100% { box-shadow: 0 8px 32px rgba(30,58,138,0.3), inset 0 1px 0 rgba(200,200,255,0.08); }
             50% { box-shadow: 0 8px 48px rgba(30,58,138,0.5), 0 0 40px rgba(74,144,217,0.15), inset 0 1px 0 rgba(200,200,255,0.12); }
         }
+
+        /* Heroic Portal */
+        .portal-heroic {
+            background: linear-gradient(160deg, rgba(26,10,46,0.9), rgba(18,5,32,0.95));
+            border: 2px solid rgba(147,51,234,0.3);
+            box-shadow: 0 8px 32px rgba(88,28,135,0.3), inset 0 1px 0 rgba(192,132,252,0.08);
+        }
+        .portal-heroic:hover:not(.portal-locked) {
+            border-color: rgba(147,51,234,0.6);
+            box-shadow: 0 16px 48px rgba(88,28,135,0.4), 0 0 60px rgba(147,51,234,0.15), inset 0 1px 0 rgba(192,132,252,0.15);
+        }
+        .portal-heroic .portal-icon {
+            font-size: 4.5rem; margin-bottom: 20px;
+            filter: drop-shadow(0 4px 20px rgba(147,51,234,0.5));
+        }
+        .portal-heroic .portal-age-name {
+            background: linear-gradient(135deg, #c084fc, #9333ea, #e9d5ff);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .portal-heroic .portal-enter-btn {
+            background: linear-gradient(135deg, #7c3aed, #9333ea); color: #f3e8ff;
+        }
+        .portal-heroic .portal-enter-btn:hover {
+            background: linear-gradient(135deg, #9333ea, #a855f7);
+            box-shadow: 0 4px 20px rgba(147,51,234,0.5);
+        }
+        .portal-heroic:not(.portal-locked) {
+            animation: heroicPulse 3s ease-in-out infinite;
+        }
+        @keyframes heroicPulse {
+            0%, 100% { box-shadow: 0 8px 32px rgba(88,28,135,0.3), inset 0 1px 0 rgba(192,132,252,0.08); }
+            50% { box-shadow: 0 8px 48px rgba(88,28,135,0.5), 0 0 40px rgba(147,51,234,0.15), inset 0 1px 0 rgba(192,132,252,0.12); }
+        }
+        .heroic-virtue-progress { margin-top: 12px; font-family: 'Cinzel', serif; font-size: 0.85rem; color: #c084fc; letter-spacing: 1px; }
+        .heroic-virtue-bar { width: 100%; height: 6px; background: rgba(147,51,234,0.15); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+        .heroic-virtue-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #c084fc); border-radius: 3px; transition: width 0.5s; }
 
         /* Locked State */
         .portal-locked { cursor: not-allowed; opacity: 0.6; }
@@ -416,6 +453,7 @@
                     '<div style="color:rgba(255,255,255,0.5);margin-bottom:30px;">Could not load game data. Try these direct links:</div>' +
                     '<a href="/student.html?view=archaic" style="display:inline-block;background:linear-gradient(135deg,#b8860b,#daa520);color:#1a0a05;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">ARCHAIC DASHBOARD</a>' +
                     '<a href="/student.html" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4a90d9);color:#fff;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">CLASSICAL DASHBOARD</a>' +
+                    '<a href="/student.html?view=heroic" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#f3e8ff;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">HEROIC DASHBOARD</a>' +
                     '</div>';
             }
         }
@@ -457,6 +495,42 @@
             html += canAccess ? 'ENTER' : 'LOCKED';
             html += '</button></div>';
 
+            // Heroic Portal
+            var heroicAccess = allianceAge === 'Heroic';
+            var heroicGateOpen = false; // Will be checked via API
+            var heroicLocked = !heroicAccess;
+            var virtueCount = 0;
+
+            // Check heroic status from classicalStatus if available
+            if (classicalStatus && classicalStatus.heroicGateOpen) heroicGateOpen = true;
+            if (classicalStatus && classicalStatus.virtueCount !== undefined) virtueCount = classicalStatus.virtueCount;
+
+            html += '<div class="portal-card portal-heroic ' + (heroicLocked ? 'portal-locked' : '') + '" ';
+            html += 'onclick="' + (heroicAccess ? 'enterHeroic()' : '') + '">';
+            if (heroicLocked) {
+                var heroicLockReason = '';
+                if (!heroicGateOpen) {
+                    heroicLockReason = 'The Heroic Age awaits. Complete all seven virtues and earn your place among the heroes.';
+                } else if (virtueCount < 7) {
+                    heroicLockReason = 'The gate is open! You need ' + (7 - virtueCount) + ' more virtue' + (7 - virtueCount !== 1 ? 's' : '') + ' to enter.';
+                } else {
+                    heroicLockReason = 'You are worthy. Choose your hero avatar to enter.';
+                }
+                html += '<div class="lock-overlay"><div class="lock-icon">🔒</div>';
+                html += '<div class="lock-text">' + heroicLockReason + '</div></div>';
+            }
+            html += '<div class="portal-icon">⚔️</div>';
+            html += '<div class="portal-age-name">HEROIC</div>';
+            html += '<div class="portal-age-label">AGE</div>';
+            html += '<div class="portal-description">The age of heroes. Choose your avatar, forge your equipment, and journey through the myths of Jason, Heracles, Theseus, and Perseus.</div>';
+            if (!heroicAccess && canAccess && virtueCount > 0) {
+                html += '<div class="heroic-virtue-progress">' + virtueCount + ' / 7 Virtues Earned</div>';
+                html += '<div class="heroic-virtue-bar"><div class="heroic-virtue-fill" style="width:' + Math.round((virtueCount / 7) * 100) + '%"></div></div>';
+            }
+            html += '<button class="portal-enter-btn" ' + (heroicAccess ? 'onclick="event.stopPropagation(); enterHeroic()"' : 'disabled') + '>';
+            html += heroicAccess ? 'ENTER' : 'LOCKED';
+            html += '</button></div>';
+
             html += '</div>'; // end portal-cards
 
             // Requirements checklist if locked
@@ -480,6 +554,9 @@
             html += '<a href="/student.html?view=archaic" style="color: rgba(184,134,11,0.5); margin: 0 12px; text-decoration: underline;">Archaic Dashboard</a>';
             if (canAccess) {
                 html += '<a href="/student.html" style="color: rgba(74,144,217,0.5); margin: 0 12px; text-decoration: underline;">Classical Dashboard</a>';
+            }
+            if (allianceAge === 'Heroic') {
+                html += '<a href="/student.html?view=heroic" style="color: rgba(147,51,234,0.5); margin: 0 12px; text-decoration: underline;">Heroic Dashboard</a>';
             }
             html += '</div>';
 
@@ -511,6 +588,11 @@
                 // Absolute fallback
                 window.location.assign('/student.html');
             }
+        }
+
+        function enterHeroic() {
+            // Heroic Age students go to the student dashboard which will detect their age
+            window.location.href = '/student.html';
         }
 
         function playCinematic() {
