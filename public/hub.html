@@ -529,7 +529,8 @@
                 html += '<div class="heroic-virtue-progress">' + virtueCount + ' / 7 Virtues Earned</div>';
                 html += '<div class="heroic-virtue-bar"><div class="heroic-virtue-fill" style="width:' + Math.round((virtueCount / 7) * 100) + '%"></div></div>';
             }
-            html += '<button class="portal-enter-btn" ' + (heroicAccess ? 'onclick="event.stopPropagation(); enterHeroic()"' : 'disabled') + '>';
+            html += '<div style="flex-grow:1;"></div>';
+            html += '<button class="portal-enter-btn" style="margin-top:auto;" ' + (heroicAccess ? 'onclick="event.stopPropagation(); enterHeroic()"' : 'disabled') + '>';
             html += heroicAccess ? 'ENTER' : 'LOCKED';
             html += '</button></div>';
 
