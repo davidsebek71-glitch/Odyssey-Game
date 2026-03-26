@@ -2083,6 +2083,74 @@
         /* --- Virtue Celebration Animation Overlay --- */
         .virtue-slot.earned { cursor: pointer; }
         .virtue-slot.earned:hover { transform: translateY(-2px); box-shadow: 0 0 18px var(--virtue-shadow, rgba(255,215,0,0.25)); }
+
+        /* ===== HEROIC AGE GATE ANIMATION ===== */
+        .heroic-gate-overlay { position: fixed; inset: 0; z-index: 11500; background: #0a0514; display: none; align-items: center; justify-content: center; overflow: hidden; }
+        .heroic-gate-overlay.show { display: flex; }
+        .hg-stars { position: absolute; inset: 0; }
+        .hg-star { position: absolute; width: 2px; height: 2px; background: #c084fc; border-radius: 50%; opacity: 0; animation: hgStarTwinkle 2s ease-in-out infinite; }
+        @keyframes hgStarTwinkle { 0%,100% { opacity: 0.1; } 50% { opacity: 0.7; } }
+        .hg-gate-container { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; }
+        .hg-gates { position: relative; width: 300px; height: 360px; display: flex; overflow: hidden; }
+        .hg-gate-left, .hg-gate-right { width: 50%; height: 100%; position: relative; transition: transform 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+        .hg-gate-left { background: linear-gradient(90deg, #2d1650, #3b1d6e); border-right: 2px solid #6b3fa0; }
+        .hg-gate-right { background: linear-gradient(90deg, #3b1d6e, #2d1650); border-left: 2px solid #6b3fa0; }
+        .hg-gates.open .hg-gate-left { transform: translateX(-105%); }
+        .hg-gates.open .hg-gate-right { transform: translateX(105%); }
+        .hg-gate-detail { position: absolute; top: 0; bottom: 0; width: 100%; background: repeating-linear-gradient(0deg, transparent 0px, transparent 28px, rgba(107,63,160,0.3) 28px, rgba(107,63,160,0.3) 30px); }
+        .hg-gate-ring { position: absolute; top: 50%; width: 20px; height: 20px; border: 3px solid #a855f7; border-radius: 50%; transform: translateY(-50%); }
+        .hg-gate-left .hg-gate-ring { right: 8px; }
+        .hg-gate-right .hg-gate-ring { left: 8px; }
+        .hg-gate-arch { position: absolute; top: -2px; left: -10px; right: -10px; height: 50px; border: 3px solid #6b3fa0; border-bottom: none; border-radius: 160px 160px 0 0; background: linear-gradient(180deg, #2d1650, transparent); z-index: 3; }
+        .hg-gate-base { position: absolute; bottom: -2px; left: -10px; right: -10px; height: 16px; background: #3b1d6e; border: 2px solid #6b3fa0; border-top: none; z-index: 3; }
+        .hg-gate-columns { position: absolute; top: 40px; bottom: 14px; width: 12px; background: linear-gradient(90deg, #4a2280, #6b3fa0, #4a2280); border: 1px solid #7c3aed; z-index: 3; }
+        .hg-gate-columns.left { left: -11px; }
+        .hg-gate-columns.right { right: -11px; }
+        .hg-light-beam { position: absolute; top: 30px; left: 50%; width: 0; height: 330px; background: linear-gradient(180deg, rgba(192,132,252,0.6), rgba(147,51,234,0.2), transparent); transform: translateX(-50%); z-index: 1; transition: width 1.5s ease-out; opacity: 0; }
+        .hg-gates.open ~ .hg-light-beam { width: 200px; opacity: 1; }
+        .hg-text-greek { font-family: 'Cinzel', serif; font-size: 14px; color: #c084fc; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 12px; opacity: 0; transition: opacity 1s; position: relative; z-index: 4; }
+        .hg-text-title { font-family: 'Cinzel', serif; font-size: 28px; font-weight: 700; color: #e9d5ff; letter-spacing: 3px; opacity: 0; transition: opacity 1s; position: relative; z-index: 4; text-shadow: 0 0 30px rgba(147,51,234,0.5); }
+        .hg-text-worthy { font-family: 'Cinzel', serif; font-size: 13px; color: #a78bfa; margin-top: 16px; opacity: 0; transition: opacity 1s; position: relative; z-index: 4; font-style: italic; }
+        .hg-particles { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+        .hg-particle { position: absolute; width: 3px; height: 3px; border-radius: 50%; opacity: 0; }
+        @keyframes hgParticleRise { 0% { transform: translateY(0) scale(1); opacity: 0.8; } 100% { transform: translateY(-200px) scale(0); opacity: 0; } }
+        .hg-flash { position: absolute; inset: 0; background: rgba(233,213,255,0.9); z-index: 10; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+
+        /* ===== HEROIC AGE AVATAR SELECTION OVERLAY ===== */
+        .heroic-avatar-overlay { position: fixed; inset: 0; z-index: 11000; background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 30%, #1a0a2e 100%); display: none; flex-direction: column; align-items: center; overflow-y: auto; padding: 20px 16px; }
+        .heroic-avatar-overlay.show { display: flex; animation: vc-fade-in 0.5s ease-out; }
+        .heroic-avatar-overlay::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 20%, rgba(147,51,234,0.15) 0%, transparent 60%); pointer-events: none; z-index: 0; }
+        .hao-header { position: relative; z-index: 1; text-align: center; margin-bottom: 12px; }
+        .hao-subtitle { font-size: 11px; letter-spacing: 4px; color: #c084fc; text-transform: uppercase; margin-bottom: 4px; }
+        .hao-title { font-family: 'Cinzel', serif; font-size: 22px; font-weight: 700; color: #e9d5ff; margin-bottom: 4px; }
+        .hao-desc { font-size: 13px; color: #a78bfa; max-width: 500px; margin: 0 auto; }
+        .hao-grid-top { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 680px; margin-bottom: 10px; }
+        .hao-grid-bottom { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 510px; margin-bottom: 12px; }
+        .hao-card { cursor: pointer; border-radius: 10px; padding: 12px 8px; text-align: center; transition: all 0.2s; }
+        .hao-card:hover { transform: scale(1.03); }
+        .hao-card.selected { transform: scale(1.05); box-shadow: 0 0 20px rgba(147,51,234,0.5); }
+        .hao-card-silhouette { width: 64px; height: 80px; margin: 0 auto 8px; background: rgba(0,0,0,0.4); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px; opacity: 0.3; }
+        .hao-card-name { font-family: 'Cinzel', serif; font-size: 12px; margin-bottom: 2px; }
+        .hao-card-myth { font-size: 10px; color: #a78bfa; margin-bottom: 4px; }
+        .hao-card-drachma { font-size: 10px; color: #fbbf24; margin-bottom: 4px; font-weight: bold; }
+        .hao-card-strong { font-size: 10px; color: #86efac; margin-bottom: 2px; }
+        .hao-card-weak { font-size: 10px; color: #fca5a5; }
+        .hao-detail { position: relative; z-index: 1; width: 100%; max-width: 680px; background: rgba(0,0,0,0.4); border: 1px solid rgba(147,51,234,0.3); border-radius: 10px; padding: 16px 20px; display: none; }
+        .hao-detail.show { display: block; }
+        .hao-detail-header { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+        .hao-detail-sil { width: 56px; height: 70px; background: rgba(0,0,0,0.5); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(147,51,234,0.3); flex-shrink: 0; font-size: 24px; opacity: 0.4; color: #c084fc; }
+        .hao-detail-name { font-family: 'Cinzel', serif; font-size: 16px; color: #e9d5ff; }
+        .hao-detail-arch { font-size: 12px; color: #a78bfa; font-style: italic; margin-top: 2px; }
+        .hao-detail-desc { font-size: 12px; color: #c4b5fd; line-height: 1.5; margin-bottom: 12px; }
+        .hao-confirm-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #6b21a8, #7c3aed); border: 1px solid #a855f7; border-radius: 8px; color: #f3e8ff; font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; }
+        .hao-confirm-btn:hover { background: linear-gradient(135deg, #7c3aed, #9333ea); box-shadow: 0 0 20px rgba(147,51,234,0.4); }
+        .hao-confirmed { position: relative; z-index: 1; display: none; text-align: center; padding: 20px; }
+        .hao-confirmed.show { display: block; animation: vc-fade-in 0.5s ease-out; }
+        @media (max-width: 600px) {
+            .hao-grid-top { grid-template-columns: repeat(2, 1fr); }
+            .hao-grid-bottom { grid-template-columns: repeat(2, 1fr); max-width: 340px; }
+        }
+
         .virtue-celebration-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; animation: vc-fade-in 0.3s ease-out; cursor: pointer; }
         @keyframes vc-fade-in { from { opacity: 0; } to { opacity: 1; } }
         .virtue-celebration-overlay .vc-close-hint { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.3); font-family: 'Press Start 2P', 'Courier New', monospace; letter-spacing: 1px; }
@@ -4053,6 +4121,30 @@
                         </div>
                     </div>
                 `;
+                
+                // Virtue progress (Classical → Heroic only)
+                if (data.currentAge === 'Classical' && r.lowestVirtueCount !== undefined) {
+                    html += `
+                        <div class="age-requirement">
+                            <div class="age-req-icon">⚔️</div>
+                            <div class="age-req-text">All 7 Virtues (all members)</div>
+                            <div class="age-req-status ${r.virtuesMet ? 'complete' : 'incomplete'}">
+                                ${r.virtuesMet ? '✅' : `${r.lowestVirtueCount}/7`}
+                            </div>
+                        </div>
+                    `;
+                    if (r.memberVirtues && r.memberVirtues.length > 0 && !r.virtuesMet) {
+                        r.memberVirtues.forEach(mv => {
+                            if (mv.virtues < 7) {
+                                html += `
+                                    <div style="padding-left: 32px; font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 2px;">
+                                        ${mv.name}: ${mv.virtues}/7 virtues
+                                    </div>
+                                `;
+                            }
+                        });
+                    }
+                }
                 
                 // Overall progress bar
                 html += `
@@ -10180,6 +10272,53 @@
                 else if (count <= 4) { progressText.textContent = `${count} / 7 Virtues — The warrior takes shape...`; progressText.style.color = 'rgba(74,144,217,0.6)'; }
                 else if (count <= 6) { progressText.textContent = `${count} / 7 Virtues — Almost revealed...`; progressText.style.color = 'rgba(255,215,0,0.6)'; }
             }
+
+            // Show "Choose Your Hero" button at 7/7 if Heroic gate is open
+            if (count === 7) {
+                checkHeroicGateAndShowButton();
+            } else {
+                const existingBtn = document.getElementById('heroic-avatar-btn');
+                if (existingBtn) existingBtn.remove();
+            }
+        }
+
+        async function checkHeroicGateAndShowButton() {
+            try {
+                const res = await fetch(`${API_URL}/student/classical-status`, { headers });
+                const data = await res.json();
+                if (data.selectedAvatar) return; // Already chose
+
+                const progressText = document.getElementById('avatar-progress-text');
+                if (!progressText) return;
+
+                let btn = document.getElementById('heroic-avatar-btn');
+                if (!btn) {
+                    btn = document.createElement('button');
+                    btn.id = 'heroic-avatar-btn';
+                    btn.style.cssText = 'margin-top: 12px; padding: 10px 24px; border-radius: 8px; font-family: Cinzel, serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px; transition: all 0.3s; animation: avatarComplete 2s ease-in-out infinite;';
+                    progressText.parentNode.insertBefore(btn, progressText.nextSibling);
+                }
+
+                if (data.heroicGateOpen) {
+                    btn.textContent = '⚔️ CHOOSE YOUR HERO ⚔️';
+                    btn.style.background = 'linear-gradient(135deg, #6b21a8, #7c3aed)';
+                    btn.style.border = '1px solid #a855f7';
+                    btn.style.color = '#f3e8ff';
+                    btn.onclick = openHeroicAvatarSelection;
+                    btn.disabled = false;
+                } else {
+                    btn.textContent = '🔒 Heroic Age Gate — Locked';
+                    btn.style.background = 'rgba(100,100,100,0.3)';
+                    btn.style.border = '1px solid rgba(255,255,255,0.15)';
+                    btn.style.color = 'rgba(255,255,255,0.4)';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.animation = 'none';
+                    btn.onclick = null;
+                    btn.disabled = true;
+                }
+            } catch (err) {
+                console.error('Check heroic gate error:', err);
+            }
         }
 
         // ==================== MYTH QUIZ SYSTEM ====================
@@ -13048,6 +13187,219 @@
             connections.forEach((conn,i)=>{ A(()=>{ const from=points[conn[0]],to=points[conn[1]]; const steps=15; for(let s=0;s<=steps;s++){ A(()=>{ ctx.strokeStyle=glowRgba.replace(/[\d.]+\)$/,'0.4)'); ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(from.x,from.y); ctx.lineTo(from.x+(to.x-from.x)*(s/steps),from.y+(to.y-from.y)*(s/steps)); ctx.stroke(); },s*25); } },2800+i*300); });
             vcFlash(4600); vcBeamGlow(4800); vcVirtue(5000); vcSparkles(4900,175,130); vcBanner(5600);
         }
+    }
+    </script>
+
+    <!-- ===== HEROIC AGE GATE ANIMATION ===== -->
+    <div class="heroic-gate-overlay" id="heroic-gate-overlay">
+        <div class="hg-stars" id="hg-stars"></div>
+        <div class="hg-gate-container">
+            <div class="hg-text-greek" id="hg-text-greek">Ἡρωική Ἐποχή</div>
+            <div class="hg-gates" id="hg-gates">
+                <div class="hg-gate-left"><div class="hg-gate-detail"></div><div class="hg-gate-ring"></div></div>
+                <div class="hg-gate-right"><div class="hg-gate-detail"></div><div class="hg-gate-ring"></div></div>
+                <div class="hg-gate-arch"></div>
+                <div class="hg-gate-base"></div>
+                <div class="hg-gate-columns left"></div>
+                <div class="hg-gate-columns right"></div>
+            </div>
+            <div class="hg-light-beam" id="hg-light-beam"></div>
+            <div class="hg-text-title" id="hg-text-title">The Heroic Age</div>
+            <div class="hg-text-worthy" id="hg-text-worthy">The gods have deemed you worthy</div>
+        </div>
+        <div class="hg-particles" id="hg-particles"></div>
+        <div class="hg-flash" id="hg-flash"></div>
+    </div>
+
+    <!-- ===== HEROIC AGE AVATAR SELECTION OVERLAY ===== -->
+    <div class="heroic-avatar-overlay" id="heroic-avatar-overlay">
+        <div class="hao-header">
+            <div class="hao-subtitle">The gods have watched your journey</div>
+            <div class="hao-title">Choose Your Hero</div>
+            <div class="hao-desc">You earned all seven virtues. Each avatar carries the strength of a myth you mastered. This choice is permanent.</div>
+        </div>
+        <div class="hao-grid-top" id="hao-grid-top"></div>
+        <div class="hao-grid-bottom" id="hao-grid-bottom"></div>
+        <div class="hao-detail" id="hao-detail">
+            <div class="hao-detail-header">
+                <div class="hao-detail-sil">&#9876;</div>
+                <div>
+                    <div class="hao-detail-name" id="hao-detail-name"></div>
+                    <div class="hao-detail-arch" id="hao-detail-arch"></div>
+                </div>
+            </div>
+            <div class="hao-detail-desc" id="hao-detail-desc"></div>
+            <button class="hao-confirm-btn" id="hao-confirm-btn" onclick="confirmHeroicAvatar()">⚔️ BECOME THIS HERO ⚔️</button>
+        </div>
+        <div class="hao-confirmed" id="hao-confirmed">
+            <div style="font-size: 11px; letter-spacing: 3px; color: #c084fc; text-transform: uppercase; margin-bottom: 8px;">Your path is chosen</div>
+            <div id="hao-confirmed-name" style="font-family: 'Cinzel', serif; font-size: 24px; color: #e9d5ff; margin-bottom: 8px;"></div>
+            <div id="hao-confirmed-arch" style="font-size: 13px; color: #a78bfa; font-style: italic; margin-bottom: 16px;"></div>
+            <div id="hao-confirmed-drachma" style="font-size: 14px; color: #86efac; margin-bottom: 20px;"></div>
+            <button onclick="enterHeroicAge()" style="padding: 12px 32px; background: linear-gradient(135deg, #6b21a8, #7c3aed); border: 1px solid #a855f7; border-radius: 8px; color: #f3e8ff; font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: 2px;">⚔️ ENTER THE HEROIC AGE ⚔️</button>
+        </div>
+    </div>
+
+    <script>
+    // ===== HEROIC AGE AVATAR SELECTION SYSTEM =====
+    const HEROIC_AVATARS = [
+        { key: 'seeker', name: 'The Seeker', myth: 'Pandora', drachma: 300, color: '#FFD700', bgColor: 'rgba(255,215,0,0.06)', borderColor: 'rgba(255,215,0,0.2)', strong: 'Curiosity + Courage', weak: 'Honor + Humility', archetype: 'Driven to know — pays for it', desc: 'You rush into the unknown wanting answers. Bonus path options reward your curiosity, but every shortcut burns Honor. You see doors others walk past — and open them whether or not you should.', row: 'top' },
+        { key: 'fallen', name: 'The Fallen', myth: 'Phaethon', drachma: 400, color: '#FF8C00', bgColor: 'rgba(255,140,0,0.06)', borderColor: 'rgba(255,140,0,0.2)', strong: 'Courage + Cunning', weak: 'Humility + Honor', archetype: 'Brilliant but overreaching', desc: 'You have the highest damage ceiling in mini-games but trigger divine wrath faster than anyone. Extra starting Drachma funds your ambition — but Hera watches you closely.', row: 'top' },
+        { key: 'devoted', name: 'The Devoted', myth: 'Orpheus', drachma: 150, color: '#8B5CF6', bgColor: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.2)', strong: 'Perseverance + Honor', weak: 'Cunning + Courage', archetype: 'Loyalty above all', desc: 'You earn full crew loyalty from the start — NPCs trust you without question. But emotional reasoning fails in puzzles that demand cold logic. Your heart is your weapon and your weakness.', row: 'top' },
+        { key: 'mirror', name: 'The Mirror', myth: 'Echo & Narcissus', drachma: 250, color: '#EC4899', bgColor: 'rgba(236,72,153,0.06)', borderColor: 'rgba(236,72,153,0.2)', strong: 'Cunning + Humility', weak: 'Lore + Perseverance', archetype: 'Self-aware, reads others, overlooked', desc: 'You see hidden dialogue options and NPC motivations others miss entirely. The most unique reading of each myth. But direct confrontation is your downfall.', row: 'top' },
+        { key: 'builder', name: 'The Builder', myth: 'Icarus & Daedalus', drachma: 200, color: '#3B82F6', bgColor: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.2)', strong: 'Craft + Perseverance', weak: 'Courage + Humility', archetype: 'Methodical genius — builds the way through', desc: 'Every Forge gives you a 20% discount. You can repair equipment others must replace. Your craft solves problems brute force cannot. But you will never charm a god to save your life.', row: 'bottom' },
+        { key: 'tested', name: 'The Tested', myth: 'Eros & Psyche', drachma: 100, color: '#EF4444', bgColor: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.2)', strong: 'Honor + Humility', weak: 'Courage + Cunning', archetype: 'Earns everything through trials', desc: 'The gods respond to humility and earned suffering — you have the best divine favor multiplier. Slowest start of any avatar, but the strongest finish at the Final Tribunal. Patience is power.', row: 'bottom' },
+        { key: 'eternal', name: 'The Eternal', myth: 'Constellations', drachma: 200, color: '#C0C0C0', bgColor: 'rgba(192,192,192,0.06)', borderColor: 'rgba(192,192,192,0.2)', strong: 'Lore + Perseverance', weak: 'Craft + Courage', archetype: 'Legacy-driven, transformed by endurance', desc: 'Every Oracle gives double hints. Every myth quiz in-chapter gives bonus Drachma. The lore scholar — you know things. But physically fragile in mini-games. You transform from liability to legend at the Tribunal.', row: 'bottom' }
+    ];
+
+    let selectedHeroicAvatar = null;
+
+    function buildAvatarCards() {
+        const topGrid = document.getElementById('hao-grid-top');
+        const bottomGrid = document.getElementById('hao-grid-bottom');
+        if (!topGrid || !bottomGrid) return;
+        topGrid.innerHTML = '';
+        bottomGrid.innerHTML = '';
+        HEROIC_AVATARS.forEach(av => {
+            const card = document.createElement('div');
+            card.className = 'hao-card';
+            card.style.background = av.bgColor;
+            card.style.border = `1px solid ${av.borderColor}`;
+            card.setAttribute('data-avatar', av.key);
+            card.onclick = () => selectHeroicAvatar(av.key);
+            card.innerHTML = `
+                <div class="hao-card-silhouette" style="border: 1px solid ${av.borderColor}; color: ${av.color};">&#9876;</div>
+                <div class="hao-card-name" style="color: ${av.color};">${av.name}</div>
+                <div class="hao-card-myth">${av.myth}</div>
+                <div class="hao-card-drachma">${av.drachma} Drachma</div>
+                <div class="hao-card-strong">${av.strong}</div>
+                <div class="hao-card-weak">${av.weak}</div>`;
+            if (av.row === 'top') topGrid.appendChild(card);
+            else bottomGrid.appendChild(card);
+        });
+    }
+
+    function selectHeroicAvatar(key) {
+        selectedHeroicAvatar = key;
+        const av = HEROIC_AVATARS.find(a => a.key === key);
+        if (!av) return;
+        document.querySelectorAll('.hao-card').forEach(c => { c.classList.remove('selected'); c.style.opacity = '0.5'; });
+        const selected = document.querySelector(`.hao-card[data-avatar="${key}"]`);
+        if (selected) { selected.classList.add('selected'); selected.style.opacity = '1'; }
+        document.getElementById('hao-detail-name').textContent = av.name + ' — ' + av.myth;
+        document.getElementById('hao-detail-arch').textContent = '"' + av.archetype + '"';
+        document.getElementById('hao-detail-desc').textContent = av.desc;
+        document.getElementById('hao-detail').classList.add('show');
+        document.getElementById('hao-confirmed').classList.remove('show');
+    }
+
+    async function confirmHeroicAvatar() {
+        if (!selectedHeroicAvatar) return;
+        const av = HEROIC_AVATARS.find(a => a.key === selectedHeroicAvatar);
+        if (!av) return;
+        const btn = document.getElementById('hao-confirm-btn');
+        btn.textContent = 'Forging your destiny...';
+        btn.disabled = true;
+        try {
+            const res = await fetch(`${API_URL}/student/select-avatar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ avatar: selectedHeroicAvatar })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || 'Failed to select avatar');
+                btn.textContent = '⚔️ BECOME THIS HERO ⚔️';
+                btn.disabled = false;
+                return;
+            }
+            document.querySelectorAll('.hao-card').forEach(c => { c.style.pointerEvents = 'none'; });
+            document.getElementById('hao-detail').classList.remove('show');
+            document.getElementById('hao-confirmed-name').textContent = av.name;
+            document.getElementById('hao-confirmed-arch').textContent = '"' + av.archetype + '"';
+            document.getElementById('hao-confirmed-drachma').textContent = '+' + av.drachma + ' starting Drachma awarded';
+            document.getElementById('hao-confirmed').classList.add('show');
+        } catch (err) {
+            console.error('Avatar selection error:', err);
+            alert('Network error — please try again');
+            btn.textContent = '⚔️ BECOME THIS HERO ⚔️';
+            btn.disabled = false;
+        }
+    }
+
+    function enterHeroicAge() { window.location.reload(); }
+
+    function openHeroicAvatarSelection() { playHeroicGateAnimation(); }
+
+    function closeHeroicAvatarSelection() {
+        document.getElementById('heroic-avatar-overlay').classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    function playHeroicGateAnimation() {
+        const overlay = document.getElementById('heroic-gate-overlay');
+        const starsEl = document.getElementById('hg-stars');
+        const gates = document.getElementById('hg-gates');
+        const textGreek = document.getElementById('hg-text-greek');
+        const textTitle = document.getElementById('hg-text-title');
+        const textWorthy = document.getElementById('hg-text-worthy');
+        const particlesEl = document.getElementById('hg-particles');
+        const flash = document.getElementById('hg-flash');
+
+        gates.classList.remove('open');
+        textGreek.style.opacity = '0';
+        textTitle.style.opacity = '0';
+        textWorthy.style.opacity = '0';
+        flash.style.opacity = '0';
+        starsEl.innerHTML = '';
+        particlesEl.innerHTML = '';
+
+        for (let i = 0; i < 60; i++) {
+            const star = document.createElement('div');
+            star.className = 'hg-star';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDelay = (Math.random() * 3) + 's';
+            star.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+            if (Math.random() > 0.7) { star.style.width = '3px'; star.style.height = '3px'; star.style.background = '#e9d5ff'; }
+            starsEl.appendChild(star);
+        }
+
+        overlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        const timers = [];
+        function A(fn, ms) { timers.push(setTimeout(fn, ms)); }
+
+        A(() => { textGreek.style.opacity = '1'; }, 800);
+        A(() => { gates.classList.add('open'); }, 2000);
+        A(() => { textTitle.style.opacity = '1'; }, 3000);
+        A(() => {
+            for (let i = 0; i < 30; i++) {
+                A(() => {
+                    const p = document.createElement('div');
+                    p.className = 'hg-particle';
+                    p.style.background = Math.random() > 0.6 ? '#fbbf24' : '#c084fc';
+                    p.style.left = (35 + Math.random() * 30) + '%';
+                    p.style.bottom = '10%';
+                    p.style.width = (2 + Math.random() * 3) + 'px';
+                    p.style.height = p.style.width;
+                    p.style.animation = `hgParticleRise ${1.5 + Math.random() * 2}s ease-out forwards`;
+                    particlesEl.appendChild(p);
+                    setTimeout(() => p.remove(), 4000);
+                }, i * 80);
+            }
+        }, 3500);
+        A(() => { textWorthy.style.opacity = '1'; }, 4500);
+        A(() => { flash.style.transition = 'opacity 0.3s'; flash.style.opacity = '1'; }, 6000);
+        A(() => {
+            timers.forEach(t => clearTimeout(t));
+            overlay.classList.remove('show');
+            overlay.style.display = 'none';
+            flash.style.opacity = '0';
+            buildAvatarCards();
+            document.getElementById('heroic-avatar-overlay').classList.add('show');
+        }, 6800);
     }
     </script>
 </body>

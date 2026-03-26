@@ -1468,7 +1468,7 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       SELECT 
         s.student_id, s.name, s.class_period, s.alliance_id, s.civilization_name,
         s.technologies_unlocked, s.badges_earned, s.is_ghost, s.classical_entered,
-        s.scout_status,
+        s.scout_status, s.selected_avatar, s.drachma,
         a.alliance_name,
         a.total_points as alliance_points,
         a.current_age,
@@ -4461,12 +4461,35 @@ function calculateAgeReadiness(alliance) {
   const pointsProgress = Math.min(100, (alliance.total_points / pointsThreshold) * 100);
   const mapProgress = allMapsComplete ? 100 : (memberCount > 0 ? (membersWithMap / memberCount) * 100 : 0);
   
-  // Overall progress (weighted: buildings 45%, points 35%, maps 20%)
-  const overallProgress = (buildingsProgress * 0.45 + pointsProgress * 0.35 + mapProgress * 0.20);
+  // Virtue check for Classical → Heroic: every non-ghost member needs all 7 virtues
+  let virtuesMet = true;
+  let lowestVirtueCount = 7;
+  let memberVirtues = [];
+  if (currentAge === 'Classical') {
+    const members = query('SELECT student_id, name FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [alliance.alliance_id]);
+    members.forEach(m => {
+      const vc = query('SELECT COUNT(*) as cnt FROM student_myth_completion WHERE student_id = ? AND virtue_claimed = 1', [m.student_id])[0].cnt;
+      memberVirtues.push({ student_id: m.student_id, name: m.name, virtues: vc });
+      if (vc < 7) virtuesMet = false;
+      if (vc < lowestVirtueCount) lowestVirtueCount = vc;
+    });
+  }
   
-  const isReady = ownedRequired.length === requiredBuildings.length &&
+  // Overall progress (weighted: buildings 35%, points 25%, maps 15%, virtues 25% for Classical→Heroic)
+  let overallProgress;
+  if (currentAge === 'Classical') {
+    const virtueProgress = (lowestVirtueCount / 7) * 100;
+    overallProgress = (buildingsProgress * 0.35 + pointsProgress * 0.25 + mapProgress * 0.15 + virtueProgress * 0.25);
+  } else {
+    overallProgress = (buildingsProgress * 0.45 + pointsProgress * 0.35 + mapProgress * 0.20);
+  }
+  
+  const baseReady = ownedRequired.length === requiredBuildings.length &&
                   alliance.total_points >= pointsThreshold &&
                   allMapsComplete;
+  
+  // For Classical → Heroic, also require all virtues
+  const isReady = currentAge === 'Classical' ? (baseReady && virtuesMet) : baseReady;
   
   return {
     currentAge,
@@ -4481,6 +4504,9 @@ function calculateAgeReadiness(alliance) {
     mapsSubmitted: membersWithMap,
     mapsRequired: memberCount,
     riteComplete: alliance.rite_of_passage_complete === 1,
+    virtuesMet,
+    lowestVirtueCount,
+    memberVirtues,
     overallProgress: Math.round(overallProgress),
     isReady
   };
@@ -8941,7 +8967,15 @@ app.get('/api/student/classical-status', authenticateToken, (req, res) => {
       allianceAge: isScout && allianceAge === 'Archaic' ? student.scout_status : allianceAge,
       canAccess,
       classicalEntered: student.classical_entered === 1,
-      isScout: isScout || false
+      isScout: isScout || false,
+      heroicGateOpen: ageGate ? ageGate.heroic_unlocked === 1 : false,
+      virtueCount: (() => {
+        try {
+          const vc = query('SELECT COUNT(*) as cnt FROM student_myth_completion WHERE student_id = ? AND virtue_claimed = 1', [req.user.id])[0];
+          return vc ? vc.cnt : 0;
+        } catch(e) { return 0; }
+      })(),
+      selectedAvatar: student.selected_avatar || null
     });
   } catch (err) {
     console.error('Classical status error:', err);
@@ -9219,6 +9253,98 @@ app.post('/api/student/claim-virtue', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Claim virtue error:', err);
     res.status(500).json({ error: 'Failed to claim virtue' });
+  }
+});
+
+// --- Student: Select Heroic Age avatar ---
+const AVATAR_DRACHMA = {
+  seeker: 300,
+  fallen: 400,
+  devoted: 150,
+  mirror: 250,
+  builder: 200,
+  tested: 100,
+  eternal: 200
+};
+const VALID_AVATARS = Object.keys(AVATAR_DRACHMA);
+
+app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+    const { avatar } = req.body;
+    
+    if (!avatar || !VALID_AVATARS.includes(avatar)) {
+      return res.status(400).json({ error: 'Invalid avatar selection' });
+    }
+    
+    const student = query('SELECT student_id, alliance_id, class_period, current_age, selected_avatar FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
+    if (student.current_age !== 'Classical') {
+      return res.status(400).json({ error: 'Must be in Classical Age to select an avatar' });
+    }
+    
+    if (student.selected_avatar) {
+      return res.status(400).json({ error: 'Avatar already selected. This choice is permanent.' });
+    }
+    
+    const gate = query('SELECT heroic_unlocked FROM age_gates WHERE class_period = ?', [student.class_period])[0];
+    if (!gate || gate.heroic_unlocked !== 1) {
+      return res.status(400).json({ error: 'The Heroic Age gate is not yet open' });
+    }
+    
+    const virtueCount = query('SELECT COUNT(*) as cnt FROM student_myth_completion WHERE student_id = ? AND virtue_claimed = 1', [student_id])[0].cnt;
+    if (virtueCount < 7) {
+      return res.status(400).json({ error: `You need all 7 virtues to enter the Heroic Age (you have ${virtueCount})` });
+    }
+    
+    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
+    const requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall', 'Transport Ship', 'Armory', 'Theater', 'Agora', 'Oracle'];
+    const missingBuildings = requiredBuildings.filter(b => !ownedBuildings.includes(b));
+    if (missingBuildings.length > 0) {
+      return res.status(400).json({ error: `Alliance is missing buildings: ${missingBuildings.join(', ')}` });
+    }
+    
+    const drachma = AVATAR_DRACHMA[avatar];
+    run('UPDATE students SET selected_avatar = ?, drachma = ?, avatar_selected_at = CURRENT_TIMESTAMP, current_age = ? WHERE student_id = ?',
+      [avatar, drachma, 'Heroic', student_id]);
+    
+    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, 0, 'heroic_entry', ?)`,
+      [student.alliance_id, student_id, `Selected avatar: The ${avatar.charAt(0).toUpperCase() + avatar.slice(1)} — awarded ${drachma} Drachma`]);
+    
+    saveDatabase();
+    console.log(`⚔️ Student ${student_id} selected avatar '${avatar}', awarded ${drachma} Drachma, entered Heroic Age`);
+    
+    res.json({
+      success: true,
+      avatar,
+      drachma,
+      message: `You are now The ${avatar.charAt(0).toUpperCase() + avatar.slice(1)}! ${drachma} Drachma awarded.`
+    });
+  } catch (err) {
+    console.error('Select avatar error:', err);
+    res.status(500).json({ error: 'Failed to select avatar' });
+  }
+});
+
+// --- Teacher: Reset student avatar (for absences/errors) ---
+app.post('/api/teacher/reset-avatar', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const { student_id } = req.body;
+    if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
+    
+    run('UPDATE students SET selected_avatar = NULL, drachma = 0, avatar_selected_at = NULL, current_age = ? WHERE student_id = ?',
+      ['Classical', student_id]);
+    
+    saveDatabase();
+    console.log(`🔄 Teacher reset avatar for student ${student_id}`);
+    res.json({ success: true, message: 'Avatar reset. Student returned to Classical Age.' });
+  } catch (err) {
+    console.error('Reset avatar error:', err);
+    res.status(500).json({ error: 'Failed to reset avatar' });
   }
 });
 
