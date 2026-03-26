@@ -3308,6 +3308,55 @@ function seedClassicalData() {
   }
 
   console.log('🏛️ Classical Age data check complete');
+
+  // V95 FIX: Ensure market auction tables exist (may be missing on persistent volumes)
+  try {
+    const tableCheck = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='market_bids'");
+    if (!tableCheck[0] || tableCheck[0].values.length === 0) {
+      console.log('🔧 Creating missing market auction tables...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS market_auctions (
+          auction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          period TEXT NOT NULL,
+          resource TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          status TEXT DEFAULT 'active',
+          started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          ends_at DATETIME NOT NULL,
+          resolved_at DATETIME,
+          winner_bid_id INTEGER
+        )
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS market_bids (
+          bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          auction_id INTEGER NOT NULL,
+          student_id INTEGER NOT NULL,
+          offer_resource TEXT NOT NULL,
+          offer_amount INTEGER NOT NULL,
+          request_amount INTEGER NOT NULL,
+          ratio REAL NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS market_trades (
+          trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          auction_id INTEGER NOT NULL,
+          student_id INTEGER NOT NULL,
+          student_gave_resource TEXT NOT NULL,
+          student_gave_amount INTEGER NOT NULL,
+          student_received_resource TEXT NOT NULL,
+          student_received_amount INTEGER NOT NULL,
+          completed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      saveDatabaseNow();
+      console.log('✅ Market auction tables created');
+    }
+  } catch (e) {
+    console.log('Migration note: market tables -', e.message);
+  }
 }
 
 // Debounced save to prevent EBUSY errors from rapid writes
