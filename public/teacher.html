@@ -2052,30 +2052,38 @@
                 const gate = periodData.gate;
                 const alliances = periodData.alliances;
                 
-                let html = `
-                    <div style="padding: 15px; background: rgba(255,215,0,0.1); border-radius: 10px; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-size: 18px; font-weight: 700; color: #ffd700;">
-                                    ${period} Period - ${gate.classical_unlocked ? 'Classical Age OPEN' : 'Archaic Age'}
-                                </div>
-                                <div style="color: rgba(255,255,255,0.6); font-size: 13px;">
-                                    ${periodData.readyCount}/${periodData.totalAlliances} alliances ready for Classical Age
-                                </div>
-                            </div>
-                            ${!gate.classical_unlocked ? `
-                                <button onclick="openClassicalGate('${period}')" 
-                                    style="padding: 12px 20px; background: linear-gradient(135deg, #ffd700, #ff8c00); border: none; border-radius: 10px; color: #1a0a0f; font-weight: 700; cursor: pointer; font-size: 14px;">
-                                    🔓 Open Classical Age Gate
-                                </button>
-                            ` : `
-                                <div style="padding: 12px 20px; background: rgba(74,222,128,0.2); border-radius: 10px; color: #4ade80; font-weight: 700;">
-                                    ✅ Gate Open
-                                </div>
-                            `}
-                        </div>
-                    </div>
-                `;
+                let html = '';
+                
+                // Determine which age transition we're showing
+                const allClassicalOrHigher = alliances.length > 0 && alliances.every(a => a.current_age === 'Classical' || a.current_age === 'Heroic');
+                const showHeroic = gate.classical_unlocked && allClassicalOrHigher;
+                const headerBg = showHeroic ? 'rgba(147,51,234,0.1)' : 'rgba(255,215,0,0.1)';
+                const headerColor = showHeroic ? '#c084fc' : '#ffd700';
+                const ageLabel = gate.heroic_unlocked ? 'Heroic Age OPEN' : gate.classical_unlocked ? 'Classical Age OPEN' : 'Archaic Age';
+                const readyLabel = showHeroic ? 'Heroic' : 'Classical';
+                
+                html += '<div style="padding: 15px; background: ' + headerBg + '; border-radius: 10px; margin-bottom: 20px;">';
+                html += '<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">';
+                html += '<div>';
+                html += '<div style="font-size: 18px; font-weight: 700; color: ' + headerColor + ';">' + period + ' Period - ' + ageLabel + '</div>';
+                html += '<div style="color: rgba(255,255,255,0.6); font-size: 13px;">' + periodData.readyCount + '/' + periodData.totalAlliances + ' alliances ready for ' + readyLabel + ' Age</div>';
+                html += '</div>';
+                
+                if (showHeroic) {
+                    if (!gate.heroic_unlocked) {
+                        html += '<button onclick="openHeroicGate(\'' + period + '\')" style="padding: 12px 20px; background: linear-gradient(135deg, #7c3aed, #9333ea); border: none; border-radius: 10px; color: #f3e8ff; font-weight: 700; cursor: pointer; font-size: 14px;">⚔️ Open Heroic Age Gate</button>';
+                    } else {
+                        html += '<div style="padding: 12px 20px; background: rgba(147,51,234,0.2); border-radius: 10px; color: #c084fc; font-weight: 700;">⚔️ Heroic Gate Open</div>';
+                    }
+                } else {
+                    if (!gate.classical_unlocked) {
+                        html += '<button onclick="openClassicalGate(\'' + period + '\')" style="padding: 12px 20px; background: linear-gradient(135deg, #ffd700, #ff8c00); border: none; border-radius: 10px; color: #1a0a0f; font-weight: 700; cursor: pointer; font-size: 14px;">🔓 Open Classical Age Gate</button>';
+                    } else {
+                        html += '<div style="padding: 12px 20px; background: rgba(74,222,128,0.2); border-radius: 10px; color: #4ade80; font-weight: 700;">✅ Classical Gate Open</div>';
+                    }
+                }
+                html += '</div></div>';
+
                 
                 // Alliance list with progress
                 if (alliances.length === 0) {
@@ -2086,42 +2094,56 @@
                     alliances.forEach(a => {
                         const r = a.readiness;
                         const progressColor = r.isReady ? '#4ade80' : r.overallProgress >= 75 ? '#fbbf24' : '#ef4444';
+                        const buildingTarget = a.current_age === 'Classical' ? 11 : 6;
+                        const gridCols = a.current_age === 'Classical' ? 4 : 3;
                         
-                        html += `
-                            <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px; border-left: 4px solid ${progressColor};">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <div>
-                                        <span style="font-weight: 700; color: #fff;">${a.alliance_name}</span>
-                                        <span style="color: rgba(255,255,255,0.5); font-size: 12px; margin-left: 8px;">(${r.memberCount} members)</span>
-                                        ${a.current_age !== 'Archaic' ? `<span style="color: #8b5cf6; font-size: 12px; margin-left: 8px;">🏛️ ${a.current_age}</span>` : ''}
-                                    </div>
-                                    <div style="font-weight: 700; color: ${progressColor};">${r.overallProgress}%</div>
-                                </div>
-                                
-                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 11px;">
-                                    <div style="color: ${r.pointsMet ? '#4ade80' : '#fbbf24'};">
-                                        💰 ${r.pointsHave}/${r.pointsThreshold} pts
-                                    </div>
-                                    <div style="color: ${r.buildingsMet ? '#4ade80' : '#fbbf24'};">
-                                        🏛️ ${r.ownedRequired.length}/6 buildings
-                                    </div>
-                                    <div style="color: ${r.mapComplete ? '#4ade80' : '#ef4444'};">
-                                        🗺️ Map: ${r.mapComplete ? '✅' : '⬜'}
-                                        <button onclick="toggleMap(${a.alliance_id}, ${!r.mapComplete})" 
-                                            style="margin-left: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white;">
-                                            ${r.mapComplete ? 'Unmark' : 'Mark ✓'}
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                ${r.isReady && a.current_age === 'Archaic' && !gate.classical_unlocked ? `
-                                    <div style="margin-top: 10px; padding: 8px; background: rgba(74,222,128,0.1); border-radius: 6px; text-align: center; color: #4ade80; font-size: 12px;">
-                                        ✅ Ready to advance when gate opens!
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `;
+                        html += '<div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 10px; border-left: 4px solid ' + progressColor + ';">';
+                        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">';
+                        html += '<div><span style="font-weight: 700; color: #fff;">' + a.alliance_name + '</span>';
+                        html += '<span style="color: rgba(255,255,255,0.5); font-size: 12px; margin-left: 8px;">(' + r.memberCount + ' members)</span>';
+                        if (a.current_age !== 'Archaic') html += '<span style="color: #8b5cf6; font-size: 12px; margin-left: 8px;">🏛️ ' + a.current_age + '</span>';
+                        html += '</div>';
+                        html += '<div style="font-weight: 700; color: ' + progressColor + ';">' + r.overallProgress + '%</div></div>';
+                        
+                        html += '<div style="display: grid; grid-template-columns: repeat(' + gridCols + ', 1fr); gap: 8px; font-size: 11px;">';
+                        html += '<div style="color: ' + (r.pointsMet ? '#4ade80' : '#fbbf24') + ';">💰 ' + r.pointsHave + '/' + r.pointsThreshold + ' pts</div>';
+                        html += '<div style="color: ' + (r.buildingsMet ? '#4ade80' : '#fbbf24') + ';">🏛️ ' + r.ownedRequired.length + '/' + buildingTarget + ' buildings</div>';
+                        html += '<div style="color: ' + (r.mapComplete ? '#4ade80' : '#ef4444') + ';">🗺️ Map: ' + (r.mapComplete ? '✅' : '⬜');
+                        html += ' <button onclick="toggleMap(' + a.alliance_id + ', ' + (!r.mapComplete) + ')" style="margin-left: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white;">' + (r.mapComplete ? 'Unmark' : 'Mark ✓') + '</button></div>';
+                        
+                        if (a.current_age === 'Classical') {
+                            html += '<div style="color: ' + (r.virtuesMet ? '#4ade80' : '#fbbf24') + ';">⚔️ Virtues: ' + (r.lowestVirtueCount !== undefined ? r.lowestVirtueCount : '?') + '/7</div>';
+                        }
+                        html += '</div>';
+                        
+                        // Per-student virtue breakdown if not all met
+                        if (a.current_age === 'Classical' && r.memberVirtues && !r.virtuesMet) {
+                            html += '<div style="margin-top: 6px; font-size: 10px; color: rgba(255,255,255,0.35);">';
+                            r.memberVirtues.filter(mv => mv.virtues < 7).forEach(mv => {
+                                html += mv.name + ': ' + mv.virtues + '/7 &middot; ';
+                            });
+                            html += '</div>';
+                        }
+                        
+                        // Ready messages
+                        if (r.isReady && a.current_age === 'Archaic' && !gate.classical_unlocked) {
+                            html += '<div style="margin-top: 10px; padding: 8px; background: rgba(74,222,128,0.1); border-radius: 6px; text-align: center; color: #4ade80; font-size: 12px;">✅ Ready to advance when gate opens!</div>';
+                        }
+                        if (r.isReady && a.current_age === 'Classical' && !gate.heroic_unlocked) {
+                            html += '<div style="margin-top: 10px; padding: 8px; background: rgba(147,51,234,0.1); border-radius: 6px; text-align: center; color: #c084fc; font-size: 12px;">⚔️ Ready for the Heroic Age!</div>';
+                        }
+                        
+                        // Force advance buttons
+                        if (a.current_age === 'Classical' && gate.heroic_unlocked) {
+                            html += '<div style="margin-top: 10px;"><button onclick="advanceAlliance(' + a.alliance_id + ', \'Heroic\')" style="padding: 6px 12px; font-size: 11px; cursor: pointer; background: rgba(147,51,234,0.2); border: 1px solid rgba(147,51,234,0.4); border-radius: 6px; color: #c084fc; font-weight: 600;">⚔️ Advance to Heroic</button></div>';
+                        }
+                        if (a.current_age === 'Archaic' && gate.classical_unlocked && !r.isReady) {
+                            html += '<div style="margin-top: 10px;"><button onclick="advanceAlliance(' + a.alliance_id + ', \'Classical\')" style="padding: 6px 12px; font-size: 11px; cursor: pointer; background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.3); border-radius: 6px; color: #ffd700; font-weight: 600;">🔓 Force Advance to Classical</button></div>';
+                        }
+                        
+                        html += '</div>';
                     });
+
                 }
                 
                 content.innerHTML = html;
@@ -2220,6 +2242,54 @@
                 }
             } catch (err) {
                 alert('Failed to open gate: ' + err.message);
+            }
+        }
+        
+        async function openHeroicGate(period) {
+            if (!confirm(`⚔️ Open the HEROIC AGE gate for ${period} Period?\n\nStudents with all 7 virtues and required buildings will be able to choose their hero avatar and enter the Heroic Age.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/teacher/open-age-gate`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ class_period: period, target_age: 'Heroic' })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('⚔️ ' + result.message);
+                    loadAgeGateDetails();
+                    loadAgeGateSummary();
+                    loadLeaderboard();
+                } else {
+                    alert('❌ ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to open gate: ' + err.message);
+            }
+        }
+        
+        async function advanceAlliance(allianceId, targetAge) {
+            if (!confirm(`Force advance this alliance to the ${targetAge} Age?\n\nThis bypasses normal requirements.`)) return;
+            try {
+                const response = await fetch(`${API_URL}/teacher/advance-alliance`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ alliance_id: allianceId, target_age: targetAge })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert('✅ ' + result.message);
+                    loadAgeGateDetails();
+                    loadLeaderboard();
+                } else {
+                    alert('❌ ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to advance: ' + err.message);
             }
         }
         
