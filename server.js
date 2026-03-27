@@ -9348,6 +9348,28 @@ app.post('/api/teacher/reset-avatar', authenticateToken, (req, res) => {
   }
 });
 
+// --- Teacher: Force student into Heroic Age (bypasses all requirements — for testing/absences) ---
+app.post('/api/teacher/force-heroic', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const { student_id, avatar } = req.body;
+    if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
+    
+    const avatarChoice = avatar && VALID_AVATARS.includes(avatar) ? avatar : 'seeker';
+    const drachma = AVATAR_DRACHMA[avatarChoice];
+    
+    run('UPDATE students SET selected_avatar = ?, drachma = ?, avatar_selected_at = CURRENT_TIMESTAMP, current_age = ? WHERE student_id = ?',
+      [avatarChoice, drachma, 'Heroic', student_id]);
+    
+    saveDatabase();
+    console.log(`⚔️ Teacher forced student ${student_id} into Heroic Age as ${avatarChoice} with ${drachma} Drachma`);
+    res.json({ success: true, message: `Student forced into Heroic Age as The ${avatarChoice.charAt(0).toUpperCase() + avatarChoice.slice(1)} with ${drachma} Drachma.` });
+  } catch (err) {
+    console.error('Force heroic error:', err);
+    res.status(500).json({ error: 'Failed to force heroic entry' });
+  }
+});
+
 // --- Teacher: Approve myth portal assignment ---
 app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) => {
   try {
