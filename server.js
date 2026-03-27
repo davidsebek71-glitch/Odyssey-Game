@@ -1468,7 +1468,7 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       SELECT 
         s.student_id, s.name, s.class_period, s.alliance_id, s.civilization_name,
         s.technologies_unlocked, s.badges_earned, s.is_ghost, s.classical_entered,
-        s.scout_status, s.selected_avatar, s.drachma,
+        s.scout_status,
         a.alliance_name,
         a.total_points as alliance_points,
         a.current_age,
@@ -1482,6 +1482,16 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
     
     if (!student) {
       return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    // Safely add avatar data (columns may not exist if migration hasn't run)
+    try {
+      const avatarInfo = query('SELECT selected_avatar, drachma FROM students WHERE student_id = ?', [student_id])[0];
+      student.selected_avatar = avatarInfo ? avatarInfo.selected_avatar : null;
+      student.drachma = avatarInfo ? avatarInfo.drachma : 0;
+    } catch(e) {
+      student.selected_avatar = null;
+      student.drachma = 0;
     }
     
     // Scout status override: if student is a scout for a higher age, use that age
@@ -9355,11 +9365,20 @@ app.post('/api/teacher/force-heroic', authenticateToken, (req, res) => {
     const { student_id, avatar } = req.body;
     if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
     
+    const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    
     const avatarChoice = avatar && VALID_AVATARS.includes(avatar) ? avatar : 'seeker';
     const drachma = AVATAR_DRACHMA[avatarChoice];
     
+    // Update student
     run('UPDATE students SET selected_avatar = ?, drachma = ?, avatar_selected_at = CURRENT_TIMESTAMP, current_age = ? WHERE student_id = ?',
       [avatarChoice, drachma, 'Heroic', student_id]);
+    
+    // Also advance the alliance to Heroic so hub.html sees it
+    if (student.alliance_id) {
+      run('UPDATE alliances SET current_age = ? WHERE alliance_id = ? AND current_age = ?', ['Heroic', student.alliance_id, 'Classical']);
+    }
     
     saveDatabase();
     console.log(`⚔️ Teacher forced student ${student_id} into Heroic Age as ${avatarChoice} with ${drachma} Drachma`);
