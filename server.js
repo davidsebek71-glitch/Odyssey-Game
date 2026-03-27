@@ -9332,7 +9332,7 @@ app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
 // --- Teacher: Reset student avatar (for absences/errors) ---
 app.post('/api/teacher/reset-avatar', authenticateToken, (req, res) => {
   try {
-    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
     const { student_id } = req.body;
     if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
     
@@ -9351,7 +9351,7 @@ app.post('/api/teacher/reset-avatar', authenticateToken, (req, res) => {
 // --- Teacher: Force student into Heroic Age (bypasses all requirements — for testing/absences) ---
 app.post('/api/teacher/force-heroic', authenticateToken, (req, res) => {
   try {
-    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
     const { student_id, avatar } = req.body;
     if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
     
