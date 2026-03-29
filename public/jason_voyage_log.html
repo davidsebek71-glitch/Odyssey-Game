@@ -2077,10 +2077,12 @@ function processArgoSprite(){
     tctx.putImageData(id,0,0);
     console.log('⚓ Argo sprite: white removed',removed,'px, size',tmp.width,'x',tmp.height);
 
-    // Step 3: no flip — sprite faces left, matching direction of travel
+    // Step 3: flip horizontally — sprite faces left, we need right
     const c=document.createElement('canvas');
     c.width=tmp.width; c.height=tmp.height;
     const ctx=c.getContext('2d');
+    ctx.translate(c.width,0);
+    ctx.scale(-1,1);
     ctx.drawImage(tmp,0,0);
     argoCanvas=c;
     return c;
@@ -2121,7 +2123,7 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   // Ship
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.8 - progress*W*0.6);
+    const shipX=Math.floor(W*0.8 + progress*W*0.4);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
   }
@@ -2147,7 +2149,7 @@ function drawTransitionAnchored(ctx, W, H, tr){
   }
 
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.20);
+    const shipX=Math.floor(W*0.25);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     const waterlineY=Math.floor(H*0.62)+bobY;
     _drawArgoSprite(ctx,shipX,waterlineY,W);
@@ -2193,13 +2195,13 @@ function _drawCodedShip(ctx,cx,cy,px){
   ctx.fillStyle='#604008'; ctx.fillRect(x+2*p,  y+9*p, 12*p, p);
   ctx.fillStyle='#402000'; ctx.fillRect(x+3*p,  y+10*p, 10*p, p);
 
-  // Prow (LEFT — ship faces left)
-  ctx.fillStyle='#daa520'; ctx.fillRect(x,      y+4*p, p, p);
-  ctx.fillStyle='#c89820'; ctx.fillRect(x-p,    y+3*p, p, p);
-  ctx.fillStyle='#a07010'; ctx.fillRect(x-p,    y+4*p, p, p);
-  // Stern (RIGHT) — slight upturn
-  ctx.fillStyle='#a07010'; ctx.fillRect(x+15*p, y+4*p, p, p);
-  ctx.fillStyle='#805010'; ctx.fillRect(x+16*p, y+3*p, p, 2*p);
+  // Prow (RIGHT — ship faces right)
+  ctx.fillStyle='#daa520'; ctx.fillRect(x+15*p, y+4*p, p, p);
+  ctx.fillStyle='#c89820'; ctx.fillRect(x+16*p, y+3*p, p, p);
+  ctx.fillStyle='#a07010'; ctx.fillRect(x+16*p, y+4*p, p, p);
+  // Stern (LEFT) — slight upturn
+  ctx.fillStyle='#a07010'; ctx.fillRect(x,      y+4*p, p, p);
+  ctx.fillStyle='#805010'; ctx.fillRect(x-p,    y+3*p, p, 2*p);
 
   // Mast
   ctx.fillStyle='#5a3510'; ctx.fillRect(x+7*p, y-3*p, p*2, 14*p);
@@ -2208,15 +2210,15 @@ function _drawCodedShip(ctx,cx,cy,px){
 
   // Sail
   ctx.fillStyle='#f5f0e0'; ctx.fillRect(x+4*p, y,      6*p, 7*p);
-  ctx.fillStyle='#e8e0d0'; ctx.fillRect(x+8*p, y+p,    2*p, 3*p);
-  ctx.fillStyle='#ddd5c0'; ctx.fillRect(x+8*p, y+5*p,  2*p, 2*p);
-  ctx.fillStyle='#e0d8c8'; ctx.fillRect(x+4*p, y+2*p,  2*p, 3*p);
+  ctx.fillStyle='#e8e0d0'; ctx.fillRect(x+4*p, y+p,    2*p, 3*p);
+  ctx.fillStyle='#ddd5c0'; ctx.fillRect(x+4*p, y+5*p,  2*p, 2*p);
+  ctx.fillStyle='#e0d8c8'; ctx.fillRect(x+8*p, y+2*p,  2*p, 3*p);
 
-  // Flag — red pennant (right of mast, trailing behind)
-  ctx.fillStyle='#d04040'; ctx.fillRect(x+9*p, y-3*p, 3*p, p);
-  ctx.fillStyle='#c03030'; ctx.fillRect(x+10*p, y-2*p, 2*p, p);
+  // Flag — red pennant (left of mast, trailing behind)
+  ctx.fillStyle='#d04040'; ctx.fillRect(x+4*p, y-3*p, 3*p, p);
+  ctx.fillStyle='#c03030'; ctx.fillRect(x+4*p, y-2*p, 2*p, p);
 
-  // Oars — angled left (direction of travel)
+  // Oars — angled right (direction of travel)
   const oarPhase = typeof transitionState !== 'undefined' ? transitionState.bobTimer : 0;
   ctx.strokeStyle='#8a6a30';
   ctx.lineWidth=Math.max(1, Math.floor(px/2));
@@ -2226,21 +2228,21 @@ function _drawCodedShip(ctx,cx,cy,px){
     const dip = Math.sin(oarPhase*3 + i*1.2) * p;
     ctx.beginPath();
     ctx.moveTo(ox, oy);
-    ctx.lineTo(ox - p, oy + 3*p + dip);
+    ctx.lineTo(ox + p, oy + 3*p + dip);
     ctx.stroke();
   }
 
-  // Wake — behind ship (RIGHT side)
+  // Wake — behind ship (LEFT side)
   ctx.fillStyle='rgba(200,230,255,0.6)';
-  ctx.fillRect(x+16*p, y+8*p, 2*p, p);
-  ctx.fillRect(x+17*p, y+9*p, 3*p, p);
+  ctx.fillRect(x-2*p, y+8*p, 2*p, p);
+  ctx.fillRect(x-4*p, y+9*p, 3*p, p);
   ctx.fillStyle='rgba(180,210,240,0.4)';
-  ctx.fillRect(x+20*p, y+9*p, 2*p, p);
-  ctx.fillRect(x+17*p, y+10*p, 4*p, p);
-  // Bow wave (LEFT side)
+  ctx.fillRect(x-6*p, y+9*p, 2*p, p);
+  ctx.fillRect(x-3*p, y+10*p, 4*p, p);
+  // Bow wave (RIGHT side)
   ctx.fillStyle='rgba(220,240,255,0.5)';
-  ctx.fillRect(x-2*p, y+7*p, 2*p, p);
-  ctx.fillRect(x-2*p, y+8*p, p, p);
+  ctx.fillRect(x+16*p, y+7*p, 2*p, p);
+  ctx.fillRect(x+17*p, y+8*p, p, p);
 }
 
 function _drawCodedBackground(ctx,W,H,tr){
