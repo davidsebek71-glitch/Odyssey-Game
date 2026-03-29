@@ -2037,46 +2037,54 @@ function preloadTransitionImages(){
 
 // Process ship sprite — strip magenta (#ff00ff) background
 let argoCanvas=null;
-let argoProcessed=false; // prevents repeated attempts after failure
+let argoProcessed=false;
 function processArgoSprite(){
   if(argoCanvas) return argoCanvas;
-  if(argoProcessed) return null; // already tried and failed
+  if(argoProcessed) return null;
   const src=TR_IMAGES['vl_ship_argo_sprite'];
   if(!src||!src.complete||src.naturalWidth===0) return null;
   argoProcessed=true;
   try {
-    const c=document.createElement('canvas');
-    c.width=src.naturalWidth; c.height=src.naturalHeight;
-    const ctx=c.getContext('2d');
-    ctx.drawImage(src,0,0);
+    // Step 1: draw source into a temp canvas
+    const tmp=document.createElement('canvas');
+    tmp.width=src.naturalWidth; tmp.height=src.naturalHeight;
+    const tctx=tmp.getContext('2d');
+    tctx.drawImage(src,0,0);
     let id;
     try {
-      id=ctx.getImageData(0,0,c.width,c.height);
+      id=tctx.getImageData(0,0,tmp.width,tmp.height);
     } catch(e) {
-      // Canvas tainted — crossOrigin wasn't set before load
-      // Re-request the image with crossOrigin and defer
-      console.warn('⚓ Argo sprite canvas tainted, re-requesting with crossOrigin');
+      console.warn('⚓ Argo sprite canvas tainted, re-requesting');
       const img2=new Image();
       img2.crossOrigin='anonymous';
-      img2.onload=()=>{
-        argoProcessed=false; // allow retry
-        TR_IMAGES['vl_ship_argo_sprite']=img2;
-        argoCanvas=null;
-      };
-      img2.src=src.src+'?cb='+Date.now(); // cache-bust to force re-fetch
+      img2.onload=()=>{ argoProcessed=false; TR_IMAGES['vl_ship_argo_sprite']=img2; argoCanvas=null; };
+      img2.src=src.src+'?cb='+Date.now();
       return null;
     }
+    // Step 2: remove white background
+    // White background pixels: R>230 && G>230 && B>230
+    // This also catches near-white anti-aliased edge pixels
     const d=id.data;
     let removed=0;
     for(let i=0;i<d.length;i+=4){
       const r=d[i],g=d[i+1],b=d[i+2];
-      // Broad magenta detection — catches DALL-E variations
-      if(r>150&&g<100&&b>150&&r-g>80&&b-g>80){
+      if(r>230&&g>230&&b>230){
         d[i+3]=0; removed++;
+      } else if(r>200&&g>200&&b>200){
+        // Semi-transparent for anti-aliased edges
+        d[i+3]=Math.round(d[i+3]*((255-r)/55));
       }
     }
-    console.log('⚓ Argo sprite processed: removed',removed,'magenta pixels, canvas',c.width,'x',c.height);
-    ctx.putImageData(id,0,0);
+    tctx.putImageData(id,0,0);
+    console.log('⚓ Argo sprite: white removed',removed,'px, size',tmp.width,'x',tmp.height);
+
+    // Step 3: flip horizontally into final canvas
+    const c=document.createElement('canvas');
+    c.width=tmp.width; c.height=tmp.height;
+    const ctx=c.getContext('2d');
+    ctx.translate(c.width,0);
+    ctx.scale(-1,1);
+    ctx.drawImage(tmp,0,0);
     argoCanvas=c;
     return c;
   } catch(e) {
