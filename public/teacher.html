@@ -6904,7 +6904,7 @@
             content.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Loading...</p>';
 
             try {
-                const token = localStorage.getItem('teacherToken');
+                const token = localStorage.getItem('token');
                 const res = await fetch(`${API_URL}/voyage-log/status/${encodeURIComponent(period)}`, {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
@@ -6982,7 +6982,7 @@
             if (!name) { alert('Enter the student name exactly as it appears in the game.'); return; }
 
             try {
-                const token = localStorage.getItem('teacherToken');
+                const token = localStorage.getItem('token');
                 const res = await fetch(`${API_URL}/teacher/voyage-log-override`, {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
