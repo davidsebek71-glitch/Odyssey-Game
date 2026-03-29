@@ -2122,25 +2122,11 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
     ctx.globalAlpha=1;
   }
 
-  // Ship — position depends on which background phase is showing
-  // Departure scenes have dock/land on LEFT, water on RIGHT → ship at ~60%
-  // Open water → ship roughly centered at ~48%
-  // Arrival scenes have land/features on RIGHT, water on LEFT → ship at ~35%
+  // Ship — one continuous left-to-right path across all three backgrounds
+  // progress 0→1 maps to screen position 30%→75% (left side to right side)
+  // The backgrounds swap underneath but the ship just keeps moving right
   if(!tr.noShip){
-    let shipX;
-    if(progress < 0.35){
-      // Departure phase: start at 60%, drift right toward 68% as ship leaves harbor
-      const phase = progress / 0.35; // 0→1 within departure
-      shipX = Math.floor(W * (0.60 + phase * 0.08));
-    } else if(progress < 0.65){
-      // Open water phase: drift from 55% to 42% (crossing the sea)
-      const phase = (progress - 0.35) / 0.30; // 0→1 within open water
-      shipX = Math.floor(W * (0.55 - phase * 0.13));
-    } else {
-      // Arrival phase: approach from 40% toward 30% (nearing shore on right)
-      const phase = (progress - 0.65) / 0.35; // 0→1 within arrival
-      shipX = Math.floor(W * (0.40 - phase * 0.10));
-    }
+    const shipX = Math.floor(W * (0.30 + progress * 0.45));
     const bobY = Math.floor(Math.sin(transitionState.bobTimer) * 3);
     _drawArgoSprite(ctx, shipX, Math.floor(H * 0.72) + bobY, W);
   }
@@ -2166,7 +2152,7 @@ function drawTransitionAnchored(ctx, W, H, tr){
   }
 
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.30);
+    const shipX=Math.floor(W*0.75);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     const waterlineY=Math.floor(H*0.72)+bobY;
     _drawArgoSprite(ctx,shipX,waterlineY,W);
@@ -2388,6 +2374,32 @@ function endCrawl(){
   buildProgress();
   buildTeacherUnlockGrid();
   initMap();
+  // Start polling server for unlock state
+  checkServerUnlocks();
+  setInterval(checkServerUnlocks, 8000); // Poll every 8 seconds
+}
+
+// Check server for per-period unlock state set by teacher dashboard
+async function checkServerUnlocks(){
+  try {
+    const res = await fetch('/api/voyage-log/unlocks/' + encodeURIComponent(student.period));
+    const data = await res.json();
+    if(data.unlocked_up_to !== undefined && data.unlocked_up_to > state.unlockedUpTo){
+      // Server has unlocked more stops than local state — apply them
+      for(let i = state.unlockedUpTo + 1; i <= data.unlocked_up_to; i++){
+        state.unlockedUpTo = i;
+      }
+      buildTeacherUnlockGrid();
+      renderProgress();
+      drawMap();
+      // Auto-navigate if student is waiting
+      if(state.currentStop === -1 && state.unlockedUpTo >= 0){
+        showStop(0);
+      }
+    }
+  } catch(e){
+    // Silent — server may be unreachable, local teacher modal still works as fallback
+  }
 }
 
 function drawCrawlStars(canvas){
@@ -2864,7 +2876,85 @@ function beginVoyage(){
   if(!n||!p){alert('Please enter your name and select your class period.');return;}
   student={name:n,period:p,periodDisplay:pDisplay,alliance:a||'Independent'};
   document.getElementById('splash').style.display='none';
-  startCrawl();
+
+  // Check server for saved progress
+  fetch('/api/voyage-log/load-progress/' + encodeURIComponent(n) + '/' + encodeURIComponent(p))
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.found && data.state){
+        // Restore saved state
+        const saved = data.state;
+        state.unlockedUpTo = saved.unlockedUpTo !== undefined ? saved.unlockedUpTo : -1;
+        state.currentStop = saved.currentStop !== undefined ? saved.currentStop : -1;
+        state.scores = saved.scores || {};
+        state.feedback = saved.feedback || {};
+        state.completed = saved.completed || {};
+        state.reviseUsed = saved.reviseUsed || {};
+        state.writtenText = saved.writtenText || {};
+        state.predAnswers = saved.predAnswers || {};
+        state.dragAnswers = saved.dragAnswers || {};
+        state.mcAnswers = saved.mcAnswers || {};
+        state.dragSorts = saved.dragSorts || {};
+        state.totalScore = saved.totalScore || 0;
+        if(saved.alliance) student.alliance = saved.alliance;
+        // Skip crawl, go straight to app
+        skipToApp();
+      } else {
+        startCrawl();
+      }
+    })
+    .catch(()=>{
+      // Server unreachable — just start normally
+      startCrawl();
+    });
+}
+
+// Skip the intro crawl and go straight to the game (for returning students)
+function skipToApp(){
+  document.getElementById('crawl-screen').classList.remove('show');
+  document.getElementById('app').style.display='flex';
+  document.getElementById('app').style.flexDirection='column';
+  document.getElementById('app').style.height='100vh';
+  document.getElementById('tb-student').textContent=student.name+' · '+(student.periodDisplay||student.period);
+  buildProgress();
+  buildTeacherUnlockGrid();
+  initMap();
+  // Show the stop they were on, or welcome
+  if(state.currentStop >= 0 && state.currentStop <= state.unlockedUpTo){
+    showStop(state.currentStop);
+  }
+  // Start polling for unlocks
+  checkServerUnlocks();
+  setInterval(checkServerUnlocks, 8000);
+}
+
+// Save progress to server — called after every meaningful action
+function saveProgress(){
+  if(!student.name || !student.period) return;
+  const saveData = {
+    unlockedUpTo: state.unlockedUpTo,
+    currentStop: state.currentStop,
+    scores: state.scores,
+    feedback: state.feedback,
+    completed: state.completed,
+    reviseUsed: state.reviseUsed,
+    writtenText: state.writtenText,
+    predAnswers: state.predAnswers,
+    dragAnswers: state.dragAnswers,
+    mcAnswers: state.mcAnswers,
+    dragSorts: state.dragSorts,
+    totalScore: state.totalScore,
+    alliance: student.alliance
+  };
+  fetch('/api/voyage-log/save-progress', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      student_name: student.name,
+      class_period: student.period,
+      state: saveData
+    })
+  }).catch(()=>{}); // Silent — don't interrupt gameplay
 }
 
 // ═══════════════════════════════════════════════════
@@ -2914,6 +3004,17 @@ function teacherUnlock(i){
   if(state.currentStop===-1||(state.completed[state.currentStop]&&state.currentStop<i)){
     showStop(i);
   }
+  // Also push to server so teacher dashboard stays in sync
+  fetch('/api/voyage-log/unlocks/' + encodeURIComponent(student.period))
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.unlocked_up_to < i){
+        // Local unlock is ahead of server — don't push (teacher dashboard controls the canonical state)
+        // But if teacher is using local modal, we should sync
+        // For now, just log it
+        console.log('⚓ Local unlock ahead of server:', i, 'vs', data.unlocked_up_to);
+      }
+    }).catch(()=>{});
 }
 
 // ═══════════════════════════════════════════════════
@@ -3362,6 +3463,7 @@ function showStop(i){
   renderProgress();
   drawMap();
   document.getElementById('panel-body').scrollTop=0;
+  saveProgress();
 }
 
 function buildMCInteraction(box,stop,i){
@@ -3426,6 +3528,7 @@ function selectMC(stopIdx,qIdx,optIdx){
     const pts=isCorrect?5:3;
     state.scores[stopIdx]=(state.scores[stopIdx]||0)+pts;
     updateScore();
+    saveProgress();
   }
 
   // Check if all questions in this stop answered
@@ -3516,6 +3619,7 @@ function submitMCDrag(stopIdx){
   if(!state.dragSorts) state.dragSorts={};
   state.dragSorts[stopIdx]=sorted;
   showCompleteBar(stopIdx);
+  saveProgress();
 }
 
 function buildMCPredictInteraction(box,stop,i){
@@ -3724,48 +3828,46 @@ function submitWrite(i){
   if(!ta)return;
   const text=ta.value.trim();
   if(!text)return;
+  const isRevision = state.feedback[i] !== undefined;
   state.writtenText[i]=text;
   ta.disabled=true;
   const btn=document.getElementById('submit-btn-'+i);
   if(btn)btn.disabled=true;
   showAthenaThinking(i);
   setTimeout(()=>{
-    const result=localAthenaFeedback(i,text,false);
+    const result=localAthenaFeedback(i,text,isRevision);
     showAthenaResult(i,result);
-    state.scores[i]=result.pts;
+    if(isRevision){
+      const oldPts=state.scores[i]||0;
+      state.scores[i]=Math.max(oldPts,result.pts);
+    } else {
+      state.scores[i]=result.pts;
+    }
     state.feedback[i]=result;
-    state.completed[i]=true;
     updateScore();
+    // Show revise option (re-enables textarea) + complete bar (NEXT STOP)
+    showReviseBar(i);
     showCompleteBar(i);
+    saveProgress();
   },1800+Math.random()*800);
 }
 
-function submitRevise(i){
+function startRevise(i){
   const ta=document.getElementById('ta-'+i);
-  if(!ta)return;
-  const text=ta.value.trim();
-  state.writtenText[i]=text;
-  state.reviseUsed[i]=true;
-  ta.disabled=true;
-  showAthenaThinking(i);
-  setTimeout(()=>{
-    const result=localAthenaFeedback(i,text,true);
-    showAthenaResult(i,result);
-    const oldPts=state.scores[i]||0;
-    state.scores[i]=Math.max(oldPts,result.pts);
-    state.feedback[i]=result;
-    updateScore();
-    document.getElementById('revise-bar-'+i).innerHTML='';
-    showCompleteBar(i);
-  },1800+Math.random()*800);
-}
-
-function acceptAndContinue(i){
-  state.reviseUsed[i]=true;
-  document.getElementById('revise-bar-'+i).innerHTML='';
-  const ta=document.getElementById('ta-'+i);
-  if(ta)ta.disabled=true;
-  showCompleteBar(i);
+  if(ta){
+    ta.disabled=false;
+    ta.focus();
+  }
+  const btn=document.getElementById('submit-btn-'+i);
+  if(btn){
+    btn.disabled=false;
+    btn.textContent='RESUBMIT TO ATHENA ▸';
+  }
+  // Hide the revise button itself
+  const bar=document.getElementById('revise-bar-'+i);
+  if(bar) bar.innerHTML='';
+  // Hide complete bar while editing
+  document.getElementById('complete-bar').classList.remove('show');
 }
 
 function submitDrag(i){
@@ -3801,6 +3903,7 @@ function submitDrag(i){
     state.scores[i]=pts;
     updateScore();
     showCompleteBar(i);
+    saveProgress();
   },1200);
 }
 
@@ -3852,6 +3955,7 @@ function selectPred(i,ci){
     state.scores[i]=(state.scores[i]||0)+pts;
     updateScore();
     showCompleteBar(i);
+    saveProgress();
   },1000);
 }
 
@@ -3933,16 +4037,12 @@ function showAthenaResult(i,result){
   if(predSec) predSec.style.display='block';
 }
 function showReviseBar(i){
-  if(state.reviseUsed[i]){showCompleteBar(i);return;}
   const bar=document.getElementById('revise-bar-'+i);
   if(!bar)return;
-  const ta=document.getElementById('ta-'+i);
-  if(ta)ta.disabled=false;
   bar.innerHTML=`
     <div class="revise-bar">
-      <span class="revise-hint">ONE REVISION ALLOWED. EDIT ABOVE AND RESUBMIT — OR ACCEPT AND MOVE ON.</span>
-      <button class="pixel-btn-outline" onclick="acceptAndContinue(${i})">ACCEPT ▶</button>
-      <button class="pixel-btn-sm" onclick="submitRevise(${i})">REVISE &amp; RESUBMIT ▸</button>
+      <span class="revise-hint">WANT TO IMPROVE YOUR SCORE? EDIT AND RESUBMIT.</span>
+      <button class="pixel-btn-outline" onclick="startRevise(${i})">✎ REVISE YOUR ANSWER</button>
     </div>
   `;
 }
@@ -3969,7 +4069,12 @@ function restoreStopState(i){
   showAthenaResult(i,state.feedback[i]);
   const panel=document.getElementById('athena-panel-'+i);
   if(panel)panel.classList.add('show');
-  if(state.completed[i]||state.scores[i]!==undefined){
+  if(state.scores[i]!==undefined){
+    // For write/write_predict stops, show revise option so student can improve
+    const stop=STOPS[i];
+    if(stop.interaction.type==='write'||stop.interaction.type==='write_predict'){
+      showReviseBar(i);
+    }
     showCompleteBar(i);
   }
 }
@@ -4004,6 +4109,7 @@ function nextStop(){
   state.currentStop=next;
   renderProgress();
   drawMap();
+  saveProgress();
   // If next stop is already unlocked, enable disembark after animation reaches shore
   if(next<=state.unlockedUpTo){
     // Sailing takes sailDuration ms — enable button when ship arrives

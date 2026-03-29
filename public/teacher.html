@@ -1603,6 +1603,15 @@
                 <div id="vl-override-result" style="margin-top: 8px; font-size: 12px; color: rgba(20,184,166,0.8); display: none;"></div>
             </div>
 
+            <!-- Per-period unlock controls -->
+            <div style="background: rgba(240,192,64,0.08); border: 1px solid rgba(240,192,64,0.3); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 600; color: rgba(240,192,64,0.9); margin-bottom: 10px;">🔓 Unlock Stops by Period</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">Control which stop each class period can access. Students' voyage logs will update automatically.</div>
+                <div id="voyage-unlock-controls" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
             <!-- Completions table -->
             <div id="voyage-log-content">
                 <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
@@ -6887,9 +6896,78 @@
         // ══════════════════════════════════════════════
         let currentVoyagePeriod = '1st';
 
+        const VOYAGE_STOP_NAMES = [
+            'The Stolen Throne',
+            'The Argo Is Born',
+            'The Island of Women',
+            'The Doliones Tragedy',
+            'Hylas Lost & Pollux Fights',
+            'Phineas & The Clashing Rocks',
+            "Medea's Choice",
+            'The Fleece & The Terrible Escape',
+            'Sirens, Desert & Talos',
+            'The Broken Oath & Its Price'
+        ];
+
         function openVoyageLogModal() {
             document.getElementById('voyage-log-modal').classList.add('show');
             loadVoyageLogPeriod('1st');
+            loadVoyageUnlockControls();
+        }
+
+        async function loadVoyageUnlockControls() {
+            const container = document.getElementById('voyage-unlock-controls');
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/teacher/voyage-log-unlock-status', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+
+                const periods = ['1st', '2nd', '3rd', '4th', 'Test'];
+                const unlockMap = {};
+                (data.unlocks || []).forEach(u => unlockMap[u.class_period] = u.unlocked_up_to);
+
+                container.innerHTML = periods.map(p => {
+                    const current = unlockMap[p] !== undefined ? unlockMap[p] : -1;
+                    const displayPeriod = p === 'Test' ? 'Test' : p + ' Period';
+                    return `
+                        <div style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:10px;">
+                            <div style="font-size:12px;font-weight:600;color:rgba(240,192,64,0.9);margin-bottom:8px;">${displayPeriod}</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:6px;">
+                                Currently: <strong style="color:${current >= 0 ? 'rgba(20,184,166,0.9)' : 'rgba(255,255,255,0.3)'}">${current >= 0 ? 'Stop ' + (current + 1) : 'None'}</strong>
+                            </div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                ${Array.from({length:10}, (_, i) => {
+                                    const isUnlocked = i <= current;
+                                    return '<button onclick="setVoyageUnlock(\'' + p + '\',' + i + ')" style="width:28px;height:26px;border-radius:4px;border:1px solid ' + (isUnlocked ? 'rgba(20,184,166,0.6)' : 'rgba(255,255,255,0.15)') + ';background:' + (isUnlocked ? 'rgba(20,184,166,0.25)' : 'rgba(0,0,0,0.3)') + ';color:' + (isUnlocked ? 'rgba(20,184,166,1)' : 'rgba(255,255,255,0.4)') + ';font-size:11px;font-weight:600;cursor:pointer;" title="' + VOYAGE_STOP_NAMES[i] + '">' + (i + 1) + '</button>';
+                                }).join('')}
+                                <button onclick="setVoyageUnlock('${p}',-1)" style="height:26px;border-radius:4px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,100,100,0.1);color:rgba(255,100,100,0.7);font-size:10px;cursor:pointer;padding:0 8px;" title="Lock all stops">✕</button>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = '<p style="color:rgba(255,100,100,0.7);font-size:12px;">Failed to load unlock status</p>';
+            }
+        }
+
+        async function setVoyageUnlock(period, stopIndex) {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/teacher/voyage-log-unlock', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ class_period: period, unlock_up_to: stopIndex })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadVoyageUnlockControls();
+                } else {
+                    alert('Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Failed to set unlock: ' + err.message);
+            }
         }
 
         async function loadVoyageLogPeriod(period) {

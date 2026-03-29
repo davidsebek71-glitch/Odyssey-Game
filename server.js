@@ -13580,6 +13580,134 @@ app.post('/api/teacher/voyage-log-override', authenticateToken, (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════
+// VOYAGE LOG — SAVE/LOAD PROGRESS (resume across sessions)
+// ══════════════════════════════════════════════════════════
+
+// POST /api/voyage-log/save-progress — no JWT (standalone page)
+app.post('/api/voyage-log/save-progress', (req, res) => {
+  try {
+    const { student_name, class_period, state } = req.body;
+    if (!student_name || !class_period || !state) {
+      return res.status(400).json({ error: 'student_name, class_period, and state required' });
+    }
+
+    const stateJson = JSON.stringify(state);
+    const existing = query(
+      'SELECT student_name FROM voyage_log_progress WHERE student_name = ? AND class_period = ?',
+      [student_name, class_period]
+    );
+
+    if (existing.length > 0) {
+      run(
+        'UPDATE voyage_log_progress SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+        [stateJson, student_name, class_period]
+      );
+    } else {
+      run(
+        'INSERT INTO voyage_log_progress (student_name, class_period, state_json) VALUES (?, ?, ?)',
+        [student_name, class_period, stateJson]
+      );
+    }
+
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Voyage log save-progress error:', err);
+    res.status(500).json({ error: 'Failed to save progress' });
+  }
+});
+
+// GET /api/voyage-log/load-progress/:name/:period — no JWT (standalone page)
+app.get('/api/voyage-log/load-progress/:name/:period', (req, res) => {
+  try {
+    const { name, period } = req.params;
+    const rows = query(
+      'SELECT state_json, updated_at FROM voyage_log_progress WHERE student_name = ? AND class_period = ?',
+      [name, period]
+    );
+
+    if (rows.length > 0) {
+      res.json({
+        found: true,
+        state: JSON.parse(rows[0].state_json),
+        updated_at: rows[0].updated_at
+      });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (err) {
+    console.error('Voyage log load-progress error:', err);
+    res.json({ found: false });
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// VOYAGE LOG — PER-PERIOD UNLOCK CONTROL
+// ══════════════════════════════════════════════════════════
+
+// GET /api/voyage-log/unlocks/:period — no auth (voyage log is standalone)
+// Returns which stop is unlocked for this period
+app.get('/api/voyage-log/unlocks/:period', (req, res) => {
+  try {
+    const { period } = req.params;
+    const rows = query(
+      'SELECT unlocked_up_to FROM voyage_log_unlocks WHERE class_period = ?',
+      [period]
+    );
+    const unlocked = (rows.length > 0 && rows[0].unlocked_up_to !== null)
+      ? rows[0].unlocked_up_to : -1;
+    res.json({ period, unlocked_up_to: unlocked });
+  } catch (err) {
+    // Table may not exist yet — return -1
+    res.json({ period: req.params.period, unlocked_up_to: -1 });
+  }
+});
+
+// POST /api/teacher/voyage-log-unlock — teacher sets unlock level for a period
+app.post('/api/teacher/voyage-log-unlock', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { class_period, unlock_up_to } = req.body;
+
+    if (!class_period || unlock_up_to === undefined) {
+      return res.status(400).json({ error: 'class_period and unlock_up_to required' });
+    }
+
+    // Upsert the unlock level
+    const existing = query(
+      'SELECT class_period FROM voyage_log_unlocks WHERE class_period = ?',
+      [class_period]
+    );
+    if (existing.length > 0) {
+      run('UPDATE voyage_log_unlocks SET unlocked_up_to = ? WHERE class_period = ?',
+        [unlock_up_to, class_period]);
+    } else {
+      run('INSERT INTO voyage_log_unlocks (class_period, unlocked_up_to) VALUES (?, ?)',
+        [class_period, unlock_up_to]);
+    }
+
+    saveDatabase();
+    console.log(`⚓ Voyage unlock: ${class_period} → stop ${unlock_up_to}`);
+    res.json({ success: true, class_period, unlocked_up_to: unlock_up_to });
+
+  } catch (err) {
+    console.error('Voyage log unlock error:', err);
+    res.status(500).json({ error: 'Failed to set unlock' });
+  }
+});
+
+// GET /api/teacher/voyage-log-unlock-status — teacher gets all periods' unlock state
+app.get('/api/teacher/voyage-log-unlock-status', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const rows = query('SELECT class_period, unlocked_up_to FROM voyage_log_unlocks ORDER BY class_period');
+    res.json({ unlocks: rows });
+  } catch (err) {
+    res.json({ unlocks: [] });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);

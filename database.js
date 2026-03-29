@@ -2002,6 +2002,39 @@ function seedReferenceData() {
     console.log('Migration note: V98 voyage_log_completions -', e.message);
   }
 
+  // ==================== V98b: VOYAGE LOG UNLOCKS (per-period teacher control) ====================
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS voyage_log_unlocks (
+        class_period TEXT PRIMARY KEY,
+        unlocked_up_to INTEGER DEFAULT -1
+      )
+    `);
+    // Seed rows for each period if they don't exist
+    ['1st','2nd','3rd','4th','Test'].forEach(p => {
+      db.run(`INSERT OR IGNORE INTO voyage_log_unlocks (class_period, unlocked_up_to) VALUES (?, -1)`, [p]);
+    });
+    console.log('✅ V98b: voyage_log_unlocks table ready');
+  } catch (e) {
+    console.log('Migration note: V98b voyage_log_unlocks -', e.message);
+  }
+
+  // ==================== V98c: VOYAGE LOG PROGRESS (save/resume across sessions) ====================
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS voyage_log_progress (
+        student_name TEXT NOT NULL,
+        class_period TEXT NOT NULL,
+        state_json TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (student_name, class_period)
+      )
+    `);
+    console.log('✅ V98c: voyage_log_progress table ready');
+  } catch (e) {
+    console.log('Migration note: V98c voyage_log_progress -', e.message);
+  }
+
   // V98: Add voyage log columns to students table
   try {
     db.run("ALTER TABLE students ADD COLUMN voyage_log_completed INTEGER DEFAULT 0");
