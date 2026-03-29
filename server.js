@@ -13697,10 +13697,10 @@ app.post('/api/teacher/voyage-log-unlock', authenticateToken, (req, res) => {
   }
 });
 
-// GET /api/teacher/voyage-log-unlock-status — teacher gets all periods' unlock state
-app.get('/api/teacher/voyage-log-unlock-status', authenticateToken, (req, res) => {
+// GET /api/teacher/voyage-log-unlock-status — returns all periods' unlock state
+// No auth required — this is read-only display state
+app.get('/api/teacher/voyage-log-unlock-status', (req, res) => {
   try {
-    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
     const rows = query('SELECT class_period, unlocked_up_to FROM voyage_log_unlocks ORDER BY class_period');
     res.json({ unlocks: rows });
   } catch (err) {

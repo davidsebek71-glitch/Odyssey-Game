@@ -2050,33 +2050,28 @@ function processArgoSprite(){
     tmp.width=src.naturalWidth; tmp.height=src.naturalHeight;
     const tctx=tmp.getContext('2d');
     tctx.drawImage(src,0,0);
-    let id;
+
+    // Step 2: try to remove white background (may fail due to CORS)
     try {
-      id=tctx.getImageData(0,0,tmp.width,tmp.height);
-    } catch(e) {
-      console.warn('⚓ Argo sprite canvas tainted, re-requesting');
-      const img2=new Image();
-      img2.crossOrigin='anonymous';
-      img2.onload=()=>{ argoProcessed=false; TR_IMAGES['vl_ship_argo_sprite']=img2; argoCanvas=null; };
-      img2.src=src.src+'?cb='+Date.now();
-      return null;
-    }
-    // Step 2: remove white background, preserving sail (~#f0ead8 = R240 G234 B216)
-    // Hard remove only pure white (all channels > 240)
-    // Fade anti-aliased edges where all channels > 220
-    const d=id.data;
-    let removed=0;
-    for(let i=0;i<d.length;i+=4){
-      const r=d[i],g=d[i+1],b=d[i+2];
-      if(r>240&&g>240&&b>240){
-        d[i+3]=0; removed++;
-      } else if(r>220&&g>220&&b>220){
-        // Semi-transparent for anti-aliased edges near pure white
-        d[i+3]=Math.round(d[i+3]*((255-r)/35));
+      const id=tctx.getImageData(0,0,tmp.width,tmp.height);
+      const d=id.data;
+      let removed=0;
+      for(let i=0;i<d.length;i+=4){
+        const r=d[i],g=d[i+1],b=d[i+2];
+        if(r>240&&g>240&&b>240){
+          d[i+3]=0; removed++;
+        } else if(r>220&&g>220&&b>220){
+          d[i+3]=Math.round(d[i+3]*((255-r)/35));
+        }
       }
+      tctx.putImageData(id,0,0);
+      console.log('⚓ Argo sprite: white removed',removed,'px');
+    } catch(e) {
+      // CORS taint — skip background removal, use image as-is
+      console.warn('⚓ Argo sprite: CORS blocked getImageData, using image without bg removal');
+      tctx.clearRect(0,0,tmp.width,tmp.height);
+      tctx.drawImage(src,0,0);
     }
-    tctx.putImageData(id,0,0);
-    console.log('⚓ Argo sprite: white removed',removed,'px, size',tmp.width,'x',tmp.height);
 
     // Step 3: flip horizontally — sprite faces left, we need right
     const c=document.createElement('canvas');
@@ -2171,7 +2166,8 @@ function _drawArgoSprite(ctx,cx,cy,W){
     return;
   }
   // Coded fallback if sprite not available
-  const px=Math.max(4, Math.round(W/140));
+  // Cap pixel size to keep ship small — max 3px per pixel
+  const px=Math.max(2, Math.min(3, Math.round(W/300)));
   _drawCodedShip(ctx,cx,cy,px);
 }
 
