@@ -2122,12 +2122,16 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
     ctx.globalAlpha=1;
   }
 
-  // Ship
-  if(!tr.noShip){
-    const shipX=Math.floor(W*0.1+progress*W*0.8);
-    const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
-    _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
-  }
+  // Ship — ALWAYS draw for debugging (ignoring noShip temporarily)
+  const shipX=Math.floor(W*0.1+progress*W*0.8);
+  const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
+  const shipY=Math.floor(H*0.62)+bobY;
+  // DEBUG: bright red marker so we know the draw code runs
+  ctx.fillStyle='#ff0000';
+  ctx.fillRect(shipX-20, shipY-20, 40, 40);
+  // Draw coded ship on top
+  const px=Math.max(4, Math.round(W/120));
+  _drawCodedShip(ctx,shipX,shipY,px);
 
   // Progress bar
   if(progress<0.95){
@@ -2149,21 +2153,26 @@ function drawTransitionAnchored(ctx, W, H, tr){
     _drawCodedBackground(ctx,W,H,tr);
   }
 
-  if(!tr.noShip){
-    const shipX=Math.floor(W*0.28);
-    const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
-    const waterlineY=Math.floor(H*0.62)+bobY;
-    _drawArgoSprite(ctx,shipX,waterlineY,W);
-    const px=Math.max(2,Math.floor(W/160));
-    ctx.strokeStyle='rgba(200,160,80,0.5)';
-    ctx.lineWidth=px;
-    ctx.setLineDash([px*2,px*2]);
-    ctx.beginPath();
-    ctx.moveTo(shipX,waterlineY+px*4);
-    ctx.lineTo(shipX,Math.floor(H*0.85));
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
+  // Ship — ALWAYS draw for debugging (ignoring noShip temporarily)
+  const shipX=Math.floor(W*0.28);
+  const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
+  const waterlineY=Math.floor(H*0.62)+bobY;
+  // DEBUG: bright red marker
+  ctx.fillStyle='#ff0000';
+  ctx.fillRect(shipX-20, waterlineY-20, 40, 40);
+  // Draw coded ship
+  const px_ship=Math.max(4, Math.round(W/120));
+  _drawCodedShip(ctx,shipX,waterlineY,px_ship);
+  // Anchor line
+  const px=Math.max(2,Math.floor(W/160));
+  ctx.strokeStyle='rgba(200,160,80,0.5)';
+  ctx.lineWidth=px;
+  ctx.setLineDash([px*2,px*2]);
+  ctx.beginPath();
+  ctx.moveTo(shipX,waterlineY+px*4);
+  ctx.lineTo(shipX,Math.floor(H*0.85));
+  ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 function _drawArgoSprite(ctx,cx,cy,W){
