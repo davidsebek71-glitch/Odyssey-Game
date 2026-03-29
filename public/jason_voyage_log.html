@@ -1578,6 +1578,7 @@ body {
         <option>Period 2</option>
         <option>Period 3</option>
         <option>Period 4</option>
+        <option>Test</option>
       </select>
     </div>
     <div class="field">
@@ -4044,7 +4045,7 @@ function showResults(){
 
   // Submit to Railway — fire and forget, silent on failure
   const medea = state.writtenText[7]||null;
-  fetch('https://odyssey-game-production.up.railway.app/api/voyage-log/submit',{
+  fetch('/api/voyage-log/submit',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
