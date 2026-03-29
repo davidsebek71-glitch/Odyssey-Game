@@ -1853,8 +1853,7 @@ const TRANSITIONS = [
     caption:"In the harbor of Iolcus, something extraordinary takes shape...",
     fromTerrain:{color:'#3a5a20',accent:'#c8a030',label:'The crown of Pelias',icon:'crown'},
     toTerrain:{color:'#3a5a20',accent:'#c89820',label:'The Argo — nearly ready',icon:'hull'},
-    waterColor:'#1a5a8a',
-    noShip:true
+    waterColor:'#1a5a8a'
   },
   {
     from:"Lemnos", to:"Cyzicus",
@@ -2124,7 +2123,7 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   // Ship
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.1+progress*W*0.8);
+    const shipX=Math.floor(W*0.25+progress*W*0.5);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
   }
@@ -2167,48 +2166,83 @@ function drawTransitionAnchored(ctx, W, H, tr){
 }
 
 function _drawArgoSprite(ctx,cx,cy,W){
-  const sprite=processArgoSprite();
-  if(sprite){
-    // Scale to roughly 10% of canvas width
-    const targetW=Math.max(80, Math.round(W*0.1));
-    const scale=targetW/sprite.width;
-    const sw=Math.round(sprite.width*scale);
-    const sh=Math.round(sprite.height*scale);
-    ctx.drawImage(sprite,Math.round(cx-sw/2),Math.round(cy-sh*0.7),sw,sh);
-    return;
-  }
-  // Coded fallback if sprite processing fails
-  const px=Math.max(4, Math.round(W/120));
+  // Coded pixel ship — sized to be prominent against scene backgrounds
+  const px=Math.max(6, Math.round(W/80));
   _drawCodedShip(ctx,cx,cy,px);
 }
 
 function _drawCodedShip(ctx,cx,cy,px){
-  // Large enough to be clearly visible against scene backgrounds
   const p=px*2, x=cx-8*p, y=cy-10*p;
-  // Hull — dark shadow first for depth
-  ctx.fillStyle='rgba(0,0,0,0.4)';
+
+  // Dark backing glow so ship pops against any scene
+  ctx.fillStyle='rgba(0,0,0,0.45)';
+  const glowPad=p*2;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy-2*p, 12*p+glowPad, 8*p+glowPad, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Hull shadow
+  ctx.fillStyle='rgba(0,0,0,0.35)';
   ctx.fillRect(x+p+2,y+5*p+2,14*p,4*p);
-  // Hull planks
-  ctx.fillStyle='#c89820'; ctx.fillRect(x+p,  y+5*p, 14*p, 2*p);
-  ctx.fillStyle='#a07010'; ctx.fillRect(x,     y+6*p, 16*p, p);
-  ctx.fillStyle='#805010'; ctx.fillRect(x+p,   y+7*p, 14*p, p);
-  ctx.fillStyle='#604008'; ctx.fillRect(x+2*p, y+8*p, 12*p, p);
-  // Keel curve
-  ctx.fillStyle='#402000'; ctx.fillRect(x+3*p, y+9*p, 10*p, p);
+
+  // Hull planks — golden wood tones
+  ctx.fillStyle='#daa520'; ctx.fillRect(x+p,   y+5*p, 14*p, p);
+  ctx.fillStyle='#c89820'; ctx.fillRect(x+p,   y+6*p, 14*p, p);
+  ctx.fillStyle='#a07010'; ctx.fillRect(x,      y+7*p, 16*p, p);
+  ctx.fillStyle='#805010'; ctx.fillRect(x+p,    y+8*p, 14*p, p);
+  // Keel
+  ctx.fillStyle='#604008'; ctx.fillRect(x+2*p,  y+9*p, 12*p, p);
+  ctx.fillStyle='#402000'; ctx.fillRect(x+3*p,  y+10*p, 10*p, p);
+
+  // Prow (right side — ship faces right)
+  ctx.fillStyle='#daa520'; ctx.fillRect(x+15*p, y+4*p, p, p);
+  ctx.fillStyle='#c89820'; ctx.fillRect(x+16*p, y+3*p, p, p);
+  ctx.fillStyle='#a07010'; ctx.fillRect(x+16*p, y+4*p, p, p);
+  // Stern (left side) — slight upturn
+  ctx.fillStyle='#a07010'; ctx.fillRect(x,      y+4*p, p, p);
+  ctx.fillStyle='#805010'; ctx.fillRect(x-p,    y+3*p, p, 2*p);
+
   // Mast
-  ctx.fillStyle='#6a4010'; ctx.fillRect(x+7*p, y-2*p, p*2, 12*p);
-  // Sail — large and bright so it reads clearly
-  ctx.fillStyle='#f0ead8'; ctx.fillRect(x+4*p, y,     6*p, 8*p);
-  ctx.fillStyle='#d8d2c0'; ctx.fillRect(x+4*p, y+p,   3*p, 3*p);
-  ctx.fillStyle='#c0b8a8'; ctx.fillRect(x+4*p, y+5*p, 3*p, 2*p);
-  // Flag
-  ctx.fillStyle='#d04040'; ctx.fillRect(x+9*p, y-2*p, 3*p, 2*p);
-  // Wake
-  ctx.fillStyle='rgba(200,230,255,0.7)';
-  ctx.fillRect(x-2*p, y+7*p, 2*p, p);
-  ctx.fillRect(x+16*p,y+7*p, 2*p, p);
-  ctx.fillRect(x-3*p, y+8*p, 2*p, p);
-  ctx.fillRect(x+17*p,y+8*p, 2*p, p);
+  ctx.fillStyle='#5a3510'; ctx.fillRect(x+7*p, y-3*p, p*2, 14*p);
+  // Crossbeam
+  ctx.fillStyle='#6a4010'; ctx.fillRect(x+4*p-p, y-p, 8*p, p);
+
+  // Sail — bright cream with shadow folds
+  ctx.fillStyle='#f5f0e0'; ctx.fillRect(x+4*p, y,      6*p, 7*p);
+  ctx.fillStyle='#e8e0d0'; ctx.fillRect(x+4*p, y+p,    2*p, 3*p);
+  ctx.fillStyle='#ddd5c0'; ctx.fillRect(x+4*p, y+5*p,  2*p, 2*p);
+  ctx.fillStyle='#e0d8c8'; ctx.fillRect(x+8*p, y+2*p,  2*p, 3*p);
+
+  // Flag — red pennant
+  ctx.fillStyle='#d04040'; ctx.fillRect(x+9*p, y-3*p, 3*p, p);
+  ctx.fillStyle='#c03030'; ctx.fillRect(x+10*p, y-2*p, 2*p, p);
+
+  // Oars — animated based on bobTimer
+  const oarPhase = typeof transitionState !== 'undefined' ? transitionState.bobTimer : 0;
+  const oarDip = Math.sin(oarPhase * 3);
+  ctx.strokeStyle='#8a6a30';
+  ctx.lineWidth=Math.max(1, Math.floor(px/2));
+  for(let i=0; i<4; i++){
+    const ox = x + (3+i*3)*p;
+    const oy = y + 8*p;
+    const dip = Math.sin(oarPhase*3 + i*1.2) * p;
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(ox + p, oy + 3*p + dip);
+    ctx.stroke();
+  }
+
+  // Wake — foam trail behind ship
+  ctx.fillStyle='rgba(200,230,255,0.6)';
+  ctx.fillRect(x-2*p, y+8*p, 2*p, p);
+  ctx.fillRect(x-4*p, y+9*p, 3*p, p);
+  ctx.fillStyle='rgba(180,210,240,0.4)';
+  ctx.fillRect(x-6*p, y+9*p, 2*p, p);
+  ctx.fillRect(x-3*p, y+10*p, 4*p, p);
+  // Bow wave
+  ctx.fillStyle='rgba(220,240,255,0.5)';
+  ctx.fillRect(x+16*p, y+7*p, 2*p, p);
+  ctx.fillRect(x+17*p, y+8*p, p, p);
 }
 
 function _drawCodedBackground(ctx,W,H,tr){
