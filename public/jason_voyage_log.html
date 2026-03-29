@@ -2123,7 +2123,7 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   // Ship
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.25+progress*W*0.5);
+    const shipX=Math.floor(W*0.35+progress*W*0.3);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
   }
@@ -2166,8 +2166,18 @@ function drawTransitionAnchored(ctx, W, H, tr){
 }
 
 function _drawArgoSprite(ctx,cx,cy,W){
-  // Coded pixel ship — sized to be prominent against scene backgrounds
-  const px=Math.max(6, Math.round(W/80));
+  const sprite=processArgoSprite();
+  if(sprite){
+    // Scale to roughly 12% of canvas width
+    const targetW=Math.max(80, Math.round(W*0.12));
+    const scale=targetW/sprite.width;
+    const sw=Math.round(sprite.width*scale);
+    const sh=Math.round(sprite.height*scale);
+    ctx.drawImage(sprite,Math.round(cx-sw/2),Math.round(cy-sh*0.7),sw,sh);
+    return;
+  }
+  // Coded fallback if sprite not available
+  const px=Math.max(3, Math.round(W/200));
   _drawCodedShip(ctx,cx,cy,px);
 }
 
