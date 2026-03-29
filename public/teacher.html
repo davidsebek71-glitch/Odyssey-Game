@@ -6910,12 +6910,18 @@
                 });
                 const data = await res.json();
 
+                if (data.error) {
+                    content.innerHTML = `<p style="color:rgba(255,100,100,0.8);text-align:center">Error: ${data.error}</p>`;
+                    return;
+                }
+
                 if (!data.completions || data.completions.length === 0) {
+                    const studentCount = data.total_students || 0;
                     content.innerHTML = `
                         <div style="text-align:center;padding:2rem;color:rgba(255,255,255,0.4)">
                             <div style="font-size:2rem;margin-bottom:8px">⚓</div>
                             <div>No completions yet for ${period} Period</div>
-                            <div style="font-size:12px;margin-top:6px">${data.total_students} students in this period</div>
+                            <div style="font-size:12px;margin-top:6px">${studentCount} students in this period</div>
                         </div>`;
                     return;
                 }
@@ -6925,13 +6931,14 @@
                     NAV: '#60a0c0', OAR: '#8080a0'
                 };
 
-                const pct = Math.round((data.completed_count / Math.max(data.total_students, 1)) * 100);
+                const totalStudents = data.total_students || 0;
+                const pct = Math.round((data.completed_count / Math.max(totalStudents, 1)) * 100);
 
                 content.innerHTML = `
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
                         <div style="font-size:13px;color:rgba(255,255,255,0.6)">
                             <strong style="color:rgba(20,184,166,0.9)">${data.completed_count}</strong> of
-                            <strong>${data.total_students}</strong> students completed
+                            <strong>${totalStudents}</strong> students completed
                             <span style="margin-left:8px;background:rgba(20,184,166,0.15);border:1px solid rgba(20,184,166,0.3);padding:2px 8px;border-radius:4px;font-size:11px">${pct}%</span>
                         </div>
                     </div>
