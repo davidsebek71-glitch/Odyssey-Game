@@ -2027,7 +2027,9 @@ const TR_ARRIVE_KEYS = [
 function preloadTransitionImages(){
   TR_IMAGE_KEYS.forEach(key=>{
     const img=new Image();
-    img.onerror=()=>{ TR_IMAGES[key]=null; };
+    img.crossOrigin='anonymous'; // required for getImageData to work without tainting canvas
+    img.onerror=()=>{ TR_IMAGES[key]=null; console.warn('TR image failed to load:',key); };
+    img.onload=()=>{ if(key==='vl_ship_argo_sprite') console.log('⚓ Argo sprite loaded:',img.naturalWidth,'x',img.naturalHeight); };
     img.src=TRANSITION_BASE_URL+key+'.png';
     TR_IMAGES[key]=img;
   });
@@ -2035,22 +2037,52 @@ function preloadTransitionImages(){
 
 // Process ship sprite — strip magenta (#ff00ff) background
 let argoCanvas=null;
+let argoProcessed=false; // prevents repeated attempts after failure
 function processArgoSprite(){
+  if(argoCanvas) return argoCanvas;
+  if(argoProcessed) return null; // already tried and failed
   const src=TR_IMAGES['vl_ship_argo_sprite'];
   if(!src||!src.complete||src.naturalWidth===0) return null;
-  if(argoCanvas) return argoCanvas;
-  const c=document.createElement('canvas');
-  c.width=src.naturalWidth; c.height=src.naturalHeight;
-  const ctx=c.getContext('2d');
-  ctx.drawImage(src,0,0);
-  const id=ctx.getImageData(0,0,c.width,c.height);
-  const d=id.data;
-  for(let i=0;i<d.length;i+=4){
-    if(d[i]>180&&d[i+1]<80&&d[i+2]>180) d[i+3]=0;
+  argoProcessed=true;
+  try {
+    const c=document.createElement('canvas');
+    c.width=src.naturalWidth; c.height=src.naturalHeight;
+    const ctx=c.getContext('2d');
+    ctx.drawImage(src,0,0);
+    let id;
+    try {
+      id=ctx.getImageData(0,0,c.width,c.height);
+    } catch(e) {
+      // Canvas tainted — crossOrigin wasn't set before load
+      // Re-request the image with crossOrigin and defer
+      console.warn('⚓ Argo sprite canvas tainted, re-requesting with crossOrigin');
+      const img2=new Image();
+      img2.crossOrigin='anonymous';
+      img2.onload=()=>{
+        argoProcessed=false; // allow retry
+        TR_IMAGES['vl_ship_argo_sprite']=img2;
+        argoCanvas=null;
+      };
+      img2.src=src.src+'?cb='+Date.now(); // cache-bust to force re-fetch
+      return null;
+    }
+    const d=id.data;
+    let removed=0;
+    for(let i=0;i<d.length;i+=4){
+      const r=d[i],g=d[i+1],b=d[i+2];
+      // Broad magenta detection — catches DALL-E variations
+      if(r>150&&g<100&&b>150&&r-g>80&&b-g>80){
+        d[i+3]=0; removed++;
+      }
+    }
+    console.log('⚓ Argo sprite processed: removed',removed,'magenta pixels, canvas',c.width,'x',c.height);
+    ctx.putImageData(id,0,0);
+    argoCanvas=c;
+    return c;
+  } catch(e) {
+    console.error('⚓ Argo sprite processing failed:',e);
+    return null;
   }
-  ctx.putImageData(id,0,0);
-  argoCanvas=c;
-  return c;
 }
 
 function drawTransitionSailing(ctx, W, H, tr, progress){
@@ -2129,26 +2161,46 @@ function drawTransitionAnchored(ctx, W, H, tr){
 function _drawArgoSprite(ctx,cx,cy,W){
   const sprite=processArgoSprite();
   if(sprite){
-    const scale=W/1280;
+    // Scale to roughly 10% of canvas width — visible but not overwhelming
+    const targetW=Math.max(80, Math.round(W*0.1));
+    const scale=targetW/sprite.width;
     const sw=Math.round(sprite.width*scale);
     const sh=Math.round(sprite.height*scale);
     ctx.drawImage(sprite,Math.round(cx-sw/2),Math.round(cy-sh*0.7),sw,sh);
     return;
   }
-  _drawCodedShip(ctx,cx,cy,Math.max(2,Math.floor(W/160)));
+  // Coded fallback — use fixed px size so it's always visible regardless of canvas size
+  const px=Math.max(4, Math.round(W/120)); // larger minimum than before
+  _drawCodedShip(ctx,cx,cy,px);
 }
 
 function _drawCodedShip(ctx,cx,cy,px){
-  const p=px*2,x=cx-6*p,y=cy-8*p;
-  ctx.fillStyle='#c89820'; ctx.fillRect(x+p,y+5*p,10*p,2*p);
-  ctx.fillStyle='#a07010'; ctx.fillRect(x,y+6*p,12*p,p);
-  ctx.fillStyle='#805010'; ctx.fillRect(x+p,y+7*p,10*p,p);
-  ctx.fillStyle='#604008'; ctx.fillRect(x+2*p,y+8*p,8*p,p);
-  ctx.fillStyle='#6a4010'; ctx.fillRect(x+5*p,y,p,7*p);
-  ctx.fillStyle='#f0ead8'; ctx.fillRect(x+3*p,y+p,4*p,5*p);
-  ctx.fillStyle='#d04040'; ctx.fillRect(x+6*p,y,2*p,p);
-  ctx.fillStyle='rgba(200,230,255,0.5)';
-  ctx.fillRect(x-p,y+7*p,p,p); ctx.fillRect(x+12*p,y+7*p,p,p);
+  // Large enough to be clearly visible against scene backgrounds
+  const p=px*2, x=cx-8*p, y=cy-10*p;
+  // Hull — dark shadow first for depth
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.fillRect(x+p+2,y+5*p+2,14*p,4*p);
+  // Hull planks
+  ctx.fillStyle='#c89820'; ctx.fillRect(x+p,  y+5*p, 14*p, 2*p);
+  ctx.fillStyle='#a07010'; ctx.fillRect(x,     y+6*p, 16*p, p);
+  ctx.fillStyle='#805010'; ctx.fillRect(x+p,   y+7*p, 14*p, p);
+  ctx.fillStyle='#604008'; ctx.fillRect(x+2*p, y+8*p, 12*p, p);
+  // Keel curve
+  ctx.fillStyle='#402000'; ctx.fillRect(x+3*p, y+9*p, 10*p, p);
+  // Mast
+  ctx.fillStyle='#6a4010'; ctx.fillRect(x+7*p, y-2*p, p*2, 12*p);
+  // Sail — large and bright so it reads clearly
+  ctx.fillStyle='#f0ead8'; ctx.fillRect(x+4*p, y,     6*p, 8*p);
+  ctx.fillStyle='#d8d2c0'; ctx.fillRect(x+4*p, y+p,   3*p, 3*p);
+  ctx.fillStyle='#c0b8a8'; ctx.fillRect(x+4*p, y+5*p, 3*p, 2*p);
+  // Flag
+  ctx.fillStyle='#d04040'; ctx.fillRect(x+9*p, y-2*p, 3*p, 2*p);
+  // Wake
+  ctx.fillStyle='rgba(200,230,255,0.7)';
+  ctx.fillRect(x-2*p, y+7*p, 2*p, p);
+  ctx.fillRect(x+16*p,y+7*p, 2*p, p);
+  ctx.fillRect(x-3*p, y+8*p, 2*p, p);
+  ctx.fillRect(x+17*p,y+8*p, 2*p, p);
 }
 
 function _drawCodedBackground(ctx,W,H,tr){
