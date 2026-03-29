@@ -2000,7 +2000,7 @@ function runTransitionFrame(){
 // ═══════════════════════════════════════════════════
 // TRANSITION IMAGE SYSTEM
 // ═══════════════════════════════════════════════════
-const TRANSITION_BASE_URL = 'https://odyssey-game-production.up.railway.app/images/heroic/voyage_log/transitions/';
+const TRANSITION_BASE_URL = '/images/heroic/voyage_log/transitions/';
 
 const TR_IMAGES = {};
 const TR_IMAGE_KEYS = [
@@ -2122,16 +2122,12 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
     ctx.globalAlpha=1;
   }
 
-  // Ship — ALWAYS draw for debugging (ignoring noShip temporarily)
-  const shipX=Math.floor(W*0.1+progress*W*0.8);
-  const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
-  const shipY=Math.floor(H*0.62)+bobY;
-  // DEBUG: bright red marker so we know the draw code runs
-  ctx.fillStyle='#ff0000';
-  ctx.fillRect(shipX-20, shipY-20, 40, 40);
-  // Draw coded ship on top
-  const px=Math.max(4, Math.round(W/120));
-  _drawCodedShip(ctx,shipX,shipY,px);
+  // Ship
+  if(!tr.noShip){
+    const shipX=Math.floor(W*0.1+progress*W*0.8);
+    const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
+    _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
+  }
 
   // Progress bar
   if(progress<0.95){
@@ -2153,31 +2149,35 @@ function drawTransitionAnchored(ctx, W, H, tr){
     _drawCodedBackground(ctx,W,H,tr);
   }
 
-  // Ship — ALWAYS draw for debugging (ignoring noShip temporarily)
-  const shipX=Math.floor(W*0.28);
-  const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
-  const waterlineY=Math.floor(H*0.62)+bobY;
-  // DEBUG: bright red marker
-  ctx.fillStyle='#ff0000';
-  ctx.fillRect(shipX-20, waterlineY-20, 40, 40);
-  // Draw coded ship
-  const px_ship=Math.max(4, Math.round(W/120));
-  _drawCodedShip(ctx,shipX,waterlineY,px_ship);
-  // Anchor line
-  const px=Math.max(2,Math.floor(W/160));
-  ctx.strokeStyle='rgba(200,160,80,0.5)';
-  ctx.lineWidth=px;
-  ctx.setLineDash([px*2,px*2]);
-  ctx.beginPath();
-  ctx.moveTo(shipX,waterlineY+px*4);
-  ctx.lineTo(shipX,Math.floor(H*0.85));
-  ctx.stroke();
-  ctx.setLineDash([]);
+  if(!tr.noShip){
+    const shipX=Math.floor(W*0.28);
+    const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
+    const waterlineY=Math.floor(H*0.62)+bobY;
+    _drawArgoSprite(ctx,shipX,waterlineY,W);
+    const px=Math.max(2,Math.floor(W/160));
+    ctx.strokeStyle='rgba(200,160,80,0.5)';
+    ctx.lineWidth=px;
+    ctx.setLineDash([px*2,px*2]);
+    ctx.beginPath();
+    ctx.moveTo(shipX,waterlineY+px*4);
+    ctx.lineTo(shipX,Math.floor(H*0.85));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 }
 
 function _drawArgoSprite(ctx,cx,cy,W){
-  // Use coded pixel ship — sprite processing disabled due to CORS taint on Railway static files
-  // TODO: revisit sprite approach after configuring Railway CORS headers
+  const sprite=processArgoSprite();
+  if(sprite){
+    // Scale to roughly 10% of canvas width
+    const targetW=Math.max(80, Math.round(W*0.1));
+    const scale=targetW/sprite.width;
+    const sw=Math.round(sprite.width*scale);
+    const sh=Math.round(sprite.height*scale);
+    ctx.drawImage(sprite,Math.round(cx-sw/2),Math.round(cy-sh*0.7),sw,sh);
+    return;
+  }
+  // Coded fallback if sprite processing fails
   const px=Math.max(4, Math.round(W/120));
   _drawCodedShip(ctx,cx,cy,px);
 }
