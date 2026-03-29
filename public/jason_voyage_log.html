@@ -2123,7 +2123,7 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   // Ship
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.8 - progress*W*0.6);
+    const shipX=Math.floor(W*0.2 + progress*W*0.4);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
   }
@@ -2149,7 +2149,7 @@ function drawTransitionAnchored(ctx, W, H, tr){
   }
 
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.20);
+    const shipX=Math.floor(W*0.60);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     const waterlineY=Math.floor(H*0.62)+bobY;
     _drawArgoSprite(ctx,shipX,waterlineY,W);
