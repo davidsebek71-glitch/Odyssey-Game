@@ -271,7 +271,7 @@ body {
 #panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1.2rem 1.3rem;
+  padding: 1rem;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -352,8 +352,8 @@ body {
 .interaction-box {
   background: var(--bg);
   border: 2px solid var(--border2);
-  padding: 1rem 1.1rem;
-  margin-bottom: 1.2rem;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
 }
 .prompt-text {
   font-family: var(--serif);
@@ -552,7 +552,7 @@ body {
 }
 .drop-zone .dz-label {
   font-family: var(--pixel);
-  font-size: 7px;
+  font-size: 5px;
   margin-bottom: 4px;
   letter-spacing: 0.06em;
 }
@@ -596,11 +596,11 @@ body {
 
 .pixel-btn-outline {
   font-family: var(--pixel);
-  font-size: 9px;
+  font-size: 7px;
   background: transparent;
   color: var(--gold2);
   border: 2px solid var(--gold2);
-  padding: 7px 12px;
+  padding: 5px 10px;
   cursor: pointer;
   transition: all 0.1s;
   white-space: nowrap;
@@ -613,8 +613,8 @@ body {
   display: none;
   background: rgba(20,30,80,0.4);
   border: 2px solid var(--blue);
-  padding: 1rem;
-  margin-bottom: 1.2rem;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
   animation: fadeIn 0.3s ease;
 }
 .athena-panel.show { display: block; }
@@ -1139,10 +1139,10 @@ body {
 
 .captain-msg {
   font-family: var(--pixel);
-  font-size: clamp(8px, 1.8vw, 12px);
+  font-size: clamp(7px, 1.5vw, 10px);
   color: var(--text2);
   text-align: center;
-  line-height: 2.2;
+  line-height: 2;
   letter-spacing: 0.04em;
 }
 
@@ -1574,11 +1574,11 @@ body {
       <label>CLASS PERIOD</label>
       <select id="inp-period">
         <option value="">— Select —</option>
-        <option>Period 1</option>
-        <option>Period 2</option>
-        <option>Period 3</option>
-        <option>Period 4</option>
-        <option>Test</option>
+        <option value="1st">Period 1</option>
+        <option value="2nd">Period 2</option>
+        <option value="3rd">Period 3</option>
+        <option value="4th">Period 4</option>
+        <option value="Test">Test</option>
       </select>
     </div>
     <div class="field">
@@ -2122,11 +2122,27 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
     ctx.globalAlpha=1;
   }
 
-  // Ship — travels left-to-right across the three scenes
+  // Ship — position depends on which background phase is showing
+  // Departure scenes have dock/land on LEFT, water on RIGHT → ship at ~60%
+  // Open water → ship roughly centered at ~48%
+  // Arrival scenes have land/features on RIGHT, water on LEFT → ship at ~35%
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.18 + progress*W*0.64);
-    const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
-    _drawArgoSprite(ctx,shipX,Math.floor(H*0.72)+bobY,W);
+    let shipX;
+    if(progress < 0.35){
+      // Departure phase: start at 60%, drift right toward 68% as ship leaves harbor
+      const phase = progress / 0.35; // 0→1 within departure
+      shipX = Math.floor(W * (0.60 + phase * 0.08));
+    } else if(progress < 0.65){
+      // Open water phase: drift from 55% to 42% (crossing the sea)
+      const phase = (progress - 0.35) / 0.30; // 0→1 within open water
+      shipX = Math.floor(W * (0.55 - phase * 0.13));
+    } else {
+      // Arrival phase: approach from 40% toward 30% (nearing shore on right)
+      const phase = (progress - 0.65) / 0.35; // 0→1 within arrival
+      shipX = Math.floor(W * (0.40 - phase * 0.10));
+    }
+    const bobY = Math.floor(Math.sin(transitionState.bobTimer) * 3);
+    _drawArgoSprite(ctx, shipX, Math.floor(H * 0.72) + bobY, W);
   }
 
   // Progress bar
@@ -2150,7 +2166,7 @@ function drawTransitionAnchored(ctx, W, H, tr){
   }
 
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.75);
+    const shipX=Math.floor(W*0.30);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     const waterlineY=Math.floor(H*0.72)+bobY;
     _drawArgoSprite(ctx,shipX,waterlineY,W);
@@ -2368,7 +2384,7 @@ function endCrawl(){
   document.getElementById('app').style.display='flex';
   document.getElementById('app').style.flexDirection='column';
   document.getElementById('app').style.height='100vh';
-  document.getElementById('tb-student').textContent=student.name+' · '+student.period;
+  document.getElementById('tb-student').textContent=student.name+' · '+(student.periodDisplay||student.period);
   buildProgress();
   buildTeacherUnlockGrid();
   initMap();
@@ -2842,9 +2858,11 @@ let teacherUnlocked=false;
 function beginVoyage(){
   const n=document.getElementById('inp-name').value.trim();
   const p=document.getElementById('inp-period').value;
+  const sel=document.getElementById('inp-period');
+  const pDisplay=sel.options[sel.selectedIndex].textContent;
   const a=document.getElementById('inp-alliance').value.trim();
   if(!n||!p){alert('Please enter your name and select your class period.');return;}
-  student={name:n,period:p,alliance:a||'Independent'};
+  student={name:n,period:p,periodDisplay:pDisplay,alliance:a||'Independent'};
   document.getElementById('splash').style.display='none';
   startCrawl();
 }
@@ -3716,8 +3734,9 @@ function submitWrite(i){
     showAthenaResult(i,result);
     state.scores[i]=result.pts;
     state.feedback[i]=result;
+    state.completed[i]=true;
     updateScore();
-    showReviseBar(i);
+    showCompleteBar(i);
   },1800+Math.random()*800);
 }
 
@@ -3950,12 +3969,8 @@ function restoreStopState(i){
   showAthenaResult(i,state.feedback[i]);
   const panel=document.getElementById('athena-panel-'+i);
   if(panel)panel.classList.add('show');
-  // If completed or revision already used → show complete bar
-  // If score exists but revision NOT used → show revise bar so student can still revise
-  if(state.completed[i]||state.reviseUsed[i]){
+  if(state.completed[i]||state.scores[i]!==undefined){
     showCompleteBar(i);
-  } else if(state.scores[i]!==undefined){
-    showReviseBar(i);
   }
 }
 function restorePredState(i){
@@ -4036,7 +4051,7 @@ function showResults(){
   const code=tier+'-'+hash;
 
   document.getElementById('r-rank-title').textContent=rank.title;
-  document.getElementById('r-name-line').textContent=student.name+' · '+student.period+' · '+student.alliance;
+  document.getElementById('r-name-line').textContent=student.name+' · '+(student.periodDisplay||student.period)+' · '+student.alliance;
   document.getElementById('r-quote').textContent='"'+rank.quote+'"';
   document.getElementById('r-code').textContent=code;
   document.getElementById('r-score-grid').innerHTML=`
@@ -4199,7 +4214,7 @@ function printLog(){
       <h1>⚓ The Voyage Log — Jason &amp; the Argonauts</h1>
       <div class="po-meta">
         <span><strong>Name:</strong> ${student.name}</span>
-        <span><strong>Period:</strong> ${student.period}</span>
+        <span><strong>Period:</strong> ${student.periodDisplay||student.period}</span>
         <span><strong>Alliance:</strong> ${student.alliance}</span>
         <span><strong>Date:</strong> ${today}</span>
         <span><strong>Rank:</strong> ${rank.title}</span>

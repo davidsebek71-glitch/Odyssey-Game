@@ -13467,7 +13467,6 @@ app.get('/api/voyage-log/status/:period', authenticateToken, (req, res) => {
     );
 
     // Count students in this period for completion percentage
-    // Try with is_ghost filter first, fall back without it
     let studentCount = 0;
     try {
       const totalStudents = query(
@@ -13477,11 +13476,15 @@ app.get('/api/voyage-log/status/:period', authenticateToken, (req, res) => {
       studentCount = (totalStudents[0] && totalStudents[0].cnt) || 0;
     } catch (countErr) {
       // is_ghost column may not exist — try without it
-      const totalStudents = query(
-        'SELECT COUNT(*) as cnt FROM students WHERE class_period = ?',
-        [period]
-      );
-      studentCount = (totalStudents[0] && totalStudents[0].cnt) || 0;
+      try {
+        const totalStudents = query(
+          'SELECT COUNT(*) as cnt FROM students WHERE class_period = ?',
+          [period]
+        );
+        studentCount = (totalStudents[0] && totalStudents[0].cnt) || 0;
+      } catch (e) {
+        studentCount = 0;
+      }
     }
 
     res.json({
