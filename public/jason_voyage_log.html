@@ -248,22 +248,22 @@ body {
 }
 #panel-header .stop-num-badge {
   font-family: var(--pixel);
-  font-size: 8px;
+  font-size: 10px;
   display: inline-block;
-  padding: 3px 8px;
-  margin-bottom: 6px;
+  padding: 4px 10px;
+  margin-bottom: 8px;
 }
 #panel-header h2 {
   font-family: var(--pixel);
-  font-size: clamp(8px, 1.5vw, 11px);
+  font-size: clamp(10px, 2vw, 14px);
   color: var(--gold);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   line-height: 1.6;
   text-shadow: 2px 2px 0 var(--gold3);
 }
 #panel-header .stop-time {
   font-family: var(--pixel);
-  font-size: 6px;
+  font-size: 8px;
   color: var(--text2);
 }
 
@@ -271,7 +271,7 @@ body {
 #panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 1.2rem 1.3rem;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -312,28 +312,28 @@ body {
 /* ── PANEL SECTIONS ────────────────────────── */
 .section-label {
   font-family: var(--pixel);
-  font-size: 6px;
+  font-size: 9px;
   color: var(--text2);
   letter-spacing: 0.08em;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   text-transform: uppercase;
 }
 .brief-box {
   background: var(--bg2);
   border: 2px solid var(--border);
-  padding: 0.8rem;
-  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.2rem;
   font-family: var(--serif);
-  font-size: 0.9rem;
-  line-height: 1.7;
+  font-size: 1.05rem;
+  line-height: 1.8;
   color: var(--text);
 }
 .type-tag {
   display: inline-block;
   font-family: var(--pixel);
-  font-size: 6px;
-  padding: 3px 7px;
-  margin-bottom: 0.6rem;
+  font-size: 8px;
+  padding: 4px 9px;
+  margin-bottom: 0.7rem;
   border: 2px solid;
 }
 .tag-betrayal { color: #ff8080; border-color: #d04040; background: rgba(208,64,64,0.1); }
@@ -352,29 +352,29 @@ body {
 .interaction-box {
   background: var(--bg);
   border: 2px solid var(--border2);
-  padding: 0.8rem;
-  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.2rem;
 }
 .prompt-text {
   font-family: var(--serif);
   font-style: italic;
-  font-size: 0.92rem;
-  line-height: 1.7;
+  font-size: 1.05rem;
+  line-height: 1.8;
   color: #d0c8b0;
-  margin-bottom: 0.8rem;
+  margin-bottom: 1rem;
 }
 
 /* Written response */
 .response-area {
   width: 100%;
-  min-height: 110px;
+  min-height: 120px;
   background: #06060f;
   border: 2px solid var(--border);
-  padding: 0.6rem 0.8rem;
+  padding: 0.8rem 1rem;
   color: var(--text);
   font-family: var(--serif);
-  font-size: 0.92rem;
-  line-height: 1.65;
+  font-size: 1.05rem;
+  line-height: 1.75;
   resize: vertical;
   outline: none;
   transition: border-color 0.2s;
@@ -383,26 +383,26 @@ body {
 .response-area:disabled { background: #0c0c20; color: var(--text2); cursor: not-allowed; }
 .wc-bar {
   font-family: var(--pixel);
-  font-size: 6px;
+  font-size: 8px;
   color: var(--text2);
   text-align: right;
-  margin-top: 4px;
-  margin-bottom: 8px;
+  margin-top: 6px;
+  margin-bottom: 10px;
 }
 .wc-bar.good { color: var(--teal); }
 
 /* Predictions */
 .pred-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.8rem; }
 .pred-opt {
-  padding: 0.6rem 0.8rem;
+  padding: 0.8rem 1rem;
   background: var(--bg2);
   border: 2px solid var(--border);
   color: var(--text);
   font-family: var(--serif);
-  font-size: 0.9rem;
+  font-size: 1.02rem;
   cursor: pointer;
   text-align: left;
-  line-height: 1.5;
+  line-height: 1.6;
   transition: border-color 0.15s;
 }
 .pred-opt:hover:not(:disabled) { border-color: var(--gold2); background: #1e1e38; }
@@ -428,23 +428,23 @@ body {
   display: none;
   background: rgba(240,192,64,0.07);
   border-left: 3px solid var(--gold2);
-  padding: 0.6rem 0.8rem;
+  padding: 0.8rem 1rem;
   font-family: var(--serif);
   font-style: italic;
-  font-size: 0.88rem;
+  font-size: 1rem;
   color: #c8b870;
-  line-height: 1.65;
+  line-height: 1.75;
   margin-top: 0.5rem;
 }
 .pred-insight {
   display: none;
   background: rgba(64,128,208,0.07);
   border-left: 3px solid var(--blue2);
-  padding: 0.4rem 0.8rem;
+  padding: 0.6rem 1rem;
   font-family: var(--serif);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: #80a8d8;
-  line-height: 1.6;
+  line-height: 1.7;
   margin-top: 0.3rem;
   font-style: italic;
 }
@@ -453,26 +453,26 @@ body {
 .mc-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.8rem; }
 .mc-opt {
   display: flex; align-items: flex-start; gap: 0.7rem;
-  padding: 0.6rem 0.8rem;
+  padding: 0.8rem 1rem;
   background: var(--bg2);
   border: 2px solid var(--border);
   color: var(--text);
   font-family: var(--serif);
-  font-size: 0.9rem;
+  font-size: 1.02rem;
   cursor: pointer;
   text-align: left;
-  line-height: 1.55;
+  line-height: 1.65;
   transition: border-color 0.15s, background 0.15s;
   width: 100%;
 }
 .mc-opt:hover:not(:disabled) { border-color: var(--gold2); background: #1e1e38; }
 .mc-opt .mc-letter {
   font-family: var(--pixel);
-  font-size: 7px;
+  font-size: 9px;
   color: var(--gold2);
   flex-shrink: 0;
-  margin-top: 3px;
-  min-width: 14px;
+  margin-top: 4px;
+  min-width: 16px;
 }
 .mc-opt.correct  { border-color: var(--green); background: rgba(64,176,80,0.12); }
 .mc-opt.correct .mc-letter { color: var(--green); }
@@ -484,35 +484,35 @@ body {
   display: none;
   background: rgba(64,176,80,0.07);
   border-left: 3px solid var(--green2);
-  padding: 0.6rem 0.8rem;
+  padding: 0.8rem 1rem;
   font-family: var(--serif);
   font-style: italic;
-  font-size: 0.88rem;
+  font-size: 1rem;
   color: #90d090;
-  line-height: 1.65;
+  line-height: 1.75;
   margin-top: 0.5rem;
 }
 .mc-wrong-reveal {
   display: none;
   background: rgba(208,64,64,0.07);
   border-left: 3px solid var(--red2);
-  padding: 0.6rem 0.8rem;
+  padding: 0.8rem 1rem;
   font-family: var(--serif);
-  font-size: 0.88rem;
+  font-size: 1rem;
   color: #ffa0a0;
-  line-height: 1.65;
+  line-height: 1.75;
   margin-top: 0.5rem;
 }
 .mc-why {
   display: none;
   background: rgba(64,128,208,0.08);
   border-left: 3px solid var(--blue2);
-  padding: 0.6rem 0.8rem;
+  padding: 0.8rem 1rem;
   font-family: var(--serif);
   font-style: italic;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: #90b8e8;
-  line-height: 1.65;
+  line-height: 1.75;
   margin-top: 0.4rem;
 }
 
@@ -526,11 +526,11 @@ body {
   margin-bottom: 0.6rem;
 }
 .drag-char {
-  padding: 4px 10px;
+  padding: 6px 12px;
   background: var(--bg);
   border: 2px solid var(--border2);
   font-family: var(--serif);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   cursor: grab;
   user-select: none;
   transition: border-color 0.15s;
@@ -552,7 +552,7 @@ body {
 }
 .drop-zone .dz-label {
   font-family: var(--pixel);
-  font-size: 5px;
+  font-size: 7px;
   margin-bottom: 4px;
   letter-spacing: 0.06em;
 }
@@ -571,7 +571,7 @@ body {
 }
 .act-hint {
   font-family: var(--pixel);
-  font-size: 6px;
+  font-size: 8px;
   color: var(--text2);
   flex: 1;
   line-height: 1.8;
@@ -580,11 +580,11 @@ body {
 /* Small pixel button variant */
 .pixel-btn-sm {
   font-family: var(--pixel);
-  font-size: 7px;
+  font-size: 9px;
   background: var(--gold2);
   color: #000;
   border: 2px solid var(--gold);
-  padding: 6px 12px;
+  padding: 8px 14px;
   cursor: pointer;
   box-shadow: 2px 2px 0 var(--gold3);
   transition: all 0.1s;
@@ -596,11 +596,11 @@ body {
 
 .pixel-btn-outline {
   font-family: var(--pixel);
-  font-size: 7px;
+  font-size: 9px;
   background: transparent;
   color: var(--gold2);
   border: 2px solid var(--gold2);
-  padding: 5px 10px;
+  padding: 7px 12px;
   cursor: pointer;
   transition: all 0.1s;
   white-space: nowrap;
@@ -613,8 +613,8 @@ body {
   display: none;
   background: rgba(20,30,80,0.4);
   border: 2px solid var(--blue);
-  padding: 0.8rem;
-  margin-bottom: 1rem;
+  padding: 1rem;
+  margin-bottom: 1.2rem;
   animation: fadeIn 0.3s ease;
 }
 .athena-panel.show { display: block; }
@@ -631,21 +631,21 @@ body {
 }
 .athena-lbl {
   font-family: var(--pixel);
-  font-size: 6px;
+  font-size: 8px;
   color: var(--blue);
   flex: 1;
 }
 .star-row { display: flex; gap: 3px; }
-.star-row span { font-size: 14px; color: #404060; transition: color 0.3s; }
+.star-row span { font-size: 16px; color: #404060; transition: color 0.3s; }
 .star-row span.lit { color: var(--gold); text-shadow: 0 0 6px var(--gold2); }
 .athena-msg {
   font-family: var(--serif);
   font-style: italic;
-  font-size: 0.9rem;
-  line-height: 1.75;
+  font-size: 1.02rem;
+  line-height: 1.8;
   color: #a0c0e8;
   border-left: 3px solid var(--blue2);
-  padding-left: 0.7rem;
+  padding-left: 0.8rem;
   min-height: 40px;
 }
 .thinking-dots span {
@@ -663,7 +663,7 @@ body {
 }
 .revise-hint {
   font-family: var(--pixel);
-  font-size: 5px;
+  font-size: 7px;
   color: var(--text2);
   flex: 1;
   line-height: 1.9;
@@ -683,7 +683,7 @@ body {
 .complete-bar.show { display: flex; }
 .pts-earned {
   font-family: var(--pixel);
-  font-size: 7px;
+  font-size: 9px;
   color: var(--gold);
 }
 
@@ -1139,10 +1139,10 @@ body {
 
 .captain-msg {
   font-family: var(--pixel);
-  font-size: clamp(7px, 1.5vw, 10px);
+  font-size: clamp(8px, 1.8vw, 12px);
   color: var(--text2);
   text-align: center;
-  line-height: 2;
+  line-height: 2.2;
   letter-spacing: 0.04em;
 }
 
@@ -2122,11 +2122,11 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
     ctx.globalAlpha=1;
   }
 
-  // Ship
+  // Ship — travels left-to-right across the three scenes
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.5);
+    const shipX=Math.floor(W*0.18 + progress*W*0.64);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
-    _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
+    _drawArgoSprite(ctx,shipX,Math.floor(H*0.72)+bobY,W);
   }
 
   // Progress bar
@@ -2150,9 +2150,9 @@ function drawTransitionAnchored(ctx, W, H, tr){
   }
 
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.25);
+    const shipX=Math.floor(W*0.75);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
-    const waterlineY=Math.floor(H*0.62)+bobY;
+    const waterlineY=Math.floor(H*0.72)+bobY;
     _drawArgoSprite(ctx,shipX,waterlineY,W);
   }
 }
@@ -3950,8 +3950,12 @@ function restoreStopState(i){
   showAthenaResult(i,state.feedback[i]);
   const panel=document.getElementById('athena-panel-'+i);
   if(panel)panel.classList.add('show');
-  if(state.completed[i]||state.scores[i]!==undefined){
+  // If completed or revision already used → show complete bar
+  // If score exists but revision NOT used → show revise bar so student can still revise
+  if(state.completed[i]||state.reviseUsed[i]){
     showCompleteBar(i);
+  } else if(state.scores[i]!==undefined){
+    showReviseBar(i);
   }
 }
 function restorePredState(i){
