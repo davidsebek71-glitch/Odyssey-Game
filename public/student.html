@@ -3658,6 +3658,14 @@
             const urlParams = new URLSearchParams(window.location.search);
             const viewOverride = urlParams.get('view');
             const actualAge = student.current_age || 'Archaic';
+
+            // Heroic Age students go directly to the voyage log
+            // unless they explicitly requested the classical view via ?view=classical
+            if (actualAge === 'Heroic' && viewOverride !== 'classical') {
+                window.location.href = '/jason_voyage_log.html';
+                return;
+            }
+
             const isClassicalPlayer = actualAge === 'Classical' || actualAge === 'Heroic';
             const showClassicalView = isClassicalPlayer && viewOverride !== 'archaic';
             
