@@ -2035,7 +2035,7 @@ function preloadTransitionImages(){
   });
 }
 
-// Process ship sprite — strip magenta (#ff00ff) background
+// Process ship sprite — strip white background, preserve sail (#f0ead8)
 let argoCanvas=null;
 let argoProcessed=false;
 function processArgoSprite(){
@@ -2061,18 +2061,18 @@ function processArgoSprite(){
       img2.src=src.src+'?cb='+Date.now();
       return null;
     }
-    // Step 2: remove white background
-    // White background pixels: R>230 && G>230 && B>230
-    // This also catches near-white anti-aliased edge pixels
+    // Step 2: remove white background, preserving sail (~#f0ead8 = R240 G234 B216)
+    // Hard remove only pure white (all channels > 240)
+    // Fade anti-aliased edges where all channels > 220
     const d=id.data;
     let removed=0;
     for(let i=0;i<d.length;i+=4){
       const r=d[i],g=d[i+1],b=d[i+2];
-      if(r>230&&g>230&&b>230){
+      if(r>240&&g>240&&b>240){
         d[i+3]=0; removed++;
-      } else if(r>200&&g>200&&b>200){
-        // Semi-transparent for anti-aliased edges
-        d[i+3]=Math.round(d[i+3]*((255-r)/55));
+      } else if(r>220&&g>220&&b>220){
+        // Semi-transparent for anti-aliased edges near pure white
+        d[i+3]=Math.round(d[i+3]*((255-r)/35));
       }
     }
     tctx.putImageData(id,0,0);
