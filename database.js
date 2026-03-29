@@ -1979,8 +1979,52 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: V97 game quest seeding -', e.message);
   }
-  
-  // ==================== CLASSICAL AGE SEED DATA ====================
+
+  // ==================== V98: VOYAGE LOG COMPLETIONS ====================
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS voyage_log_completions (
+        completion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_name TEXT NOT NULL,
+        class_period TEXT NOT NULL,
+        alliance_name TEXT,
+        crew_code TEXT,
+        rank_tier TEXT,
+        total_score INTEGER DEFAULT 0,
+        stop_scores TEXT DEFAULT '{}',
+        medea_response TEXT,
+        completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        override_by_teacher INTEGER DEFAULT 0
+      )
+    `);
+    console.log('✅ V98: voyage_log_completions table ready');
+  } catch (e) {
+    console.log('Migration note: V98 voyage_log_completions -', e.message);
+  }
+
+  // V98: Add voyage log columns to students table
+  try {
+    db.run("ALTER TABLE students ADD COLUMN voyage_log_completed INTEGER DEFAULT 0");
+  } catch(e) {}
+  try {
+    db.run("ALTER TABLE students ADD COLUMN voyage_crew_code TEXT DEFAULT NULL");
+  } catch(e) {}
+  try {
+    db.run("ALTER TABLE students ADD COLUMN voyage_rank_tier TEXT DEFAULT NULL");
+  } catch(e) {}
+  try {
+    db.run("ALTER TABLE students ADD COLUMN voyage_lore_bonus INTEGER DEFAULT 0");
+  } catch(e) {}
+  try {
+    db.run("ALTER TABLE students ADD COLUMN voyage_drachma_bonus INTEGER DEFAULT 0");
+  } catch(e) {}
+  try {
+    db.run("ALTER TABLE students ADD COLUMN voyage_hera_start INTEGER DEFAULT 10");
+  } catch(e) {}
+  try {
+    db.run("ALTER TABLE students ADD COLUMN voyage_guide_unlocked INTEGER DEFAULT 0");
+  } catch(e) {}
+  console.log('✅ V98: Voyage log student columns ready');
   // Always run Classical seeding — it has its own internal guards
   // This must be ABOVE the early return so it runs even when Archaic data exists
   seedClassicalData();

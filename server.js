@@ -13358,6 +13358,213 @@ app.post('/api/admin/repair-alliance', authenticateToken, (req, res) => {
   }
 });
 
+// ============================================================
+// VOYAGE LOG ENDPOINTS — Jason & the Argonauts Viewing Guide
+// ============================================================
+
+// POST /api/voyage-log/submit
+// Called from jason_voyage_log_v9.html when student completes the log
+// No JWT auth — standalone HTML outside the main student login
+app.post('/api/voyage-log/submit', (req, res) => {
+  try {
+    const {
+      student_name, class_period, alliance_name,
+      crew_code, rank_tier, total_score,
+      stop_scores, medea_response
+    } = req.body;
+
+    if (!student_name || !class_period) {
+      return res.status(400).json({ error: 'student_name and class_period required' });
+    }
+
+    // Upsert — if student already submitted, update their record
+    const existing = query(
+      'SELECT completion_id FROM voyage_log_completions WHERE student_name = ? AND class_period = ?',
+      [student_name, class_period]
+    );
+
+    if (existing.length > 0) {
+      run(
+        `UPDATE voyage_log_completions SET
+          alliance_name=?, crew_code=?, rank_tier=?, total_score=?,
+          stop_scores=?, medea_response=?, completed_at=CURRENT_TIMESTAMP
+         WHERE student_name=? AND class_period=?`,
+        [
+          alliance_name || null, crew_code || null, rank_tier || null,
+          total_score || 0, JSON.stringify(stop_scores || {}),
+          medea_response || null, student_name, class_period
+        ]
+      );
+    } else {
+      run(
+        `INSERT INTO voyage_log_completions
+          (student_name, class_period, alliance_name, crew_code, rank_tier, total_score, stop_scores, medea_response)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          student_name, class_period, alliance_name || null,
+          crew_code || null, rank_tier || null, total_score || 0,
+          JSON.stringify(stop_scores || {}), medea_response || null
+        ]
+      );
+    }
+
+    // Also update the matching student record if found (links voyage log to main game)
+    const tierRewards = {
+      OAR: { drachma: 0,   lore: 0, hera: 10, guide: 0 },
+      NAV: { drachma: 25,  lore: 1, hera: 10, guide: 0 },
+      FM:  { drachma: 50,  lore: 2, hera: 12, guide: 1 },
+      ARG: { drachma: 75,  lore: 3, hera: 15, guide: 1 },
+      HOA: { drachma: 100, lore: 5, hera: 15, guide: 1 }
+    };
+    const tier = (rank_tier || 'OAR').toUpperCase();
+    const rewards = tierRewards[tier] || tierRewards.OAR;
+
+    const students = query(
+      'SELECT student_id FROM students WHERE name = ? AND class_period = ?',
+      [student_name, class_period]
+    );
+
+    if (students.length > 0) {
+      run(
+        `UPDATE students SET
+          voyage_log_completed=1, voyage_crew_code=?, voyage_rank_tier=?,
+          voyage_lore_bonus=?, voyage_drachma_bonus=?,
+          voyage_hera_start=?, voyage_guide_unlocked=?
+         WHERE student_id=?`,
+        [
+          crew_code || null, tier,
+          rewards.lore, rewards.drachma,
+          rewards.hera, rewards.guide,
+          students[0].student_id
+        ]
+      );
+    }
+
+    saveDatabase();
+    console.log(`⚓ Voyage log submitted: ${student_name} (${class_period}) — ${rank_tier} — ${total_score} pts`);
+    res.json({ success: true, crew_code, rank_tier, rewards });
+
+  } catch (err) {
+    console.error('Voyage log submit error:', err);
+    res.status(500).json({ error: 'Failed to save voyage log' });
+  }
+});
+
+// GET /api/voyage-log/status/:period
+// Teacher dashboard — see all completions for a period
+app.get('/api/voyage-log/status/:period', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { period } = req.params;
+
+    const completions = query(
+      `SELECT student_name, alliance_name, crew_code, rank_tier,
+              total_score, completed_at, override_by_teacher
+       FROM voyage_log_completions
+       WHERE class_period = ?
+       ORDER BY total_score DESC`,
+      [period]
+    );
+
+    // Count students in this period for completion percentage
+    const totalStudents = query(
+      'SELECT COUNT(*) as cnt FROM students WHERE class_period = ? AND is_ghost = 0',
+      [period]
+    );
+
+    res.json({
+      period,
+      completions,
+      total_students: totalStudents[0]?.cnt || 0,
+      completed_count: completions.length
+    });
+
+  } catch (err) {
+    console.error('Voyage log status error:', err);
+    res.status(500).json({ error: 'Failed to load voyage log status' });
+  }
+});
+
+// POST /api/teacher/voyage-log-override
+// Teacher manually sets a crew code for absent/lost-code students
+app.post('/api/teacher/voyage-log-override', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { student_name, class_period, rank_tier } = req.body;
+
+    if (!student_name || !class_period || !rank_tier) {
+      return res.status(400).json({ error: 'student_name, class_period, rank_tier required' });
+    }
+
+    const validTiers = ['OAR','NAV','FM','ARG','HOA'];
+    if (!validTiers.includes(rank_tier.toUpperCase())) {
+      return res.status(400).json({ error: 'rank_tier must be OAR, NAV, FM, ARG, or HOA' });
+    }
+
+    const tier = rank_tier.toUpperCase();
+    // Generate a deterministic override code
+    const hash = String(Math.floor(Math.random() * 900) + 100);
+    const crew_code = tier + '-' + hash;
+
+    // Upsert into completions
+    const existing = query(
+      'SELECT completion_id FROM voyage_log_completions WHERE student_name=? AND class_period=?',
+      [student_name, class_period]
+    );
+
+    if (existing.length > 0) {
+      run(
+        `UPDATE voyage_log_completions SET
+          crew_code=?, rank_tier=?, override_by_teacher=1, completed_at=CURRENT_TIMESTAMP
+         WHERE student_name=? AND class_period=?`,
+        [crew_code, tier, student_name, class_period]
+      );
+    } else {
+      run(
+        `INSERT INTO voyage_log_completions
+          (student_name, class_period, crew_code, rank_tier, total_score, override_by_teacher)
+         VALUES (?, ?, ?, ?, 0, 1)`,
+        [student_name, class_period, crew_code, tier]
+      );
+    }
+
+    // Update student record
+    const tierRewards = {
+      OAR: { drachma: 0,   lore: 0, hera: 10, guide: 0 },
+      NAV: { drachma: 25,  lore: 1, hera: 10, guide: 0 },
+      FM:  { drachma: 50,  lore: 2, hera: 12, guide: 1 },
+      ARG: { drachma: 75,  lore: 3, hera: 15, guide: 1 },
+      HOA: { drachma: 100, lore: 5, hera: 15, guide: 1 }
+    };
+    const rewards = tierRewards[tier];
+
+    const students = query(
+      'SELECT student_id FROM students WHERE name=? AND class_period=?',
+      [student_name, class_period]
+    );
+
+    if (students.length > 0) {
+      run(
+        `UPDATE students SET
+          voyage_log_completed=1, voyage_crew_code=?, voyage_rank_tier=?,
+          voyage_lore_bonus=?, voyage_drachma_bonus=?,
+          voyage_hera_start=?, voyage_guide_unlocked=?
+         WHERE student_id=?`,
+        [crew_code, tier, rewards.lore, rewards.drachma,
+         rewards.hera, rewards.guide, students[0].student_id]
+      );
+    }
+
+    saveDatabase();
+    console.log(`⚓ Voyage log override: ${student_name} (${class_period}) set to ${tier} — code: ${crew_code}`);
+    res.json({ success: true, crew_code, rank_tier: tier, rewards });
+
+  } catch (err) {
+    console.error('Voyage log override error:', err);
+    res.status(500).json({ error: 'Failed to set override' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);

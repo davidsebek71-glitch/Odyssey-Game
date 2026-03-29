@@ -948,6 +948,11 @@
                 <div class="title">Myth Progress</div>
                 <div class="description">Approve portal assignments</div>
             </div>
+            <div class="action-card" onclick="openVoyageLogModal()" style="background: linear-gradient(135deg, rgba(20,184,166,0.2), rgba(13,148,136,0.2)); border-color: rgba(20,184,166,0.4);">
+                <div class="icon">⚓</div>
+                <div class="title">Voyage Log</div>
+                <div class="description">Jason film completions</div>
+            </div>
         </div>
 
         <div class="dashboard-grid">
@@ -1549,6 +1554,58 @@
             <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;" id="myth-progress-period-tabs"></div>
             <div id="myth-progress-content" style="color: rgba(255,255,255,0.9);">
                 <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period to view progress</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voyage Log Modal -->
+    <div id="voyage-log-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <span class="close" onclick="document.getElementById('voyage-log-modal').classList.remove('show')">&times;</span>
+            <h2 style="margin-bottom: 6px;">⚓ Voyage Log — Jason &amp; the Argonauts</h2>
+            <p style="color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 16px;">Film viewing guide completions. Students who complete the log receive a Crew Code that seeds their Heroic Age starting resources.</p>
+
+            <!-- Period tabs -->
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+                <button class="period-tab active" onclick="loadVoyageLogPeriod('1st')" id="vl-tab-1st">1st Period</button>
+                <button class="period-tab" onclick="loadVoyageLogPeriod('2nd')" id="vl-tab-2nd">2nd Period</button>
+                <button class="period-tab" onclick="loadVoyageLogPeriod('3rd')" id="vl-tab-3rd">3rd Period</button>
+                <button class="period-tab" onclick="loadVoyageLogPeriod('4th')" id="vl-tab-4th">4th Period</button>
+                <button class="period-tab" onclick="loadVoyageLogPeriod('Test')" id="vl-tab-Test">Test</button>
+            </div>
+
+            <!-- Override form -->
+            <div style="background: rgba(20,184,166,0.08); border: 1px solid rgba(20,184,166,0.3); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 600; color: rgba(20,184,166,0.9); margin-bottom: 10px;">⚓ Teacher Override — Absent / Lost Code</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                    <div>
+                        <label style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">STUDENT NAME</label>
+                        <input type="text" id="vl-override-name" placeholder="Exact name" style="padding: 8px 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 14px; width: 180px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">PERIOD</label>
+                        <select id="vl-override-period" style="padding: 8px 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 14px;">
+                            <option>1st</option><option>2nd</option><option>3rd</option><option>4th</option><option>Test</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">ASSIGN RANK</label>
+                        <select id="vl-override-rank" style="padding: 8px 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 14px;">
+                            <option value="OAR">OAR — Oarsman (standard)</option>
+                            <option value="NAV">NAV — Navigator (+25 Drachma)</option>
+                            <option value="FM">FM — First Mate (+50 Drachma)</option>
+                            <option value="ARG">ARG — Argonaut (+75 Drachma)</option>
+                            <option value="HOA">HOA — Hero of the Argo (+100 Drachma)</option>
+                        </select>
+                    </div>
+                    <button onclick="submitVoyageOverride()" style="padding: 8px 18px; background: rgba(20,184,166,0.3); border: 1px solid rgba(20,184,166,0.6); border-radius: 6px; color: white; cursor: pointer; font-size: 13px;">Set Override</button>
+                </div>
+                <div id="vl-override-result" style="margin-top: 8px; font-size: 12px; color: rgba(20,184,166,0.8); display: none;"></div>
+            </div>
+
+            <!-- Completions table -->
+            <div id="voyage-log-content">
+                <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
             </div>
         </div>
     </div>
@@ -6822,6 +6879,121 @@
                 }
             } catch (err) {
                 alert('Failed to delete student: ' + err.message);
+            }
+        }
+
+        // ══════════════════════════════════════════════
+        // VOYAGE LOG FUNCTIONS
+        // ══════════════════════════════════════════════
+        let currentVoyagePeriod = '1st';
+
+        function openVoyageLogModal() {
+            document.getElementById('voyage-log-modal').classList.add('show');
+            loadVoyageLogPeriod('1st');
+        }
+
+        async function loadVoyageLogPeriod(period) {
+            currentVoyagePeriod = period;
+            // Update tab styles
+            ['1st','2nd','3rd','4th','Test'].forEach(p => {
+                const tab = document.getElementById('vl-tab-' + p);
+                if (tab) tab.classList.toggle('active', p === period);
+            });
+
+            const content = document.getElementById('voyage-log-content');
+            content.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Loading...</p>';
+
+            try {
+                const token = localStorage.getItem('teacherToken');
+                const res = await fetch(`${API_URL}/voyage-log/status/${encodeURIComponent(period)}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+
+                if (!data.completions || data.completions.length === 0) {
+                    content.innerHTML = `
+                        <div style="text-align:center;padding:2rem;color:rgba(255,255,255,0.4)">
+                            <div style="font-size:2rem;margin-bottom:8px">⚓</div>
+                            <div>No completions yet for ${period} Period</div>
+                            <div style="font-size:12px;margin-top:6px">${data.total_students} students in this period</div>
+                        </div>`;
+                    return;
+                }
+
+                const tierColors = {
+                    HOA: '#f97316', ARG: '#f0c040', FM: '#40c0a0',
+                    NAV: '#60a0c0', OAR: '#8080a0'
+                };
+
+                const pct = Math.round((data.completed_count / Math.max(data.total_students, 1)) * 100);
+
+                content.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                        <div style="font-size:13px;color:rgba(255,255,255,0.6)">
+                            <strong style="color:rgba(20,184,166,0.9)">${data.completed_count}</strong> of
+                            <strong>${data.total_students}</strong> students completed
+                            <span style="margin-left:8px;background:rgba(20,184,166,0.15);border:1px solid rgba(20,184,166,0.3);padding:2px 8px;border-radius:4px;font-size:11px">${pct}%</span>
+                        </div>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:0.05em;">
+                                <th style="text-align:left;padding:6px 8px">STUDENT</th>
+                                <th style="text-align:left;padding:6px 8px">ALLIANCE</th>
+                                <th style="text-align:center;padding:6px 8px">RANK</th>
+                                <th style="text-align:center;padding:6px 8px">CREW CODE</th>
+                                <th style="text-align:center;padding:6px 8px">SCORE</th>
+                                <th style="text-align:center;padding:6px 8px">COMPLETED</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.completions.map(c => `
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                                    <td style="padding:7px 8px;color:white">${c.student_name}${c.override_by_teacher ? ' <span style="font-size:10px;color:rgba(20,184,166,0.6)">[override]</span>' : ''}</td>
+                                    <td style="padding:7px 8px;color:rgba(255,255,255,0.6)">${c.alliance_name || '—'}</td>
+                                    <td style="padding:7px 8px;text-align:center">
+                                        <span style="background:rgba(0,0,0,0.3);border:1px solid ${tierColors[c.rank_tier]||'#666'};color:${tierColors[c.rank_tier]||'#aaa'};padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${c.rank_tier || '—'}</span>
+                                    </td>
+                                    <td style="padding:7px 8px;text-align:center;font-family:monospace;font-size:12px;color:rgba(240,192,64,0.8)">${c.crew_code || '—'}</td>
+                                    <td style="padding:7px 8px;text-align:center;color:rgba(255,255,255,0.7)">${c.total_score || 0}</td>
+                                    <td style="padding:7px 8px;text-align:center;color:rgba(255,255,255,0.4);font-size:11px">${c.completed_at ? new Date(c.completed_at).toLocaleDateString() : '—'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>`;
+            } catch (err) {
+                content.innerHTML = `<p style="color:rgba(255,100,100,0.8);text-align:center">Failed to load: ${err.message}</p>`;
+            }
+        }
+
+        async function submitVoyageOverride() {
+            const name = document.getElementById('vl-override-name').value.trim();
+            const period = document.getElementById('vl-override-period').value;
+            const rank = document.getElementById('vl-override-rank').value;
+            const resultEl = document.getElementById('vl-override-result');
+
+            if (!name) { alert('Enter the student name exactly as it appears in the game.'); return; }
+
+            try {
+                const token = localStorage.getItem('teacherToken');
+                const res = await fetch(`${API_URL}/teacher/voyage-log-override`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_name: name, class_period: period, rank_tier: rank })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    resultEl.style.display = 'block';
+                    resultEl.textContent = `✓ ${name} set to ${rank} — Crew Code: ${data.crew_code}`;
+                    document.getElementById('vl-override-name').value = '';
+                    loadVoyageLogPeriod(currentVoyagePeriod);
+                } else {
+                    resultEl.style.display = 'block';
+                    resultEl.style.color = 'rgba(255,100,100,0.8)';
+                    resultEl.textContent = '✗ ' + (data.error || 'Override failed');
+                }
+            } catch (err) {
+                alert('Override failed: ' + err.message);
             }
         }
     </script>
