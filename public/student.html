@@ -10273,13 +10273,10 @@
                 else if (count <= 6) { progressText.textContent = `${count} / 7 Virtues — Almost revealed...`; progressText.style.color = 'rgba(255,215,0,0.6)'; }
             }
 
-            // Show "Choose Your Hero" button at 7/7 if Heroic gate is open
-            if (count === 7) {
-                checkHeroicGateAndShowButton();
-            } else {
-                const existingBtn = document.getElementById('heroic-avatar-btn');
-                if (existingBtn) existingBtn.remove();
-            }
+            // Show heroic button whenever gate may be open — the function itself
+            // checks heroicGateOpen from the server, so virtue count here is
+            // only used for the avatar reveal animation, not the gate logic.
+            checkHeroicGateAndShowButton();
         }
 
         async function checkHeroicGateAndShowButton() {
