@@ -2123,7 +2123,7 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   // Ship
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.8 - progress*W*0.55);
+    const shipX=Math.floor(W*0.5);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     _drawArgoSprite(ctx,shipX,Math.floor(H*0.62)+bobY,W);
   }
