@@ -2380,17 +2380,27 @@ async function checkServerUnlocks(){
   try {
     const res = await fetch('/api/voyage-log/unlocks/' + encodeURIComponent(student.period));
     const data = await res.json();
-    if(data.unlocked_up_to !== undefined && data.unlocked_up_to > state.unlockedUpTo){
-      // Server has unlocked more stops than local state — apply them
-      for(let i = state.unlockedUpTo + 1; i <= data.unlocked_up_to; i++){
-        state.unlockedUpTo = i;
-      }
+    if(data.unlocked_up_to !== undefined && data.unlocked_up_to !== state.unlockedUpTo){
+      // Server is authoritative — always apply its value
+      const oldLevel = state.unlockedUpTo;
+      state.unlockedUpTo = data.unlocked_up_to;
       buildTeacherUnlockGrid();
       renderProgress();
       drawMap();
-      // Auto-navigate if student is waiting
-      if(state.currentStop === -1 && state.unlockedUpTo >= 0){
-        showStop(0);
+      // If server unlocked new stops beyond what we had, auto-navigate
+      if(data.unlocked_up_to > oldLevel){
+        // If student is waiting on welcome screen
+        if(state.currentStop === -1 && state.unlockedUpTo >= 0){
+          showStop(0);
+        }
+        // If student completed their current stop and the next one is now unlocked
+        else if(state.currentStop >= 0 && state.completed[state.currentStop]){
+          const nextIdx = state.currentStop + 1;
+          if(nextIdx <= state.unlockedUpTo && nextIdx < 10){
+            // Enable disembark if they're on the transition screen
+            enableDisembark();
+          }
+        }
       }
     }
   } catch(e){
@@ -2880,7 +2890,9 @@ function beginVoyage(){
       if(data.found && data.state){
         // Restore saved state
         const saved = data.state;
-        state.unlockedUpTo = saved.unlockedUpTo !== undefined ? saved.unlockedUpTo : -1;
+        // DON'T restore unlockedUpTo from save — server is authoritative
+        // It will be set by checkServerUnlocks() in skipToApp()
+        state.unlockedUpTo = -1;
         state.currentStop = saved.currentStop !== undefined ? saved.currentStop : -1;
         state.scores = saved.scores || {};
         state.feedback = saved.feedback || {};
@@ -2893,8 +2905,17 @@ function beginVoyage(){
         state.dragSorts = saved.dragSorts || {};
         state.totalScore = saved.totalScore || 0;
         if(saved.alliance) student.alliance = saved.alliance;
-        // Skip crawl, go straight to app
-        skipToApp();
+
+        // Fetch current server unlock state BEFORE showing app
+        fetch('/api/voyage-log/unlocks/' + encodeURIComponent(p))
+          .then(r2=>r2.json())
+          .then(unlockData=>{
+            if(unlockData.unlocked_up_to !== undefined){
+              state.unlockedUpTo = unlockData.unlocked_up_to;
+            }
+            skipToApp();
+          })
+          .catch(()=>skipToApp());
       } else {
         startCrawl();
       }
@@ -2912,6 +2933,8 @@ function skipToApp(){
   document.getElementById('app').style.flexDirection='column';
   document.getElementById('app').style.height='100vh';
   document.getElementById('tb-student').textContent=student.name+' · '+(student.periodDisplay||student.period);
+  // Restore score display from saved state
+  updateScore();
   buildProgress();
   buildTeacherUnlockGrid();
   initMap();
@@ -2919,7 +2942,7 @@ function skipToApp(){
   if(state.currentStop >= 0 && state.currentStop <= state.unlockedUpTo){
     showStop(state.currentStop);
   }
-  // Start polling for unlocks
+  // Start polling for unlocks — fetch immediately, then every 8s
   checkServerUnlocks();
   setInterval(checkServerUnlocks, 8000);
 }
