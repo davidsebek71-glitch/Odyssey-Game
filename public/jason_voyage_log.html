@@ -2167,18 +2167,9 @@ function drawTransitionAnchored(ctx, W, H, tr){
 }
 
 function _drawArgoSprite(ctx,cx,cy,W){
-  const sprite=processArgoSprite();
-  if(sprite){
-    // Scale to roughly 10% of canvas width — visible but not overwhelming
-    const targetW=Math.max(80, Math.round(W*0.1));
-    const scale=targetW/sprite.width;
-    const sw=Math.round(sprite.width*scale);
-    const sh=Math.round(sprite.height*scale);
-    ctx.drawImage(sprite,Math.round(cx-sw/2),Math.round(cy-sh*0.7),sw,sh);
-    return;
-  }
-  // Coded fallback — use fixed px size so it's always visible regardless of canvas size
-  const px=Math.max(4, Math.round(W/120)); // larger minimum than before
+  // Use coded pixel ship — sprite processing disabled due to CORS taint on Railway static files
+  // TODO: revisit sprite approach after configuring Railway CORS headers
+  const px=Math.max(4, Math.round(W/120));
   _drawCodedShip(ctx,cx,cy,px);
 }
 
