@@ -12095,6 +12095,77 @@ app.post('/api/trade/market/bid', authenticateToken, (req, res) => {
   }
 });
 
+// --- Teacher: Diagnose market auction state for a period ---
+app.get('/api/trade/market/diagnose/:period', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  try {
+    const period = req.params.period;
+
+    // All auctions (any status)
+    const allAuctions = query(
+      'SELECT * FROM market_auctions WHERE period = ? ORDER BY auction_id DESC LIMIT 50',
+      [period]
+    );
+
+    // All bids on active auctions
+    const activeBids = query(`
+      SELECT mb.*, ma.resource, ma.status as auction_status, ma.ends_at, ma.started_at,
+             s.name as student_name
+      FROM market_bids mb
+      JOIN market_auctions ma ON mb.auction_id = ma.auction_id
+      JOIN students s ON mb.student_id = s.student_id
+      WHERE ma.period = ?
+      ORDER BY mb.auction_id DESC, mb.ratio DESC
+      LIMIT 100
+    `, [period]);
+
+    // Supply levels
+    const supply = query('SELECT * FROM market_supply WHERE period = ?', [period]);
+
+    // Trade window status
+    const tradeWindow = query('SELECT * FROM trade_window WHERE period = ?', [period]);
+
+    // Recent market trades
+    const recentTrades = query(`
+      SELECT mt.*, s.name as winner_name
+      FROM market_trades mt
+      JOIN students s ON mt.student_id = s.student_id
+      WHERE mt.auction_id IN (SELECT auction_id FROM market_auctions WHERE period = ?)
+      ORDER BY mt.completed_at DESC LIMIT 20
+    `, [period]);
+
+    // Stuck auctions specifically (active with ends_at in the past)
+    const now = new Date().toISOString();
+    const stuckAuctions = allAuctions.filter(a => a.status === 'active' && a.ends_at <= now);
+    const futureActiveAuctions = allAuctions.filter(a => a.status === 'active' && a.ends_at > now);
+
+    res.json({
+      period,
+      now,
+      summary: {
+        total_auctions: allAuctions.length,
+        active_auctions: allAuctions.filter(a => a.status === 'active').length,
+        stuck_expired_but_active: stuckAuctions.length,
+        future_active: futureActiveAuctions.length,
+        completed: allAuctions.filter(a => a.status === 'completed').length,
+        expired: allAuctions.filter(a => a.status === 'expired').length,
+        total_bids: activeBids.length,
+        supply_levels: supply
+      },
+      stuck_auctions: stuckAuctions,
+      future_active_auctions: futureActiveAuctions,
+      all_auctions: allAuctions,
+      all_bids: activeBids,
+      supply,
+      trade_window: tradeWindow,
+      recent_trades: recentTrades
+    });
+  } catch (err) {
+    console.error('Market diagnose error:', err);
+    res.status(500).json({ error: 'Diagnose failed: ' + err.message });
+  }
+});
+
 // --- Student: Get my bids on active auctions ---
 app.get('/api/trade/market/my-bids', authenticateToken, (req, res) => {
   try {
