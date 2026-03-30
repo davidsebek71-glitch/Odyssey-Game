@@ -6659,10 +6659,12 @@
                 students.forEach(student => {
                     const allianceAge = student.alliance_age || 'Archaic';
                     const isArchaicAlliance = allianceAge === 'Archaic';
-                    // Scout badge only relevant for Archaic alliances — Classical alliances have already used their scout
-                    const scoutBadge = (student.scout_status && isArchaicAlliance) ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 SCOUT</span>` : '';
-                    const scoutBtn = isArchaicAlliance ? 
-                        (student.scout_status ? 
+                    const isClassicalAlliance = allianceAge === 'Classical';
+                    // Scout badge for any alliance that has a scouted student
+                    const scoutBadge = student.scout_status ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 ${student.scout_status} SCOUT</span>` : '';
+                    let scoutBtn = '';
+                    if (isArchaicAlliance) {
+                        scoutBtn = student.scout_status ? 
                             `<button onclick="toggleScoutStatus(${student.student_id}, null, '${(student.name || '').replace(/'/g, "\\'")}')" 
                                 style="background: rgba(234,179,8,0.3); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
                                 🏹 Remove Scout
@@ -6670,7 +6672,18 @@
                             `<button onclick="toggleScoutStatus(${student.student_id}, 'Classical', '${(student.name || '').replace(/'/g, "\\'")}')" 
                                 style="background: rgba(234,179,8,0.15); border: 1px solid rgba(234,179,8,0.3); color: rgba(234,179,8,0.7); padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
                                 🏹 Scout
-                            </button>`) : '';
+                            </button>`;
+                    } else if (isClassicalAlliance) {
+                        scoutBtn = student.scout_status === 'Heroic' ? 
+                            `<button onclick="toggleScoutStatus(${student.student_id}, null, '${(student.name || '').replace(/'/g, "\\'")}')" 
+                                style="background: rgba(124,58,237,0.3); border: 1px solid rgba(124,58,237,0.5); color: #c4b5fd; padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
+                                ⚔️ Remove Heroic Scout
+                            </button>` :
+                            `<button onclick="toggleScoutStatus(${student.student_id}, 'Heroic', '${(student.name || '').replace(/'/g, "\\'")}')" 
+                                style="background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); color: rgba(124,58,237,0.7); padding: 5px 12px; border-radius: 6px; cursor: pointer; margin-right: 5px; font-size: 12px;">
+                                ⚔️ Scout to Heroic
+                            </button>`;
+                    }
                     html += `
                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                             <td style="padding: 10px; color: white; font-weight: 500;">${student.name || '<em style="color: rgba(255,255,255,0.4);">No name</em>'}${scoutBadge}</td>

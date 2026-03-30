@@ -8977,7 +8977,7 @@ app.get('/api/student/classical-status', authenticateToken, (req, res) => {
     
     res.json({
       gateOpen,
-      allianceAge: isScout && allianceAge === 'Archaic' ? student.scout_status : allianceAge,
+      allianceAge: isScout ? student.scout_status : allianceAge,
       canAccess,
       classicalEntered: student.classical_entered === 1,
       isScout: isScout || false,

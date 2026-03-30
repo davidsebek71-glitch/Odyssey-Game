@@ -498,6 +498,8 @@
             // Heroic Portal
             var heroicAccess = allianceAge === 'Heroic';
             var heroicGateOpen = false; // Will be checked via API
+            var isHeroicScout = classicalStatus && classicalStatus.isScout && classicalStatus.allianceAge === 'Heroic';
+            if (isHeroicScout) heroicAccess = true;
             var heroicLocked = !heroicAccess;
             var virtueCount = 0;
 
