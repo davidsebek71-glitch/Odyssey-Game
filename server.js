@@ -12101,63 +12101,43 @@ app.get('/api/trade/market/diagnose/:period', authenticateToken, (req, res) => {
   try {
     const period = req.params.period;
 
-    // All auctions (any status)
-    const allAuctions = query(
-      'SELECT * FROM market_auctions WHERE period = ? ORDER BY auction_id DESC LIMIT 50',
-      [period]
-    );
+    // First: check actual table schemas
+    let bidsCols = [], auctionsCols = [], tradesCols = [], supplyCols = [];
+    try { bidsCols = query("PRAGMA table_info(market_bids)").map(c => c.name); } catch(e) { bidsCols = ['TABLE_MISSING']; }
+    try { auctionsCols = query("PRAGMA table_info(market_auctions)").map(c => c.name); } catch(e) { auctionsCols = ['TABLE_MISSING']; }
+    try { tradesCols = query("PRAGMA table_info(market_trades)").map(c => c.name); } catch(e) { tradesCols = ['TABLE_MISSING']; }
+    try { supplyCols = query("PRAGMA table_info(market_supply)").map(c => c.name); } catch(e) { supplyCols = ['TABLE_MISSING']; }
 
-    // All bids on active auctions
-    const activeBids = query(`
-      SELECT mb.*, ma.resource, ma.status as auction_status, ma.ends_at, ma.started_at,
-             s.name as student_name
-      FROM market_bids mb
-      JOIN market_auctions ma ON mb.auction_id = ma.auction_id
-      JOIN students s ON mb.student_id = s.student_id
-      WHERE ma.period = ?
-      ORDER BY mb.auction_id DESC, mb.ratio DESC
-      LIMIT 100
-    `, [period]);
+    // Check for schema mismatch
+    const expectedBidsCols = ['bid_id','auction_id','student_id','offer_resource','offer_amount','request_amount','ratio','created_at'];
+    const bidsMismatch = !expectedBidsCols.every(c => bidsCols.includes(c));
 
-    // Supply levels
-    const supply = query('SELECT * FROM market_supply WHERE period = ?', [period]);
+    let supply = [], tradeWindow = [];
+    try { supply = query('SELECT * FROM market_supply WHERE period = ?', [period]); } catch(e) {}
+    try { tradeWindow = query('SELECT * FROM trade_window WHERE period = ?', [period]); } catch(e) {}
 
-    // Trade window status
-    const tradeWindow = query('SELECT * FROM trade_window WHERE period = ?', [period]);
-
-    // Recent market trades
-    const recentTrades = query(`
-      SELECT mt.*, s.name as winner_name
-      FROM market_trades mt
-      JOIN students s ON mt.student_id = s.student_id
-      WHERE mt.auction_id IN (SELECT auction_id FROM market_auctions WHERE period = ?)
-      ORDER BY mt.completed_at DESC LIMIT 20
-    `, [period]);
-
-    // Stuck auctions specifically (active with ends_at in the past)
-    const now = new Date().toISOString();
-    const stuckAuctions = allAuctions.filter(a => a.status === 'active' && a.ends_at <= now);
-    const futureActiveAuctions = allAuctions.filter(a => a.status === 'active' && a.ends_at > now);
+    // Only query auctions/bids if schema is correct
+    let allAuctions = [], allBids = [], recentTrades = [];
+    if (!bidsMismatch) {
+      try { allAuctions = query('SELECT * FROM market_auctions WHERE period = ? ORDER BY auction_id DESC LIMIT 50', [period]); } catch(e) {}
+      try { allBids = query('SELECT mb.*, s.name as student_name FROM market_bids mb JOIN students s ON mb.student_id = s.student_id WHERE mb.auction_id IN (SELECT auction_id FROM market_auctions WHERE period = ?) ORDER BY mb.bid_id DESC LIMIT 100', [period]); } catch(e) {}
+      try { recentTrades = query('SELECT mt.*, s.name as winner_name FROM market_trades mt JOIN students s ON mt.student_id = s.student_id WHERE mt.auction_id IN (SELECT auction_id FROM market_auctions WHERE period = ?) ORDER BY mt.completed_at DESC LIMIT 20', [period]); } catch(e) {}
+    }
 
     res.json({
       period,
-      now,
-      summary: {
-        total_auctions: allAuctions.length,
-        active_auctions: allAuctions.filter(a => a.status === 'active').length,
-        stuck_expired_but_active: stuckAuctions.length,
-        future_active: futureActiveAuctions.length,
-        completed: allAuctions.filter(a => a.status === 'completed').length,
-        expired: allAuctions.filter(a => a.status === 'expired').length,
-        total_bids: activeBids.length,
-        supply_levels: supply
+      schema_check: {
+        market_bids_columns: bidsCols,
+        market_auctions_columns: auctionsCols,
+        market_trades_columns: tradesCols,
+        market_supply_columns: supplyCols,
+        bids_schema_correct: !bidsMismatch,
+        expected_bids_cols: expectedBidsCols
       },
-      stuck_auctions: stuckAuctions,
-      future_active_auctions: futureActiveAuctions,
-      all_auctions: allAuctions,
-      all_bids: activeBids,
       supply,
       trade_window: tradeWindow,
+      all_auctions: allAuctions,
+      all_bids: allBids,
       recent_trades: recentTrades
     });
   } catch (err) {
