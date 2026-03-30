@@ -2095,35 +2095,60 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
   const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
   const waterImg=TR_IMAGES['vl_open_water_night'];
 
-  // Three phases: depart (0-0.35), open water (0.35-0.65), arrive (0.65-1.0)
-  let bgImg = progress<0.35 ? departImg : progress<0.65 ? waterImg : arriveImg;
+  // ── PANORAMIC SCROLL ──
+  // Three images placed side-by-side: [depart | open water | arrive]
+  // Total panorama = 3 × viewport width. Camera scrolls right as progress advances.
+  // Ship stays at fixed screen position while world moves behind it.
+  const panoramaW = W * 3;
+  const maxScroll = panoramaW - W;
+  const scrollX = progress * maxScroll;
 
-  if(bgImg&&bgImg.complete&&bgImg.naturalWidth>0){
-    ctx.drawImage(bgImg,0,0,W,H);
-  } else {
-    _drawCodedBackground(ctx,W,H,tr);
+  // Draw each image at its panorama position, offset by scroll
+  // Section 1: Departure (panorama x: 0 to W)
+  const dX = 0 - scrollX;
+  if(dX + W > 0 && dX < W){ // visible on screen
+    if(departImg&&departImg.complete&&departImg.naturalWidth>0){
+      ctx.drawImage(departImg, dX, 0, W, H);
+    } else {
+      ctx.save(); ctx.translate(dX, 0);
+      _drawCodedBackground(ctx, W, H, tr);
+      ctx.restore();
+    }
   }
 
-  // Crossfade at phase transitions
-  const fade=0.07;
-  if(progress>0.35-fade&&progress<0.35+fade&&waterImg&&waterImg.complete&&waterImg.naturalWidth>0){
-    ctx.globalAlpha=(progress-(0.35-fade))/(fade*2);
-    ctx.drawImage(waterImg,0,0,W,H);
-    ctx.globalAlpha=1;
-  }
-  if(progress>0.65-fade&&progress<0.65+fade&&arriveImg&&arriveImg.complete&&arriveImg.naturalWidth>0){
-    ctx.globalAlpha=(progress-(0.65-fade))/(fade*2);
-    ctx.drawImage(arriveImg,0,0,W,H);
-    ctx.globalAlpha=1;
+  // Section 2: Open water (panorama x: W to 2W)
+  const wX = W - scrollX;
+  if(wX + W > 0 && wX < W){ // visible on screen
+    if(waterImg&&waterImg.complete&&waterImg.naturalWidth>0){
+      ctx.drawImage(waterImg, wX, 0, W, H);
+    } else {
+      // Coded open water fallback
+      ctx.save(); ctx.translate(wX, 0);
+      _drawCodedWater(ctx, W, H);
+      ctx.restore();
+    }
   }
 
-  // Ship — one continuous left-to-right path across all three backgrounds
-  // progress 0→1 maps to screen position 30%→75% (left side to right side)
-  // The backgrounds swap underneath but the ship just keeps moving right
+  // Section 3: Arrival (panorama x: 2W to 3W)
+  const aX = W * 2 - scrollX;
+  if(aX + W > 0 && aX < W){ // visible on screen
+    if(arriveImg&&arriveImg.complete&&arriveImg.naturalWidth>0){
+      ctx.drawImage(arriveImg, aX, 0, W, H);
+    } else {
+      ctx.save(); ctx.translate(aX, 0);
+      _drawCodedBackground(ctx, W, H, tr);
+      ctx.restore();
+    }
+  }
+
+  // When two images overlap during scroll, the second one draws on top.
+  // This creates a natural wipe transition — no crossfade needed.
+
+  // Ship at fixed screen position (~45% from left)
   if(!tr.noShip){
-    const shipX = Math.floor(W * (0.30 + progress * 0.45));
+    const shipScreenX = Math.floor(W * 0.45);
     const bobY = Math.floor(Math.sin(transitionState.bobTimer) * 3);
-    _drawArgoSprite(ctx, shipX, Math.floor(H * 0.72) + bobY, W);
+    _drawArgoSprite(ctx, shipScreenX, Math.floor(H * 0.72) + bobY, W);
   }
 
   // Progress bar
@@ -2135,19 +2160,53 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
   }
 }
 
+// Simple coded water fallback for the open water section
+function _drawCodedWater(ctx, W, H){
+  // Sky
+  const skyGrad=ctx.createLinearGradient(0,0,0,H*0.6);
+  skyGrad.addColorStop(0,'#0c0820');
+  skyGrad.addColorStop(0.5,'#141040');
+  skyGrad.addColorStop(1,'#202860');
+  ctx.fillStyle=skyGrad;
+  ctx.fillRect(0,0,W,H*0.6);
+  // Stars
+  for(let i=0;i<60;i++){
+    ctx.fillStyle=`rgba(255,255,255,${0.3+(i%5)*0.12})`;
+    ctx.fillRect(((i*97+13)%W),((i*73+7)%(H*0.5)),(i%7===0?2:1),(i%7===0?2:1));
+  }
+  // Moon
+  ctx.fillStyle='#ffe8a0';
+  ctx.beginPath(); ctx.arc(W*0.5,H*0.15,14,0,Math.PI*2); ctx.fill();
+  const moonGlow=ctx.createRadialGradient(W*0.5,H*0.15,8,W*0.5,H*0.15,50);
+  moonGlow.addColorStop(0,'rgba(255,232,160,0.12)');
+  moonGlow.addColorStop(1,'rgba(255,232,160,0)');
+  ctx.fillStyle=moonGlow;
+  ctx.beginPath(); ctx.arc(W*0.5,H*0.15,50,0,Math.PI*2); ctx.fill();
+  // Water
+  const wGrad=ctx.createLinearGradient(0,H*0.6,0,H);
+  wGrad.addColorStop(0,'#0a1838'); wGrad.addColorStop(1,'#060e28');
+  ctx.fillStyle=wGrad;
+  ctx.fillRect(0,H*0.6,W,H*0.4);
+  // Moon reflection
+  ctx.fillStyle='rgba(255,232,160,0.05)';
+  for(let r=0;r<6;r++) ctx.fillRect(W*0.5-(3+r*3),H*0.62+r*6,(6+r*6),2);
+}
+
 function drawTransitionAnchored(ctx, W, H, tr){
   ctx.imageSmoothingEnabled=false;
   const idx=transitionState.nextStopIndex-1;
   const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
 
+  // Anchored = fully scrolled to arrival scene
   if(arriveImg&&arriveImg.complete&&arriveImg.naturalWidth>0){
     ctx.drawImage(arriveImg,0,0,W,H);
   } else {
     _drawCodedBackground(ctx,W,H,tr);
   }
 
+  // Ship anchored at ~45% (same position as end of sailing)
   if(!tr.noShip){
-    const shipX=Math.floor(W*0.75);
+    const shipX=Math.floor(W*0.45);
     const bobY=Math.floor(Math.sin(transitionState.bobTimer)*3);
     const waterlineY=Math.floor(H*0.72)+bobY;
     _drawArgoSprite(ctx,shipX,waterlineY,W);
