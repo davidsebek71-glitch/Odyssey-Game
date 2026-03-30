@@ -4438,12 +4438,14 @@ function calculateAgeReadiness(alliance) {
   let requiredBuildings, pointsThreshold;
   
   if (currentAge === 'Classical' || currentAge === 'Heroic') {
-    // Classical → Heroic requirements: all Archaic buildings PLUS Classical buildings
+    // Classical → Heroic requirements: 8 of 11 buildings, reduced point thresholds
     requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall', 'Transport Ship', 'Armory', 'Theater', 'Agora', 'Oracle'];
-    pointsThreshold = memberCount === 1 ? 200 : memberCount === 2 ? 400 : memberCount === 3 ? 600 : 800;
+    requiredBuildingCount = 8; // need any 8 of 11
+    pointsThreshold = memberCount === 1 ? 150 : memberCount === 2 ? 300 : memberCount === 3 ? 450 : 600;
   } else {
     // Archaic → Classical requirements
     requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall'];
+    requiredBuildingCount = 6; // need all 6
     pointsThreshold = memberCount === 1 ? 100 : memberCount === 2 ? 200 : memberCount === 3 ? 300 : 400;
   }
   
@@ -4467,7 +4469,7 @@ function calculateAgeReadiness(alliance) {
   }
   
   // Calculate progress
-  const buildingsProgress = (ownedRequired.length / requiredBuildings.length) * 100;
+  const buildingsProgress = (ownedRequired.length / requiredBuildingCount) * 100;
   const pointsProgress = Math.min(100, (alliance.total_points / pointsThreshold) * 100);
   const mapProgress = allMapsComplete ? 100 : (memberCount > 0 ? (membersWithMap / memberCount) * 100 : 0);
   
@@ -4494,7 +4496,7 @@ function calculateAgeReadiness(alliance) {
     overallProgress = (buildingsProgress * 0.45 + pointsProgress * 0.35 + mapProgress * 0.20);
   }
   
-  const baseReady = ownedRequired.length === requiredBuildings.length &&
+  const baseReady = ownedRequired.length >= requiredBuildingCount &&
                   alliance.total_points >= pointsThreshold &&
                   allMapsComplete;
   
@@ -4508,8 +4510,9 @@ function calculateAgeReadiness(alliance) {
     pointsHave: alliance.total_points,
     pointsMet: alliance.total_points >= pointsThreshold,
     requiredBuildings,
+    requiredBuildingCount,
     ownedRequired,
-    buildingsMet: ownedRequired.length === requiredBuildings.length,
+    buildingsMet: ownedRequired.length >= requiredBuildingCount,
     mapComplete: allMapsComplete,
     mapsSubmitted: membersWithMap,
     mapsRequired: memberCount,
@@ -9312,9 +9315,10 @@ app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
     const requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall', 'Transport Ship', 'Armory', 'Theater', 'Agora', 'Oracle'];
-    const missingBuildings = requiredBuildings.filter(b => !ownedBuildings.includes(b));
-    if (missingBuildings.length > 0) {
-      return res.status(400).json({ error: `Alliance is missing buildings: ${missingBuildings.join(', ')}` });
+    const ownedRequired = requiredBuildings.filter(b => ownedBuildings.includes(b));
+    if (ownedRequired.length < 8) {
+      const missingBuildings = requiredBuildings.filter(b => !ownedBuildings.includes(b));
+      return res.status(400).json({ error: `Alliance needs at least 8 of 11 buildings (have ${ownedRequired.length}). Missing: ${missingBuildings.join(', ')}` });
     }
     
     const drachma = AVATAR_DRACHMA[avatar];
@@ -11008,7 +11012,7 @@ app.get('/api/health', (req, res) => {
 const TRADE_RESOURCES = ['olive', 'grape', 'iron', 'grain'];
 const TRADE_RESOURCE_LABELS = { olive: '🫒 Olive Oil', grape: '🍇 Grapes', iron: '⚒️ Iron', grain: '🌾 Grain' };
 const RESOURCE_BUY_RATE = 10; // 1 alliance point = 10 resource units
-const DEFAULT_RESOURCE_THRESHOLD = 500; // configurable per period
+const DEFAULT_RESOURCE_THRESHOLD = 200; // configurable per period
 
 // Helper: ensure student_resources row exists
 function ensureStudentResources(student_id) {

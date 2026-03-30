@@ -782,7 +782,7 @@ async function initDatabase() {
       opened_at DATETIME,
       closed_at DATETIME,
       opened_by INTEGER,
-      resource_threshold INTEGER DEFAULT 500
+      resource_threshold INTEGER DEFAULT 200
     )
   `);
 
@@ -1555,6 +1555,11 @@ function seedReferenceData() {
       console.log('✅ Added resource_threshold column to trade_window');
     }
   } catch (e) { console.log('Migration note: trade_window threshold -', e.message); }
+
+  // V93 FIX: Lower resource threshold from 500 to 200 for all periods
+  try {
+    db.run("UPDATE trade_window SET resource_threshold = 200 WHERE resource_threshold = 500");
+  } catch (e) { console.log('Migration note: threshold update -', e.message); }
   
   try {
     db.run(`CREATE TABLE IF NOT EXISTS resource_buys (
