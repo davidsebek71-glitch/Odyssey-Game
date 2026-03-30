@@ -2860,6 +2860,11 @@
                 <span class="icon">🏆</span>
                 Hall of Honor
             </button>
+            <button class="action-btn" onclick="openMissingVirtues()" id="missing-virtues-btn" style="background: linear-gradient(135deg, #7c3aed, #5b21b6); position: relative; display: none;">
+                <span class="icon">📜</span>
+                Missing Virtues
+                <span id="missing-virtues-count" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 2px 6px rgba(239,68,68,0.5);"></span>
+            </button>
             <button class="action-btn" onclick="openInviteModal()" id="invite-btn">
                 <span class="icon">👥</span>
                 Invite Member
@@ -3288,6 +3293,22 @@
         </div>
     </div>
 
+    <!-- Missing Virtues Modal -->
+    <div id="missing-virtues-modal" class="modal" style="z-index: 1100;">
+        <div class="modal-content" style="max-width: 640px; width: 94vw; max-height: 90vh; padding: 0; overflow: hidden; background: #0f0a1e; border: 2px solid rgba(124,58,237,0.5); border-radius: 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(91,33,182,0.08));border-bottom:1px solid rgba(124,58,237,0.2);">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:24px;">📜</span>
+                    <span style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:#c4b5fd;letter-spacing:2px;">The Missing Virtues</span>
+                </div>
+                <button onclick="closeMissingVirtues()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;">✕</button>
+            </div>
+            <div id="missing-virtues-body" style="overflow-y:auto;max-height:calc(90vh - 70px);padding:20px;">
+                <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);">Loading...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Hall of Honor Modal -->
     <div id="hall-of-honor-modal" class="modal" style="z-index: 1100;">
         <div class="modal-content" style="max-width: 1100px; width: 96vw; max-height: 92vh; padding: 0; overflow: hidden; background: #060412; border-color: rgba(255,215,0,0.5); border-radius: 16px;">
@@ -3660,8 +3681,8 @@
             const actualAge = student.current_age || 'Archaic';
 
             // Heroic Age students go directly to the voyage log
-            // unless they explicitly requested the classical view via ?view=classical
-            if (actualAge === 'Heroic' && viewOverride !== 'classical') {
+            // unless they explicitly requested another view via ?view=classical or ?view=archaic
+            if (actualAge === 'Heroic' && viewOverride !== 'classical' && viewOverride !== 'archaic') {
                 window.location.href = '/jason_voyage_log.html';
                 return;
             }
@@ -3703,6 +3724,7 @@
                     const grid = document.getElementById('bonus-quest-grid');
                     if (grid) grid.style.gridTemplateColumns = '1fr 1fr 1fr';
                     loadMythPortals();
+                    loadMissingVirtuesBadge();
                     loadTradePortalMini();
                 } else {
                     classicalSection.style.display = 'none';
@@ -12842,6 +12864,165 @@
             if (olympusAnimFrame) { cancelAnimationFrame(olympusAnimFrame); olympusAnimFrame = null; }
         }
         // ── End Olympus canvas system ──────────────────────────────────────
+
+        // ── Missing Virtues system ──────────────────────────────────────
+        const MYTH_VIRTUE_MAP = {
+            'Pandora': { virtue: 'Curiosity', icon: '📦', color: '#f472b6' },
+            'Phaethon': { virtue: 'Humility', icon: '☀️', color: '#fb923c' },
+            'Orpheus & Eurydice': { virtue: 'Devotion', icon: '🎵', color: '#a78bfa' },
+            'Echo & Narcissus': { virtue: 'Self-Awareness', icon: '🪞', color: '#67e8f9' },
+            'Icarus & Daedalus': { virtue: 'Wisdom', icon: '🪶', color: '#fbbf24' },
+            'Eros & Psyche': { virtue: 'Perseverance', icon: '🦋', color: '#f9a8d4' },
+            'Constellations': { virtue: 'Wonder', icon: '⭐', color: '#93c5fd' }
+        };
+
+        async function loadMissingVirtuesBadge() {
+            try {
+                const response = await fetch(API_URL + '/student/myth-portals', { headers });
+                const data = await response.json();
+                if (!data.portals) return;
+                const missing = data.portals.filter(p => p.virtue_claimed !== 1);
+                const btn = document.getElementById('missing-virtues-btn');
+                const badge = document.getElementById('missing-virtues-count');
+                if (!btn) return;
+                if (missing.length > 0 && missing.length < 7) {
+                    btn.style.display = '';
+                    badge.textContent = missing.length;
+                } else if (missing.length === 0) {
+                    btn.style.display = '';
+                    badge.style.display = 'none';
+                    btn.style.background = 'linear-gradient(135deg, #059669, #047857)';
+                } else {
+                    btn.style.display = '';
+                    badge.textContent = missing.length;
+                }
+            } catch (e) { /* non-critical */ }
+        }
+
+        async function openMissingVirtues() {
+            document.getElementById('missing-virtues-modal').classList.add('show');
+            const body = document.getElementById('missing-virtues-body');
+            body.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.3);">Loading your virtue progress...</div>';
+            try {
+                const response = await fetch(API_URL + '/student/myth-portals', { headers });
+                const data = await response.json();
+                if (!data.portals || data.portals.length === 0) {
+                    body.innerHTML = '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4);">No myth portals available yet.</div>';
+                    return;
+                }
+                renderMissingVirtues(body, data.portals);
+            } catch (err) {
+                body.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171;">Failed to load virtue data.</div>';
+            }
+        }
+
+        function closeMissingVirtues() {
+            document.getElementById('missing-virtues-modal').classList.remove('show');
+        }
+
+        function renderMissingVirtues(body, portals) {
+            const earned = portals.filter(p => p.virtue_claimed === 1);
+            const missing = portals.filter(p => p.virtue_claimed !== 1);
+
+            let html = '';
+
+            // Progress header
+            const pct = Math.round((earned.length / 7) * 100);
+            const barColor = earned.length === 7 ? '#4ade80' : '#a78bfa';
+            html += '<div style="margin-bottom:24px;">'
+                + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">'
+                + '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#c4b5fd;font-weight:700;">Virtues Collected</div>'
+                + '<div style="font-size:22px;font-weight:800;color:' + barColor + ';">' + earned.length + ' <span style="font-size:14px;color:rgba(255,255,255,0.3);font-weight:400;">/ 7</span></div>'
+                + '</div>'
+                + '<div style="background:rgba(255,255,255,0.06);border-radius:8px;height:10px;overflow:hidden;">'
+                + '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + barColor + ',#c084fc);border-radius:8px;transition:width 0.6s;"></div>'
+                + '</div>'
+                + '</div>';
+
+            if (earned.length === 7) {
+                html += '<div style="text-align:center;padding:30px 20px;background:rgba(74,222,128,0.06);border:2px solid rgba(74,222,128,0.2);border-radius:14px;margin-bottom:20px;">'
+                    + '<div style="font-size:48px;margin-bottom:8px;">🏛️</div>'
+                    + '<div style="font-family:\'Cinzel\',serif;font-size:18px;color:#4ade80;font-weight:700;">All Virtues Earned!</div>'
+                    + '<div style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:6px;">You are ready for the Heroic Age.</div>'
+                    + '</div>';
+            }
+
+            // Earned virtues (compact)
+            if (earned.length > 0) {
+                html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">';
+                earned.forEach(function(p) {
+                    var info = MYTH_VIRTUE_MAP[p.myth_name] || { virtue: '?', icon: '✓', color: '#4ade80' };
+                    html += '<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:10px;">'
+                        + '<span style="font-size:16px;">' + info.icon + '</span>'
+                        + '<span style="font-size:12px;font-weight:700;color:#4ade80;">' + info.virtue + '</span>'
+                        + '<span style="font-size:14px;">✓</span>'
+                        + '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Missing virtues — detailed breakdown
+            if (missing.length > 0) {
+                html += '<div style="font-family:\'Cinzel\',serif;font-size:13px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;">Still Needed</div>';
+
+                missing.forEach(function(p) {
+                    var info = MYTH_VIRTUE_MAP[p.myth_name] || { virtue: '?', icon: '📜', color: '#a78bfa' };
+                    var tasks = [];
+
+                    if (!p.has_reading_guide) {
+                        tasks.push({ label: 'Reading Guide', icon: '📖', done: false });
+                    } else {
+                        tasks.push({ label: 'Reading Guide', icon: '📖', done: true });
+                    }
+                    if (!p.quiz_passed) {
+                        tasks.push({ label: 'Quiz (80%+)', icon: '❓', done: false });
+                    } else {
+                        tasks.push({ label: 'Quiz Passed', icon: '❓', done: true });
+                    }
+                    if (!p.assignment_approved && !p.has_creative) {
+                        tasks.push({ label: 'Creative Assignment', icon: '🎨', done: false });
+                    } else {
+                        tasks.push({ label: 'Creative Assignment', icon: '🎨', done: true });
+                    }
+
+                    var allDone = tasks.every(function(t) { return t.done; });
+                    var doneCount = tasks.filter(function(t) { return t.done; }).length;
+
+                    html += '<div style="background:rgba(124,58,237,0.04);border:2px solid rgba(124,58,237,0.15);border-radius:14px;padding:16px;margin-bottom:12px;'
+                        + (allDone ? 'border-color:rgba(250,204,21,0.4);background:rgba(250,204,21,0.04);' : '') + '">'
+                        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+                        + '<div style="display:flex;align-items:center;gap:8px;">'
+                        + '<span style="font-size:22px;">' + info.icon + '</span>'
+                        + '<div>'
+                        + '<div style="font-family:\'Cinzel\',serif;font-size:14px;font-weight:700;color:' + info.color + ';">' + p.myth_name + '</div>'
+                        + '<div style="font-size:11px;color:rgba(255,255,255,0.35);">Virtue: ' + info.virtue + '</div>'
+                        + '</div>'
+                        + '</div>'
+                        + '<div style="font-size:12px;font-weight:700;color:' + (allDone ? '#fbbf24' : 'rgba(255,255,255,0.25)') + ';">' + doneCount + '/3</div>'
+                        + '</div>';
+
+                    tasks.forEach(function(t) {
+                        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-radius:8px;'
+                            + (t.done ? 'background:rgba(74,222,128,0.06);' : 'background:rgba(239,68,68,0.04);') + '">'
+                            + '<span style="font-size:14px;">' + t.icon + '</span>'
+                            + '<span style="font-size:13px;color:' + (t.done ? '#4ade80' : 'rgba(255,255,255,0.5)') + ';font-weight:' + (t.done ? '700' : '400') + ';">' + t.label + '</span>'
+                            + '<span style="margin-left:auto;font-size:14px;">' + (t.done ? '✅' : '❌') + '</span>'
+                            + '</div>';
+                    });
+
+                    if (allDone) {
+                        html += '<div style="margin-top:10px;padding:8px 12px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.25);border-radius:8px;text-align:center;">'
+                            + '<span style="font-size:13px;font-weight:700;color:#fbbf24;">⚡ Ready to claim! Go to the Myth Portal to collect this virtue.</span>'
+                            + '</div>';
+                    }
+
+                    html += '</div>';
+                });
+            }
+
+            body.innerHTML = html;
+        }
+        // ── End Missing Virtues system ──────────────────────────────────
 
         // Open Hall of Honor modal
         function openHallOfHonor() {
