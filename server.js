@@ -9393,6 +9393,44 @@ app.post('/api/teacher/force-heroic', authenticateToken, (req, res) => {
   }
 });
 
+// --- Teacher: Reset student(s) from Heroic back to Classical (undoes force-heroic) ---
+app.post('/api/teacher/reset-heroic', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+    const { period } = req.body;
+    if (!period) return res.status(400).json({ error: 'Period required' });
+
+    // Find all Heroic students in this period
+    const students = query(
+      "SELECT s.student_id, s.name, s.alliance_id, s.selected_avatar FROM students s WHERE s.class_period = ? AND s.current_age = 'Heroic'",
+      [period]
+    );
+
+    if (students.length === 0) {
+      return res.json({ success: true, message: 'No Heroic students found in ' + period, reset: 0 });
+    }
+
+    // Reset each student
+    students.forEach(s => {
+      run("UPDATE students SET current_age = 'Classical', selected_avatar = NULL, drachma = NULL, avatar_selected_at = NULL WHERE student_id = ?", [s.student_id]);
+    });
+
+    // Reset their alliances back to Classical
+    const allianceIds = [...new Set(students.map(s => s.alliance_id).filter(Boolean))];
+    allianceIds.forEach(aid => {
+      run("UPDATE alliances SET current_age = 'Classical' WHERE alliance_id = ? AND current_age = 'Heroic'", [aid]);
+    });
+
+    saveDatabase();
+    const names = students.map(s => s.name).join(', ');
+    console.log(`🔄 Reset ${students.length} students from Heroic to Classical in ${period}: ${names}`);
+    res.json({ success: true, message: `Reset ${students.length} students to Classical: ${names}`, reset: students.length });
+  } catch (err) {
+    console.error('Reset heroic error:', err);
+    res.status(500).json({ error: 'Failed to reset: ' + err.message });
+  }
+});
+
 // --- Teacher: Approve myth portal assignment ---
 app.post('/api/teacher/approve-myth-assignment', authenticateToken, (req, res) => {
   try {
