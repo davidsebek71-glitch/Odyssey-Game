@@ -9400,32 +9400,36 @@ app.post('/api/teacher/reset-heroic', authenticateToken, (req, res) => {
     const { period } = req.body;
     if (!period) return res.status(400).json({ error: 'Period required' });
 
-    // Find all Heroic students in this period
-    const students = query(
+    // Reset any Heroic students in this period back to Classical
+    const heroicStudents = query(
       "SELECT s.student_id, s.name, s.alliance_id FROM students s WHERE s.class_period = ? AND s.current_age = 'Heroic'",
       [period]
     );
-
-    if (students.length === 0) {
-      return res.json({ success: true, message: 'No Heroic students found in ' + period, reset: 0 });
-    }
-
-    // Reset each student
-    students.forEach(s => {
+    heroicStudents.forEach(s => {
       run("UPDATE students SET current_age = 'Classical' WHERE student_id = ?", [s.student_id]);
-      try { run("UPDATE students SET selected_avatar = NULL, drachma = NULL, avatar_selected_at = NULL WHERE student_id = ?", [s.student_id]); } catch(e) { /* columns may not exist */ }
+      try { run("UPDATE students SET selected_avatar = NULL, drachma = NULL, avatar_selected_at = NULL WHERE student_id = ?", [s.student_id]); } catch(e) {}
     });
 
-    // Reset their alliances back to Classical
-    const allianceIds = [...new Set(students.map(s => s.alliance_id).filter(Boolean))];
-    allianceIds.forEach(aid => {
-      run("UPDATE alliances SET current_age = 'Classical' WHERE alliance_id = ? AND current_age = 'Heroic'", [aid]);
+    // ALSO reset any Heroic alliances in this period (even if students were already reset)
+    const heroicAlliances = query(
+      "SELECT alliance_id, alliance_name FROM alliances WHERE class_period = ? AND current_age = 'Heroic'",
+      [period]
+    );
+    heroicAlliances.forEach(a => {
+      run("UPDATE alliances SET current_age = 'Classical' WHERE alliance_id = ?", [a.alliance_id]);
     });
 
     saveDatabase();
-    const names = students.map(s => s.name).join(', ');
-    console.log(`🔄 Reset ${students.length} students from Heroic to Classical in ${period}: ${names}`);
-    res.json({ success: true, message: `Reset ${students.length} students to Classical: ${names}`, reset: students.length });
+    const studentNames = heroicStudents.map(s => s.name).join(', ');
+    const allianceNames = heroicAlliances.map(a => a.alliance_name).join(', ');
+    console.log(`🔄 Reset in ${period}: ${heroicStudents.length} students, ${heroicAlliances.length} alliances`);
+    res.json({ 
+      success: true, 
+      students_reset: heroicStudents.length,
+      alliances_reset: heroicAlliances.length,
+      students: studentNames || 'none',
+      alliances: allianceNames || 'none'
+    });
   } catch (err) {
     console.error('Reset heroic error:', err);
     res.status(500).json({ error: 'Failed to reset: ' + err.message });
