@@ -2128,17 +2128,20 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
     // ── SINGLE PANORAMA IMAGE ──
-    // The panorama is wider than the viewport. Scroll across it as progress advances.
-    // The image aspect ratio determines how much we can scroll.
+    // Scale the panorama so it's 3× the viewport width — gives full coast-to-coast scrolling.
+    // This means the image will be taller than the canvas, so we crop vertically,
+    // showing the middle-to-lower portion (where the water and horizon are).
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    // Scale image to fill canvas height, then scroll horizontally
-    const scale = H / imgH;
-    const scaledW = imgW * scale;
-    const maxScroll = Math.max(0, scaledW - W);
+    const targetW = W * 3;
+    const scale = targetW / imgW;
+    const scaledH = imgH * scale;
+    const maxScroll = targetW - W; // scroll distance = 2× viewport width
     const scrollX = progress * maxScroll;
-    // Draw the panorama shifted by scroll
-    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+    // Vertical offset: show the lower portion of the image (water/horizon area)
+    // Shift up so the waterline sits at roughly 70% of canvas height
+    const yOffset = Math.min(0, H - scaledH * 0.85);
+    ctx.drawImage(panoImg, -scrollX, yOffset, targetW, scaledH);
   } else {
     // ── FALLBACK: Three separate images as panorama ──
     const departImg=TR_IMAGES[TR_DEPART_KEYS[idx]];
@@ -2246,11 +2249,13 @@ function drawTransitionAnchored(ctx, W, H, tr){
     // Show the rightmost portion of the panorama (arrival scene)
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    const scale = H / imgH;
-    const scaledW = imgW * scale;
-    const maxScroll = Math.max(0, scaledW - W);
-    // Fully scrolled to end
-    ctx.drawImage(panoImg, -maxScroll, 0, scaledW, H);
+    const targetW = W * 3;
+    const scale = targetW / imgW;
+    const scaledH = imgH * scale;
+    const maxScroll = targetW - W;
+    const yOffset = Math.min(0, H - scaledH * 0.85);
+    // Fully scrolled to arrival end
+    ctx.drawImage(panoImg, -maxScroll, yOffset, targetW, scaledH);
   } else {
     // Fallback to arrival image
     const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
