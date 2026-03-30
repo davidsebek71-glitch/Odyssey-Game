@@ -2128,19 +2128,17 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
     // ── SINGLE PANORAMA IMAGE ──
-    // Scale the panorama so it's 3× the viewport width — gives full coast-to-coast scrolling.
-    // This means the image will be taller than the canvas, so we crop vertically,
-    // showing the middle-to-lower portion (where the water and horizon are).
+    // Scale to 2× viewport width for good scroll distance while keeping scene visible.
+    // Center vertically so sky, horizon, water, and coastlines are all in view.
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    const targetW = W * 3;
+    const targetW = W * 2;
     const scale = targetW / imgW;
     const scaledH = imgH * scale;
-    const maxScroll = targetW - W; // scroll distance = 2× viewport width
+    const maxScroll = targetW - W;
     const scrollX = progress * maxScroll;
-    // Vertical offset: show the lower portion of the image (water/horizon area)
-    // Shift up so the waterline sits at roughly 70% of canvas height
-    const yOffset = Math.min(0, H - scaledH * 0.85);
+    // Center the image vertically in the canvas
+    const yOffset = (H - scaledH) / 2;
     ctx.drawImage(panoImg, -scrollX, yOffset, targetW, scaledH);
   } else {
     // ── FALLBACK: Three separate images as panorama ──
@@ -2246,14 +2244,13 @@ function drawTransitionAnchored(ctx, W, H, tr){
   const panoImg = panoKey ? TR_PANORAMAS[panoKey] : null;
 
   if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
-    // Show the rightmost portion of the panorama (arrival scene)
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    const targetW = W * 3;
+    const targetW = W * 2;
     const scale = targetW / imgW;
     const scaledH = imgH * scale;
     const maxScroll = targetW - W;
-    const yOffset = Math.min(0, H - scaledH * 0.85);
+    const yOffset = (H - scaledH) / 2;
     // Fully scrolled to arrival end
     ctx.drawImage(panoImg, -maxScroll, yOffset, targetW, scaledH);
   } else {
