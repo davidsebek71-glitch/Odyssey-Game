@@ -12097,7 +12097,7 @@ app.post('/api/trade/market/bid', authenticateToken, (req, res) => {
 
 // --- Teacher: Diagnose market auction state for a period ---
 app.get('/api/trade/market/diagnose/:period', authenticateToken, (req, res) => {
-  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+  if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
   try {
     const period = req.params.period;
 
