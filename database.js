@@ -1560,6 +1560,26 @@ function seedReferenceData() {
   try {
     db.run("UPDATE trade_window SET resource_threshold = 200 WHERE resource_threshold = 500");
   } catch (e) { console.log('Migration note: threshold update -', e.message); }
+
+  // V93 FIX: Clear stale scout_status for students whose alliance has already reached that age
+  try {
+    db.run(`UPDATE students SET scout_status = NULL 
+            WHERE scout_status IS NOT NULL 
+            AND alliance_id IN (
+              SELECT alliance_id FROM alliances 
+              WHERE (current_age = 'Classical' AND scout_status = 'Classical')
+                 OR (current_age = 'Heroic' AND scout_status IN ('Classical', 'Heroic'))
+            )`, []);
+    // Note: The subquery references students.scout_status which isn't available in the subquery.
+    // Let me use a different approach:
+  } catch (e) {}
+  try {
+    // Clear Classical scouts in Classical+ alliances
+    db.run(`UPDATE students SET scout_status = NULL WHERE scout_status = 'Classical' AND alliance_id IN (SELECT alliance_id FROM alliances WHERE current_age IN ('Classical', 'Heroic'))`);
+    // Clear Heroic scouts in Heroic alliances
+    db.run(`UPDATE students SET scout_status = NULL WHERE scout_status = 'Heroic' AND alliance_id IN (SELECT alliance_id FROM alliances WHERE current_age = 'Heroic')`);
+    console.log('✅ Cleared stale scout statuses');
+  } catch (e) { console.log('Migration note: scout cleanup -', e.message); }
   
   try {
     db.run(`CREATE TABLE IF NOT EXISTS resource_buys (

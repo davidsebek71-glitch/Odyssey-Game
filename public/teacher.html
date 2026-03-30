@@ -6660,8 +6660,10 @@
                     const allianceAge = student.alliance_age || 'Archaic';
                     const isArchaicAlliance = allianceAge === 'Archaic';
                     const isClassicalAlliance = allianceAge === 'Classical';
-                    // Scout badge for any alliance that has a scouted student
-                    const scoutBadge = student.scout_status ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 ${student.scout_status} SCOUT</span>` : '';
+                    const ageOrder = { 'Archaic': 0, 'Classical': 1, 'Heroic': 2 };
+                    // Scout badge only shows if scout status is ABOVE alliance age
+                    const scoutIsRelevant = student.scout_status && (ageOrder[student.scout_status] || 0) > (ageOrder[allianceAge] || 0);
+                    const scoutBadge = scoutIsRelevant ? `<span style="background: rgba(234,179,8,0.2); border: 1px solid rgba(234,179,8,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px;">🏹 ${student.scout_status} SCOUT</span>` : '';
                     let scoutBtn = '';
                     if (isArchaicAlliance) {
                         scoutBtn = student.scout_status ? 
