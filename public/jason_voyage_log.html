@@ -1989,6 +1989,10 @@ function runTransitionFrame(){
       document.getElementById('transition-caption').textContent =
         `The Argo anchors near ${STOPS[transitionState.nextStopIndex]?.title || 'the next stop'}...`;
       document.getElementById('transition-caption').className = 'transition-caption arrival';
+      // Auto-enable disembark if the destination stop is already unlocked
+      if(transitionState.nextStopIndex <= state.unlockedUpTo){
+        setTimeout(enableDisembark, 500);
+      }
     }
   } else {
     drawTransitionAnchored(ctx, W, H, tr);
@@ -2452,18 +2456,29 @@ async function checkServerUnlocks(){
         if(state.currentStop === -1 && state.unlockedUpTo >= 0){
           showStop(0);
         }
-        // If student completed their current stop and the next one is now unlocked
+        // If transition screen is active, check if the destination stop is now unlocked
+        else if(transitionState.active && transitionState.nextStopIndex <= state.unlockedUpTo){
+          enableDisembark();
+        }
+        // If student is sitting on a completed stop (not in transition), check if next is unlocked
         else if(state.currentStop >= 0 && state.completed[state.currentStop]){
           const nextIdx = state.currentStop + 1;
           if(nextIdx <= state.unlockedUpTo && nextIdx < 10){
-            // Enable disembark if they're on the transition screen
             enableDisembark();
           }
         }
       }
     }
+    // Also: if transition is active and destination is already unlocked, ensure disembark is enabled
+    // (covers the case where student loaded saved progress mid-transition)
+    if(transitionState.active && transitionState.nextStopIndex <= state.unlockedUpTo){
+      const btn = document.getElementById('disembark-btn');
+      if(btn && !btn.classList.contains('ready')){
+        enableDisembark();
+      }
+    }
   } catch(e){
-    // Silent — server may be unreachable, local teacher modal still works as fallback
+    // Silent — server may be unreachable
   }
 }
 
