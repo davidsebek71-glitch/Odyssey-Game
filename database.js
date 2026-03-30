@@ -3434,6 +3434,48 @@ function seedClassicalData() {
   } catch (e) {
     console.log('Migration note: market tables -', e.message);
   }
+
+  // V93 FIX: market_bids and market_trades have wrong schema from Classic Age 5 code.
+  // The old tables use bidder_id/resource_wanted/amount_wanted/resource_offered/amount_offered
+  // but current code expects auction_id/student_id/offer_resource/offer_amount/request_amount.
+  // Drop and recreate — no valuable data exists in these tables.
+  try {
+    const colCheck = db.exec("PRAGMA table_info(market_bids)");
+    const colNames = colCheck[0] ? colCheck[0].values.map(r => r[1]) : [];
+    if (colNames.includes('bidder_id') && !colNames.includes('auction_id')) {
+      console.log('🔧 Rebuilding market_bids and market_trades with correct schema...');
+      db.exec('DROP TABLE IF EXISTS market_bids');
+      db.exec('DROP TABLE IF EXISTS market_trades');
+      db.exec(`
+        CREATE TABLE market_bids (
+          bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          auction_id INTEGER NOT NULL,
+          student_id INTEGER NOT NULL,
+          offer_resource TEXT NOT NULL,
+          offer_amount INTEGER NOT NULL,
+          request_amount INTEGER NOT NULL,
+          ratio REAL NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      db.exec(`
+        CREATE TABLE market_trades (
+          trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          auction_id INTEGER NOT NULL,
+          student_id INTEGER NOT NULL,
+          student_gave_resource TEXT NOT NULL,
+          student_gave_amount INTEGER NOT NULL,
+          student_received_resource TEXT NOT NULL,
+          student_received_amount INTEGER NOT NULL,
+          completed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      saveDatabaseNow();
+      console.log('✅ market_bids and market_trades rebuilt with correct schema');
+    }
+  } catch (e) {
+    console.log('Migration note: market schema fix -', e.message);
+  }
 }
 
 // Debounced save to prevent EBUSY errors from rapid writes
