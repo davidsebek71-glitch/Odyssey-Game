@@ -9402,7 +9402,7 @@ app.post('/api/teacher/reset-heroic', authenticateToken, (req, res) => {
 
     // Find all Heroic students in this period
     const students = query(
-      "SELECT s.student_id, s.name, s.alliance_id, s.selected_avatar FROM students s WHERE s.class_period = ? AND s.current_age = 'Heroic'",
+      "SELECT s.student_id, s.name, s.alliance_id FROM students s WHERE s.class_period = ? AND s.current_age = 'Heroic'",
       [period]
     );
 
@@ -9412,7 +9412,8 @@ app.post('/api/teacher/reset-heroic', authenticateToken, (req, res) => {
 
     // Reset each student
     students.forEach(s => {
-      run("UPDATE students SET current_age = 'Classical', selected_avatar = NULL, drachma = NULL, avatar_selected_at = NULL WHERE student_id = ?", [s.student_id]);
+      run("UPDATE students SET current_age = 'Classical' WHERE student_id = ?", [s.student_id]);
+      try { run("UPDATE students SET selected_avatar = NULL, drachma = NULL, avatar_selected_at = NULL WHERE student_id = ?", [s.student_id]); } catch(e) { /* columns may not exist */ }
     });
 
     // Reset their alliances back to Classical
