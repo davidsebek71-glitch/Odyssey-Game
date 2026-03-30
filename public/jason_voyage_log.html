@@ -2132,7 +2132,7 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
     // Center vertically so sky, horizon, water, and coastlines are all in view.
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    const targetW = W * 2;
+    const targetW = W * 1.7;
     const scale = targetW / imgW;
     const scaledH = imgH * scale;
     const maxScroll = targetW - W;
@@ -2246,7 +2246,7 @@ function drawTransitionAnchored(ctx, W, H, tr){
   if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    const targetW = W * 2;
+    const targetW = W * 1.7;
     const scale = targetW / imgW;
     const scaledH = imgH * scale;
     const maxScroll = targetW - W;
