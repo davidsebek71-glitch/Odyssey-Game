@@ -3681,8 +3681,8 @@
             const actualAge = student.current_age || 'Archaic';
 
             // Heroic Age students go directly to the voyage log
-            // unless they explicitly requested another view via ?view=classical or ?view=archaic
-            if (actualAge === 'Heroic' && viewOverride !== 'classical' && viewOverride !== 'archaic') {
+            // unless they explicitly requested archaic or classical view
+            if (actualAge === 'Heroic' && (!viewOverride || viewOverride === 'heroic')) {
                 window.location.href = '/jason_voyage_log.html';
                 return;
             }

@@ -452,7 +452,7 @@
                     '<div style="font-family:Cinzel,serif;font-size:1.2rem;color:#fbbf24;margin-bottom:20px;">Connection Error</div>' +
                     '<div style="color:rgba(255,255,255,0.5);margin-bottom:30px;">Could not load game data. Try these direct links:</div>' +
                     '<a href="/student.html?view=archaic" style="display:inline-block;background:linear-gradient(135deg,#b8860b,#daa520);color:#1a0a05;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">ARCHAIC DASHBOARD</a>' +
-                    '<a href="/student.html" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4a90d9);color:#fff;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">CLASSICAL DASHBOARD</a>' +
+                    '<a href="/student.html?view=classical" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4a90d9);color:#fff;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">CLASSICAL DASHBOARD</a>' +
                     '<a href="/student.html?view=heroic" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#9333ea);color:#f3e8ff;padding:12px 28px;border-radius:8px;font-family:Cinzel,serif;font-weight:700;text-decoration:none;margin:8px;">HEROIC DASHBOARD</a>' +
                     '</div>';
             }
@@ -556,7 +556,7 @@
             html += '<span style="color: rgba(255,255,255,0.2);">Direct links: </span>';
             html += '<a href="/student.html?view=archaic" style="color: rgba(184,134,11,0.5); margin: 0 12px; text-decoration: underline;">Archaic Dashboard</a>';
             if (canAccess) {
-                html += '<a href="/student.html" style="color: rgba(74,144,217,0.5); margin: 0 12px; text-decoration: underline;">Classical Dashboard</a>';
+                html += '<a href="/student.html?view=classical" style="color: rgba(74,144,217,0.5); margin: 0 12px; text-decoration: underline;">Classical Dashboard</a>';
             }
             if (allianceAge === 'Heroic') {
                 html += '<a href="/student.html?view=heroic" style="color: rgba(147,51,234,0.5); margin: 0 12px; text-decoration: underline;">Heroic Dashboard</a>';
@@ -586,16 +586,16 @@
                         console.warn('Cinematic error (non-fatal):', cinematicErr);
                     }
                 }
-                window.location.href = '/student.html';
+                window.location.href = '/student.html?view=classical';
             } catch (e) {
                 // Absolute fallback
-                window.location.assign('/student.html');
+                window.location.assign('/student.html?view=classical');
             }
         }
 
         function enterHeroic() {
             // Heroic Age students go to the student dashboard which will detect their age
-            window.location.href = '/student.html';
+            window.location.href = '/student.html?view=heroic';
         }
 
         function playCinematic() {
