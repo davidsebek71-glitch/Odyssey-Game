@@ -2028,14 +2028,40 @@ const TR_ARRIVE_KEYS = [
   'vl_arrive_07_aeaea','vl_arrive_08_crete','vl_arrive_09_iolcus'
 ];
 
+// Panoramic images — one wide image per transition (replaces depart+water+arrive)
+// Named by transition number: 1_iolcus_to_lemnos, 2_lemnos_to_cyzicus, etc.
+const TR_PANORAMA_KEYS = [
+  '1_iolcus_to_lemnos',
+  '2_lemnos_to_cyzicus',
+  '3_cyzicus_to_bebryces',
+  '4_bebryces_to_salmydessus',
+  '5_salmydessus_to_symplegades',
+  '6_symplegades_to_colchis',
+  '7_colchis_to_aeaea',
+  '8_aeaea_to_crete',
+  '9_crete_to_iolcus'
+];
+const TR_PANORAMAS = {};
+
 function preloadTransitionImages(){
+  // Load legacy three-image set
   TR_IMAGE_KEYS.forEach(key=>{
     const img=new Image();
-    img.crossOrigin='anonymous'; // required for getImageData to work without tainting canvas
+    img.crossOrigin='anonymous';
     img.onerror=()=>{ TR_IMAGES[key]=null; console.warn('TR image failed to load:',key); };
     img.onload=()=>{ if(key==='vl_ship_argo_sprite') console.log('⚓ Argo sprite loaded:',img.naturalWidth,'x',img.naturalHeight); };
     img.src=TRANSITION_BASE_URL+key+'.png';
     TR_IMAGES[key]=img;
+  });
+
+  // Load panoramic images (preferred over three-image set)
+  TR_PANORAMA_KEYS.forEach(key=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onerror=()=>{ TR_PANORAMAS[key]=null; };
+    img.onload=()=>{ console.log('⚓ Panorama loaded:',key,img.naturalWidth+'x'+img.naturalHeight); };
+    img.src=TRANSITION_BASE_URL+key+'.png';
+    TR_PANORAMAS[key]=img;
   });
 }
 
@@ -2095,58 +2121,70 @@ function processArgoSprite(){
 function drawTransitionSailing(ctx, W, H, tr, progress){
   ctx.imageSmoothingEnabled=false;
   const idx=transitionState.nextStopIndex-1;
-  const departImg=TR_IMAGES[TR_DEPART_KEYS[idx]];
-  const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
-  const waterImg=TR_IMAGES['vl_open_water_night'];
 
-  // ── PANORAMIC SCROLL ──
-  // Three images placed side-by-side: [depart | open water | arrive]
-  // Total panorama = 3 × viewport width. Camera scrolls right as progress advances.
-  // Ship stays at fixed screen position while world moves behind it.
-  const panoramaW = W * 3;
-  const maxScroll = panoramaW - W;
-  const scrollX = progress * maxScroll;
+  // Check for panoramic image first (preferred)
+  const panoKey = TR_PANORAMA_KEYS[idx];
+  const panoImg = panoKey ? TR_PANORAMAS[panoKey] : null;
 
-  // Draw each image at its panorama position, offset by scroll
-  // Section 1: Departure (panorama x: 0 to W)
-  const dX = 0 - scrollX;
-  if(dX + W > 0 && dX < W){ // visible on screen
-    if(departImg&&departImg.complete&&departImg.naturalWidth>0){
-      ctx.drawImage(departImg, dX, 0, W, H);
-    } else {
-      ctx.save(); ctx.translate(dX, 0);
-      _drawCodedBackground(ctx, W, H, tr);
-      ctx.restore();
+  if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
+    // ── SINGLE PANORAMA IMAGE ──
+    // The panorama is wider than the viewport. Scroll across it as progress advances.
+    // The image aspect ratio determines how much we can scroll.
+    const imgW = panoImg.naturalWidth;
+    const imgH = panoImg.naturalHeight;
+    // Scale image to fill canvas height, then scroll horizontally
+    const scale = H / imgH;
+    const scaledW = imgW * scale;
+    const maxScroll = Math.max(0, scaledW - W);
+    const scrollX = progress * maxScroll;
+    // Draw the panorama shifted by scroll
+    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+  } else {
+    // ── FALLBACK: Three separate images as panorama ──
+    const departImg=TR_IMAGES[TR_DEPART_KEYS[idx]];
+    const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
+    const waterImg=TR_IMAGES['vl_open_water_night'];
+
+    const panoramaW = W * 3;
+    const maxScroll = panoramaW - W;
+    const scrollX = progress * maxScroll;
+
+    // Section 1: Departure (panorama x: 0 to W)
+    const dX = 0 - scrollX;
+    if(dX + W > 0 && dX < W){
+      if(departImg&&departImg.complete&&departImg.naturalWidth>0){
+        ctx.drawImage(departImg, dX, 0, W, H);
+      } else {
+        ctx.save(); ctx.translate(dX, 0);
+        _drawCodedBackground(ctx, W, H, tr);
+        ctx.restore();
+      }
+    }
+
+    // Section 2: Open water (panorama x: W to 2W)
+    const wX = W - scrollX;
+    if(wX + W > 0 && wX < W){
+      if(waterImg&&waterImg.complete&&waterImg.naturalWidth>0){
+        ctx.drawImage(waterImg, wX, 0, W, H);
+      } else {
+        ctx.save(); ctx.translate(wX, 0);
+        _drawCodedWater(ctx, W, H);
+        ctx.restore();
+      }
+    }
+
+    // Section 3: Arrival (panorama x: 2W to 3W)
+    const aX = W * 2 - scrollX;
+    if(aX + W > 0 && aX < W){
+      if(arriveImg&&arriveImg.complete&&arriveImg.naturalWidth>0){
+        ctx.drawImage(arriveImg, aX, 0, W, H);
+      } else {
+        ctx.save(); ctx.translate(aX, 0);
+        _drawCodedBackground(ctx, W, H, tr);
+        ctx.restore();
+      }
     }
   }
-
-  // Section 2: Open water (panorama x: W to 2W)
-  const wX = W - scrollX;
-  if(wX + W > 0 && wX < W){ // visible on screen
-    if(waterImg&&waterImg.complete&&waterImg.naturalWidth>0){
-      ctx.drawImage(waterImg, wX, 0, W, H);
-    } else {
-      // Coded open water fallback
-      ctx.save(); ctx.translate(wX, 0);
-      _drawCodedWater(ctx, W, H);
-      ctx.restore();
-    }
-  }
-
-  // Section 3: Arrival (panorama x: 2W to 3W)
-  const aX = W * 2 - scrollX;
-  if(aX + W > 0 && aX < W){ // visible on screen
-    if(arriveImg&&arriveImg.complete&&arriveImg.naturalWidth>0){
-      ctx.drawImage(arriveImg, aX, 0, W, H);
-    } else {
-      ctx.save(); ctx.translate(aX, 0);
-      _drawCodedBackground(ctx, W, H, tr);
-      ctx.restore();
-    }
-  }
-
-  // When two images overlap during scroll, the second one draws on top.
-  // This creates a natural wipe transition — no crossfade needed.
 
   // Ship at fixed screen position (~45% from left)
   if(!tr.noShip){
@@ -2199,13 +2237,28 @@ function _drawCodedWater(ctx, W, H){
 function drawTransitionAnchored(ctx, W, H, tr){
   ctx.imageSmoothingEnabled=false;
   const idx=transitionState.nextStopIndex-1;
-  const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
 
-  // Anchored = fully scrolled to arrival scene
-  if(arriveImg&&arriveImg.complete&&arriveImg.naturalWidth>0){
-    ctx.drawImage(arriveImg,0,0,W,H);
+  // Check for panoramic image first
+  const panoKey = TR_PANORAMA_KEYS[idx];
+  const panoImg = panoKey ? TR_PANORAMAS[panoKey] : null;
+
+  if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
+    // Show the rightmost portion of the panorama (arrival scene)
+    const imgW = panoImg.naturalWidth;
+    const imgH = panoImg.naturalHeight;
+    const scale = H / imgH;
+    const scaledW = imgW * scale;
+    const maxScroll = Math.max(0, scaledW - W);
+    // Fully scrolled to end
+    ctx.drawImage(panoImg, -maxScroll, 0, scaledW, H);
   } else {
-    _drawCodedBackground(ctx,W,H,tr);
+    // Fallback to arrival image
+    const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
+    if(arriveImg&&arriveImg.complete&&arriveImg.naturalWidth>0){
+      ctx.drawImage(arriveImg,0,0,W,H);
+    } else {
+      _drawCodedBackground(ctx,W,H,tr);
+    }
   }
 
   // Ship anchored at ~45% (same position as end of sailing)
