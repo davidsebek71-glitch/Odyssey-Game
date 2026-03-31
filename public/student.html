@@ -1921,6 +1921,132 @@
         /* ==================== CLASSICAL AGE — MYTH PORTALS ==================== */
         #classical-age-section { display: none; }
 
+        /* ==================== HEROIC AGE ==================== */
+        #heroic-age-section { display: none; }
+
+        body.heroic-age {
+            background: linear-gradient(135deg, #0f0515 0%, #1a0a2e 50%, #0f0515 100%);
+        }
+        body.heroic-age .header {
+            background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(91,33,182,0.2));
+            border-bottom: 2px solid rgba(124,58,237,0.3);
+        }
+        body.heroic-age .logo h1 {
+            background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        body.heroic-age .action-btn {
+            border-color: rgba(124,58,237,0.3);
+        }
+        body.heroic-age .stat-card {
+            border-color: rgba(124,58,237,0.2);
+        }
+        .heroic-myth-bar {
+            background: linear-gradient(180deg, rgba(15,5,21,0.95), rgba(26,10,46,0.9));
+            border: 1px solid rgba(124,58,237,0.15);
+            border-radius: 16px;
+            padding: 16px 20px 12px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .heroic-myth-bar-title {
+            font-family: 'Cinzel', serif;
+            font-size: 14px; font-weight: 700;
+            color: rgba(196,181,253,0.8);
+            letter-spacing: 4px; text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        .heroic-myth-row {
+            display: flex; gap: 10px; justify-content: center;
+            flex-wrap: wrap; padding: 0 4px;
+        }
+        .heroic-myth-pip {
+            width: 42px; height: 42px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; transition: all 0.3s;
+            border: 2px solid rgba(124,58,237,0.2);
+            background: rgba(124,58,237,0.06);
+        }
+        .heroic-myth-pip.completed {
+            border-color: rgba(74,222,128,0.5);
+            background: rgba(74,222,128,0.1);
+            box-shadow: 0 0 8px rgba(74,222,128,0.3);
+        }
+        .hero-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .hero-card {
+            background: rgba(124,58,237,0.04);
+            border: 2px solid rgba(124,58,237,0.15);
+            border-radius: 16px;
+            padding: 20px 16px;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-card.active {
+            border-color: rgba(234,179,8,0.4);
+            background: rgba(234,179,8,0.04);
+            cursor: pointer;
+        }
+        .hero-card.active:hover {
+            transform: scale(1.02);
+            border-color: rgba(234,179,8,0.7);
+            box-shadow: 0 6px 24px rgba(234,179,8,0.2);
+        }
+        .hero-card.locked {
+            opacity: 0.5;
+        }
+        .hero-card.locked::after {
+            content: '🔒';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 16px;
+        }
+        .hero-card-icon { font-size: 40px; margin-bottom: 8px; }
+        .hero-card-name {
+            font-family: 'Cinzel', serif;
+            font-size: 15px; font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .hero-card-subtitle {
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            margin-top: 4px;
+        }
+        .chapter-portal-card {
+            background: rgba(124,58,237,0.04);
+            border: 2px solid rgba(124,58,237,0.15);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .chapter-portal-card.ready {
+            border-color: rgba(74,222,128,0.5);
+            background: rgba(74,222,128,0.04);
+            animation: chapterGlow 2s ease-in-out infinite;
+            cursor: pointer;
+        }
+        .chapter-portal-card.ready:hover {
+            transform: scale(1.01);
+            box-shadow: 0 8px 30px rgba(74,222,128,0.2);
+        }
+        @keyframes chapterGlow {
+            0%, 100% { box-shadow: 0 0 10px rgba(74,222,128,0.1); }
+            50% { box-shadow: 0 0 25px rgba(74,222,128,0.3); }
+        }
+        @media (max-width: 600px) {
+            .hero-cards-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
         /* Classical Age color overrides — applied via body.classical-age */
         body.classical-age {
             background: linear-gradient(135deg, #0a0f1e 0%, #0f1528 50%, #0a0f1e 100%);
@@ -3106,6 +3232,58 @@
         </div>
     </div>
 
+    <!-- ==================== HEROIC AGE SECTION ==================== -->
+    <div id="heroic-age-section" style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
+        <!-- Read-Only Classical Myth Portals -->
+        <div class="heroic-myth-bar">
+            <div class="heroic-myth-bar-title">📜 Classical Virtues</div>
+            <div class="heroic-myth-row" id="heroic-myth-row">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Hero Chapter Cards -->
+        <div style="margin-bottom: 8px;">
+            <div style="font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; color: rgba(196,181,253,0.8); letter-spacing: 4px; text-transform: uppercase; text-align: center; margin-bottom: 14px;">⚔️ The Hero's Journey</div>
+        </div>
+
+        <!-- Chapter 1 Portal (activates when Voyage Log is turned in) -->
+        <div id="chapter1-portal" class="chapter-portal-card" onclick="enterChapter1()">
+            <div style="font-size: 48px; margin-bottom: 8px;">⛵</div>
+            <div style="font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700; color: #c4b5fd; letter-spacing: 2px;">CHAPTER 1</div>
+            <div style="font-family: 'Cinzel', serif; font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 4px;">Jason & the Argonauts</div>
+            <div id="chapter1-status" style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.3);">Complete the Voyage Log to unlock</div>
+        </div>
+
+        <!-- 4 Hero Cards -->
+        <div class="hero-cards-grid">
+            <div class="hero-card active" onclick="openJasonVoyageLog()">
+                <div class="hero-card-icon">⛵</div>
+                <div class="hero-card-name" style="color: #fbbf24;">Jason</div>
+                <div class="hero-card-subtitle">Voyage Log</div>
+                <div id="jason-card-status" style="margin-top: 8px; font-size: 11px; color: rgba(234,179,8,0.7);">Tap to open</div>
+            </div>
+            <div class="hero-card locked">
+                <div class="hero-card-icon">🦁</div>
+                <div class="hero-card-name" style="color: rgba(239,68,68,0.6);">Heracles</div>
+                <div class="hero-card-subtitle">The 12 Labors</div>
+                <div style="margin-top: 8px; font-size: 10px; color: rgba(255,255,255,0.25);">Coming Soon</div>
+            </div>
+            <div class="hero-card locked">
+                <div class="hero-card-icon">🏛️</div>
+                <div class="hero-card-name" style="color: rgba(96,165,250,0.6);">Theseus</div>
+                <div class="hero-card-subtitle">The Labyrinth</div>
+                <div style="margin-top: 8px; font-size: 10px; color: rgba(255,255,255,0.25);">Coming Soon</div>
+            </div>
+            <div class="hero-card locked">
+                <div class="hero-card-icon">🐍</div>
+                <div class="hero-card-name" style="color: rgba(74,222,128,0.6);">Perseus</div>
+                <div class="hero-card-subtitle">The Gorgon</div>
+                <div style="margin-top: 8px; font-size: 10px; color: rgba(255,255,255,0.25);">Coming Soon</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Submit Points Modal -->
     <div id="submit-modal" class="modal">
         <div class="modal-content">
@@ -3644,6 +3822,7 @@
 
         function renderDashboard() {
             const { student, members, leaderboard } = dashboardData;
+            window.currentStudentData = student;
 
             // Update stats
             if (student.alliance_name) {
@@ -3680,21 +3859,21 @@
             const viewOverride = urlParams.get('view');
             const actualAge = student.current_age || 'Archaic';
 
-            // Heroic Age students go directly to the voyage log
-            // unless they explicitly requested archaic or classical view
-            if (actualAge === 'Heroic' && (!viewOverride || viewOverride === 'heroic')) {
-                window.location.href = '/jason_voyage_log.html';
-                return;
-            }
-
+            // Determine which view to show
+            const showHeroicView = (actualAge === 'Heroic' && viewOverride !== 'classical' && viewOverride !== 'archaic') || viewOverride === 'heroic';
             const isClassicalPlayer = actualAge === 'Classical' || actualAge === 'Heroic';
-            const showClassicalView = isClassicalPlayer && viewOverride !== 'archaic';
+            const showClassicalView = !showHeroicView && isClassicalPlayer && viewOverride !== 'archaic';
             
-            // Show age toggle button for Classical players
+            // Show age toggle button for Classical/Heroic players
             const ageToggleBtn = document.getElementById('age-toggle-btn');
             if (ageToggleBtn && isClassicalPlayer) {
                 ageToggleBtn.style.display = 'inline-block';
-                if (showClassicalView) {
+                if (showHeroicView) {
+                    ageToggleBtn.innerHTML = '🏛️ Classical View';
+                    ageToggleBtn.style.background = 'linear-gradient(135deg, #1e3a8a, #3b82f6)';
+                    ageToggleBtn.style.color = '#93c5fd';
+                    ageToggleBtn.style.borderColor = 'rgba(59,130,246,0.4)';
+                } else if (showClassicalView) {
                     ageToggleBtn.innerHTML = '🏺 Archaic View';
                     ageToggleBtn.style.background = 'linear-gradient(135deg, #78350f, #b45309)';
                     ageToggleBtn.style.color = '#fbbf24';
@@ -3704,6 +3883,32 @@
                     ageToggleBtn.style.background = 'linear-gradient(135deg, #1e3a8a, #3b82f6)';
                     ageToggleBtn.style.color = '#93c5fd';
                     ageToggleBtn.style.borderColor = 'rgba(59,130,246,0.4)';
+                }
+            }
+
+            // Show/hide Heroic Age section
+            const heroicSection = document.getElementById('heroic-age-section');
+            if (heroicSection) {
+                if (showHeroicView) {
+                    heroicSection.style.display = 'block';
+                    document.body.classList.add('heroic-age');
+                    document.body.classList.remove('classical-age');
+                    document.querySelector('.logo h1').textContent = '⚔️ ODYSSEY TO OLYMPUS — HEROIC AGE';
+                    // Show classical bonus cards and trade portal
+                    const bonusCard = document.getElementById('bonus-card');
+                    if (bonusCard) bonusCard.style.display = 'none';
+                    const classicalBonusCard = document.getElementById('classical-bonus-card');
+                    if (classicalBonusCard) classicalBonusCard.style.display = '';
+                    const tradePortalCard = document.getElementById('trade-portal-card');
+                    if (tradePortalCard) tradePortalCard.style.display = '';
+                    const grid = document.getElementById('bonus-quest-grid');
+                    if (grid) grid.style.gridTemplateColumns = '1fr 1fr 1fr';
+                    loadHeroicMythPips();
+                    loadTradePortalMini();
+                    loadHeroicChapter1Status();
+                } else {
+                    heroicSection.style.display = 'none';
+                    document.body.classList.remove('heroic-age');
                 }
             }
 
@@ -4552,12 +4757,25 @@
         function toggleAgeView() {
             const urlParams = new URLSearchParams(window.location.search);
             const currentView = urlParams.get('view');
-            if (currentView === 'archaic') {
-                // Switch back to Classical
-                window.location.href = '/student.html';
+            const actualAge = (dashboardData && dashboardData.student) ? dashboardData.student.current_age : 'Archaic';
+            const isHeroic = actualAge === 'Heroic';
+            
+            if (isHeroic) {
+                // Heroic players cycle: heroic → classical → archaic → heroic
+                if (!currentView || currentView === 'heroic') {
+                    window.location.href = '/student.html?view=classical';
+                } else if (currentView === 'classical') {
+                    window.location.href = '/student.html?view=archaic';
+                } else {
+                    window.location.href = '/student.html?view=heroic';
+                }
             } else {
-                // Switch to Archaic view
-                window.location.href = '/student.html?view=archaic';
+                // Classical players toggle: classical → archaic → classical
+                if (currentView === 'archaic') {
+                    window.location.href = '/student.html?view=classical';
+                } else {
+                    window.location.href = '/student.html?view=archaic';
+                }
             }
         }
 
@@ -13023,6 +13241,77 @@
             body.innerHTML = html;
         }
         // ── End Missing Virtues system ──────────────────────────────────
+
+        // ── Heroic Age Dashboard functions ──────────────────────────────
+        const HEROIC_MYTH_ICONS = {
+            'Pandora': '📦', 'Phaethon': '☀️', 'Orpheus & Eurydice': '🎵',
+            'Echo & Narcissus': '🪞', 'Icarus & Daedalus': '🪶',
+            'Eros & Psyche': '🦋', 'Constellations': '⭐'
+        };
+
+        async function loadHeroicMythPips() {
+            try {
+                var response = await fetch(API_URL + '/student/myth-portals', { headers: headers });
+                var data = await response.json();
+                var row = document.getElementById('heroic-myth-row');
+                if (!row || !data.portals) return;
+                var html = '';
+                data.portals.forEach(function(p) {
+                    var icon = HEROIC_MYTH_ICONS[p.myth_name] || '📜';
+                    var completed = p.virtue_claimed === 1;
+                    html += '<div class="heroic-myth-pip ' + (completed ? 'completed' : '') + '" title="' + p.myth_name + (completed ? ' ✓' : ' — incomplete') + '">'
+                        + icon + '</div>';
+                });
+                row.innerHTML = html;
+            } catch (e) { /* non-critical */ }
+        }
+
+        async function loadHeroicChapter1Status() {
+            var portal = document.getElementById('chapter1-portal');
+            var statusEl = document.getElementById('chapter1-status');
+            if (!portal || !statusEl) return;
+            try {
+                var student = window.currentStudentData;
+                if (!student) return;
+                
+                // Check voyage_log_completed flag on student record
+                if (student.voyage_log_completed === 1) {
+                    portal.classList.add('ready');
+                    statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">✓ Voyage Log Complete</span><br><span style="color:rgba(255,255,255,0.4);font-size:11px;">Chapter 1 coming soon</span>';
+                    return;
+                }
+                
+                // Check if they have saved progress
+                var studentName = student.name || '';
+                var period = student.class_period || '';
+                if (!studentName || !period) { statusEl.textContent = 'Complete the Voyage Log to unlock'; return; }
+                var res = await fetch(API_URL + '/voyage-log/load-progress/' + encodeURIComponent(studentName) + '/' + encodeURIComponent(period));
+                var data = await res.json();
+                if (data.found && data.state) {
+                    var stops = Object.keys(data.state).length;
+                    var pct = Math.round((stops / 10) * 100);
+                    statusEl.innerHTML = '<span style="color:#fbbf24;">Voyage Log: ' + pct + '% complete</span>';
+                } else {
+                    statusEl.textContent = 'Complete the Voyage Log to unlock';
+                }
+            } catch (e) {
+                statusEl.textContent = 'Complete the Voyage Log to unlock';
+            }
+        }
+
+        function openJasonVoyageLog() {
+            window.location.href = '/jason_voyage_log.html';
+        }
+
+        function enterChapter1() {
+            var portal = document.getElementById('chapter1-portal');
+            if (portal && portal.classList.contains('ready')) {
+                alert('Chapter 1: Jason & the Argonauts is coming soon! Your Voyage Log is complete — you are ready.');
+            } else {
+                alert('Complete the Jason Voyage Log first to unlock Chapter 1.');
+            }
+        }
+        // ── End Heroic Age Dashboard functions ─────────────────────────
 
         // Open Hall of Honor modal
         function openHallOfHonor() {
