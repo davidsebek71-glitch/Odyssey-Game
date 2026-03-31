@@ -11088,7 +11088,7 @@ app.get('/api/health', (req, res) => {
 const TRADE_RESOURCES = ['olive', 'grape', 'iron', 'grain'];
 const TRADE_RESOURCE_LABELS = { olive: '🫒 Olive Oil', grape: '🍇 Grapes', iron: '⚒️ Iron', grain: '🌾 Grain' };
 const RESOURCE_BUY_RATE = 10; // 1 alliance point = 10 resource units
-const DEFAULT_RESOURCE_THRESHOLD = 200; // configurable per period
+const DEFAULT_RESOURCE_THRESHOLD = 150; // configurable per period
 
 // Helper: ensure student_resources row exists
 function ensureStudentResources(student_id) {

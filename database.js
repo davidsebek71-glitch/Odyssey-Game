@@ -782,7 +782,7 @@ async function initDatabase() {
       opened_at DATETIME,
       closed_at DATETIME,
       opened_by INTEGER,
-      resource_threshold INTEGER DEFAULT 200
+      resource_threshold INTEGER DEFAULT 150
     )
   `);
 
@@ -1558,7 +1558,7 @@ function seedReferenceData() {
 
   // V93 FIX: Lower resource threshold from 500 to 200 for all periods
   try {
-    db.run("UPDATE trade_window SET resource_threshold = 200 WHERE resource_threshold = 500");
+    db.run("UPDATE trade_window SET resource_threshold = 150 WHERE resource_threshold IN (200, 500)");
   } catch (e) { console.log('Migration note: threshold update -', e.message); }
 
   // V93 FIX: Clear stale scout_status for students whose alliance has already reached that age
