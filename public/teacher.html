@@ -1471,7 +1471,7 @@
 
                 <div class="modal-buttons" style="margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closeFateWheelModal()">Cancel</button>
-                    <button type="button" class="btn-fate" onclick="startWheelSpin()">🎲 SPIN THE WHEEL 🎲</button>
+                    <button type="button" class="btn-fate" id="initial-spin-btn" onclick="startWheelSpin()">🎲 SPIN THE WHEEL 🎲</button>
                 </div>
             </div>
 
@@ -3450,16 +3450,35 @@
                 if (btn) { btn.style.background = inactiveStyle.bg; btn.style.color = inactiveStyle.color; }
             });
             // Activate selected
+            let spinGradient = 'linear-gradient(135deg, #ff6b35, #c41e3a)';
+            let spinBorder = '#ffd700';
+            let spinShadow = 'rgba(255, 107, 53, 0.4)';
             if (currentFateAge === 'Archaic' && archBtn) {
                 archBtn.style.background = 'linear-gradient(135deg, #c41e3a, #ff6b35)';
                 archBtn.style.color = '#fff';
             } else if (currentFateAge === 'Classical' && classBtn) {
                 classBtn.style.background = 'linear-gradient(135deg, #1e40af, #4a90d9)';
                 classBtn.style.color = '#fff';
+                spinGradient = 'linear-gradient(135deg, #1e3a8a, #3b82f6)';
+                spinBorder = '#93c5fd';
+                spinShadow = 'rgba(59, 130, 246, 0.4)';
             } else if (currentFateAge === 'Heroic' && heroicBtn) {
                 heroicBtn.style.background = 'linear-gradient(135deg, #6b21a8, #7c3aed)';
                 heroicBtn.style.color = '#fff';
+                spinGradient = 'linear-gradient(135deg, #6b21a8, #a855f7)';
+                spinBorder = '#c4b5fd';
+                spinShadow = 'rgba(168, 85, 247, 0.4)';
             }
+            // Theme the step-1 spin buttons
+            const initBtn = document.getElementById('initial-spin-btn');
+            const declBtn = document.getElementById('declare-and-spin-btn');
+            [initBtn, declBtn].forEach(btn => {
+                if (btn) {
+                    btn.style.background = spinGradient;
+                    btn.style.borderColor = spinBorder;
+                    btn.style.boxShadow = '0 6px 20px ' + spinShadow;
+                }
+            });
         }
         
         function filterFateAlliances() {
@@ -3657,6 +3676,30 @@
             if (pointer) pointer.style.borderTopColor = ageColor;
             const titleDiv = document.querySelector('#spinning-wheel-step > div:first-child > div');
             if (titleDiv) titleDiv.style.color = ageColor;
+
+            // Theme the big SPIN button to match the age
+            const spinBtn = document.getElementById('spin-button');
+            if (spinBtn) {
+                if (isHeroic) {
+                    spinBtn.style.background = 'linear-gradient(135deg, #6b21a8 0%, #a855f7 50%, #c4b5fd 100%)';
+                    spinBtn.style.boxShadow = '0 0 30px rgba(168,85,247,0.6), 0 4px 20px rgba(0,0,0,0.4)';
+                    spinBtn.style.borderColor = 'rgba(196,181,253,0.5)';
+                    spinBtn.onmouseover = function() { this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 50px rgba(168,85,247,0.9)'; };
+                    spinBtn.onmouseout = function() { this.style.transform='scale(1)'; this.style.boxShadow='0 0 30px rgba(168,85,247,0.6)'; };
+                } else if (isClassical) {
+                    spinBtn.style.background = 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #93c5fd 100%)';
+                    spinBtn.style.boxShadow = '0 0 30px rgba(59,130,246,0.6), 0 4px 20px rgba(0,0,0,0.4)';
+                    spinBtn.style.borderColor = 'rgba(147,197,253,0.5)';
+                    spinBtn.onmouseover = function() { this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 50px rgba(59,130,246,0.9)'; };
+                    spinBtn.onmouseout = function() { this.style.transform='scale(1)'; this.style.boxShadow='0 0 30px rgba(59,130,246,0.6)'; };
+                } else {
+                    spinBtn.style.background = 'linear-gradient(135deg, #c41e3a 0%, #ff6b35 50%, #ffd700 100%)';
+                    spinBtn.style.boxShadow = '0 0 30px rgba(255,107,53,0.6), 0 4px 20px rgba(0,0,0,0.4)';
+                    spinBtn.style.borderColor = 'rgba(255,215,0,0.5)';
+                    spinBtn.onmouseover = function() { this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 50px rgba(255,107,53,0.9)'; };
+                    spinBtn.onmouseout = function() { this.style.transform='scale(1)'; this.style.boxShadow='0 0 30px rgba(255,107,53,0.6)'; };
+                }
+            }
 
             // Draw the wheel
             drawFateWheel();
@@ -4347,11 +4390,10 @@
             const isSteal = fate.fate_type === 'steal_choice';
 
             // For steal fates, we need alliance count to show total math
-            // Filter to same class_period AND same age — avoids cross-period contamination
+            // Filter to same class_period only — steal fates affect ALL alliances regardless of age
             const spinningAlliance = fateAllianceData.find(a => a.alliance_id === selectedAllianceId);
             const spinningPeriod = spinningAlliance ? spinningAlliance.class_period : null;
             const periodAlliances = fateAllianceData.filter(a => 
-                (a.current_age || 'Archaic') === currentFateAge &&
                 a.alliance_id !== selectedAllianceId &&
                 (spinningPeriod ? a.class_period === spinningPeriod : true)
             );
