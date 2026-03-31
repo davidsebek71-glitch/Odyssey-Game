@@ -1942,6 +1942,17 @@
         body.heroic-age .stat-card {
             border-color: rgba(124,58,237,0.2);
         }
+        body.heroic-age .myth-portal-bar {
+            border-color: rgba(124,58,237,0.15);
+            background: linear-gradient(180deg, rgba(15,5,21,0.95), rgba(26,10,46,0.9));
+        }
+        body.heroic-age .myth-portal-title {
+            color: rgba(196,181,253,0.8);
+        }
+        body.heroic-age .myth-portal {
+            pointer-events: none;
+            opacity: 0.85;
+        }
         .heroic-myth-bar {
             background: linear-gradient(180deg, rgba(15,5,21,0.95), rgba(26,10,46,0.9));
             border: 1px solid rgba(124,58,237,0.15);
@@ -3058,7 +3069,7 @@
                 <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: rgba(206,147,216,0.5);">Pick Your Path ⚡</div>
                 <div style="margin-top: 6px; font-size: 11px; color: rgba(255,255,255,0.3);">Coming Soon</div>
             </div>
-            <div onclick="openSideQuestPortal()" style="
+            <div id="side-quest-card" onclick="openSideQuestPortal()" style="
                 background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.2));
                 border: 2px solid rgba(167,139,250,0.4);
                 border-radius: 16px;
@@ -3894,17 +3905,25 @@
                     document.body.classList.add('heroic-age');
                     document.body.classList.remove('classical-age');
                     document.querySelector('.logo h1').textContent = '⚔️ ODYSSEY TO OLYMPUS — HEROIC AGE';
-                    // Show classical bonus cards and trade portal
+                    // ALSO show Classical section (Heroic = Classical + Heroic additions)
+                    var classicalSec = document.getElementById('classical-age-section');
+                    if (classicalSec) classicalSec.style.display = 'block';
+                    // Hide Archaic-only cards, show Classical + Trade cards
                     const bonusCard = document.getElementById('bonus-card');
                     if (bonusCard) bonusCard.style.display = 'none';
+                    const sideQuestCard = document.getElementById('side-quest-card');
+                    if (sideQuestCard) sideQuestCard.style.display = 'none';
                     const classicalBonusCard = document.getElementById('classical-bonus-card');
                     if (classicalBonusCard) classicalBonusCard.style.display = '';
                     const tradePortalCard = document.getElementById('trade-portal-card');
                     if (tradePortalCard) tradePortalCard.style.display = '';
                     const grid = document.getElementById('bonus-quest-grid');
                     if (grid) grid.style.gridTemplateColumns = '1fr 1fr 1fr';
-                    loadHeroicMythPips();
+                    // Load BOTH Classical and Heroic data
+                    loadMythPortals(true); // true = read-only mode
+                    loadMissingVirtuesBadge();
                     loadTradePortalMini();
+                    loadHeroicMythPips();
                     loadHeroicChapter1Status();
                 } else {
                     heroicSection.style.display = 'none';
@@ -3919,13 +3938,15 @@
                     classicalSection.style.display = 'block';
                     document.body.classList.add('classical-age');
                     document.querySelector('.logo h1').textContent = '🏛️ ODYSSEY TO OLYMPUS — CLASSICAL AGE';
-                    // Swap bonus cards: hide Archaic, show Classical + Trade
+                    // Swap bonus cards: hide Archaic, show Classical + Trade + Side Quests
                     const bonusCard = document.getElementById('bonus-card');
                     if (bonusCard) bonusCard.style.display = 'none';
                     const classicalBonusCard = document.getElementById('classical-bonus-card');
                     if (classicalBonusCard) classicalBonusCard.style.display = '';
                     const tradePortalCard = document.getElementById('trade-portal-card');
                     if (tradePortalCard) tradePortalCard.style.display = '';
+                    const sideQuestCard2 = document.getElementById('side-quest-card');
+                    if (sideQuestCard2) sideQuestCard2.style.display = '';
                     const grid = document.getElementById('bonus-quest-grid');
                     if (grid) grid.style.gridTemplateColumns = '1fr 1fr 1fr';
                     loadMythPortals();
@@ -10344,7 +10365,7 @@
             '#C0C0C0': { glow: 'rgba(192,192,192,0.5)', dim: 'rgba(192,192,192,0.2)', solid: '#C0C0C0', bg: 'rgba(192,192,192,0.08)', shadow: 'rgba(192,192,192,0.15)' }
         };
 
-        async function loadMythPortals() {
+        async function loadMythPortals(readOnly) {
             try {
                 const response = await fetch(`${API_URL}/student/myth-portals`, { headers });
                 const data = await response.json();
@@ -10363,7 +10384,7 @@
                     const isVirtueEarned = portal.virtue_earned === 1;
                     const stateClass = isVirtueEarned ? 'passed virtue-earned' : (isPassed ? 'passed' : (isActive ? 'active' : 'locked'));
                     const colors = mythPortalGlowColors[portal.glow_color] || mythPortalGlowColors['#3B82F6'];
-                    const clickAction = isActive || isPassed ? `onclick="openMythPortal(${portal.portal_id})"` : '';
+                    const clickAction = readOnly ? '' : (isActive || isPassed ? `onclick="openMythPortal(${portal.portal_id})"` : '');
 
                     let statusText = '🔒 Locked — Reading guide not yet verified';
                     let statusItems = '';
@@ -10541,6 +10562,20 @@
                     btn.id = 'heroic-avatar-btn';
                     btn.style.cssText = 'margin-top: 12px; padding: 10px 24px; border-radius: 8px; font-family: Cinzel, serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px; transition: all 0.3s; animation: avatarComplete 2s ease-in-out infinite;';
                     progressText.parentNode.insertBefore(btn, progressText.nextSibling);
+                }
+
+                // If student is already Heroic, show "Enter Heroic Age" button
+                const actualAge = (dashboardData && dashboardData.student) ? dashboardData.student.current_age : 'Archaic';
+                if (actualAge === 'Heroic') {
+                    btn.textContent = '⚔️ ENTER HEROIC AGE ⚔️';
+                    btn.style.background = 'linear-gradient(135deg, #6b21a8, #7c3aed)';
+                    btn.style.border = '1px solid #a855f7';
+                    btn.style.color = '#f3e8ff';
+                    btn.style.cursor = 'pointer';
+                    btn.style.animation = 'avatarComplete 2s ease-in-out infinite';
+                    btn.disabled = false;
+                    btn.onclick = () => { window.location.href = '/student.html?view=heroic'; };
+                    return;
                 }
 
                 if (!data.heroicGateOpen) {
