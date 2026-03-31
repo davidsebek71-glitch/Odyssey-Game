@@ -10626,10 +10626,19 @@
                     progressText.parentNode.insertBefore(btn, progressText.nextSibling);
                 }
 
-                // If student is already Heroic, show "Enter Heroic Age" button
+                // If student is already Heroic, show "Enter Heroic Age" button only on Classical view
                 const actualAge = (dashboardData && dashboardData.student) ? dashboardData.student.current_age : 'Archaic';
+                const urlParams2 = new URLSearchParams(window.location.search);
+                const currentViewCheck = urlParams2.get('view');
+                const isOnHeroicView = (actualAge === 'Heroic' && currentViewCheck !== 'classical' && currentViewCheck !== 'archaic') || currentViewCheck === 'heroic';
+                if (actualAge === 'Heroic' && isOnHeroicView) {
+                    // Already on Heroic dashboard — hide the button entirely
+                    btn.style.display = 'none';
+                    return;
+                }
                 if (actualAge === 'Heroic') {
                     btn.textContent = '⚔️ ENTER HEROIC AGE ⚔️';
+                    btn.style.display = '';
                     btn.style.background = 'linear-gradient(135deg, #6b21a8, #7c3aed)';
                     btn.style.border = '1px solid #a855f7';
                     btn.style.color = '#f3e8ff';
