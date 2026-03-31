@@ -6149,6 +6149,39 @@ app.get('/api/teacher/fates', authenticateToken, (req, res) => {
   }
 });
 
+// Get random Athena's Challenge question by difficulty
+app.get('/api/teacher/athena-challenge', authenticateToken, (req, res) => {
+  try {
+    const difficulty = req.query.difficulty || 'conservative';
+    const validDifficulties = ['conservative', 'moderate', 'aggressive'];
+    if (!validDifficulties.includes(difficulty)) {
+      return res.status(400).json({ error: 'Invalid difficulty. Use conservative, moderate, or aggressive.' });
+    }
+    const questions = query('SELECT * FROM athena_challenge_questions WHERE difficulty = ?', [difficulty]);
+    if (!questions || questions.length === 0) {
+      return res.status(404).json({ error: 'No questions found for this difficulty' });
+    }
+    // Pick a random question
+    const randomQ = questions[Math.floor(Math.random() * questions.length)];
+    res.json({
+      question_id: randomQ.question_id,
+      difficulty: randomQ.difficulty,
+      question: randomQ.question,
+      options: [
+        { letter: 'A', text: randomQ.option_a },
+        { letter: 'B', text: randomQ.option_b },
+        { letter: 'C', text: randomQ.option_c },
+        { letter: 'D', text: randomQ.option_d }
+      ],
+      correct_answer: randomQ.correct_answer,
+      myth_source: randomQ.myth_source
+    });
+  } catch (err) {
+    console.error('Athena challenge error:', err);
+    res.status(500).json({ error: 'Failed to get Athena challenge question' });
+  }
+});
+
 // Get student personal contributions
 app.get('/api/student/my-contributions', authenticateToken, (req, res) => {
   try {

@@ -3304,6 +3304,262 @@ function seedClassicalData() {
     console.error('❌ Full error:', err.stack || err);
   }
 
+  // === HEROIC AGE FATES (20 fates, 30% above Classical values) ===
+  try {
+    const heroicFatesCheck = db.exec("SELECT COUNT(*) FROM fates_ref WHERE age_available = 'Heroic'");
+    const heroicFatesCount = heroicFatesCheck[0] ? heroicFatesCheck[0].values[0][0] : 0;
+
+    if (heroicFatesCount !== 20) {
+      if (heroicFatesCount > 0) {
+        console.log(`⚠️ Found ${heroicFatesCount} Heroic fates (expected 20), re-seeding...`);
+        db.run("DELETE FROM fates_ref WHERE age_available = 'Heroic'");
+        db.run("DELETE FROM fate_choices WHERE fate_id NOT IN (SELECT fate_id FROM fates_ref)");
+      }
+      console.log('🎲 Seeding Heroic fates...');
+
+      const heroicFates = [
+        // Simple/Choice Positive
+        [51, "The Golden Fleece Glimmers", 'choice', "Word reaches your crew that the Golden Fleece is near. Inspired by hope, your heroes push forward with renewed strength.", 'Jason', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        [52, "Chiron's Wisdom", 'choice', "The centaur Chiron visits your camp and shares ancient knowledge. Your heroes grow wiser and stronger from his teachings.", 'Chiron', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        [53, "Atalanta's Hunt", 'choice', "The swift huntress Atalanta joins your quest and returns with game and glory. Your people feast tonight.", 'Artemis', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Simple/Choice Negative
+        [54, "The Sirens' Song", 'choice', "Your crew hears the Sirens' call and nearly steers into the rocks. You lose supplies and time recovering from the distraction.", 'The Sirens', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        [55, "Hera's Grudge", 'choice', "Hera has not forgotten an old slight. She sends storms and misfortune upon your alliance as punishment.", 'Hera', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Simple/Choice Positive
+        [56, "Prophecy of the Oracle", 'choice', "The Oracle at Delphi delivers a favorable prophecy. Your heroes gain confidence and the people rally behind them.", 'Apollo', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Simple/Choice Negative
+        [57, "The Hydra Strikes", 'choice', "A Hydra emerges from the swamp and attacks your outpost. For every head you cut, two more grow back. Your heroes barely escape.", 'Heracles', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Simple/Choice Positive
+        [58, "Pegasus Sighting", 'choice', "A winged horse is spotted near your territory. Its divine presence brings good fortune and inspires your warriors.", 'Poseidon', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Interactive/Steal-Choice Positive
+        [59, "Hermes' Trickery", 'steal_choice', "Hermes, the trickster god, favors your cunning. He sneaks into rival camps and diverts their resources to you. You steal points from each country.", 'Hermes', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        [60, "The Trojan Horse", 'steal_choice', "Your heroes construct a cunning deception. Rival alliances fall for the ruse and you raid their supplies. You steal points from each country.", 'Athena', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Interactive/Steal-Choice Negative
+        [61, "Prometheus' Sacrifice", 'steal_choice', "Following the example of Prometheus, your heroes choose to share their fire with others. Selfless, but costly. You give points to each country.", 'Prometheus', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Interactive/Steal-Choice Positive (underdog)
+        [62, "Medusa's Gaze", 'steal_choice', "Medusa's gaze turns fortune to stone. The mighty fall and the underdog rises. You steal points from each country.", 'Perseus', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        [63, "The Argonauts Recruit", 'steal_choice', "Your fame attracts rival warriors. They defect to your cause, bringing resources with them. You steal points from each country.", 'Jason', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Special
+        [64, "Circe's Enchantment", 'special', "Circe's magic transforms your crew into animals. You lose resources breaking the spell, but the experience teaches your heroes to resist future enchantments. You lose 13 points but receive a Reverse Card.", 'Circe', null, -13, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        [65, "Athena's Challenge", 'special', "Athena descends from Olympus and challenges your wisest hero. Choose your difficulty — the harder the question, the greater the reward... and the risk.", 'Athena', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        [66, "The Fates Themselves", 'special', "The three Fates — Clotho, Lachesis, and Atropos — take notice of your journey. They weave a thread of protection into your destiny. You receive a Reverse Card.", 'The Moirai', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic'],
+        // Battle Events (95% threat, 30% above Classical ±40)
+        [67, "The Minotaur's Labyrinth", 'battle', "Your heroes enter the Labyrinth. The Minotaur awaits in the darkness. Will your courage and cunning be enough to survive?", 'Theseus', null, null, 0, 0, null, 1, 0.95, 52, -52, "The Minotaur charges from the shadows of the Labyrinth!", 'Heroic'],
+        [68, "Cerberus Guards the Gate", 'battle', "To continue your quest, you must pass Cerberus, the three-headed guardian of the Underworld. Distract him or face his wrath.", 'Hades', null, null, 0, 0, null, 1, 0.95, 46, -46, "Cerberus snarls with all three heads!", 'Heroic'],
+        [69, "The Nemean Lion", 'battle', "The Nemean Lion — whose hide no weapon can pierce — blocks your path. Only a true hero can defeat it. The stakes are high.", 'Heracles', null, null, 0, 0, null, 1, 0.95, 52, -52, "The Nemean Lion roars and charges!", 'Heroic'],
+        // Choice Event (Scylla & Charybdis)
+        [70, "Scylla & Charybdis", 'choice', "Your ship approaches the narrow strait. Scylla lurks above, Charybdis churns below. Choose your peril: lose a little for certain, or gamble everything on the whirlpool.", 'Poseidon', null, null, 0, 0, null, 0, null, null, null, null, 'Heroic']
+      ];
+
+      heroicFates.forEach(f => {
+        db.run(`INSERT INTO fates_ref (fate_number, fate_name, fate_type, description, god_associated, icon_url, point_effect, steals_from_others, gives_to_others, transfer_amount, is_battle, battle_threat_percent, battle_win_points, battle_lose_points, battle_description, age_available) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, f);
+      });
+      console.log('✅ Heroic fates seeded (20 fates)');
+
+      // === HEROIC FATE CHOICES (3 tiers per fate, 30% above Classical) ===
+      console.log('🎲 Seeding Heroic fate choices...');
+
+      const heroicFateIds = {};
+      const heroicFateRows = db.exec("SELECT fate_id, fate_number FROM fates_ref WHERE age_available = 'Heroic'");
+      if (heroicFateRows[0]) {
+        heroicFateRows[0].values.forEach(row => {
+          heroicFateIds[row[1]] = row[0];
+        });
+      }
+
+      const heroicChoices = [
+        // === CHOICE FATES (positive) ===
+        // Fate 51: Golden Fleece Glimmers (+)
+        [heroicFateIds[51], 'conservative', "Accept the omen and press onward carefully", 0.85, 23, -7],
+        [heroicFateIds[51], 'moderate', "Push the crew harder to reach the Fleece first", 0.55, 42, -16],
+        [heroicFateIds[51], 'aggressive', "Sail through the night — the Fleece WILL be yours!", 0.30, 72, -33],
+
+        // Fate 52: Chiron's Wisdom (+)
+        [heroicFateIds[52], 'conservative', "Listen humbly and take notes", 0.85, 20, -7],
+        [heroicFateIds[52], 'moderate', "Ask Chiron to train your best warriors", 0.55, 36, -16],
+        [heroicFateIds[52], 'aggressive', "Challenge Chiron to share ALL his secrets!", 0.30, 65, -36],
+
+        // Fate 53: Atalanta's Hunt (+)
+        [heroicFateIds[53], 'conservative', "Accept her help and share the bounty", 0.85, 20, -7],
+        [heroicFateIds[53], 'moderate', "Join the hunt to double the haul", 0.55, 36, -16],
+        [heroicFateIds[53], 'aggressive', "Hunt the legendary Calydonian Boar itself!", 0.30, 65, -33],
+
+        // === CHOICE FATES (negative) ===
+        // Fate 54: The Sirens' Song (-)
+        [heroicFateIds[54], 'conservative', "Plug your ears with wax and row past", 0.85, -10, -26],
+        [heroicFateIds[54], 'moderate', "Tie yourself to the mast and listen for wisdom", 0.55, 4, -34],
+        [heroicFateIds[54], 'aggressive', "Sing louder than the Sirens to break their spell!", 0.30, 26, -46],
+
+        // Fate 55: Hera's Grudge (-)
+        [heroicFateIds[55], 'conservative', "Build a shrine and beg forgiveness", 0.85, -16, -36],
+        [heroicFateIds[55], 'moderate', "Send diplomats to plead your case on Olympus", 0.55, 0, -46],
+        [heroicFateIds[55], 'aggressive', "Defy Hera and rally your people against the storms!", 0.30, 33, -59],
+
+        // Fate 56: Prophecy of the Oracle (+)
+        [heroicFateIds[56], 'conservative', "Follow the prophecy's safest interpretation", 0.85, 20, -7],
+        [heroicFateIds[56], 'moderate', "Seek deeper meaning in the Oracle's riddles", 0.55, 36, -16],
+        [heroicFateIds[56], 'aggressive', "Bet everything on the prophecy's boldest promise!", 0.30, 65, -33],
+
+        // Fate 57: The Hydra Strikes (-)
+        [heroicFateIds[57], 'conservative', "Retreat and fortify your defenses", 0.85, -10, -23],
+        [heroicFateIds[57], 'moderate', "Cauterize the stumps to stop the regrowth", 0.55, 7, -29],
+        [heroicFateIds[57], 'aggressive', "Charge into the swamp and take the Hydra head-on!", 0.30, 29, -46],
+
+        // Fate 58: Pegasus Sighting (+)
+        [heroicFateIds[58], 'conservative', "Admire from afar and accept the blessing", 0.85, 23, -7],
+        [heroicFateIds[58], 'moderate', "Approach carefully and offer it food", 0.55, 42, -16],
+        [heroicFateIds[58], 'aggressive', "Attempt to tame Pegasus and ride it!", 0.30, 72, -36],
+
+        // === STEAL-CHOICE FATES ===
+        // Fate 59: Hermes' Trickery (steal positive)
+        [heroicFateIds[59], 'conservative', "Accept Hermes' small gift of cunning", 0.85, 16, -8],
+        [heroicFateIds[59], 'moderate', "Let Hermes raid their supply carts", 0.55, 23, -12],
+        [heroicFateIds[59], 'aggressive', "Have Hermes steal their most prized treasures!", 0.30, 35, -23],
+
+        // Fate 60: The Trojan Horse (steal positive)
+        [heroicFateIds[60], 'conservative', "Send a small raiding party inside the horse", 0.85, 16, -8],
+        [heroicFateIds[60], 'moderate', "Fill the horse with your best warriors", 0.55, 23, -12],
+        [heroicFateIds[60], 'aggressive', "Launch a full invasion under cover of the horse!", 0.30, 35, -23],
+
+        // Fate 61: Prometheus' Sacrifice (steal negative — you give to others)
+        [heroicFateIds[61], 'conservative', "Share a small flame with neighboring lands", 0.85, -10, -20],
+        [heroicFateIds[61], 'moderate', "Teach others to forge their own fire", 0.55, 4, -23],
+        [heroicFateIds[61], 'aggressive', "Give away your finest weapons to prove your honor!", 0.30, 16, -30],
+
+        // Fate 62: Medusa's Gaze (steal positive — underdog mechanic)
+        [heroicFateIds[62], 'conservative', "Use Medusa's power cautiously", 0.85, 16, -8],
+        [heroicFateIds[62], 'moderate', "Turn her gaze toward the strongest rival", 0.55, 23, -12],
+        [heroicFateIds[62], 'aggressive', "Unleash the full power of the Gorgon!", 0.30, 35, -23],
+
+        // Fate 63: Argonauts Recruit (steal positive)
+        [heroicFateIds[63], 'conservative', "Welcome a few defectors into your crew", 0.85, 16, -8],
+        [heroicFateIds[63], 'moderate', "Offer gold and glory to attract more recruits", 0.55, 23, -12],
+        [heroicFateIds[63], 'aggressive', "Promise legendary status to anyone who joins!", 0.30, 35, -23],
+
+        // === SPECIAL FATES ===
+        // Fate 64: Circe's Enchantment (special — -13 pts + Reverse Card, no choices needed)
+        [heroicFateIds[64], 'conservative', "Circe's Enchantment — accept the trade", 0.85, -13, -13],
+        [heroicFateIds[64], 'moderate', "Circe's Enchantment — accept the trade", 0.55, -13, -13],
+        [heroicFateIds[64], 'aggressive', "Circe's Enchantment — accept the trade", 0.30, -13, -13],
+
+        // Fate 65: Athena's Challenge (special — handled by trivia system)
+        [heroicFateIds[65], 'conservative', "Easy question — lower reward, lower risk", 0.85, 23, -10],
+        [heroicFateIds[65], 'moderate', "Medium question — balanced risk and reward", 0.55, 42, -20],
+        [heroicFateIds[65], 'aggressive', "Hard question — massive reward or painful loss", 0.30, 65, -40],
+
+        // Fate 66: The Fates Themselves (special — Reverse Card, no choices)
+        [heroicFateIds[66], 'conservative', "The Fates grant protection", 0.85, 0, 0],
+        [heroicFateIds[66], 'moderate', "The Fates grant protection", 0.55, 0, 0],
+        [heroicFateIds[66], 'aggressive', "The Fates grant protection", 0.30, 0, 0],
+
+        // === BATTLE FATES (handled by battle system) ===
+        [heroicFateIds[67], 'conservative', "Battle — handled by battle system", 0.85, 0, 0],
+        [heroicFateIds[67], 'moderate', "Battle — handled by battle system", 0.55, 0, 0],
+        [heroicFateIds[67], 'aggressive', "Battle — handled by battle system", 0.30, 0, 0],
+
+        [heroicFateIds[68], 'conservative', "Battle — handled by battle system", 0.85, 0, 0],
+        [heroicFateIds[68], 'moderate', "Battle — handled by battle system", 0.55, 0, 0],
+        [heroicFateIds[68], 'aggressive', "Battle — handled by battle system", 0.30, 0, 0],
+
+        [heroicFateIds[69], 'conservative', "Battle — handled by battle system", 0.85, 0, 0],
+        [heroicFateIds[69], 'moderate', "Battle — handled by battle system", 0.55, 0, 0],
+        [heroicFateIds[69], 'aggressive', "Battle — handled by battle system", 0.30, 0, 0],
+
+        // Fate 70: Scylla & Charybdis (choice — safe path OR gamble)
+        [heroicFateIds[70], 'conservative', "Hug the cliffs past Scylla — lose a few sailors but survive", 0.85, -13, -13],
+        [heroicFateIds[70], 'moderate', "Try to thread the needle between both monsters", 0.55, 42, -20],
+        [heroicFateIds[70], 'aggressive', "Sail straight into Charybdis — all or nothing!", 0.30, 65, -40]
+      ];
+
+      heroicChoices.forEach(choice => {
+        db.run(`INSERT INTO fate_choices (fate_id, risk_level, description, success_chance, success_points, failure_points)
+                VALUES (?, ?, ?, ?, ?, ?)`, choice);
+      });
+      console.log('✅ Heroic fate choices seeded (60 choices)');
+
+      saveDatabaseNow();
+      const verifyHeroic = db.exec("SELECT COUNT(*) FROM fates_ref WHERE age_available = 'Heroic'");
+      console.log('🔍 Verification - Heroic fates in DB:', verifyHeroic[0] ? verifyHeroic[0].values[0][0] : 'QUERY FAILED');
+    }
+  } catch (err) {
+    console.error('❌ Heroic fates seed ERROR:', err.message);
+    console.error('❌ Full error:', err.stack || err);
+  }
+
+  // === ATHENA'S CHALLENGE QUESTIONS (30 questions, 3 difficulties) ===
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS athena_challenge_questions (
+      question_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      difficulty TEXT NOT NULL,
+      question TEXT NOT NULL,
+      option_a TEXT NOT NULL,
+      option_b TEXT NOT NULL,
+      option_c TEXT NOT NULL,
+      option_d TEXT NOT NULL,
+      correct_answer TEXT NOT NULL,
+      myth_source TEXT
+    )`);
+
+    const athenaCheck = db.exec("SELECT COUNT(*) FROM athena_challenge_questions");
+    const athenaCount = athenaCheck[0] ? athenaCheck[0].values[0][0] : 0;
+
+    if (athenaCount !== 30) {
+      if (athenaCount > 0) {
+        console.log(`⚠️ Found ${athenaCount} Athena questions (expected 30), re-seeding...`);
+        db.run("DELETE FROM athena_challenge_questions");
+      }
+      console.log('🎲 Seeding Athena Challenge questions...');
+
+      const athenaQuestions = [
+        // CONSERVATIVE (easy) — 10 questions
+        ['conservative', 'Who is the king of the Greek gods?', 'Poseidon', 'Hades', 'Zeus', 'Ares', 'C', 'Pantheon'],
+        ['conservative', 'What flew too close to the sun and melted?', "Daedalus's wings", "Icarus's wings", "Phaethon's chariot", "Hermes' sandals", 'B', 'Icarus & Daedalus'],
+        ['conservative', 'Who is the goddess of wisdom and war strategy?', 'Aphrodite', 'Artemis', 'Hera', 'Athena', 'D', 'Pantheon'],
+        ['conservative', "What was inside Pandora's box after everything escaped?", 'Hope', 'Love', 'Wisdom', 'Fire', 'A', 'Pandora'],
+        ['conservative', 'Who looked back and lost Eurydice forever?', 'Perseus', 'Narcissus', 'Orpheus', 'Theseus', 'C', 'Orpheus & Eurydice'],
+        ['conservative', 'Narcissus fell in love with what?', 'A nymph', 'His own reflection', 'A flower', 'A goddess', 'B', 'Echo & Narcissus'],
+        ['conservative', 'Who stole fire from the gods and gave it to humans?', 'Hermes', 'Hephaestus', 'Prometheus', 'Apollo', 'C', 'Prometheus'],
+        ['conservative', 'Phaethon lost control of whose chariot?', 'Zeus', 'Ares', 'Poseidon', 'Apollo (Helios)', 'D', 'Phaethon'],
+        ['conservative', 'Who is the god of the sea?', 'Zeus', 'Poseidon', 'Hades', 'Apollo', 'B', 'Pantheon'],
+        ['conservative', 'What did Daedalus build to escape the island of Crete?', 'A boat', 'Wings of feathers and wax', 'A tunnel', 'A bridge', 'B', 'Icarus & Daedalus'],
+
+        // MODERATE (medium) — 10 questions
+        ['moderate', 'Why did the gods punish Prometheus?', 'He killed a mortal', 'He stole fire for humans', 'He challenged Zeus to battle', 'He freed the Titans', 'B', 'Prometheus'],
+        ['moderate', "What was Echo's curse from Hera?", "She could only repeat others' words", 'She turned invisible', 'She could never sing', 'She forgot her own name', 'A', 'Echo & Narcissus'],
+        ['moderate', 'In the myth of Eros and Psyche, what task did Aphrodite NOT give Psyche?', 'Sorting a mountain of seeds', 'Retrieving golden fleece from dangerous sheep', 'Capturing Cerberus alive', 'Fetching beauty from the Underworld', 'C', 'Eros & Psyche'],
+        ['moderate', 'What warning did Daedalus give Icarus before flying?', "Don't look down", "Don't fly at night", "Don't fly too close to the sun or the sea", "Don't fly over the ocean", 'C', 'Icarus & Daedalus'],
+        ['moderate', 'How was the constellation Callisto created?', 'Hera turned her into a bear, then Zeus placed her in the sky', 'She climbed Mount Olympus and became a star', 'Artemis shot her into the heavens', 'She wished upon a star and became one', 'A', 'Constellations'],
+        ['moderate', 'Why did Orpheus travel to the Underworld?', 'To steal treasure', 'To challenge Hades', 'To bring back Eurydice', 'To rescue Prometheus', 'C', 'Orpheus & Eurydice'],
+        ['moderate', 'What was Pandora told about the box (jar) she was given?', 'To open it on her wedding day', 'To never open it', 'To share its contents with others', 'To guard it for Zeus', 'B', 'Pandora'],
+        ['moderate', "Who is Phaethon's father in the myth?", 'Zeus', 'Apollo (Helios, the sun god)', 'Poseidon', 'Ares', 'B', 'Phaethon'],
+        ['moderate', 'What happened to Narcissus at the end of his myth?', 'He became a god', 'He married Echo', 'He wasted away staring at his reflection and became a flower', 'He drowned in the river', 'C', 'Echo & Narcissus'],
+        ['moderate', 'What is Hephaestus the god of?', 'War', 'The forge and fire', 'Music', 'The harvest', 'B', 'Pantheon'],
+
+        // AGGRESSIVE (hard) — 10 questions
+        ['aggressive', 'What do the myths of Icarus and Phaethon have in common?', 'Both involve betraying the gods', 'Both feature young men destroyed by ignoring warnings about their limits', 'Both take place in the Underworld', 'Both heroes survive in the end', 'B', 'Icarus & Phaethon'],
+        ['aggressive', "In the myth of Eros and Psyche, why did Psyche's sisters convince her to look at Eros while he slept?", 'They wanted to protect her', 'They were jealous and wanted to ruin her happiness', 'Aphrodite told them to', 'They thought Eros was a monster who would hurt her', 'B', 'Eros & Psyche'],
+        ['aggressive', "Prometheus and Pandora's myths are connected. How does Pandora's story serve as Zeus's revenge?", "Pandora stole fire back from humans", 'Pandora was sent to release suffering on humanity as punishment for receiving fire', 'Pandora imprisoned Prometheus', 'Pandora destroyed the fire Prometheus gave', 'B', 'Prometheus & Pandora'],
+        ['aggressive', "What makes Orpheus's failure in the Underworld tragic rather than simply foolish?", 'He never loved Eurydice', 'He succeeded at the impossible task but failed at the simplest one — trusting the gods', 'Hades tricked him with a fake Eurydice', 'He forgot why he came', 'B', 'Orpheus & Eurydice'],
+        ['aggressive', 'The constellation myths often involve transformation as mercy. Why did Zeus place Callisto in the sky?', 'To punish her for angering Hera', 'To preserve her from being hunted forever after Hera turned her into a bear', 'To show off his power', 'To make Artemis jealous', 'B', 'Constellations'],
+        ['aggressive', 'Aphrodite punished Psyche for receiving worship meant for a goddess. Which other myth shows a god punishing a mortal for a similar reason?', 'Pandora', 'Athena punishing Arachne for rivaling her skill', 'Orpheus and Eurydice', 'Icarus and Daedalus', 'B', 'Eros & Psyche / Arachne'],
+        ['aggressive', "How does Daedalus's role change between creating the Labyrinth and creating the wings?", 'He goes from serving a king to defying one', 'He goes from being a hero to being a villain', 'He learns to stop building things', 'He becomes a god', 'A', 'Icarus & Daedalus'],
+        ['aggressive', 'Echo and Narcissus both suffer from isolation. What is the key difference in why each is alone?', 'Echo chose to be alone; Narcissus did not', 'Echo was cursed by a god; Narcissus was trapped by his own flaw', 'Both were cursed by Aphrodite', 'Neither was truly alone', 'B', 'Echo & Narcissus'],
+        ['aggressive', "Only Hope remained in Pandora's box. Why is Hope considered both a blessing and a curse by some scholars?", 'Because hope can keep people going but can also prevent them from accepting reality', 'Because hope is actually an evil', 'Because Pandora hid it on purpose', 'Because Zeus wanted hope destroyed', 'A', 'Pandora'],
+        ['aggressive', 'Hermes serves as messenger, guide of souls, and god of thieves. Why would the Greeks give one god so many roles?', 'They ran out of gods', 'All these roles involve crossing boundaries between worlds, places, or rules', 'Hermes demanded more power', 'The other gods refused these jobs', 'B', 'Pantheon']
+      ];
+
+      athenaQuestions.forEach(q => {
+        db.run(`INSERT INTO athena_challenge_questions (difficulty, question, option_a, option_b, option_c, option_d, correct_answer, myth_source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, q);
+      });
+      console.log('✅ Athena Challenge questions seeded (30 questions)');
+      saveDatabaseNow();
+    }
+  } catch (err) {
+    console.error('❌ Athena questions seed ERROR:', err.message);
+  }
+
   // Double-check: verify total fates counts
   try {
     const allFatesCheck = db.exec("SELECT age_available, COUNT(*) as cnt FROM fates_ref GROUP BY age_available");

@@ -528,6 +528,9 @@
         .fate-modal.fullscreen-spin.classical-age .modal-content {
             background: radial-gradient(ellipse at center, #0a1a3a 0%, #020818 50%, #000 100%) !important;
         }
+        .fate-modal.fullscreen-spin.heroic-age .modal-content {
+            background: radial-gradient(ellipse at center, #1a0a2e 0%, #0a0515 50%, #000 100%) !important;
+        }
 
         /* Fate revealed transition overlay */
         #fate-reveal-overlay {
@@ -543,6 +546,9 @@
         }
         #fate-reveal-overlay.classical {
             background: radial-gradient(ellipse at center, #0a1a3a 0%, #000 100%);
+        }
+        #fate-reveal-overlay.heroic {
+            background: radial-gradient(ellipse at center, #1a0a2e 0%, #000 100%);
         }
         #fate-reveal-overlay.visible {
             display: flex;
@@ -1449,6 +1455,7 @@
                 <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
                     <button id="fate-age-archaic" onclick="setFateAge('Archaic')" class="btn-fate" style="padding: 10px 24px; font-size: 15px; background: linear-gradient(135deg, #c41e3a, #ff6b35);">🏛️ Archaic Age</button>
                     <button id="fate-age-classical" onclick="setFateAge('Classical')" class="btn-fate" style="padding: 10px 24px; font-size: 15px; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6);">🏛️ Classical Age</button>
+                    <button id="fate-age-heroic" onclick="setFateAge('Heroic')" class="btn-fate" style="padding: 10px 24px; font-size: 15px; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6);">⚔️ Heroic Age</button>
                 </div>
                 <div class="form-group">
                     <label>Select Alliance to Spin For:</label>
@@ -1536,6 +1543,13 @@
         <div class="modal-content" style="max-width: 1200px; max-height: 95vh; overflow-y: auto; background: linear-gradient(135deg, #1a0a0f 0%, #2a1520 100%);">
             <span class="close" onclick="closeFateChoicesModal()">&times;</span>
             <div id="fate-choices-content" style="padding: 15px;"></div>
+        </div>
+    </div>
+
+    <!-- ATHENA CHALLENGE MODAL -->
+    <div id="athena-challenge-modal" class="modal fate-modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 95vh; overflow-y: auto; background: linear-gradient(135deg, #0a0515 0%, #1a0a2e 50%, #0f0520 100%); border: 2px solid rgba(168,85,247,0.4);">
+            <div id="athena-challenge-content" style="padding: 20px;"></div>
         </div>
     </div>
 
@@ -3429,16 +3443,22 @@
         function updateFateAgeButtons() {
             const archBtn = document.getElementById('fate-age-archaic');
             const classBtn = document.getElementById('fate-age-classical');
-            if (currentFateAge === 'Archaic') {
+            const heroicBtn = document.getElementById('fate-age-heroic');
+            const inactiveStyle = { bg: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' };
+            // Reset all
+            [archBtn, classBtn, heroicBtn].forEach(btn => {
+                if (btn) { btn.style.background = inactiveStyle.bg; btn.style.color = inactiveStyle.color; }
+            });
+            // Activate selected
+            if (currentFateAge === 'Archaic' && archBtn) {
                 archBtn.style.background = 'linear-gradient(135deg, #c41e3a, #ff6b35)';
                 archBtn.style.color = '#fff';
-                classBtn.style.background = 'rgba(255,255,255,0.15)';
-                classBtn.style.color = 'rgba(255,255,255,0.6)';
-            } else {
+            } else if (currentFateAge === 'Classical' && classBtn) {
                 classBtn.style.background = 'linear-gradient(135deg, #1e40af, #4a90d9)';
                 classBtn.style.color = '#fff';
-                archBtn.style.background = 'rgba(255,255,255,0.15)';
-                archBtn.style.color = 'rgba(255,255,255,0.6)';
+            } else if (currentFateAge === 'Heroic' && heroicBtn) {
+                heroicBtn.style.background = 'linear-gradient(135deg, #6b21a8, #7c3aed)';
+                heroicBtn.style.color = '#fff';
             }
         }
         
@@ -3453,6 +3473,7 @@
             document.getElementById('fate-wheel-modal').classList.remove('show');
             document.getElementById('fate-wheel-modal').classList.remove('fullscreen-spin');
             document.getElementById('fate-wheel-modal').classList.remove('classical-age');
+            document.getElementById('fate-wheel-modal').classList.remove('heroic-age');
             document.getElementById('fate-reveal-overlay').className = '';
             document.getElementById('alliance-selection-step').style.display = 'block';
             document.getElementById('scroll-declaration-step').style.display = 'none';
@@ -3621,18 +3642,21 @@
             document.getElementById('selected-alliance-name').textContent = selectedAllianceName;
             const wheelModal = document.getElementById('fate-wheel-modal');
             wheelModal.classList.add('fullscreen-spin');
+            wheelModal.classList.remove('classical-age', 'heroic-age');
             if (currentFateAge === 'Classical') {
                 wheelModal.classList.add('classical-age');
-            } else {
-                wheelModal.classList.remove('classical-age');
+            } else if (currentFateAge === 'Heroic') {
+                wheelModal.classList.add('heroic-age');
             }
 
             // Apply age-themed styling
             const isClassical = currentFateAge === 'Classical';
+            const isHeroic = currentFateAge === 'Heroic';
+            const ageColor = isHeroic ? '#a855f7' : (isClassical ? '#4a90d9' : '#ffd700');
             const pointer = document.querySelector('.fate-wheel-pointer');
-            if (pointer) pointer.style.borderTopColor = isClassical ? '#4a90d9' : '#ffd700';
+            if (pointer) pointer.style.borderTopColor = ageColor;
             const titleDiv = document.querySelector('#spinning-wheel-step > div:first-child > div');
-            if (titleDiv) titleDiv.style.color = isClassical ? '#4a90d9' : '#ffd700';
+            if (titleDiv) titleDiv.style.color = ageColor;
 
             // Draw the wheel
             drawFateWheel();
@@ -3656,8 +3680,9 @@
 
             // Draw segments
             const isClassical = currentFateAge === 'Classical';
-            const color1 = isClassical ? '#1e3a8a' : '#c41e3a';
-            const color2 = isClassical ? '#3b82f6' : '#ff6b35';
+            const isHeroic = currentFateAge === 'Heroic';
+            const color1 = isHeroic ? '#4c1d95' : (isClassical ? '#1e3a8a' : '#c41e3a');
+            const color2 = isHeroic ? '#7c3aed' : (isClassical ? '#3b82f6' : '#ff6b35');
             const borderColor = isClassical ? '#4a90d9' : '#ffd700';
             const centerBg = isClassical ? '#4a90d9' : '#ffd700';
             const centerText = isClassical ? '#fff' : '#1a0a0f';
@@ -3850,11 +3875,16 @@
                 // Show fate reveal overlay (seamless transition — no dashboard flash)
                 const overlay = document.getElementById('fate-reveal-overlay');
                 const isClassical = currentFateAge === 'Classical';
-                overlay.className = 'visible' + (isClassical ? ' classical' : '');
-                document.getElementById('fate-reveal-name').style.color = isClassical ? '#4a90d9' : '#ffd700';
-                document.getElementById('fate-reveal-name').style.textShadow = isClassical
-                    ? '0 0 40px rgba(74,144,217,0.8), 0 0 80px rgba(30,58,138,0.5)'
-                    : '0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,107,53,0.5)';
+                const isHeroic = currentFateAge === 'Heroic';
+                overlay.className = 'visible' + (isClassical ? ' classical' : '') + (isHeroic ? ' heroic' : '');
+                const revealColor = isHeroic ? '#a855f7' : (isClassical ? '#4a90d9' : '#ffd700');
+                const revealShadow = isHeroic
+                    ? '0 0 40px rgba(168,85,247,0.8), 0 0 80px rgba(107,33,168,0.5)'
+                    : (isClassical
+                        ? '0 0 40px rgba(74,144,217,0.8), 0 0 80px rgba(30,58,138,0.5)'
+                        : '0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,107,53,0.5)');
+                document.getElementById('fate-reveal-name').style.color = revealColor;
+                document.getElementById('fate-reveal-name').style.textShadow = revealShadow;
                 document.getElementById('fate-reveal-name').textContent = fate.fate_name;
                 document.getElementById('fate-reveal-sub').textContent = 'Fate Revealed for ' + selectedAllianceName;
 
@@ -3874,10 +3904,18 @@
                     // COUNTDOWN FATE - Teacher input form (Archaic 9, Classical 29, 41)
                     console.log('🎮 Routing to COUNTDOWN GAME');
                     showCountdownForm(fate);
-                } else if (fate.fate_type === 'special' && (fate.fate_number === 12 || fate.fate_number === 30 || fate.fate_number === 32)) {
-                    // REVERSE/STORED CARD (Archaic 12, Classical 30 Power of Prometheus, 32 Reverse Card)
+                } else if (fate.fate_type === 'special' && (fate.fate_number === 12 || fate.fate_number === 30 || fate.fate_number === 32 || fate.fate_number === 66)) {
+                    // REVERSE/STORED CARD (Archaic 12, Classical 30 Power of Prometheus, 32 Reverse Card, Heroic 66 The Fates Themselves)
                     console.log('🔄 Routing to REVERSE CARD');
                     await awardReverseCard(fate);
+                } else if (fate.fate_number === 64) {
+                    // CIRCE'S ENCHANTMENT (Heroic) — lose 13 pts + gain Reverse Card
+                    console.log('🧙 Routing to CIRCE ENCHANTMENT');
+                    await handleCirceEnchantment(fate);
+                } else if (fate.fate_number === 65) {
+                    // ATHENA'S CHALLENGE (Heroic) — trivia question
+                    console.log('🦉 Routing to ATHENA CHALLENGE');
+                    showAthenaChallenge(fate);
                 } else if (fate.fate_type === 'choice' || fate.fate_type === 'steal_choice') {
                     // CHOICE / STEAL-CHOICE FATES - Show 3 options
                     console.log('🎯 Routing to CHOICES for fate_id:', fate.fate_id, 'type:', fate.fate_type);
@@ -4106,6 +4144,168 @@
             }
         }
         
+        // Circe's Enchantment (Heroic Fate 64) — lose 13 pts + gain Reverse Card
+        async function handleCirceEnchantment(fate) {
+            document.getElementById('fate-reveal-overlay').className = '';
+            try {
+                await fetch(`${API_URL}/teacher/award-points`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ alliance_id: selectedAllianceId, amount: -13, reason: "Fate: Circe's Enchantment (-13 pts)" })
+                });
+                await fetch(`${API_URL}/teacher/award-reverse-card/${selectedAllianceId}`, { method: 'POST', headers });
+                await fetch(`${API_URL}/teacher/spin-fate`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ alliance_id: selectedAllianceId, fate_id: fate.fate_id })
+                });
+                const popup = document.createElement('div');
+                popup.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 100%); padding: 50px; border-radius: 20px; border: 3px solid #a855f7; z-index: 10002; text-align: center; min-width: 450px; box-shadow: 0 0 50px rgba(168, 85, 247, 0.5);';
+                popup.innerHTML = `
+                    <div style="font-size: 72px; margin-bottom: 20px;">🧙</div>
+                    <div style="font-size: 28px; color: #a855f7; font-weight: 800; margin-bottom: 15px;">CIRCE'S ENCHANTMENT</div>
+                    <div style="font-size: 22px; color: #ef4444; margin-bottom: 10px; font-weight: 700;">-13 points</div>
+                    <div style="font-size: 18px; color: #fff; margin-bottom: 25px;">
+                        <strong>${selectedAllianceName}</strong> broke the spell and earned a <span style="color: #a855f7; font-weight: 700;">Reverse Card</span>!
+                    </div>
+                    <button onclick="this.parentElement.remove(); openFateWheelModal();" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer;">✨ CONTINUE ✨</button>
+                `;
+                document.body.appendChild(popup);
+                createConfetti();
+                loadLeaderboard();
+            } catch (err) {
+                console.error('Circe enchantment error:', err);
+                alert("Failed to process Circe's Enchantment!");
+            }
+        }
+
+        // Athena's Challenge (Heroic Fate 65) — trivia question
+        let athenaCurrentFate = null;
+        let athenaCurrentQuestion = null;
+        let athenaSelectedDifficulty = null;
+
+        function showAthenaChallenge(fate) {
+            document.getElementById('fate-reveal-overlay').className = '';
+            athenaCurrentFate = fate;
+            const modal = document.getElementById('athena-challenge-modal');
+            const content = document.getElementById('athena-challenge-content');
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="font-size: 64px; margin-bottom: 12px;">🦉</div>
+                    <div style="font-family: 'Cinzel', serif; font-size: 28px; color: #a855f7; font-weight: 800; letter-spacing: 2px;">ATHENA'S CHALLENGE</div>
+                    <div style="font-size: 15px; color: rgba(255,255,255,0.7); margin-top: 8px;">${selectedAllianceName} — Choose your difficulty wisely!</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px;">Harder questions risk more but reward more.</div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                    <div onclick="loadAthenaQuestion('conservative')" style="cursor: pointer; border: 3px solid rgba(74,222,128,0.4); background: rgba(74,222,128,0.06); border-radius: 16px; padding: 24px 16px; text-align: center; transition: all 0.3s;" onmouseover="this.style.borderColor='rgba(74,222,128,0.8)'; this.style.transform='scale(1.03)';" onmouseout="this.style.borderColor='rgba(74,222,128,0.4)'; this.style.transform='scale(1)';">
+                        <div style="font-size: 36px; margin-bottom: 8px;">📗</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #4ade80; margin-bottom: 8px;">EASY</div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">Basic recall</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700;">✅ +23 pts</div>
+                        <div style="font-size: 14px; color: #ef4444; font-weight: 700;">❌ -10 pts</div>
+                    </div>
+                    <div onclick="loadAthenaQuestion('moderate')" style="cursor: pointer; border: 3px solid rgba(251,191,36,0.4); background: rgba(251,191,36,0.06); border-radius: 16px; padding: 24px 16px; text-align: center; transition: all 0.3s;" onmouseover="this.style.borderColor='rgba(251,191,36,0.8)'; this.style.transform='scale(1.03)';" onmouseout="this.style.borderColor='rgba(251,191,36,0.4)'; this.style.transform='scale(1)';">
+                        <div style="font-size: 36px; margin-bottom: 8px;">📙</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">MEDIUM</div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">Comprehension</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700;">✅ +42 pts</div>
+                        <div style="font-size: 14px; color: #ef4444; font-weight: 700;">❌ -20 pts</div>
+                    </div>
+                    <div onclick="loadAthenaQuestion('aggressive')" style="cursor: pointer; border: 3px solid rgba(239,68,68,0.4); background: rgba(239,68,68,0.06); border-radius: 16px; padding: 24px 16px; text-align: center; transition: all 0.3s;" onmouseover="this.style.borderColor='rgba(239,68,68,0.8)'; this.style.transform='scale(1.03)';" onmouseout="this.style.borderColor='rgba(239,68,68,0.4)'; this.style.transform='scale(1)';">
+                        <div style="font-size: 36px; margin-bottom: 8px;">📕</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #ef4444; margin-bottom: 8px;">HARD</div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">Cross-myth analysis</div>
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700;">✅ +65 pts</div>
+                        <div style="font-size: 14px; color: #ef4444; font-weight: 700;">❌ -40 pts</div>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="closeAthenaChallenge(); openFateWheelModal();" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px;">Cancel</button>
+                </div>
+            `;
+            modal.classList.add('show');
+        }
+
+        async function loadAthenaQuestion(difficulty) {
+            athenaSelectedDifficulty = difficulty;
+            const pointMap = { conservative: { win: 23, lose: -10 }, moderate: { win: 42, lose: -20 }, aggressive: { win: 65, lose: -40 } };
+            const pts = pointMap[difficulty];
+            const diffLabel = { conservative: 'EASY', moderate: 'MEDIUM', aggressive: 'HARD' };
+            const diffColor = { conservative: '#4ade80', moderate: '#fbbf24', aggressive: '#ef4444' };
+            try {
+                const res = await fetch(`${API_URL}/teacher/athena-challenge?difficulty=${difficulty}`, { headers });
+                const data = await res.json();
+                athenaCurrentQuestion = data;
+                const content = document.getElementById('athena-challenge-content');
+                content.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 48px; margin-bottom: 8px;">🦉</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 22px; color: #a855f7; font-weight: 800;">ATHENA'S CHALLENGE</div>
+                        <div style="display: inline-block; background: ${diffColor[difficulty]}22; border: 1px solid ${diffColor[difficulty]}66; color: ${diffColor[difficulty]}; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 2px; margin-top: 8px;">${diffLabel[difficulty]}</div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px;">From: ${data.myth_source}</div>
+                    </div>
+                    <div style="background: rgba(168,85,247,0.08); border: 2px solid rgba(168,85,247,0.25); border-radius: 14px; padding: 24px; margin-bottom: 24px; text-align: center;">
+                        <div style="font-size: 19px; color: #fff; line-height: 1.6; font-weight: 600;">${data.question}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        ${data.options.map(opt => `
+                            <button onclick="submitAthenaAnswer('${opt.letter}')" style="cursor: pointer; background: rgba(168,85,247,0.06); border: 2px solid rgba(168,85,247,0.25); border-radius: 12px; padding: 18px 16px; text-align: left; color: #fff; font-size: 15px; transition: all 0.2s;" onmouseover="this.style.borderColor='rgba(168,85,247,0.7)'; this.style.background='rgba(168,85,247,0.15)';" onmouseout="this.style.borderColor='rgba(168,85,247,0.25)'; this.style.background='rgba(168,85,247,0.06)';">
+                                <span style="font-weight: 800; color: #a855f7; margin-right: 10px; font-size: 17px;">${opt.letter}.</span> ${opt.text}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div style="text-align: center; margin-top: 16px; font-size: 13px; color: rgba(255,255,255,0.4);">
+                        ✅ Correct: <span style="color: #4ade80; font-weight: 700;">+${pts.win} pts</span> &nbsp;|&nbsp; ❌ Wrong: <span style="color: #ef4444; font-weight: 700;">${pts.lose} pts</span>
+                    </div>
+                `;
+            } catch (err) {
+                console.error('Athena question fetch error:', err);
+                alert('Failed to load question. Please try again.');
+            }
+        }
+
+        async function submitAthenaAnswer(answer) {
+            const pointMap = { conservative: { win: 23, lose: -10 }, moderate: { win: 42, lose: -20 }, aggressive: { win: 65, lose: -40 } };
+            const pts = pointMap[athenaSelectedDifficulty];
+            const isCorrect = answer === athenaCurrentQuestion.correct_answer;
+            const pointsAwarded = isCorrect ? pts.win : pts.lose;
+            try {
+                await fetch(`${API_URL}/teacher/award-points`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ alliance_id: selectedAllianceId, amount: pointsAwarded, reason: `Fate: Athena's Challenge (${athenaSelectedDifficulty}) — ${isCorrect ? 'CORRECT' : 'WRONG'}` })
+                });
+                await fetch(`${API_URL}/teacher/spin-fate`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ alliance_id: selectedAllianceId, fate_id: athenaCurrentFate.fate_id })
+                });
+                const content = document.getElementById('athena-challenge-content');
+                const correctOpt = athenaCurrentQuestion.options.find(o => o.letter === athenaCurrentQuestion.correct_answer);
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 30px 0;">
+                        <div style="font-size: 80px; margin-bottom: 16px;">${isCorrect ? '🏆' : '💀'}</div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 32px; font-weight: 800; color: ${isCorrect ? '#4ade80' : '#ef4444'}; letter-spacing: 2px; margin-bottom: 12px;">${isCorrect ? 'CORRECT!' : 'WRONG!'}</div>
+                        <div style="font-size: 36px; font-weight: 900; color: ${isCorrect ? '#4ade80' : '#ef4444'}; margin-bottom: 16px;">${pointsAwarded > 0 ? '+' : ''}${pointsAwarded} points</div>
+                        ${!isCorrect ? `<div style="background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.25); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+                            <div style="font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 4px;">The correct answer was:</div>
+                            <div style="font-size: 16px; color: #4ade80; font-weight: 700;">${correctOpt.letter}. ${correctOpt.text}</div>
+                        </div>` : ''}
+                        <div style="font-size: 16px; color: rgba(255,255,255,0.7); margin-bottom: 24px;">${selectedAllianceName} ${isCorrect ? 'has proven their wisdom!' : 'has angered Athena...'}</div>
+                        <button onclick="closeAthenaChallenge(); openFateWheelModal();" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); border: none; color: #fff; font-size: 18px; font-weight: 700; padding: 15px 40px; border-radius: 10px; cursor: pointer;">✨ CONTINUE ✨</button>
+                    </div>
+                `;
+                if (isCorrect) createConfetti();
+                loadLeaderboard();
+            } catch (err) {
+                console.error('Athena answer submit error:', err);
+                alert('Failed to submit answer!');
+            }
+        }
+
+        function closeAthenaChallenge() {
+            document.getElementById('athena-challenge-modal').classList.remove('show');
+            athenaCurrentFate = null;
+            athenaCurrentQuestion = null;
+            athenaSelectedDifficulty = null;
+        }
+
         // Start Battle (Fates 8, 14, 17)
         async function startBattle(fate) {
             try {
