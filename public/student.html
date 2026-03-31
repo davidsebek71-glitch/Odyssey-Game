@@ -3952,7 +3952,7 @@
                     loadMythPortals();
                     loadMissingVirtuesBadge();
                     loadTradePortalMini();
-                } else {
+                } else if (!showHeroicView) {
                     classicalSection.style.display = 'none';
                     document.body.classList.remove('classical-age');
                     const bonusCard = document.getElementById('bonus-card');
