@@ -447,8 +447,8 @@ app.get('/api/teacher/leaderboard', authenticateToken, (req, res) => {
       alliance.ghost_count = ghostMembers.length;
       
       // Calculate ghost bonus points
-      const ghostPointsEach = realMembers.length > 0 ? Math.round(alliance.total_points / realMembers.length) : 0;
-      alliance.ghost_bonus = ghostPointsEach * ghostMembers.length;
+      // Ghost display: each ghost adds 1x total_points. display = total × (ghost_count + 1)
+      alliance.ghost_bonus = alliance.total_points * ghostMembers.length;
       alliance.display_points = alliance.total_points + alliance.ghost_bonus;
       
       // Parse side quest rewards and convert to emoji icons
@@ -741,8 +741,8 @@ app.get('/api/teacher/alliances', authenticateToken, (req, res) => {
       alliance.ghost_names = ghostMembers.map(m => m.name);
       alliance.ghost_count = ghostMembers.length;
       // Ghost display bonus (same formula as leaderboard)
-      const ghostPointsEach = realMembers.length > 0 ? Math.round(alliance.total_points / realMembers.length) : 0;
-      alliance.display_points = alliance.total_points + (ghostPointsEach * ghostMembers.length);
+      // Ghost display: each ghost adds 1x total_points. display = total × (ghost_count + 1)
+      alliance.display_points = alliance.total_points + (alliance.total_points * ghostMembers.length);
     });
 
     res.json(alliances);
@@ -1544,7 +1544,8 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       
       // Calculate ghost points: alliance total_points / living member count
       const livingCount = members.length;
-      const ghostPointsEach = livingCount > 0 ? Math.round(student.alliance_points / livingCount) : 0;
+      // Ghost display: each ghost adds 1x total_points (not per-member share)
+      const ghostPointsEach = student.alliance_points;
       
       ghostMembers.forEach(g => {
         g.technologies_unlocked = [];
@@ -1626,8 +1627,8 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
       }).join('');
       
       const counts = countsByAlliance[alliance.alliance_id] || { living: 0, ghost: 0 };
-      const ghostPointsEach = counts.living > 0 ? Math.round(alliance.total_points / counts.living) : 0;
-      const ghostBonus = ghostPointsEach * counts.ghost;
+      // Ghost display: each ghost adds 1x total_points. display = total × (ghost_count + 1)
+      const ghostBonus = alliance.total_points * counts.ghost;
       
       return { 
         ...alliance, 
@@ -11273,6 +11274,19 @@ app.post('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
   try {
     const results = {};
+
+    // ── IDEMPOTENCY GUARD: check if repair already ran ────────────────────────
+    const alreadyRan = query(
+      "SELECT COUNT(*) as cnt FROM point_transactions WHERE category = 'admin_repair' AND reason LIKE '%ghost multiplier bug%' AND timestamp >= datetime('now', '-1 day')",
+      []
+    )[0].cnt;
+    if (alreadyRan > 0) {
+      return res.status(409).json({
+        error: 'Repair already executed in the last 24 hours — aborting to prevent double application.',
+        existing_repair_count: alreadyRan,
+        instructions: 'If you need to re-run, check the transaction log first.'
+      });
+    }
 
     // ── 1. VAUGHN: Skip — already fixed ──────────────────────────────────────
     results.vaughn = { skipped: true, reason: 'Quiz record already exists — no action taken' };
