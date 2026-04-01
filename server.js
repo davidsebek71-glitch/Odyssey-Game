@@ -11216,11 +11216,11 @@ app.get('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
       // Get today's date in YYYY-MM-DD (server local time)
       const today = new Date().toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT pt.transaction_id, pt.alliance_id, pt.student_id, pt.amount, pt.category, pt.reason, pt.created_at
+        `SELECT pt.transaction_id, pt.alliance_id, pt.student_id, pt.amount, pt.category, pt.reason, pt.timestamp
          FROM point_transactions pt
          WHERE pt.alliance_id = ? AND pt.category = 'Building Purchase'
-         AND date(pt.created_at) = ?
-         ORDER BY pt.created_at DESC`,
+         AND date(pt.timestamp) = ?
+         ORDER BY pt.timestamp DESC`,
         [ethan.alliance_id, today]
       );
       const allianceNow = query('SELECT total_points FROM alliances WHERE alliance_id = ?', [ethan.alliance_id])[0];
@@ -11246,11 +11246,11 @@ app.get('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
     } else {
       const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT pt.transaction_id, pt.alliance_id, pt.amount, pt.category, pt.reason, pt.created_at
+        `SELECT pt.transaction_id, pt.alliance_id, pt.amount, pt.category, pt.reason, pt.timestamp
          FROM point_transactions pt
          WHERE pt.alliance_id = ? AND pt.category IN ('fate', 'battle')
-         AND date(pt.created_at) = ?
-         ORDER BY pt.created_at DESC`,
+         AND date(pt.timestamp) = ?
+         ORDER BY pt.timestamp DESC`,
         [blake.alliance_id, yesterday]
       );
       const negativeTxns = transactions.filter(t => t.amount < 0);
@@ -11309,7 +11309,7 @@ app.post('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
     } else {
       const today = new Date().toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT transaction_id, amount FROM point_transactions WHERE alliance_id = ? AND category = 'Building Purchase' AND date(created_at) = ?`,
+        `SELECT transaction_id, amount FROM point_transactions WHERE alliance_id = ? AND category = 'Building Purchase' AND date(timestamp) = ?`,
         [ethan.alliance_id, today]
       );
       if (transactions.length === 0) {
@@ -11330,7 +11330,7 @@ app.post('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
     } else {
       const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT transaction_id, amount FROM point_transactions WHERE alliance_id = ? AND category IN ('fate','battle') AND amount < 0 AND date(created_at) = ?`,
+        `SELECT transaction_id, amount FROM point_transactions WHERE alliance_id = ? AND category IN ('fate','battle') AND amount < 0 AND date(timestamp) = ?`,
         [blake.alliance_id, yesterday]
       );
       if (transactions.length === 0) {
