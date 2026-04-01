@@ -11070,126 +11070,111 @@ app.get('/api/diag/virtue-audit', authenticateToken, (req, res) => {
   }
 });
 
-// Diagnostic: Tapley/Vaughn-style issue investigation — quiz + virtue pipeline for named students
+// Diagnostic: Icarus virtue + quiz pipeline for named students
+// Usage: GET /api/diag/student-issues?names=Tapley,Vaughn
 app.get('/api/diag/student-issues', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
   try {
-    const { names } = req.query; // comma-separated names, case-insensitive partial match
+    const { names } = req.query;
     if (!names) return res.status(400).json({ error: 'Provide ?names=Name1,Name2' });
 
     const nameList = names.split(',').map(n => n.trim().toLowerCase());
-    const allStudents = query('SELECT student_id, name, class_period, alliance_id FROM students WHERE is_ghost = 0 OR is_ghost IS NULL');
+    const allStudents = query('SELECT student_id, name, class_period FROM students WHERE is_ghost = 0 OR is_ghost IS NULL');
     const matched = allStudents.filter(s => nameList.some(n => s.name.toLowerCase().includes(n)));
+    if (!matched.length) return res.status(404).json({ error: 'No students found', searched: nameList });
 
-    if (!matched.length) return res.status(404).json({ error: 'No matching students found', searched: nameList });
+    // Icarus portal_id — find it dynamically
+    const icarusPortal = query("SELECT portal_id, myth_name FROM myth_portals WHERE myth_name LIKE '%Icarus%' LIMIT 1")[0];
+    if (!icarusPortal) return res.status(500).json({ error: 'Icarus portal not found in myth_portals' });
 
-    const portals = query('SELECT portal_id, myth_name FROM myth_portals ORDER BY portal_id');
+    const icarusAliases = ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'];
 
     const results = matched.map(student => {
       const sid = student.student_id;
 
-      // All quiz attempts
+      // All quiz attempts for Icarus
       const quizAttempts = query(
-        'SELECT mqa.portal_id, mp.myth_name, mqa.score, mqa.total_questions, mqa.percentage, mqa.passed, mqa.attempted_at FROM myth_quiz_attempts mqa LEFT JOIN myth_portals mp ON mqa.portal_id = mp.portal_id WHERE mqa.student_id = ? ORDER BY mqa.portal_id, mqa.attempted_at',
-        [sid]
+        'SELECT score, total_questions, percentage, passed, attempted_at FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? ORDER BY attempted_at',
+        [sid, icarusPortal.portal_id]
       );
+      const quizPassed = quizAttempts.some(a => a.passed === 1);
+      const bestAttempt = quizAttempts.reduce((best, a) => (!best || a.percentage > best.percentage) ? a : best, null);
 
-      // Best score per portal
-      const bestByPortal = {};
-      quizAttempts.forEach(a => {
-        if (!bestByPortal[a.portal_id] || a.percentage > bestByPortal[a.portal_id].percentage) {
-          bestByPortal[a.portal_id] = a;
-        }
-      });
-
-      // All grade_records for classical + classical_creative sections
-      const gradeRecords = query(
-        `SELECT gr.points_earned, gr.graded_at, ar.assignment_type, ar.section, ar.myth_god, ar.assignment_name
+      // Reading guide: comp_conn in classical section for Icarus
+      const guides = query(
+        `SELECT ar.myth_god, ar.assignment_type, ar.section, ar.assignment_name, gr.points_earned, gr.graded_at
          FROM grade_records gr
          JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-         WHERE gr.student_id = ? AND ar.section IN ('classical', 'classical_creative', 'bonus')
-         ORDER BY ar.myth_god, ar.section`,
+         WHERE gr.student_id = ? AND ar.assignment_type = 'comp_conn' AND ar.section = 'classical'
+         AND ar.myth_god IN (${icarusAliases.map(() => '?').join(',')})`,
+        [sid, ...icarusAliases]
+      );
+
+      // Creative: word_cloud / mural / creative / cer in classical_creative for Icarus
+      const creatives = query(
+        `SELECT ar.myth_god, ar.assignment_type, ar.section, ar.assignment_name, gr.points_earned, gr.graded_at
+         FROM grade_records gr
+         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+         WHERE gr.student_id = ? AND ar.section = 'classical_creative'
+         AND ar.assignment_type IN ('word_cloud','mural','creative','cer')
+         AND ar.myth_god IN (${icarusAliases.map(() => '?').join(',')})`,
+        [sid, ...icarusAliases]
+      );
+
+      // Also pull ALL classical_creative records to see what's actually there
+      const allCreativeRecords = query(
+        `SELECT ar.myth_god, ar.assignment_type, ar.section, ar.assignment_name, gr.points_earned
+         FROM grade_records gr
+         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+         WHERE gr.student_id = ? AND ar.section = 'classical_creative'`,
         [sid]
       );
 
-      // myth_completion rows
-      const completionRows = query(
-        `SELECT smc.portal_id, mp.myth_name, smc.assignment_path, smc.teacher_approved, smc.approved_at, smc.virtue_claimed, smc.virtue_claimed_at, smc.points_earned
-         FROM student_myth_completion smc
-         LEFT JOIN myth_portals mp ON smc.portal_id = mp.portal_id
-         WHERE smc.student_id = ?
-         ORDER BY smc.portal_id`,
-        [sid]
-      );
+      // myth_completion row for Icarus
+      const completion = query(
+        'SELECT assignment_path, teacher_approved, approved_at, virtue_claimed, virtue_claimed_at, points_earned FROM student_myth_completion WHERE student_id = ? AND portal_id = ?',
+        [sid, icarusPortal.portal_id]
+      )[0] || null;
 
-      // Per-portal readiness summary
-      const mythAliases = {
-        'Pandora': ['Pandora'],
-        'Phaethon': ['Phaethon'],
-        'Orpheus & Eurydice': ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
-        'Echo & Narcissus': ['Echo and Narcissus', 'Echo & Narcissus'],
-        'Icarus & Daedalus': ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
-        'Eros & Psyche': ['Eros and Psyche', 'Eros & Psyche'],
-        'Constellations': ['Constellations']
-      };
+      const hasGuide = guides.some(g => g.points_earned > 0);
+      const hasCreative = creatives.some(c => c.points_earned > 0);
+      const approvedCompletion = completion && completion.teacher_approved;
 
-      const portalSummary = portals.map(portal => {
-        const aliases = mythAliases[portal.myth_name] || [portal.myth_name];
-        const quizForPortal = quizAttempts.filter(a => a.portal_id === portal.portal_id);
-        const quizPassed = quizForPortal.some(a => a.passed === 1);
-        const bestQuiz = bestByPortal[portal.portal_id] || null;
-
-        const guide = gradeRecords.find(r =>
-          r.assignment_type === 'comp_conn' && r.section === 'classical' &&
-          aliases.some(al => r.myth_god && r.myth_god.toLowerCase().includes(al.toLowerCase().split(' ')[0].toLowerCase())) &&
-          r.points_earned > 0
-        );
-
-        const creative = gradeRecords.find(r =>
-          r.section === 'classical_creative' &&
-          ['word_cloud','mural','creative','cer'].includes(r.assignment_type) &&
-          aliases.some(al => r.myth_god && r.myth_god.toLowerCase().includes(al.toLowerCase().split(' ')[0].toLowerCase())) &&
-          r.points_earned > 0
-        );
-
-        const completion = completionRows.find(c => c.portal_id === portal.portal_id) || null;
-
-        return {
-          portal_id: portal.portal_id,
-          myth_name: portal.myth_name,
-          quiz_attempts: quizForPortal.length,
-          quiz_passed: quizPassed,
-          best_quiz_score: bestQuiz ? `${bestQuiz.score}/${bestQuiz.total_questions} (${bestQuiz.percentage}%) passed=${bestQuiz.passed}` : 'none',
-          all_quiz_attempts: quizForPortal.map(a => `${a.score}/${a.total_questions} ${a.percentage}% passed=${a.passed} at=${a.attempted_at}`),
-          reading_guide_found: !!guide,
-          reading_guide_detail: guide ? `${guide.myth_god} | ${guide.assignment_type} | section=${guide.section} | pts=${guide.points_earned}` : 'MISSING',
-          creative_found: !!creative,
-          creative_detail: creative ? `${creative.myth_god} | ${creative.assignment_type} | section=${creative.section} | pts=${creative.points_earned}` : 'MISSING',
-          myth_completion_row: completion ? {
-            teacher_approved: completion.teacher_approved,
-            assignment_path: completion.assignment_path,
-            virtue_claimed: completion.virtue_claimed,
-            approved_at: completion.approved_at,
-            points_earned: completion.points_earned
-          } : 'NO ROW',
-          can_claim_virtue: quizPassed && !!guide && (!!creative || (completion && completion.teacher_approved)) && completion && !completion.virtue_claimed,
-          blocker: !quizPassed ? 'Quiz not passed' : !guide ? 'Reading guide missing/not graded' : (!creative && !(completion && completion.teacher_approved)) ? 'Creative assignment missing or not approved' : (completion && completion.virtue_claimed) ? 'Already claimed' : !completion ? 'No myth_completion row (but auto-recovery should fix on claim)' : 'None — should be claimable'
-        };
-      });
+      let blocker = 'None — should be claimable';
+      if (!quizPassed) blocker = 'QUIZ NOT PASSED';
+      else if (!hasGuide) blocker = 'READING GUIDE missing or not graded';
+      else if (!hasCreative && !approvedCompletion) blocker = 'CREATIVE ASSIGNMENT missing or not approved';
+      else if (completion && completion.virtue_claimed) blocker = 'Virtue already claimed';
+      else if (!completion) blocker = 'No myth_completion row — auto-recovery will run on claim attempt';
 
       return {
-        student_id: sid,
         name: student.name,
         period: student.class_period,
-        alliance_id: student.alliance_id,
-        portal_summary: portalSummary,
-        all_classical_grade_records: gradeRecords
+        student_id: sid,
+        icarus_portal_id: icarusPortal.portal_id,
+        BLOCKER: blocker,
+        quiz: {
+          attempt_count: quizAttempts.length,
+          passed: quizPassed,
+          best: bestAttempt ? `${bestAttempt.score}/${bestAttempt.total_questions} = ${bestAttempt.percentage}% (passed=${bestAttempt.passed})` : 'no attempts',
+          all_attempts: quizAttempts.map(a => `${a.score}/${a.total_questions} ${a.percentage}% passed=${a.passed} [${a.attempted_at}]`)
+        },
+        reading_guide: {
+          found: hasGuide,
+          records: guides
+        },
+        creative_assignment: {
+          found: hasCreative,
+          icarus_records: creatives,
+          ALL_classical_creative_records: allCreativeRecords
+        },
+        myth_completion_row: completion || 'NO ROW'
       };
     });
 
-    res.json({ matched_count: results.length, students: results });
+    res.json({ students: results });
   } catch (err) {
-    res.status(500).json({ error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
   }
 });
 
