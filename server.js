@@ -11186,93 +11186,92 @@ app.get('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
   try {
     const report = {};
 
-    // ── 1. VAUGHN: Insert quiz attempt 15/17 for Icarus (portal 5) ──────────
+    // ── 1. VAUGHN: Already fixed — quiz record exists ────────────────────────
     const vaughn = query("SELECT student_id, name, class_period FROM students WHERE name LIKE '%Vaughn%' AND (is_ghost = 0 OR is_ghost IS NULL) LIMIT 1")[0];
     if (!vaughn) {
       report.vaughn = { error: 'Student not found' };
     } else {
-      const existing = query('SELECT * FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 5', [vaughn.student_id]);
-      const percentage = parseFloat(((15 / 17) * 100).toFixed(2));
+      const existing = query('SELECT attempt_id, score, total_questions, percentage, passed, attempted_at FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 5', [vaughn.student_id]);
       report.vaughn = {
-        student_id: vaughn.student_id,
         name: vaughn.name,
-        period: vaughn.class_period,
-        existing_attempts: existing,
-        action: existing.length > 0
-          ? 'WARNING: attempts already exist — review before executing'
-          : 'WILL INSERT: myth_quiz_attempts row score=15, total=17, percentage=' + percentage + ', passed=1, portal_id=5',
-        score: 15,
-        total_questions: 17,
-        percentage,
-        passed: 1
+        action: existing.length > 0 ? 'SKIP — quiz record already exists, no action needed' : 'WARNING — no record found',
+        existing_record: existing[0] || null
       };
     }
 
-    // ── 2. ETHAN: Show today's building purchase transactions ────────────────
+    // ── 2. ETHAN: Building purchases on 2026-03-31 18:00–20:00 UTC (1–3 PM CDT) ──
     const ethan = query("SELECT student_id, name, class_period, alliance_id FROM students WHERE name LIKE '%Ethan%' AND (is_ghost = 0 OR is_ghost IS NULL) LIMIT 1")[0];
     if (!ethan) {
       report.ethan = { error: 'Student not found' };
     } else {
-      // Get today's date in YYYY-MM-DD (server local time)
-      const today = new Date().toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT pt.transaction_id, pt.alliance_id, pt.student_id, pt.amount, pt.category, pt.reason, pt.timestamp
-         FROM point_transactions pt
-         WHERE pt.alliance_id = ? AND pt.category = 'Building Purchase'
-         AND date(pt.timestamp) = ?
-         ORDER BY pt.timestamp DESC`,
-        [ethan.alliance_id, today]
+        `SELECT transaction_id, amount, category, reason, timestamp
+         FROM point_transactions
+         WHERE alliance_id = ? AND category = 'Building Purchase'
+         AND timestamp >= '2026-03-31 18:00:00' AND timestamp <= '2026-03-31 20:00:00'
+         ORDER BY timestamp DESC`,
+        [ethan.alliance_id]
+      );
+      const allPurchases = query(
+        `SELECT transaction_id, amount, reason, timestamp FROM point_transactions
+         WHERE alliance_id = ? AND category = 'Building Purchase' ORDER BY timestamp DESC LIMIT 20`,
+        [ethan.alliance_id]
       );
       const allianceNow = query('SELECT total_points FROM alliances WHERE alliance_id = ?', [ethan.alliance_id])[0];
       const totalLost = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       report.ethan = {
-        student_id: ethan.student_id,
         name: ethan.name,
         period: ethan.class_period,
         alliance_id: ethan.alliance_id,
         alliance_points_now: allianceNow ? allianceNow.total_points : 'unknown',
-        todays_building_purchases: transactions,
-        total_points_spent_today: totalLost,
+        window_searched: '2026-03-31 18:00–20:00 UTC (1–3 PM CDT)',
+        transactions_in_window: transactions,
+        total_to_refund: totalLost,
         action: transactions.length > 0
-          ? `WILL REFUND: +${totalLost} pts to alliance ${ethan.alliance_id} and delete ${transactions.length} transaction(s)`
-          : 'No building purchase transactions found today — nothing to refund'
+          ? `WILL REFUND: +${totalLost} pts to alliance ${ethan.alliance_id} (${transactions.length} transaction(s))`
+          : 'No transactions in window — see all_recent_purchases for context',
+        all_recent_purchases_last20: allPurchases
       };
     }
 
-    // ── 3. BLAKE: Show yesterday's fate transactions ─────────────────────────
+    // ── 3. BLAKE: Negative fate/battle on 2026-03-30 ─────────────────────────
     const blake = query("SELECT student_id, name, class_period, alliance_id FROM students WHERE name LIKE '%Blake%' AND (is_ghost = 0 OR is_ghost IS NULL) LIMIT 1")[0];
     if (!blake) {
       report.blake = { error: 'Student not found' };
     } else {
-      const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT pt.transaction_id, pt.alliance_id, pt.amount, pt.category, pt.reason, pt.timestamp
-         FROM point_transactions pt
-         WHERE pt.alliance_id = ? AND pt.category IN ('fate', 'battle')
-         AND date(pt.timestamp) = ?
-         ORDER BY pt.timestamp DESC`,
-        [blake.alliance_id, yesterday]
+        `SELECT transaction_id, amount, category, reason, timestamp
+         FROM point_transactions
+         WHERE alliance_id = ? AND category IN ('fate', 'battle') AND amount < 0
+         AND date(timestamp) = '2026-03-30'
+         ORDER BY timestamp DESC`,
+        [blake.alliance_id]
       );
-      const negativeTxns = transactions.filter(t => t.amount < 0);
+      const allFateTxns = query(
+        `SELECT transaction_id, amount, category, reason, timestamp FROM point_transactions
+         WHERE alliance_id = ? AND category IN ('fate','battle') AND date(timestamp) = '2026-03-30'
+         ORDER BY timestamp DESC`,
+        [blake.alliance_id]
+      );
       const allianceNow = query('SELECT total_points FROM alliances WHERE alliance_id = ?', [blake.alliance_id])[0];
-      const totalLost = negativeTxns.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      const totalLost = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       report.blake = {
-        student_id: blake.student_id,
         name: blake.name,
         period: blake.class_period,
         alliance_id: blake.alliance_id,
         alliance_points_now: allianceNow ? allianceNow.total_points : 'unknown',
-        yesterdays_fate_transactions: transactions,
-        negative_transactions: negativeTxns,
-        total_points_lost: totalLost,
-        action: negativeTxns.length > 0
-          ? `WILL REFUND: +${totalLost} pts to alliance ${blake.alliance_id} for ${negativeTxns.length} negative fate/battle transaction(s)`
-          : 'No negative fate transactions found yesterday — nothing to refund'
+        date_searched: '2026-03-30',
+        negative_fate_transactions: transactions,
+        total_to_refund: totalLost,
+        action: transactions.length > 0
+          ? `WILL REFUND: +${totalLost} pts to alliance ${blake.alliance_id} (${transactions.length} negative transaction(s))`
+          : 'No negative fate/battle on 2026-03-30 — see all_fate_txns_that_day',
+        all_fate_txns_that_day: allFateTxns
       };
     }
 
     report.dry_run = true;
-    report.instructions = 'Review the above. If correct, POST to /api/admin/repair-student-issues to execute.';
+    report.instructions = 'Review above. If correct, POST to /api/admin/repair-student-issues to execute.';
     res.json(report);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -11284,63 +11283,50 @@ app.post('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
   try {
     const results = {};
 
-    // ── 1. VAUGHN: Insert quiz attempt ───────────────────────────────────────
-    const vaughn = query("SELECT student_id, name FROM students WHERE name LIKE '%Vaughn%' AND (is_ghost = 0 OR is_ghost IS NULL) LIMIT 1")[0];
-    if (!vaughn) {
-      results.vaughn = { error: 'Student not found — no changes made' };
-    } else {
-      const existing = query('SELECT * FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = 5', [vaughn.student_id]);
-      if (existing.length > 0) {
-        results.vaughn = { skipped: true, reason: 'Attempts already exist — not overwriting', existing };
-      } else {
-        const percentage = parseFloat(((15 / 17) * 100).toFixed(2));
-        run(
-          'INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at) VALUES (?, 5, 15, 17, ?, 1, CURRENT_TIMESTAMP)',
-          [vaughn.student_id, percentage]
-        );
-        results.vaughn = { success: true, inserted: { student_id: vaughn.student_id, portal_id: 5, score: 15, total_questions: 17, percentage, passed: 1 } };
-      }
-    }
+    // ── 1. VAUGHN: Skip — already fixed ──────────────────────────────────────
+    results.vaughn = { skipped: true, reason: 'Quiz record already exists — no action taken' };
 
-    // ── 2. ETHAN: Refund today's building purchases ──────────────────────────
+    // ── 2. ETHAN: Refund building purchases 2026-03-31 18:00–20:00 UTC ───────
     const ethan = query("SELECT student_id, name, alliance_id FROM students WHERE name LIKE '%Ethan%' AND (is_ghost = 0 OR is_ghost IS NULL) LIMIT 1")[0];
     if (!ethan) {
       results.ethan = { error: 'Student not found — no changes made' };
     } else {
-      const today = new Date().toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT transaction_id, amount FROM point_transactions WHERE alliance_id = ? AND category = 'Building Purchase' AND date(timestamp) = ?`,
-        [ethan.alliance_id, today]
+        `SELECT transaction_id, amount FROM point_transactions
+         WHERE alliance_id = ? AND category = 'Building Purchase'
+         AND timestamp >= '2026-03-31 18:00:00' AND timestamp <= '2026-03-31 20:00:00'`,
+        [ethan.alliance_id]
       );
       if (transactions.length === 0) {
-        results.ethan = { skipped: true, reason: 'No building purchase transactions found today' };
+        results.ethan = { skipped: true, reason: 'No building purchases found in window 2026-03-31 18:00–20:00 UTC' };
       } else {
         const totalRefund = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
         run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', [totalRefund, ethan.alliance_id]);
         run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, ?, 'admin_repair', ?)`,
-          [ethan.alliance_id, ethan.student_id, totalRefund, `Admin repair: refund of building purchase points lost today (${transactions.length} transaction(s))`]);
-        results.ethan = { success: true, refunded: totalRefund, transactions_count: transactions.length, alliance_id: ethan.alliance_id };
+          [ethan.alliance_id, ethan.student_id, totalRefund, `Admin repair: refund ${totalRefund} pts for building purchases on 2026-03-31 (ghost multiplier bug)`]);
+        results.ethan = { success: true, refunded: totalRefund, transactions_count: transactions.length };
       }
     }
 
-    // ── 3. BLAKE: Refund yesterday's negative fate/battle points ────────────
+    // ── 3. BLAKE: Refund negative fate/battle from 2026-03-30 ────────────────
     const blake = query("SELECT student_id, name, alliance_id FROM students WHERE name LIKE '%Blake%' AND (is_ghost = 0 OR is_ghost IS NULL) LIMIT 1")[0];
     if (!blake) {
       results.blake = { error: 'Student not found — no changes made' };
     } else {
-      const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
       const transactions = query(
-        `SELECT transaction_id, amount FROM point_transactions WHERE alliance_id = ? AND category IN ('fate','battle') AND amount < 0 AND date(timestamp) = ?`,
-        [blake.alliance_id, yesterday]
+        `SELECT transaction_id, amount FROM point_transactions
+         WHERE alliance_id = ? AND category IN ('fate','battle') AND amount < 0
+         AND date(timestamp) = '2026-03-30'`,
+        [blake.alliance_id]
       );
       if (transactions.length === 0) {
-        results.blake = { skipped: true, reason: 'No negative fate/battle transactions found yesterday' };
+        results.blake = { skipped: true, reason: 'No negative fate/battle transactions found on 2026-03-30' };
       } else {
         const totalRefund = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
         run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', [totalRefund, blake.alliance_id]);
         run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, ?, 'admin_repair', ?)`,
-          [blake.alliance_id, blake.student_id, totalRefund, `Admin repair: refund of negative fate/battle points from yesterday (${transactions.length} transaction(s))`]);
-        results.blake = { success: true, refunded: totalRefund, transactions_count: transactions.length, alliance_id: blake.alliance_id };
+          [blake.alliance_id, blake.student_id, totalRefund, `Admin repair: refund ${totalRefund} pts for negative fate/battle on 2026-03-30 (ghost multiplier bug)`]);
+        results.blake = { success: true, refunded: totalRefund, transactions_count: transactions.length };
       }
     }
 
