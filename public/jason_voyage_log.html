@@ -2055,10 +2055,10 @@ function preloadTransitionImages(){
   });
 
   // Load panoramic images (preferred over three-image set)
+  // No crossOrigin flag — same-domain images, not used with getImageData
   TR_PANORAMA_KEYS.forEach(key=>{
     const img=new Image();
-    img.crossOrigin='anonymous';
-    img.onerror=()=>{ TR_PANORAMAS[key]=null; };
+    img.onerror=()=>{ TR_PANORAMAS[key]=null; console.warn('Panorama failed:',key); };
     img.onload=()=>{ console.log('⚓ Panorama loaded:',key,img.naturalWidth+'x'+img.naturalHeight); };
     img.src=TRANSITION_BASE_URL+key+'.png';
     TR_PANORAMAS[key]=img;
