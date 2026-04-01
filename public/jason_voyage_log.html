@@ -2058,8 +2058,8 @@ function preloadTransitionImages(){
   // No crossOrigin flag — same-domain images, not used with getImageData
   TR_PANORAMA_KEYS.forEach(key=>{
     const img=new Image();
-    img.onerror=()=>{ TR_PANORAMAS[key]=null; console.warn('Panorama failed:',key); };
-    img.onload=()=>{ console.log('⚓ Panorama loaded:',key,img.naturalWidth+'x'+img.naturalHeight); };
+    img.onerror=()=>{ TR_PANORAMAS[key]=null; console.warn('🔴 Panorama FAILED:',key); };
+    img.onload=()=>{ console.log('🟢 Panorama loaded:',key,img.naturalWidth+'x'+img.naturalHeight); };
     img.src=TRANSITION_BASE_URL+key+'.png';
     TR_PANORAMAS[key]=img;
   });
@@ -3057,6 +3057,7 @@ function beginVoyage(){
 
 // Skip the intro crawl and go straight to the game (for returning students)
 function skipToApp(){
+  preloadTransitionImages(); // must load even when crawl is skipped
   document.getElementById('crawl-screen').classList.remove('show');
   document.getElementById('app').style.display='flex';
   document.getElementById('app').style.flexDirection='column';
