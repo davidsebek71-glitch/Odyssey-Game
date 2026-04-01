@@ -2128,18 +2128,18 @@ function drawTransitionSailing(ctx, W, H, tr, progress){
 
   if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
     // ── SINGLE PANORAMA IMAGE ──
-    // Scale to 2× viewport width for good scroll distance while keeping scene visible.
-    // Center vertically so sky, horizon, water, and coastlines are all in view.
+    // Target height: 70% of canvas — keeps sky/sea ratio correct with ship at waterline ~72%.
+    // Scale width proportionally from that height, ensuring a good scroll distance.
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    const targetW = W * 1.7;
-    const scale = targetW / imgW;
-    const scaledH = imgH * scale;
+    const targetH = Math.round(H * 0.70);
+    const scale = targetH / imgH;
+    const targetW = Math.max(imgW * scale, W * 1.5); // at least 1.5× wide for scrolling
     const maxScroll = targetW - W;
     const scrollX = progress * maxScroll;
-    // Center the image vertically in the canvas
-    const yOffset = (H - scaledH) / 2;
-    ctx.drawImage(panoImg, -scrollX, yOffset, targetW, scaledH);
+    // Center vertically so horizon sits in the natural middle of the canvas
+    const yOffset = Math.round((H - targetH) / 2);
+    ctx.drawImage(panoImg, -scrollX, yOffset, targetW, targetH);
   } else {
     // ── FALLBACK: Three separate images as panorama ──
     const departImg=TR_IMAGES[TR_DEPART_KEYS[idx]];
@@ -2246,13 +2246,13 @@ function drawTransitionAnchored(ctx, W, H, tr){
   if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
     const imgW = panoImg.naturalWidth;
     const imgH = panoImg.naturalHeight;
-    const targetW = W * 1.7;
-    const scale = targetW / imgW;
-    const scaledH = imgH * scale;
+    const targetH = Math.round(H * 0.70);
+    const scale = targetH / imgH;
+    const targetW = Math.max(imgW * scale, W * 1.5);
     const maxScroll = targetW - W;
-    const yOffset = (H - scaledH) / 2;
+    const yOffset = Math.round((H - targetH) / 2);
     // Fully scrolled to arrival end
-    ctx.drawImage(panoImg, -maxScroll, yOffset, targetW, scaledH);
+    ctx.drawImage(panoImg, -maxScroll, yOffset, targetW, targetH);
   } else {
     // Fallback to arrival image
     const arriveImg=TR_IMAGES[TR_ARRIVE_KEYS[idx]];
@@ -2275,8 +2275,8 @@ function drawTransitionAnchored(ctx, W, H, tr){
 function _drawArgoSprite(ctx,cx,cy,W){
   const sprite=processArgoSprite();
   if(sprite){
-    // Scale to roughly 12% of canvas width
-    const targetW=Math.max(80, Math.round(W*0.12));
+    // Scale to roughly 28% of canvas width — dominant, heroic presence
+    const targetW=Math.max(160, Math.round(W*0.28));
     const scale=targetW/sprite.width;
     const sw=Math.round(sprite.width*scale);
     const sh=Math.round(sprite.height*scale);
