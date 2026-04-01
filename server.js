@@ -11102,7 +11102,7 @@ app.get('/api/diag/student-issues', authenticateToken, (req, res) => {
 
       // Reading guide: comp_conn in classical section for Icarus
       const guides = query(
-        `SELECT ar.myth_god, ar.assignment_type, ar.section, ar.display_name, gr.points_earned, gr.graded_at
+        `SELECT ar.myth_god, ar.assignment_type, ar.section, ar.display_name, gr.points_earned, gr.completed_at
          FROM grade_records gr
          JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
          WHERE gr.student_id = ? AND ar.assignment_type = 'comp_conn' AND ar.section = 'classical'
@@ -11112,7 +11112,7 @@ app.get('/api/diag/student-issues', authenticateToken, (req, res) => {
 
       // Creative: word_cloud / mural / creative / cer in classical_creative for Icarus
       const creatives = query(
-        `SELECT ar.myth_god, ar.assignment_type, ar.section, ar.display_name, gr.points_earned, gr.graded_at
+        `SELECT ar.myth_god, ar.assignment_type, ar.section, ar.display_name, gr.points_earned, gr.completed_at
          FROM grade_records gr
          JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
          WHERE gr.student_id = ? AND ar.section = 'classical_creative'
