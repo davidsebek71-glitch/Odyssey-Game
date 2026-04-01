@@ -11234,39 +11234,30 @@ app.get('/api/admin/repair-student-issues', authenticateToken, (req, res) => {
       };
     }
 
-    // ── 3. BLAKE: Negative fate/battle on 2026-03-30 ─────────────────────────
+    // ── 3. BLAKE: Show all fate/battle transactions last 14 days to locate the loss ──
     const blake = query("SELECT student_id, name, class_period, alliance_id FROM students WHERE name LIKE '%Blake%' AND (is_ghost = 0 OR is_ghost IS NULL) LIMIT 1")[0];
     if (!blake) {
       report.blake = { error: 'Student not found' };
     } else {
-      const transactions = query(
+      const allFateTxns = query(
         `SELECT transaction_id, amount, category, reason, timestamp
          FROM point_transactions
-         WHERE alliance_id = ? AND category IN ('fate', 'battle') AND amount < 0
-         AND date(timestamp) = '2026-03-30'
+         WHERE alliance_id = ? AND category IN ('fate','battle')
+         AND timestamp >= datetime('now', '-14 days')
          ORDER BY timestamp DESC`,
         [blake.alliance_id]
       );
-      const allFateTxns = query(
-        `SELECT transaction_id, amount, category, reason, timestamp FROM point_transactions
-         WHERE alliance_id = ? AND category IN ('fate','battle') AND date(timestamp) = '2026-03-30'
-         ORDER BY timestamp DESC`,
-        [blake.alliance_id]
-      );
+      const negativeTxns = allFateTxns.filter(t => t.amount < 0);
       const allianceNow = query('SELECT total_points FROM alliances WHERE alliance_id = ?', [blake.alliance_id])[0];
-      const totalLost = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       report.blake = {
         name: blake.name,
         period: blake.class_period,
         alliance_id: blake.alliance_id,
         alliance_points_now: allianceNow ? allianceNow.total_points : 'unknown',
-        date_searched: '2026-03-30',
-        negative_fate_transactions: transactions,
-        total_to_refund: totalLost,
-        action: transactions.length > 0
-          ? `WILL REFUND: +${totalLost} pts to alliance ${blake.alliance_id} (${transactions.length} negative transaction(s))`
-          : 'No negative fate/battle on 2026-03-30 — see all_fate_txns_that_day',
-        all_fate_txns_that_day: allFateTxns
+        window: 'Last 14 days — all fate/battle transactions',
+        all_fate_battle_txns: allFateTxns,
+        negative_txns_only: negativeTxns,
+        action: 'REVIEW: identify the transaction to refund, then confirm with David before executing'
       };
     }
 
