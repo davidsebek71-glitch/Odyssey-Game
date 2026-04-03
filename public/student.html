@@ -14105,7 +14105,7 @@
         ['male','female'].forEach(function(g) {
             var img = document.getElementById('hao-gender-img-' + g);
             var ph  = document.getElementById('hao-gender-ph-' + g);
-            var src = '/images/heroic/avatars/' + haoArchetype + '_' + g + '_medium.png';
+            var src = '/images/heroic/avatars/' + haoArchetype + '/' + haoArchetype + '_' + g + '_medium_base.png';
             img.onload  = function() { img.style.display='block'; ph.style.display='none'; };
             img.onerror = function() { img.style.display='none';  ph.style.display='flex'; };
             img.src = src;
@@ -14132,7 +14132,7 @@
         ['light','medium','dark'].forEach(function(s) {
             var img = document.getElementById('hao-skin-img-' + s);
             var ph  = document.getElementById('hao-skin-ph-' + s);
-            var src = '/images/heroic/avatars/' + haoArchetype + '_' + haoGender + '_' + s + '.png';
+            var src = '/images/heroic/avatars/' + haoArchetype + '/' + haoArchetype + '_' + haoGender + '_' + s + '_base.png';
             img.onload  = function() { img.style.display='block'; ph.style.display='none'; };
             img.onerror = function() { img.style.display='none';  ph.style.display='flex'; };
             img.src = src;
@@ -14165,7 +14165,7 @@
         // Final avatar image
         var confirmImg = document.getElementById('hao-confirm-img');
         var confirmPh  = document.getElementById('hao-confirm-ph');
-        var finalSrc = '/images/heroic/avatars/' + haoArchetype + '_' + haoGender + '_' + haoSkin + '.png';
+        var finalSrc = '/images/heroic/avatars/' + haoArchetype + '/' + haoArchetype + '_' + haoGender + '_' + haoSkin + '_base.png';
         confirmImg.onload  = function() { confirmImg.style.display='block'; confirmPh.style.display='none'; };
         confirmImg.onerror = function() { confirmImg.style.display='none';  confirmPh.style.display='flex'; };
         confirmImg.src = finalSrc;
@@ -14193,7 +14193,7 @@
             card.onclick = function() { haoSelectArchetype(av.key); };
 
             // Art area — build via DOM API to avoid quote-escaping in onload/onerror
-            var artSrc = '/images/heroic/avatars/' + av.key + '_preview.png';
+            var artSrc = '/images/heroic/avatars/' + av.key + '/' + av.key + '_male_light_base.png';
             var artWrap = document.createElement('div');
             artWrap.className = 'hao-card-art';
             var artSil = document.createElement('div');
@@ -14245,7 +14245,7 @@
         // Populate detail panel
         var detailImg = document.getElementById('hao-detail-img');
         var detailPh  = document.getElementById('hao-art-placeholder');
-        var detailSrc = '/images/heroic/avatars/' + key + '_preview.png';
+        var detailSrc = '/images/heroic/avatars/' + key + '/' + key + '_male_light_base.png';
         detailImg.onload  = function() { detailImg.style.display='block'; detailPh.style.display='none'; };
         detailImg.onerror = function() { detailImg.style.display='none';  detailPh.style.display='flex'; };
         detailImg.src = detailSrc;
