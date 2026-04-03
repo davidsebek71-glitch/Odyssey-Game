@@ -26,6 +26,29 @@ initDatabase().then(() => {
   dbReady = true;
   console.log('✅ Database initialized');
 
+  // ── Heroic Age column migration ───────────────────────────────────────────
+  // Runs immediately after DB is ready — before any queries can fire.
+  // PRAGMA table_info is safe and returns existing columns only.
+  try {
+    const studentCols = query('PRAGMA table_info(students)').map(c => c.name);
+    if (!studentCols.includes('selected_avatar')) {
+      run('ALTER TABLE students ADD COLUMN selected_avatar TEXT DEFAULT NULL');
+      console.log('✅ Migration: added selected_avatar to students');
+    }
+    if (!studentCols.includes('avatar_selected_at')) {
+      run('ALTER TABLE students ADD COLUMN avatar_selected_at DATETIME DEFAULT NULL');
+      console.log('✅ Migration: added avatar_selected_at to students');
+    }
+    if (!studentCols.includes('drachma')) {
+      run('ALTER TABLE students ADD COLUMN drachma INTEGER DEFAULT 0');
+      console.log('✅ Migration: added drachma to students');
+    }
+    saveDatabase();
+  } catch (err) {
+    console.error('❌ Heroic column migration error:', err.message);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // V97 backfill: unlock game quests for students who already passed the quizzes
   // before this feature was deployed. Safe to re-run — INSERT OR IGNORE skips existing rows.
   try {
@@ -14116,30 +14139,6 @@ app.get('/api/teacher/voyage-log-unlock-status', (req, res) => {
     res.json({ unlocks: [] });
   }
 });
-
-// ── Heroic Age column migration ──────────────────────────────────────────────
-// Adds selected_avatar, avatar_selected_at, and drachma to students table
-// if they don't exist. PRAGMA-based — safe to run on every startup.
-(function migrateHeroicColumns() {
-  try {
-    const cols = query('PRAGMA table_info(students)').map(c => c.name);
-    if (!cols.includes('selected_avatar')) {
-      run("ALTER TABLE students ADD COLUMN selected_avatar TEXT DEFAULT NULL");
-      console.log('✅ Migration: added selected_avatar to students');
-    }
-    if (!cols.includes('avatar_selected_at')) {
-      run("ALTER TABLE students ADD COLUMN avatar_selected_at DATETIME DEFAULT NULL");
-      console.log('✅ Migration: added avatar_selected_at to students');
-    }
-    if (!cols.includes('drachma')) {
-      run("ALTER TABLE students ADD COLUMN drachma INTEGER DEFAULT 0");
-      console.log('✅ Migration: added drachma to students');
-    }
-    saveDatabase();
-  } catch (err) {
-    console.error('Heroic column migration error:', err.message);
-  }
-})();
 
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
