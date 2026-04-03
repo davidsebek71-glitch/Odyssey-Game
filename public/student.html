@@ -13122,10 +13122,49 @@
 
         function loadWarriorAvatar(cb) {
             if (warriorAvatarImg) { cb(); return; }
+
+            // Use the student's selected heroic avatar if one exists
+            const selectedAvatar = dashboardData && dashboardData.student && dashboardData.student.selected_avatar;
+            let avatarSrc = '/images/classical/warrior_avatar/warrior_avatar.png';
+            if (selectedAvatar) {
+                const parts  = selectedAvatar.split('_');
+                const key    = parts[0];
+                const gender = parts[1] || 'male';
+                const skin   = parts[2] || 'medium';
+                avatarSrc = '/images/heroic/avatars/' + key + '/' + key + '_' + gender + '_' + skin + '_base.png';
+            }
+
             const img = new Image();
-            img.onload  = () => { warriorAvatarImg = img; cb(); };
+            img.crossOrigin = 'anonymous';
             img.onerror = () => { warriorAvatarImg = null; cb(); };
-            img.src = '/images/classical/warrior_avatar/warrior_avatar.png';
+            img.onload = () => {
+                // Strip magenta background via canvas before storing
+                if (selectedAvatar) {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width  = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i], g = data[i+1], b = data[i+2];
+                            if (r > 150 && b > 150 && g < 80) { data[i+3] = 0; }
+                        }
+                        ctx.putImageData(imageData, 0, 0);
+                        const stripped = new Image();
+                        stripped.onload = () => { warriorAvatarImg = stripped; cb(); };
+                        stripped.src = canvas.toDataURL('image/png');
+                        return;
+                    } catch(e) {
+                        console.warn('Hall of Honor magenta strip skipped (CORS):', e.message);
+                    }
+                }
+                warriorAvatarImg = img;
+                cb();
+            };
+            img.src = avatarSrc;
         }
 
         function getCurrentWaypoint(badgeCount) {
@@ -13658,6 +13697,8 @@
 
         // Open Hall of Honor modal
         function openHallOfHonor() {
+            // Reset cached warrior image so the correct avatar (classical or heroic) is loaded fresh
+            warriorAvatarImg = null;
             document.getElementById('hall-of-honor-modal').classList.add('show');
             renderHallOfHonor();
         }
