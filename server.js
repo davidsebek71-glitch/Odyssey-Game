@@ -9352,34 +9352,22 @@ app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
     const student = query('SELECT student_id, alliance_id, class_period, current_age, selected_avatar FROM students WHERE student_id = ?', [student_id])[0];
     if (!student) return res.status(404).json({ error: 'Student not found' });
     
-    // Block re-selection — selected_avatar is the real permanent gate
+    // Block re-selection — this is the permanent gate
     if (student.selected_avatar) {
       return res.status(400).json({ error: 'Avatar already selected. This choice is permanent.' });
     }
     
-    // Must be Classical or Heroic (Heroic students who entered before avatar flow was built)
-    if (student.current_age === 'Archaic') {
-      return res.status(400).json({ error: 'You must reach the Heroic Age before choosing an avatar.' });
-    }
-    
+    // Gate: heroic_unlocked must be open for this period — teacher controls this
     const gate = query('SELECT heroic_unlocked FROM age_gates WHERE class_period = ?', [student.class_period])[0];
     if (!gate || gate.heroic_unlocked !== 1) {
       return res.status(400).json({ error: 'The Heroic Age gate is not yet open' });
     }
     
-    const virtueCount = query('SELECT COUNT(*) as cnt FROM student_myth_completion WHERE student_id = ? AND virtue_claimed = 1', [student_id])[0].cnt;
-    if (virtueCount < 7) {
-      return res.status(400).json({ error: `You need all 7 virtues to enter the Heroic Age (you have ${virtueCount})` });
-    }
-    
-    const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
+    // Verify alliance has reached Heroic age (alliance.current_age, not students.current_age)
+    const alliance = query('SELECT current_age, alliance_id FROM alliances WHERE alliance_id = ?', [student.alliance_id])[0];
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
-    const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
-    const requiredBuildings = ['Town Center', 'Library', 'House', 'Dock', 'Fishing Ship', 'Wooden Wall', 'Transport Ship', 'Armory', 'Theater', 'Agora', 'Oracle'];
-    const ownedRequired = requiredBuildings.filter(b => ownedBuildings.includes(b));
-    if (ownedRequired.length < 8) {
-      const missingBuildings = requiredBuildings.filter(b => !ownedBuildings.includes(b));
-      return res.status(400).json({ error: `Alliance needs at least 8 of 11 buildings (have ${ownedRequired.length}). Missing: ${missingBuildings.join(', ')}` });
+    if (alliance.current_age !== 'Heroic') {
+      return res.status(400).json({ error: 'Your alliance has not yet reached the Heroic Age.' });
     }
     
     // Use base archetype key for drachma lookup (composite key = 'seeker_male_medium')
@@ -9387,8 +9375,10 @@ app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
     run('UPDATE students SET selected_avatar = ?, drachma = ?, avatar_selected_at = CURRENT_TIMESTAMP, current_age = ? WHERE student_id = ?',
       [avatar, drachma, 'Heroic', student_id]);
     
-    run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, 0, 'heroic_entry', ?)`,
-      [student.alliance_id, student_id, `Selected avatar: The ${baseAvatar.charAt(0).toUpperCase() + baseAvatar.slice(1)} — awarded ${drachma} Drachma`]);
+    if (student.alliance_id) {
+      run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, 0, 'heroic_entry', ?)`,
+        [student.alliance_id, student_id, `Selected avatar: The ${baseAvatar.charAt(0).toUpperCase() + baseAvatar.slice(1)} — awarded ${drachma} Drachma`]);
+    }
     
     saveDatabase();
     console.log(`⚔️ Student ${student_id} selected avatar '${avatar}', awarded ${drachma} Drachma, entered Heroic Age`);
