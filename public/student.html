@@ -10638,18 +10638,30 @@
             // If student has selected a heroic avatar, show it fully revealed
             const selectedAvatar = dashboardData && dashboardData.student && dashboardData.student.selected_avatar;
             if (selectedAvatar) {
-                const parts = selectedAvatar.split('_'); // e.g. ['seeker','male','medium']
+                const parts = selectedAvatar.split('_'); // e.g. ['fallen','male','dark']
                 const key    = parts[0];
                 const gender = parts[1] || 'male';
                 const skin   = parts[2] || 'medium';
                 const heroicSrc = '/images/heroic/avatars/' + key + '/' + key + '_' + gender + '_' + skin + '_base.png';
                 if (avatarImg) {
+                    // Clear onerror so a 404 doesn't hide the element after we show it
+                    avatarImg.onerror = null;
+                    avatarImg.onload  = function() {
+                        avatarImg.style.display  = 'block';
+                        avatarImg.style.opacity  = '1';
+                        avatarImg.style.filter   = 'brightness(1)';
+                        if (avatarPlaceholder) avatarPlaceholder.style.display = 'none';
+                    };
+                    avatarImg.onerror = function() {
+                        // Image missing — show placeholder with archetype initial
+                        avatarImg.style.display = 'none';
+                        if (avatarPlaceholder) {
+                            avatarPlaceholder.style.display = 'block';
+                            avatarPlaceholder.innerHTML = '<div style="font-size:40px;opacity:0.6;">⚔️</div><div style="font-size:11px;color:#c084fc;margin-top:6px;">' + key.charAt(0).toUpperCase() + key.slice(1) + '</div>';
+                        }
+                    };
                     avatarImg.src = heroicSrc;
-                    avatarImg.style.display = 'block';
-                    avatarImg.style.opacity = '1';
-                    avatarImg.style.filter  = 'brightness(1)';
                 }
-                if (avatarPlaceholder) avatarPlaceholder.style.display = 'none';
                 if (avatarGlow) {
                     avatarGlow.style.boxShadow = '0 0 40px rgba(192,132,252,0.6), inset 0 0 30px rgba(167,139,250,0.3)';
                 }
