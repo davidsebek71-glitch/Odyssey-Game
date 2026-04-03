@@ -14117,6 +14117,30 @@ app.get('/api/teacher/voyage-log-unlock-status', (req, res) => {
   }
 });
 
+// ── Heroic Age column migration ──────────────────────────────────────────────
+// Adds selected_avatar, avatar_selected_at, and drachma to students table
+// if they don't exist. PRAGMA-based detection — safe to run on every startup.
+(function migrateHeroicColumns() {
+  try {
+    const cols = query('PRAGMA table_info(students)').map(c => c.name);
+    if (!cols.includes('selected_avatar')) {
+      run("ALTER TABLE students ADD COLUMN selected_avatar TEXT DEFAULT NULL");
+      console.log('✅ Migration: added selected_avatar to students');
+    }
+    if (!cols.includes('avatar_selected_at')) {
+      run("ALTER TABLE students ADD COLUMN avatar_selected_at DATETIME DEFAULT NULL");
+      console.log('✅ Migration: added avatar_selected_at to students');
+    }
+    if (!cols.includes('drachma')) {
+      run("ALTER TABLE students ADD COLUMN drachma INTEGER DEFAULT 0");
+      console.log('✅ Migration: added drachma to students');
+    }
+    saveDatabase();
+  } catch (err) {
+    console.error('Heroic column migration error:', err.message);
+  }
+})();
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
