@@ -9320,19 +9320,23 @@ app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
     const student_id = req.user.id;
     const { avatar } = req.body;
     
-    if (!avatar || !VALID_AVATARS.includes(avatar)) {
+    // Avatar key is composite: 'seeker_male_medium' — validate the base archetype
+    const baseAvatar = avatar ? avatar.split('_')[0] : null;
+    if (!baseAvatar || !VALID_AVATARS.includes(baseAvatar)) {
       return res.status(400).json({ error: 'Invalid avatar selection' });
     }
     
     const student = query('SELECT student_id, alliance_id, class_period, current_age, selected_avatar FROM students WHERE student_id = ?', [student_id])[0];
     if (!student) return res.status(404).json({ error: 'Student not found' });
     
-    if (student.current_age !== 'Classical') {
-      return res.status(400).json({ error: 'Must be in Classical Age to select an avatar' });
-    }
-    
+    // Block re-selection — selected_avatar is the real permanent gate
     if (student.selected_avatar) {
       return res.status(400).json({ error: 'Avatar already selected. This choice is permanent.' });
+    }
+    
+    // Must be Classical or Heroic (Heroic students who entered before avatar flow was built)
+    if (student.current_age === 'Archaic') {
+      return res.status(400).json({ error: 'You must reach the Heroic Age before choosing an avatar.' });
     }
     
     const gate = query('SELECT heroic_unlocked FROM age_gates WHERE class_period = ?', [student.class_period])[0];
@@ -9355,12 +9359,13 @@ app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
       return res.status(400).json({ error: `Alliance needs at least 8 of 11 buildings (have ${ownedRequired.length}). Missing: ${missingBuildings.join(', ')}` });
     }
     
-    const drachma = AVATAR_DRACHMA[avatar];
+    // Use base archetype key for drachma lookup (composite key = 'seeker_male_medium')
+    const drachma = AVATAR_DRACHMA[baseAvatar];
     run('UPDATE students SET selected_avatar = ?, drachma = ?, avatar_selected_at = CURRENT_TIMESTAMP, current_age = ? WHERE student_id = ?',
       [avatar, drachma, 'Heroic', student_id]);
     
     run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, 0, 'heroic_entry', ?)`,
-      [student.alliance_id, student_id, `Selected avatar: The ${avatar.charAt(0).toUpperCase() + avatar.slice(1)} — awarded ${drachma} Drachma`]);
+      [student.alliance_id, student_id, `Selected avatar: The ${baseAvatar.charAt(0).toUpperCase() + baseAvatar.slice(1)} — awarded ${drachma} Drachma`]);
     
     saveDatabase();
     console.log(`⚔️ Student ${student_id} selected avatar '${avatar}', awarded ${drachma} Drachma, entered Heroic Age`);

@@ -2349,39 +2349,87 @@
         @keyframes hgParticleRise { 0% { transform: translateY(0) scale(1); opacity: 0.8; } 100% { transform: translateY(-200px) scale(0); opacity: 0; } }
         .hg-flash { position: absolute; inset: 0; background: rgba(233,213,255,0.9); z-index: 10; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
 
-        /* ===== HEROIC AGE AVATAR SELECTION OVERLAY ===== */
-        .heroic-avatar-overlay { position: fixed; inset: 0; z-index: 11000; background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 30%, #1a0a2e 100%); display: none; flex-direction: column; align-items: center; overflow-y: auto; padding: 20px 16px; }
+        /* ===== HEROIC AGE AVATAR SELECTION OVERLAY — 3-STEP FLOW ===== */
+        .heroic-avatar-overlay { position: fixed; inset: 0; z-index: 11000; background: linear-gradient(180deg, #0e0520 0%, #1e0a3c 35%, #0e0520 100%); display: none; flex-direction: column; align-items: center; overflow-y: auto; padding: 24px 16px 40px; }
         .heroic-avatar-overlay.show { display: flex; animation: vc-fade-in 0.5s ease-out; }
-        .heroic-avatar-overlay::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 20%, rgba(147,51,234,0.15) 0%, transparent 60%); pointer-events: none; z-index: 0; }
-        .hao-header { position: relative; z-index: 1; text-align: center; margin-bottom: 12px; }
+        .heroic-avatar-overlay::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 15%, rgba(147,51,234,0.2) 0%, transparent 65%); pointer-events: none; z-index: 0; }
+        /* Step wrapper */
+        .hao-step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 760px; }
+        /* Header */
+        .hao-header { text-align: center; margin-bottom: 18px; }
         .hao-subtitle { font-size: 11px; letter-spacing: 4px; color: #c084fc; text-transform: uppercase; margin-bottom: 4px; }
-        .hao-title { font-family: 'Cinzel', serif; font-size: 22px; font-weight: 700; color: #e9d5ff; margin-bottom: 4px; }
-        .hao-desc { font-size: 13px; color: #a78bfa; max-width: 500px; margin: 0 auto; }
-        .hao-grid-top { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 680px; margin-bottom: 10px; }
-        .hao-grid-bottom { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 510px; margin-bottom: 12px; }
-        .hao-card { cursor: pointer; border-radius: 10px; padding: 12px 8px; text-align: center; transition: all 0.2s; }
-        .hao-card:hover { transform: scale(1.03); }
-        .hao-card.selected { transform: scale(1.05); box-shadow: 0 0 20px rgba(147,51,234,0.5); }
-        .hao-card-silhouette { width: 64px; height: 80px; margin: 0 auto 8px; background: rgba(0,0,0,0.4); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px; opacity: 0.3; }
-        .hao-card-name { font-family: 'Cinzel', serif; font-size: 12px; margin-bottom: 2px; }
-        .hao-card-myth { font-size: 10px; color: #a78bfa; margin-bottom: 4px; }
-        .hao-card-drachma { font-size: 10px; color: #fbbf24; margin-bottom: 4px; font-weight: bold; }
-        .hao-card-strong { font-size: 10px; color: #86efac; margin-bottom: 2px; }
-        .hao-card-weak { font-size: 10px; color: #fca5a5; }
-        .hao-detail { position: relative; z-index: 1; width: 100%; max-width: 680px; background: rgba(0,0,0,0.4); border: 1px solid rgba(147,51,234,0.3); border-radius: 10px; padding: 16px 20px; display: none; }
-        .hao-detail.show { display: block; }
-        .hao-detail-header { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
-        .hao-detail-sil { width: 56px; height: 70px; background: rgba(0,0,0,0.5); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(147,51,234,0.3); flex-shrink: 0; font-size: 24px; opacity: 0.4; color: #c084fc; }
-        .hao-detail-name { font-family: 'Cinzel', serif; font-size: 16px; color: #e9d5ff; }
-        .hao-detail-arch { font-size: 12px; color: #a78bfa; font-style: italic; margin-top: 2px; }
-        .hao-detail-desc { font-size: 12px; color: #c4b5fd; line-height: 1.5; margin-bottom: 12px; }
-        .hao-confirm-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #6b21a8, #7c3aed); border: 1px solid #a855f7; border-radius: 8px; color: #f3e8ff; font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; }
-        .hao-confirm-btn:hover { background: linear-gradient(135deg, #7c3aed, #9333ea); box-shadow: 0 0 20px rgba(147,51,234,0.4); }
-        .hao-confirmed { position: relative; z-index: 1; display: none; text-align: center; padding: 20px; }
-        .hao-confirmed.show { display: block; animation: vc-fade-in 0.5s ease-out; }
+        .hao-title { font-family: 'Cinzel', serif; font-size: 26px; font-weight: 700; color: #f3e8ff; margin-bottom: 6px; letter-spacing: 2px; text-shadow: 0 0 20px rgba(192,132,252,0.4); }
+        .hao-desc { font-size: 13px; color: #a78bfa; max-width: 480px; margin: 0 auto; line-height: 1.5; }
+        /* Step 1 — archetype grid */
+        .hao-grid-top { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 720px; margin-bottom: 10px; }
+        .hao-grid-bottom { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 540px; margin-bottom: 14px; }
+        .hao-card { cursor: pointer; border-radius: 10px; padding: 10px 8px 12px; text-align: center; transition: all 0.2s; }
+        .hao-card:hover { transform: scale(1.04); }
+        .hao-card.selected { transform: scale(1.06); box-shadow: 0 0 24px rgba(192,132,252,0.45); }
+        .hao-card-art { width: 72px; height: 88px; margin: 0 auto 8px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.5); position: relative; }
+        .hao-card-silhouette { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; opacity: 0.35; }
+        .hao-card-name { font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; margin-bottom: 2px; letter-spacing: 0.5px; }
+        .hao-card-myth { font-size: 9px; color: #a78bfa; margin-bottom: 4px; }
+        .hao-card-drachma { font-size: 10px; color: #fbbf24; font-weight: 700; }
+        /* Step 1 — detail panel */
+        .hao-detail { width: 100%; max-width: 720px; background: rgba(0,0,0,0.45); border: 1px solid rgba(167,139,250,0.3); border-radius: 12px; padding: 16px 20px; display: none; }
+        .hao-detail-body { display: flex; gap: 18px; align-items: flex-start; }
+        .hao-detail-art { width: 90px; flex-shrink: 0; height: 112px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(167,139,250,0.2); }
+        .hao-art-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 32px; opacity: 0.35; color: #c084fc; }
+        .hao-detail-info { flex: 1; min-width: 0; }
+        .hao-detail-name { font-family: 'Cinzel', serif; font-size: 15px; color: #f3e8ff; font-weight: 700; margin-bottom: 2px; }
+        .hao-detail-arch { font-size: 12px; color: #a78bfa; font-style: italic; margin-bottom: 8px; }
+        .hao-detail-desc { font-size: 12px; color: #c4b5fd; line-height: 1.55; margin-bottom: 10px; }
+        .hao-detail-stats { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+        .hao-stat-row { display: flex; gap: 8px; align-items: baseline; font-size: 11px; }
+        .hao-stat-label { font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 9px; width: 54px; flex-shrink: 0; }
+        .hao-stat-label.strong { color: #86efac; }
+        .hao-stat-label.weak   { color: #fca5a5; }
+        .hao-stat-label.drachma{ color: #fbbf24; }
+        .hao-stat-val.strong { color: #86efac; }
+        .hao-stat-val.weak   { color: #fca5a5; }
+        .hao-stat-val.drachma{ color: #fbbf24; font-weight: 700; }
+        /* Shared buttons */
+        .hao-next-btn { width: 100%; padding: 11px; background: linear-gradient(135deg, #6b21a8, #7c3aed); border: 1px solid #a855f7; border-radius: 8px; color: #f3e8ff; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; }
+        .hao-next-btn:hover { background: linear-gradient(135deg, #7c3aed, #9333ea); box-shadow: 0 0 20px rgba(147,51,234,0.45); }
+        .hao-next-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .hao-back-btn { margin-top: 14px; padding: 8px 20px; background: transparent; border: 1px solid rgba(167,139,250,0.3); border-radius: 6px; color: #a78bfa; font-size: 12px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; }
+        .hao-back-btn:hover { border-color: rgba(167,139,250,0.6); color: #c4b5fd; }
+        /* Step 2 — gender grid */
+        .hao-gender-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 440px; margin-bottom: 8px; }
+        .hao-gender-card { cursor: pointer; border-radius: 12px; padding: 16px 12px 14px; text-align: center; background: rgba(109,40,217,0.08); border: 2px solid rgba(139,92,246,0.2); transition: all 0.2s; }
+        .hao-gender-card:hover { border-color: rgba(167,139,250,0.5); transform: scale(1.03); }
+        .hao-gender-card.selected { border-color: #a855f7; box-shadow: 0 0 20px rgba(168,85,247,0.4); transform: scale(1.05); }
+        .hao-gender-art { width: 120px; height: 150px; margin: 0 auto 12px; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+        .hao-gender-label { font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; color: #e9d5ff; letter-spacing: 2px; }
+        /* Step 3 — skin grid */
+        .hao-skin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; max-width: 480px; margin-bottom: 8px; }
+        .hao-skin-card { cursor: pointer; border-radius: 12px; padding: 12px 10px 12px; text-align: center; background: rgba(109,40,217,0.08); border: 2px solid rgba(139,92,246,0.2); transition: all 0.2s; }
+        .hao-skin-card:hover { border-color: rgba(167,139,250,0.5); transform: scale(1.04); }
+        .hao-skin-card.selected { border-color: #a855f7; box-shadow: 0 0 20px rgba(168,85,247,0.4); transform: scale(1.05); }
+        .hao-skin-art { width: 100px; height: 120px; margin: 0 auto 10px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
+        .hao-skin-swatch { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        .hao-skin-label { font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; color: #e9d5ff; letter-spacing: 1px; }
+        /* Step 4 — confirm preview */
+        .hao-confirm-preview { display: flex; gap: 24px; width: 100%; max-width: 600px; background: rgba(0,0,0,0.45); border: 1px solid rgba(167,139,250,0.3); border-radius: 14px; padding: 22px; margin-bottom: 4px; }
+        .hao-confirm-art { width: 130px; flex-shrink: 0; height: 160px; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(167,139,250,0.25); }
+        .hao-confirm-info { flex: 1; display: flex; flex-direction: column; }
+        .hao-confirm-name { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700; color: #f3e8ff; margin-bottom: 4px; }
+        .hao-confirm-arch { font-size: 13px; color: #a78bfa; font-style: italic; margin-bottom: 8px; }
+        .hao-confirm-choices { font-size: 12px; color: rgba(216,180,254,0.8); margin-bottom: 6px; }
+        .hao-confirm-drachma { font-size: 13px; color: #fbbf24; font-weight: 700; margin-bottom: 12px; }
+        .hao-confirm-warning { font-size: 11px; color: rgba(251,191,36,0.6); margin-bottom: 14px; line-height: 1.5; border-left: 2px solid rgba(251,191,36,0.3); padding-left: 8px; }
+        /* Step 5 — confirmed */
+        .hao-confirmed { text-align: center; padding: 30px 20px; }
         @media (max-width: 600px) {
             .hao-grid-top { grid-template-columns: repeat(2, 1fr); }
             .hao-grid-bottom { grid-template-columns: repeat(2, 1fr); max-width: 340px; }
+            .hao-detail-body { flex-direction: column; }
+            .hao-detail-art { width: 100%; height: 120px; }
+            .hao-confirm-preview { flex-direction: column; }
+            .hao-confirm-art { width: 100%; height: 140px; }
+            .hao-gender-grid { max-width: 320px; }
+            .hao-gender-art { width: 90px; height: 110px; }
         }
 
         .virtue-celebration-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; animation: vc-fade-in 0.3s ease-out; cursor: pointer; }
@@ -13886,112 +13934,335 @@
 
     <!-- ===== HEROIC AGE AVATAR SELECTION OVERLAY ===== -->
     <div class="heroic-avatar-overlay" id="heroic-avatar-overlay">
-        <div class="hao-header">
-            <div class="hao-subtitle">The gods have watched your journey</div>
-            <div class="hao-title">Choose Your Hero</div>
-            <div class="hao-desc">You earned all seven virtues. Each avatar carries the strength of a myth you mastered. This choice is permanent.</div>
-        </div>
-        <div class="hao-grid-top" id="hao-grid-top"></div>
-        <div class="hao-grid-bottom" id="hao-grid-bottom"></div>
-        <div class="hao-detail" id="hao-detail">
-            <div class="hao-detail-header">
-                <div class="hao-detail-sil">&#9876;</div>
-                <div>
-                    <div class="hao-detail-name" id="hao-detail-name"></div>
-                    <div class="hao-detail-arch" id="hao-detail-arch"></div>
+
+        <!-- STEP 1: Choose archetype -->
+        <div id="hao-step-1" class="hao-step">
+            <div class="hao-header">
+                <div class="hao-subtitle">The gods have watched your journey</div>
+                <div class="hao-title">Choose Your Hero</div>
+                <div class="hao-desc">Each avatar was born from a myth you lived through. This choice shapes your entire journey.</div>
+            </div>
+            <div class="hao-grid-top" id="hao-grid-top"></div>
+            <div class="hao-grid-bottom" id="hao-grid-bottom"></div>
+            <div class="hao-detail" id="hao-detail">
+                <div class="hao-detail-body">
+                    <div class="hao-detail-art" id="hao-detail-art">
+                        <div class="hao-art-placeholder" id="hao-art-placeholder">⚔</div>
+                        <img id="hao-detail-img" src="" alt="" style="display:none; width:100%; height:100%; object-fit:cover; border-radius:8px; image-rendering:pixelated;">
+                    </div>
+                    <div class="hao-detail-info">
+                        <div class="hao-detail-name" id="hao-detail-name"></div>
+                        <div class="hao-detail-arch" id="hao-detail-arch"></div>
+                        <div class="hao-detail-desc" id="hao-detail-desc"></div>
+                        <div class="hao-detail-stats">
+                            <div class="hao-stat-row"><span class="hao-stat-label strong">Strong</span><span id="hao-detail-strong" class="hao-stat-val strong"></span></div>
+                            <div class="hao-stat-row"><span class="hao-stat-label weak">Weak</span><span id="hao-detail-weak" class="hao-stat-val weak"></span></div>
+                            <div class="hao-stat-row"><span class="hao-stat-label drachma">Starts with</span><span id="hao-detail-drachma" class="hao-stat-val drachma"></span></div>
+                        </div>
+                        <button class="hao-next-btn" id="hao-next-btn" onclick="haoGoToStep2()">Choose This Hero →</button>
+                    </div>
                 </div>
             </div>
-            <div class="hao-detail-desc" id="hao-detail-desc"></div>
-            <button class="hao-confirm-btn" id="hao-confirm-btn" onclick="confirmHeroicAvatar()">⚔️ BECOME THIS HERO ⚔️</button>
         </div>
-        <div class="hao-confirmed" id="hao-confirmed">
-            <div style="font-size: 11px; letter-spacing: 3px; color: #c084fc; text-transform: uppercase; margin-bottom: 8px;">Your path is chosen</div>
-            <div id="hao-confirmed-name" style="font-family: 'Cinzel', serif; font-size: 24px; color: #e9d5ff; margin-bottom: 8px;"></div>
-            <div id="hao-confirmed-arch" style="font-size: 13px; color: #a78bfa; font-style: italic; margin-bottom: 16px;"></div>
-            <div id="hao-confirmed-drachma" style="font-size: 14px; color: #86efac; margin-bottom: 20px;"></div>
-            <button onclick="enterHeroicAge()" style="padding: 12px 32px; background: linear-gradient(135deg, #6b21a8, #7c3aed); border: 1px solid #a855f7; border-radius: 8px; color: #f3e8ff; font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; cursor: pointer; letter-spacing: 2px;">⚔️ ENTER THE HEROIC AGE ⚔️</button>
+
+        <!-- STEP 2: Choose gender -->
+        <div id="hao-step-2" class="hao-step" style="display:none;">
+            <div class="hao-header">
+                <div class="hao-subtitle" id="hao-s2-subtitle"></div>
+                <div class="hao-title">Who Are You?</div>
+                <div class="hao-desc">Choose how your hero appears in the world.</div>
+            </div>
+            <div class="hao-gender-grid">
+                <div class="hao-gender-card" id="hao-gender-male" onclick="haoSelectGender('male')">
+                    <div class="hao-gender-art" id="hao-gender-art-male">
+                        <img id="hao-gender-img-male" src="" alt="Male" style="display:none; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; border-radius:8px;">
+                        <div class="hao-art-placeholder" id="hao-gender-ph-male" style="font-size:48px;">🧑</div>
+                    </div>
+                    <div class="hao-gender-label">Male</div>
+                </div>
+                <div class="hao-gender-card" id="hao-gender-female" onclick="haoSelectGender('female')">
+                    <div class="hao-gender-art" id="hao-gender-art-female">
+                        <img id="hao-gender-img-female" src="" alt="Female" style="display:none; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; border-radius:8px;">
+                        <div class="hao-art-placeholder" id="hao-gender-ph-female" style="font-size:48px;">🧑</div>
+                    </div>
+                    <div class="hao-gender-label">Female</div>
+                </div>
+            </div>
+            <button class="hao-back-btn" onclick="haoGoToStep(1)">← Back</button>
         </div>
+
+        <!-- STEP 3: Choose skin tone -->
+        <div id="hao-step-3" class="hao-step" style="display:none;">
+            <div class="hao-header">
+                <div class="hao-subtitle" id="hao-s3-subtitle"></div>
+                <div class="hao-title">Your Appearance</div>
+                <div class="hao-desc">Choose your skin tone. This is the hero the world will see.</div>
+            </div>
+            <div class="hao-skin-grid">
+                <div class="hao-skin-card" id="hao-skin-light" onclick="haoSelectSkin('light')">
+                    <div class="hao-skin-art">
+                        <img id="hao-skin-img-light" src="" alt="Light" style="display:none; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; border-radius:8px;">
+                        <div class="hao-art-placeholder hao-skin-swatch" id="hao-skin-ph-light" style="background:#f5cba7; color:#2d1b00; font-size:12px; font-family:'Cinzel',serif; letter-spacing:1px;">Light</div>
+                    </div>
+                    <div class="hao-skin-label">Light</div>
+                </div>
+                <div class="hao-skin-card" id="hao-skin-medium" onclick="haoSelectSkin('medium')">
+                    <div class="hao-skin-art">
+                        <img id="hao-skin-img-medium" src="" alt="Medium" style="display:none; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; border-radius:8px;">
+                        <div class="hao-art-placeholder hao-skin-swatch" id="hao-skin-ph-medium" style="background:#c68642; color:#fff8ee; font-size:12px; font-family:'Cinzel',serif; letter-spacing:1px;">Medium</div>
+                    </div>
+                    <div class="hao-skin-label">Medium</div>
+                </div>
+                <div class="hao-skin-card" id="hao-skin-dark" onclick="haoSelectSkin('dark')">
+                    <div class="hao-skin-art">
+                        <img id="hao-skin-img-dark" src="" alt="Dark" style="display:none; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; border-radius:8px;">
+                        <div class="hao-art-placeholder hao-skin-swatch" id="hao-skin-ph-dark" style="background:#5c3317; color:#ffd5a8; font-size:12px; font-family:'Cinzel',serif; letter-spacing:1px;">Dark</div>
+                    </div>
+                    <div class="hao-skin-label">Dark</div>
+                </div>
+            </div>
+            <button class="hao-back-btn" onclick="haoGoToStep(2)">← Back</button>
+        </div>
+
+        <!-- STEP 4: Confirm -->
+        <div id="hao-step-4" class="hao-step" style="display:none;">
+            <div class="hao-header">
+                <div class="hao-subtitle">Your destiny is set</div>
+                <div class="hao-title" id="hao-confirm-title"></div>
+                <div class="hao-desc" id="hao-confirm-desc"></div>
+            </div>
+            <div class="hao-confirm-preview">
+                <div class="hao-confirm-art">
+                    <img id="hao-confirm-img" src="" alt="" style="display:none; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; border-radius:12px;">
+                    <div class="hao-art-placeholder" id="hao-confirm-ph" style="font-size:56px;">⚔</div>
+                </div>
+                <div class="hao-confirm-info">
+                    <div class="hao-confirm-name" id="hao-confirm-name"></div>
+                    <div class="hao-confirm-arch" id="hao-confirm-arch"></div>
+                    <div class="hao-confirm-choices" id="hao-confirm-choices"></div>
+                    <div class="hao-confirm-drachma" id="hao-confirm-drachma"></div>
+                    <div class="hao-confirm-warning">⚠ This choice is permanent. You can change appearance later in the quest, but your archetype is who you became.</div>
+                    <button class="hao-next-btn" id="hao-become-btn" onclick="confirmHeroicAvatar()">⚔️ BECOME THIS HERO ⚔️</button>
+                    <button class="hao-back-btn" style="margin-top:8px;" onclick="haoGoToStep(3)">← Change Appearance</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 5: Confirmed success -->
+        <div id="hao-step-5" class="hao-step hao-confirmed" style="display:none;">
+            <div style="font-size:11px; letter-spacing:3px; color:#c084fc; text-transform:uppercase; margin-bottom:8px;">Your path is chosen</div>
+            <div id="hao-confirmed-name" style="font-family:'Cinzel',serif; font-size:28px; color:#e9d5ff; margin-bottom:6px;"></div>
+            <div id="hao-confirmed-arch" style="font-size:14px; color:#a78bfa; font-style:italic; margin-bottom:6px;"></div>
+            <div id="hao-confirmed-choices" style="font-size:13px; color:rgba(216,180,254,0.7); margin-bottom:12px;"></div>
+            <div id="hao-confirmed-drachma" style="font-size:15px; color:#86efac; margin-bottom:24px;"></div>
+            <button onclick="enterHeroicAge()" style="padding:14px 40px; background:linear-gradient(135deg,#6b21a8,#7c3aed); border:2px solid #a855f7; border-radius:8px; color:#f3e8ff; font-family:'Cinzel',serif; font-size:17px; font-weight:700; cursor:pointer; letter-spacing:2px; box-shadow:0 0 24px rgba(147,51,234,0.4);">⚔️ ENTER THE HEROIC AGE ⚔️</button>
+        </div>
+
     </div>
 
     <script>
-    // ===== HEROIC AGE AVATAR SELECTION SYSTEM =====
+    // ===== HEROIC AGE AVATAR SELECTION SYSTEM — 3-STEP FLOW =====
+
     const HEROIC_AVATARS = [
-        { key: 'seeker', name: 'The Seeker', myth: 'Pandora', drachma: 300, color: '#FFD700', bgColor: 'rgba(255,215,0,0.06)', borderColor: 'rgba(255,215,0,0.2)', strong: 'Curiosity + Courage', weak: 'Honor + Humility', archetype: 'Driven to know — pays for it', desc: 'You rush into the unknown wanting answers. Bonus path options reward your curiosity, but every shortcut burns Honor. You see doors others walk past — and open them whether or not you should.', row: 'top' },
-        { key: 'fallen', name: 'The Fallen', myth: 'Phaethon', drachma: 400, color: '#FF8C00', bgColor: 'rgba(255,140,0,0.06)', borderColor: 'rgba(255,140,0,0.2)', strong: 'Courage + Cunning', weak: 'Humility + Honor', archetype: 'Brilliant but overreaching', desc: 'You have the highest damage ceiling in mini-games but trigger divine wrath faster than anyone. Extra starting Drachma funds your ambition — but Hera watches you closely.', row: 'top' },
-        { key: 'devoted', name: 'The Devoted', myth: 'Orpheus', drachma: 150, color: '#8B5CF6', bgColor: 'rgba(139,92,246,0.06)', borderColor: 'rgba(139,92,246,0.2)', strong: 'Perseverance + Honor', weak: 'Cunning + Courage', archetype: 'Loyalty above all', desc: 'You earn full crew loyalty from the start — NPCs trust you without question. But emotional reasoning fails in puzzles that demand cold logic. Your heart is your weapon and your weakness.', row: 'top' },
-        { key: 'mirror', name: 'The Mirror', myth: 'Echo & Narcissus', drachma: 250, color: '#EC4899', bgColor: 'rgba(236,72,153,0.06)', borderColor: 'rgba(236,72,153,0.2)', strong: 'Cunning + Humility', weak: 'Lore + Perseverance', archetype: 'Self-aware, reads others, overlooked', desc: 'You see hidden dialogue options and NPC motivations others miss entirely. The most unique reading of each myth. But direct confrontation is your downfall.', row: 'top' },
-        { key: 'builder', name: 'The Builder', myth: 'Icarus & Daedalus', drachma: 200, color: '#3B82F6', bgColor: 'rgba(59,130,246,0.06)', borderColor: 'rgba(59,130,246,0.2)', strong: 'Craft + Perseverance', weak: 'Courage + Humility', archetype: 'Methodical genius — builds the way through', desc: 'Every Forge gives you a 20% discount. You can repair equipment others must replace. Your craft solves problems brute force cannot. But you will never charm a god to save your life.', row: 'bottom' },
-        { key: 'tested', name: 'The Tested', myth: 'Eros & Psyche', drachma: 100, color: '#EF4444', bgColor: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.2)', strong: 'Honor + Humility', weak: 'Courage + Cunning', archetype: 'Earns everything through trials', desc: 'The gods respond to humility and earned suffering — you have the best divine favor multiplier. Slowest start of any avatar, but the strongest finish at the Final Tribunal. Patience is power.', row: 'bottom' },
-        { key: 'eternal', name: 'The Eternal', myth: 'Constellations', drachma: 200, color: '#C0C0C0', bgColor: 'rgba(192,192,192,0.06)', borderColor: 'rgba(192,192,192,0.2)', strong: 'Lore + Perseverance', weak: 'Craft + Courage', archetype: 'Legacy-driven, transformed by endurance', desc: 'Every Oracle gives double hints. Every myth quiz in-chapter gives bonus Drachma. The lore scholar — you know things. But physically fragile in mini-games. You transform from liability to legend at the Tribunal.', row: 'bottom' }
+        { key:'seeker',  name:'The Seeker',  myth:'Pandora',          drachma:300, color:'#FFD700', bgColor:'rgba(255,215,0,0.07)',    borderColor:'rgba(255,215,0,0.25)',    strong:'Curiosity + Courage',      weak:'Honor + Humility',        archetype:'Driven to know — pays for it',              desc:'You rush into the unknown wanting answers. Bonus path options reward your curiosity, but every shortcut burns Honor.',  row:'top' },
+        { key:'fallen',  name:'The Fallen',  myth:'Phaethon',         drachma:400, color:'#FF8C00', bgColor:'rgba(255,140,0,0.07)',    borderColor:'rgba(255,140,0,0.25)',    strong:'Courage + Cunning',        weak:'Humility + Honor',        archetype:'Brilliant but overreaching',                desc:'You have the highest damage ceiling in mini-games but trigger divine wrath faster than anyone.',                        row:'top' },
+        { key:'devoted', name:'The Devoted', myth:'Orpheus',          drachma:150, color:'#8B5CF6', bgColor:'rgba(139,92,246,0.07)',   borderColor:'rgba(139,92,246,0.25)',   strong:'Perseverance + Honor',     weak:'Cunning + Courage',       archetype:'Loyalty above all',                         desc:'You earn full crew loyalty from the start. But emotional reasoning fails in puzzles that demand cold logic.',           row:'top' },
+        { key:'mirror',  name:'The Mirror',  myth:'Echo & Narcissus', drachma:250, color:'#EC4899', bgColor:'rgba(236,72,153,0.07)',   borderColor:'rgba(236,72,153,0.25)',   strong:'Cunning + Humility',       weak:'Lore + Perseverance',     archetype:'Self-aware, reads others, overlooked',      desc:'You see hidden dialogue options and NPC motivations others miss entirely. But direct confrontation is your downfall.',  row:'top' },
+        { key:'builder', name:'The Builder', myth:'Icarus & Daedalus',drachma:200, color:'#3B82F6', bgColor:'rgba(59,130,246,0.07)',   borderColor:'rgba(59,130,246,0.25)',   strong:'Craft + Perseverance',     weak:'Courage + Humility',      archetype:'Methodical genius — builds the way through', desc:'Every Forge gives you a 20% discount. You can repair equipment others must replace. You will never charm a god to save your life.', row:'bottom' },
+        { key:'tested',  name:'The Tested',  myth:'Eros & Psyche',   drachma:100, color:'#EF4444', bgColor:'rgba(239,68,68,0.07)',    borderColor:'rgba(239,68,68,0.25)',    strong:'Honor + Humility',         weak:'Courage + Cunning',       archetype:'Earns everything through trials',            desc:'The gods respond to humility and earned suffering. Slowest start, strongest Tribunal finish. Patience is power.',      row:'bottom' },
+        { key:'eternal', name:'The Eternal', myth:'Constellations',   drachma:200, color:'#C0C0C0', bgColor:'rgba(192,192,192,0.07)',  borderColor:'rgba(192,192,192,0.25)',  strong:'Lore + Perseverance',      weak:'Craft + Courage',         archetype:'Legacy-driven, transformed by endurance',   desc:'Every Oracle gives double hints. Every myth quiz gives bonus Drachma. You transform from liability to legend at the Tribunal.', row:'bottom' }
     ];
 
-    let selectedHeroicAvatar = null;
+    // Current selections across steps
+    let haoArchetype = null;   // 'seeker'
+    let haoGender    = null;   // 'male' | 'female'
+    let haoSkin      = null;   // 'light' | 'medium' | 'dark'
 
+    // ----- Step navigation -----
+    function haoGoToStep(n) {
+        for (let i = 1; i <= 5; i++) {
+            var el = document.getElementById('hao-step-' + i);
+            if (el) el.style.display = (i === n) ? '' : 'none';
+        }
+    }
+
+    function haoGoToStep2() {
+        if (!haoArchetype) return;
+        var av = HEROIC_AVATARS.find(a => a.key === haoArchetype);
+        document.getElementById('hao-s2-subtitle').textContent = av.name + ' — ' + av.myth;
+        // Pre-load gender images if they exist (fail silently — placeholder shown if 404)
+        ['male','female'].forEach(function(g) {
+            var img = document.getElementById('hao-gender-img-' + g);
+            var ph  = document.getElementById('hao-gender-ph-' + g);
+            var src = '/images/heroic/avatars/' + haoArchetype + '_' + g + '_medium.png';
+            img.onload  = function() { img.style.display='block'; ph.style.display='none'; };
+            img.onerror = function() { img.style.display='none';  ph.style.display='flex'; };
+            img.src = src;
+            // Reset selection state
+            document.getElementById('hao-gender-' + g).classList.remove('selected');
+        });
+        haoGender = null;
+        haoGoToStep(2);
+    }
+
+    function haoSelectGender(g) {
+        haoGender = g;
+        ['male','female'].forEach(function(x) {
+            document.getElementById('hao-gender-' + x).classList.toggle('selected', x === g);
+        });
+        // Short delay then advance
+        setTimeout(function() { haoGoToStep3(); }, 280);
+    }
+
+    function haoGoToStep3() {
+        if (!haoArchetype || !haoGender) return;
+        var av = HEROIC_AVATARS.find(a => a.key === haoArchetype);
+        document.getElementById('hao-s3-subtitle').textContent = av.name + ' · ' + (haoGender === 'male' ? 'Male' : 'Female');
+        ['light','medium','dark'].forEach(function(s) {
+            var img = document.getElementById('hao-skin-img-' + s);
+            var ph  = document.getElementById('hao-skin-ph-' + s);
+            var src = '/images/heroic/avatars/' + haoArchetype + '_' + haoGender + '_' + s + '.png';
+            img.onload  = function() { img.style.display='block'; ph.style.display='none'; };
+            img.onerror = function() { img.style.display='none';  ph.style.display='flex'; };
+            img.src = src;
+            document.getElementById('hao-skin-' + s).classList.remove('selected');
+        });
+        haoSkin = null;
+        haoGoToStep(3);
+    }
+
+    function haoSelectSkin(s) {
+        haoSkin = s;
+        ['light','medium','dark'].forEach(function(x) {
+            document.getElementById('hao-skin-' + x).classList.toggle('selected', x === s);
+        });
+        setTimeout(function() { haoGoToStep4(); }, 280);
+    }
+
+    function haoGoToStep4() {
+        if (!haoArchetype || !haoGender || !haoSkin) return;
+        var av = HEROIC_AVATARS.find(a => a.key === haoArchetype);
+        document.getElementById('hao-confirm-title').textContent = av.name;
+        document.getElementById('hao-confirm-arch').textContent = '"' + av.archetype + '"';
+        document.getElementById('hao-confirm-desc').textContent = av.desc;
+        document.getElementById('hao-confirm-name').textContent = av.name;
+        document.getElementById('hao-confirm-choices').textContent =
+            (haoGender === 'male' ? 'Male' : 'Female') + ' · ' +
+            (haoSkin.charAt(0).toUpperCase() + haoSkin.slice(1)) + ' skin';
+        document.getElementById('hao-confirm-drachma').textContent =
+            av.drachma + ' Drachma awarded at the start of your journey';
+        // Final avatar image
+        var confirmImg = document.getElementById('hao-confirm-img');
+        var confirmPh  = document.getElementById('hao-confirm-ph');
+        var finalSrc = '/images/heroic/avatars/' + haoArchetype + '_' + haoGender + '_' + haoSkin + '.png';
+        confirmImg.onload  = function() { confirmImg.style.display='block'; confirmPh.style.display='none'; };
+        confirmImg.onerror = function() { confirmImg.style.display='none';  confirmPh.style.display='flex'; };
+        confirmImg.src = finalSrc;
+        // Reset button state
+        var btn = document.getElementById('hao-become-btn');
+        btn.textContent = '⚔️ BECOME THIS HERO ⚔️';
+        btn.disabled = false;
+        haoGoToStep(4);
+    }
+
+    // ----- Step 1: archetype cards -----
     function buildAvatarCards() {
-        const topGrid = document.getElementById('hao-grid-top');
-        const bottomGrid = document.getElementById('hao-grid-bottom');
+        var topGrid    = document.getElementById('hao-grid-top');
+        var bottomGrid = document.getElementById('hao-grid-bottom');
         if (!topGrid || !bottomGrid) return;
         topGrid.innerHTML = '';
         bottomGrid.innerHTML = '';
-        HEROIC_AVATARS.forEach(av => {
-            const card = document.createElement('div');
+
+        HEROIC_AVATARS.forEach(function(av) {
+            var card = document.createElement('div');
             card.className = 'hao-card';
-            card.style.background = av.bgColor;
-            card.style.border = `1px solid ${av.borderColor}`;
+            card.style.background    = av.bgColor;
+            card.style.border        = '1px solid ' + av.borderColor;
             card.setAttribute('data-avatar', av.key);
-            card.onclick = () => selectHeroicAvatar(av.key);
-            card.innerHTML = `
-                <div class="hao-card-silhouette" style="border: 1px solid ${av.borderColor}; color: ${av.color};">&#9876;</div>
-                <div class="hao-card-name" style="color: ${av.color};">${av.name}</div>
-                <div class="hao-card-myth">${av.myth}</div>
-                <div class="hao-card-drachma">${av.drachma} Drachma</div>
-                <div class="hao-card-strong">${av.strong}</div>
-                <div class="hao-card-weak">${av.weak}</div>`;
+            card.onclick = function() { haoSelectArchetype(av.key); };
+
+            // Art area — image with placeholder fallback
+            var artSrc = '/images/heroic/avatars/' + av.key + '_preview.png';
+            card.innerHTML =
+                '<div class="hao-card-art">' +
+                    '<img class="hao-card-img" src="' + artSrc + '" alt="' + av.name + '" ' +
+                         'onload="this.style.display='block';this.nextElementSibling.style.display='none';" ' +
+                         'onerror="this.style.display='none';" ' +
+                         'style="display:none; width:100%; height:100%; object-fit:cover; border-radius:6px; image-rendering:pixelated;">' +
+                    '<div class="hao-card-silhouette" style="color:' + av.color + ';">⚔</div>' +
+                '</div>' +
+                '<div class="hao-card-name" style="color:' + av.color + ';">' + av.name + '</div>' +
+                '<div class="hao-card-myth">' + av.myth + '</div>' +
+                '<div class="hao-card-drachma">' + av.drachma + ' Drachma</div>';
+
             if (av.row === 'top') topGrid.appendChild(card);
             else bottomGrid.appendChild(card);
         });
     }
 
-    function selectHeroicAvatar(key) {
-        selectedHeroicAvatar = key;
-        const av = HEROIC_AVATARS.find(a => a.key === key);
+    function haoSelectArchetype(key) {
+        haoArchetype = key;
+        var av = HEROIC_AVATARS.find(a => a.key === key);
         if (!av) return;
-        document.querySelectorAll('.hao-card').forEach(c => { c.classList.remove('selected'); c.style.opacity = '0.5'; });
-        const selected = document.querySelector(`.hao-card[data-avatar="${key}"]`);
-        if (selected) { selected.classList.add('selected'); selected.style.opacity = '1'; }
-        document.getElementById('hao-detail-name').textContent = av.name + ' — ' + av.myth;
-        document.getElementById('hao-detail-arch').textContent = '"' + av.archetype + '"';
-        document.getElementById('hao-detail-desc').textContent = av.desc;
-        document.getElementById('hao-detail').classList.add('show');
-        document.getElementById('hao-confirmed').classList.remove('show');
+
+        // Highlight selected card
+        document.querySelectorAll('.hao-card').forEach(function(c) {
+            c.classList.remove('selected');
+            c.style.opacity = '0.5';
+        });
+        var sel = document.querySelector('.hao-card[data-avatar="' + key + '"]');
+        if (sel) { sel.classList.add('selected'); sel.style.opacity = '1'; }
+
+        // Populate detail panel
+        var detailImg = document.getElementById('hao-detail-img');
+        var detailPh  = document.getElementById('hao-art-placeholder');
+        var detailSrc = '/images/heroic/avatars/' + key + '_preview.png';
+        detailImg.onload  = function() { detailImg.style.display='block'; detailPh.style.display='none'; };
+        detailImg.onerror = function() { detailImg.style.display='none';  detailPh.style.display='flex'; };
+        detailImg.src = detailSrc;
+
+        document.getElementById('hao-detail-name').textContent  = av.name + ' — ' + av.myth;
+        document.getElementById('hao-detail-arch').textContent  = '"' + av.archetype + '"';
+        document.getElementById('hao-detail-desc').textContent  = av.desc;
+        document.getElementById('hao-detail-strong').textContent = av.strong;
+        document.getElementById('hao-detail-weak').textContent   = av.weak;
+        document.getElementById('hao-detail-drachma').textContent = av.drachma + ' Drachma';
+
+        document.getElementById('hao-detail').style.display = 'block';
+        document.getElementById('hao-next-btn').style.borderColor = av.color;
+        document.getElementById('hao-next-btn').style.boxShadow   = '0 0 12px ' + av.color + '44';
     }
 
+    // ----- Confirm & submit -----
     async function confirmHeroicAvatar() {
-        if (!selectedHeroicAvatar) return;
-        const av = HEROIC_AVATARS.find(a => a.key === selectedHeroicAvatar);
-        if (!av) return;
-        const btn = document.getElementById('hao-confirm-btn');
+        if (!haoArchetype || !haoGender || !haoSkin) return;
+        var compositeKey = haoArchetype + '_' + haoGender + '_' + haoSkin;
+        var av = HEROIC_AVATARS.find(a => a.key === haoArchetype);
+        var btn = document.getElementById('hao-become-btn');
         btn.textContent = 'Forging your destiny...';
         btn.disabled = true;
         try {
-            const res = await fetch(`${API_URL}/student/select-avatar`, {
+            var res = await fetch(API_URL + '/student/select-avatar', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ avatar: selectedHeroicAvatar })
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ avatar: compositeKey })
             });
-            const data = await res.json();
+            var data = await res.json();
             if (!res.ok) {
                 alert(data.error || 'Failed to select avatar');
                 btn.textContent = '⚔️ BECOME THIS HERO ⚔️';
                 btn.disabled = false;
                 return;
             }
-            document.querySelectorAll('.hao-card').forEach(c => { c.style.pointerEvents = 'none'; });
-            document.getElementById('hao-detail').classList.remove('show');
-            document.getElementById('hao-confirmed-name').textContent = av.name;
-            document.getElementById('hao-confirmed-arch').textContent = '"' + av.archetype + '"';
-            document.getElementById('hao-confirmed-drachma').textContent = '+' + av.drachma + ' starting Drachma awarded';
-            document.getElementById('hao-confirmed').classList.add('show');
+            // Success — show step 5
+            document.getElementById('hao-confirmed-name').textContent    = av.name;
+            document.getElementById('hao-confirmed-arch').textContent    = '"' + av.archetype + '"';
+            document.getElementById('hao-confirmed-choices').textContent =
+                (haoGender === 'male' ? 'Male' : 'Female') + ' · ' +
+                (haoSkin.charAt(0).toUpperCase() + haoSkin.slice(1)) + ' skin';
+            document.getElementById('hao-confirmed-drachma').textContent =
+                '+' + av.drachma + ' Drachma awarded';
+            haoGoToStep(5);
         } catch (err) {
             console.error('Avatar selection error:', err);
             alert('Network error — please try again');
@@ -14001,8 +14272,7 @@
     }
 
     function enterHeroicAge() {
-      // Redirect to the Jason Voyage Log — the pre-game for Heroic Age Chapter 1
-      window.location.href = '/jason_voyage_log.html';
+        window.location.href = '/jason_voyage_log.html';
     }
 
     function openHeroicAvatarSelection() { playHeroicGateAnimation(); }
@@ -14013,66 +14283,75 @@
     }
 
     function playHeroicGateAnimation() {
-        const overlay = document.getElementById('heroic-gate-overlay');
-        const starsEl = document.getElementById('hg-stars');
-        const gates = document.getElementById('hg-gates');
-        const textGreek = document.getElementById('hg-text-greek');
-        const textTitle = document.getElementById('hg-text-title');
-        const textWorthy = document.getElementById('hg-text-worthy');
-        const particlesEl = document.getElementById('hg-particles');
-        const flash = document.getElementById('hg-flash');
+        var overlay    = document.getElementById('heroic-gate-overlay');
+        var starsEl    = document.getElementById('hg-stars');
+        var gates      = document.getElementById('hg-gates');
+        var textGreek  = document.getElementById('hg-text-greek');
+        var textTitle  = document.getElementById('hg-text-title');
+        var textWorthy = document.getElementById('hg-text-worthy');
+        var particlesEl= document.getElementById('hg-particles');
+        var flash      = document.getElementById('hg-flash');
 
         gates.classList.remove('open');
-        textGreek.style.opacity = '0';
-        textTitle.style.opacity = '0';
+        textGreek.style.opacity  = '0';
+        textTitle.style.opacity  = '0';
         textWorthy.style.opacity = '0';
-        flash.style.opacity = '0';
-        starsEl.innerHTML = '';
-        particlesEl.innerHTML = '';
+        flash.style.opacity      = '0';
+        starsEl.innerHTML        = '';
+        particlesEl.innerHTML    = '';
 
-        for (let i = 0; i < 60; i++) {
-            const star = document.createElement('div');
+        for (var i = 0; i < 60; i++) {
+            var star = document.createElement('div');
             star.className = 'hg-star';
-            star.style.left = Math.random() * 100 + '%';
-            star.style.top = Math.random() * 100 + '%';
-            star.style.animationDelay = (Math.random() * 3) + 's';
+            star.style.left              = Math.random() * 100 + '%';
+            star.style.top               = Math.random() * 100 + '%';
+            star.style.animationDelay    = (Math.random() * 3) + 's';
             star.style.animationDuration = (1.5 + Math.random() * 2) + 's';
-            if (Math.random() > 0.7) { star.style.width = '3px'; star.style.height = '3px'; star.style.background = '#e9d5ff'; }
+            if (Math.random() > 0.7) { star.style.width='3px'; star.style.height='3px'; star.style.background='#e9d5ff'; }
             starsEl.appendChild(star);
         }
 
         overlay.classList.add('show');
         document.body.style.overflow = 'hidden';
 
-        const timers = [];
+        var timers = [];
         function A(fn, ms) { timers.push(setTimeout(fn, ms)); }
 
-        A(() => { textGreek.style.opacity = '1'; }, 800);
-        A(() => { gates.classList.add('open'); }, 2000);
-        A(() => { textTitle.style.opacity = '1'; }, 3000);
-        A(() => {
-            for (let i = 0; i < 30; i++) {
-                A(() => {
-                    const p = document.createElement('div');
-                    p.className = 'hg-particle';
-                    p.style.background = Math.random() > 0.6 ? '#fbbf24' : '#c084fc';
-                    p.style.left = (35 + Math.random() * 30) + '%';
-                    p.style.bottom = '10%';
-                    p.style.width = (2 + Math.random() * 3) + 'px';
-                    p.style.height = p.style.width;
-                    p.style.animation = `hgParticleRise ${1.5 + Math.random() * 2}s ease-out forwards`;
-                    particlesEl.appendChild(p);
-                    setTimeout(() => p.remove(), 4000);
-                }, i * 80);
+        A(function() { textGreek.style.opacity = '1'; }, 800);
+        A(function() { gates.classList.add('open'); }, 2000);
+        A(function() { textTitle.style.opacity = '1'; }, 3000);
+        A(function() {
+            for (var j = 0; j < 30; j++) {
+                (function() {
+                    A(function() {
+                        var p = document.createElement('div');
+                        p.className = 'hg-particle';
+                        p.style.background = Math.random() > 0.6 ? '#fbbf24' : '#c084fc';
+                        p.style.left   = (35 + Math.random() * 30) + '%';
+                        p.style.bottom = '10%';
+                        p.style.width  = (2 + Math.random() * 3) + 'px';
+                        p.style.height = p.style.width;
+                        p.style.animation = 'hgParticleRise ' + (1.5 + Math.random() * 2) + 's ease-out forwards';
+                        particlesEl.appendChild(p);
+                        setTimeout(function() { p.remove(); }, 4000);
+                    }, j * 80);
+                })();
             }
         }, 3500);
-        A(() => { textWorthy.style.opacity = '1'; }, 4500);
-        A(() => { flash.style.transition = 'opacity 0.3s'; flash.style.opacity = '1'; }, 6000);
-        A(() => {
-            timers.forEach(t => clearTimeout(t));
+        A(function() { textWorthy.style.opacity = '1'; }, 4500);
+        A(function() { flash.style.transition='opacity 0.3s'; flash.style.opacity='1'; }, 6000);
+        A(function() {
+            timers.forEach(function(t) { clearTimeout(t); });
             overlay.classList.remove('show');
             overlay.style.display = 'none';
             flash.style.opacity = '0';
+            // Reset to step 1 and build cards fresh
+            haoArchetype = null; haoGender = null; haoSkin = null;
+            haoGoToStep(1);
+            document.getElementById('hao-detail').style.display = 'none';
+            document.querySelectorAll('.hao-card').forEach(function(c) {
+                c.classList.remove('selected'); c.style.opacity = '1';
+            });
             buildAvatarCards();
             document.getElementById('heroic-avatar-overlay').classList.add('show');
         }, 6800);
