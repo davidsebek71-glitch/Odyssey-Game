@@ -3277,6 +3277,48 @@
     <!-- Full Power Message for Bonus Celebrations -->
     <div id="full-power-message"></div>
 
+    <!-- Hero's Journey + Chapter Portal — shown between avatar and banners on Heroic view -->
+    <div id="heroic-journey-section" style="display:none; max-width:1400px; margin:0 auto; padding:0 20px 20px;">
+        <!-- Hero's Journey Progress Bar -->
+        <div id="heroic-progress-bar" style="margin-bottom:20px;">
+            <div style="font-family:'Cinzel',serif; font-size:10px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:rgba(196,181,253,0.6); text-align:center; margin-bottom:12px;">The Hero's Journey</div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:0; position:relative;">
+                <!-- Connecting line behind nodes -->
+                <div style="position:absolute; top:50%; left:10%; right:10%; height:2px; background:linear-gradient(90deg, rgba(139,92,246,0.15), rgba(139,92,246,0.4), rgba(139,92,246,0.15)); transform:translateY(-50%); z-index:0;"></div>
+                <!-- Nodes -->
+                <div class="hjp-node" id="hjp-jason" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(251,191,36,0.6); background:rgba(251,191,36,0.12); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; transition:all 0.3s;">⛵</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(251,191,36,0.7); text-align:center;">Jason</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-heracles" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">💪</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Heracles</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-theseus" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">🌀</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Theseus</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-perseus" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">🛡️</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Perseus</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-tribunal" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">⚖️</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Tribunal</div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Chapter 1 Portal (activates when Voyage Log is turned in) -->
+        <div id="chapter1-portal" class="chapter-portal-card" onclick="enterChapter1()">
+            <div style="font-size: 48px; margin-bottom: 8px;">⛵</div>
+            <div style="font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700; color: #c4b5fd; letter-spacing: 2px;">CHAPTER 1</div>
+            <div style="font-family: 'Cinzel', serif; font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 4px;">Jason & the Argonauts</div>
+            <div id="chapter1-status" style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.3);">Complete the Voyage Log to unlock</div>
+        </div>
+    </div>
+
     <div class="container">
         <!-- Quick Actions -->
         <div class="quick-actions">
@@ -3550,46 +3592,6 @@
             <div class="heroic-myth-row" id="heroic-myth-row">
                 <!-- Populated by JS -->
             </div>
-        </div>
-
-
-        <!-- Hero's Journey Progress Bar -->
-        <div id="heroic-progress-bar" style="margin-bottom:20px;">
-            <div style="font-family:'Cinzel',serif; font-size:10px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:rgba(196,181,253,0.6); text-align:center; margin-bottom:12px;">The Hero's Journey</div>
-            <div style="display:flex; align-items:center; justify-content:center; gap:0; position:relative;">
-                <!-- Connecting line behind nodes -->
-                <div style="position:absolute; top:50%; left:10%; right:10%; height:2px; background:linear-gradient(90deg, rgba(139,92,246,0.15), rgba(139,92,246,0.4), rgba(139,92,246,0.15)); transform:translateY(-50%); z-index:0;"></div>
-                <!-- Nodes -->
-                <div class="hjp-node" id="hjp-jason" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
-                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(251,191,36,0.6); background:rgba(251,191,36,0.12); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; transition:all 0.3s;">⛵</div>
-                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(251,191,36,0.7); text-align:center;">Jason</div>
-                </div>
-                <div class="hjp-node hjp-locked" id="hjp-heracles" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
-                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">💪</div>
-                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Heracles</div>
-                </div>
-                <div class="hjp-node hjp-locked" id="hjp-theseus" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
-                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">🌀</div>
-                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Theseus</div>
-                </div>
-                <div class="hjp-node hjp-locked" id="hjp-perseus" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
-                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">🛡️</div>
-                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Perseus</div>
-                </div>
-                <div class="hjp-node hjp-locked" id="hjp-tribunal" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
-                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">⚖️</div>
-                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Tribunal</div>
-                </div>
-            </div>
-        </div>
-
-
-        <!-- Chapter 1 Portal (activates when Voyage Log is turned in) -->
-        <div id="chapter1-portal" class="chapter-portal-card" onclick="enterChapter1()">
-            <div style="font-size: 48px; margin-bottom: 8px;">⛵</div>
-            <div style="font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700; color: #c4b5fd; letter-spacing: 2px;">CHAPTER 1</div>
-            <div style="font-family: 'Cinzel', serif; font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 4px;">Jason & the Argonauts</div>
-            <div id="chapter1-status" style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.3);">Complete the Voyage Log to unlock</div>
         </div>
     </div>
 
@@ -4228,6 +4230,9 @@
                     if (heroCardsContainer) heroCardsContainer.style.display = 'block';
                     // Show avatar selection prompt if student hasn't chosen yet
                     showHeroicAvatarPromptIfNeeded(student);
+                    // Show hero's journey section (progress bar + chapter portal)
+                    var hjSection = document.getElementById('heroic-journey-section');
+                    if (hjSection) hjSection.style.display = 'block';
                     // Activate banner buttons for Heroic view
                     loadHeroicBanners();
                     // Swap stat card icons for heroic theme
@@ -4238,6 +4243,9 @@
                     // Hide drachma counter on non-heroic views
                     var drachmaEl = document.getElementById('heroic-drachma-display');
                     if (drachmaEl) drachmaEl.style.display = 'none';
+                    // Hide hero's journey section
+                    var hjSection = document.getElementById('heroic-journey-section');
+                    if (hjSection) hjSection.style.display = 'none';
                 }
             }
 
