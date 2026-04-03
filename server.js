@@ -14119,7 +14119,7 @@ app.get('/api/teacher/voyage-log-unlock-status', (req, res) => {
 
 // ── Heroic Age column migration ──────────────────────────────────────────────
 // Adds selected_avatar, avatar_selected_at, and drachma to students table
-// if they don't exist. PRAGMA-based detection — safe to run on every startup.
+// if they don't exist. PRAGMA-based — safe to run on every startup.
 (function migrateHeroicColumns() {
   try {
     const cols = query('PRAGMA table_info(students)').map(c => c.name);
