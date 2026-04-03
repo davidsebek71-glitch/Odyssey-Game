@@ -1925,33 +1925,79 @@
         #heroic-age-section { display: none; }
 
         body.heroic-age {
-            background: linear-gradient(135deg, #0f0515 0%, #1a0a2e 50%, #0f0515 100%);
+            background: linear-gradient(160deg, #060010 0%, #120828 40%, #1a0535 70%, #0d0020 100%);
         }
         body.heroic-age .header {
-            background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(91,33,182,0.2));
-            border-bottom: 2px solid rgba(124,58,237,0.3);
+            background: linear-gradient(135deg, rgba(88,28,220,0.25) 0%, rgba(109,40,217,0.35) 50%, rgba(76,20,180,0.25) 100%);
+            border-bottom: 2px solid rgba(167,139,250,0.45);
+            box-shadow: 0 2px 24px rgba(109,40,217,0.3), inset 0 -1px 0 rgba(192,132,252,0.15);
         }
         body.heroic-age .logo h1 {
-            background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+            background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 40%, #a78bfa 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-shadow: none;
+            filter: drop-shadow(0 0 12px rgba(167,139,250,0.5));
         }
+        /* Banner-style action buttons for Heroic Age */
         body.heroic-age .action-btn {
-            border-color: rgba(124,58,237,0.3);
+            background: linear-gradient(180deg,
+                rgba(109,40,217,0.45) 0%,
+                rgba(88,28,200,0.35) 45%,
+                rgba(109,40,217,0.45) 100%);
+            border-top: 3px solid rgba(192,132,252,0.7);
+            border-bottom: 3px solid rgba(192,132,252,0.7);
+            border-left: 1px solid rgba(167,139,250,0.3);
+            border-right: 1px solid rgba(167,139,250,0.3);
+            border-radius: 4px;
+            color: #e9d5ff;
+            padding: 18px 20px;
+            box-shadow: 0 4px 16px rgba(109,40,217,0.35), inset 0 1px 0 rgba(216,180,254,0.15);
+            letter-spacing: 0.5px;
+            font-family: 'Cinzel', serif;
+            font-size: 12px;
+            position: relative;
+        }
+        body.heroic-age .action-btn::before {
+            content: '';
+            position: absolute;
+            top: -3px; left: 50%; transform: translateX(-50%);
+            width: 40%; height: 3px;
+            background: rgba(232,121,249,0.5);
+            border-radius: 0 0 2px 2px;
+        }
+        body.heroic-age .action-btn:hover {
+            background: linear-gradient(180deg,
+                rgba(139,60,255,0.6) 0%,
+                rgba(109,40,217,0.5) 45%,
+                rgba(139,60,255,0.6) 100%);
+            border-top-color: rgba(232,121,249,0.9);
+            border-bottom-color: rgba(232,121,249,0.9);
+            box-shadow: 0 6px 24px rgba(139,60,255,0.5), inset 0 1px 0 rgba(232,121,249,0.2);
+            transform: translateY(-2px);
+            color: #f3e8ff;
         }
         body.heroic-age .stat-card {
-            border-color: rgba(124,58,237,0.2);
+            border-color: rgba(139,92,246,0.35);
+            background: linear-gradient(180deg, rgba(88,28,200,0.12) 0%, rgba(60,10,140,0.08) 100%);
+            box-shadow: 0 2px 12px rgba(109,40,217,0.2), inset 0 1px 0 rgba(167,139,250,0.08);
         }
         body.heroic-age .myth-portal-bar {
-            border-color: rgba(124,58,237,0.15);
-            background: linear-gradient(180deg, rgba(15,5,21,0.95), rgba(26,10,46,0.9));
+            border-color: rgba(139,92,246,0.25);
+            background: linear-gradient(180deg, rgba(10,2,24,0.97), rgba(20,5,45,0.95));
+            box-shadow: 0 0 30px rgba(88,28,200,0.15) inset;
         }
         body.heroic-age .myth-portal-title {
-            color: rgba(196,181,253,0.8);
+            color: rgba(216,180,254,0.9);
+            text-shadow: 0 0 8px rgba(167,139,250,0.3);
         }
         body.heroic-age .myth-portal {
             pointer-events: none;
             opacity: 0.85;
+        }
+        /* Heroic stat labels */
+        body.heroic-age .stat-card .label {
+            color: rgba(196,181,253,0.7);
         }
         .heroic-myth-bar {
             background: linear-gradient(180deg, rgba(15,5,21,0.95), rgba(26,10,46,0.9));
@@ -3984,6 +4030,8 @@
                     // Show hero cards between myth portals and avatar
                     var heroCardsContainer = document.getElementById('hero-cards-container');
                     if (heroCardsContainer) heroCardsContainer.style.display = 'block';
+                    // Show avatar selection prompt if student hasn't chosen yet
+                    showHeroicAvatarPromptIfNeeded(student);
                 } else {
                     heroicSection.style.display = 'none';
                     document.body.classList.remove('heroic-age');
@@ -13403,6 +13451,37 @@
             } catch (e) {
                 statusEl.textContent = 'Complete the Voyage Log to unlock';
             }
+        }
+
+        function showHeroicAvatarPromptIfNeeded(student) {
+            // If student is in Heroic Age but hasn't chosen an avatar, inject a
+            // "Choose Your Hero Avatar" card as the first item in the hero-cards-grid.
+            var grid = document.querySelector('#hero-cards-container .hero-cards-grid');
+            if (!grid) return;
+
+            // Remove any existing prompt card (handles re-renders)
+            var existing = document.getElementById('avatar-prompt-card');
+            if (existing) existing.remove();
+
+            // Only show if no avatar selected
+            if (student && student.selected_avatar) return;
+
+            var card = document.createElement('div');
+            card.id = 'avatar-prompt-card';
+            card.className = 'hero-card active';
+            card.style.cssText = 'border-color: rgba(192,132,252,0.7); background: linear-gradient(180deg, rgba(109,40,217,0.18) 0%, rgba(91,33,182,0.08) 100%); grid-column: 1 / -1; max-width: 340px; margin: 0 auto 4px; cursor: pointer;';
+            card.onclick = openHeroicAvatarSelection;
+            card.innerHTML = [
+                '<div class="hero-card-glow"></div>',
+                '<div class="hero-card-icon" style="font-size:48px; line-height:1;">⚔️</div>',
+                '<div class="hero-card-name" style="color:#e9d5ff; font-size:15px;">Choose Your Avatar</div>',
+                '<div class="hero-card-subtitle" style="color:rgba(196,181,253,0.7);">Who did you become?</div>',
+                '<div class="hero-card-desc" style="color:rgba(216,180,254,0.6); margin-top:8px;">Seven heroes. Seven paths. Choose the archetype earned through your Classical Age journey.</div>',
+                '<div class="hero-card-status active-status" style="color:#c084fc; margin-top:10px; font-size:11px; letter-spacing:1px;">⚡ TAP TO CHOOSE YOUR HERO ⚡</div>'
+            ].join('');
+
+            // Insert as first child so it appears above Jason
+            grid.insertBefore(card, grid.firstChild);
         }
 
         function openJasonVoyageLog() {
