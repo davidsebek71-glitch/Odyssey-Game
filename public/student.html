@@ -2569,19 +2569,14 @@
         }
         @keyframes hallBtnGlow {
             0%, 100% {
-                box-shadow: 0 0 8px rgba(255,215,0,0.4), 0 0 20px rgba(255,215,0,0.2), 0 0 40px rgba(255,165,0,0.1);
-                border-color: rgba(255,215,0,0.6);
-                background: linear-gradient(135deg, #b8860b, #8B6914);
+                filter: drop-shadow(0 0 6px rgba(255,215,0,0.5)) drop-shadow(0 0 14px rgba(255,165,0,0.3));
             }
             50% {
-                box-shadow: 0 0 18px rgba(255,215,0,1), 0 0 40px rgba(255,215,0,0.7), 0 0 70px rgba(255,165,0,0.5), 0 0 100px rgba(255,140,0,0.3);
-                border-color: #ffd700;
-                background: linear-gradient(135deg, #d4a017, #b8860b);
+                filter: drop-shadow(0 0 16px rgba(255,215,0,1)) drop-shadow(0 0 32px rgba(255,165,0,0.7));
             }
         }
         .hall-btn-has-badges {
             animation: hallBtnGlow 1.4s ease-in-out infinite !important;
-            border: 2px solid rgba(255,215,0,0.6) !important;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -3271,7 +3266,7 @@
                 <span class="icon">⚔️</span>
                 Battle Arena
             </button>
-            <button class="action-btn" onclick="openHallOfHonor()" id="hall-of-honor-btn" style="background: linear-gradient(135deg, #b8860b, #8B6914); position: relative;">
+            <button class="action-btn" onclick="openHallOfHonor()" id="hall-of-honor-btn" style="position: relative;">
                 <span class="icon">🏆</span>
                 Hall of Honor
             </button>
@@ -4175,8 +4170,8 @@
                     if (heroCardsContainer) heroCardsContainer.style.display = 'block';
                     // Show avatar selection prompt if student hasn't chosen yet
                     showHeroicAvatarPromptIfNeeded(student);
-                    // Activate banner button for Heroic view
-                    loadArenaBanner();
+                    // Activate banner buttons for Heroic view
+                    loadHeroicBanners();
                 } else {
                     heroicSection.style.display = 'none';
                     document.body.classList.remove('heroic-age');
@@ -13512,7 +13507,14 @@
                 const btn = document.getElementById('missing-virtues-btn');
                 const badge = document.getElementById('missing-virtues-count');
                 if (!btn) return;
-                if (missing.length > 0 && missing.length < 7) {
+                // Hide Missing Virtues entirely on Heroic view — all virtues are complete
+                var urlParamsMV = new URLSearchParams(window.location.search);
+                var isHeroicViewMV = urlParamsMV.get('view') === 'heroic' ||
+                    (dashboardData && dashboardData.student && dashboardData.student.current_age === 'Heroic' &&
+                     urlParamsMV.get('view') !== 'classical' && urlParamsMV.get('view') !== 'archaic');
+                if (isHeroicViewMV) {
+                    btn.style.display = 'none';
+                } else if (missing.length > 0 && missing.length < 7) {
                     btn.style.display = '';
                     badge.textContent = missing.length;
                 } else if (missing.length === 0) {
@@ -13708,58 +13710,66 @@
             }
         }
 
-        function loadArenaBanner() {
-            var bannerSrc = '/images/heroic/banners/Red medieval banner on golden rod.png';
-            var btn = document.getElementById('arena-btn');
-            if (!btn) return;
+        function loadHeroicBanners() {
+            var BANNERS = [
+                { id: 'submit-btn',        file: 'Orange banner on golden rod.png',           label: '✚ SUBMIT POINTS ✚' },
+                { id: 'map-btn',           file: 'Goldenrod banner on magenta background.png', label: '☆ MY MAP ☆' },
+                { id: 'arena-btn',         file: 'Red medieval banner on golden rod.png',      label: '⚔ BATTLE ARENA ⚔' },
+                { id: 'hall-of-honor-btn', file: 'Green banner with golden rod.png',           label: '★ HALL OF HONOR ★' },
+                { id: 'invite-btn',        file: 'Blue banner with magenta backdrop.png',      label: '✦ INVITE MEMBER ✦' }
+            ];
 
-            var loader = new Image();
-            loader.crossOrigin = 'anonymous';
-            loader.onerror = function() { /* keep original button */ };
-            loader.onload = function() {
-                // Strip magenta via canvas
-                var finalSrc = bannerSrc;
-                try {
-                    var canvas = document.createElement('canvas');
-                    canvas.width  = loader.naturalWidth;
-                    canvas.height = loader.naturalHeight;
-                    var ctx = canvas.getContext('2d');
-                    ctx.drawImage(loader, 0, 0);
-                    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    var d = imageData.data;
-                    for (var i = 0; i < d.length; i += 4) {
-                        if (d[i] > 150 && d[i+2] > 150 && d[i+1] < 80) { d[i+3] = 0; }
-                    }
-                    ctx.putImageData(imageData, 0, 0);
-                    finalSrc = canvas.toDataURL('image/png');
-                } catch(e) { /* CORS fallback — use original */ }
+            BANNERS.forEach(function(cfg) {
+                var btn = document.getElementById(cfg.id);
+                if (!btn) return;
+                var src = '/images/heroic/banners/' + cfg.file;
 
-                // Build wrapper: relative div containing img + text overlay
-                // Text is positioned at 45% from top of image = center of banner body
-                var wrapper = document.createElement('div');
-                wrapper.className = 'arena-banner-wrapper';
+                var loader = new Image();
+                loader.crossOrigin = 'anonymous';
+                loader.onerror = function() { /* keep original button look */ };
+                loader.onload = (function(button, label, bannerSrc) {
+                    return function() {
+                        var finalSrc = bannerSrc;
+                        try {
+                            var canvas = document.createElement('canvas');
+                            canvas.width  = loader.naturalWidth;
+                            canvas.height = loader.naturalHeight;
+                            var ctx = canvas.getContext('2d');
+                            ctx.drawImage(loader, 0, 0);
+                            var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            var d = imageData.data;
+                            for (var i = 0; i < d.length; i += 4) {
+                                if (d[i] > 150 && d[i+2] > 150 && d[i+1] < 80) { d[i+3] = 0; }
+                            }
+                            ctx.putImageData(imageData, 0, 0);
+                            finalSrc = canvas.toDataURL('image/png');
+                        } catch(e) { /* CORS fallback */ }
 
-                var bannerImg = document.createElement('img');
-                bannerImg.className = 'arena-banner-img';
-                bannerImg.src = finalSrc;
-                bannerImg.alt = 'Battle Arena';
+                        var wrapper = document.createElement('div');
+                        wrapper.className = 'arena-banner-wrapper';
 
-                var bannerTxt = document.createElement('span');
-                bannerTxt.className = 'arena-banner-text';
-                bannerTxt.textContent = '⚔ BATTLE ARENA ⚔';
+                        var bannerImg = document.createElement('img');
+                        bannerImg.className = 'arena-banner-img';
+                        bannerImg.src = finalSrc;
+                        bannerImg.alt = label;
 
-                wrapper.appendChild(bannerImg);
-                wrapper.appendChild(bannerTxt);
+                        var bannerTxt = document.createElement('span');
+                        bannerTxt.className = 'arena-banner-text';
+                        bannerTxt.textContent = label;
 
-                // Clear button contents and replace with wrapper
-                btn.innerHTML = '';
-                btn.appendChild(wrapper);
-                btn.style.fontSize = '0';
-                btn.style.background = 'transparent';
-                btn.style.border = 'none';
-                btn.style.boxShadow = 'none';
-            };
-            loader.src = bannerSrc;
+                        wrapper.appendChild(bannerImg);
+                        wrapper.appendChild(bannerTxt);
+
+                        button.innerHTML = '';
+                        button.appendChild(wrapper);
+                        button.style.fontSize   = '0';
+                        button.style.background = 'transparent';
+                        button.style.border     = 'none';
+                        button.style.boxShadow  = 'none';
+                    };
+                })(btn, cfg.label, src);
+                loader.src = src;
+            });
         }
 
         function showHeroicAvatarPromptIfNeeded(student) {
