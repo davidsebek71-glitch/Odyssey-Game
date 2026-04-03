@@ -14192,19 +14192,37 @@
             card.setAttribute('data-avatar', av.key);
             card.onclick = function() { haoSelectArchetype(av.key); };
 
-            // Art area — image with placeholder fallback
+            // Art area — build via DOM API to avoid quote-escaping in onload/onerror
             var artSrc = '/images/heroic/avatars/' + av.key + '_preview.png';
-            card.innerHTML =
-                '<div class="hao-card-art">' +
-                    '<img class="hao-card-img" src="' + artSrc + '" alt="' + av.name + '" ' +
-                         'onload="this.style.display='block';this.nextElementSibling.style.display='none';" ' +
-                         'onerror="this.style.display='none';" ' +
-                         'style="display:none; width:100%; height:100%; object-fit:cover; border-radius:6px; image-rendering:pixelated;">' +
-                    '<div class="hao-card-silhouette" style="color:' + av.color + ';">⚔</div>' +
-                '</div>' +
-                '<div class="hao-card-name" style="color:' + av.color + ';">' + av.name + '</div>' +
-                '<div class="hao-card-myth">' + av.myth + '</div>' +
-                '<div class="hao-card-drachma">' + av.drachma + ' Drachma</div>';
+            var artWrap = document.createElement('div');
+            artWrap.className = 'hao-card-art';
+            var artSil = document.createElement('div');
+            artSil.className = 'hao-card-silhouette';
+            artSil.style.color = av.color;
+            artSil.textContent = '⚔';
+            var artImg = document.createElement('img');
+            artImg.className = 'hao-card-img';
+            artImg.alt = av.name;
+            artImg.style.cssText = 'display:none;width:100%;height:100%;object-fit:cover;border-radius:6px;image-rendering:pixelated;';
+            artImg.onload  = function() { artImg.style.display = 'block'; artSil.style.display = 'none'; };
+            artImg.onerror = function() { artImg.style.display = 'none'; artSil.style.display = 'flex'; };
+            artImg.src = artSrc;
+            artWrap.appendChild(artImg);
+            artWrap.appendChild(artSil);
+            card.appendChild(artWrap);
+            var nameDiv = document.createElement('div');
+            nameDiv.className = 'hao-card-name';
+            nameDiv.style.color = av.color;
+            nameDiv.textContent = av.name;
+            var mythDiv = document.createElement('div');
+            mythDiv.className = 'hao-card-myth';
+            mythDiv.textContent = av.myth;
+            var drachmaDiv = document.createElement('div');
+            drachmaDiv.className = 'hao-card-drachma';
+            drachmaDiv.textContent = av.drachma + ' Drachma';
+            card.appendChild(nameDiv);
+            card.appendChild(mythDiv);
+            card.appendChild(drachmaDiv);
 
             if (av.row === 'top') topGrid.appendChild(card);
             else bottomGrid.appendChild(card);
