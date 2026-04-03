@@ -1986,7 +1986,7 @@
             padding: 0;
             position: relative;
             overflow: visible;
-            min-height: 200px;
+            min-height: 220px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1995,11 +1995,11 @@
         body.heroic-age #arena-btn .icon { display: none; }
         body.heroic-age #arena-btn .arena-banner-text {
             position: absolute;
-            bottom: 22px;
+            bottom: 68px;
             left: 50%;
             transform: translateX(-50%);
             font-family: 'Cinzel', serif;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             letter-spacing: 2px;
             color: #ffd700;
@@ -2009,8 +2009,9 @@
             pointer-events: none;
         }
         body.heroic-age #arena-btn .arena-banner-img {
-            height: 200px;
-            width: auto;
+            height: 210px;
+            width: 180px;
+            object-fit: fill;
             display: block;
             filter: drop-shadow(0 4px 10px rgba(0,0,0,0.7));
             transition: filter 0.2s, transform 0.2s;
