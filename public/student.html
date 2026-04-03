@@ -2034,9 +2034,30 @@
         }
 
         body.heroic-age .stat-card {
-            border-color: rgba(139,92,246,0.35);
-            background: linear-gradient(180deg, rgba(88,28,200,0.12) 0%, rgba(60,10,140,0.08) 100%);
-            box-shadow: 0 2px 12px rgba(109,40,217,0.2), inset 0 1px 0 rgba(167,139,250,0.08);
+            border-color: rgba(139,92,246,0.5);
+            border-width: 1px;
+            border-style: solid;
+            background: linear-gradient(180deg, rgba(88,28,200,0.18) 0%, rgba(40,5,100,0.14) 100%);
+            box-shadow: 0 4px 18px rgba(109,40,217,0.25), inset 0 1px 0 rgba(192,132,252,0.12);
+        }
+        body.heroic-age .stat-card .icon {
+            font-size: 28px;
+            filter: drop-shadow(0 0 6px rgba(192,132,252,0.5));
+        }
+        body.heroic-age .stat-card .label {
+            color: rgba(196,181,253,0.75);
+            letter-spacing: 2px;
+        }
+        body.heroic-age .stat-card .value {
+            background: linear-gradient(135deg, #e9d5ff 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        /* Alliance stat card keeps gold for alliance name */
+        body.heroic-age #alliance-name-stat {
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         body.heroic-age .myth-portal-bar {
             border-color: rgba(139,92,246,0.25);
@@ -2683,6 +2704,11 @@
             <div class="user-info">
                 <button id="age-toggle-btn" style="display: none; background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: 'Cinzel', serif; margin-right: 8px;" onclick="toggleAgeView()">🏛️ Classical</button>
                 <button style="background: rgba(255,215,0,0.15); color: #ffd700; border: 1px solid rgba(255,215,0,0.3); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; margin-right: 8px;" onclick="window.location.href='/hub.html'">🏠 Hub</button>
+                <span id="heroic-drachma-display" style="display:none; align-items:center; gap:6px; background:rgba(109,40,217,0.25); border:1px solid rgba(192,132,252,0.4); border-radius:8px; padding:4px 12px; margin-right:10px; font-family:'Cinzel',serif; font-size:12px; font-weight:700; color:#e9d5ff; letter-spacing:1px;">
+                    <span style="font-size:14px;">🪙</span>
+                    <span id="heroic-drachma-amount">0</span>
+                    <span style="font-size:10px; color:rgba(196,181,253,0.7); letter-spacing:2px;">DRACHMA</span>
+                </span>
                 <span class="user-name" id="student-name">Student</span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -3526,6 +3552,36 @@
             </div>
         </div>
 
+        <!-- Hero's Journey Progress Bar -->
+        <div id="heroic-progress-bar" style="margin-bottom:20px;">
+            <div style="font-family:'Cinzel',serif; font-size:10px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:rgba(196,181,253,0.6); text-align:center; margin-bottom:12px;">The Hero's Journey</div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:0; position:relative;">
+                <!-- Connecting line behind nodes -->
+                <div style="position:absolute; top:50%; left:10%; right:10%; height:2px; background:linear-gradient(90deg, rgba(139,92,246,0.15), rgba(139,92,246,0.4), rgba(139,92,246,0.15)); transform:translateY(-50%); z-index:0;"></div>
+                <!-- Nodes -->
+                <div class="hjp-node" id="hjp-jason" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(251,191,36,0.6); background:rgba(251,191,36,0.12); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; transition:all 0.3s;">⛵</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(251,191,36,0.7); text-align:center;">Jason</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-heracles" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">💪</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Heracles</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-theseus" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">🌀</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Theseus</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-perseus" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">🛡️</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Perseus</div>
+                </div>
+                <div class="hjp-node hjp-locked" id="hjp-tribunal" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">⚖️</div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Tribunal</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Chapter 1 Portal (activates when Voyage Log is turned in) -->
         <div id="chapter1-portal" class="chapter-portal-card" onclick="enterChapter1()">
             <div style="font-size: 48px; margin-bottom: 8px;">⛵</div>
@@ -4172,9 +4228,24 @@
                     showHeroicAvatarPromptIfNeeded(student);
                     // Activate banner buttons for Heroic view
                     loadHeroicBanners();
+                    // Swap stat card icons for heroic theme
+                    updateHeroicStatIcons();
                 } else {
                     heroicSection.style.display = 'none';
                     document.body.classList.remove('heroic-age');
+                    // Hide drachma counter on non-heroic views
+                    var drachmaEl = document.getElementById('heroic-drachma-display');
+                    if (drachmaEl) drachmaEl.style.display = 'none';
+                }
+            }
+
+            // Drachma counter — only show on Heroic view when avatar selected
+            if (showHeroicView && student.selected_avatar && student.drachma != null) {
+                var drachmaEl = document.getElementById('heroic-drachma-display');
+                var drachmaAmt = document.getElementById('heroic-drachma-amount');
+                if (drachmaEl && drachmaAmt) {
+                    drachmaAmt.textContent = student.drachma.toLocaleString();
+                    drachmaEl.style.display = 'inline-flex';
                 }
             }
 
@@ -10791,9 +10862,21 @@
                     avatarFrame.classList.add('complete');
                     avatarFrame.style.animation = 'heroicAvatarPulse 2.5s ease-in-out infinite';
                 }
-                if (progressText) {
-                    progressText.textContent = '⚔️ Hero Chosen — Your path is set';
-                    progressText.style.color = '#c084fc';
+                // Update the section title to the hero's name
+                var revealTitle = document.querySelector('.avatar-reveal-title');
+                if (revealTitle && avData) {
+                    revealTitle.textContent = avData.name;
+                    revealTitle.style.fontSize = '16px';
+                    revealTitle.style.color = avData.color;
+                    revealTitle.style.letterSpacing = '4px';
+                    revealTitle.style.textShadow = '0 0 16px ' + avData.color + '66';
+                }
+                // Archetype as progress text
+                if (progressText && avData) {
+                    progressText.textContent = '"' + avData.archetype + '"';
+                    progressText.style.color = 'rgba(196,181,253,0.75)';
+                    progressText.style.fontStyle = 'italic';
+                    progressText.style.fontSize = '12px';
                 }
                 // Still render virtue slots so students can see their myth progress
             }
@@ -13689,8 +13772,10 @@
                 if (student.voyage_log_completed === 1) {
                     portal.classList.add('ready');
                     statusEl.innerHTML = '<span style="color:#4ade80;font-weight:700;">✓ Voyage Log Complete</span><br><span style="color:rgba(255,255,255,0.4);font-size:11px;">Chapter 1 coming soon</span>';
+                    updateHeroicProgressBar(true);
                     return;
                 }
+                updateHeroicProgressBar(false);
                 
                 // Check if they have saved progress
                 var studentName = student.name || '';
@@ -13772,6 +13857,52 @@
                 })(btn, cfg.label, src);
                 loader.src = src;
             });
+        }
+
+        function updateHeroicStatIcons() {
+            // Swap stat card icons to heroic-themed versions
+            var iconMap = [
+                { selector: '#alliance-name-stat', parentIcon: '⚔️' },
+                { selector: '#points-stat',        parentIcon: '🪙' },
+                { selector: '#rank-stat',           parentIcon: '🏅' },
+                { selector: '#age-stat',            parentIcon: '👑' }
+            ];
+            iconMap.forEach(function(cfg) {
+                var val = document.getElementById(cfg.selector.replace('#',''));
+                if (!val) return;
+                var card = val.closest('.stat-card');
+                if (!card) return;
+                var iconEl = card.querySelector('.icon');
+                if (iconEl) iconEl.textContent = cfg.parentIcon;
+            });
+        }
+
+        function updateHeroicProgressBar(voyageLogComplete) {
+            // Jason node: active always on Heroic view (it's the first chapter)
+            // Voyage log complete = Jason chapter in progress / done
+            // Future chapters unlocked as chapters are built
+            var jasonNode = document.getElementById('hjp-jason');
+            if (!jasonNode) return;
+
+            if (voyageLogComplete) {
+                // Voyage log done — Jason chapter unlocked, pulse active node
+                var dot = jasonNode.querySelector('.hjp-dot');
+                if (dot) {
+                    dot.style.borderColor = 'rgba(74,222,128,0.8)';
+                    dot.style.background  = 'rgba(74,222,128,0.18)';
+                    dot.style.boxShadow   = '0 0 14px rgba(74,222,128,0.4)';
+                    dot.style.opacity     = '1';
+                }
+                var label = jasonNode.querySelector('div:last-child');
+                if (label) label.style.color = 'rgba(74,222,128,0.9)';
+            } else {
+                // Voyage log in progress — Jason node glows gold (active, not complete)
+                var dot = jasonNode.querySelector('.hjp-dot');
+                if (dot) {
+                    dot.style.animation = 'heroicAvatarPulse 2.5s ease-in-out infinite';
+                    dot.style.opacity   = '1';
+                }
+            }
         }
 
         function showHeroicAvatarPromptIfNeeded(student) {
