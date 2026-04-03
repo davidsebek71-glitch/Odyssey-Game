@@ -1979,42 +1979,52 @@
         }
         /* Battle Arena banner button — Heroic Age only */
         body.heroic-age #arena-btn {
-            background-image: url('/images/heroic/banners/Red medieval banner on golden rod.png');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            background-color: transparent;
+            background: transparent;
             border: none;
-            border-top: none;
-            border-bottom: none;
-            border-left: none;
-            border-right: none;
             box-shadow: none;
             border-radius: 0;
-            min-height: 90px;
             padding: 0;
+            position: relative;
+            overflow: visible;
+            min-height: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        body.heroic-age #arena-btn::before { display: none; }
+        body.heroic-age #arena-btn .icon { display: none; }
+        body.heroic-age #arena-btn .arena-banner-text {
+            position: absolute;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
             font-family: 'Cinzel', serif;
             font-size: 11px;
             font-weight: 700;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
             color: #ffd700;
             text-shadow: 0 1px 4px rgba(0,0,0,0.9);
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding-bottom: 10px;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
-            transition: filter 0.2s, transform 0.2s;
+            white-space: nowrap;
+            z-index: 2;
+            pointer-events: none;
         }
-        body.heroic-age #arena-btn .icon { display: none; }
-        body.heroic-age #arena-btn::before { display: none; }
+        body.heroic-age #arena-btn .arena-banner-img {
+            height: 130px;
+            width: auto;
+            display: block;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.7));
+            transition: filter 0.2s, transform 0.2s;
+            image-rendering: pixelated;
+        }
+        body.heroic-age #arena-btn:hover .arena-banner-img {
+            filter: drop-shadow(0 6px 16px rgba(220,38,38,0.8)) brightness(1.15);
+            transform: translateY(-3px) scale(1.05);
+        }
         body.heroic-age #arena-btn:hover {
-            background-image: url('/images/heroic/banners/Red medieval banner on golden rod.png');
-            background-color: transparent;
+            background: transparent;
             border: none;
             box-shadow: none;
-            filter: drop-shadow(0 6px 14px rgba(220,38,38,0.7)) brightness(1.1);
-            transform: translateY(-3px) scale(1.04);
+            transform: none;
         }
 
         body.heroic-age .stat-card {
@@ -3254,6 +3264,8 @@
             <button class="action-btn" onclick="openArena()" id="arena-btn" style="background: linear-gradient(135deg, #dc2626, #991b1b);">
                 <span class="icon">⚔️</span>
                 Battle Arena
+                <img class="arena-banner-img" id="arena-banner-img" src="" alt="" style="display:none;">
+                <span class="arena-banner-text" style="display:none;">⚔ Battle Arena ⚔</span>
             </button>
             <button class="action-btn" onclick="openHallOfHonor()" id="hall-of-honor-btn" style="background: linear-gradient(135deg, #b8860b, #8B6914); position: relative;">
                 <span class="icon">🏆</span>
@@ -4159,6 +4171,8 @@
                     if (heroCardsContainer) heroCardsContainer.style.display = 'block';
                     // Show avatar selection prompt if student hasn't chosen yet
                     showHeroicAvatarPromptIfNeeded(student);
+                    // Activate banner button for Heroic view
+                    loadArenaBanner();
                 } else {
                     heroicSection.style.display = 'none';
                     document.body.classList.remove('heroic-age');
@@ -13688,6 +13702,50 @@
             } catch (e) {
                 statusEl.textContent = 'Complete the Voyage Log to unlock';
             }
+        }
+
+        function loadArenaBanner() {
+            var bannerSrc = '/images/heroic/banners/Red medieval banner on golden rod.png';
+            var img = document.getElementById('arena-banner-img');
+            var txt = document.querySelector('#arena-btn .arena-banner-text');
+            var icon = document.querySelector('#arena-btn .icon');
+            var label = document.querySelector('#arena-btn');
+            if (!img) return;
+
+            var loader = new Image();
+            loader.crossOrigin = 'anonymous';
+            loader.onerror = function() {
+                // Banner image missing — keep original button look
+            };
+            loader.onload = function() {
+                // Strip magenta via canvas
+                try {
+                    var canvas = document.createElement('canvas');
+                    canvas.width  = loader.naturalWidth;
+                    canvas.height = loader.naturalHeight;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(loader, 0, 0);
+                    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    var d = imageData.data;
+                    for (var i = 0; i < d.length; i += 4) {
+                        if (d[i] > 150 && d[i+2] > 150 && d[i+1] < 80) { d[i+3] = 0; }
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    img.src = canvas.toDataURL('image/png');
+                } catch(e) {
+                    img.src = bannerSrc; // CORS fallback
+                }
+                // Switch button to banner mode
+                img.style.display = 'block';
+                if (txt) txt.style.display = 'block';
+                if (icon) icon.style.display = 'none';
+                // Hide the default text node (Battle Arena) by styling the button
+                label.style.fontSize = '0';       // hides text node
+                label.style.background = 'transparent';
+                label.style.border = 'none';
+                label.style.boxShadow = 'none';
+            };
+            loader.src = bannerSrc;
         }
 
         function showHeroicAvatarPromptIfNeeded(student) {
