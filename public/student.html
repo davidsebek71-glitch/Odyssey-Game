@@ -3552,6 +3552,7 @@
             </div>
         </div>
 
+
         <!-- Hero's Journey Progress Bar -->
         <div id="heroic-progress-bar" style="margin-bottom:20px;">
             <div style="font-family:'Cinzel',serif; font-size:10px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:rgba(196,181,253,0.6); text-align:center; margin-bottom:12px;">The Hero's Journey</div>
@@ -3581,6 +3582,7 @@
                 </div>
             </div>
         </div>
+
 
         <!-- Chapter 1 Portal (activates when Voyage Log is turned in) -->
         <div id="chapter1-portal" class="chapter-portal-card" onclick="enterChapter1()">
@@ -10862,21 +10864,25 @@
                     avatarFrame.classList.add('complete');
                     avatarFrame.style.animation = 'heroicAvatarPulse 2.5s ease-in-out infinite';
                 }
-                // Update the section title to the hero's name
+                // Title shows student's first name; avatar-hero-name-text shows the archetype
                 var revealTitle = document.querySelector('.avatar-reveal-title');
-                if (revealTitle && avData) {
-                    revealTitle.textContent = avData.name;
-                    revealTitle.style.fontSize = '16px';
-                    revealTitle.style.color = avData.color;
-                    revealTitle.style.letterSpacing = '4px';
-                    revealTitle.style.textShadow = '0 0 16px ' + avData.color + '66';
+                if (revealTitle) {
+                    var studentFirstName = (window.currentStudentData && window.currentStudentData.name)
+                        ? window.currentStudentData.name.split(' ')[0]
+                        : 'Your Hero';
+                    revealTitle.textContent = studentFirstName;
+                    revealTitle.style.fontSize = '18px';
+                    revealTitle.style.color = '#e9d5ff';
+                    revealTitle.style.letterSpacing = '5px';
+                    revealTitle.style.textShadow = '0 0 14px rgba(192,132,252,0.5)';
                 }
-                // Archetype as progress text
+                // Archetype tagline as subtitle below the frame
                 if (progressText && avData) {
-                    progressText.textContent = '"' + avData.archetype + '"';
-                    progressText.style.color = 'rgba(196,181,253,0.75)';
+                    progressText.textContent = avData.name + ' — ' + avData.archetype;
+                    progressText.style.color = avData.color;
                     progressText.style.fontStyle = 'italic';
                     progressText.style.fontSize = '12px';
+                    progressText.style.opacity = '0.85';
                 }
                 // Still render virtue slots so students can see their myth progress
             }
