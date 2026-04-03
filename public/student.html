@@ -13909,6 +13909,17 @@
             vcFlash(4600); vcBeamGlow(4800); vcVirtue(5000); vcSparkles(4900,175,130); vcBanner(5600);
         }
     }
+
+        // Forward declaration — full implementation in second <script> block below.
+        // Defined here so renderDashboard() can reference it before the second block parses.
+        function openHeroicAvatarSelection() {
+            // Delegate to implementation once second script block is loaded.
+            // On first call this may be a no-op if called before second script loads,
+            // but renderDashboard runs after full DOM parse so both blocks are ready.
+            if (typeof playHeroicGateAnimation === 'function') {
+                playHeroicGateAnimation();
+            }
+        }
     </script>
 
     <!-- ===== HEROIC AGE GATE ANIMATION ===== -->
