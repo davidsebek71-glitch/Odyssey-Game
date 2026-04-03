@@ -1993,17 +1993,23 @@
         }
         body.heroic-age #arena-btn::before { display: none; }
         body.heroic-age #arena-btn .icon { display: none; }
+        body.heroic-age #arena-btn .arena-banner-wrapper {
+            position: relative;
+            display: inline-block;
+            line-height: 0;
+        }
         body.heroic-age #arena-btn .arena-banner-text {
             position: absolute;
-            bottom: 130px;
+            /* Banner body center = 45% from top of image (body runs 10%-80%) */
+            top: 45%;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translate(-50%, -50%);
             font-family: 'Cinzel', serif;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 700;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
             color: #ffffff;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+            text-shadow: 0 1px 6px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8);
             white-space: nowrap;
             z-index: 2;
             pointer-events: none;
@@ -3264,8 +3270,6 @@
             <button class="action-btn" onclick="openArena()" id="arena-btn" style="background: linear-gradient(135deg, #dc2626, #991b1b);">
                 <span class="icon">⚔️</span>
                 Battle Arena
-                <img class="arena-banner-img" id="arena-banner-img" src="" alt="" style="display:none;">
-                <span class="arena-banner-text" style="display:none;">⚔ Battle Arena ⚔</span>
             </button>
             <button class="action-btn" onclick="openHallOfHonor()" id="hall-of-honor-btn" style="background: linear-gradient(135deg, #b8860b, #8B6914); position: relative;">
                 <span class="icon">🏆</span>
@@ -13706,19 +13710,15 @@
 
         function loadArenaBanner() {
             var bannerSrc = '/images/heroic/banners/Red medieval banner on golden rod.png';
-            var img = document.getElementById('arena-banner-img');
-            var txt = document.querySelector('#arena-btn .arena-banner-text');
-            var icon = document.querySelector('#arena-btn .icon');
-            var label = document.querySelector('#arena-btn');
-            if (!img) return;
+            var btn = document.getElementById('arena-btn');
+            if (!btn) return;
 
             var loader = new Image();
             loader.crossOrigin = 'anonymous';
-            loader.onerror = function() {
-                // Banner image missing — keep original button look
-            };
+            loader.onerror = function() { /* keep original button */ };
             loader.onload = function() {
                 // Strip magenta via canvas
+                var finalSrc = bannerSrc;
                 try {
                     var canvas = document.createElement('canvas');
                     canvas.width  = loader.naturalWidth;
@@ -13731,19 +13731,33 @@
                         if (d[i] > 150 && d[i+2] > 150 && d[i+1] < 80) { d[i+3] = 0; }
                     }
                     ctx.putImageData(imageData, 0, 0);
-                    img.src = canvas.toDataURL('image/png');
-                } catch(e) {
-                    img.src = bannerSrc; // CORS fallback
-                }
-                // Switch button to banner mode
-                img.style.display = 'block';
-                if (txt) txt.style.display = 'block';
-                if (icon) icon.style.display = 'none';
-                // Hide the default text node (Battle Arena) by styling the button
-                label.style.fontSize = '0';       // hides text node
-                label.style.background = 'transparent';
-                label.style.border = 'none';
-                label.style.boxShadow = 'none';
+                    finalSrc = canvas.toDataURL('image/png');
+                } catch(e) { /* CORS fallback — use original */ }
+
+                // Build wrapper: relative div containing img + text overlay
+                // Text is positioned at 45% from top of image = center of banner body
+                var wrapper = document.createElement('div');
+                wrapper.className = 'arena-banner-wrapper';
+
+                var bannerImg = document.createElement('img');
+                bannerImg.className = 'arena-banner-img';
+                bannerImg.src = finalSrc;
+                bannerImg.alt = 'Battle Arena';
+
+                var bannerTxt = document.createElement('span');
+                bannerTxt.className = 'arena-banner-text';
+                bannerTxt.textContent = '⚔ BATTLE ARENA ⚔';
+
+                wrapper.appendChild(bannerImg);
+                wrapper.appendChild(bannerTxt);
+
+                // Clear button contents and replace with wrapper
+                btn.innerHTML = '';
+                btn.appendChild(wrapper);
+                btn.style.fontSize = '0';
+                btn.style.background = 'transparent';
+                btn.style.border = 'none';
+                btn.style.boxShadow = 'none';
             };
             loader.src = bannerSrc;
         }
