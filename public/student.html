@@ -1977,6 +1977,46 @@
             transform: translateY(-2px);
             color: #f3e8ff;
         }
+        /* Battle Arena banner button — Heroic Age only */
+        body.heroic-age #arena-btn {
+            background-image: url('/images/heroic/banners/Red medieval banner on golden rod.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent;
+            border: none;
+            border-top: none;
+            border-bottom: none;
+            border-left: none;
+            border-right: none;
+            box-shadow: none;
+            border-radius: 0;
+            min-height: 90px;
+            padding: 0;
+            font-family: 'Cinzel', serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #ffd700;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 10px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+            transition: filter 0.2s, transform 0.2s;
+        }
+        body.heroic-age #arena-btn .icon { display: none; }
+        body.heroic-age #arena-btn::before { display: none; }
+        body.heroic-age #arena-btn:hover {
+            background-image: url('/images/heroic/banners/Red medieval banner on golden rod.png');
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+            filter: drop-shadow(0 6px 14px rgba(220,38,38,0.7)) brightness(1.1);
+            transform: translateY(-3px) scale(1.04);
+        }
+
         body.heroic-age .stat-card {
             border-color: rgba(139,92,246,0.35);
             background: linear-gradient(180deg, rgba(88,28,200,0.12) 0%, rgba(60,10,140,0.08) 100%);
