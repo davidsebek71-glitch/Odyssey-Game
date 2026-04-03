@@ -1978,7 +1978,8 @@
             color: #f3e8ff;
         }
         /* Battle Arena banner button — Heroic Age only */
-        body.heroic-age #arena-btn {
+        /* All heroic banner buttons share these rules via .heroic-banner-btn class */
+        body.heroic-age .heroic-banner-btn {
             background: transparent;
             border: none;
             box-shadow: none;
@@ -1991,16 +1992,15 @@
             align-items: center;
             justify-content: center;
         }
-        body.heroic-age #arena-btn::before { display: none; }
-        body.heroic-age #arena-btn .icon { display: none; }
-        body.heroic-age #arena-btn .arena-banner-wrapper {
+        body.heroic-age .heroic-banner-btn::before { display: none; }
+        body.heroic-age .heroic-banner-btn .icon { display: none; }
+        body.heroic-age .heroic-banner-btn .arena-banner-wrapper {
             position: relative;
             display: inline-block;
             line-height: 0;
         }
-        body.heroic-age #arena-btn .arena-banner-text {
+        body.heroic-age .heroic-banner-btn .arena-banner-text {
             position: absolute;
-            /* Banner body center = 45% from top of image (body runs 10%-80%) */
             top: 45%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -2014,7 +2014,7 @@
             z-index: 2;
             pointer-events: none;
         }
-        body.heroic-age #arena-btn .arena-banner-img {
+        body.heroic-age .heroic-banner-btn .arena-banner-img {
             height: 260px;
             width: auto;
             display: block;
@@ -2022,11 +2022,11 @@
             transition: filter 0.2s, transform 0.2s;
             image-rendering: pixelated;
         }
-        body.heroic-age #arena-btn:hover .arena-banner-img {
-            filter: drop-shadow(0 6px 16px rgba(220,38,38,0.8)) brightness(1.15);
+        body.heroic-age .heroic-banner-btn:hover .arena-banner-img {
+            filter: drop-shadow(0 6px 16px rgba(0,0,0,0.6)) brightness(1.15);
             transform: translateY(-3px) scale(1.05);
         }
-        body.heroic-age #arena-btn:hover {
+        body.heroic-age .heroic-banner-btn:hover {
             background: transparent;
             border: none;
             box-shadow: none;
@@ -13762,6 +13762,7 @@
 
                         button.innerHTML = '';
                         button.appendChild(wrapper);
+                        button.classList.add('heroic-banner-btn');
                         button.style.fontSize   = '0';
                         button.style.background = 'transparent';
                         button.style.border     = 'none';
