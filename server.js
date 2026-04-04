@@ -10659,6 +10659,46 @@ app.get('/api/student/quiz-status', authenticateToken, (req, res) => {
   }
 });
 
+// --- Student: Heroic Age stat scores (Lore / Craft / Cunning / Honor) ---
+// Lore    = Classical quiz points
+// Craft   = Classical mural + word_cloud + creative points
+// Honor   = Classical comp_conn points
+// Cunning = arena battle wins × 3
+app.get('/api/student/heroic-stats', authenticateToken, (req, res) => {
+  try {
+    const student_id = req.user.id;
+
+    const records = query(`
+      SELECT gr.points_earned, ar.assignment_type, ar.section
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id = ? AND gr.points_earned > 0
+    `, [student_id]);
+
+    let lore = 0, craft = 0, honor = 0;
+    for (const r of records) {
+      const t = r.assignment_type;
+      const s = r.section || '';
+      const isClassical = s === 'classical' || s === 'classical_creative' || s === 'bonus';
+      if (!isClassical) continue;
+      if (t === 'quiz')                                          lore  += r.points_earned;
+      else if (t === 'mural' || t === 'word_cloud' || t === 'creative') craft += r.points_earned;
+      else if (t === 'comp_conn')                                honor += r.points_earned;
+    }
+
+    const battleStats = query(
+      'SELECT wins FROM arena_battle_stats WHERE student_id = ?',
+      [student_id]
+    )[0];
+    const cunning = ((battleStats && battleStats.wins) || 0) * 3;
+
+    res.json({ lore, craft, cunning, honor });
+  } catch (err) {
+    console.error('Heroic stats error:', err);
+    res.status(500).json({ error: 'Failed to compute heroic stats' });
+  }
+});
+
 // --- Student: Get virtue summary ---
 app.get('/api/student/virtues', authenticateToken, (req, res) => {
   try {
