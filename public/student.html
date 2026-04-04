@@ -2107,68 +2107,6 @@
             background: rgba(74,222,128,0.1);
             box-shadow: 0 0 8px rgba(74,222,128,0.3);
         }
-        /* ── Heroic Stat Panel ── */
-        .heroic-stat-panel {
-            background: linear-gradient(180deg, rgba(15,5,21,0.95), rgba(26,10,46,0.9));
-            border: 1px solid rgba(124,58,237,0.2);
-            border-radius: 16px;
-            padding: 16px 20px 14px;
-            margin-bottom: 16px;
-        }
-        .heroic-stat-panel-title {
-            font-family: 'Cinzel', serif;
-            font-size: 11px; font-weight: 700;
-            color: rgba(196,181,253,0.6);
-            letter-spacing: 5px; text-transform: uppercase;
-            text-align: center; margin-bottom: 12px;
-        }
-        .heroic-stat-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .heroic-stat-card {
-            background: rgba(124,58,237,0.07);
-            border: 1px solid rgba(124,58,237,0.18);
-            border-radius: 12px;
-            padding: 10px 14px;
-            display: flex; align-items: center; gap: 10px;
-            transition: border-color 0.3s;
-        }
-        .heroic-stat-card:hover { border-color: rgba(124,58,237,0.4); }
-        .heroic-stat-icon {
-            font-size: 22px; flex-shrink: 0;
-            width: 36px; height: 36px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 8px;
-        }
-        .heroic-stat-info { flex: 1; min-width: 0; }
-        .heroic-stat-name {
-            font-family: 'Cinzel', serif;
-            font-size: 10px; font-weight: 700;
-            letter-spacing: 2px; text-transform: uppercase;
-            color: rgba(196,181,253,0.7);
-            margin-bottom: 2px;
-        }
-        .heroic-stat-score {
-            font-family: 'Cinzel', serif;
-            font-size: 20px; font-weight: 700;
-            color: #e9d5ff; line-height: 1;
-        }
-        .heroic-stat-tier {
-            font-size: 10px;
-            color: rgba(196,181,253,0.45);
-            margin-top: 2px; letter-spacing: 1px;
-        }
-        /* Stat accent colors */
-        .heroic-stat-card.lore  .heroic-stat-icon { background: rgba(99,102,241,0.15); }
-        .heroic-stat-card.lore  .heroic-stat-score { color: #a5b4fc; }
-        .heroic-stat-card.craft .heroic-stat-icon { background: rgba(245,158,11,0.12); }
-        .heroic-stat-card.craft .heroic-stat-score { color: #fcd34d; }
-        .heroic-stat-card.cunning .heroic-stat-icon { background: rgba(52,211,153,0.12); }
-        .heroic-stat-card.cunning .heroic-stat-score { color: #6ee7b7; }
-        .heroic-stat-card.honor .heroic-stat-icon { background: rgba(251,113,133,0.12); }
-        .heroic-stat-card.honor .heroic-stat-score { color: #fda4af; }
         .hero-cards-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -2410,6 +2348,50 @@
             position: relative;
             z-index: 1;
         }
+        /* ── Heroic Stat Panel (injected into avatar-reveal-section) ── */
+        .heroic-stat-panel {
+            display: flex; flex-direction: column; gap: 8px;
+            padding: 0 14px; min-width: 170px;
+        }
+        .heroic-stat-panel-title {
+            font-family: 'Cinzel', serif;
+            font-size: 10px; font-weight: 700;
+            color: rgba(196,181,253,0.55);
+            letter-spacing: 4px; text-transform: uppercase;
+            text-align: center; margin-bottom: 4px;
+        }
+        .heroic-stat-card {
+            display: flex; align-items: center; gap: 9px;
+            padding: 7px 10px; border-radius: 9px;
+            background: rgba(124,58,237,0.07);
+            border: 1px solid rgba(124,58,237,0.18);
+            transition: border-color 0.3s; min-width: 140px;
+        }
+        .heroic-stat-card:hover { border-color: rgba(124,58,237,0.38); }
+        .heroic-stat-icon {
+            font-size: 18px; width: 30px; height: 30px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 7px;
+        }
+        .heroic-stat-info { flex: 1; min-width: 0; }
+        .heroic-stat-name {
+            font-family: 'Cinzel', serif; font-size: 9px; font-weight: 700;
+            letter-spacing: 2px; text-transform: uppercase;
+            color: rgba(196,181,253,0.6); margin-bottom: 1px;
+        }
+        .heroic-stat-score {
+            font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700;
+            color: #e9d5ff; line-height: 1;
+        }
+        .heroic-stat-tier { font-size: 9px; color: rgba(196,181,253,0.4); margin-top: 1px; letter-spacing: 1px; }
+        .heroic-stat-card.lore   .heroic-stat-icon { background: rgba(99,102,241,0.15); }
+        .heroic-stat-card.lore   .heroic-stat-score { color: #a5b4fc; }
+        .heroic-stat-card.craft  .heroic-stat-icon { background: rgba(245,158,11,0.12); }
+        .heroic-stat-card.craft  .heroic-stat-score { color: #fcd34d; }
+        .heroic-stat-card.cunning .heroic-stat-icon { background: rgba(52,211,153,0.12); }
+        .heroic-stat-card.cunning .heroic-stat-score { color: #6ee7b7; }
+        .heroic-stat-card.honor  .heroic-stat-icon { background: rgba(251,113,133,0.12); }
+        .heroic-stat-card.honor  .heroic-stat-score { color: #fda4af; }
         .avatar-reveal-title {
             font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
             color: rgba(74,144,217,0.8); letter-spacing: 3px; text-transform: uppercase;
@@ -3655,45 +3637,6 @@
                 <!-- Populated by JS -->
             </div>
         </div>
-
-        <!-- Hero Stat Panel: Lore / Craft / Cunning / Honor -->
-        <div class="heroic-stat-panel" id="heroic-stat-panel">
-            <div class="heroic-stat-panel-title">⚔️ Hero Stats</div>
-            <div class="heroic-stat-grid">
-                <div class="heroic-stat-card lore">
-                    <div class="heroic-stat-icon">📚</div>
-                    <div class="heroic-stat-info">
-                        <div class="heroic-stat-name">Lore</div>
-                        <div class="heroic-stat-score" id="stat-lore">—</div>
-                        <div class="heroic-stat-tier" id="stat-lore-tier">Loading...</div>
-                    </div>
-                </div>
-                <div class="heroic-stat-card craft">
-                    <div class="heroic-stat-icon">🔨</div>
-                    <div class="heroic-stat-info">
-                        <div class="heroic-stat-name">Craft</div>
-                        <div class="heroic-stat-score" id="stat-craft">—</div>
-                        <div class="heroic-stat-tier" id="stat-craft-tier">Loading...</div>
-                    </div>
-                </div>
-                <div class="heroic-stat-card cunning">
-                    <div class="heroic-stat-icon">🎯</div>
-                    <div class="heroic-stat-info">
-                        <div class="heroic-stat-name">Cunning</div>
-                        <div class="heroic-stat-score" id="stat-cunning">—</div>
-                        <div class="heroic-stat-tier" id="stat-cunning-tier">Loading...</div>
-                    </div>
-                </div>
-                <div class="heroic-stat-card honor">
-                    <div class="heroic-stat-icon">⚖️</div>
-                    <div class="heroic-stat-info">
-                        <div class="heroic-stat-name">Honor</div>
-                        <div class="heroic-stat-score" id="stat-honor">—</div>
-                        <div class="heroic-stat-tier" id="stat-honor-tier">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Submit Points Modal -->
@@ -4338,7 +4281,7 @@
                     loadHeroicBanners();
                     // Swap stat card icons for heroic theme
                     updateHeroicStatIcons();
-                    // Load Lore / Craft / Cunning / Honor stat panel
+                    // Inject Lore / Craft / Cunning / Honor stat panel next to avatar
                     fetchHeroicStats();
                 } else {
                     heroicSection.style.display = 'none';
@@ -4349,6 +4292,9 @@
                     // Hide hero's journey section
                     var hjSection = document.getElementById('heroic-journey-section');
                     if (hjSection) hjSection.style.display = 'none';
+                    // Remove injected stat panel if present
+                    var oldPanel = document.getElementById('heroic-stat-panel');
+                    if (oldPanel) oldPanel.remove();
                 }
             }
 
@@ -13995,6 +13941,10 @@
         }
 
         async function fetchHeroicStats() {
+            // Remove any previously injected panel (e.g. on dashboard refresh)
+            var existing = document.getElementById('heroic-stat-panel');
+            if (existing) existing.remove();
+
             try {
                 const res = await fetch('/api/student/heroic-stats', {
                     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
@@ -14002,33 +13952,52 @@
                 if (!res.ok) return;
                 const data = await res.json();
 
-                function statTier(score, thresholds, labels) {
-                    for (var i = thresholds.length - 1; i >= 0; i--) {
-                        if (score >= thresholds[i]) return labels[i];
-                    }
-                    return labels[0];
+                function statTier(score) {
+                    if (score >= 50) return 'Legend';
+                    if (score >= 25) return 'Master';
+                    if (score >= 10) return 'Adept';
+                    return 'Novice';
                 }
 
-                const tiers   = [0, 10, 25, 50];
-                const tierLbl = ['Novice', 'Adept', 'Master', 'Legend'];
+                var panel = document.createElement('div');
+                panel.id = 'heroic-stat-panel';
+                panel.className = 'heroic-stat-panel';
+                panel.innerHTML =
+                    '<div class="heroic-stat-panel-title">Hero Stats</div>' +
+                    '<div class="heroic-stat-card lore">' +
+                        '<div class="heroic-stat-icon">📚</div>' +
+                        '<div class="heroic-stat-info">' +
+                            '<div class="heroic-stat-name">Lore</div>' +
+                            '<div class="heroic-stat-score">' + data.lore + '</div>' +
+                            '<div class="heroic-stat-tier">' + statTier(data.lore) + '</div>' +
+                        '</div></div>' +
+                    '<div class="heroic-stat-card craft">' +
+                        '<div class="heroic-stat-icon">🔨</div>' +
+                        '<div class="heroic-stat-info">' +
+                            '<div class="heroic-stat-name">Craft</div>' +
+                            '<div class="heroic-stat-score">' + data.craft + '</div>' +
+                            '<div class="heroic-stat-tier">' + statTier(data.craft) + '</div>' +
+                        '</div></div>' +
+                    '<div class="heroic-stat-card cunning">' +
+                        '<div class="heroic-stat-icon">🎯</div>' +
+                        '<div class="heroic-stat-info">' +
+                            '<div class="heroic-stat-name">Cunning</div>' +
+                            '<div class="heroic-stat-score">' + data.cunning + '</div>' +
+                            '<div class="heroic-stat-tier">' + statTier(data.cunning) + '</div>' +
+                        '</div></div>' +
+                    '<div class="heroic-stat-card honor">' +
+                        '<div class="heroic-stat-icon">⚖️</div>' +
+                        '<div class="heroic-stat-info">' +
+                            '<div class="heroic-stat-name">Honor</div>' +
+                            '<div class="heroic-stat-score">' + data.honor + '</div>' +
+                            '<div class="heroic-stat-tier">' + statTier(data.honor) + '</div>' +
+                        '</div></div>';
 
-                var lEl   = document.getElementById('stat-lore');
-                var cEl   = document.getElementById('stat-craft');
-                var cuEl  = document.getElementById('stat-cunning');
-                var hEl   = document.getElementById('stat-honor');
-                var ltEl  = document.getElementById('stat-lore-tier');
-                var ctEl  = document.getElementById('stat-craft-tier');
-                var cutEl = document.getElementById('stat-cunning-tier');
-                var htEl  = document.getElementById('stat-honor-tier');
-
-                if (lEl)   lEl.textContent   = data.lore;
-                if (cEl)   cEl.textContent   = data.craft;
-                if (cuEl)  cuEl.textContent  = data.cunning;
-                if (hEl)   hEl.textContent   = data.honor;
-                if (ltEl)  ltEl.textContent  = statTier(data.lore,    tiers, tierLbl);
-                if (ctEl)  ctEl.textContent  = statTier(data.craft,   tiers, tierLbl);
-                if (cutEl) cutEl.textContent = statTier(data.cunning, tiers, tierLbl);
-                if (htEl)  htEl.textContent  = statTier(data.honor,   tiers, tierLbl);
+                // Inject as the rightmost child of avatar-reveal-section
+                var avatarSection = document.getElementById('avatar-reveal-section');
+                if (avatarSection) {
+                    avatarSection.appendChild(panel);
+                }
             } catch(e) {
                 console.warn('fetchHeroicStats error:', e);
             }
