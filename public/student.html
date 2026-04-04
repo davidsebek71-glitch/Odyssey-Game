@@ -2392,6 +2392,58 @@
         .heroic-stat-card.cunning .heroic-stat-score { color: #6ee7b7; }
         .heroic-stat-card.honor  .heroic-stat-icon { background: rgba(251,113,133,0.12); }
         .heroic-stat-card.honor  .heroic-stat-score { color: #fda4af; }
+        /* ── Left status panel (Hera + Drachma) ── */
+        .heroic-left-panel {
+            display: flex; flex-direction: column; gap: 8px;
+            padding: 0 14px; min-width: 155px;
+        }
+        .heroic-left-panel-title {
+            font-family: 'Cinzel', serif;
+            font-size: 10px; font-weight: 700;
+            color: rgba(196,181,253,0.55);
+            letter-spacing: 4px; text-transform: uppercase;
+            text-align: center; margin-bottom: 4px;
+        }
+        .hera-card {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 10px 12px; border-radius: 9px;
+            background: rgba(124,58,237,0.07);
+            border: 1px solid rgba(124,58,237,0.18);
+            transition: border-color 0.3s; text-align: center;
+        }
+        .hera-card-face { font-size: 28px; line-height: 1; margin-bottom: 4px; }
+        .hera-card-label {
+            font-family: 'Cinzel', serif; font-size: 9px; font-weight: 700;
+            letter-spacing: 2px; text-transform: uppercase;
+            color: rgba(196,181,253,0.6); margin-bottom: 3px;
+        }
+        .hera-card-disposition {
+            font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .hera-card-sub { font-size: 9px; color: rgba(196,181,253,0.4); margin-top: 2px; letter-spacing: 1px; }
+        .hera-wrathful    { color: #f87171; border-color: rgba(248,113,113,0.3) !important; }
+        .hera-suspicious  { color: #fb923c; border-color: rgba(251,146,60,0.25) !important; }
+        .hera-indifferent { color: rgba(196,181,253,0.6); }
+        .hera-appeased    { color: #a3e635; border-color: rgba(163,230,53,0.25) !important; }
+        .hera-favored     { color: #fcd34d; border-color: rgba(252,211,77,0.4) !important; }
+        .drachma-card {
+            display: flex; align-items: center; gap: 9px;
+            padding: 7px 10px; border-radius: 9px;
+            background: rgba(109,40,217,0.1);
+            border: 1px solid rgba(192,132,252,0.2);
+        }
+        .drachma-card-icon { font-size: 20px; flex-shrink: 0; }
+        .drachma-card-info { flex: 1; min-width: 0; }
+        .drachma-card-label {
+            font-family: 'Cinzel', serif; font-size: 9px; font-weight: 700;
+            letter-spacing: 2px; text-transform: uppercase;
+            color: rgba(196,181,253,0.6); margin-bottom: 1px;
+        }
+        .drachma-card-amount {
+            font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700;
+            color: #e9d5ff; line-height: 1;
+        }
         .avatar-reveal-title {
             font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
             color: rgba(74,144,217,0.8); letter-spacing: 3px; text-transform: uppercase;
@@ -3630,13 +3682,6 @@
 
     <!-- ==================== HEROIC AGE SECTION ==================== -->
     <div id="heroic-age-section" style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
-        <!-- Read-Only Classical Virtue Pips (compact summary) -->
-        <div class="heroic-myth-bar">
-            <div class="heroic-myth-bar-title">📜 Classical Virtues</div>
-            <div class="heroic-myth-row" id="heroic-myth-row">
-                <!-- Populated by JS -->
-            </div>
-        </div>
     </div>
 
     <!-- Submit Points Modal -->
@@ -4295,6 +4340,8 @@
                     // Remove injected stat panel if present
                     var oldPanel = document.getElementById('heroic-stat-panel');
                     if (oldPanel) oldPanel.remove();
+                    var oldLeft = document.getElementById('heroic-left-panel');
+                    if (oldLeft) oldLeft.remove();
                 }
             }
 
@@ -13941,9 +13988,11 @@
         }
 
         async function fetchHeroicStats() {
-            // Remove any previously injected panel (e.g. on dashboard refresh)
-            var existing = document.getElementById('heroic-stat-panel');
-            if (existing) existing.remove();
+            // Remove any previously injected panels (idempotent on refresh)
+            var existingRight = document.getElementById('heroic-stat-panel');
+            if (existingRight) existingRight.remove();
+            var existingLeft = document.getElementById('heroic-left-panel');
+            if (existingLeft) existingLeft.remove();
 
             try {
                 const res = await fetch('/api/student/heroic-stats', {
@@ -13952,17 +14001,29 @@
                 if (!res.ok) return;
                 const data = await res.json();
 
+                // ── Tier helpers ────────────────────────────────────────
                 function statTier(score) {
                     if (score >= 50) return 'Legend';
                     if (score >= 25) return 'Master';
                     if (score >= 10) return 'Adept';
                     return 'Novice';
                 }
+                function heraDisposition(honor) {
+                    if (honor >= 45) return { face: '👑', label: 'Favored',     cls: 'hera-favored',     sub: 'She fights for you' };
+                    if (honor >= 30) return { face: '🕊️', label: 'Appeased',    cls: 'hera-appeased',    sub: 'Grudging respect' };
+                    if (honor >= 20) return { face: '😐', label: 'Indifferent', cls: 'hera-indifferent', sub: 'Neither helps nor hinders' };
+                    if (honor >= 10) return { face: '😒', label: 'Suspicious',  cls: 'hera-suspicious',  sub: 'Watching closely' };
+                    return              { face: '😤', label: 'Wrathful',     cls: 'hera-wrathful',    sub: 'Obstacles ahead' };
+                }
 
-                var panel = document.createElement('div');
-                panel.id = 'heroic-stat-panel';
-                panel.className = 'heroic-stat-panel';
-                panel.innerHTML =
+                var avatarSection = document.getElementById('avatar-reveal-section');
+                if (!avatarSection) return;
+
+                // ── RIGHT PANEL: Hero Stats ──────────────────────────────
+                var rightPanel = document.createElement('div');
+                rightPanel.id = 'heroic-stat-panel';
+                rightPanel.className = 'heroic-stat-panel';
+                rightPanel.innerHTML =
                     '<div class="heroic-stat-panel-title">Hero Stats</div>' +
                     '<div class="heroic-stat-card lore">' +
                         '<div class="heroic-stat-icon">📚</div>' +
@@ -13992,12 +14053,42 @@
                             '<div class="heroic-stat-score">' + data.honor + '</div>' +
                             '<div class="heroic-stat-tier">' + statTier(data.honor) + '</div>' +
                         '</div></div>';
+                avatarSection.appendChild(rightPanel);
 
-                // Inject as the rightmost child of avatar-reveal-section
-                var avatarSection = document.getElementById('avatar-reveal-section');
-                if (avatarSection) {
-                    avatarSection.appendChild(panel);
-                }
+                // ── LEFT PANEL: Hera Disposition + Drachma ──────────────
+                var hera = heraDisposition(data.honor);
+                var drachma = (window.dashboardData && window.dashboardData.student && window.dashboardData.student.drachma != null)
+                    ? window.dashboardData.student.drachma
+                    : (window.currentStudentData && window.currentStudentData.drachma != null)
+                    ? window.currentStudentData.drachma
+                    : 0;
+
+                var leftPanel = document.createElement('div');
+                leftPanel.id = 'heroic-left-panel';
+                leftPanel.className = 'heroic-left-panel';
+                leftPanel.innerHTML =
+                    '<div class="heroic-left-panel-title">Status</div>' +
+                    '<div class="hera-card ' + hera.cls + '">' +
+                        '<div class="hera-card-face">' + hera.face + '</div>' +
+                        '<div class="hera-card-label">Hera\'s View</div>' +
+                        '<div class="hera-card-disposition ' + hera.cls + '">' + hera.label + '</div>' +
+                        '<div class="hera-card-sub">' + hera.sub + '</div>' +
+                    '</div>' +
+                    '<div class="drachma-card">' +
+                        '<div class="drachma-card-icon">🪙</div>' +
+                        '<div class="drachma-card-info">' +
+                            '<div class="drachma-card-label">Drachma</div>' +
+                            '<div class="drachma-card-amount" id="left-drachma-amount">' + Number(drachma).toLocaleString() + '</div>' +
+                        '</div>' +
+                    '</div>';
+
+                // Insert BEFORE virtue-column-left (first child of avatar-reveal-section)
+                avatarSection.insertBefore(leftPanel, avatarSection.firstChild);
+
+                // Hide the header drachma counter — now shown in left panel
+                var headerDrachma = document.getElementById('heroic-drachma-display');
+                if (headerDrachma) headerDrachma.style.display = 'none';
+
             } catch(e) {
                 console.warn('fetchHeroicStats error:', e);
             }
