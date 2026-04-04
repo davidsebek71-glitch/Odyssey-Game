@@ -4326,7 +4326,7 @@
                     loadHeroicBanners();
                     // Swap stat card icons for heroic theme
                     updateHeroicStatIcons();
-                    // Inject Lore / Craft / Cunning / Honor stat panel next to avatar
+                    // Inject Lore/Craft/Cunning/Honor panel (right) + Hera/Drachma panel (left)
                     fetchHeroicStats();
                 } else {
                     heroicSection.style.display = 'none';
@@ -4337,7 +4337,7 @@
                     // Hide hero's journey section
                     var hjSection = document.getElementById('heroic-journey-section');
                     if (hjSection) hjSection.style.display = 'none';
-                    // Remove injected stat panel if present
+                    // Remove injected stat panels if present
                     var oldPanel = document.getElementById('heroic-stat-panel');
                     if (oldPanel) oldPanel.remove();
                     var oldLeft = document.getElementById('heroic-left-panel');
@@ -14008,6 +14008,13 @@
                     if (score >= 10) return 'Adept';
                     return 'Novice';
                 }
+
+                // Equipment tier from Craft score (master doc: Craft 10+ = Bronze at Ch.1 start)
+                function equipTier(craft) {
+                    if (craft >= 10) return '· Bronze Tier';
+                    return '· Wood / Leather';
+                }
+
                 function heraDisposition(honor) {
                     if (honor >= 45) return { face: '👑', label: 'Favored',     cls: 'hera-favored',     sub: 'She fights for you' };
                     if (honor >= 30) return { face: '🕊️', label: 'Appeased',    cls: 'hera-appeased',    sub: 'Grudging respect' };
@@ -14037,7 +14044,7 @@
                         '<div class="heroic-stat-info">' +
                             '<div class="heroic-stat-name">Craft</div>' +
                             '<div class="heroic-stat-score">' + data.craft + '</div>' +
-                            '<div class="heroic-stat-tier">' + statTier(data.craft) + '</div>' +
+                            '<div class="heroic-stat-tier">' + statTier(data.craft) + ' ' + equipTier(data.craft) + '</div>' +
                         '</div></div>' +
                     '<div class="heroic-stat-card cunning">' +
                         '<div class="heroic-stat-icon">🎯</div>' +
@@ -14078,14 +14085,14 @@
                         '<div class="drachma-card-icon">🪙</div>' +
                         '<div class="drachma-card-info">' +
                             '<div class="drachma-card-label">Drachma</div>' +
-                            '<div class="drachma-card-amount" id="left-drachma-amount">' + Number(drachma).toLocaleString() + '</div>' +
+                            '<div class="drachma-card-amount">' + Number(drachma).toLocaleString() + '</div>' +
                         '</div>' +
                     '</div>';
 
                 // Insert BEFORE virtue-column-left (first child of avatar-reveal-section)
                 avatarSection.insertBefore(leftPanel, avatarSection.firstChild);
 
-                // Hide the header drachma counter — now shown in left panel
+                // Hide the header drachma counter — shown in left panel now
                 var headerDrachma = document.getElementById('heroic-drachma-display');
                 if (headerDrachma) headerDrachma.style.display = 'none';
 
