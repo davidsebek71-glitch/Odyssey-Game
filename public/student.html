@@ -2392,6 +2392,61 @@
         .heroic-stat-card.cunning .heroic-stat-score { color: #6ee7b7; }
         .heroic-stat-card.honor  .heroic-stat-icon { background: rgba(251,113,133,0.12); }
         .heroic-stat-card.honor  .heroic-stat-score { color: #fda4af; }
+        /* ── Crew Strip ── */
+        .heroic-crew-strip {
+            max-width: 1400px; margin: 0 auto 16px; padding: 0 20px;
+        }
+        .heroic-crew-inner {
+            background: linear-gradient(180deg, rgba(10,15,30,0.9), rgba(5,10,25,0.95));
+            border: 1px solid rgba(74,144,217,0.15);
+            border-radius: 14px; padding: 14px 20px;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .crew-strip-title {
+            font-family: 'Cinzel', serif; font-size: 10px; font-weight: 700;
+            color: rgba(196,181,253,0.5); letter-spacing: 4px;
+            text-transform: uppercase; white-space: nowrap; margin-right: 4px;
+        }
+        .crew-member-chip {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 12px 6px 6px; border-radius: 20px;
+            border: 1px solid rgba(124,58,237,0.2);
+            background: rgba(124,58,237,0.06); transition: border-color 0.2s;
+        }
+        .crew-member-chip:hover { border-color: rgba(124,58,237,0.4); }
+        .crew-avatar-thumb {
+            width: 32px; height: 32px; border-radius: 50%;
+            object-fit: contain; image-rendering: pixelated;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+        }
+        .crew-avatar-fallback {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(124,58,237,0.15);
+            border: 1px solid rgba(124,58,237,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; flex-shrink: 0;
+        }
+        .crew-member-info { min-width: 0; }
+        .crew-member-name {
+            font-family: 'Cinzel', serif; font-size: 10px; font-weight: 700;
+            color: #e9d5ff; letter-spacing: 1px; white-space: nowrap;
+        }
+        .crew-avatar-type {
+            font-size: 9px; color: rgba(196,181,253,0.5);
+            white-space: nowrap; margin-top: 1px;
+        }
+        .crew-bonus-pill {
+            font-size: 9px; font-weight: 600; color: rgba(196,181,253,0.7);
+            background: rgba(124,58,237,0.12);
+            border: 1px solid rgba(124,58,237,0.2);
+            border-radius: 10px; padding: 2px 7px;
+            white-space: nowrap; margin-left: auto;
+        }
+        .crew-no-avatar {
+            font-size: 11px; color: rgba(196,181,253,0.3);
+            font-style: italic; letter-spacing: 1px;
+        }
         /* ── Left status panel (Hera + Drachma) ── */
         .heroic-left-panel {
             display: flex; flex-direction: column; gap: 8px;
@@ -4121,7 +4176,6 @@
                 dashboardData = await response.json();
                 renderDashboard();
                 loadBuildingActivations(); // Load building activations after dashboard
-                loadBadgeStatus(); // Check for new badges
             } catch (err) {
                 console.error('Failed to load dashboard:', err);
             }
@@ -4337,11 +4391,13 @@
                     // Hide hero's journey section
                     var hjSection = document.getElementById('heroic-journey-section');
                     if (hjSection) hjSection.style.display = 'none';
-                    // Remove injected stat panels if present
+                    // Remove injected panels on view toggle
                     var oldPanel = document.getElementById('heroic-stat-panel');
                     if (oldPanel) oldPanel.remove();
                     var oldLeft = document.getElementById('heroic-left-panel');
                     if (oldLeft) oldLeft.remove();
+                    var oldCrew = document.getElementById('heroic-crew-strip');
+                    if (oldCrew) oldCrew.remove();
                 }
             }
 
@@ -14006,6 +14062,8 @@
             if (existingRight) existingRight.remove();
             var existingLeft = document.getElementById('heroic-left-panel');
             if (existingLeft) existingLeft.remove();
+            var existingCrew = document.getElementById('heroic-crew-strip');
+            if (existingCrew) existingCrew.remove();
 
             try {
                 const res = await fetch('/api/student/heroic-stats', {
@@ -14109,9 +14167,86 @@
                 var headerDrachma = document.getElementById('heroic-drachma-display');
                 if (headerDrachma) headerDrachma.style.display = 'none';
 
+                // ── CREW STRIP ───────────────────────────────────────────
+                renderCrewStrip(avatarSection);
+
             } catch(e) {
                 console.warn('fetchHeroicStats error:', e);
             }
+        }
+
+        function renderCrewStrip(avatarSection) {
+            // Passive bonuses per avatar archetype (master doc §3.7)
+            var CREW_BONUSES = {
+                seeker:  '+1 free path exploration',
+                fallen:  '+5% starting Drachma',
+                devoted: '+1 crew loyalty buffer',
+                mirror:  '1 NPC hint per chapter',
+                builder: '+1 equipment durability',
+                tested:  '+2 Honor at chapter start',
+                eternal: 'First Oracle free'
+            };
+            var AVATAR_EMOJI = {
+                seeker: '🔍', fallen: '🔥', devoted: '🎵',
+                mirror: '🪞', builder: '🔨', tested: '⚖️', eternal: '⭐'
+            };
+
+            if (!window.dashboardData || !window.dashboardData.members) return;
+            var myId = window.currentStudentData && window.currentStudentData.student_id;
+            var teammates = window.dashboardData.members.filter(function(m) {
+                return m.student_id !== myId && !m.is_ghost;
+            });
+
+            var strip = document.createElement('div');
+            strip.id = 'heroic-crew-strip';
+            strip.className = 'heroic-crew-strip';
+
+            if (teammates.length === 0) {
+                strip.innerHTML = '<div class="heroic-crew-inner"><span class="crew-strip-title">Your Crew</span><span class="crew-no-avatar">No alliance members yet</span></div>';
+            } else {
+                var chipsHtml = teammates.map(function(m) {
+                    var avatarKey = m.selected_avatar ? m.selected_avatar.split('_')[0] : null;
+                    var avData = avatarKey && typeof HEROIC_AVATARS !== 'undefined'
+                        ? HEROIC_AVATARS.find(function(a) { return a.key === avatarKey; })
+                        : null;
+                    var bonus = avatarKey ? (CREW_BONUSES[avatarKey] || '') : '';
+                    var color = avData ? avData.color : 'rgba(196,181,253,0.5)';
+                    var borderColor = avData ? avData.borderColor : 'rgba(124,58,237,0.2)';
+
+                    var avatarThumb;
+                    if (avatarKey && m.selected_avatar) {
+                        var parts = m.selected_avatar.split('_');
+                        var gender = parts[1] || 'male';
+                        var skin   = parts[2] || 'medium';
+                        var src = '/images/heroic/avatars/' + avatarKey + '/' + avatarKey + '_' + gender + '_' + skin + '_base.png';
+                        var emoji = AVATAR_EMOJI[avatarKey] || '⚔️';
+                        avatarThumb =
+                            '<img class="crew-avatar-thumb" src="' + src + '" alt="' + avatarKey + '" ' +
+                                'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';">' +
+                            '<div class="crew-avatar-fallback" style="display:none;">' + emoji + '</div>';
+                    } else {
+                        avatarThumb = '<div class="crew-avatar-fallback">⚔️</div>';
+                    }
+
+                    var bonusPill = bonus
+                        ? '<span class="crew-bonus-pill">' + bonus + '</span>'
+                        : '';
+
+                    return '<div class="crew-member-chip" style="border-color:' + borderColor + ';">' +
+                        avatarThumb +
+                        '<div class="crew-member-info">' +
+                            '<div class="crew-member-name" style="color:' + color + ';">' + m.name.split(' ')[0] + '</div>' +
+                            '<div class="crew-avatar-type">' + (avData ? avData.name : 'No avatar yet') + '</div>' +
+                        '</div>' +
+                        bonusPill +
+                    '</div>';
+                }).join('');
+
+                strip.innerHTML = '<div class="heroic-crew-inner"><span class="crew-strip-title">Your Crew</span>' + chipsHtml + '</div>';
+            }
+
+            // Insert immediately after the avatar-reveal-section
+            avatarSection.parentNode.insertBefore(strip, avatarSection.nextSibling);
         }
 
         function updateHeroicProgressBar(voyageLogComplete) {
@@ -14198,6 +14333,13 @@
         function closeHallOfHonor() {
             document.getElementById('hall-of-honor-modal').classList.remove('show');
             stopOlympusAnimation();
+            // Release canvas pixel buffers to free GPU/CPU memory
+            const c1 = document.getElementById('olympus-hall-canvas');
+            const c2 = document.getElementById('olympus-hall-avatar');
+            if (c1) { c1.width = 1; c1.height = 1; }
+            if (c2) { c2.width = 1; c2.height = 1; }
+            // Allow GC to reclaim the stripped warrior image (reloaded fresh on next open)
+            warriorAvatarImg = null;
         }
         
         function renderHallOfHonor() {
