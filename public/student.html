@@ -2392,34 +2392,6 @@
         .heroic-stat-card.cunning .heroic-stat-score { color: #6ee7b7; }
         .heroic-stat-card.honor  .heroic-stat-icon { background: rgba(251,113,133,0.12); }
         .heroic-stat-card.honor  .heroic-stat-score { color: #fda4af; }
-        /* ── Heroic stat tooltips ── */
-        .heroic-tip-wrap { position: relative; }
-        .heroic-tip-wrap .heroic-tooltip {
-            display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
-            transform: translateX(-50%);
-            background: rgba(10,5,30,0.97); border: 1px solid rgba(167,139,250,0.35);
-            border-radius: 10px; padding: 10px 13px; width: 220px;
-            font-family: 'Inter', sans-serif; font-size: 12px; line-height: 1.5;
-            color: rgba(233,213,255,0.85); z-index: 200; pointer-events: none;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-            white-space: normal; text-align: left;
-        }
-        .heroic-tip-wrap .heroic-tooltip::after {
-            content: ''; position: absolute; top: 100%; left: 50%;
-            transform: translateX(-50%);
-            border: 6px solid transparent;
-            border-top-color: rgba(167,139,250,0.35);
-        }
-        .heroic-tip-wrap:hover .heroic-tooltip { display: block; }
-        .heroic-tooltip-label {
-            font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-            font-size: 10px; color: #c4b5fd; margin-bottom: 5px;
-        }
-        .heroic-tooltip-next {
-            margin-top: 6px; font-size: 11px;
-            color: rgba(196,181,253,0.5); border-top: 1px solid rgba(167,139,250,0.15);
-            padding-top: 5px;
-        }
         /* ── Crew Strip ── */
         .heroic-crew-strip {
             max-width: 1400px; margin: 0 auto 16px; padding: 0 20px;
@@ -14107,68 +14079,19 @@
                     if (score >= 10) return 'Adept';
                     return 'Novice';
                 }
+
+                // Equipment tier from Craft score (master doc: Craft 10+ = Bronze at Ch.1 start)
                 function equipTier(craft) {
-                    if (craft >= 10) return '\u00b7 Bronze Tier';
-                    return '\u00b7 Wood / Leather';
-                }
-                function heraDisposition(honor) {
-                    if (honor >= 45) return { face: '\ud83d\udc51', label: 'Favored',     cls: 'hera-favored',     sub: 'She fights for you' };
-                    if (honor >= 30) return { face: '\ud83d\udd4a\ufe0f', label: 'Appeased',    cls: 'hera-appeased',    sub: 'Grudging respect' };
-                    if (honor >= 20) return { face: '\ud83d\ude10', label: 'Indifferent', cls: 'hera-indifferent', sub: 'Neither helps nor hinders' };
-                    if (honor >= 10) return { face: '\ud83d\ude12', label: 'Suspicious',  cls: 'hera-suspicious',  sub: 'Watching closely' };
-                    return              { face: '\ud83d\ude24', label: 'Wrathful',     cls: 'hera-wrathful',    sub: 'Obstacles ahead' };
+                    if (craft >= 10) return '· Bronze Tier';
+                    return '· Wood / Leather';
                 }
 
-                // ── Tooltip builder ──────────────────────────────────────
-                function tip(label, body, next) {
-                    return '<div class="heroic-tooltip">' +
-                        '<div class="heroic-tooltip-label">' + label + '</div>' +
-                        body +
-                        (next ? '<div class="heroic-tooltip-next">' + next + '</div>' : '') +
-                    '</div>';
-                }
-                function loreTip(v) {
-                    var effect = v >= 12 ? 'Auto-hints on hardest puzzles + 1 free Oracle hint per chapter.'
-                               : v >= 10 ? '1 free Oracle hint per chapter. Reach 12 for auto-hints.'
-                               : 'No Oracle bonus yet.';
-                    var next = v < 10 ? 'Need ' + (10 - v) + ' more for free Oracle hints.' : '';
-                    return tip('\ud83d\udcda Lore \u2014 ' + v, 'Earned from Classical quizzes. ' + effect, next);
-                }
-                function craftTip(v) {
-                    var effect = v >= 10 ? 'Bronze equipment at Chapter 1 start. 20% discount at the Forge.'
-                               : 'Starting with Wood / Leather gear. Reach 10 for Bronze + Forge discount.';
-                    var next = v < 10 ? 'Need ' + (10 - v) + ' more for Bronze tier.' : '';
-                    return tip('\ud83d\udd28 Craft \u2014 ' + v, 'Earned from murals & creative work. ' + effect, next);
-                }
-                function cunningTip(v) {
-                    var effect = v >= 12 ? 'The Negotiate path at the Betrayal Fork is visible to you \u2014 a hidden choice others cannot see.'
-                               : 'The Negotiate path at the Betrayal Fork is hidden. Reach 12 to unlock it.';
-                    var winsNeeded = Math.ceil((12 - v) / 3);
-                    var next = v < 12 ? 'Need ' + (12 - v) + ' more (' + winsNeeded + ' battle win' + (winsNeeded !== 1 ? 's' : '') + ').' : '';
-                    return tip('\ud83c\udfaf Cunning \u2014 ' + v, 'Earned from Battle Arena wins (\u00d73 each). ' + effect, next);
-                }
-                function honorTip(v) {
-                    var effect = v >= 15 ? 'Hera\u2019s curse is lifted. All shrines accessible. Tribunal bonus earned.'
-                               : v >= 10 ? 'Hera is watchful but not hostile. Reach 15 to lift the curse and open all shrines.'
-                               : v >= 5  ? 'Hera is hostile \u2014 market prices +20%, one path blocked per chapter.'
-                               : 'Full curse \u2014 mini-game difficulty increased, Tribunal penalized.';
-                    var next = v < 15 ? 'Next threshold: ' + (v < 10 ? '10 (Watchful)' : '15 (Shrines open)') + '.' : '';
-                    return tip('\u2696\ufe0f Honor \u2014 ' + v, 'Earned from Reading Notes / Comp Conns. ' + effect, next);
-                }
-                function heraTip(honor) {
-                    var next = honor >= 45 ? '' :
-                               honor >= 30 ? 'Reach 45 for Favored \u2014 she fights for you.' :
-                               honor >= 20 ? 'Reach 30 for Appeased \u2014 grudging respect.' :
-                               honor >= 10 ? 'Reach 20 for Indifferent \u2014 no interference.' :
-                                             'Reach 10 to ease hostility.';
-                    return tip('Hera\u2019s Disposition',
-                        'Based on your Honor (' + honor + '). Controls shrine access, market prices, and Chapter 2 difficulty.',
-                        next);
-                }
-                function drachmaTip(amount) {
-                    return tip('\ud83e\ude99 Drachma \u2014 ' + Number(amount).toLocaleString(),
-                        'Spend at the Agora (gear), Oracle (hints), and Forge (repairs). High Lore reduces Oracle costs. High Craft reduces Forge costs. Low Honor inflates Agora prices 20%.',
-                        '');
+                function heraDisposition(honor) {
+                    if (honor >= 45) return { face: '👑', label: 'Favored',     cls: 'hera-favored',     sub: 'She fights for you' };
+                    if (honor >= 30) return { face: '🕊️', label: 'Appeased',    cls: 'hera-appeased',    sub: 'Grudging respect' };
+                    if (honor >= 20) return { face: '😐', label: 'Indifferent', cls: 'hera-indifferent', sub: 'Neither helps nor hinders' };
+                    if (honor >= 10) return { face: '😒', label: 'Suspicious',  cls: 'hera-suspicious',  sub: 'Watching closely' };
+                    return              { face: '😤', label: 'Wrathful',     cls: 'hera-wrathful',    sub: 'Obstacles ahead' };
                 }
 
                 var avatarSection = document.getElementById('avatar-reveal-section');
@@ -14180,34 +14103,34 @@
                 rightPanel.className = 'heroic-stat-panel';
                 rightPanel.innerHTML =
                     '<div class="heroic-stat-panel-title">Hero Stats</div>' +
-                    '<div class="heroic-tip-wrap"><div class="heroic-stat-card lore">' +
-                        '<div class="heroic-stat-icon">\ud83d\udcda</div>' +
+                    '<div class="heroic-stat-card lore">' +
+                        '<div class="heroic-stat-icon">📚</div>' +
                         '<div class="heroic-stat-info">' +
                             '<div class="heroic-stat-name">Lore</div>' +
                             '<div class="heroic-stat-score">' + data.lore + '</div>' +
                             '<div class="heroic-stat-tier">' + statTier(data.lore) + '</div>' +
-                        '</div></div>' + loreTip(data.lore) + '</div>' +
-                    '<div class="heroic-tip-wrap"><div class="heroic-stat-card craft">' +
-                        '<div class="heroic-stat-icon">\ud83d\udd28</div>' +
+                        '</div></div>' +
+                    '<div class="heroic-stat-card craft">' +
+                        '<div class="heroic-stat-icon">🔨</div>' +
                         '<div class="heroic-stat-info">' +
                             '<div class="heroic-stat-name">Craft</div>' +
                             '<div class="heroic-stat-score">' + data.craft + '</div>' +
                             '<div class="heroic-stat-tier">' + statTier(data.craft) + ' ' + equipTier(data.craft) + '</div>' +
-                        '</div></div>' + craftTip(data.craft) + '</div>' +
-                    '<div class="heroic-tip-wrap"><div class="heroic-stat-card cunning">' +
-                        '<div class="heroic-stat-icon">\ud83c\udfaf</div>' +
+                        '</div></div>' +
+                    '<div class="heroic-stat-card cunning">' +
+                        '<div class="heroic-stat-icon">🎯</div>' +
                         '<div class="heroic-stat-info">' +
                             '<div class="heroic-stat-name">Cunning</div>' +
                             '<div class="heroic-stat-score">' + data.cunning + '</div>' +
                             '<div class="heroic-stat-tier">' + statTier(data.cunning) + '</div>' +
-                        '</div></div>' + cunningTip(data.cunning) + '</div>' +
-                    '<div class="heroic-tip-wrap"><div class="heroic-stat-card honor">' +
-                        '<div class="heroic-stat-icon">\u2696\ufe0f</div>' +
+                        '</div></div>' +
+                    '<div class="heroic-stat-card honor">' +
+                        '<div class="heroic-stat-icon">⚖️</div>' +
                         '<div class="heroic-stat-info">' +
                             '<div class="heroic-stat-name">Honor</div>' +
                             '<div class="heroic-stat-score">' + data.honor + '</div>' +
                             '<div class="heroic-stat-tier">' + statTier(data.honor) + '</div>' +
-                        '</div></div>' + honorTip(data.honor) + '</div>';
+                        '</div></div>';
                 avatarSection.appendChild(rightPanel);
 
                 // ── LEFT PANEL: Hera Disposition + Drachma ──────────────
@@ -14223,22 +14146,24 @@
                 leftPanel.className = 'heroic-left-panel';
                 leftPanel.innerHTML =
                     '<div class="heroic-left-panel-title">Status</div>' +
-                    '<div class="heroic-tip-wrap"><div class="hera-card ' + hera.cls + '">' +
+                    '<div class="hera-card ' + hera.cls + '">' +
                         '<div class="hera-card-face">' + hera.face + '</div>' +
                         '<div class="hera-card-label">Hera\'s View</div>' +
                         '<div class="hera-card-disposition ' + hera.cls + '">' + hera.label + '</div>' +
                         '<div class="hera-card-sub">' + hera.sub + '</div>' +
-                    '</div>' + heraTip(data.honor) + '</div>' +
-                    '<div class="heroic-tip-wrap"><div class="drachma-card">' +
-                        '<div class="drachma-card-icon">\ud83e\ude99</div>' +
+                    '</div>' +
+                    '<div class="drachma-card">' +
+                        '<div class="drachma-card-icon">🪙</div>' +
                         '<div class="drachma-card-info">' +
                             '<div class="drachma-card-label">Drachma</div>' +
                             '<div class="drachma-card-amount">' + Number(drachma).toLocaleString() + '</div>' +
                         '</div>' +
-                    '</div>' + drachmaTip(drachma) + '</div>';
+                    '</div>';
 
+                // Insert BEFORE virtue-column-left (first child of avatar-reveal-section)
                 avatarSection.insertBefore(leftPanel, avatarSection.firstChild);
 
+                // Hide the header drachma counter — shown in left panel now
                 var headerDrachma = document.getElementById('heroic-drachma-display');
                 if (headerDrachma) headerDrachma.style.display = 'none';
 
@@ -14402,7 +14327,11 @@
             // Reset cached warrior image so the correct avatar (classical or heroic) is loaded fresh
             warriorAvatarImg = null;
             document.getElementById('hall-of-honor-modal').classList.add('show');
-            renderHallOfHonor();
+            if (badgeData) {
+                renderHallOfHonor();
+            } else {
+                loadBadgeStatus().then(() => renderHallOfHonor());
+            }
         }
         
         function closeHallOfHonor() {
