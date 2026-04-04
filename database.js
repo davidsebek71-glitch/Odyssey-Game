@@ -1495,6 +1495,18 @@ function runMigrations() {
   } catch (err) {
     console.log('Badge migration V98 note:', err.message);
   }
+
+  // V99: Fix found_citizen to auto-award on citizenship points (was manual)
+  try {
+    db.run(`UPDATE badges_ref SET
+              unlock_type = 'citizenship_points',
+              unlock_value = '1',
+              description = 'Earn citizenship points from your teacher for outstanding character.'
+            WHERE badge_id = 'found_citizen'`);
+    console.log('✅ Badge migration V99: found_citizen updated to citizenship_points');
+  } catch (err) {
+    console.log('Badge migration V99 note:', err.message);
+  }
 }
 
 function seedReferenceData() {
@@ -2718,7 +2730,7 @@ function seedBadges() {
     ['found_scholar', 'Scholar', 'Earn 45 or more points in Membean.', 'foundations', 1, 3, '📖', 'membean_points', '45', 'archaic', 1],
     ['found_developer', 'Developer', 'Build every building available in your current Age.', 'foundations', 1, 4, '🔨', 'building_count', 'all_archaic', 'archaic', 1],
     ['found_adventurer', 'Adventurer', 'Complete the Hephaestus, Artemis, and Demeter side quests.', 'foundations', 1, 5, '🧭', 'side_quest_count', 'archaic_all', 'archaic', 1],
-    ['found_citizen', 'Citizen', 'Receive a citizenship award from your teacher for outstanding character.', 'foundations', 1, 6, '🏅', 'manual', 'teacher', 'any', 0],
+    ['found_citizen', 'Citizen', 'Earn citizenship points from your teacher for outstanding character.', 'foundations', 1, 6, '🏅', 'citizenship_points', '1', 'any', 0],
 
     // Row 2: Olympian Mastery I
     ['god_zeus', 'Zeus', 'Complete the Zeus bonus assignment.', 'olympian_1', 2, 1, '⚡', 'god_bonus', 'zeus', 'archaic', 0],

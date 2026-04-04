@@ -615,6 +615,20 @@ app.post('/api/teacher/award-points', authenticateToken, (req, res) => {
       bonusBreakdown,
       alliance
     });
+    
+    // Auto-award Citizen badge when citizenship points are given to a specific student
+    if (category === 'citizenship' && student_id) {
+      try {
+        const newBadges = scanForBadges(student_id);
+        newBadges.forEach(badge => {
+          try {
+            run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+                 VALUES (?, ?, 0, 0, 'system')`, [student_id, badge.badge_id]);
+          } catch(e) { /* already exists */ }
+        });
+        if (newBadges.length > 0) saveDatabase();
+      } catch(e) { /* non-critical */ }
+    }
   } catch (err) {
     console.error('Award points error:', err);
     res.status(500).json({ error: 'Failed to award points' });
@@ -5661,9 +5675,18 @@ app.post('/api/student/use-reverse-card', authenticateToken, (req, res) => {
     }
     
     run('UPDATE alliances SET reverse_cards = reverse_cards - 1 WHERE alliance_id = ?', [student.alliance_id]);
-    saveDatabase();
     
-    console.log(`🔄 Alliance ${student.alliance_id} used a Reverse Card`);
+    // Award Fate Breaker badge to all alliance members automatically
+    const members = query('SELECT student_id FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)', [student.alliance_id]);
+    members.forEach(m => {
+      try {
+        run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+             VALUES (?, 'honor_fate_breaker', 0, 0, 'system')`, [m.student_id]);
+      } catch(e) { /* already has it */ }
+    });
+    
+    saveDatabase();
+    console.log(`🔄 Alliance ${student.alliance_id} used a Reverse Card — Fate Breaker badge awarded to ${members.length} members`);
     res.json({ success: true, remainingCards: alliance.reverse_cards - 1 });
   } catch (err) {
     console.error('Use reverse card error:', err);
@@ -13035,11 +13058,11 @@ function scanForBadges(studentId) {
         
         case 'membean_points': {
           const required = parseInt(badge.unlock_value);
-          // Check membean points from grade_records
+          // Membean goes through teacher award flow — stored in point_transactions, not grade_records
           const membeanResult = query(`
-            SELECT SUM(points_earned) as total FROM grade_records gr
-            JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
-            WHERE gr.student_id = ? AND ar.assignment_type = 'reading_pages'
+            SELECT COALESCE(SUM(amount), 0) as total
+            FROM point_transactions
+            WHERE student_id = ? AND category = 'membean' AND amount > 0
           `, [studentId])[0];
           qualified = (membeanResult?.total || 0) >= required;
           break;
@@ -13135,7 +13158,18 @@ function scanForBadges(studentId) {
         }
         
         case 'reverse_card_used': {
-          // This is awarded by the Fate system when a reverse card is used — skip auto-scan
+          // Awarded automatically in /api/student/use-reverse-card — skip auto-scan
+          break;
+        }
+        
+        case 'citizenship_points': {
+          // Award when teacher has given any citizenship points to this student
+          const citizenResult = query(`
+            SELECT COALESCE(SUM(amount), 0) as total
+            FROM point_transactions
+            WHERE student_id = ? AND category = 'citizenship' AND amount > 0
+          `, [studentId])[0];
+          qualified = (citizenResult?.total || 0) > 0;
           break;
         }
         
@@ -13156,24 +13190,32 @@ function scanForBadges(studentId) {
         }
         
         case 'myth_score_85': {
-          // Badge earned when student scores 85%+ across reading guide + quiz + creative/CER/word_cloud
-          // unlock_value is the myth_god string (e.g. 'Pandora', 'Echo and Narcissus')
+          // unlock_value is the canonical myth name (e.g. 'Orpheus', 'Echo and Narcissus')
+          // Use alias arrays to match all name variants stored in assignments_ref
+          const mythScoreAliases = {
+            'Pandora':           ['Pandora', 'Pandora (Box)'],
+            'Phaethon':          ['Phaethon'],
+            'Orpheus':           ['Orpheus', 'Orpheus & Eurydice', 'Orpheus and Eurydice'],
+            'Echo and Narcissus':['Echo and Narcissus', 'Echo & Narcissus'],
+            'Icarus':            ['Icarus', 'Icarus & Daedalus', 'Icarus and Daedalus'],
+            'Eros and Psyche':   ['Eros and Psyche', 'Eros & Psyche'],
+            'Constellations':    ['Constellations']
+          };
           const mythGod = badge.unlock_value;
+          const aliases = mythScoreAliases[mythGod] || [mythGod];
+          const placeholders = aliases.map(() => '?').join(',');
           try {
-            // Sum all points earned across the three assignment types for this myth
-            // section 'classical' covers comp_conn (reading guide) and quiz
-            // section 'classical_creative' covers creative, cer, word_cloud
             const scoreResult = query(`
-              SELECT 
+              SELECT
                 SUM(gr.points_earned)   AS total_earned,
                 SUM(gr.points_possible) AS total_possible
               FROM grade_records gr
               JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
               WHERE gr.student_id = ?
-                AND ar.myth_god = ?
+                AND ar.myth_god IN (${placeholders})
                 AND ar.age = 'Classical'
                 AND ar.assignment_type IN ('comp_conn', 'quiz', 'creative', 'cer', 'word_cloud', 'mural')
-            `, [studentId, mythGod])[0];
+            `, [studentId, ...aliases])[0];
 
             if (scoreResult && scoreResult.total_possible > 0) {
               const pct = scoreResult.total_earned / scoreResult.total_possible;
