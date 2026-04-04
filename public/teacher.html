@@ -841,6 +841,42 @@
             color: #1a0a0f;
             border-color: #ffd700;
         }
+
+        /* Heroic Overview Modal */
+        .ho-sort-btn {
+            padding: 4px 12px; font-size: 11px; font-weight: 600;
+            border: 1px solid rgba(139,92,246,0.3);
+            background: rgba(139,92,246,0.08);
+            color: rgba(196,181,253,0.7); border-radius: 6px; cursor: pointer;
+            letter-spacing: 1px; transition: all 0.2s;
+        }
+        .ho-sort-btn:hover { border-color: rgba(139,92,246,0.6); color: #e9d5ff; }
+        .ho-sort-btn.active { background: rgba(139,92,246,0.3); border-color: rgba(139,92,246,0.7); color: #e9d5ff; }
+        .ho-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ho-table th {
+            text-align: left; padding: 8px 10px;
+            font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+            color: rgba(196,181,253,0.6);
+            border-bottom: 1px solid rgba(139,92,246,0.2);
+        }
+        .ho-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .ho-table tr:hover td { background: rgba(139,92,246,0.06); }
+        .ho-stat-val { font-weight: 700; color: #e9d5ff; }
+        .ho-avatar-pill {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; border: 1px solid; white-space: nowrap;
+        }
+        .ho-hera-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; white-space: nowrap;
+        }
+        .ho-voyage-yes { color: #4ade80; font-weight: 700; }
+        .ho-voyage-no  { color: rgba(255,255,255,0.3); }
+        .ho-summary-pill {
+            padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
+            background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25);
+            color: rgba(196,181,253,0.8);
+        }
         
         .alliance-manage-card {
             background: rgba(255,255,255,0.05);
@@ -958,6 +994,11 @@
                 <div class="icon">⚓</div>
                 <div class="title">Voyage Log</div>
                 <div class="description">Jason film completions</div>
+            </div>
+            <div class="action-card" onclick="openHeroicOverviewModal()" style="background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(109,40,217,0.25)); border-color: rgba(139,92,246,0.5);">
+                <div class="icon">⚔️</div>
+                <div class="title">Heroic Overview</div>
+                <div class="description">Stats, avatars & Hera by student</div>
             </div>
         </div>
 
@@ -1629,6 +1670,44 @@
             <!-- Completions table -->
             <div id="voyage-log-content">
                 <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Heroic Overview Modal -->
+    <div id="heroic-overview-modal" class="modal">
+        <div class="modal-content" style="max-width: 1100px; max-height: 92vh; overflow-y: auto;">
+            <span class="close" onclick="closeHeroicOverviewModal()">&times;</span>
+            <h2 style="margin-bottom: 6px;">⚔️ Heroic Age Overview</h2>
+            <p style="color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 16px;">Per-student Heroic Age stats, avatar selections, Hera disposition, and Voyage Log status.</p>
+
+            <!-- Period tabs -->
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+                <button class="period-tab active" onclick="loadHeroicOverview('1st')" id="ho-tab-1st">1st Period</button>
+                <button class="period-tab" onclick="loadHeroicOverview('2nd')" id="ho-tab-2nd">2nd Period</button>
+                <button class="period-tab" onclick="loadHeroicOverview('3rd')" id="ho-tab-3rd">3rd Period</button>
+                <button class="period-tab" onclick="loadHeroicOverview('4th')" id="ho-tab-4th">4th Period</button>
+                <button class="period-tab" onclick="loadHeroicOverview('Test')" id="ho-tab-Test">Test</button>
+            </div>
+
+            <!-- Sort controls -->
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;">
+                <span style="font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 2px; text-transform: uppercase;">Sort by</span>
+                <button onclick="setHeroicSort('name')"      id="ho-sort-name"    class="ho-sort-btn active">Name</button>
+                <button onclick="setHeroicSort('honor')"     id="ho-sort-honor"   class="ho-sort-btn">Honor ↓</button>
+                <button onclick="setHeroicSort('lore')"      id="ho-sort-lore"    class="ho-sort-btn">Lore ↓</button>
+                <button onclick="setHeroicSort('craft')"     id="ho-sort-craft"   class="ho-sort-btn">Craft ↓</button>
+                <button onclick="setHeroicSort('cunning')"   id="ho-sort-cunning" class="ho-sort-btn">Cunning ↓</button>
+                <button onclick="setHeroicSort('voyage')"    id="ho-sort-voyage"  class="ho-sort-btn">Voyage</button>
+                <button onclick="setHeroicSort('hera')"      id="ho-sort-hera"    class="ho-sort-btn">Hera</button>
+            </div>
+
+            <!-- Summary pills -->
+            <div id="ho-summary" style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;"></div>
+
+            <!-- Table -->
+            <div id="heroic-overview-content" style="overflow-x: auto;">
+                <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to load</p>
             </div>
         </div>
     </div>
@@ -7343,6 +7422,161 @@
             } catch (err) {
                 alert('Override failed: ' + err.message);
             }
+        }
+
+        // ── Heroic Overview ─────────────────────────────────────────────────
+        let heroicOverviewData = [];
+        let heroicSortKey = 'name';
+        let heroicCurrentPeriod = '1st';
+
+        const AVATAR_META = {
+            seeker:  { name: 'The Seeker',  color: '#FFD700', border: 'rgba(255,215,0,0.4)' },
+            fallen:  { name: 'The Fallen',  color: '#FF8C00', border: 'rgba(255,140,0,0.4)' },
+            devoted: { name: 'The Devoted', color: '#8B5CF6', border: 'rgba(139,92,246,0.4)' },
+            mirror:  { name: 'The Mirror',  color: '#EC4899', border: 'rgba(236,72,153,0.4)' },
+            builder: { name: 'The Builder', color: '#3B82F6', border: 'rgba(59,130,246,0.4)' },
+            tested:  { name: 'The Tested',  color: '#EF4444', border: 'rgba(239,68,68,0.4)' },
+            eternal: { name: 'The Eternal', color: '#C0C0C0', border: 'rgba(192,192,192,0.4)' }
+        };
+        const HERA_META = {
+            Wrathful:    { color: '#f87171', bg: 'rgba(248,113,113,0.15)' },
+            Suspicious:  { color: '#fb923c', bg: 'rgba(251,146,60,0.15)'  },
+            Indifferent: { color: 'rgba(196,181,253,0.6)', bg: 'rgba(196,181,253,0.08)' },
+            Appeased:    { color: '#a3e635', bg: 'rgba(163,230,53,0.15)'  },
+            Favored:     { color: '#fcd34d', bg: 'rgba(252,211,77,0.15)'  }
+        };
+
+        function openHeroicOverviewModal() {
+            document.getElementById('heroic-overview-modal').classList.add('show');
+            loadHeroicOverview('1st');
+        }
+        function closeHeroicOverviewModal() {
+            document.getElementById('heroic-overview-modal').classList.remove('show');
+        }
+
+        async function loadHeroicOverview(period) {
+            heroicCurrentPeriod = period;
+
+            // Update tab styles
+            ['1st','2nd','3rd','4th','Test'].forEach(p => {
+                const t = document.getElementById('ho-tab-' + p);
+                if (t) t.classList.toggle('active', p === period);
+            });
+
+            document.getElementById('heroic-overview-content').innerHTML =
+                '<p style="text-align:center;color:rgba(255,255,255,0.4);padding:30px;">Loading...</p>';
+            document.getElementById('ho-summary').innerHTML = '';
+
+            try {
+                const res = await fetch(`${API_URL}/teacher/heroic-overview?period=${encodeURIComponent(period)}`, { headers });
+                if (!res.ok) throw new Error('Server error ' + res.status);
+                const data = await res.json();
+                heroicOverviewData = data.students || [];
+                renderHeroicOverview();
+            } catch (err) {
+                document.getElementById('heroic-overview-content').innerHTML =
+                    '<p style="text-align:center;color:#f87171;padding:20px;">Failed to load: ' + err.message + '</p>';
+            }
+        }
+
+        function setHeroicSort(key) {
+            heroicSortKey = key;
+            document.querySelectorAll('.ho-sort-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('ho-sort-' + key);
+            if (btn) btn.classList.add('active');
+            renderHeroicOverview();
+        }
+
+        function renderHeroicOverview() {
+            const students = [...heroicOverviewData];
+
+            // Sort
+            students.sort((a, b) => {
+                if (heroicSortKey === 'name')    return a.name.localeCompare(b.name);
+                if (heroicSortKey === 'honor')   return b.honor - a.honor;
+                if (heroicSortKey === 'lore')    return b.lore - a.lore;
+                if (heroicSortKey === 'craft')   return b.craft - a.craft;
+                if (heroicSortKey === 'cunning') return b.cunning - a.cunning;
+                if (heroicSortKey === 'voyage')  return (b.voyage_complete ? 1 : 0) - (a.voyage_complete ? 1 : 0);
+                if (heroicSortKey === 'hera')    return b.hera_level - a.hera_level;
+                return 0;
+            });
+
+            // Summary pills
+            const total = students.length;
+            const avatarChosen = students.filter(s => s.selected_avatar).length;
+            const voyageDone  = students.filter(s => s.voyage_complete).length;
+            const wrathful    = students.filter(s => s.hera_level === 1).length;
+            const heroic      = students.filter(s => s.current_age === 'Heroic').length;
+
+            document.getElementById('ho-summary').innerHTML =
+                pill(heroic + ' / ' + total + ' Heroic') +
+                pill(avatarChosen + ' / ' + total + ' Avatar chosen') +
+                pill(voyageDone  + ' / ' + total + ' Voyage complete') +
+                (wrathful > 0 ? pill('⚠️ ' + wrathful + ' Wrathful', '#f87171') : '');
+
+            if (students.length === 0) {
+                document.getElementById('heroic-overview-content').innerHTML =
+                    '<p style="text-align:center;color:rgba(255,255,255,0.4);padding:20px;">No students found for this period.</p>';
+                return;
+            }
+
+            let rows = students.map(s => {
+                // Avatar pill
+                let avatarHtml;
+                if (s.selected_avatar) {
+                    const key = s.selected_avatar.split('_')[0];
+                    const av = AVATAR_META[key] || { name: key, color: '#e9d5ff', border: 'rgba(196,181,253,0.4)' };
+                    avatarHtml = `<span class="ho-avatar-pill" style="color:${av.color};border-color:${av.border};background:${av.border.replace('0.4','0.1')};">${av.name}</span>`;
+                } else {
+                    avatarHtml = '<span style="color:rgba(255,255,255,0.25);font-size:11px;">— not chosen</span>';
+                }
+
+                // Hera badge
+                const hm = HERA_META[s.hera_label] || HERA_META['Indifferent'];
+                const heraBadge = `<span class="ho-hera-badge" style="color:${hm.color};background:${hm.bg};">${s.hera_label}</span>`;
+
+                // Voyage
+                const voyageHtml = s.voyage_complete
+                    ? `<span class="ho-voyage-yes">✓ ${s.voyage_rank || ''}</span>`
+                    : '<span class="ho-voyage-no">—</span>';
+
+                // Stat color helpers
+                const sc = (v, th1, th2) => v >= th2 ? '#fcd34d' : v >= th1 ? '#a5b4fc' : 'rgba(255,255,255,0.5)';
+
+                return `<tr>
+                    <td style="font-weight:600;color:#e9d5ff;">${s.name}</td>
+                    <td style="color:rgba(255,255,255,0.5);font-size:12px;">${s.alliance_name}</td>
+                    <td>${avatarHtml}</td>
+                    <td class="ho-stat-val" style="color:${sc(s.lore,10,25)}">${s.lore}</td>
+                    <td class="ho-stat-val" style="color:${sc(s.craft,10,25)}">${s.craft}</td>
+                    <td class="ho-stat-val" style="color:${sc(s.cunning,6,15)}">${s.cunning}</td>
+                    <td class="ho-stat-val" style="color:${sc(s.honor,10,30)}">${s.honor}</td>
+                    <td>${heraBadge}</td>
+                    <td>${voyageHtml}</td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('heroic-overview-content').innerHTML = `
+                <table class="ho-table">
+                    <thead><tr>
+                        <th>Student</th>
+                        <th>Alliance</th>
+                        <th>Avatar</th>
+                        <th>📚 Lore</th>
+                        <th>🔨 Craft</th>
+                        <th>🎯 Cunning</th>
+                        <th>⚖️ Honor</th>
+                        <th>Hera</th>
+                        <th>Voyage Log</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        function pill(text, color) {
+            color = color || 'rgba(196,181,253,0.8)';
+            return `<span class="ho-summary-pill" style="color:${color};">${text}</span>`;
         }
     </script>
 </body>

@@ -9414,6 +9414,109 @@ app.post('/api/teacher/reset-avatar', authenticateToken, (req, res) => {
   }
 });
 
+// --- Teacher: Heroic Age Overview — per-student stats, avatar, Hera, voyage completion ---
+app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
+
+    const { period } = req.query;
+    if (!period) return res.status(400).json({ error: 'period required' });
+
+    // All non-ghost students in this period
+    const students = query(`
+      SELECT s.student_id, s.name, s.class_period, s.selected_avatar,
+             a.alliance_name, a.current_age
+      FROM students s
+      LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
+      WHERE s.class_period = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+      ORDER BY s.name ASC
+    `, [period]);
+
+    if (students.length === 0) return res.json({ students: [] });
+
+    const studentIds = students.map(s => s.student_id);
+
+    // Batch: grade_records for stat computation
+    const placeholders = studentIds.map(() => '?').join(',');
+    const records = query(`
+      SELECT gr.student_id, gr.points_earned, ar.assignment_type, ar.section
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id IN (${placeholders}) AND gr.points_earned > 0
+    `, studentIds);
+
+    // Batch: battle wins
+    const battleStats = query(`
+      SELECT student_id, wins FROM arena_battle_stats
+      WHERE student_id IN (${placeholders})
+    `, studentIds);
+    const battleByStudent = {};
+    battleStats.forEach(b => { battleByStudent[b.student_id] = b.wins || 0; });
+
+    // Batch: voyage log completions by student name + period
+    const voyageCompletions = query(`
+      SELECT student_name, voyage_log_completed, rank_tier, total_score
+      FROM voyage_log_completions
+      WHERE class_period = ?
+    `, [period]);
+    const voyageByName = {};
+    voyageCompletions.forEach(v => { voyageByName[v.student_name] = v; });
+
+    // Aggregate stats per student
+    const statsByStudent = {};
+    studentIds.forEach(id => { statsByStudent[id] = { lore: 0, craft: 0, honor: 0 }; });
+
+    records.forEach(r => {
+      const s = statsByStudent[r.student_id];
+      if (!s) return;
+      const t = r.assignment_type;
+      const sec = r.section || '';
+      const isClassical = sec === 'classical' || sec === 'classical_creative' || sec === 'bonus';
+      if (!isClassical) return;
+      if (t === 'quiz')                                                  s.lore  += r.points_earned;
+      else if (t === 'mural' || t === 'word_cloud' || t === 'creative') s.craft += r.points_earned;
+      else if (t === 'comp_conn')                                        s.honor += r.points_earned;
+    });
+
+    // Build response
+    const result = students.map(s => {
+      const stats = statsByStudent[s.student_id];
+      const cunning = (battleByStudent[s.student_id] || 0) * 3;
+      const voyage = voyageByName[s.name] || null;
+
+      // Hera disposition from honor
+      let heraLabel, heraLevel;
+      if (stats.honor >= 45)      { heraLabel = 'Favored';     heraLevel = 5; }
+      else if (stats.honor >= 30) { heraLabel = 'Appeased';    heraLevel = 4; }
+      else if (stats.honor >= 20) { heraLabel = 'Indifferent'; heraLevel = 3; }
+      else if (stats.honor >= 10) { heraLabel = 'Suspicious';  heraLevel = 2; }
+      else                        { heraLabel = 'Wrathful';    heraLevel = 1; }
+
+      return {
+        student_id:     s.student_id,
+        name:           s.name,
+        alliance_name:  s.alliance_name || '—',
+        current_age:    s.current_age || 'Archaic',
+        selected_avatar: s.selected_avatar || null,
+        lore:           stats.lore,
+        craft:          stats.craft,
+        cunning:        cunning,
+        honor:          stats.honor,
+        hera_label:     heraLabel,
+        hera_level:     heraLevel,
+        voyage_complete: voyage ? (voyage.voyage_log_completed === 1) : false,
+        voyage_rank:    voyage ? voyage.rank_tier : null,
+        voyage_score:   voyage ? voyage.total_score : null
+      };
+    });
+
+    res.json({ students: result });
+  } catch (err) {
+    console.error('Heroic overview error:', err);
+    res.status(500).json({ error: 'Failed to load heroic overview' });
+  }
+});
+
 // --- Teacher: Force student into Heroic Age (bypasses all requirements — for testing/absences) ---
 app.post('/api/teacher/force-heroic', authenticateToken, (req, res) => {
   try {
