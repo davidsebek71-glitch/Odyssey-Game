@@ -2164,7 +2164,7 @@ function initGF() {
     phase:       'show',    // show | input | result | retry
     showStep:    0,         // which step of sequence is being shown
     showTimer:   null,
-    dragonWake:  100,       // dragon wakefulness 0-100; hitting 100 = failure
+    dragonWake:  0,         // dragon wakefulness 0-100; hitting 100 = failure
     dragonTimer: null,
     attempts:    0,
     done:        false,
@@ -2401,7 +2401,7 @@ window.gfPlayerPress = function(idx) {
   } else {
     // Wrong beat — dragon stirs
     if (dot) { dot.style.background = 'var(--red)'; dot.style.borderColor = 'var(--red)'; }
-    GF.dragonWake = Math.min(100, GF.dragonWake + (GF.hasOrpheus ? 30 : 20));
+    GF.dragonWake = Math.min(100, GF.dragonWake + (GF.hasOrpheus ? 15 : 10));
     updateWakeBar();
     setGFStatus('Wrong beat! The dragon stirs...');
 
@@ -2431,14 +2431,14 @@ window.gfPlayerPress = function(idx) {
 function startDragonTicker() {
   if (GF.dragonTimer) clearInterval(GF.dragonTimer);
   // Dragon slowly wakes on its own — penalty for taking too long
-  // Ticks every 8s, adds 8% wakefulness
+  // Ticks every 20s, adds 5% wakefulness (gentle pressure, not a hard clock)
   GF.dragonTimer = setInterval(() => {
     if (!GF || GF.done) { clearInterval(GF.dragonTimer); return; }
     if (GF.phase === 'show') return; // don't tick during pattern display
-    GF.dragonWake = Math.min(100, GF.dragonWake + 8);
+    GF.dragonWake = Math.min(100, GF.dragonWake + 5);
     updateWakeBar();
     if (GF.dragonWake >= 100) gfFailure();
-  }, 8000);
+  }, 20000);
 }
 
 function stopDragonTicker() {
