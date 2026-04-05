@@ -1826,7 +1826,7 @@ function renderDFPuzzle() {
   render([
     '<div class="wp-hdr"><div class="wp-loc">&#128013; Dragon\'s Field &mdash; The Puzzle</div>',
     '<div class="wp-title">Sow in Ritual Order</div>',
-    '<div class="wp-sub">Click cells in the correct sequence &mdash; 1 through ' + DF.total + '</div></div>',
+    '<div class="wp-sub">Each cell shows its step number &mdash; click them in order 1 &rarr; ' + DF.total + '</div></div>',
 
     // HUD
     '<div style="width:100%;display:flex;justify-content:space-between;align-items:center;',
@@ -1844,7 +1844,7 @@ function renderDFPuzzle() {
     '<div style="display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;">',
       medeaBtn,
       '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;line-height:1.8;">',
-        'Sow teeth in order 1 &rarr; ' + DF.total + ' &nbsp;&middot;&nbsp; Wrong placement = skeleton rises',
+        'Each cell shows its ritual step number. Click them in order: <strong style="color:var(--gold);">1 &rarr; 2 &rarr; 3...</strong> &nbsp;&middot;&nbsp; Wrong order = skeleton warrior rises &nbsp;&middot;&nbsp; Complete all ' + DF.total + ' before skeletons overrun the field.',
       '</div>',
     '</div>',
   ].join(''));
@@ -1881,20 +1881,32 @@ function buildDFGrid() {
       isSown     ? 'background:#1a3a1a;border-color:#40c060;'
         : isSkeleton ? 'background:#2a0a0a;border-color:#e04040;'
         : isHint     ? 'background:rgba(128,64,192,.35);border-color:#c084fc;box-shadow:0 0 12px rgba(128,64,192,.5);'
-        : isNoviceHint ? 'background:rgba(240,192,64,.12);border-color:rgba(240,192,64,.4);'
+        : isNoviceHint ? 'background:rgba(240,192,64,.12);border-color:rgba(240,192,64,.5);'
+        : isNextCell   ? 'background:rgba(240,192,64,.07);border-color:rgba(240,192,64,.25);'
         : 'background:var(--bg2);border-color:var(--bg3);'
     ].join(';');
 
-    // Content
-    if (isSown)          cell.innerHTML = '&#127807;';          // sown tooth (plant)
-    else if (isSkeleton) cell.innerHTML = '&#9760;';            // skull
-    else if (isHint)     cell.innerHTML = '<span style="color:#c084fc;font-family:var(--px);font-size:11px;">NEXT</span>';
-    else if (DF.revealed || isNoviceHint) {
-      // Eternal: show all step numbers. Novice: show only next step highlighted.
-      cell.innerHTML = '<span style="font-family:var(--px);font-size:' +
-        (DF.size <= 3 ? 16 : 13) + 'px;color:' +
-        (isNoviceHint ? 'var(--gold)' : 'rgba(160,144,128,.6)') +
-        ';">' + step + '</span>';
+    // Content — ALL cells show their step number (the challenge is clicking in order,
+    // not guessing blind). Eternal gets bright reveal; Novice highlights the next cell;
+    // everyone else sees all numbers equally and must find/click them 1→N in sequence.
+    if (isSown) {
+      cell.innerHTML = '&#127807;';   // sown tooth (plant emoji)
+    } else if (isSkeleton) {
+      cell.innerHTML = '&#9760;';     // skull
+    } else if (isHint) {
+      cell.innerHTML = '<span style="color:#c084fc;font-family:var(--px);font-size:11px;font-weight:700;">NEXT</span>';
+    } else {
+      // Show step number — color varies by tier/state
+      const numColor = DF.revealed
+        ? 'var(--gold)'                          // Eternal: bright gold
+        : isNoviceHint
+        ? 'var(--gold)'                          // Novice: next step gold
+        : isNextCell
+        ? 'rgba(240,192,64,.55)'                 // standard: next cell slightly brighter
+        : 'rgba(160,144,128,.55)';               // standard: other cells dimmer
+      const numSize = DF.size <= 3 ? 20 : DF.size <= 4 ? 16 : 13;
+      cell.innerHTML = '<span style="font-family:var(--px);font-size:' + numSize + 'px;' +
+        'font-weight:700;color:' + numColor + ';">' + step + '</span>';
     }
 
     if (!isSown && !isSkeleton) {
