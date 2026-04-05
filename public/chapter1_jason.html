@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 1 — Jason & the Argonauts</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   SNES 16-BIT PALETTE & BASE
+═══════════════════════════════════════════════ */
+:root {
+  --gold:    #f0c040;
+  --gold2:   #c89820;
+  --gold3:   #805810;
+  --teal:    #40d8c0;
+  --purple:  #8040c0;
+  --purple2: #5020a0;
+  --red:     #e04040;
+  --green:   #40c060;
+  --blue:    #4080e0;
+  --bg0:     #08080f;
+  --bg1:     #10102a;
+  --bg2:     #1a1a3a;
+  --bg3:     #242448;
+  --text1:   #f0e8d0;
+  --text2:   #a09080;
+  --pixel:   'Courier New', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg0);
+  color: var(--text1);
+  font-family: 'Cinzel', serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── PIXEL BORDER UTILITY ── */
+.pixel-border {
+  border: 3px solid var(--gold2);
+  box-shadow: inset 0 0 0 1px var(--gold3), 3px 3px 0 var(--gold3);
+}
+
+/* ══════════════════════════════════════════════
+   SCREENS
+══════════════════════════════════════════════ */
+.screen {
+  display: none;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 40px;
+}
+.screen.active { display: flex; }
+
+/* ══════════════════════════════════════════════
+   LOADING SCREEN
+══════════════════════════════════════════════ */
+#screen-loading {
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #1a1040 0%, #08080f 70%);
+}
+.loading-emblem {
+  font-size: 64px;
+  animation: pulse 1.5s ease-in-out infinite;
+  margin-bottom: 20px;
+}
+.loading-title {
+  font-family: var(--pixel);
+  font-size: clamp(10px, 2.5vw, 16px);
+  color: var(--gold);
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.loading-sub {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 10px);
+  color: var(--teal);
+  letter-spacing: 3px;
+  text-align: center;
+  animation: blink 1s step-end infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(.95)} }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ══════════════════════════════════════════════
+   ERROR SCREEN
+══════════════════════════════════════════════ */
+#screen-error {
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+}
+.error-box {
+  background: var(--bg2);
+  border: 2px solid var(--red);
+  border-radius: 8px;
+  padding: 32px;
+  max-width: 400px;
+}
+
+/* ══════════════════════════════════════════════
+   GAME HEADER
+══════════════════════════════════════════════ */
+.game-header {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 2px solid var(--gold3);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.header-title {
+  font-family: var(--pixel);
+  font-size: clamp(8px, 1.8vw, 12px);
+  color: var(--gold);
+  letter-spacing: 3px;
+}
+.header-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.hstat {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 10px);
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.hstat span { color: var(--gold); font-weight: 700; }
+
+/* ══════════════════════════════════════════════
+   WAYPOINT HEADER
+══════════════════════════════════════════════ */
+.waypoint-header {
+  width: 100%;
+  max-width: 900px;
+  text-align: center;
+  margin-bottom: 28px;
+}
+.waypoint-location {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 10px);
+  color: var(--teal);
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.waypoint-title {
+  font-size: clamp(18px, 4vw, 28px);
+  font-weight: 700;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(240,192,64,0.4);
+  margin-bottom: 4px;
+}
+.waypoint-subtitle {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 9px);
+  color: var(--text2);
+  letter-spacing: 2px;
+}
+
+/* ══════════════════════════════════════════════
+   NARRATIVE BOX
+══════════════════════════════════════════════ */
+.narrative-box {
+  width: 100%;
+  max-width: 760px;
+  background: linear-gradient(160deg, var(--bg2), var(--bg1));
+  border: 2px solid var(--gold3);
+  border-radius: 4px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  position: relative;
+}
+.narrative-box::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(240,192,64,0.08);
+  pointer-events: none;
+}
+.narrative-text {
+  font-size: clamp(13px, 2vw, 15px);
+  line-height: 1.85;
+  color: var(--text1);
+  font-weight: 400;
+}
+.narrative-text em {
+  color: var(--gold);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════
+   AVATAR PASSIVE BANNER
+══════════════════════════════════════════════ */
+.passive-banner {
+  width: 100%;
+  max-width: 760px;
+  background: linear-gradient(135deg, rgba(128,64,192,0.15), rgba(64,128,224,0.1));
+  border: 1px solid rgba(128,64,192,0.4);
+  border-radius: 4px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 9px);
+  color: #c084fc;
+  letter-spacing: 1px;
+  display: none;
+}
+.passive-banner.visible { display: block; }
+.passive-banner strong { color: #e879f9; }
+
+/* ══════════════════════════════════════════════
+   CHOICE PANEL
+══════════════════════════════════════════════ */
+.choice-panel {
+  width: 100%;
+  max-width: 760px;
+  margin-bottom: 24px;
+}
+.choice-prompt {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 10px);
+  color: var(--teal);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.choice-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.choice-btn {
+  background: var(--bg2);
+  border: 2px solid var(--gold3);
+  border-radius: 4px;
+  padding: 16px 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  position: relative;
+  overflow: hidden;
+}
+.choice-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: var(--bg3);
+  transform: translateX(3px);
+}
+.choice-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+.choice-btn.selected {
+  border-color: var(--green);
+  background: rgba(64,192,96,0.08);
+}
+.choice-btn.hidden-option {
+  border-color: #8040c0;
+  background: rgba(128,64,192,0.08);
+}
+.choice-btn.forced {
+  border-color: var(--red);
+  background: rgba(224,64,64,0.08);
+  cursor: default;
+}
+.choice-title {
+  font-size: clamp(13px, 2vw, 15px);
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.choice-desc {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 9px);
+  color: var(--text2);
+  line-height: 1.7;
+  letter-spacing: 0.5px;
+}
+.choice-tag {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-family: var(--pixel);
+  font-size: 7px;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.tag-honor    { background: rgba(64,192,96,0.2);  color: var(--green);  border: 1px solid var(--green); }
+.tag-cunning  { background: rgba(64,128,224,0.2); color: var(--blue);   border: 1px solid var(--blue); }
+.tag-hidden   { background: rgba(128,64,192,0.2); color: #c084fc;       border: 1px solid #8040c0; }
+.tag-forced   { background: rgba(224,64,64,0.2);  color: var(--red);    border: 1px solid var(--red); }
+.tag-auto     { background: rgba(64,216,192,0.2); color: var(--teal);   border: 1px solid var(--teal); }
+
+/* ══════════════════════════════════════════════
+   COMPANION SELECTION
+══════════════════════════════════════════════ */
+.companion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 760px;
+  margin-bottom: 24px;
+}
+.companion-card {
+  background: var(--bg2);
+  border: 2px solid var(--gold3);
+  border-radius: 4px;
+  padding: 16px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.companion-card:hover { border-color: var(--gold); background: var(--bg3); }
+.companion-card.selected {
+  border-color: var(--green);
+  background: rgba(64,192,96,0.1);
+  box-shadow: 0 0 12px rgba(64,192,96,0.2);
+}
+.companion-card.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.companion-icon { font-size: 32px; margin-bottom: 8px; }
+.companion-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.companion-virtues {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--teal);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.companion-desc {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+.companion-check {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 14px;
+  display: none;
+}
+.companion-card.selected .companion-check { display: block; }
+.companion-select-count {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 9px);
+  color: var(--text2);
+  text-align: center;
+  margin-bottom: 12px;
+  letter-spacing: 2px;
+}
+
+/* ══════════════════════════════════════════════
+   MARKET
+══════════════════════════════════════════════ */
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 760px;
+  margin-bottom: 24px;
+}
+.market-item {
+  background: var(--bg2);
+  border: 2px solid var(--gold3);
+  border-radius: 4px;
+  padding: 14px 12px;
+  text-align: center;
+}
+.market-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.market-item-desc {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.market-item-price {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: var(--teal);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.market-owned {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--green);
+  letter-spacing: 1px;
+}
+.drachma-display {
+  width: 100%;
+  max-width: 760px;
+  text-align: right;
+  font-family: var(--pixel);
+  font-size: clamp(8px, 1.8vw, 11px);
+  color: var(--gold);
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+
+/* ══════════════════════════════════════════════
+   OUTCOME BOX (post-choice result)
+══════════════════════════════════════════════ */
+.outcome-box {
+  width: 100%;
+  max-width: 760px;
+  border-radius: 4px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  display: none;
+}
+.outcome-box.visible { display: block; }
+.outcome-box.success { background: rgba(64,192,96,0.1);  border: 2px solid var(--green); }
+.outcome-box.warning { background: rgba(240,192,64,0.08); border: 2px solid var(--gold2); }
+.outcome-box.danger  { background: rgba(224,64,64,0.08);  border: 2px solid var(--red); }
+.outcome-title {
+  font-family: var(--pixel);
+  font-size: clamp(8px, 1.8vw, 11px);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.outcome-box.success .outcome-title { color: var(--green); }
+.outcome-box.warning .outcome-title { color: var(--gold); }
+.outcome-box.danger  .outcome-title { color: var(--red); }
+.outcome-text {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 9px);
+  color: var(--text1);
+  line-height: 1.8;
+}
+.outcome-effects {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.effect-pip {
+  font-family: var(--pixel);
+  font-size: 8px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  letter-spacing: 1px;
+}
+.effect-pip.positive { background: rgba(64,192,96,0.2);  color: var(--green); border: 1px solid var(--green); }
+.effect-pip.negative { background: rgba(224,64,64,0.2);  color: var(--red);   border: 1px solid var(--red); }
+.effect-pip.neutral  { background: rgba(160,144,128,0.2); color: var(--text2); border: 1px solid var(--text2); }
+
+/* ══════════════════════════════════════════════
+   CONTINUE BUTTON
+══════════════════════════════════════════════ */
+.continue-btn {
+  background: linear-gradient(135deg, var(--gold3), var(--gold2));
+  border: 2px solid var(--gold);
+  color: var(--bg0);
+  font-family: 'Cinzel', serif;
+  font-size: clamp(11px, 2vw, 14px);
+  font-weight: 700;
+  letter-spacing: 3px;
+  padding: 14px 36px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+  display: none;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+.continue-btn:hover { background: linear-gradient(135deg, var(--gold2), var(--gold)); transform: translateY(-1px); }
+.continue-btn.visible { display: inline-block; }
+
+/* ══════════════════════════════════════════════
+   HERA WATCH INDICATOR
+══════════════════════════════════════════════ */
+.hera-watch {
+  width: 100%;
+  max-width: 760px;
+  background: rgba(224,64,64,0.06);
+  border: 1px solid rgba(224,64,64,0.25);
+  border-radius: 3px;
+  padding: 8px 14px;
+  margin-bottom: 16px;
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: rgba(224,64,64,0.7);
+  letter-spacing: 1px;
+  display: none;
+}
+.hera-watch.visible { display: block; }
+
+/* ══════════════════════════════════════════════
+   PROGRESS TRAIL (top of game screen)
+══════════════════════════════════════════════ */
+.progress-trail {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.trail-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 60px;
+}
+.trail-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--gold3);
+  background: var(--bg2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  margin-bottom: 4px;
+  transition: all 0.3s;
+}
+.trail-node.done    .trail-dot { border-color: var(--green);  background: rgba(64,192,96,0.15); }
+.trail-node.current .trail-dot { border-color: var(--gold);   background: rgba(240,192,64,0.2); box-shadow: 0 0 8px rgba(240,192,64,0.4); }
+.trail-node.locked  .trail-dot { border-color: var(--bg3);    background: var(--bg1); opacity: 0.4; }
+.trail-label {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--text2);
+  letter-spacing: 1px;
+  text-align: center;
+  text-transform: uppercase;
+}
+.trail-node.done    .trail-label { color: var(--green); }
+.trail-node.current .trail-label { color: var(--gold); }
+.trail-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--bg3);
+  margin-bottom: 18px;
+  min-width: 8px;
+}
+.trail-connector.done { background: var(--green); }
+
+/* ══════════════════════════════════════════════
+   AVATAR BADGE (top right of game)
+══════════════════════════════════════════════ */
+.avatar-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg2);
+  border: 1px solid var(--gold3);
+  border-radius: 4px;
+  padding: 6px 12px;
+}
+.avatar-badge-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  border-radius: 2px;
+}
+.avatar-badge-name {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+/* ══════════════════════════════════════════════
+   PIXEL DIVIDER
+══════════════════════════════════════════════ */
+.pixel-divider {
+  width: 100%;
+  max-width: 760px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--gold3) 0px, var(--gold3) 4px, transparent 4px, transparent 8px);
+  margin: 20px 0;
+  opacity: 0.5;
+}
+
+/* ══════════════════════════════════════════════
+   BACK TO DASHBOARD LINK
+══════════════════════════════════════════════ */
+.back-link {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--text2);
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 6px 10px;
+  border: 1px solid var(--bg3);
+  border-radius: 3px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.back-link:hover { color: var(--gold); border-color: var(--gold3); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: LOADING
+═══════════════════════════════════════ -->
+<div id="screen-loading" class="screen active">
+  <div class="loading-emblem">⚓</div>
+  <div class="loading-title">Chapter 1 — Jason &amp; the Argonauts</div>
+  <div class="loading-sub">Loading your voyage...</div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: ERROR
+═══════════════════════════════════════ -->
+<div id="screen-error" class="screen">
+  <div class="error-box">
+    <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+    <div id="error-message" style="font-family:var(--pixel);font-size:9px;color:var(--red);letter-spacing:1px;line-height:2;margin-bottom:20px;"></div>
+    <button class="continue-btn visible" onclick="window.location.href='/student.html?view=heroic'" style="font-size:10px;padding:10px 20px;">← Back to Dashboard</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: GAME (all waypoints render here)
+═══════════════════════════════════════ -->
+<div id="screen-game" class="screen">
+
+  <!-- Game Header -->
+  <div class="game-header">
+    <div>
+      <div class="header-title">⚔ CHAPTER 1 — JASON &amp; THE ARGONAUTS</div>
+    </div>
+    <div class="header-stats">
+      <div class="hstat">⚖ Honor <span id="hdr-honor">—</span></div>
+      <div class="hstat">🏺 Drachma <span id="hdr-drachma">—</span></div>
+      <div class="hstat">🛡 Equip <span id="hdr-equip">Wood/Leather</span></div>
+      <div id="avatar-badge-wrap" class="avatar-badge" style="display:none;">
+        <img id="avatar-badge-img" class="avatar-badge-img" src="" alt="">
+        <div id="avatar-badge-name" class="avatar-badge-name"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress Trail -->
+  <div class="progress-trail" id="progress-trail">
+    <div class="trail-node" id="trail-0"><div class="trail-dot">⚓</div><div class="trail-label">Iolcos</div></div>
+    <div class="trail-connector" id="conn-0"></div>
+    <div class="trail-node locked" id="trail-1"><div class="trail-dot">🏝</div><div class="trail-label">Lemnos</div></div>
+    <div class="trail-connector" id="conn-1"></div>
+    <div class="trail-node locked" id="trail-2"><div class="trail-dot">🪨</div><div class="trail-label">Rocks</div></div>
+    <div class="trail-connector" id="conn-2"></div>
+    <div class="trail-node locked" id="trail-3"><div class="trail-dot">🌿</div><div class="trail-label">Colchis</div></div>
+    <div class="trail-connector" id="conn-3"></div>
+    <div class="trail-node locked" id="trail-4"><div class="trail-dot">🐍</div><div class="trail-label">Dragon's Field</div></div>
+    <div class="trail-connector" id="conn-4"></div>
+    <div class="trail-node locked" id="trail-5"><div class="trail-dot">🏆</div><div class="trail-label">Fleece</div></div>
+    <div class="trail-connector" id="conn-5"></div>
+    <div class="trail-node locked" id="trail-6"><div class="trail-dot">⚔</div><div class="trail-label">Fork</div></div>
+    <div class="trail-connector" id="conn-6"></div>
+    <div class="trail-node locked" id="trail-7"><div class="trail-dot">🏛</div><div class="trail-label">Iolcos</div></div>
+  </div>
+
+  <!-- Waypoint content injected here -->
+  <div id="waypoint-content" style="width:100%;display:flex;flex-direction:column;align-items:center;"></div>
+
+</div><!-- end screen-game -->
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════
+// AUTH & CONFIG
+// ═══════════════════════════════════════════════════
+const API = '/api';
+const token = localStorage.getItem('token');
+if (!token) { window.location.href = '/'; }
+const authHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+// ═══════════════════════════════════════════════════
+// TRAIL DEFINITIONS
+// ═══════════════════════════════════════════════════
+const WAYPOINTS = ['IOLCOS','LEMNOS','SYMPLEGADES','COLCHIS','DRAGONS_FIELD','GOLDEN_FLEECE','BETRAYAL_FORK','RETURN'];
+const WAYPOINT_INDEX = {};
+WAYPOINTS.forEach((w,i) => { WAYPOINT_INDEX[w] = i; });
+
+// ═══════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════
+const state = {
+  student:    null,   // dashboard data
+  stats:      null,   // { lore, craft, cunning, honor }
+  passives:   {},     // alliance teammate passive bonuses
+  companions: [],     // selected companion keys
+  honor:      0,      // running honor score (starts at 0, modified by choices)
+  drachma:    0,      // current drachma (from student.drachma)
+  equipment:  1,      // tier 1 = Wood/Leather
+  inventory:  {},     // market purchases
+  choices:    {},     // waypoint choice records
+  checkpoint_rollbacks: 0,
+  currentWaypoint: 'IOLCOS',
+  medeaHelpCount: 0,  // times Medea help accepted (each costs -1 Honor)
+};
+
+const EQUIP_LABELS = { 1:'Wood/Leather', 2:'Bronze', 3:'Iron', 4:'Divine' };
+
+// ═══════════════════════════════════════════════════
+// AVATAR TYPE HELPERS
+// ═══════════════════════════════════════════════════
+function avatarType() {
+  if (!state.student || !state.student.selected_avatar) return null;
+  return state.student.selected_avatar.split('_')[0].toLowerCase();
+}
+function isAvatar(type) { return avatarType() === type; }
+function avatarLabel() {
+  const t = avatarType();
+  if (!t) return 'Hero';
+  return 'The ' + t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+// ═══════════════════════════════════════════════════
+// STAT THRESHOLD HELPERS
+// ═══════════════════════════════════════════════════
+function statVal(name) { return (state.stats && state.stats[name]) || 0; }
+function lore()    { return statVal('lore'); }
+function craft()   { return statVal('craft'); }
+function cunning() { return statVal('cunning'); }
+function honor()   { return statVal('honor'); }  // classroom honor stat
+// In-game honor is state.honor (separate running score)
+
+// ═══════════════════════════════════════════════════
+// UI UTILITIES
+// ═══════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showError(msg) {
+  document.getElementById('error-message').textContent = msg;
+  showScreen('screen-error');
+}
+function updateHeader() {
+  document.getElementById('hdr-honor').textContent   = state.honor;
+  document.getElementById('hdr-drachma').textContent = state.drachma;
+  document.getElementById('hdr-equip').textContent   = EQUIP_LABELS[state.equipment] || 'Wood/Leather';
+}
+function updateTrail(waypointKey) {
+  const idx = WAYPOINT_INDEX[waypointKey] || 0;
+  WAYPOINTS.forEach((w, i) => {
+    const node = document.getElementById('trail-' + i);
+    const conn = document.getElementById('conn-' + i);
+    if (!node) return;
+    node.classList.remove('done','current','locked');
+    if (i < idx)       { node.classList.add('done'); }
+    else if (i === idx) { node.classList.add('current'); }
+    else               { node.classList.add('locked'); }
+    if (conn) conn.classList.toggle('done', i < idx);
+  });
+}
+function setContent(html) {
+  document.getElementById('waypoint-content').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════
+// SERVER CALLS
+// ═══════════════════════════════════════════════════
+async function saveCheckpoint(waypoint) {
+  try {
+    await fetch(API + '/heroic/checkpoint', {
+      method: 'POST', headers: authHeaders,
+      body: JSON.stringify({
+        chapter: 1, waypoint,
+        state_json: {
+          companions: state.companions,
+          honor: state.honor,
+          drachma: state.drachma,
+          equipment: state.equipment,
+          inventory: state.inventory,
+          choices: state.choices,
+          medeaHelpCount: state.medeaHelpCount,
+          checkpoint_rollbacks: state.checkpoint_rollbacks
+        },
+        honor_score:    state.honor,
+        drachma_balance: state.drachma,
+        equipment_tier:  state.equipment
+      })
+    });
+  } catch(e) { console.warn('Checkpoint save failed (offline?):', e.message); }
+}
+
+async function recordChoice(key, value, textResponse) {
+  try {
+    await fetch(API + '/heroic/choice', {
+      method: 'POST', headers: authHeaders,
+      body: JSON.stringify({ chapter: 1, choice_key: key, choice_value: value, text_response: textResponse || null })
+    });
+  } catch(e) { console.warn('Choice record failed:', e.message); }
+}
+
+// ═══════════════════════════════════════════════════
+// STARTUP — load all data then enter game
+// ═══════════════════════════════════════════════════
+async function init() {
+  try {
+    // 1. Student dashboard (has voyage_log_completed, selected_avatar, drachma)
+    const dashRes = await fetch(API + '/student/dashboard', { headers: authHeaders });
+    if (!dashRes.ok) throw new Error('Could not load student data');
+    const dash = await dashRes.json();
+    state.student = dash.student;
+
+    // 2. Gate check — must have voyage log completed
+    if (!state.student.voyage_log_completed) {
+      showError('Complete the Jason Voyage Log first to unlock Chapter 1.');
+      return;
+    }
+
+    // 3. Starting drachma from student record
+    state.drachma = state.student.drachma || 0;
+
+    // 4. Heroic stats
+    const statsRes = await fetch(API + '/student/heroic-stats', { headers: authHeaders });
+    if (statsRes.ok) state.stats = await statsRes.json();
+
+    // 5. Alliance avatar passives
+    const passRes = await fetch(API + '/heroic/alliance-avatars', { headers: authHeaders });
+    if (passRes.ok) {
+      const passData = await passRes.json();
+      state.passives = passData.passives || {};
+    }
+
+    // 6. Saved progress — restore if exists
+    const progressRes = await fetch(API + '/heroic/my-state', { headers: authHeaders });
+    if (progressRes.ok) {
+      const progressData = await progressRes.json();
+      if (progressData.progress && progressData.progress.state_json) {
+        try {
+          const saved = typeof progressData.progress.state_json === 'string'
+            ? JSON.parse(progressData.progress.state_json)
+            : progressData.progress.state_json;
+          state.companions           = saved.companions           || [];
+          state.honor                = saved.honor                || 0;
+          state.drachma              = saved.drachma              !== undefined ? saved.drachma : state.drachma;
+          state.equipment            = saved.equipment            || 1;
+          state.inventory            = saved.inventory            || {};
+          state.choices              = saved.choices              || {};
+          state.medeaHelpCount       = saved.medeaHelpCount       || 0;
+          state.checkpoint_rollbacks = saved.checkpoint_rollbacks || 0;
+          state.currentWaypoint      = progressData.progress.waypoint || 'IOLCOS';
+
+          // If already complete, show completion screen
+          if (progressData.progress.locked) {
+            renderComplete(progressData.progress);
+            return;
+          }
+        } catch(e) { /* corrupt save — start fresh */ }
+      }
+    }
+
+    // Apply teammate passives to starting state
+    if (state.passives.honor_start_bonus) {
+      state.honor += 2;
+    }
+    if (state.passives.starting_drachma_pct) {
+      state.drachma = Math.round(state.drachma * 1.05);
+    }
+
+    // 7. Show avatar badge in header
+    const av = state.student.selected_avatar;
+    if (av) {
+      const parts = av.split('_'); // e.g. ['fallen','male','dark']
+      const key  = parts[0];
+      const gend = parts[1] || 'male';
+      const skin = parts[2] || 'light';
+      const imgEl = document.getElementById('avatar-badge-img');
+      imgEl.src = '/images/heroic/avatars/' + key + '/' + key + '_' + gend + '_' + skin + '_base.png';
+      imgEl.onerror = function() { this.style.display='none'; };
+      document.getElementById('avatar-badge-name').textContent = avatarLabel();
+      document.getElementById('avatar-badge-wrap').style.display = 'flex';
+    }
+
+    // 8. Enter correct waypoint
+    showScreen('screen-game');
+    updateHeader();
+    routeToWaypoint(state.currentWaypoint);
+
+  } catch(e) {
+    console.error('Init error:', e);
+    showError('Failed to load Chapter 1: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// WAYPOINT ROUTER
+// ═══════════════════════════════════════════════════
+function routeToWaypoint(key) {
+  state.currentWaypoint = key;
+  updateTrail(key);
+  switch(key) {
+    case 'IOLCOS':       renderIolcos();    break;
+    case 'LEMNOS':       renderLemnos();    break;
+    default:
+      setContent('<div style="font-family:var(--pixel);color:var(--teal);text-align:center;padding:60px;font-size:10px;letter-spacing:3px;">' + key + ' — COMING SOON</div>');
+  }
+}
+
+function advanceTo(waypointKey) {
+  saveCheckpoint(waypointKey);
+  routeToWaypoint(waypointKey);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════════════
+// WAYPOINT: IOLCOS — Departure
+// ═══════════════════════════════════════════════════
+function renderIolcos() {
+
+  // Avatar-specific flavor
+  const avatarFlavor = {
+    fallen:  'Your reputation precedes you — word of your coin and boldness has drawn the finest heroes, though some whisper of your recklessness.',
+    devoted: 'Orpheus himself sought you out before you even sent word. Your loyalty is already legend among the crew.',
+    builder: 'Argus, the shipwright, pulled you aside before departure. "I\'ve left a toolkit in your berth," he said. "Use it well."',
+    seeker:  'You arrived early, studying the harbor charts no one else thought to read. Something about this voyage feels fated.',
+    mirror:  'You\'ve already mapped the crew\'s ambitions. Castor trusts too easily. Pollux is hiding something. Good to know.',
+    tested:  'You prayed at the shrine of Hera this morning. The incense rose straight up — a good sign. She is watching.',
+    eternal: 'Three times last night you dreamed of stars moving. You\'ve recorded every detail. The pattern will matter later.'
+  }[avatarType()] || 'The call has gone out across all of Greece. The greatest heroes of the age have answered.';
+
+  // Fallen avatar gets +15% starting drachma note (already applied to state.drachma in init via AVATAR_DRACHMA server-side)
+  const fallenNote = isAvatar('fallen')
+    ? '<div class="passive-banner visible">⚡ THE FALLEN: You start with extra Drachma — but one companion begins <span style="color:var(--red)">skeptical</span> of your leadership.</div>'
+    : '';
+
+  // Builder note
+  const builderNote = isAvatar('builder')
+    ? '<div class="passive-banner visible">🔨 THE BUILDER: One companion starts with <strong>upgraded equipment</strong>. You\'ll see this at Symplegades.</div>'
+    : '';
+
+  // Devoted note
+  const devotedNote = isAvatar('devoted')
+    ? '<div class="passive-banner visible">🎵 THE DEVOTED: Full crew loyalty from the start. Orpheus is already at the bow, tuning his lyre.</div>'
+    : '';
+
+  // Teammate passives
+  let passiveNote = '';
+  const passiveLabels = Object.values(state.passives);
+  if (passiveLabels.length > 0) {
+    passiveNote = '<div class="passive-banner visible">🤝 ALLIANCE BONUSES: ' + passiveLabels.join(' · ') + '</div>';
+  }
+
+  // Already chose companions? Skip selection
+  if (state.companions.length === 2 && state.choices.companions) {
+    renderIolcosMarket();
+    return;
+  }
+
+  const html = [
+    '<div class="waypoint-header">',
+      '<div class="waypoint-location">⚓ Waypoint I</div>',
+      '<div class="waypoint-title">Iolcos</div>',
+      '<div class="waypoint-subtitle">The Departure — Where Legends Begin</div>',
+    '</div>',
+
+    fallenNote, devotedNote, builderNote, passiveNote,
+
+    '<div class="narrative-box">',
+      '<div class="narrative-text">',
+        'King <em>Pelias</em> stands before you on the steps of the palace, his smile thin as a blade. The deal is simple: ',
+        'bring him the <em>Golden Fleece</em> from the kingdom of Colchis, and the throne of Iolcos will be yours. ',
+        'He expects you to fail. The goddess <em>Hera</em> — watching from the shadows — expects otherwise.<br><br>',
+        'The Argo waits in the harbor. Over fifty heroes have answered your call. But you cannot sail with all of them. ',
+        'Your ship, your choices, your voyage.<br><br>',
+        '<em>' + avatarFlavor + '</em>',
+      '</div>',
+    '</div>',
+
+    '<div class="pixel-divider"></div>',
+
+    '<div class="choice-panel">',
+      '<div class="choice-prompt">Choose 2 companions for your inner crew</div>',
+      '<div class="companion-select-count" id="comp-count">Selected: 0 / 2</div>',
+      '<div class="companion-grid" id="companion-grid">',
+        companionCard('orpheus',  '🎵', 'Orpheus',  'Perseverance · Honor',
+          'The greatest musician alive. His lyre can calm seas, charm beasts, and soothe restless gods. Crucial at the Golden Fleece.'),
+        companionCard('atalanta', '🏹', 'Atalanta', 'Cunning · Courage',
+          'The finest hunter in Greece. She sees paths others miss and never flinches from danger.'),
+        companionCard('castor',   '⚔', 'Castor',   'Honor',
+          'One of the divine twins. Steady, disciplined, and unbreakable in a fight. The crew trusts him completely.'),
+        companionCard('pollux',   '💪', 'Pollux',   'Strength · Courage',
+          'Castor\'s brother — the strongest man on the ship. When brute force is needed, Pollux delivers.'),
+      '</div>',
+    '</div>',
+
+    '<a class="back-link" onclick="window.location.href=\'/student.html?view=heroic\'">← Dashboard</a>',
+    '<div style="height:20px;"></div>'
+  ].join('');
+
+  setContent(html);
+
+  // Wire companion selection
+  document.querySelectorAll('.companion-card').forEach(card => {
+    card.addEventListener('click', function() {
+      const key = this.dataset.key;
+      if (this.classList.contains('disabled')) return;
+      if (this.classList.contains('selected')) {
+        // Deselect
+        this.classList.remove('selected');
+        state.companions = state.companions.filter(k => k !== key);
+      } else {
+        if (state.companions.length >= 2) return; // already have 2
+        this.classList.add('selected');
+        state.companions.push(key);
+      }
+      document.getElementById('comp-count').textContent = 'Selected: ' + state.companions.length + ' / 2';
+      // Disable remaining cards when 2 chosen
+      document.querySelectorAll('.companion-card:not(.selected)').forEach(c => {
+        c.classList.toggle('disabled', state.companions.length >= 2);
+      });
+      // Show continue if 2 selected
+      const btn = document.getElementById('btn-companions-done');
+      if (btn) btn.classList.toggle('visible', state.companions.length === 2);
+    });
+  });
+
+  // Add continue button
+  const grid = document.getElementById('companion-grid');
+  if (grid) {
+    const btn = document.createElement('button');
+    btn.id = 'btn-companions-done';
+    btn.className = 'continue-btn';
+    btn.textContent = 'Set Sail ▶';
+    btn.style.marginTop = '20px';
+    btn.onclick = function() {
+      if (state.companions.length < 2) return;
+      state.choices.companions = [...state.companions];
+      recordChoice('companions', state.companions.join(','));
+      saveCheckpoint('IOLCOS');
+      renderIolcosMarket();
+    };
+    grid.insertAdjacentElement('afterend', btn);
+  }
+}
+
+function companionCard(key, icon, name, virtues, desc) {
+  return [
+    '<div class="companion-card" data-key="' + key + '">',
+      '<div class="companion-check">✓</div>',
+      '<div class="companion-icon">' + icon + '</div>',
+      '<div class="companion-name">' + name + '</div>',
+      '<div class="companion-virtues">' + virtues + '</div>',
+      '<div class="companion-desc">' + desc + '</div>',
+    '</div>'
+  ].join('');
+}
+
+// ── IOLCOS MARKET ──────────────────────────────────
+const MARKET_ITEMS = [
+  { key:'short_sword',  name:'Short Sword',     price:30, desc:'Basic bronze blade. Good for most encounters.' },
+  { key:'hide_shield',  name:'Hide Shield',      price:20, desc:'Hardened leather. Reduces damage from one attack per chapter.' },
+  { key:'provisions',   name:'Provisions (×5)', price:15, desc:'Extra rations. Each unit prevents a -1 morale hit from failed travel events.' },
+  { key:'rope_tackle',  name:'Rope & Tackle',   price:10, desc:'Ship rigging supplies. Required for one Symplegades shortcut.' },
+];
+
+function renderIolcosMarket() {
+  const hasBuilderDiscount = isAvatar('builder') || state.passives.equipment_durability;
+  const discountPct = hasBuilderDiscount ? 0.8 : 1;
+  const discountNote = hasBuilderDiscount
+    ? '<div class="passive-banner visible">🔨 Builder discount active — equipment costs 20% less.</div>'
+    : '';
+
+  const companionSummary = state.companions.map(k => {
+    return { orpheus:'🎵 Orpheus', atalanta:'🏹 Atalanta', castor:'⚔ Castor', pollux:'💪 Pollux' }[k] || k;
+  }).join(' &amp; ');
+
+  const itemsHtml = MARKET_ITEMS.map(item => {
+    const owned = state.inventory[item.key] || 0;
+    const price  = Math.round(item.price * discountPct);
+    const canAfford = state.drachma >= price;
+    return [
+      '<div class="market-item">',
+        '<div class="market-item-name">' + item.name + '</div>',
+        '<div class="market-item-desc">' + item.desc + '</div>',
+        '<div class="market-item-price">💰 ' + price + ' Drachma</div>',
+        owned > 0
+          ? '<div class="market-owned">✓ Owned ×' + owned + '</div>'
+          : '<button class="continue-btn visible" style="font-size:9px;padding:8px 14px;margin-top:0;" ' +
+            (canAfford ? '' : 'disabled ') +
+            'onclick="buyItem(\'' + item.key + '\',' + price + ')">Buy</button>',
+      '</div>'
+    ].join('');
+  }).join('');
+
+  const html = [
+    '<div class="waypoint-header">',
+      '<div class="waypoint-location">⚓ Iolcos — Harbor Market</div>',
+      '<div class="waypoint-title">Outfit Your Crew</div>',
+      '<div class="waypoint-subtitle">Wood &amp; Leather Tier — Spend wisely</div>',
+    '</div>',
+
+    '<div class="narrative-box">',
+      '<div class="narrative-text">',
+        'Your crew is chosen: <em>' + companionSummary + '</em>.<br><br>',
+        'The harbor market is open. You won\'t see another supply stop until Colchis. ',
+        'Every Drachma you spend now is gone — but arriving unprepared is worse.',
+      '</div>',
+    '</div>',
+
+    discountNote,
+
+    '<div class="drachma-display" id="market-drachma">💰 ' + state.drachma + ' Drachma remaining</div>',
+    '<div class="market-grid">' + itemsHtml + '</div>',
+
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="continue-btn visible" onclick="finishMarketAndAdvance()">Set Sail for Lemnos ▶</button>',
+    '</div>',
+
+    '<div style="height:20px;"></div>'
+  ].join('');
+
+  setContent(html);
+  updateHeader();
+}
+
+window.buyItem = function(key, price) {
+  if (state.drachma < price) return;
+  state.drachma -= price;
+  state.inventory[key] = (state.inventory[key] || 0) + 1;
+  updateHeader();
+  renderIolcosMarket(); // re-render to update owned state
+};
+
+function finishMarketAndAdvance() {
+  recordChoice('market_iolcos', JSON.stringify(state.inventory));
+  advanceTo('LEMNOS');
+}
+
+// ═══════════════════════════════════════════════════
+// WAYPOINT: LEMNOS — The Temptation (CYOA Fork)
+// ═══════════════════════════════════════════════════
+function renderLemnos() {
+  const av = avatarType();
+  const cun = cunning();
+
+  // Avatar overrides
+  const isFallenForced  = av === 'fallen';
+  const isDevotedAuto   = av === 'devoted';
+  const isSeekerHidden  = av === 'seeker';
+  const canNegotiate    = cun >= 8;
+
+  // Already made choice? Show outcome
+  if (state.choices.lemnos) {
+    renderLemnosOutcome(state.choices.lemnos);
+    return;
+  }
+
+  // Devoted: auto-passes Negotiate
+  if (isDevotedAuto) {
+    setTimeout(() => {
+      resolveLemnos('negotiate', true);
+    }, 400);
+    setContent([
+      '<div class="waypoint-header">',
+        '<div class="waypoint-location">🏝 Waypoint II</div>',
+        '<div class="waypoint-title">Lemnos</div>',
+        '<div class="waypoint-subtitle">The Island of Women</div>',
+      '</div>',
+      '<div class="passive-banner visible">🎵 THE DEVOTED: Orpheus steps forward and begins to play. The women of Lemnos pause. Your companions speak for you with perfect grace. Negotiation succeeds automatically.</div>',
+      '<div style="font-family:var(--pixel);font-size:9px;color:var(--teal);text-align:center;padding:40px;letter-spacing:3px;animation:blink 1s step-end infinite;">Resolving...</div>'
+    ].join(''));
+    return;
+  }
+
+  const heraNote = isFallenForced
+    ? '<div class="hera-watch visible">👁 HERA WATCHES — The Fallen must stay. She notes this.</div>'
+    : '';
+
+  const choices = [];
+
+  // Path 1 — Stay (always available; Fallen forced here)
+  choices.push(
+    '<div class="choice-btn' + (isFallenForced ? ' forced' : '') + '" ' +
+    (isFallenForced ? '' : 'onclick="resolveLemnos(\'stay\')"') + '>',
+      '<div class="choice-tag tag-forced">' + (isFallenForced ? 'FORCED' : '') + '</div>',
+      '<div class="choice-title">' + (isFallenForced ? '⛓ Stay (Required)' : 'Stay on Lemnos') + '</div>',
+      '<div class="choice-desc">Linger and take their provisions. Costs 3 travel days. –2 Honor. Hera notes this.</div>',
+    '</div>'
+  );
+
+  // Path 2 — Negotiate (Cunning 8+ only)
+  if (!isFallenForced) {
+    if (canNegotiate) {
+      choices.push(
+        '<div class="choice-btn" onclick="resolveLemnos(\'negotiate\')">',
+          '<div class="choice-tag tag-cunning">CUNNING</div>',
+          '<div class="choice-title">Negotiate for Provisions</div>',
+          '<div class="choice-desc">Use your cunning to arrange a fair trade. Cunning 8+ — you qualify. Honor intact if you succeed, same as Stay if you fail.</div>',
+        '</div>'
+      );
+    } else {
+      choices.push(
+        '<div class="choice-btn" style="opacity:0.3;cursor:not-allowed;">',
+          '<div class="choice-tag tag-cunning">CUNNING 8+</div>',
+          '<div class="choice-title">Negotiate for Provisions</div>',
+          '<div class="choice-desc">Requires Cunning 8. Your score is too low to attempt this path.</div>',
+        '</div>'
+      );
+    }
+
+    // Path 3 — Leave
+    choices.push(
+      '<div class="choice-btn" onclick="resolveLemnos(\'leave\')">',
+        '<div class="choice-tag tag-honor">HONOR</div>',
+        '<div class="choice-title">Leave at Dawn</div>',
+        '<div class="choice-desc">Honor intact. Lose 20% of your provisions. Crew morale –1. No delays.</div>',
+      '</div>'
+    );
+  } else {
+    // Fallen — show Stay as the only clickable option
+    choices[0] = choices[0].replace('class="choice-btn forced"', 'class="choice-btn forced" onclick="resolveLemnos(\'stay\')"');
+  }
+
+  // Path 4 — Seeker hidden option
+  if (isSeekerHidden && !isFallenForced) {
+    choices.push(
+      '<div class="choice-btn hidden-option" onclick="resolveLemnos(\'investigate\')">',
+        '<div class="choice-tag tag-hidden">SEEKER ONLY</div>',
+        '<div class="choice-title">🔍 Investigate the Island</div>',
+        '<div class="choice-desc">Something about this place feels wrong. You want to know why all the men are gone. Small Lore reward. Honor neutral.</div>',
+      '</div>'
+    );
+  }
+
+  const html = [
+    '<div class="waypoint-header">',
+      '<div class="waypoint-location">🏝 Waypoint II</div>',
+      '<div class="waypoint-title">Lemnos</div>',
+      '<div class="waypoint-subtitle">The Island of Women — What will you do?</div>',
+    '</div>',
+
+    heraNote,
+
+    '<div class="narrative-box">',
+      '<div class="narrative-text">',
+        'The Argo drops anchor off <em>Lemnos</em> — an island where the women killed all their men years ago and now rule alone. ',
+        'Their queen, <em>Hypsipyle</em>, sends a herald with an invitation: stay, rest, and take provisions. ',
+        'But the goddess <em>Hera</em> is watching. Every day you linger here is a day closer to losing the Fleece to a rival.<br><br>',
+        'Your companions wait for your decision.',
+      '</div>',
+    '</div>',
+
+    '<div class="choice-panel">',
+      '<div class="choice-prompt">What do you do?</div>',
+      '<div class="choice-grid">',
+        choices.join(''),
+      '</div>',
+    '</div>',
+
+    '<a class="back-link" onclick="window.location.href=\'/student.html?view=heroic\'">← Dashboard</a>',
+    '<div style="height:20px;"></div>'
+  ].join('');
+
+  setContent(html);
+}
+
+function resolveLemnos(choice, autoPass) {
+  // Calculate outcome
+  let honorDelta = 0, provisionNote = '', moraleNote = '', heraNote = '', loreNote = '';
+  let outcomeType = 'warning';
+  let outcomeTitle = '';
+  let outcomeBody = '';
+  const effects = [];
+
+  // Negotiate success roll (Cunning 8+ base; auto-pass for Devoted)
+  const cun = cunning();
+  const negotiateSuccess = autoPass || (cun >= 8 && Math.random() < (0.5 + (cun - 8) * 0.04));
+
+  switch(choice) {
+    case 'stay':
+      honorDelta = -2;
+      outcomeTitle = 'You Linger on Lemnos';
+      outcomeBody = 'Three days pass in comfort. Hypsipyle\'s generosity fills the hold. But Hera\'s patience does not. You can feel her displeasure like a cold wind from Olympus.';
+      outcomeType = 'warning';
+      effects.push({ label: '–2 Honor', type: 'negative' });
+      effects.push({ label: 'Provisions gained', type: 'positive' });
+      effects.push({ label: 'Hera: noting this', type: 'negative' });
+      heraNote = 'Hera notes your three-day delay.';
+      break;
+
+    case 'negotiate':
+      if (negotiateSuccess) {
+        outcomeTitle = 'A Fair Bargain';
+        outcomeBody = 'Your words are careful and respectful. Hypsipyle agrees to trade — provisions for ship timber. Honor intact. The Argo sails at dawn.';
+        outcomeType = 'success';
+        effects.push({ label: 'Honor intact', type: 'positive' });
+        effects.push({ label: 'Provisions gained', type: 'positive' });
+        effects.push({ label: 'No delay', type: 'positive' });
+      } else {
+        honorDelta = -2;
+        outcomeTitle = 'The Bargain Falls Apart';
+        outcomeBody = 'Your words were reasonable but Hypsipyle read reluctance in them. The negotiations collapse. You stay three days anyway, provisions in hand, Honor lost.';
+        outcomeType = 'warning';
+        effects.push({ label: '–2 Honor (failed negotiate)', type: 'negative' });
+        effects.push({ label: 'Provisions gained', type: 'neutral' });
+      }
+      break;
+
+    case 'leave':
+      outcomeTitle = 'Gone Before Dawn';
+      outcomeBody = 'You order the crew back to the Argo before sunrise. They grumble — they were warm and well-fed. Twenty percent of your provisions are left behind in the rush. But Honor is intact and Hera approves.';
+      outcomeType = 'success';
+      effects.push({ label: 'Honor intact', type: 'positive' });
+      effects.push({ label: '–20% provisions', type: 'negative' });
+      effects.push({ label: 'Crew morale –1', type: 'negative' });
+      effects.push({ label: 'Hera: approves', type: 'positive' });
+      break;
+
+    case 'investigate':
+      outcomeTitle = 'The Truth Beneath the Island';
+      outcomeBody = 'You slip away from the others and search. A shrine, hidden in the hills, still smoking. The story of Lemnos is older and darker than anyone admits. You record every detail. Knowledge gained — and something else. An awareness that this voyage will test more than your strength.';
+      outcomeType = 'success';
+      effects.push({ label: '+Lore bonus', type: 'positive' });
+      effects.push({ label: 'Honor neutral', type: 'neutral' });
+      effects.push({ label: 'Seeker path unlocked', type: 'positive' });
+      loreNote = 'seeker_lemnos';
+      break;
+  }
+
+  // Apply honor change
+  state.honor += honorDelta;
+  if (state.honor < 0) state.honor = 0;
+
+  // Record
+  state.choices.lemnos = choice;
+  recordChoice('lemnos', choice);
+  saveCheckpoint('LEMNOS');
+
+  renderLemnosOutcome(choice, outcomeType, outcomeTitle, outcomeBody, effects, heraNote);
+}
+
+function renderLemnosOutcome(choice, type, title, body, effects, heraNote) {
+  // If restoring from save, generate outcome data
+  if (!type) {
+    const map = {
+      stay:        { type:'warning', title:'You Lingered on Lemnos',   body:'Three days of comfort — and Hera\'s cold eye on your back.' },
+      negotiate:   { type:'success', title:'A Bargain Was Struck',      body:'Provisions secured, Honor intact. The Argo sailed at dawn.' },
+      leave:       { type:'success', title:'Gone Before Dawn',          body:'Honor intact. Twenty percent of provisions left behind.' },
+      investigate: { type:'success', title:'The Truth of the Island',   body:'You found something the others missed. Knowledge gained.' }
+    };
+    const m = map[choice] || map.stay;
+    type = m.type; title = m.title; body = m.body; effects = []; heraNote = '';
+  }
+
+  const effectPips = (effects || []).map(e =>
+    '<div class="effect-pip ' + e.type + '">' + e.label + '</div>'
+  ).join('');
+
+  const html = [
+    '<div class="waypoint-header">',
+      '<div class="waypoint-location">🏝 Waypoint II — Resolved</div>',
+      '<div class="waypoint-title">Lemnos</div>',
+    '</div>',
+
+    heraNote ? '<div class="hera-watch visible">👁 HERA: ' + heraNote + '</div>' : '',
+
+    '<div class="outcome-box ' + type + ' visible">',
+      '<div class="outcome-title">' + title + '</div>',
+      '<div class="outcome-text">' + body + '</div>',
+      effects && effects.length ? '<div class="outcome-effects">' + effectPips + '</div>' : '',
+    '</div>',
+
+    '<div class="narrative-box">',
+      '<div class="narrative-text">',
+        'The Argo pushes east. Ahead — the <em>Symplegades</em>. The Clashing Rocks. ',
+        'No ship has ever passed through them and survived.',
+      '</div>',
+    '</div>',
+
+    updateHeader() || '',
+
+    '<div style="text-align:center;">',
+      '<button class="continue-btn visible" onclick="advanceTo(\'SYMPLEGADES\')">Sail for the Clashing Rocks ▶</button>',
+    '</div>',
+
+    '<div style="height:20px;"></div>'
+  ].join('');
+
+  setContent(html);
+  updateHeader();
+}
+
+// ═══════════════════════════════════════════════════
+// COMPLETION SCREEN (chapter already locked)
+// ═══════════════════════════════════════════════════
+function renderComplete(progress) {
+  showScreen('screen-game');
+  updateTrail('RETURN');
+  setContent([
+    '<div class="waypoint-header">',
+      '<div class="waypoint-location">✓ Chapter 1 Complete</div>',
+      '<div class="waypoint-title">The Fleece is Won</div>',
+      '<div class="waypoint-subtitle">Your legend is recorded</div>',
+    '</div>',
+    '<div class="narrative-box">',
+      '<div class="narrative-text">',
+        'You have completed Chapter 1. Your choices are locked in the record. ',
+        '<em>Hera remembers. Zeus has read your justification. The Tribunal awaits.</em><br><br>',
+        'Final Honor: <em>' + (progress.honor_score || 0) + '</em> &nbsp;·&nbsp; ',
+        'Drachma remaining: <em>' + (progress.drachma_balance || 0) + '</em>',
+      '</div>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="continue-btn visible" onclick="window.location.href=\'/student.html?view=heroic\'">← Return to Dashboard</button>',
+    '</div>'
+  ].join(''));
+}
+
+// ═══════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
