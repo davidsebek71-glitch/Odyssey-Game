@@ -429,6 +429,7 @@ function routeTo(key) {
     case 'IOLCOS':       renderIolcos();          break;
     case 'LEMNOS':       renderLemnos();          break;
     case 'SYMPLEGADES':  renderSympStub();        break;
+    case 'COLCHIS':      renderColchis();         break;
     default: {
       const backBtn = '<button class="btn-back" onclick="goDashboard()">&#8592; Back to Dashboard</button>';
       render(
@@ -1332,6 +1333,382 @@ function drawArgo(ctx, cx, cy, w, h, damaged) {
   if (damaged) { ctx.fillStyle='rgba(224,64,64,0.45)'; ctx.fillRect(x,y,w,h); }
   ctx.fillStyle='rgba(240,192,64,0.35)'; ctx.fillRect(x+w-4, y+h*0.4, 4, h*0.3);
 }
+
+// ============================================================
+// COLCHIS COAST — The Fire-Breathing Bulls (spec section 5.2)
+// Escape-room tile puzzle: cover all fire breath paths before timer.
+// Medea's first appearance — moral choice to accept help or not.
+// ============================================================
+
+// Grid: 4 cols x 4 rows. Fire paths are [row,col] pairs to cover.
+// Craft stat determines free pre-placed tiles (spec: 12+=2, 6-11=1, below=0).
+// Wrong placements count toward 3-mistake limit.
+// Failure: lose 10 provisions, redo. No checkpoint rollback.
+
+const COLCHIS_COLS     = 4;
+const COLCHIS_ROWS     = 4;
+const COLCHIS_TIMER    = 60;  // seconds
+
+// 8 fire-path cells the player must cover
+const FIRE_CELLS = [
+  [0,1],[0,3],
+  [1,0],[1,2],
+  [2,1],[2,3],
+  [3,0],[3,2]
+];
+
+let CC = null;  // Colchis puzzle state
+
+function initCC() {
+  const cr = craft();
+  const free = cr >= 12 ? 2 : cr >= 6 ? 1 : 0;
+  const prePlaced = new Set(FIRE_CELLS.slice(0, free).map(([r,c]) => r+','+c));
+  return {
+    covered:        new Set(prePlaced),
+    prePlaced,
+    mistakes:       0,
+    timeLeft:       COLCHIS_TIMER,
+    timerInterval:  null,
+    medeaAccepted:  false,
+    medeaHelped:    false,
+    seekerFreeUsed: false,
+    free,
+    done:           false
+  };
+}
+
+// ── Entry point ──────────────────────────────────────────────
+function renderColchis() {
+  if (G.choices.colchis) { renderColchisOutcome(G.choices.colchis); return; }
+
+  // Hull repair: Symplegades damage costs 15 Drachma here (spec: deducted at next market)
+  const repairNote = G.symplegadesDamaged
+    ? '<div class="banner b-hera">&#9874; <strong>Forge repair:</strong> The harbor forge patches your hull. 15 Drachma deducted.</div>'
+    : '';
+  if (G.symplegadesDamaged) {
+    G.drachma = Math.max(0, G.drachma - 15);
+    G.symplegadesDamaged = false;
+    updateHeader();
+  }
+
+  const notices = [];
+  const cr = craft();
+  if (cr >= 12)
+    notices.push('<div class="banner b-craft">&#128296; <strong>Craft ' + cr + ':</strong> Engineering skill pre-places 2 bronze tiles for you.</div>');
+  else if (cr >= 6)
+    notices.push('<div class="banner b-craft">&#128296; <strong>Craft ' + cr + ':</strong> Engineering skill pre-places 1 bronze tile for you.</div>');
+  if (isAv('tested'))
+    notices.push('<div class="banner b-avatar">&#9878; <strong>The Tested:</strong> Medea respects earned suffering. Her help costs no Honor.</div>');
+  if (isAv('seeker'))
+    notices.push('<div class="banner b-avatar">&#128270; <strong>The Seeker:</strong> Curiosity grants one free wrong placement before the mistake counter starts.</div>');
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127807; Waypoint IV</div>',
+    '<div class="wp-title">Colchis Coast</div>',
+    '<div class="wp-sub">The Fire-Breathing Bulls &mdash; King Aeetes\' First Trial</div></div>',
+    repairNote,
+    notices.join(''),
+    '<div class="narr">',
+      '<p>King <em>Aeetes</em> has agreed to give you the Fleece &mdash; if you survive three trials. The first: yoke his fire-breathing bronze bulls and plow the <em>Field of Ares</em>. The bulls exhale jets of flame on a fixed pattern. Cover the fire paths with bronze shield-plates before you approach them, or be burned alive.</p>',
+      '<p>A woman stands at the edge of the field. Dark-eyed, utterly still. She has not spoken yet. She knows exactly where the fire will land.</p>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="startColchisPuzzle()">Begin the Trial &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+function startColchisPuzzle() {
+  CC = initCC();
+  renderMedeaOffer();
+}
+
+// ── Medea offer (spec: first decision — trust her or solve alone) ──
+function renderMedeaOffer() {
+  const honorCost  = isAv('tested') ? 0 : 1;
+  const costLabel  = honorCost === 0
+    ? '<span style="color:var(--green);">Free &mdash; Tested</span>'
+    : '&ndash;1 Honor';
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127807; Colchis &mdash; Before the Trial</div>',
+    '<div class="wp-title">A Woman at the Edge of the Field</div></div>',
+    '<div class="narr">',
+      '<p>She approaches before you reach the gates. Up close her eyes are unsettling &mdash; she sees too much. <em>&ldquo;I know the pattern,&rdquo;</em> she says quietly. <em>&ldquo;I can show you where the fire lands. No one else here will.&rdquo;</em></p>',
+      '<p>Her name is <em>Medea</em>. Daughter of the king. Priestess of Hecate. She should not be talking to you at all.</p>',
+    '</div>',
+    '<div class="choice-panel">',
+      '<div class="choice-prompt">What do you do?</div>',
+      '<div class="choice-grid">',
+        '<div class="c-btn" onclick="acceptMedea()">',
+          '<div class="c-tag tag-forced">' + costLabel + '</div>',
+          '<div class="c-title">Accept her help</div>',
+          '<div class="c-desc">She reveals the fire pattern. The puzzle becomes easier &mdash; the fire cells are shown. But you owe her something now, and she knows it.</div>',
+        '</div>',
+        '<div class="c-btn" onclick="refuseMedea()">',
+          '<div class="c-tag tag-honor">HONOR INTACT</div>',
+          '<div class="c-title">Solve it yourself</div>',
+          '<div class="c-desc">You study the bulls\' movement &mdash; their eyes, the angle of their heads, the rhythm of their breathing. Harder, but the victory is yours alone.</div>',
+        '</div>',
+      '</div>',
+    '</div>',
+  ].join(''));
+}
+
+function acceptMedea() {
+  const honorCost = isAv('tested') ? 0 : 1;
+  G.honor = Math.max(0, G.honor - honorCost);
+  G.medeaHelpCount++;
+  CC.medeaAccepted = true;
+  CC.medeaHelped   = true;
+  // Reveal all fire cells as pre-placed hints
+  FIRE_CELLS.forEach(([r,c]) => CC.prePlaced.add(r+','+c));
+  recordChoice('medea_colchis', 'accepted');
+  updateHeader();
+  renderPuzzle();
+}
+
+function refuseMedea() {
+  CC.medeaAccepted = false;
+  recordChoice('medea_colchis', 'refused');
+  renderPuzzle();
+}
+
+// ── Puzzle board ────────────────────────────────────────────
+function renderPuzzle() {
+  const medeaNote = CC.medeaHelped
+    ? '<div class="banner b-hera">&#9733; Medea revealed the fire pattern. Red cells show where the flames will land &mdash; cover them all.</div>'
+    : '';
+  const seekerNote = isAv('seeker') && !CC.seekerFreeUsed
+    ? '<div class="banner b-avatar">&#128270; <strong>Seeker:</strong> Your first wrong placement is free &mdash; curiosity lets you experiment once without penalty.</div>'
+    : '';
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127807; Colchis &mdash; The Puzzle</div>',
+    '<div class="wp-title">Cover the Fire Paths</div>',
+    '<div class="wp-sub">Place bronze shield-tiles on every fire cell before time runs out</div></div>',
+    medeaNote,
+    seekerNote,
+    // HUD row
+    '<div style="width:100%;display:flex;justify-content:space-between;align-items:center;',
+         'font-family:var(--px);font-size:13px;padding:0 4px;margin-bottom:8px;">',
+      '<span style="color:var(--text2);">Mistakes: <span id="cc-err" style="color:var(--red);font-weight:700;">',
+        CC.mistakes, '</span> / 3</span>',
+      '<span style="color:var(--gold);">&#9200; <span id="cc-time">', CC.timeLeft, '</span>s</span>',
+      '<span style="color:var(--text2);">Covered: <span id="cc-done" style="color:var(--green);font-weight:700;">',
+        CC.covered.size, '</span> / ', FIRE_CELLS.length, '</span>',
+    '</div>',
+    // Grid
+    '<div id="cc-grid" style="display:grid;grid-template-columns:repeat(', COLCHIS_COLS, ',1fr);',
+         'gap:10px;width:100%;max-width:440px;margin:0 auto 16px;"></div>',
+    // Instructions
+    '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;line-height:1.9;">',
+      'Click a cell to place a bronze shield-tile &nbsp;&middot;&nbsp;',
+      'Cover every fire cell &nbsp;&middot;&nbsp;',
+      '3 wrong placements = &ndash;10 provisions &amp; puzzle resets',
+    '</div>',
+  ].join(''));
+
+  buildGrid();
+  startCCTimer();
+}
+
+function buildGrid() {
+  const grid = document.getElementById('cc-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  for (let r = 0; r < COLCHIS_ROWS; r++) {
+    for (let c = 0; c < COLCHIS_COLS; c++) {
+      const key      = r + ',' + c;
+      const isFire   = FIRE_CELLS.some(([fr,fc]) => fr===r && fc===c);
+      const covered  = CC.covered.has(key);
+      const revealed = CC.medeaHelped && isFire;
+
+      const cell = document.createElement('div');
+      cell.style.cssText = 'height:80px;border-radius:4px;display:flex;align-items:center;' +
+        'justify-content:center;font-size:26px;transition:all .12s;border:2px solid;cursor:pointer;' +
+        (covered  ? 'background:#3a2a10;border-color:#c89820;'
+                  : revealed ? 'background:rgba(224,64,64,.1);border-color:rgba(224,64,64,.5);'
+                              : 'background:var(--bg2);border-color:var(--bg3);');
+
+      cell.textContent = covered ? '\uD83D\uDEE1' : revealed ? '\uD83D\uDD25' : '';
+      cell.dataset.r = r; cell.dataset.c = c;
+
+      if (!covered) {
+        cell.addEventListener('click', () => onCellClick(r, c));
+        cell.addEventListener('mouseenter', () => {
+          if (!CC.covered.has(r+','+c)) cell.style.background = 'var(--bg3)';
+        });
+        cell.addEventListener('mouseleave', () => {
+          if (!CC.covered.has(r+','+c))
+            cell.style.background = (CC.medeaHelped && FIRE_CELLS.some(([fr,fc])=>fr===r&&fc===c))
+              ? 'rgba(224,64,64,.1)' : 'var(--bg2)';
+        });
+      }
+      grid.appendChild(cell);
+    }
+  }
+  syncHUD();
+}
+
+function onCellClick(r, c) {
+  if (!CC || CC.done) return;
+  const key    = r + ',' + c;
+  if (CC.covered.has(key)) return;
+
+  const isFire = FIRE_CELLS.some(([fr,fc]) => fr===r && fc===c);
+
+  if (isFire) {
+    CC.covered.add(key);
+    buildGrid();
+    if (FIRE_CELLS.every(([fr,fc]) => CC.covered.has(fr+','+fc))) colchisSuccess();
+  } else {
+    // Wrong placement
+    if (isAv('seeker') && !CC.seekerFreeUsed) {
+      CC.seekerFreeUsed = true;
+      flashCell(r, c, 'orange');
+      return;
+    }
+    CC.mistakes++;
+    flashCell(r, c, 'red');
+    syncHUD();
+    if (CC.mistakes >= 3) colchisMistakeLimit();
+  }
+}
+
+function flashCell(r, c, color) {
+  const grid = document.getElementById('cc-grid');
+  if (!grid) return;
+  const cell = grid.children[r * COLCHIS_COLS + c];
+  if (!cell) return;
+  const orig = cell.style.background;
+  cell.style.background = color === 'red' ? 'rgba(224,64,64,.5)' : 'rgba(249,115,22,.5)';
+  setTimeout(() => { cell.style.background = orig; }, 500);
+}
+
+function syncHUD() {
+  const errEl  = document.getElementById('cc-err');
+  const doneEl = document.getElementById('cc-done');
+  if (errEl)  errEl.textContent  = CC.mistakes;
+  if (doneEl) doneEl.textContent = CC.covered.size;
+}
+
+function startCCTimer() {
+  if (CC.timerInterval) clearInterval(CC.timerInterval);
+  CC.timerInterval = setInterval(() => {
+    if (!CC || CC.done) { clearInterval(CC.timerInterval); return; }
+    CC.timeLeft--;
+    const t = document.getElementById('cc-time');
+    if (t) { t.textContent = CC.timeLeft; t.style.color = CC.timeLeft <= 15 ? 'var(--red)' : 'var(--gold)'; }
+    if (CC.timeLeft <= 0) colchisTimeout();
+  }, 1000);
+}
+
+function stopCCTimer() {
+  if (CC && CC.timerInterval) { clearInterval(CC.timerInterval); CC.timerInterval = null; }
+}
+
+// ── Outcomes ─────────────────────────────────────────────────
+function colchisSuccess() {
+  CC.done = true;
+  stopCCTimer();
+  G.choices.colchis = CC.medeaAccepted ? 'success_medea' : 'success_solo';
+  recordChoice('colchis', G.choices.colchis);
+  saveCheckpoint('COLCHIS');
+  renderColchisOutcome(G.choices.colchis);
+}
+
+function resetPuzzleAfterFail() {
+  // Preserve Medea help state if already accepted
+  const wasMediaHelped = CC && CC.medeaHelped;
+  const wasAccepted    = CC && CC.medeaAccepted;
+  CC = initCC();
+  if (wasMediaHelped) {
+    FIRE_CELLS.forEach(([r,c]) => CC.prePlaced.add(r+','+c));
+    CC.medeaHelped   = true;
+    CC.medeaAccepted = wasAccepted;
+  }
+}
+
+function colchisMistakeLimit() {
+  CC.done = true;
+  stopCCTimer();
+  G.provisions = Math.max(0, G.provisions - 10);
+  updateHeader();
+  resetPuzzleAfterFail();
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127807; Colchis &mdash; Setback</div>',
+    '<div class="wp-title">The Bull Broke Through</div></div>',
+    '<div class="outcome oc-danger">',
+      '<div class="oc-title">Three Wrong Placements &mdash; Provisions Scattered</div>',
+      '<div class="oc-body">The bronze bull charged through your gap before you could cover it. Provisions scattered across the field. You regroup, gather what remains, and study the pattern again. The fire does not change. You can do this.</div>',
+      '<div class="eff-row">' + pip('&ndash;10 Provisions','neg') + pip('Puzzle resets','neu') + '</div>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="renderPuzzle()">Try Again &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+function colchisTimeout() {
+  CC.done = true;
+  stopCCTimer();
+  G.provisions = Math.max(0, G.provisions - 10);
+  updateHeader();
+  resetPuzzleAfterFail();
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127807; Colchis &mdash; Setback</div>',
+    '<div class="wp-title">Time Ran Out</div></div>',
+    '<div class="outcome oc-danger">',
+      '<div class="oc-title">The Bulls Were Not Yoked</div>',
+      '<div class="oc-body">The timer expired before all fire paths were covered. The bulls charged. Provisions lost. You drag yourself back to the starting line. The pattern has not changed &mdash; you know it better now.</div>',
+      '<div class="eff-row">' + pip('&ndash;10 Provisions','neg') + pip('Puzzle resets','neu') + '</div>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="renderPuzzle()">Try Again &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+function renderColchisOutcome(choice) {
+  const usedMedea = choice && choice.includes('medea');
+  const effs = [];
+  if (usedMedea) {
+    const hCost = isAv('tested') ? 0 : 1;
+    effs.push(pip('Medea\'s help accepted','neu'));
+    if (hCost > 0) effs.push(pip('&ndash;1 Honor','neg'));
+    else           effs.push(pip('No Honor cost (Tested)','pos'));
+  } else {
+    effs.push(pip('Solved without Medea','pos'), pip('Honor intact','pos'));
+  }
+
+  const heraLine = G.honor >= 10
+    ? 'Hera watched you complete the trial. She noted your method.'
+    : 'Hera watched. She noted what you gave away.';
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127807; Colchis &mdash; Trial Complete</div>',
+    '<div class="wp-title">The Bulls Are Yoked</div></div>',
+    '<div class="outcome oc-success">',
+      '<div class="oc-title">' + (usedMedea ? 'Trial Complete &mdash; With Help' : 'Trial Complete &mdash; Alone') + '</div>',
+      '<div class="oc-body">' + (usedMedea
+        ? 'Every bronze plate landed on a fire path. The bulls were yoked before a flame touched you. Medea watched from the field\'s edge, something unreadable in her expression. She expected you to be worse at this.'
+        : 'You read the pattern yourself &mdash; watching the bulls\' eyes, the angle of their heads, the rhythm of their breathing. Every plate landed in the right place. No help. No debt. No obligation. Medea watched you in silence.') +
+      '</div>',
+      '<div class="eff-row">' + effs.join('') + '</div>',
+    '</div>',
+    '<div class="narr">',
+      '<p>Two trials remain: the <em>Dragon\'s Field</em> &mdash; where the Teeth of the Serpent must be sown in the correct ritual order &mdash; and then the Fleece itself, guarded by a dragon that never sleeps. King Aeetes watches from the palace. He did not expect you to survive this far.</p>',
+      '<p><i>' + heraLine + '</i></p>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="advanceTo(\'DRAGONS_FIELD\')">Enter the Dragon\'s Field &#9654;</button>',
+    '</div>',
+  ].join(''));
+  updateHeader();
+}
+
 
 // ============================================================
 // COMPLETION SCREEN
