@@ -432,6 +432,8 @@ function routeTo(key) {
     case 'COLCHIS':      renderColchis();         break;
     case 'DRAGONS_FIELD': renderDragonsField();    break;
     case 'GOLDEN_FLEECE':  renderGoldenFleece();    break;
+    case 'BETRAYAL_FORK':  renderBetrayalFork();    break;
+    case 'RETURN':         renderReturn();          break;
     default: {
       const backBtn = '<button class="btn-back" onclick="goDashboard()">&#8592; Back to Dashboard</button>';
       render(
@@ -2547,6 +2549,392 @@ function renderGFOutcome(choice) {
     '</div>',
   ].join(''));
   updateHeader();
+}
+
+
+// ============================================================
+// THE BETRAYAL FORK — Medea (spec section 5.2)
+// Major permanent moral decision. No retry. First-run locked after this.
+// Cunning 12+ reveals a third path that is INVISIBLE below threshold.
+// Written justification required (50-word min) — stored for Zeus test.
+// ============================================================
+
+function renderBetrayalFork() {
+  // Already chose — show the outcome (locked, no re-entry)
+  if (G.choices.betrayal_fork) {
+    renderBetrayalOutcome(G.choices.betrayal_fork);
+    return;
+  }
+
+  const c = cun();
+  const canNegotiate = c >= 12;
+  const medeaDebtNote = G.medeaHelpCount > 0
+    ? '<div class="banner b-hera">&#9888; You have accepted Medea\'s help ' + G.medeaHelpCount +
+      ' time' + (G.medeaHelpCount > 1 ? 's' : '') +
+      ' across these trials. She has been keeping count too.</div>'
+    : '';
+
+  // Build choices — Negotiate is INVISIBLE below Cunning 12 (spec: "literally invisible")
+  const choices = [];
+
+  choices.push(
+    '<div class="c-btn" style="border-color:#8b0000;" onclick="showBetrayalJustification(\'accept\')">' +
+      '<div class="c-tag" style="background:rgba(139,0,0,.3);color:#fca5a5;border:1px solid #8b0000;">&ndash;3 HONOR</div>' +
+      '<div class="c-title" style="color:#fca5a5;">Accept</div>' +
+      '<div class="c-desc">Guaranteed safe return. Medea ensures your escape &mdash; and does something terrible to make it certain. You receive a gift from her. Hera will be hostile when you reach home.</div>' +
+    '</div>'
+  );
+
+  choices.push(
+    '<div class="c-btn" onclick="showBetrayalJustification(\'refuse\')">' +
+      '<div class="c-tag tag-honor">HONOR INTACT</div>' +
+      '<div class="c-title">Refuse</div>' +
+      '<div class="c-desc">Honor intact. The return will be harder &mdash; you lose one crew member on the voyage home. Hera remains neutral. Your refusal will be remembered at the Tribunal as a mark of character.</div>' +
+    '</div>'
+  );
+
+  // Cunning 12+ ONLY — literally invisible otherwise (spec)
+  if (canNegotiate) {
+    choices.push(
+      '<div class="c-btn hidden" onclick="showBetrayalJustification(\'negotiate\')">' +
+        '<div class="c-tag tag-hid">CUNNING ' + c + '</div>' +
+        '<div class="c-title">Negotiate a Different Path</div>' +
+        '<div class="c-desc">You see what others cannot &mdash; a way for Medea to help without the terrible act. No Honor lost. Hera is impressed. This path exists only because you did the work to find it.</div>' +
+      '</div>'
+    );
+  }
+
+  // Full-page dark atmosphere (spec: "UI should pause, prompt should linger")
+  render([
+    // Override the normal background for this screen — inject a style
+    '<style>',
+      '#screen-game { background: radial-gradient(ellipse at center, #1a0a0a 0%, #08080f 70%); }',
+      '.bf-pulse { animation: bfpulse 3s ease-in-out infinite; }',
+      '@keyframes bfpulse { 0%,100%{opacity:.7} 50%{opacity:1} }',
+    '</style>',
+
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:#e04040;letter-spacing:6px;">&#9876; The Betrayal Fork</div>',
+      '<div class="wp-title" style="color:#fca5a5;text-shadow:0 0 30px rgba(224,64,64,.5);">Medea</div>',
+      '<div class="wp-sub" style="color:rgba(252,165,165,.5);">This choice cannot be undone</div>',
+    '</div>',
+
+    medeaDebtNote,
+
+    // The prompt — slow, atmospheric, weighty
+    '<div class="narr" style="border-color:#8b0000;background:linear-gradient(160deg,#1a0808,#0f0505);">',
+      '<p>She is waiting at the river\'s edge with a small boat and no explanation for why she is here at this hour, in the dark, with her father\'s soldiers certainly coming.</p>',
+      '<p>She looks at you and says it plainly. No theater. No pleading.</p>',
+      '<p style="font-size:19px;font-weight:700;color:#fca5a5;line-height:2.2;text-align:center;padding:8px 0;">',
+        '&ldquo;I love you. I will come with you. I will ensure your escape &mdash;<br>',
+        'and I will do something <em style="color:#e04040;">terrible</em> to guarantee it.<br>',
+        'Do you accept?&rdquo;',
+      '</p>',
+      '<p>Behind her, torchlight is moving through the trees. Aeetes has found out. You have perhaps three minutes.</p>',
+      '<p><i>The Fleece is in your hands. Everything you came for is already won. This is the price of the exit.</i></p>',
+    '</div>',
+
+    // Hera meter — show current disposition as context
+    '<div style="background:var(--bg2);border:1px solid #8b0000;border-radius:4px;padding:12px 18px;',
+         'font-family:var(--px);font-size:12px;display:flex;justify-content:space-between;width:100%;">',
+      '<span style="color:var(--text2);">Current Honor: <strong style="color:' +
+        (G.honor >= 10 ? 'var(--green)' : G.honor >= 5 ? 'var(--gold)' : 'var(--red)') +
+        ';">' + G.honor + '</strong></span>',
+      '<span style="color:var(--text2);">Hera: <strong>' + heraInfo().label + '</strong></span>',
+      '<span style="color:var(--text2);">Medea help: <strong style="color:' +
+        (G.medeaHelpCount > 0 ? '#fca5a5' : 'var(--text2)') + ';">' +
+        G.medeaHelpCount + ' time' + (G.medeaHelpCount !== 1 ? 's' : '') + '</strong></span>',
+    '</div>',
+
+    '<div class="choice-panel">',
+      '<div class="choice-prompt" style="color:#fca5a5;letter-spacing:4px;">Choose. You have three minutes.</div>',
+      '<div class="choice-grid">' + choices.join('') + '</div>',
+    '</div>',
+  ].join(''));
+}
+
+// ── Justification screen ─────────────────────────────────────
+// Spec (session handoff): 50-word minimum, stored in heroic_choices.text_response
+// Zeus reads it at the Tribunal.
+function showBetrayalJustification(choice) {
+  const labels = {
+    accept:    { title:'You Accept',    sub:'Justify this to Zeus.',    color:'#fca5a5' },
+    refuse:    { title:'You Refuse',    sub:'Justify this to Zeus.',    color:'var(--green)' },
+    negotiate: { title:'You Negotiate', sub:'Justify this to Zeus.',    color:'#c084fc' }
+  };
+  const lbl = labels[choice];
+
+  render([
+    '<style>#screen-game { background: radial-gradient(ellipse at center, #1a0a0a 0%, #08080f 70%); }</style>',
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:#e04040;">&#9878; Zeus Is Watching</div>',
+      '<div class="wp-title" style="color:' + lbl.color + ';">' + lbl.title + '</div>',
+      '<div class="wp-sub">This justification will be read aloud at your Tribunal</div>',
+    '</div>',
+
+    '<div class="narr" style="border-color:#8b0000;background:linear-gradient(160deg,#1a0808,#0f0505);">',
+      '<p>Zeus sees everything. He does not judge you for what you chose &mdash; he judges you for whether you understood why you chose it.</p>',
+      '<p><em>In your own words: why did you make this choice?</em> What did it cost you? What did it protect? This answer will be read at your Tribunal. Write it as if a god will read it. Because one will.</p>',
+    '</div>',
+
+    '<div style="width:100%;">',
+      '<textarea id="bf-justification" placeholder="Write at least 50 words explaining your choice. Why did you choose this path? What matters to you more — the mission, your honor, the crew, Medea herself? What kind of leader are you?" ',
+        'style="width:100%;min-height:160px;background:var(--bg2);border:2px solid #8b0000;border-radius:4px;',
+        'color:var(--text1);font-family:\'Cinzel\',serif;font-size:15px;line-height:1.8;padding:16px;resize:vertical;',
+        'outline:none;" oninput="updateBFWordCount()"></textarea>',
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;',
+           'font-family:var(--px);font-size:12px;">',
+        '<span id="bf-wordcount" style="color:var(--text2);">0 words</span>',
+        '<span style="color:rgba(252,165,165,.5);">Minimum: 50 words</span>',
+      '</div>',
+    '</div>',
+
+    '<div style="display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;">',
+      '<button id="bf-confirm-btn" class="btn-go" disabled onclick="confirmBetrayalChoice(\'' + choice + '\')" ',
+        'style="background:linear-gradient(135deg,#5a1a1a,#8b0000);border-color:#e04040;color:#fca5a5;">',
+        'Seal This Choice &mdash; No Going Back',
+      '</button>',
+      '<button class="btn-back" onclick="renderBetrayalFork()">&#8592; Reconsider</button>',
+    '</div>',
+  ].join(''));
+}
+
+window.updateBFWordCount = function() {
+  const ta  = document.getElementById('bf-justification');
+  const wc  = document.getElementById('bf-wordcount');
+  const btn = document.getElementById('bf-confirm-btn');
+  if (!ta || !wc || !btn) return;
+  const words = ta.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+  wc.textContent = words + ' word' + (words !== 1 ? 's' : '');
+  wc.style.color  = words >= 50 ? 'var(--green)' : 'var(--red)';
+  btn.disabled    = words < 50;
+};
+
+function confirmBetrayalChoice(choice) {
+  const ta   = document.getElementById('bf-justification');
+  const text = ta ? ta.value.trim() : '';
+  const words = text.split(/\s+/).filter(w => w.length > 0).length;
+  if (words < 50) return;
+
+  // Apply consequences immediately
+  if (choice === 'accept') {
+    G.honor = Math.max(0, G.honor - 3);
+    G.heraDisposition = 'hostile';      // carries to Ch. 2
+    G.medeaPresent    = true;
+    // +2 Craft item (Medea's gift) — recorded as inventory bonus
+    G.inventory.medeas_gift = (G.inventory.medeas_gift || 0) + 1;
+  } else if (choice === 'refuse') {
+    G.heraDisposition = 'neutral';
+    G.medeaPresent    = false;
+    // Lose one crew member on return
+    G.crewLost = (G.crewLost || 0) + 1;
+  } else if (choice === 'negotiate') {
+    G.heraDisposition = 'impressed';   // Hera impressed (spec)
+    G.medeaPresent    = true;
+    // No Honor loss
+  }
+
+  G.choices.betrayal_fork = choice;
+
+  // Record choice with written justification (spec: stored for Zeus test)
+  recordChoice('betrayal_fork', choice, text);
+  saveCheckpoint('BETRAYAL_FORK');
+  updateHeader();
+
+  renderBetrayalOutcome(choice);
+}
+
+function renderBetrayalOutcome(choice) {
+  const effs = [];
+  let outcomeBody = '';
+  let outcomeTitle = '';
+
+  switch(choice) {
+    case 'accept':
+      outcomeTitle = 'You Accepted';
+      outcomeBody  = 'Medea stepped into the boat. She took you south through river channels Aeetes did not know existed. And somewhere along the way she did the terrible thing &mdash; the thing that ensured Aeetes could not follow. You did not ask her to stop. You had accepted. The Argo found the sea by dawn.';
+      effs.push(pip('&ndash;3 Honor','neg'), pip('Medea joins the voyage','neu'), pip('Medea\'s gift (+2 Craft item)','pos'), pip('Hera: Hostile in Ch. 2','neg'));
+      break;
+    case 'refuse':
+      outcomeTitle = 'You Refused';
+      outcomeBody  = 'You told her no. Her expression did not change &mdash; she had perhaps expected this. She gave you the river passage anyway, because she chose to, not because you agreed to her terms. The escape was harder. One of your crew did not make it back to the Argo. You carry that.';
+      effs.push(pip('Honor intact','pos'), pip('One crew member lost','neg'), pip('Hera: Neutral in Ch. 2','pos'), pip('Tribunal: mark of character','pos'));
+      break;
+    case 'negotiate':
+      outcomeTitle = 'You Found a Third Way';
+      outcomeBody  = 'You saw what others could not &mdash; a path that did not require the terrible act. Medea stared at you for a long moment. Then she said: &ldquo;You are not what I expected.&rdquo; She helped you. No price. No blood. Hera, watching from Olympus, was the only witness. She said nothing. But she was impressed.';
+      effs.push(pip('Honor intact','pos'), pip('Medea joins the voyage','pos'), pip('Hera: Impressed in Ch. 2','pos'), pip('Cunning 12 path claimed','pos'));
+      break;
+  }
+
+  render([
+    '<style>#screen-game { background: radial-gradient(ellipse at center, #1a0a0a 0%, #08080f 70%); }</style>',
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:#e04040;">&#9876; The Betrayal Fork &mdash; Sealed</div>',
+      '<div class="wp-title" style="color:var(--gold);">' + outcomeTitle + '</div>',
+      '<div class="wp-sub" style="color:rgba(252,165,165,.5);">This is now part of your record</div>',
+    '</div>',
+
+    '<div class="outcome oc-' + (choice === 'accept' ? 'warning' : 'success') + '" style="border-color:#8b0000;">',
+      '<div class="oc-title">' + outcomeTitle + '</div>',
+      '<div class="oc-body">' + outcomeBody + '</div>',
+      '<div class="eff-row">' + effs.join('') + '</div>',
+    '</div>',
+
+    '<div class="narr">',
+      '<p>The Argo finds the sea. The <em>Golden Fleece</em> is lashed to the mast where it catches the first light of morning. The crew is alive &mdash; mostly. The voyage home begins.</p>',
+      '<p><i>You do not know yet what Pelias will say when you arrive.</i></p>',
+    '</div>',
+
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="advanceTo(\'RETURN\')">Sail for Home &#9654;</button>',
+    '</div>',
+  ].join(''));
+  updateHeader();
+}
+
+// ============================================================
+// RETURN TO IOLCOS — Chapter End (spec section 5.2)
+// Summary, badges, epilogue, chapter lock.
+// ============================================================
+
+function renderReturn() {
+  if (G.choices.return_complete) { renderComplete({honor_score: G.honor, drachma_balance: G.drachma}); return; }
+
+  const hera  = heraInfo();
+  const heraChLabel = G.heraDisposition === 'hostile'   ? 'Hostile (Ch. 2)'
+                    : G.heraDisposition === 'impressed' ? 'Impressed (Ch. 2)'
+                    : 'Neutral (Ch. 2)';
+  const betrayal = G.choices.betrayal_fork || 'unknown';
+  const medea    = betrayal === 'accept' ? 'With you (accepted)'
+                 : betrayal === 'refuse' ? 'Stayed behind (refused)'
+                 : 'With you (negotiated)';
+
+  // Summary stats
+  const stats = [
+    { label:'Final Honor',      value: G.honor,      color: G.honor >= 10 ? 'var(--green)' : G.honor >= 5 ? 'var(--gold)' : 'var(--red)' },
+    { label:'Drachma',          value: G.drachma,    color: 'var(--gold)' },
+    { label:'Provisions',       value: G.provisions, color: G.provisions >= 10 ? 'var(--green)' : 'var(--red)' },
+    { label:'Equipment',        value: EQUIP[G.equipment] || '?', color: 'var(--teal)' },
+    { label:'Hera (Ch. 2)',     value: heraChLabel,  color: G.heraDisposition === 'hostile' ? 'var(--red)' : G.heraDisposition === 'impressed' ? '#c084fc' : 'var(--text2)' },
+    { label:'Medea',            value: medea,        color: 'var(--text2)' },
+    { label:'Betrayal Fork',    value: betrayal.charAt(0).toUpperCase() + betrayal.slice(1), color: betrayal === 'refuse' ? 'var(--green)' : betrayal === 'negotiate' ? '#c084fc' : '#fca5a5' },
+    { label:'Rollbacks',        value: G.checkpoint_rollbacks, color: G.checkpoint_rollbacks === 0 ? 'var(--green)' : 'var(--red)' },
+  ];
+
+  const statsHtml = stats.map(s =>
+    '<div style="background:var(--bg2);border:1px solid var(--gold3);border-radius:4px;padding:14px 12px;text-align:center;">' +
+      '<div style="font-family:var(--px);font-size:11px;color:var(--text2);letter-spacing:2px;margin-bottom:6px;">' + s.label + '</div>' +
+      '<div style="font-size:16px;font-weight:700;color:' + s.color + ';">' + s.value + '</div>' +
+    '</div>'
+  ).join('');
+
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc">&#127963; Return to Iolcos</div>',
+      '<div class="wp-title">The Voyage Ends</div>',
+      '<div class="wp-sub">Chapter 1 &mdash; Complete</div>',
+    '</div>',
+
+    '<div class="narr">',
+      '<p>The Argo enters the harbor of Iolcos at dawn. The <em>Golden Fleece</em> gleams at the masthead. Word spreads through the city like fire &mdash; Jason has returned. He did the impossible.</p>',
+      '<p><em>Pelias</em> meets you on the dock. He looks at the Fleece. He looks at you. And then he says what tyrants always say when their impossible conditions are met: that the deal has changed. The throne is not yours. He has arranged other things. He smiles.</p>',
+      '<p>You did everything right. You got the Fleece. And it changed nothing.</p>',
+      '<p><i>That is the first lesson of the Heroic Age: winning is not the same as being right. And being right is not always enough.</i></p>',
+    '</div>',
+
+    '<div style="font-family:var(--px);font-size:12px;color:var(--teal);letter-spacing:4px;text-align:center;margin-bottom:12px;">CHAPTER 1 SUMMARY</div>',
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;width:100%;margin-bottom:20px;">',
+      statsHtml,
+    '</div>',
+
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="completeChapter1()">Claim Your Badges &amp; Seal the Chapter &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+async function completeChapter1() {
+  G.choices.return_complete = true;
+
+  // Build final state for completion endpoint
+  const finalState = {
+    companions:    G.companions,
+    honor:         G.honor,
+    drachma:       G.drachma,
+    provisions:    G.provisions,
+    equipment:     G.equipment,
+    inventory:     G.inventory,
+    choices:       G.choices,
+    medeaHelpCount:    G.medeaHelpCount,
+    medeaPresent:      G.medeaPresent    || false,
+    heraDisposition:   G.heraDisposition || 'neutral',
+    crewLost:          G.crewLost        || 0,
+    checkpoint_rollbacks: G.checkpoint_rollbacks
+  };
+
+  // Call the /api/heroic/complete endpoint (locks chapter, awards badges)
+  let badges = [];
+  try {
+    const res = await fetch('/api/heroic/complete', {
+      method: 'POST', headers: H,
+      body: JSON.stringify({
+        chapter: 1, final_state: finalState,
+        honor_score: G.honor, drachma_balance: G.drachma, equipment_tier: G.equipment
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      badges = data.badges_awarded || [];
+    }
+  } catch(e) { console.warn('Complete call failed:', e); }
+
+  renderChapterComplete(badges);
+}
+
+function renderChapterComplete(badges) {
+  const badgeMap = {
+    heroic_argonaut:      { name:'The Argonaut',    icon:'&#9875;', desc:'Complete Chapter 1' },
+    heroic_captains_oath: { name:"Captain's Oath",  icon:'&#9878;', desc:'Complete Ch. 1 with Honor \u2265 10' },
+    heroic_negotiator:    { name:'The Negotiator',  icon:'&#128065;', desc:'Use the Cunning 12+ path at the Betrayal Fork' },
+    heroic_golden_fleece: { name:'Golden Fleece',   icon:'&#127942;', desc:'Complete all waypoints without a checkpoint rollback' },
+  };
+
+  const badgeHtml = badges.length
+    ? badges.map(id => {
+        const b = badgeMap[id] || { name: id, icon:'&#127942;', desc:'' };
+        return '<div style="background:var(--bg2);border:2px solid var(--gold);border-radius:6px;' +
+          'padding:16px 12px;text-align:center;box-shadow:0 0 16px rgba(240,192,64,.2);">' +
+          '<div style="font-size:36px;margin-bottom:8px;">' + b.icon + '</div>' +
+          '<div style="font-family:var(--px);font-size:12px;color:var(--gold);letter-spacing:2px;margin-bottom:4px;">' + b.name + '</div>' +
+          '<div style="font-family:var(--px);font-size:10px;color:var(--text2);line-height:1.6;">' + b.desc + '</div>' +
+          '</div>';
+      }).join('')
+    : '<div style="font-family:var(--px);font-size:12px;color:var(--text2);padding:20px;text-align:center;">No new badges this chapter &mdash; keep pushing forward.</div>';
+
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--green);">&#10003; Chapter 1 Sealed</div>',
+      '<div class="wp-title">The Legend of the Argonauts</div>',
+      '<div class="wp-sub">Your choices are recorded. The Tribunal will remember.</div>',
+    '</div>',
+
+    badges.length
+      ? '<div style="font-family:var(--px);font-size:12px;color:var(--teal);letter-spacing:4px;text-align:center;margin-bottom:12px;">BADGES EARNED</div>'
+      : '',
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;width:100%;margin-bottom:20px;">',
+      badgeHtml,
+    '</div>',
+
+    '<div class="narr">',
+      '<p>Chapter 1 is complete and sealed. Your Honor score, your Drachma, your equipment tier, your Medea decision &mdash; all of it carries into Chapter 2.</p>',
+      '<p><em>Hera is still watching.</em> She has been watching since Lemnos. She will be watching in Chapter 2 when Heracles begins his Labors. What she does next depends on what you did here.</p>',
+    '</div>',
+
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="goDashboard()">&#8592; Return to Dashboard</button>',
+    '</div>',
+  ].join(''));
 }
 
 
