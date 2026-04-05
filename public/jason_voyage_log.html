@@ -3042,7 +3042,15 @@ function beginVoyage(){
             if(unlockData.unlocked_up_to !== undefined){
               state.unlockedUpTo = unlockData.unlocked_up_to;
             }
-            skipToApp();
+            // All 10 stops complete — skip the app and show the trophy/results screen directly
+            const completedCount = Object.keys(state.completed).filter(k => state.completed[k]).length;
+            if(completedCount >= STOPS.length){
+              document.getElementById('splash').style.display = 'none';
+              document.getElementById('app').style.display = 'none';
+              showResults();
+            } else {
+              skipToApp();
+            }
           })
           .catch(()=>skipToApp());
       } else {
