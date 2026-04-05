@@ -1040,6 +1040,7 @@ app.get('/api/teacher/students', authenticateToken, (req, res) => {
         s.class_period,
         s.alliance_id,
         s.scout_status,
+        s.voyage_log_completed, s.voyage_rank_tier, s.voyage_crew_code,
         s.is_ghost,
         a.alliance_name,
         a.current_age as alliance_age
@@ -1506,6 +1507,7 @@ app.get('/api/student/dashboard', authenticateToken, (req, res) => {
         s.student_id, s.name, s.class_period, s.alliance_id, s.civilization_name,
         s.technologies_unlocked, s.badges_earned, s.is_ghost, s.classical_entered,
         s.scout_status,
+        s.voyage_log_completed, s.voyage_rank_tier, s.voyage_crew_code,
         a.alliance_name,
         a.total_points as alliance_points,
         a.current_age,
