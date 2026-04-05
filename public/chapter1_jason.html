@@ -885,14 +885,418 @@ function renderLemnosOutcome(choice, type, title, body, effs) {
 }
 
 // ============================================================
-// SYMPLEGADES STUB (canvas game = next session)
 // ============================================================
+// SYMPLEGADES — The Clashing Rocks (spec section 5.2)
+// Canvas mini-game: side-scrolling, rocks close from both sides,
+// navigate Argo through narrowing gap, 3 waves of increasing difficulty.
+// ============================================================
+
+const SYMP = {
+  gapForCunning: function() {
+    const c = cun();
+    if (c >= 12) return 270;
+    if (c >= 6)  return 240;
+    return 210;
+  },
+  speedForProvisions: function() {
+    if (G.provisions >= 15) return 1.0;
+    if (G.provisions >= 8)  return 1.12;
+    return 1.25;
+  },
+  WAVES: [
+    { speed: 0.6,  vertDrift: false, extraPairs: 0 },
+    { speed: 0.85, vertDrift: true,  extraPairs: 0 },
+    { speed: 1.1,  vertDrift: true,  extraPairs: 1 }
+  ],
+  SPEED_BONUS_DRACHMA: 20,
+  DAMAGE_DRACHMA_PENALTY: 15
+};
+
+let SG = null;
+
+function initSympState(canvas) {
+  const W = canvas.width, H = canvas.height;
+  return {
+    W, H,
+    argoX: W / 2, argoY: H * 0.65,
+    argoW: 60, argoH: 28,
+    keys: { left: false, right: false },
+    wave: 0, wavePhase: 'intro', phaseTimer: 0, totalTime: 0,
+    rockLeft: 0, rockRight: W,
+    targetGap: SYMP.gapForCunning(),
+    baseGap: W,
+    closingSpeed: SYMP.WAVES[0].speed * SYMP.speedForProvisions(),
+    vertOffset: 0, vertDir: 1, vertDrift: false,
+    extraPairs: 0, extraRocks: [],
+    hits: 0,
+    builderBuffer: isAv('builder'),
+    builderUsed: false,
+    mirrorEarly: isAv('mirror'),
+    shakeFrames: 0, shakeMag: 0,
+    speedMult: SYMP.speedForProvisions(),
+    gap: SYMP.gapForCunning(),
+    animId: null, wavesPassed: 0,
+    damaged: false, startTime: null,
+    _cleanup: null
+  };
+}
+
 function renderSympStub() {
+  const cunv = cun();
+  const provNote = G.provisions < 8
+    ? '<div class="banner b-hera">&#9889; Low provisions (' + G.provisions + ') &mdash; crew is panicked. Rocks close faster.</div>'
+    : G.provisions < 15
+    ? '<div class="banner b-hera">&#9888; Reduced provisions (' + G.provisions + ') &mdash; crew is unsettled. Slightly faster closure.</div>'
+    : '';
+  const mirNote  = isAv('mirror')  ? '<div class="banner b-avatar">&#128270; <strong>The Mirror:</strong> Pattern recognition gives you 0.5s early warning before each rock closure.</div>' : '';
+  const bldNote  = isAv('builder') ? '<div class="banner b-avatar">&#128296; <strong>The Builder:</strong> Pre-reinforced hull &mdash; absorbs one collision before damage triggers.</div>' : '';
+  const cunNote  = cunv >= 6 ? '<div class="banner b-craft">&#127919; <strong>Cunning ' + cunv + ':</strong> Tactical awareness widens your safe passage window.</div>' : '';
+
   render([
-    '<div class="wp-hdr"><div class="wp-loc">&#129704; Waypoint III</div><div class="wp-title">The Symplegades</div><div class="wp-sub">The Clashing Rocks &mdash; Canvas Mini-Game Coming Next Session</div></div>',
-    '<div class="narr"><p>Two cliff faces the size of mountains loom ahead, grinding together with a sound like the earth being torn apart. The Argo holds position. The crew is silent. <em>This is where legends end&mdash;or begin.</em></p><p><i>The Clashing Rocks mini-game is under construction. Check back soon.</i></p></div>',
-    '<div style="text-align:center;"><button class="btn-go" onclick="advanceTo(\'COLCHIS\')" style="background:rgba(128,64,192,.3);border-color:var(--purple);color:var(--text2);">&#128221; Dev Skip &#9654;</button></div>'
+    '<div class="wp-hdr"><div class="wp-loc">&#129704; Waypoint III</div><div class="wp-title">The Symplegades</div><div class="wp-sub">The Clashing Rocks &mdash; Nothing has ever survived</div></div>',
+    provNote, mirNote, bldNote, cunNote,
+    '<div class="narr">',
+      '<p>The <em>Clashing Rocks</em> loom ahead &mdash; two cliff faces the size of mountains, grinding together with a sound like the earth being torn apart. The old trick: release a <em>dove</em> first. If it passes through, you have a heartbeat to follow.</p>',
+      '<p><strong>Steer the Argo left and right through three waves of closing rocks. Do not let the rocks reach you.</strong></p>',
+    '</div>',
+    '<div style="background:var(--bg2);border:1px solid var(--gold3);border-radius:4px;padding:16px 20px;width:100%;font-family:var(--px);font-size:13px;line-height:2;color:var(--text2);">',
+      '&#8592; &#8594; Arrow keys or A / D to steer &nbsp;&middot;&nbsp; Touch: tap left or right half &nbsp;&middot;&nbsp; Under 45s = Drachma bonus',
+    '</div>',
+    '<div style="text-align:center;"><button class="btn-go" onclick="startSymplegades()">Release the Dove &#9654;</button></div>',
+    '<button class="btn-back" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Dashboard</button>'
   ].join(''));
+}
+
+function startSymplegades() {
+  const wrap = document.getElementById('wp-content');
+  wrap.innerHTML =
+    '<div id="symp-wrap" style="width:100%;display:flex;flex-direction:column;align-items:center;">' +
+    '<canvas id="symp-canvas" style="display:block;image-rendering:pixelated;cursor:none;touch-action:none;border:2px solid var(--gold3);"></canvas>' +
+    '<div id="symp-hud" style="width:100%;max-width:820px;display:flex;justify-content:space-between;align-items:center;' +
+         'background:var(--bg1);border:2px solid var(--gold3);border-top:none;padding:10px 18px;font-family:var(--px);font-size:13px;">' +
+      '<span style="color:var(--teal);" id="symp-wave">WAVE 1 / 3</span>' +
+      '<span style="color:var(--gold);" id="symp-timer">90s</span>' +
+      '<span style="color:var(--text2);" id="symp-status">NAVIGATE THE ARGO</span>' +
+    '</div></div>';
+
+  const canvas = document.getElementById('symp-canvas');
+  const maxW = Math.min(820, window.innerWidth - 32);
+  canvas.width  = maxW;
+  canvas.height = Math.floor(window.innerHeight * 0.55);
+
+  SG = initSympState(canvas);
+  SG.startTime = Date.now();
+
+  const onKey = e => {
+    const d = e.type === 'keydown';
+    if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') { SG.keys.left  = d; e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { SG.keys.right = d; e.preventDefault(); }
+  };
+  document.addEventListener('keydown', onKey);
+  document.addEventListener('keyup',   onKey);
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    SG.keys.left = SG.keys.right = false;
+    Array.from(e.touches).forEach(t => {
+      const rect = canvas.getBoundingClientRect();
+      if (t.clientX - rect.left < canvas.width / 2) SG.keys.left  = true;
+      else SG.keys.right = true;
+    });
+  }, {passive:false});
+  canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    SG.keys.left = SG.keys.right = false;
+  }, {passive:false});
+
+  SG._cleanup = () => {
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keyup',   onKey);
+  };
+
+  beginWave(0);
+  let lastTs = 0;
+  function sympLoop(ts) {
+    if (!SG) return;
+    const dt = Math.min(ts - lastTs, 50);
+    lastTs = ts;
+    SG.totalTime += dt;
+    SG.phaseTimer += dt;
+    const c = document.getElementById('symp-canvas');
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    updateSympPhysics(dt);
+    drawSympFrame(ctx);
+    if (SG.wavePhase !== 'gameover' && SG.wavePhase !== 'victory') {
+      SG.animId = requestAnimationFrame(sympLoop);
+    }
+  }
+  SG.animId = requestAnimationFrame(sympLoop);
+}
+
+function beginWave(waveIdx) {
+  const spec = SYMP.WAVES[waveIdx];
+  SG.wave = waveIdx; SG.wavePhase = 'intro'; SG.phaseTimer = 0;
+  SG.rockLeft = 0; SG.rockRight = SG.W;
+  SG.closingSpeed = spec.speed * SG.speedMult;
+  SG.vertDrift = spec.vertDrift; SG.extraPairs = spec.extraPairs;
+  SG.vertOffset = 0; SG.vertDir = 1; SG.warningFlashed = false;
+  SG.extraRocks = [];
+  if (spec.extraPairs > 0) {
+    for (let i = 0; i < spec.extraPairs; i++) {
+      const rH = SG.H * 0.22;
+      const y  = SG.H * 0.10 + i * SG.H * 0.14;
+      SG.extraRocks.push(
+        {x: -80,   y, w: 80, h: rH, vx:  1.2 * SG.speedMult, vy:  0.3},
+        {x: SG.W,  y, w: 80, h: rH, vx: -1.2 * SG.speedMult, vy: -0.3}
+      );
+    }
+  }
+  const wl = el('symp-wave');
+  if (wl) wl.textContent = 'WAVE ' + (waveIdx + 1) + ' / 3';
+}
+
+function updateSympPhysics(dt) {
+  const S = SG, SPEED = 3.5;
+  if (S.shakeFrames > 0) S.shakeFrames--;
+
+  if (S.wavePhase === 'closing' || S.wavePhase === 'gap') {
+    const half = S.argoW / 2;
+    if (S.keys.left)  S.argoX = Math.max(S.rockLeft  + half + 2, S.argoX - SPEED);
+    if (S.keys.right) S.argoX = Math.min(S.rockRight - half - 2, S.argoX + SPEED);
+  }
+
+  switch(S.wavePhase) {
+    case 'intro':
+      if (S.phaseTimer > 1500) { S.wavePhase = 'warning'; S.phaseTimer = 0; }
+      break;
+    case 'warning':
+      if (S.phaseTimer > (S.mirrorEarly ? 1200 : 700)) { S.wavePhase = 'closing'; S.phaseTimer = 0; }
+      break;
+    case 'closing': {
+      const rate = S.closingSpeed * (dt / 16);
+      S.rockLeft += rate; S.rockRight -= rate;
+      if (S.vertDrift) {
+        S.vertOffset += S.vertDir * 0.5 * (dt / 16);
+        if (Math.abs(S.vertOffset) > S.H * 0.12) S.vertDir *= -1;
+      }
+      S.extraRocks.forEach(r => {
+        r.x += r.vx * (dt / 16); r.y += r.vy * (dt / 16);
+        if (r.y < 0 || r.y + r.h > S.H * 0.6) r.vy *= -1;
+      });
+      if (S.rockRight - S.rockLeft <= S.targetGap) {
+        S.rockLeft  = (S.W - S.targetGap) / 2;
+        S.rockRight = S.rockLeft + S.targetGap;
+        S.wavePhase = 'gap'; S.phaseTimer = 0;
+      }
+      checkArgoCollision();
+      break;
+    }
+    case 'gap':
+      if (S.vertDrift) {
+        S.vertOffset += S.vertDir * 0.4 * (dt / 16);
+        if (Math.abs(S.vertOffset) > S.H * 0.10) S.vertDir *= -1;
+      }
+      S.extraRocks.forEach(r => {
+        r.x += r.vx * (dt / 16); r.y += r.vy * (dt / 16);
+        if (r.y < 0 || r.y + r.h > S.H * 0.6) r.vy *= -1;
+      });
+      checkArgoCollision();
+      if (S.phaseTimer > 2500) {
+        S.wavesPassed++;
+        if (S.wavesPassed >= SYMP.WAVES.length) sympVictory();
+        else beginWave(S.wavesPassed);
+      }
+      break;
+  }
+}
+
+function checkArgoCollision() {
+  const S = SG;
+  const ax1 = S.argoX - S.argoW/2, ax2 = S.argoX + S.argoW/2;
+  const ay1 = S.argoY - S.argoH/2, ay2 = S.argoY + S.argoH/2;
+  let hit = ax1 <= S.rockLeft || ax2 >= S.rockRight;
+  if (!hit) S.extraRocks.forEach(r => {
+    if (ax2 > r.x && ax1 < r.x + r.w && ay2 > r.y && ay1 < r.y + r.h) hit = true;
+  });
+  if (!hit) return;
+  if (S.builderBuffer && !S.builderUsed) {
+    S.builderUsed = true; S.shakeFrames = 8; S.shakeMag = 4;
+    const st = el('symp-status'); if (st) st.textContent = 'HULL REINFORCED — BUFFER USED!';
+    setTimeout(() => { const s = el('symp-status'); if (s) s.textContent = 'NAVIGATE THE ARGO'; }, 1500);
+  } else if (!S.damaged) {
+    S.damaged = true; S.shakeFrames = 18; S.shakeMag = 8;
+    S.argoX = S.W / 2;
+    const st = el('symp-status'); if (st) st.textContent = 'HULL DAMAGED!';
+    setTimeout(() => { const s = el('symp-status'); if (s) s.textContent = 'NAVIGATE THE ARGO'; }, 1500);
+  }
+}
+
+function sympVictory() {
+  const S = SG;
+  if (S.animId) cancelAnimationFrame(S.animId);
+  if (S._cleanup) S._cleanup();
+  const elapsed = (Date.now() - S.startTime) / 1000;
+  const speedBonus = elapsed < 45 ? SYMP.SPEED_BONUS_DRACHMA : 0;
+  if (S.damaged) {
+    G.equipment = Math.max(1, G.equipment - 1);
+    G.symplegadesDamaged = true;
+  }
+  if (speedBonus) G.drachma += speedBonus;
+  G.choices.symplegades = S.damaged ? 'damaged' : 'clean';
+  recordChoice('symplegades', G.choices.symplegades);
+  saveCheckpoint('SYMPLEGADES');
+  renderSympOutcome(S.damaged, speedBonus, elapsed);
+}
+
+function renderSympOutcome(damaged, speedBonus, elapsed) {
+  const effs = [];
+  if (damaged)    { effs.push(pip('Equipment &ndash;1 tier','neg'), pip('&ndash;15 Drachma at next market','neg')); }
+  else            { effs.push(pip('Hull intact','pos')); }
+  if (speedBonus) { effs.push(pip('+' + speedBonus + ' Drachma speed bonus','pos')); }
+  effs.push(pip('Provisions: ' + G.provisions,'neu'));
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#129704; Symplegades &mdash; Cleared</div><div class="wp-title">East of the Rocks</div></div>',
+    '<div class="outcome ' + (damaged ? 'oc-warning' : 'oc-success') + '">',
+      '<div class="oc-title">' + (damaged ? 'Through the Rocks &mdash; at a Cost' : 'Clear! The Argo Passes Through!') + '</div>',
+      '<div class="oc-body">' + (damaged
+        ? 'The Argo made it through, but the hull took damage. Equipment degraded. Repairs cost 15 Drachma at the next market.'
+        : 'The rocks snap shut behind you like thunder. The crew erupts. No ship has ever made it through &mdash; until now.'
+      ) + '</div>',
+      '<div class="eff-row">' + effs.join('') + '</div>',
+    '</div>',
+    '<div class="narr">',
+      '<p>Ahead lies the coast of <em>Colchis</em> &mdash; kingdom of King Aeetes, guardian of the Golden Fleece. The crew is shaken but alive.</p>',
+      '<p><i>' + (damaged ? 'The hull will hold for now. Find a forge at Colchis.' : 'Hera watched the passage. She said nothing. That alone feels like approval.') + '</i></p>',
+    '</div>',
+    '<div style="text-align:center;"><button class="btn-go" onclick="advanceTo(\'COLCHIS\')">Sail for Colchis &#9654;</button></div>',
+    '<button class="btn-back" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Dashboard</button>'
+  ].join(''));
+  updateHeader();
+}
+
+function drawSympFrame(ctx) {
+  const S = SG, W = S.W, H = S.H;
+  let sx = 0, sy = 0;
+  if (S.shakeFrames > 0) { sx = (Math.random()-.5)*S.shakeMag; sy = (Math.random()-.5)*S.shakeMag; }
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // Background — dark water with SNES scanline banding
+  ctx.fillStyle = '#0a1520';
+  ctx.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y += 6) {
+    ctx.fillStyle = 'rgba(30,80,120,' + (0.12 + (y/H)*0.06) + ')';
+    ctx.fillRect(0, y, W, 3);
+  }
+  // Wake lines
+  ctx.strokeStyle = 'rgba(64,216,192,0.2)'; ctx.lineWidth = 2;
+  for (let i = 1; i <= 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(S.argoX-18, S.argoY+S.argoH/2+i*5);
+    ctx.lineTo(S.argoX+18, S.argoY+S.argoH/2+i*5);
+    ctx.stroke();
+  }
+
+  // Main rocks
+  const rockY = S.vertDrift ? H*0.05 + S.vertOffset : H*0.05;
+  const rockH = H * 0.92;
+  drawRock(ctx, 0, rockY, S.rockLeft, rockH, 'left');
+  drawRock(ctx, S.rockRight, rockY, W - S.rockRight, rockH, 'right');
+
+  // Danger zone tint
+  if (S.wavePhase === 'closing' || S.wavePhase === 'gap') {
+    const gapW = S.rockRight - S.rockLeft;
+    ctx.fillStyle = 'rgba(224,64,64,' + Math.max(0, 0.15 - gapW/W*0.15) + ')';
+    ctx.fillRect(S.rockLeft, 0, gapW, H);
+  }
+
+  // Extra rocks
+  S.extraRocks.forEach(r => drawRock(ctx, r.x, r.y, r.w, r.h, 'chunk'));
+
+  // Warning flash
+  if (S.wavePhase === 'warning') {
+    const a = Math.abs(Math.sin(S.phaseTimer/180)) * 0.3;
+    ctx.fillStyle = 'rgba(240,192,64,' + a + ')';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#f0c040'; ctx.font = 'bold 14px "Courier New"'; ctx.textAlign = 'center';
+    ctx.fillText(S.mirrorEarly ? '[ PATTERN DETECTED — MIRROR ADVANTAGE ]' : '[ ROCKS CLOSING ]', W/2, H*0.10);
+  }
+
+  // Argo
+  drawArgo(ctx, S.argoX, S.argoY, S.argoW, S.argoH, S.damaged && !S.builderBuffer);
+
+  // Intro overlay
+  if (S.wavePhase === 'intro') {
+    ctx.fillStyle = 'rgba(8,8,15,0.7)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#f0c040'; ctx.font = 'bold 20px "Courier New"'; ctx.textAlign = 'center';
+    ctx.fillText('WAVE ' + (S.wave+1) + ' OF 3', W/2, H/2-18);
+    ctx.font = '13px "Courier New"'; ctx.fillStyle = '#40d8c0';
+    ctx.fillText(S.wave===0 ? 'NAVIGATE THROUGH THE GAP' : S.wave===1 ? 'ROCKS DRIFT — STAY CENTERED' : 'MAXIMUM SPEED — EXTRA HAZARDS', W/2, H/2+14);
+  }
+
+  // Gap indicator
+  if (S.wavePhase==='closing'||S.wavePhase==='gap') {
+    const gapW = S.rockRight - S.rockLeft;
+    ctx.fillStyle = gapW > S.argoW*1.6 ? 'rgba(64,192,96,0.8)' : 'rgba(224,64,64,0.9)';
+    ctx.font = '11px "Courier New"'; ctx.textAlign = 'center';
+    ctx.fillText('GAP: ' + Math.round(gapW) + 'px', W/2, H-10);
+  }
+
+  // Builder shield glow
+  if (S.builderBuffer && !S.builderUsed && S.shakeFrames > 0) {
+    ctx.strokeStyle = 'rgba(64,192,96,0.85)'; ctx.lineWidth = 3;
+    ctx.strokeRect(S.argoX-S.argoW/2-5, S.argoY-S.argoH/2-5, S.argoW+10, S.argoH+10);
+  }
+
+  ctx.restore();
+
+  // HUD timer (outside shake)
+  const rem = Math.max(0, 90 - Math.floor(SG.totalTime/1000));
+  const timerEl = el('symp-timer');
+  if (timerEl) { timerEl.textContent = rem+'s'; timerEl.style.color = rem < 20 ? '#e04040':'#f0c040'; }
+}
+
+function drawRock(ctx, x, y, w, h, side) {
+  if (w <= 0) return;
+  const C = ['#5a4020','#7a5830','#9a7040'];
+  const bW = Math.max(1, w/3);
+  if (side==='left') {
+    ctx.fillStyle=C[2]; ctx.fillRect(x,       y, Math.min(bW,w),            h);
+    ctx.fillStyle=C[1]; ctx.fillRect(x+bW,    y, Math.min(bW, Math.max(0,w-bW)),   h);
+    ctx.fillStyle=C[0]; ctx.fillRect(x+bW*2,  y, Math.max(0,w-bW*2),        h);
+  } else if (side==='right') {
+    ctx.fillStyle=C[0]; ctx.fillRect(x,       y, Math.min(bW,w),            h);
+    ctx.fillStyle=C[1]; ctx.fillRect(x+bW,    y, Math.min(bW, Math.max(0,w-bW)),   h);
+    ctx.fillStyle=C[2]; ctx.fillRect(x+bW*2,  y, Math.max(0,w-bW*2),        h);
+  } else {
+    ctx.fillStyle=C[1]; ctx.fillRect(x,y,w,h);
+    ctx.fillStyle=C[0]; ctx.fillRect(x,y,w,4);
+    ctx.fillStyle=C[2]; ctx.fillRect(x,y+h-4,w,4);
+  }
+  ctx.fillStyle='rgba(0,0,0,0.28)';
+  const cxs = side==='right' ? [x+w*0.25, x+w*0.6] : [x+w*0.3, x+w*0.65];
+  cxs.forEach(cx => { for (let ry=y+12; ry<y+h-12; ry+=20) ctx.fillRect(cx, ry, 2, 10); });
+  ctx.fillStyle='rgba(255,255,255,0.10)';
+  if (side==='left')  ctx.fillRect(x+w-3, y, 3, h);
+  if (side==='right') ctx.fillRect(x, y, 3, h);
+}
+
+function drawArgo(ctx, cx, cy, w, h, damaged) {
+  const x=cx-w/2, y=cy-h/2;
+  const hullC = damaged ? '#804020' : '#c89820';
+  const sailC = damaged ? '#604030' : '#f0e8d0';
+  ctx.fillStyle=hullC; ctx.fillRect(x, y+h*0.4, w, h*0.6);
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x, y+h*0.8, w, h*0.2);
+  ctx.fillStyle='#80510a'; ctx.fillRect(cx-2, y, 4, h*0.6);
+  ctx.fillStyle=sailC; ctx.fillRect(cx-w*0.3, y+2, w*0.6, h*0.4);
+  ctx.strokeStyle='#805810'; ctx.lineWidth=2;
+  [-w*0.35, w*0.35].forEach(ox => {
+    ctx.beginPath(); ctx.moveTo(cx+ox, y+h*0.55); ctx.lineTo(cx+ox*1.5, y+h*0.85); ctx.stroke();
+  });
+  if (damaged) { ctx.fillStyle='rgba(224,64,64,0.45)'; ctx.fillRect(x,y,w,h); }
+  ctx.fillStyle='rgba(240,192,64,0.35)'; ctx.fillRect(x+w-4, y+h*0.4, 4, h*0.3);
 }
 
 // ============================================================
