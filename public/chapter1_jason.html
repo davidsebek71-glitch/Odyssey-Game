@@ -431,6 +431,7 @@ function routeTo(key) {
     case 'SYMPLEGADES':  renderSympStub();        break;
     case 'COLCHIS':      renderColchis();         break;
     case 'DRAGONS_FIELD': renderDragonsField();    break;
+    case 'GOLDEN_FLEECE':  renderGoldenFleece();    break;
     default: {
       const backBtn = '<button class="btn-back" onclick="goDashboard()">&#8592; Back to Dashboard</button>';
       render(
@@ -2125,6 +2126,424 @@ function renderDFOutcome(choice) {
     '</div>',
     '<div style="text-align:center;">',
       '<button class="btn-go" onclick="advanceTo(\'GOLDEN_FLEECE\')">Approach the Fleece &#9654;</button>',
+    '</div>',
+  ].join(''));
+  updateHeader();
+}
+
+
+// ============================================================
+// THE GOLDEN FLEECE — The Sleepless Dragon (spec section 5.2)
+// Rhythm/sequence mini-game: match the beat pattern before dragon wakes.
+// Orpheus companion = 4-beat sequence. Without = 7-beat solo.
+// Devoted + Orpheus = auto-success on first try.
+// Failure = provision loss + retry. Fleece obtained on success regardless.
+// ============================================================
+
+let GF = null;  // Golden Fleece game state
+
+const GF_NOTES = ['🥁','🎵','🎶','⚡'];  // visual beat symbols
+const GF_KEYS  = ['j','k','l',';'];        // keyboard shortcuts
+
+function gfHasOrpheus() { return G.companions.includes('orpheus'); }
+
+function gfSequenceLength() { return gfHasOrpheus() ? 4 : 7; }
+
+function gfGenerateSequence(len) {
+  return Array.from({length: len}, () => Math.floor(Math.random() * 4));
+}
+
+function initGF() {
+  const len = gfSequenceLength();
+  const seq = gfGenerateSequence(len);
+  return {
+    sequence:    seq,       // pattern to match [0-3] indices
+    playerInput: [],        // what player has entered so far
+    phase:       'show',    // show | input | result | retry
+    showStep:    0,         // which step of sequence is being shown
+    showTimer:   null,
+    dragonWake:  100,       // dragon wakefulness 0-100; hitting 100 = failure
+    dragonTimer: null,
+    attempts:    0,
+    done:        false,
+    hasOrpheus:  gfHasOrpheus(),
+    seqLen:      len,
+    autoWin:     isAv('devoted') && gfHasOrpheus() // Devoted + Orpheus = auto-success
+  };
+}
+
+// ── Entry point ──────────────────────────────────────────────
+function renderGoldenFleece() {
+  if (G.choices.golden_fleece) { renderGFOutcome(G.choices.golden_fleece); return; }
+
+  const hasOrph = gfHasOrpheus();
+  const notices = [];
+
+  if (hasOrph)
+    notices.push('<div class="banner b-craft">&#127925; <strong>Orpheus is with you:</strong> His lyre lulls the dragon. Match a 4-beat sequence &mdash; shorter and easier.</div>');
+  else
+    notices.push('<div class="banner b-hera">&#9888; <strong>No musician:</strong> Without Orpheus you must solve a 7-beat sequence alone. Harder, but possible.</div>');
+
+  if (isAv('devoted') && hasOrph)
+    notices.push('<div class="banner b-avatar">&#127925; <strong>The Devoted + Orpheus:</strong> Your unwavering loyalty means Orpheus performs the full lullaby perfectly. The dragon will sleep.</div>');
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127942; Waypoint VI</div>',
+    '<div class="wp-title">The Golden Fleece</div>',
+    '<div class="wp-sub">The Sleepless Dragon &mdash; It Has Not Rested in a Thousand Years</div></div>',
+    notices.join(''),
+    '<div class="narr">',
+      '<p>The oak tree stands at the center of the grove, its branches black with shadow. The <em>Golden Fleece</em> hangs from the highest bough, catching moonlight like a second sun. Around the trunk, coiled in endless loops, the Serpent of Ares watches you with eyes that never close.</p>',
+      '<p>It cannot be fought. It cannot be bribed. It cannot be threatened. But it can be <em>sung to sleep</em>.</p>',
+      '<p>' + (hasOrph
+        ? '<em>Orpheus steps forward, fingers already finding the strings.</em> &ldquo;Tell me when,&rdquo; he says. &ldquo;I have been watching it breathe. I know the rhythm.&rdquo;'
+        : '<em>You are alone at the tree.</em> No Orpheus. No lyre. But you have watched the serpent breathe for the last ten minutes, and you think you understand the pattern. You will have to do this yourself.') +
+      '</p>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="startGoldenFleece()">Begin the Lullaby &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+function startGoldenFleece() {
+  GF = initGF();
+
+  // Devoted + Orpheus: auto-win (spec: "performs perfectly on first try")
+  if (GF.autoWin) {
+    renderAutoWin();
+    return;
+  }
+
+  renderGFGame();
+}
+
+function renderAutoWin() {
+  // Brief narrative beat before the victory screen
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127942; The Golden Fleece</div>',
+    '<div class="wp-title">Orpheus Plays</div></div>',
+    '<div class="narr">',
+      '<p>Orpheus does not wait for your signal. He already knows. His fingers move across the strings of his lyre and the music that comes out is not quite of this world &mdash; too perfect, too patient, shaped exactly to the rhythm of the serpent\'s breathing.</p>',
+      '<p>The dragon\'s eyes grow heavy. Then heavier. Then still. <em>It sleeps.</em></p>',
+      '<p>You have exactly long enough to take the Fleece and run.</p>',
+    '</div>',
+    '<div style="font-family:var(--px);font-size:13px;color:var(--teal);text-align:center;padding:20px;letter-spacing:3px;animation:blink 1s step-end infinite;">&#127925; THE DRAGON SLEEPS &#127925;</div>',
+  ].join(''));
+
+  setTimeout(() => {
+    GF.done = true;
+    G.choices.golden_fleece = 'success_devoted';
+    recordChoice('golden_fleece', G.choices.golden_fleece);
+    saveCheckpoint('GOLDEN_FLEECE');
+    renderGFOutcome(G.choices.golden_fleece);
+  }, 3000);
+}
+
+// ── Game UI ──────────────────────────────────────────────────
+function renderGFGame() {
+  const len = GF.seqLen;
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127942; The Sleepless Dragon</div>',
+    '<div class="wp-title">Match the Pattern</div>',
+    '<div class="wp-sub">' + (GF.hasOrpheus ? '4-beat lullaby &mdash; Orpheus leads' : '7-beat solo &mdash; trust your instincts') + '</div></div>',
+
+    // Dragon wakefulness meter
+    '<div style="width:100%;margin-bottom:16px;">',
+      '<div style="font-family:var(--px);font-size:12px;color:var(--text2);',
+           'display:flex;justify-content:space-between;margin-bottom:5px;">',
+        '<span>&#128013; Dragon wakefulness</span>',
+        '<span id="gf-wake-pct">0%</span>',
+      '</div>',
+      '<div style="width:100%;height:14px;background:var(--bg3);border-radius:3px;border:1px solid var(--bg3);overflow:hidden;">',
+        '<div id="gf-wake-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#40c060,#f0c040,#e04040);',
+             'transition:width .3s;border-radius:3px;"></div>',
+      '</div>',
+    '</div>',
+
+    // Sequence display — the pattern to match
+    '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;margin-bottom:10px;letter-spacing:2px;">THE PATTERN</div>',
+    '<div id="gf-sequence" style="display:flex;justify-content:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">',
+      Array.from({length: len}, (_, i) =>
+        '<div id="gf-seq-' + i + '" style="width:52px;height:52px;border-radius:4px;border:2px solid var(--bg3);' +
+        'background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:22px;transition:all .2s;">?</div>'
+      ).join(''),
+    '</div>',
+
+    // Player input buttons
+    '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;margin-bottom:10px;letter-spacing:2px;">YOUR TURN &mdash; REPEAT THE PATTERN</div>',
+    '<div id="gf-btns" style="display:flex;justify-content:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">',
+      GF_NOTES.map((note, i) =>
+        '<button id="gf-btn-' + i + '" class="btn-buy" ' +
+        'style="width:64px;height:64px;font-size:28px;border-color:var(--gold3);border-radius:6px;" ' +
+        'onclick="gfPlayerPress(' + i + ')">' + note + '</button>'
+      ).join(''),
+    '</div>',
+
+    // Progress dots
+    '<div id="gf-progress" style="display:flex;justify-content:center;gap:8px;margin-bottom:12px;">',
+      Array.from({length: len}, (_, i) =>
+        '<div id="gf-dot-' + i + '" style="width:14px;height:14px;border-radius:50%;' +
+        'background:var(--bg3);border:2px solid var(--bg3);transition:all .2s;"></div>'
+      ).join(''),
+    '</div>',
+
+    '<div id="gf-status" style="font-family:var(--px);font-size:13px;color:var(--teal);text-align:center;min-height:24px;letter-spacing:2px;"></div>',
+    '<div style="font-family:var(--px);font-size:11px;color:var(--text2);text-align:center;margin-top:8px;">',
+      'Keyboard: J K L ; &nbsp;&middot;&nbsp; Watch the pattern, then repeat it',
+    '</div>',
+  ].join(''));
+
+  // Keyboard listener
+  GF._keyHandler = e => {
+    const idx = GF_KEYS.indexOf(e.key.toLowerCase());
+    if (idx !== -1 && GF.phase === 'input') { e.preventDefault(); gfPlayerPress(idx); }
+  };
+  document.addEventListener('keydown', GF._keyHandler);
+
+  // Start dragon wakefulness ticker
+  startDragonTicker();
+
+  // Show the pattern after a brief pause
+  setTimeout(() => showGFPattern(), 600);
+}
+
+// ── Show sequence to player ──────────────────────────────────
+function showGFPattern() {
+  if (!GF) return;
+  GF.phase    = 'show';
+  GF.showStep = 0;
+  setGFStatus('Watch the pattern...');
+  disableGFButtons(true);
+  showNextGFBeat();
+}
+
+function showNextGFBeat() {
+  if (!GF || GF.showStep >= GF.seqLen) {
+    // Pattern complete — player's turn
+    setTimeout(() => {
+      if (!GF) return;
+      GF.phase = 'input';
+      GF.playerInput = [];
+      setGFStatus('Your turn — repeat the pattern');
+      disableGFButtons(false);
+      // Reset seq display to ?
+      for (let i = 0; i < GF.seqLen; i++) {
+        const cell = document.getElementById('gf-seq-' + i);
+        if (cell) { cell.textContent = '?'; cell.style.background = 'var(--bg2)'; cell.style.borderColor = 'var(--bg3)'; }
+      }
+    }, 400);
+    return;
+  }
+
+  const beatIdx = GF.sequence[GF.showStep];
+  const cell    = document.getElementById('gf-seq-' + GF.showStep);
+  if (cell) {
+    cell.textContent  = GF_NOTES[beatIdx];
+    cell.style.background    = 'rgba(240,192,64,.2)';
+    cell.style.borderColor   = 'var(--gold)';
+    cell.style.boxShadow     = '0 0 10px rgba(240,192,64,.4)';
+  }
+
+  // Flash the button too
+  flashGFButton(beatIdx);
+
+  GF.showStep++;
+  GF.showTimer = setTimeout(() => {
+    if (cell) { cell.style.background = 'var(--bg2)'; cell.style.borderColor = 'var(--bg3)'; cell.style.boxShadow = 'none'; }
+    GF.showTimer = setTimeout(showNextGFBeat, 200);
+  }, 500);
+}
+
+function flashGFButton(idx) {
+  const btn = document.getElementById('gf-btn-' + idx);
+  if (!btn) return;
+  btn.style.background    = 'rgba(240,192,64,.3)';
+  btn.style.borderColor   = 'var(--gold)';
+  btn.style.transform     = 'scale(1.15)';
+  setTimeout(() => {
+    btn.style.background  = '';
+    btn.style.borderColor = 'var(--gold3)';
+    btn.style.transform   = '';
+  }, 400);
+}
+
+// ── Player input ─────────────────────────────────────────────
+window.gfPlayerPress = function(idx) {
+  if (!GF || GF.phase !== 'input' || GF.done) return;
+
+  flashGFButton(idx);
+  const pos      = GF.playerInput.length;
+  const expected = GF.sequence[pos];
+
+  // Update progress dot
+  const dot = document.getElementById('gf-dot-' + pos);
+
+  if (idx === expected) {
+    GF.playerInput.push(idx);
+    if (dot) { dot.style.background = 'var(--green)'; dot.style.borderColor = 'var(--green)'; }
+
+    // Update sequence display with correct symbol
+    const cell = document.getElementById('gf-seq-' + pos);
+    if (cell) {
+      cell.textContent = GF_NOTES[idx];
+      cell.style.background  = 'rgba(64,192,96,.15)';
+      cell.style.borderColor = 'var(--green)';
+    }
+
+    if (GF.playerInput.length === GF.seqLen) {
+      // Success!
+      gfSuccess();
+    }
+  } else {
+    // Wrong beat — dragon stirs
+    if (dot) { dot.style.background = 'var(--red)'; dot.style.borderColor = 'var(--red)'; }
+    GF.dragonWake = Math.min(100, GF.dragonWake + (GF.hasOrpheus ? 30 : 20));
+    updateWakeBar();
+    setGFStatus('Wrong beat! The dragon stirs...');
+
+    if (GF.dragonWake >= 100) {
+      gfFailure();
+    } else {
+      // Reset input, replay pattern
+      GF.phase = 'show';
+      disableGFButtons(true);
+      setTimeout(() => {
+        setGFStatus('The dragon settles... watch again');
+        // Reset dots and seq display
+        for (let i = 0; i < GF.seqLen; i++) {
+          const d = document.getElementById('gf-dot-' + i);
+          const c = document.getElementById('gf-seq-' + i);
+          if (d) { d.style.background = 'var(--bg3)'; d.style.borderColor = 'var(--bg3)'; }
+          if (c) { c.textContent = '?'; c.style.background = 'var(--bg2)'; c.style.borderColor = 'var(--bg3)'; }
+        }
+        GF.playerInput = [];
+        setTimeout(showGFPattern, 800);
+      }, 1000);
+    }
+  }
+};
+
+// ── Dragon wakefulness ticker ─────────────────────────────────
+function startDragonTicker() {
+  if (GF.dragonTimer) clearInterval(GF.dragonTimer);
+  // Dragon slowly wakes on its own — penalty for taking too long
+  // Ticks every 8s, adds 8% wakefulness
+  GF.dragonTimer = setInterval(() => {
+    if (!GF || GF.done) { clearInterval(GF.dragonTimer); return; }
+    if (GF.phase === 'show') return; // don't tick during pattern display
+    GF.dragonWake = Math.min(100, GF.dragonWake + 8);
+    updateWakeBar();
+    if (GF.dragonWake >= 100) gfFailure();
+  }, 8000);
+}
+
+function stopDragonTicker() {
+  if (GF && GF.dragonTimer) { clearInterval(GF.dragonTimer); GF.dragonTimer = null; }
+}
+
+function updateWakeBar() {
+  const bar = document.getElementById('gf-wake-bar');
+  const pct = document.getElementById('gf-wake-pct');
+  if (bar) bar.style.width = GF.dragonWake + '%';
+  if (pct) pct.textContent = GF.dragonWake + '%';
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function setGFStatus(msg) {
+  const s = document.getElementById('gf-status');
+  if (s) s.textContent = msg;
+}
+
+function disableGFButtons(disabled) {
+  for (let i = 0; i < 4; i++) {
+    const btn = document.getElementById('gf-btn-' + i);
+    if (btn) btn.disabled = disabled;
+  }
+}
+
+function cleanupGF() {
+  stopDragonTicker();
+  if (GF && GF.showTimer) clearTimeout(GF.showTimer);
+  if (GF && GF._keyHandler) document.removeEventListener('keydown', GF._keyHandler);
+}
+
+// ── Outcomes ─────────────────────────────────────────────────
+function gfSuccess() {
+  GF.done = true;
+  cleanupGF();
+
+  G.choices.golden_fleece = GF.hasOrpheus ? 'success_orpheus' : 'success_solo';
+  recordChoice('golden_fleece', G.choices.golden_fleece);
+  saveCheckpoint('GOLDEN_FLEECE');
+
+  // Brief triumph flash
+  setGFStatus('&#127942; THE DRAGON SLEEPS &#127942;');
+  disableGFButtons(true);
+  setTimeout(() => renderGFOutcome(G.choices.golden_fleece), 1500);
+}
+
+function gfFailure() {
+  if (GF.done) return;
+  GF.done = true;
+  cleanupGF();
+
+  // Spec: provision loss + forced retry. Fleece obtained on success regardless.
+  G.provisions = Math.max(0, G.provisions - 6);
+  updateHeader();
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127942; The Sleepless Dragon &mdash; Setback</div>',
+    '<div class="wp-title">The Dragon Woke</div></div>',
+    '<div class="outcome oc-danger">',
+      '<div class="oc-title">The Serpent\'s Eyes Opened</div>',
+      '<div class="oc-body">The dragon\'s eyes snapped open &mdash; vast, golden, furious. You ran. It did not chase you &mdash; it never leaves the tree &mdash; but the lullaby is broken and you must start again. The pattern has not changed. You know it better now than before.</div>',
+      '<div class="eff-row">' + pip('&ndash;6 Provisions','neg') + pip('Retry &mdash; pattern unchanged','neu') + '</div>',
+    '</div>',
+    '<div style="text-align:center;"><button class="btn-go" onclick="retryGoldenFleece()">Try Again &#9654;</button></div>',
+  ].join(''));
+}
+
+function retryGoldenFleece() {
+  GF = initGF();
+  // Keep autoWin false on retry — Devoted already used their bonus
+  GF.autoWin = false;
+  renderGFGame();
+}
+
+function renderGFOutcome(choice) {
+  const usedOrpheus = choice && choice.includes('orpheus');
+  const isDevoted   = choice && choice.includes('devoted');
+
+  const effs = [];
+  if (isDevoted)     effs.push(pip('Orpheus performed perfectly','pos'), pip('The Devoted\'s loyalty rewarded','pos'));
+  else if (usedOrpheus) effs.push(pip('Orpheus guided the lullaby','pos'));
+  else               effs.push(pip('Solved alone &mdash; no musician','pos'), pip('Honor intact','pos'));
+  effs.push(pip('&#127942; Golden Fleece obtained','pos'));
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#127942; The Fleece &mdash; Obtained</div>',
+    '<div class="wp-title">The Dragon Sleeps</div></div>',
+    '<div class="outcome oc-success">',
+      '<div class="oc-title">The Golden Fleece Is Yours</div>',
+      '<div class="oc-body">' + (isDevoted
+        ? 'Orpheus played a lullaby that seemed to come from the beginning of the world. The serpent\'s great head sank. Its eyes closed, slowly, like a sunset. You walked to the tree in the silence that followed and lifted the Fleece from the branch. It was warm.'
+        : usedOrpheus
+        ? 'The lullaby rose and fell in careful sequence. Orpheus played each note as if his life depended on it &mdash; because yours did. The dragon\'s eyes closed. The grove went utterly still. You lifted the Fleece from the branch. It was heavier than you expected. And warmer.'
+        : 'You have no lyre. No musician. Just the pattern you studied in the serpent\'s breathing, and the sounds you could make with what you had. Note by note, imperfect but true, the dragon\'s eyes grew heavy. Then still. The Fleece came free in your hands.') +
+      '</div>',
+      '<div class="eff-row">' + effs.join('') + '</div>',
+    '</div>',
+    '<div class="narr">',
+      '<p>The Fleece hangs from your shoulders like captured sunlight. The Argo is anchored in the river. The crew is ready. There is only one thing left between you and the voyage home.</p>',
+      '<p><em>Medea is waiting at the river\'s edge.</em> She has a boat. She knows the river passages Aeetes does not. She is looking at you with an expression you cannot quite read.</p>',
+      '<p><i>She has already decided something. She is waiting to see if you have too.</i></p>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="advanceTo(\'BETRAYAL_FORK\')" style="background:linear-gradient(135deg,#5a1a1a,#8b0000);border-color:#e04040;color:#fca5a5;letter-spacing:4px;">',
+        '&#9876; Face the Betrayal Fork',
+      '</button>',
     '</div>',
   ].join(''));
   updateHeader();
