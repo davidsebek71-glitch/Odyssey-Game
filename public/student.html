@@ -14315,7 +14315,7 @@
         function enterChapter1() {
             var portal = document.getElementById('chapter1-portal');
             if (portal && portal.classList.contains('ready')) {
-                alert('Chapter 1: Jason & the Argonauts is coming soon! Your Voyage Log is complete — you are ready.');
+                window.location.href = '/chapter1_jason.html';
             } else {
                 alert('Complete the Jason Voyage Log first to unlock Chapter 1.');
             }

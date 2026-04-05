@@ -2095,6 +2095,51 @@ function seedReferenceData() {
     db.run("ALTER TABLE students ADD COLUMN voyage_guide_unlocked INTEGER DEFAULT 0");
   } catch(e) {}
   console.log('✅ V98: Voyage log student columns ready');
+
+  // ==================== V99: HEROIC AGE CHAPTER PROGRESS ====================
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS heroic_progress (
+        progress_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL,
+        chapter INTEGER NOT NULL,
+        waypoint TEXT NOT NULL,
+        state_json TEXT NOT NULL,
+        honor_score INTEGER DEFAULT 0,
+        drachma_balance INTEGER DEFAULT 0,
+        equipment_tier INTEGER DEFAULT 1,
+        completed INTEGER DEFAULT 0,
+        completed_at DATETIME,
+        locked INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(student_id),
+        UNIQUE(student_id, chapter)
+      )
+    `);
+    console.log('✅ V99: heroic_progress table ready');
+  } catch(e) {
+    console.log('Migration note: V99 heroic_progress -', e.message);
+  }
+
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS heroic_choices (
+        choice_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL,
+        chapter INTEGER NOT NULL,
+        choice_key TEXT NOT NULL,
+        choice_value TEXT NOT NULL,
+        text_response TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES students(student_id)
+      )
+    `);
+    console.log('✅ V99: heroic_choices table ready');
+  } catch(e) {
+    console.log('Migration note: V99 heroic_choices -', e.message);
+  }
+
   // Always run Classical seeding — it has its own internal guards
   // This must be ABOVE the early return so it runs even when Archaic data exists
   seedClassicalData();

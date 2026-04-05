@@ -14326,6 +14326,397 @@ app.get('/api/teacher/voyage-log-unlock-status', (req, res) => {
   }
 });
 
+// ============================================================
+// HEROIC AGE — CHAPTER PROGRESS ENDPOINTS (V99)
+// ============================================================
+
+// Helper: award a heroic badge by badge_id if it exists in badges_ref
+function awardHeroicBadge(student_id, badge_id) {
+  try {
+    const badge = query('SELECT badge_id FROM badges_ref WHERE badge_id = ?', [badge_id])[0];
+    if (!badge) return false;
+    run(
+      `INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
+       VALUES (?, ?, 1, 0, 'system')`,
+      [student_id, badge_id]
+    );
+    return true;
+  } catch(e) {
+    console.error('awardHeroicBadge error:', e.message);
+    return false;
+  }
+}
+
+// GET /api/heroic/my-state — Student loads their own chapter 1 progress
+app.get('/api/heroic/my-state', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'student') return res.status(403).json({ error: 'Students only' });
+    const student_id = req.user.id;
+
+    const progress = query(
+      'SELECT * FROM heroic_progress WHERE student_id = ? AND chapter = 1',
+      [student_id]
+    )[0];
+
+    const choices = query(
+      'SELECT choice_key, choice_value, text_response, timestamp FROM heroic_choices WHERE student_id = ? AND chapter = 1 ORDER BY timestamp ASC',
+      [student_id]
+    );
+
+    // Check voyage log gate
+    const student = query(
+      'SELECT voyage_log_completed, selected_avatar, drachma FROM students WHERE student_id = ?',
+      [student_id]
+    )[0];
+
+    res.json({
+      voyage_log_completed: student ? (student.voyage_log_completed || 0) : 0,
+      selected_avatar: student ? (student.selected_avatar || null) : null,
+      drachma: student ? (student.drachma || 0) : 0,
+      progress: progress || null,
+      choices: choices || []
+    });
+  } catch(err) {
+    console.error('heroic/my-state error:', err);
+    res.status(500).json({ error: 'Failed to load heroic state' });
+  }
+});
+
+// POST /api/heroic/checkpoint — Save waypoint progress (student)
+app.post('/api/heroic/checkpoint', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'student') return res.status(403).json({ error: 'Students only' });
+    const student_id = req.user.id;
+    const { chapter, waypoint, state_json, honor_score, drachma_balance, equipment_tier } = req.body;
+
+    if (!chapter || !waypoint || state_json === undefined) {
+      return res.status(400).json({ error: 'chapter, waypoint, and state_json required' });
+    }
+
+    // Idempotency guard — do not overwrite a locked (completed) chapter
+    const existing = query(
+      'SELECT progress_id, locked FROM heroic_progress WHERE student_id = ? AND chapter = ?',
+      [student_id, chapter]
+    )[0];
+
+    if (existing && existing.locked) {
+      return res.status(409).json({ error: 'Chapter is locked — already completed' });
+    }
+
+    if (existing) {
+      run(
+        `UPDATE heroic_progress SET
+           waypoint = ?, state_json = ?, honor_score = ?, drachma_balance = ?,
+           equipment_tier = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE student_id = ? AND chapter = ?`,
+        [
+          waypoint,
+          typeof state_json === 'string' ? state_json : JSON.stringify(state_json),
+          honor_score || 0, drachma_balance || 0, equipment_tier || 1,
+          student_id, chapter
+        ]
+      );
+    } else {
+      run(
+        `INSERT INTO heroic_progress
+           (student_id, chapter, waypoint, state_json, honor_score, drachma_balance, equipment_tier)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          student_id, chapter, waypoint,
+          typeof state_json === 'string' ? state_json : JSON.stringify(state_json),
+          honor_score || 0, drachma_balance || 0, equipment_tier || 1
+        ]
+      );
+    }
+
+    res.json({ success: true, waypoint, chapter });
+  } catch(err) {
+    console.error('heroic/checkpoint error:', err);
+    res.status(500).json({ error: 'Failed to save checkpoint' });
+  }
+});
+
+// POST /api/heroic/choice — Record a CYOA decision (student)
+app.post('/api/heroic/choice', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'student') return res.status(403).json({ error: 'Students only' });
+    const student_id = req.user.id;
+    const { chapter, choice_key, choice_value, text_response } = req.body;
+
+    if (!chapter || !choice_key || choice_value === undefined) {
+      return res.status(400).json({ error: 'chapter, choice_key, and choice_value required' });
+    }
+
+    // Idempotency — do not re-record if chapter is locked
+    const locked = query(
+      'SELECT locked FROM heroic_progress WHERE student_id = ? AND chapter = ?',
+      [student_id, chapter]
+    )[0];
+    if (locked && locked.locked) {
+      return res.status(409).json({ error: 'Chapter is locked — choices cannot be changed' });
+    }
+
+    run(
+      `INSERT INTO heroic_choices (student_id, chapter, choice_key, choice_value, text_response)
+       VALUES (?, ?, ?, ?, ?)`,
+      [student_id, chapter, choice_key, String(choice_value), text_response || null]
+    );
+
+    res.json({ success: true, choice_key, choice_value });
+  } catch(err) {
+    console.error('heroic/choice error:', err);
+    res.status(500).json({ error: 'Failed to record choice' });
+  }
+});
+
+// POST /api/heroic/complete — Lock chapter, award badges (student)
+app.post('/api/heroic/complete', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'student') return res.status(403).json({ error: 'Students only' });
+    const student_id = req.user.id;
+    const { chapter, final_state, honor_score, drachma_balance, equipment_tier } = req.body;
+
+    if (!chapter) return res.status(400).json({ error: 'chapter required' });
+
+    // Idempotency — already completed
+    const existing = query(
+      'SELECT progress_id, locked FROM heroic_progress WHERE student_id = ? AND chapter = ?',
+      [student_id, chapter]
+    )[0];
+
+    if (existing && existing.locked) {
+      return res.json({ success: true, already_complete: true, badges_awarded: [] });
+    }
+
+    const finalStateStr = typeof final_state === 'string' ? final_state : JSON.stringify(final_state || {});
+
+    if (existing) {
+      run(
+        `UPDATE heroic_progress SET
+           waypoint = 'COMPLETE', state_json = ?, honor_score = ?, drachma_balance = ?,
+           equipment_tier = ?, completed = 1, completed_at = CURRENT_TIMESTAMP,
+           locked = 1, updated_at = CURRENT_TIMESTAMP
+         WHERE student_id = ? AND chapter = ?`,
+        [finalStateStr, honor_score || 0, drachma_balance || 0, equipment_tier || 1, student_id, chapter]
+      );
+    } else {
+      run(
+        `INSERT INTO heroic_progress
+           (student_id, chapter, waypoint, state_json, honor_score, drachma_balance,
+            equipment_tier, completed, completed_at, locked)
+         VALUES (?, ?, 'COMPLETE', ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, 1)`,
+        [student_id, chapter, finalStateStr, honor_score || 0, drachma_balance || 0, equipment_tier || 1]
+      );
+    }
+
+    // Award badges based on chapter 1 outcomes
+    const badges_awarded = [];
+    if (chapter === 1) {
+      // The Argonaut — chapter completion
+      if (awardHeroicBadge(student_id, 'heroic_argonaut')) badges_awarded.push('heroic_argonaut');
+
+      // Captain's Oath — Honor ≥ 10
+      if ((honor_score || 0) >= 10) {
+        if (awardHeroicBadge(student_id, 'heroic_captains_oath')) badges_awarded.push('heroic_captains_oath');
+      }
+
+      // The Negotiator — Cunning 12+ path used at Betrayal Fork
+      const negotiatorChoice = query(
+        `SELECT choice_value FROM heroic_choices
+         WHERE student_id = ? AND chapter = 1 AND choice_key = 'betrayal_fork'`,
+        [student_id]
+      )[0];
+      if (negotiatorChoice && negotiatorChoice.choice_value === 'negotiate') {
+        if (awardHeroicBadge(student_id, 'heroic_negotiator')) badges_awarded.push('heroic_negotiator');
+      }
+
+      // Golden Fleece — no checkpoint rollbacks (tracked in state_json)
+      try {
+        const state = JSON.parse(finalStateStr);
+        if (state.checkpoint_rollbacks === 0) {
+          if (awardHeroicBadge(student_id, 'heroic_golden_fleece')) badges_awarded.push('heroic_golden_fleece');
+        }
+      } catch(e) {}
+    }
+
+    console.log(`✅ Chapter ${chapter} completed by student ${student_id} — badges: ${badges_awarded.join(', ') || 'none'}`);
+    res.json({ success: true, badges_awarded, honor_score: honor_score || 0 });
+  } catch(err) {
+    console.error('heroic/complete error:', err);
+    res.status(500).json({ error: 'Failed to complete chapter' });
+  }
+});
+
+// GET /api/heroic/alliance-avatars — Teammate avatar passive bonuses (student)
+app.get('/api/heroic/alliance-avatars', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'student') return res.status(403).json({ error: 'Students only' });
+    const student_id = req.user.id;
+
+    const self = query(
+      'SELECT alliance_id FROM students WHERE student_id = ?',
+      [student_id]
+    )[0];
+
+    if (!self || !self.alliance_id) {
+      return res.json({ teammates: [], passives: {} });
+    }
+
+    // Get alliance members excluding self and ghosts
+    const teammates = query(
+      `SELECT student_id, name, selected_avatar
+       FROM students
+       WHERE alliance_id = ? AND student_id != ?
+         AND (is_ghost = 0 OR is_ghost IS NULL)`,
+      [self.alliance_id, student_id]
+    );
+
+    // Build passive bonus map — each unique avatar type contributes once
+    const seenAvatarTypes = new Set();
+    const passives = {};
+
+    const AVATAR_PASSIVES = {
+      seeker:   { key: 'free_path_exploration',   label: '+1 free path exploration' },
+      fallen:   { key: 'starting_drachma_pct',    label: '+5% starting Drachma' },
+      devoted:  { key: 'crew_loyalty_buffer',      label: '+1 crew loyalty buffer' },
+      mirror:   { key: 'npc_dialogue_hint',        label: '1 NPC dialogue hint per chapter' },
+      builder:  { key: 'equipment_durability',     label: 'Starting equipment +1 durability' },
+      tested:   { key: 'honor_start_bonus',        label: '+2 Honor at chapter start' },
+      eternal:  { key: 'first_oracle_free',        label: 'First Oracle visit free' }
+    };
+
+    teammates.forEach(t => {
+      if (!t.selected_avatar) return;
+      const avatarType = t.selected_avatar.split('_')[0].toLowerCase(); // e.g. 'fallen' from 'fallen_male_dark'
+      if (seenAvatarTypes.has(avatarType)) return; // no stacking
+      seenAvatarTypes.add(avatarType);
+      const passive = AVATAR_PASSIVES[avatarType];
+      if (passive) passives[passive.key] = passive.label;
+    });
+
+    res.json({
+      teammates: teammates.map(t => ({
+        name: t.name,
+        avatar: t.selected_avatar,
+        avatar_type: t.selected_avatar ? t.selected_avatar.split('_')[0].toLowerCase() : null
+      })),
+      passives
+    });
+  } catch(err) {
+    console.error('heroic/alliance-avatars error:', err);
+    res.status(500).json({ error: 'Failed to load alliance avatars' });
+  }
+});
+
+// GET /api/heroic/state/:studentId — Teacher views a student's progress
+app.get('/api/heroic/state/:studentId', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    const student_id = parseInt(req.params.studentId);
+    if (!student_id) return res.status(400).json({ error: 'Invalid student ID' });
+
+    const student = query(
+      `SELECT student_id, name, class_period, alliance_id, selected_avatar,
+              voyage_log_completed, drachma, voyage_rank_tier
+       FROM students WHERE student_id = ?`,
+      [student_id]
+    )[0];
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const progress = query(
+      'SELECT * FROM heroic_progress WHERE student_id = ? AND chapter = 1',
+      [student_id]
+    )[0];
+
+    const choices = query(
+      'SELECT choice_key, choice_value, text_response, timestamp FROM heroic_choices WHERE student_id = ? AND chapter = 1 ORDER BY timestamp ASC',
+      [student_id]
+    );
+
+    res.json({ student, progress: progress || null, choices: choices || [] });
+  } catch(err) {
+    console.error('heroic/state teacher error:', err);
+    res.status(500).json({ error: 'Failed to load student heroic state' });
+  }
+});
+
+// GET /api/teacher/heroic-chapter-progress — Period overview for teacher gradebook
+app.get('/api/teacher/heroic-chapter-progress', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    const { period } = req.query;
+
+    let studentQuery = `
+      SELECT s.student_id, s.name, s.class_period, s.selected_avatar,
+             s.voyage_log_completed, s.drachma, s.voyage_rank_tier,
+             hp.waypoint, hp.honor_score, hp.drachma_balance,
+             hp.equipment_tier, hp.completed, hp.completed_at, hp.locked
+      FROM students s
+      LEFT JOIN heroic_progress hp ON s.student_id = hp.student_id AND hp.chapter = 1
+      WHERE s.current_age = 'heroic'
+        AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+    `;
+    const params = [];
+    if (period && period !== 'all') {
+      studentQuery += ' AND s.class_period = ?';
+      params.push(period);
+    }
+    studentQuery += ' ORDER BY s.class_period, s.name';
+
+    const students = query(studentQuery, params);
+
+    // For each completed student, pull their Medea choice
+    const completedIds = students.filter(s => s.completed).map(s => s.student_id);
+    const medea_choices = {};
+    if (completedIds.length > 0) {
+      const placeholders = completedIds.map(() => '?').join(',');
+      const choices = query(
+        `SELECT student_id, choice_value FROM heroic_choices
+         WHERE chapter = 1 AND choice_key = 'betrayal_fork'
+           AND student_id IN (${placeholders})`,
+        completedIds
+      );
+      choices.forEach(c => { medea_choices[c.student_id] = c.choice_value; });
+    }
+
+    const rows = students.map(s => ({
+      student_id: s.student_id,
+      name: s.name,
+      class_period: s.class_period,
+      selected_avatar: s.selected_avatar,
+      voyage_log_completed: s.voyage_log_completed || 0,
+      waypoint: s.waypoint || null,
+      honor_score: s.honor_score || null,
+      drachma_remaining: s.drachma_balance || null,
+      equipment_tier: s.equipment_tier || null,
+      completed: s.completed || 0,
+      completed_at: s.completed_at || null,
+      medea_choice: medea_choices[s.student_id] || null
+    }));
+
+    // Summary stats per period
+    const periods = {};
+    rows.forEach(r => {
+      if (!periods[r.class_period]) {
+        periods[r.class_period] = { total: 0, voyage_done: 0, started: 0, completed: 0 };
+      }
+      periods[r.class_period].total++;
+      if (r.voyage_log_completed) periods[r.class_period].voyage_done++;
+      if (r.waypoint) periods[r.class_period].started++;
+      if (r.completed) periods[r.class_period].completed++;
+    });
+
+    res.json({ students: rows, summary: periods });
+  } catch(err) {
+    console.error('heroic-chapter-progress error:', err);
+    res.status(500).json({ error: 'Failed to load heroic chapter progress' });
+  }
+});
+
+// ============================================================
+// END HEROIC AGE CHAPTER ENDPOINTS
+// ============================================================
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
