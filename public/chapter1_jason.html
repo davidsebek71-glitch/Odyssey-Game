@@ -430,6 +430,7 @@ function routeTo(key) {
     case 'LEMNOS':       renderLemnos();          break;
     case 'SYMPLEGADES':  renderSympStub();        break;
     case 'COLCHIS':      renderColchis();         break;
+    case 'DRAGONS_FIELD': renderDragonsField();    break;
     default: {
       const backBtn = '<button class="btn-back" onclick="goDashboard()">&#8592; Back to Dashboard</button>';
       render(
@@ -1704,6 +1705,414 @@ function renderColchisOutcome(choice) {
     '</div>',
     '<div style="text-align:center;">',
       '<button class="btn-go" onclick="advanceTo(\'DRAGONS_FIELD\')">Enter the Dragon\'s Field &#9654;</button>',
+    '</div>',
+  ].join(''));
+  updateHeader();
+}
+
+
+// ============================================================
+// DRAGON'S FIELD — Sowing the Dragon's Teeth (spec section 5.2)
+// Sequence puzzle: click cells in the correct ritual order.
+// Wrong placement = skeleton warrior rises. Lore scales grid & timer.
+// ============================================================
+
+// Grid size by Lore score (spec: Scholar 12+ = 5x5, Warrior 6-11 = 4x4, Novice <6 = 3x3)
+function dfGridSize() {
+  const l = lore();
+  if (l >= 12) return 5;
+  if (l >= 6)  return 4;
+  return 3;
+}
+
+// Seconds before skeletons activate and spread (spec: Lore affects timing)
+function dfSkeletonDelay() {
+  const l = lore();
+  if (l >= 12) return 22;
+  if (l >= 6)  return 13;
+  return 8;
+}
+
+let DF = null;  // Dragon's Field state
+
+function initDF() {
+  const size  = dfGridSize();
+  const total = size * size;
+
+  // Generate a random ritual sequence (1 through total)
+  const order = shuffle(Array.from({length: total}, (_, i) => i));
+
+  // Eternal: pre-reveal the full sequence
+  const revealed = isAv('eternal');
+
+  return {
+    size,
+    total,
+    order,            // order[cellIdx] = step number (1-based) at which this cell must be sown
+    sown:     new Set(),   // correctly sown cell indices
+    skeletons:new Set(),   // risen skeleton cell indices
+    nextStep: 1,           // next required sow step
+    mistakes: 0,
+    seekerFreeUsed: false,
+    medeaHintUsed:  false,
+    hintFlashCell:  -1,    // cell to flash as hint (-1 = none)
+    hintFlashTimer: 0,
+    skeletonActivated: false,
+    skeletonTimer:  dfSkeletonDelay(), // seconds until skeletons spread
+    tickInterval:   null,
+    hintInterval:   null,
+    done:           false,
+    revealed,              // Eternal: show all numbers upfront
+    loreScore:      lore()
+  };
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ── Entry point ──────────────────────────────────────────────
+function renderDragonsField() {
+  if (G.choices.dragons_field) { renderDFOutcome(G.choices.dragons_field); return; }
+
+  const l = lore();
+  const notices = [];
+
+  if (isAv('eternal'))
+    notices.push('<div class="banner b-avatar">&#10024; <strong>The Eternal:</strong> Your lore knowledge means you already recognize the ritual pattern. The correct sequence is revealed at the start.</div>');
+  if (isAv('seeker'))
+    notices.push('<div class="banner b-avatar">&#128270; <strong>The Seeker:</strong> Curiosity grants one free wrong placement before skeleton warriors rise.</div>');
+  if (l >= 12)
+    notices.push('<div class="banner b-craft">&#128218; <strong>Lore ' + l + ':</strong> Scholar tier &mdash; 5&times;5 grid, 22 seconds before skeletons activate.</div>');
+  else if (l >= 6)
+    notices.push('<div class="banner b-craft">&#128218; <strong>Lore ' + l + ':</strong> Warrior tier &mdash; 4&times;4 grid, 13 seconds before skeletons activate.</div>');
+  else
+    notices.push('<div class="banner b-hera">&#128218; <strong>Lore ' + l + ':</strong> Novice tier &mdash; 3&times;3 grid, 8 seconds before skeletons activate. Hints are shown.</div>');
+
+  if (G.medeaHelpCount > 0)
+    notices.push('<div class="banner b-hera">&#9888; <strong>Medea\'s debt:</strong> You have accepted her help ' + G.medeaHelpCount + ' time' + (G.medeaHelpCount > 1 ? 's' : '') + '. She can reveal the next step here &mdash; for another &ndash;1 Honor.</div>');
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#128013; Waypoint V</div>',
+    '<div class="wp-title">Dragon\'s Field</div>',
+    '<div class="wp-sub">Sowing the Dragon\'s Teeth &mdash; The Second Trial</div></div>',
+    notices.join(''),
+    '<div class="narr">',
+      '<p>The <em>Field of Ares</em> stretches before you, freshly plowed by the bronze bulls. Aeetes hands you a leather sack of serpent\'s teeth &mdash; jagged, yellowed, ancient. <em>&ldquo;Sow them in the correct ritual order,&rdquo;</em> he says, &ldquo;or they will rise as warriors and tear you apart.&rdquo;</em></p>',
+      '<p>The field is divided into a grid of sections. The ritual pattern is hidden in the ancient rites of Colchis. One wrong tooth and a skeleton warrior rises where it lands &mdash; and the warriors do not stay still for long.</p>',
+      '<p><em>Medea stands at the field\'s edge. She has not left.</em></p>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="startDragonsField()">Begin Sowing &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+function startDragonsField() {
+  DF = initDF();
+  renderDFPuzzle();
+}
+
+// ── Puzzle render ────────────────────────────────────────────
+function renderDFPuzzle() {
+  const medeaBtn = G.honor > 0
+    ? '<button class="btn-buy" id="df-medea-btn" onclick="dfMedeaHint()" style="border-color:var(--purple);color:#c084fc;">&#128065; Ask Medea (&ndash;1 Honor)</button>'
+    : '';
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#128013; Dragon\'s Field &mdash; The Puzzle</div>',
+    '<div class="wp-title">Sow in Ritual Order</div>',
+    '<div class="wp-sub">Click cells in the correct sequence &mdash; 1 through ' + DF.total + '</div></div>',
+
+    // HUD
+    '<div style="width:100%;display:flex;justify-content:space-between;align-items:center;',
+         'font-family:var(--px);font-size:13px;padding:0 4px;margin-bottom:8px;flex-wrap:wrap;gap:8px;">',
+      '<span style="color:var(--text2);">Step: <span id="df-step" style="color:var(--gold);font-weight:700;">' + DF.nextStep + '</span> / ' + DF.total + '</span>',
+      '<span style="color:var(--red);" id="df-skel-wrap">&#9760; Activates in <span id="df-skel-timer">' + DF.skeletonTimer + '</span>s</span>',
+      '<span style="color:var(--text2);">Skeletons: <span id="df-skel-count" style="color:var(--red);font-weight:700;">' + DF.skeletons.size + '</span></span>',
+    '</div>',
+
+    // Grid
+    '<div id="df-grid" style="display:grid;grid-template-columns:repeat(' + DF.size + ',1fr);',
+         'gap:8px;width:100%;max-width:' + (DF.size * 100) + 'px;margin:0 auto 16px;"></div>',
+
+    // Controls row
+    '<div style="display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;">',
+      medeaBtn,
+      '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;line-height:1.8;">',
+        'Sow teeth in order 1 &rarr; ' + DF.total + ' &nbsp;&middot;&nbsp; Wrong placement = skeleton rises',
+      '</div>',
+    '</div>',
+  ].join(''));
+
+  buildDFGrid();
+  startDFTimer();
+}
+
+function buildDFGrid() {
+  const grid = document.getElementById('df-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  for (let i = 0; i < DF.total; i++) {
+    const cell = document.createElement('div');
+    const step = DF.order[i] + 1;  // 1-based step for this cell
+    const isSown     = DF.sown.has(i);
+    const isSkeleton = DF.skeletons.has(i);
+    const isHint     = i === DF.hintFlashCell && DF.hintFlashTimer > 0;
+    const isNextCell = DF.order[i] === DF.nextStep - 1; // this is the next correct cell
+    const isNoviceHint = DF.loreScore < 6 && isNextCell && !isSown && !isSkeleton;
+
+    cell.style.cssText = [
+      'height:' + (DF.size <= 3 ? 90 : DF.size <= 4 ? 75 : 60) + 'px',
+      'border-radius:4px',
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'font-size:' + (DF.size <= 3 ? 24 : 20) + 'px',
+      'transition:all .12s',
+      'border:2px solid',
+      'cursor:' + (isSown || isSkeleton ? 'default' : 'pointer'),
+      'position:relative',
+      isSown     ? 'background:#1a3a1a;border-color:#40c060;'
+        : isSkeleton ? 'background:#2a0a0a;border-color:#e04040;'
+        : isHint     ? 'background:rgba(128,64,192,.35);border-color:#c084fc;box-shadow:0 0 12px rgba(128,64,192,.5);'
+        : isNoviceHint ? 'background:rgba(240,192,64,.12);border-color:rgba(240,192,64,.4);'
+        : 'background:var(--bg2);border-color:var(--bg3);'
+    ].join(';');
+
+    // Content
+    if (isSown)          cell.innerHTML = '&#127807;';          // sown tooth (plant)
+    else if (isSkeleton) cell.innerHTML = '&#9760;';            // skull
+    else if (isHint)     cell.innerHTML = '<span style="color:#c084fc;font-family:var(--px);font-size:11px;">NEXT</span>';
+    else if (DF.revealed || isNoviceHint) {
+      // Eternal: show all step numbers. Novice: show only next step highlighted.
+      cell.innerHTML = '<span style="font-family:var(--px);font-size:' +
+        (DF.size <= 3 ? 16 : 13) + 'px;color:' +
+        (isNoviceHint ? 'var(--gold)' : 'rgba(160,144,128,.6)') +
+        ';">' + step + '</span>';
+    }
+
+    if (!isSown && !isSkeleton) {
+      cell.addEventListener('click', () => onDFClick(i));
+      cell.addEventListener('mouseenter', () => {
+        if (!DF.sown.has(i) && !DF.skeletons.has(i)) cell.style.background = 'var(--bg3)';
+      });
+      cell.addEventListener('mouseleave', () => {
+        if (!DF.sown.has(i) && !DF.skeletons.has(i)) cell.style.background = 'var(--bg2)';
+      });
+    }
+    grid.appendChild(cell);
+  }
+  syncDFHUD();
+}
+
+function onDFClick(cellIdx) {
+  if (!DF || DF.done) return;
+  if (DF.sown.has(cellIdx) || DF.skeletons.has(cellIdx)) return;
+
+  const expectedStep = DF.nextStep - 1; // 0-based index into order array
+  const isCorrect    = DF.order[cellIdx] === expectedStep;
+
+  if (isCorrect) {
+    DF.sown.add(cellIdx);
+    DF.nextStep++;
+    DF.hintFlashCell = -1;
+    buildDFGrid();
+    if (DF.sown.size === DF.total) dfSuccess();
+  } else {
+    // Wrong — Seeker gets one free
+    if (isAv('seeker') && !DF.seekerFreeUsed) {
+      DF.seekerFreeUsed = true;
+      dfFlashCell(cellIdx, 'orange');
+      return;
+    }
+    DF.mistakes++;
+    DF.skeletons.add(cellIdx);
+    dfFlashCell(cellIdx, 'red');
+    buildDFGrid();
+    // If skeletons fill too many cells, reset
+    if (DF.skeletons.size >= Math.floor(DF.total * 0.4)) dfSkeletonOverrun();
+  }
+}
+
+function dfFlashCell(idx, color) {
+  const grid = document.getElementById('df-grid');
+  if (!grid) return;
+  const cell = grid.children[idx];
+  if (!cell) return;
+  const orig = cell.style.background;
+  cell.style.background = color === 'red' ? 'rgba(224,64,64,.5)' : 'rgba(249,115,22,.5)';
+  setTimeout(() => { if (cell) cell.style.background = orig; }, 400);
+}
+
+function syncDFHUD() {
+  const stepEl  = document.getElementById('df-step');
+  const skelEl  = document.getElementById('df-skel-count');
+  if (stepEl) stepEl.textContent = DF.nextStep;
+  if (skelEl) skelEl.textContent = DF.skeletons.size;
+}
+
+// ── Medea hint (spec: another –1 Honor, running total tracked) ──
+function dfMedeaHint() {
+  if (!DF || DF.done) return;
+  if (G.honor <= 0) return;
+
+  G.honor = Math.max(0, G.honor - 1);
+  G.medeaHelpCount++;
+  DF.medeaHintUsed = true;
+  recordChoice('medea_dragons_field', 'hint_used');
+  updateHeader();
+
+  // Find the next correct cell and flash it
+  const targetStep = DF.nextStep - 1;
+  const targetCell = DF.order.indexOf(targetStep);
+  DF.hintFlashCell  = targetCell;
+  DF.hintFlashTimer = 3; // show for 3 seconds
+  buildDFGrid();
+
+  // Disable medea button after use until next step
+  const btn = document.getElementById('df-medea-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Medea showed you...'; }
+
+  // Clear flash after 3s
+  setTimeout(() => {
+    if (DF) { DF.hintFlashCell = -1; DF.hintFlashTimer = 0; buildDFGrid(); }
+    const b = document.getElementById('df-medea-btn');
+    if (b) { b.disabled = false; b.innerHTML = '&#128065; Ask Medea (&ndash;1 Honor)'; }
+  }, 3000);
+}
+
+// ── Timer: skeleton activation countdown ──────────────────────
+function startDFTimer() {
+  if (DF.tickInterval) clearInterval(DF.tickInterval);
+  DF.tickInterval = setInterval(() => {
+    if (!DF || DF.done) { clearInterval(DF.tickInterval); return; }
+
+    if (!DF.skeletonActivated) {
+      DF.skeletonTimer--;
+      const timerEl = document.getElementById('df-skel-timer');
+      if (timerEl) {
+        timerEl.textContent = DF.skeletonTimer;
+        timerEl.style.color = DF.skeletonTimer <= 5 ? 'var(--red)' : '#f97316';
+      }
+      if (DF.skeletonTimer <= 0) {
+        DF.skeletonActivated = true;
+        const wrap = document.getElementById('df-skel-wrap');
+        if (wrap) { wrap.style.color = 'var(--red)'; wrap.innerHTML = '&#9760; <strong>SKELETONS ACTIVE</strong>'; }
+        dfActivateSkeletons();
+      }
+    }
+  }, 1000);
+}
+
+function stopDFTimer() {
+  if (DF && DF.tickInterval) { clearInterval(DF.tickInterval); DF.tickInterval = null; }
+}
+
+function dfActivateSkeletons() {
+  // Skeletons spread to one adjacent empty cell every 4 seconds
+  if (DF.skeletonInterval) clearInterval(DF.skeletonInterval);
+  DF.skeletonInterval = setInterval(() => {
+    if (!DF || DF.done) { clearInterval(DF.skeletonInterval); return; }
+    if (DF.skeletons.size === 0) return;
+
+    // Each skeleton tries to spread to one adjacent cell
+    const newSkeletons = new Set();
+    DF.skeletons.forEach(idx => {
+      const r = Math.floor(idx / DF.size);
+      const c = idx % DF.size;
+      const neighbors = [
+        [r-1,c],[r+1,c],[r,c-1],[r,c+1]
+      ].filter(([nr,nc]) => nr>=0 && nr<DF.size && nc>=0 && nc<DF.size)
+       .map(([nr,nc]) => nr*DF.size+nc)
+       .filter(ni => !DF.sown.has(ni) && !DF.skeletons.has(ni));
+      if (neighbors.length > 0) {
+        newSkeletons.add(neighbors[Math.floor(Math.random() * neighbors.length)]);
+      }
+    });
+    newSkeletons.forEach(i => DF.skeletons.add(i));
+    buildDFGrid();
+
+    // If skeletons overrun the field
+    const available = DF.total - DF.sown.size - DF.skeletons.size;
+    if (available <= 0) dfSkeletonOverrun();
+  }, 4000);
+
+  if (DF) DF._skeletonInterval = DF.skeletonInterval;
+}
+
+// ── Outcomes ─────────────────────────────────────────────────
+function dfSuccess() {
+  DF.done = true;
+  stopDFTimer();
+  if (DF.skeletonInterval) clearInterval(DF.skeletonInterval);
+  if (DF._skeletonInterval) clearInterval(DF._skeletonInterval);
+
+  G.choices.dragons_field = DF.medeaHintUsed ? 'success_medea' : 'success_solo';
+  recordChoice('dragons_field', G.choices.dragons_field);
+  saveCheckpoint('DRAGONS_FIELD');
+  renderDFOutcome(G.choices.dragons_field);
+}
+
+function dfSkeletonOverrun() {
+  DF.done = true;
+  stopDFTimer();
+  if (DF.skeletonInterval) clearInterval(DF.skeletonInterval);
+  if (DF._skeletonInterval) clearInterval(DF._skeletonInterval);
+
+  // Spec: no checkpoint rollback — skill puzzle. Lose provisions, retry.
+  G.provisions = Math.max(0, G.provisions - 8);
+  updateHeader();
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#128013; Dragon\'s Field &mdash; Overrun</div>',
+    '<div class="wp-title">The Skeletons Rose</div></div>',
+    '<div class="outcome oc-danger">',
+      '<div class="oc-title">The Warriors Filled the Field</div>',
+      '<div class="oc-body">The skeleton warriors spread too far before the sowing was complete. They are not intelligent &mdash; but they are relentless. You retreat to the field\'s edge and watch them crumble back into the earth. The teeth are still here. The ritual order has not changed.</div>',
+      '<div class="eff-row">' + pip('&ndash;8 Provisions','neg') + pip('Puzzle resets','neu') + '</div>',
+    '</div>',
+    '<div style="text-align:center;"><button class="btn-go" onclick="startDragonsField()">Try Again &#9654;</button></div>',
+  ].join(''));
+}
+
+function renderDFOutcome(choice) {
+  const usedMedea = choice && choice.includes('medea');
+  const effs = [];
+  if (usedMedea) {
+    effs.push(pip('Medea\'s hint used','neu'), pip('&ndash;1 Honor','neg'));
+  } else {
+    effs.push(pip('Solved without Medea','pos'), pip('Honor intact','pos'));
+  }
+
+  const totalMedea = G.medeaHelpCount;
+  const medeaWarning = totalMedea >= 2
+    ? '<div class="banner b-hera">&#9888; You have accepted Medea\'s help ' + totalMedea + ' times. This debt accumulates. The Betrayal Fork is ahead.</div>'
+    : '';
+
+  render([
+    '<div class="wp-hdr"><div class="wp-loc">&#128013; Dragon\'s Field &mdash; Complete</div>',
+    '<div class="wp-title">The Field Is Sown</div></div>',
+    '<div class="outcome oc-success">',
+      '<div class="oc-title">' + (usedMedea ? 'Trial Complete &mdash; With Guidance' : 'Trial Complete &mdash; The Pattern Was Yours') + '</div>',
+      '<div class="oc-body">' + (usedMedea
+        ? 'Every tooth fell in the correct ritual order. The skeletons rose only where you allowed them &mdash; which was nowhere. The field is plowed and sown. Medea watched from the edge, arms folded, unsurprised.'
+        : 'You found the pattern yourself &mdash; in the angle of the furrows, the direction of the wind, the way the teeth vibrated as you held them. Every one landed in order. The field lies still and complete. Not a single skeleton rose.') +
+      '</div>',
+      '<div class="eff-row">' + effs.join('') + '</div>',
+    '</div>',
+    medeaWarning,
+    '<div class="narr">',
+      '<p>Two trials are done. One remains: the <em>Sleepless Dragon</em>, coiled around the oak tree where the <em>Golden Fleece</em> hangs. It has not slept in a thousand years. Aeetes did not expect you to reach this point. His expression, watching from the palace steps, is no longer contemptuous.</p>',
+      '<p><i>It is something closer to fear.</i></p>',
+    '</div>',
+    '<div style="text-align:center;">',
+      '<button class="btn-go" onclick="advanceTo(\'GOLDEN_FLEECE\')">Approach the Fleece &#9654;</button>',
     '</div>',
   ].join(''));
   updateHeader();
