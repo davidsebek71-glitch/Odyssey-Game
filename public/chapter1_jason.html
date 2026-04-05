@@ -443,6 +443,24 @@ async function init() {
       return;
     }
 
+    // Dev/teacher reset: ?reset=1 wipes chapter 1 progress for this student
+    if (new URLSearchParams(window.location.search).get('reset') === '1') {
+      try {
+        await fetch(API + '/heroic/checkpoint', {
+          method:'POST', headers:H,
+          body: JSON.stringify({
+            chapter:1, waypoint:'IOLCOS',
+            state_json:{companions:[],honor:10,drachma:G.student.drachma||0,provisions:20,
+              equipment:1,inventory:{},choices:{},medeaHelpCount:0,checkpoint_rollbacks:0},
+            honor_score:10, drachma_balance:G.student.drachma||0, equipment_tier:1
+          })
+        });
+      } catch(e) {}
+      // Strip ?reset param and reload cleanly
+      window.location.href = '/chapter1_jason.html';
+      return;
+    }
+
     // 3. Heroic classroom stats
     const sr = await fetch(API + '/student/heroic-stats', {headers:H});
     if (sr.ok) G.stats = await sr.json();
@@ -942,6 +960,8 @@ function initSympState(canvas) {
 }
 
 function renderSympStub() {
+  // Restore: if already completed, show outcome
+  if (G.choices.symplegades) { renderSympOutcome(G.choices.symplegades === 'damaged', 0, 0); return; }
   const cunv = cun();
   const provNote = G.provisions < 8
     ? '<div class="banner b-hera">&#9889; Low provisions (' + G.provisions + ') &mdash; crew is panicked. Rocks close faster.</div>'
