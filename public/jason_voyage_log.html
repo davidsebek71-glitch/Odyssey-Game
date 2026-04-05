@@ -1671,8 +1671,8 @@ body {
       </div>
       <div style="text-align:center;display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap">
         <button class="pixel-btn-sm" onclick="printLog()">🖨 PRINT MY LOG</button>
-        <button class="pixel-btn-sm" onclick="window.location.href='/student.html'" style="background:var(--teal);border-color:#60e0c0;color:#000">⚔ BEGIN CHAPTER 1 ▶</button>
-        <button class="pixel-btn-sm" onclick="window.location.href='/student.html'">CLOSE</button>
+        <button class="pixel-btn-sm" onclick="window.location.href='/student.html?view=heroic'" style="background:var(--teal);border-color:#60e0c0;color:#000">⚔ BEGIN CHAPTER 1 ▶</button>
+        <button class="pixel-btn-sm" onclick="window.location.href='/student.html?view=heroic'">CLOSE</button>
       </div>
     </div>
   </div>
@@ -2702,7 +2702,7 @@ function applyCrewRewards(parsed){
 }
 
 function startChapterOne(){
-  window.location.href = '/student.html';
+  window.location.href = '/student.html?view=heroic';
 }
 
 function showChapterOneStub(){
