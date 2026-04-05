@@ -195,7 +195,7 @@ body{background:var(--bg0);color:var(--text1);font-family:'Cinzel',serif;min-hei
   <div class="err-box">
     <div style="font-size:40px;margin-bottom:14px;">&#9888;</div>
     <p id="err-msg">An error occurred.</p>
-    <button class="btn-go" onclick="window.location.href='/student.html?view=heroic'" style="padding:12px 24px;font-size:14px;">&#8592; Back to Dashboard</button>
+    <button class="btn-go" onclick="goDashboard()" style="padding:12px 24px;font-size:14px;">&#8592; Back to Dashboard</button>
   </div>
 </div>
 
@@ -235,6 +235,13 @@ body{background:var(--bg0);color:var(--text1);font-family:'Cinzel',serif;min-hei
   </div>
 
   <div id="wp-content"></div>
+  <div id="dev-bar" style="position:fixed;bottom:0;left:0;right:0;background:rgba(8,8,15,0.92);
+       border-top:1px solid #242448;padding:8px 16px;display:flex;align-items:center;
+       justify-content:space-between;z-index:1000;">
+    <button class="btn-back" onclick="goDashboard()">&#8592; Dashboard</button>
+    <button class="btn-back" id="dev-reset-btn" onclick="resetChapter1()"
+      style="color:#f97316;border-color:#f97316;display:none;">&#8635; Restart Chapter 1</button>
+  </div>
 </div>
 
 <script>
@@ -359,7 +366,7 @@ function updateHeader() {
   const hb = el('hdr-hera');
   hb.style.display = '';
   hb.className = 'hera-badge ' + h.cls;
-  hb.textContent = '&#128065; Hera: ' + h.label;
+  hb.innerHTML = '&#128065; Hera: ' + h.label;
 }
 
 function updateTrail(key) {
@@ -422,8 +429,14 @@ function routeTo(key) {
     case 'IOLCOS':       renderIolcos();          break;
     case 'LEMNOS':       renderLemnos();          break;
     case 'SYMPLEGADES':  renderSympStub();        break;
-    default:
-      render('<div class="wp-hdr"><div class="wp-loc">Coming Soon</div><div class="wp-title">' + key.replace(/_/g,' ') + '</div></div>');
+    default: {
+      const backBtn = '<button class="btn-back" onclick="goDashboard()">&#8592; Back to Dashboard</button>';
+      render(
+        '<div class="wp-hdr"><div class="wp-loc">Coming Soon</div><div class="wp-title">' + key.replace(/_/g,' ') + '</div></div>' +
+        '<div style="text-align:center;margin-top:20px;">' + backBtn + '</div>'
+      );
+      break;
+    }
   }
 }
 
@@ -516,6 +529,7 @@ async function init() {
 
     showScreen('screen-game');
     routeTo(G.currentWaypoint);
+    showDevBar(true);
 
   } catch(e) {
     console.error('Init error:', e);
@@ -1334,6 +1348,42 @@ function renderComplete(progress) {
     '</div>',
     '<div style="text-align:center;"><button class="btn-go" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Return to Dashboard</button></div>'
   ].join(''));
+}
+
+// ============================================================
+// NAVIGATION HELPERS
+// ============================================================
+function goDashboard() { window.location.href = '/student.html?view=heroic'; }
+
+// ============================================================
+// RESET — clears chapter 1 progress and restarts
+// ============================================================
+async function resetChapter1() {
+  if (!confirm('Restart Chapter 1 from the beginning? Your current progress will be lost.')) return;
+  try {
+    await fetch(API + '/heroic/checkpoint', {
+      method:'POST', headers:H,
+      body: JSON.stringify({
+        chapter:1, waypoint:'IOLCOS',
+        state_json:{companions:[],skepticalCompanion:null,honor:10,
+          drachma:G.student ? (G.student.drachma||0) : 0,
+          provisions:20,equipment:1,inventory:{},choices:{},
+          medeaHelpCount:0,checkpoint_rollbacks:0},
+        honor_score:10, drachma_balance:G.student ? (G.student.drachma||0) : 0, equipment_tier:1
+      })
+    });
+  } catch(e) { console.warn('Reset save failed:', e); }
+  // Reset local state
+  G.honor=10; G.drachma=G.student?(G.student.drachma||0):0; G.provisions=20;
+  G.equipment=1; G.inventory={}; G.companions=[]; G.skepticalCompanion=null;
+  G.choices={}; G.medeaHelpCount=0; G.checkpoint_rollbacks=0;
+  if (G.stats && craft() >= 10) G.equipment = 2;
+  routeTo('IOLCOS');
+}
+
+function showDevBar(showReset) {
+  const btn = el('dev-reset-btn');
+  if (btn) btn.style.display = showReset ? 'inline-block' : 'none';
 }
 
 // ============================================================
