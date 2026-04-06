@@ -2032,17 +2032,19 @@ function drawPC(ctx) {
   }
 
   // Jason — gold square with direction indicator
-  const jx = J.moving ? lerp(J.c - J.dir[0], J.targetC, J.progress) * S : J.c * S;
-  const jy = J.moving ? lerp(J.r - J.dir[1], J.targetR, J.progress) * S : J.r * S;
+  const jx = (J.moving && J.dir) ? lerp(J.c - J.dir[0], J.targetC, J.progress) * S : J.c * S;
+  const jy = (J.moving && J.dir) ? lerp(J.r - J.dir[1], J.targetR, J.progress) * S : J.r * S;
   const jpad = Math.max(2, Math.floor(S * 0.15));
   ctx.fillStyle = '#f0c040';
   ctx.fillRect(jx + jpad, jy + jpad, S - jpad*2, S - jpad*2);
-  // Direction pip
-  ctx.fillStyle = '#805810';
-  const pip = Math.max(2, Math.floor(S * 0.18));
-  const pipX = jx + S/2 + J.dir[0] * (S/2 - pip - 1) - pip/2;
-  const pipY = jy + S/2 + J.dir[1] * (S/2 - pip - 1) - pip/2;
-  ctx.fillRect(pipX, pipY, pip, pip);
+  // Direction pip — only draw when a direction is set
+  if (J.dir) {
+    ctx.fillStyle = '#805810';
+    const pip = Math.max(2, Math.floor(S * 0.18));
+    const pipX = jx + S/2 + J.dir[0] * (S/2 - pip - 1) - pip/2;
+    const pipY = jy + S/2 + J.dir[1] * (S/2 - pip - 1) - pip/2;
+    ctx.fillRect(pipX, pipY, pip, pip);
+  }
 
   // Guards — red squares
   PC.guards.forEach(g => {
