@@ -846,13 +846,18 @@ function drawZS(ctx) {
   const cityTop     = cityDstY;              // where Zeus bottom must land
 
   if (ZS.cityLoaded && ZS.cityImg.naturalWidth > 0) {
-    // Black silhouette: fill black, clip to image shape with destination-in
-    ctx.save();
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, cityDstY, W, cityDstH);
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.drawImage(ZS.cityImg, 0, cityDstY, W, cityDstH);
-    ctx.restore();
+    // Offscreen composite: fill black then mask to silhouette shape
+    // destination-in on offscreen canvas only — never touches main canvas state
+    const ofc = document.createElement('canvas');
+    ofc.width  = W;
+    ofc.height = cityDstH;
+    const ofx  = ofc.getContext('2d');
+    ofx.fillStyle = '#000';
+    ofx.fillRect(0, 0, W, cityDstH);
+    ofx.globalCompositeOperation = 'destination-in';
+    ofx.drawImage(ZS.cityImg, 0, 0, W, cityDstH);
+    // Draw the black silhouette onto main canvas at correct position
+    ctx.drawImage(ofc, 0, cityDstY);
   } else {
     // Fallback drawn silhouette
     ctx.fillStyle = '#e8e0d0';
