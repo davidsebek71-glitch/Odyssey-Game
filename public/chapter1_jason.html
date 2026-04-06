@@ -723,19 +723,707 @@ function zeusChoiceIgnore() {
 // CHIRON TRAINING — Prologue Waypoint 2  [STUB]
 // ============================================================
 
+// ============================================================
+// CHIRON TRAINING — Prologue Waypoint 2
+// Three mini-games awarding temporary stat bonuses.
+// Bonuses written into G.stats so all downstream stat() calls
+// pick them up automatically (including Iolcos stat card).
+// G.chiron_bonuses tracks what was earned for display + save.
+// ============================================================
+
+// Chiron's myth questions (birth story / training period only)
+const CHIRON_QUESTIONS = [
+  { q: 'What was the name of Jason\'s father, the rightful king of Iolcos?',
+    opts: ['Pelias','Aeson','Phrixus','Creon'], a: 1 },
+  { q: 'Who was Pelias\'s divine father?',
+    opts: ['Zeus','Ares','Poseidon','Apollo'], a: 2 },
+  { q: 'What did the Oracle of Apollo tell Pelias to fear?',
+    opts: ['A man with two swords','A man with no cloak','A man wearing only one sandal','A man riding a black horse'], a: 2 },
+  { q: 'Where did Chiron the Centaur live and train heroes?',
+    opts: ['Mount Olympus','Mount Pelion','Mount Ida','Mount Cithaeron'], a: 1 },
+  { q: 'What animal did the young Jason defeat that was terrorizing local shepherds?',
+    opts: ['A wolf','A boar','A bear','A leopard'], a: 3 },
+  { q: 'What did Jason wear as a cloak after his early victory?',
+    opts: ['A wolf pelt','A bearskin','The leopard\'s skin','A lion\'s mane'], a: 2 },
+  { q: 'What arts did Chiron primarily teach Jason?',
+    opts: ['Music and philosophy','Sailing and navigation','Hunting and the use of weapons','Farming and architecture'], a: 2 },
+  { q: 'How old was Jason when Chiron revealed his true identity?',
+    opts: ['16','18','20','25'], a: 2 },
+  { q: 'What did Jason know he would need most to win back his throne?',
+    opts: ['Strength','Gold','Cunning','An army'], a: 2 },
+  { q: 'Why did Pelias spare Jason\'s life when he first seized the throne?',
+    opts: ['He didn\'t know Jason existed','Jason had a peaceful temperament','Jason was too young to be a threat','A god forbade it'], a: 1 }
+];
+
+// Chiron mini-game state
+let CT = null;
+
+function initChironState() {
+  // Shuffle questions and pick distinct ones for each phase
+  const shuffled = CHIRON_QUESTIONS.slice().sort(() => Math.random() - 0.5);
+  return {
+    phase: 'intro',          // intro | arrow | sword | lore | summary
+    arrowRound: 0,           // 0-2
+    swordRound: 0,           // 0-2
+    loreQ: 0,                // 0-3
+    arrowScore: 0,           // hits 0-3
+    swordScore: 0,           // correct sequences 0-3
+    loreScore: 0,            // correct answers 0-4
+    pendingStatKey: null,    // stat to award after question answered
+    pendingStatAmt: 0,
+    questions: shuffled,     // shuffled pool
+    qIdx: 0,                 // current index into pool
+    arrowAnimId: null,
+    target: { x: 0.5, dir: 1, speed: 0.012, hit: false },
+    swordSeq: [],            // sequence to repeat
+    playerSeq: [],           // player input so far
+    swordPhase: 'show'       // show | input
+  };
+}
+
+// ── Entry point ──────────────────────────────────────────────
 function renderChironTraining() {
+  // Already completed — jump forward
+  if (G.choices.chiron_complete) { advanceTo('PELIAS_CHASE'); return; }
+
+  CT = initChironState();
+  renderChironIntro();
+}
+
+// ── Phase 0: Intro ───────────────────────────────────────────
+function renderChironIntro() {
   render([
+    '<style>',
+      '#screen-game { background: radial-gradient(ellipse at 40% 60%, #0a1a0a 0%, #08080f 70%); }',
+    '</style>',
     '<div class="wp-hdr">',
       '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#9876; Prologue II</div>',
-      '<div class="wp-title">Chiron\&#39;s Training</div>',
-      '<div class="wp-sub">The Centaur\&#39;s three trials &mdash; coming next session</div>',
+      '<div class="wp-title">Chiron&#39;s Training</div>',
+      '<div class="wp-sub">Mount Pelion &mdash; Three Trials</div>',
     '</div>',
-    '<div class="narr">',
-      '<p>An old centaur steps from the treeline of Mount Pelion. He has been watching since Zeus left.</p>',
-      '<p><i>This waypoint is under construction. Check back soon.</i></p>',
+    '<div class="narr" style="border-color:var(--teal);background:linear-gradient(160deg,#0a140a,#08080f);">',
+      '<p>He comes from the treeline without sound &mdash; a figure that is half man, half horse, moving with the unhurried certainty of something that has never needed to rush. This is <em>Chiron</em>, oldest of the centaurs, teacher of heroes.</p>',
+      '<p>He looks at you the way a smith looks at unfinished iron &mdash; not dismissive, just measuring.</p>',
+      '<p>&ldquo;Zeus came to your city,&rdquo; he says. It is not a question. &ldquo;And you are still here. That tells me something. But I need to know more before Jason takes you with him.&rdquo;</p>',
+      '<p>He gestures toward the mountain slope behind him. Three stations. Three trials.</p>',
+      '<p><em>&ldquo;Every bonus you earn here carries into the voyage. I do not give gifts. I reveal what is already there.&rdquo;</em></p>',
     '</div>',
-    '<div style="text-align:center;margin-top:16px;">',
-      '<button class="btn-go" onclick="advanceTo(\'PELIAS_CHASE\')">Continue (Skip) &#9654;</button>',
+    '<div style="background:var(--bg2);border:1px solid var(--teal);border-radius:4px;padding:14px 18px;',
+         'font-family:var(--px);font-size:12px;color:var(--text2);width:100%;">',
+      '<div style="color:var(--teal);letter-spacing:2px;margin-bottom:10px;">THREE TRIALS</div>',
+      '<div style="display:flex;flex-direction:column;gap:8px;">',
+        '<div>&#127987; <strong style="color:var(--gold);">Arrow Firing</strong> &mdash; +Cunning (carries to Symplegades &amp; Lemnos)</div>',
+        '<div>&#9876; <strong style="color:var(--gold);">Sword Training</strong> &mdash; +Craft (carries to Colchis &amp; market discounts)</div>',
+        '<div>&#128218; <strong style="color:var(--gold);">Chiron&#39;s Test</strong> &mdash; +Lore &amp; +Honor (carries to Dragon&#39;s Field &amp; Hera disposition)</div>',
+      '</div>',
+    '</div>',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="startArrowTrial()">Begin Training &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+// ============================================================
+// TRIAL 1 — ARROW FIRING (Cunning)
+// Canvas target: circle pulses in/out. Click at smallest = hit.
+// 3 rounds. Each hit + correct myth question = +2 Cunning.
+// ============================================================
+
+function startArrowTrial() {
+  CT.arrowRound = 0;
+  CT.arrowScore = 0;
+  renderArrowRound();
+}
+
+function renderArrowRound() {
+  const round = CT.arrowRound + 1;
+
+  // Build the canvas UI
+  const wrap = document.getElementById('wp-content');
+  wrap.innerHTML =
+    '<div class="wp" style="align-items:center;">' +
+    '<div class="wp-hdr">' +
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:4px;">&#127987; Trial I &mdash; Arrow Firing</div>' +
+      '<div class="wp-title" style="font-size:22px;">Round ' + round + ' of 3</div>' +
+      '<div class="wp-sub">Click the target at its smallest point</div>' +
+    '</div>' +
+    '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;margin-bottom:6px;">' +
+      'Cunning bonus earned: <span id="arrow-score" style="color:var(--teal);">+' + (CT.arrowScore * 2) + '</span>' +
+    '</div>' +
+    '<canvas id="arrow-canvas" style="display:block;border:2px solid var(--gold3);border-radius:4px;cursor:crosshair;touch-action:none;"></canvas>' +
+    '<div id="arrow-feedback" style="font-family:var(--px);font-size:13px;min-height:22px;text-align:center;color:var(--gold);letter-spacing:2px;"></div>' +
+    '</div>';
+
+  const canvas = document.getElementById('arrow-canvas');
+  const maxW = Math.min(600, window.innerWidth - 48);
+  canvas.width  = maxW;
+  canvas.height = Math.round(maxW * 0.45);
+
+  // Target state: pulses between minR and maxR
+  const W = canvas.width, H = canvas.height;
+  const minR = Math.round(W * 0.045);
+  const maxR = Math.round(W * 0.18);
+  let   radius = maxR;
+  let   shrinking = true;
+  let   speed = maxR * 0.018;   // px per frame
+  let   fired = false;
+  let   animId = null;
+
+  CT.arrowAnimId = null;
+
+  function draw() {
+    const ctx = canvas.getContext('2d');
+    // Background
+    ctx.fillStyle = '#0a100a';
+    ctx.fillRect(0, 0, W, H);
+    // Grid lines (SNES feel)
+    ctx.strokeStyle = 'rgba(64,192,96,0.07)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 32) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 32) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    const cx = W / 2, cy = H / 2;
+
+    // Outer ring guide
+    ctx.beginPath(); ctx.arc(cx, cy, maxR, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(64,192,96,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Pulsing target rings
+    const pct = 1 - (radius - minR) / (maxR - minR); // 1 = smallest
+    const ringColor = pct > 0.75 ? '#40c060' : pct > 0.4 ? '#f0c040' : '#e04040';
+
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = ringColor; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+    ctx.strokeStyle = ringColor; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = ringColor; ctx.fill();
+
+    // Glow when near smallest
+    if (pct > 0.7) {
+      ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(64,192,96,' + (pct - 0.7) * 2 + ')';
+      ctx.lineWidth = 8; ctx.stroke();
+    }
+
+    // Hint text
+    ctx.font = '11px "Courier New"';
+    ctx.fillStyle = 'rgba(176,160,144,0.5)';
+    ctx.textAlign = 'center';
+    ctx.fillText('CLICK OR TAP WHEN SMALLEST', cx, H - 12);
+  }
+
+  function loop() {
+    if (fired) return;
+    if (shrinking) {
+      radius -= speed;
+      if (radius <= minR) { radius = minR; shrinking = false; }
+    } else {
+      radius += speed;
+      if (radius >= maxR) { radius = maxR; shrinking = true; }
+    }
+    draw();
+    CT.arrowAnimId = requestAnimationFrame(loop);
+    animId = CT.arrowAnimId;
+  }
+
+  function fire() {
+    if (fired) return;
+    fired = true;
+    cancelAnimationFrame(animId);
+    CT.arrowAnimId = null;
+
+    // Score by how close to minimum
+    const pct = 1 - (radius - minR) / (maxR - minR); // 0=biggest, 1=smallest
+    const hit = pct >= 0.55; // hit if target was in inner ~45% of cycle
+
+    const fb = document.getElementById('arrow-feedback');
+    if (hit) {
+      fb.textContent = '✓ Hit!';
+      fb.style.color = 'var(--green)';
+    } else {
+      fb.textContent = '✗ Missed — too early';
+      fb.style.color = 'var(--red)';
+    }
+
+    setTimeout(() => showArrowQuestion(hit), 700);
+  }
+
+  canvas.addEventListener('click', fire);
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); fire(); }, {passive:false});
+
+  CT.arrowAnimId = requestAnimationFrame(loop);
+}
+
+function showArrowQuestion(hit) {
+  const qData = CT.questions[CT.qIdx++];
+  if (CT.qIdx >= CT.questions.length) CT.qIdx = 0; // safety wrap
+
+  CT.pendingStatKey = 'cunning';
+  CT.pendingStatAmt = hit ? 2 : 0;
+
+  const optsHtml = qData.opts.map((opt, i) =>
+    '<div class="c-btn" onclick="arrowAnswerQ(' + i + ',' + qData.a + ',' + (hit?1:0) + ')" ' +
+    'style="padding:14px 18px;">' +
+      '<div class="c-desc" style="color:var(--text1);">' + opt + '</div>' +
+    '</div>'
+  ).join('');
+
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:4px;">&#127987; Trial I &mdash; Chiron Watches</div>',
+      '<div class="wp-title" style="font-size:20px;">Myth Question</div>',
+      (hit
+        ? '<div class="wp-sub" style="color:var(--green);">&#10003; You hit the target &mdash; answer correctly for +2 Cunning</div>'
+        : '<div class="wp-sub" style="color:var(--text2);">You missed &mdash; a correct answer earns +0 this round</div>'),
+    '</div>',
+    '<div class="narr" style="border-color:var(--teal);">',
+      '<p><em>Chiron nods at the range, then turns to you.</em></p>',
+      '<p style="font-size:var(--fs-md);font-weight:700;color:var(--text1);">' + qData.q + '</p>',
+    '</div>',
+    '<div class="choice-grid">' + optsHtml + '</div>',
+  ].join(''));
+}
+
+function arrowAnswerQ(chosen, correct, wasHit) {
+  const right = chosen === correct;
+  const bonus = (wasHit && right) ? 2 : 0;
+
+  if (bonus > 0) CT.arrowScore++;
+
+  // Disable all buttons, highlight result
+  document.querySelectorAll('.choice-grid .c-btn').forEach((btn, i) => {
+    btn.onclick = null;
+    if (i === correct) btn.style.borderColor = 'var(--green)';
+    else if (i === chosen && !right) btn.style.borderColor = 'var(--red)';
+    btn.style.cursor = 'default';
+  });
+
+  const fb = right ? '+' + bonus + ' Cunning earned' : 'Incorrect — no bonus this round';
+  const color = bonus > 0 ? 'var(--green)' : right ? 'var(--teal)' : 'var(--red)';
+
+  render(render_chiron_feedback(
+    '&#127987; Round ' + (CT.arrowRound + 1) + ' / 3',
+    right ? '&#10003; Correct' : '&#10007; Incorrect',
+    fb, color,
+    () => {
+      CT.arrowRound++;
+      if (CT.arrowRound < 3) {
+        renderArrowRound();
+      } else {
+        finishArrowTrial();
+      }
+    }
+  ));
+}
+
+function finishArrowTrial() {
+  const bonus = CT.arrowScore * 2; // max +6
+  G.chiron_bonuses.cunning += bonus;
+  if (G.stats) G.stats.cunning = (G.stats.cunning || 0) + bonus;
+
+  renderChironBetween(
+    '&#127987; Arrow Trial Complete',
+    'Cunning +' + bonus,
+    bonus > 0
+      ? 'Your shots found the mark. Chiron says nothing &mdash; but he nods. That is rarer than praise.'
+      : 'The bow is a skill, not a gift. You will need more practice. Chiron moves on without comment.',
+    'var(--teal)',
+    () => startSwordTrial()
+  );
+}
+
+// ============================================================
+// TRIAL 2 — SWORD TRAINING (Craft) — Simon Says sequence
+// Chiron shows Strike/Block/Dodge icons. Player repeats in order.
+// 3 rounds, sequence grows: 3, 4, 4 moves.
+// Correct sequence + correct myth question = +2 Craft per round.
+// ============================================================
+
+const SWORD_MOVES = [
+  { icon: '&#9876;',   label: 'STRIKE', color: '#e04040' },
+  { icon: '&#128737;', label: 'BLOCK',  color: '#4080e0' },
+  { icon: '&#127939;', label: 'DODGE',  color: '#40c060' }
+];
+
+function startSwordTrial() {
+  CT.swordRound = 0;
+  CT.swordScore = 0;
+  renderSwordRound();
+}
+
+function renderSwordRound() {
+  const round = CT.swordRound + 1;
+  const seqLen = round < 3 ? 3 : 4; // rounds 1-2: 3 moves, round 3: 4 moves
+  CT.swordSeq = Array.from({length: seqLen}, () => Math.floor(Math.random() * 3));
+  CT.playerSeq = [];
+  CT.swordPhase = 'show';
+
+  render([
+    '<style>',
+      '.sword-btn { width:90px;height:90px;border-radius:6px;border:2px solid var(--gold3);',
+        'background:var(--bg2);font-size:32px;cursor:pointer;transition:all .15s;display:flex;',
+        'flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:var(--px); }',
+      '.sword-btn:hover:not(:disabled) { border-color:var(--gold);background:var(--bg3);transform:scale(1.06); }',
+      '.sword-btn:disabled { opacity:0.35;cursor:not-allowed; }',
+      '.sword-btn.flash { background:rgba(240,192,64,0.3);border-color:var(--gold); }',
+      '.seq-dot { width:16px;height:16px;border-radius:50%;background:var(--bg3);border:2px solid var(--bg3);',
+        'transition:all .2s;display:inline-block; }',
+      '.seq-dot.done { background:var(--green);border-color:var(--green); }',
+      '.seq-dot.cur  { background:var(--gold);border-color:var(--gold); }',
+    '</style>',
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:4px;">&#9876; Trial II &mdash; Sword Training</div>',
+      '<div class="wp-title" style="font-size:22px;">Round ' + round + ' of 3</div>',
+      '<div class="wp-sub">Watch Chiron&#39;s sequence, then repeat it in order</div>',
+    '</div>',
+    '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;margin-bottom:4px;">',
+      'Craft bonus earned: <span style="color:var(--teal);">+' + (CT.swordScore * 2) + '</span>',
+    '</div>',
+
+    // Sequence status dots
+    '<div style="display:flex;justify-content:center;gap:10px;margin-bottom:10px;" id="seq-dots">',
+      CT.swordSeq.map(() => '<div class="seq-dot"></div>').join(''),
+    '</div>',
+
+    // Move display / feedback area
+    '<div id="sword-display" style="font-family:var(--px);font-size:13px;color:var(--gold);',
+         'text-align:center;min-height:30px;letter-spacing:3px;margin-bottom:12px;">',
+      'Watch the sequence...',
+    '</div>',
+
+    // Buttons
+    '<div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;" id="sword-btns">',
+      SWORD_MOVES.map((m, i) =>
+        '<button class="sword-btn" id="sb-' + i + '" disabled onclick="swordPlayerPress(' + i + ')">' +
+          '<div>' + m.icon + '</div>' +
+          '<div style="font-size:9px;letter-spacing:1px;color:var(--text2);">' + m.label + '</div>' +
+        '</button>'
+      ).join(''),
+    '</div>',
+
+    '<div id="sword-feedback" style="font-family:var(--px);font-size:13px;min-height:22px;',
+         'text-align:center;color:var(--text2);margin-top:10px;letter-spacing:1px;"></div>',
+  ].join(''));
+
+  // Show sequence after brief delay
+  setTimeout(() => playSwordSequence(0), 800);
+}
+
+function playSwordSequence(step) {
+  if (step >= CT.swordSeq.length) {
+    // Sequence shown — player's turn
+    setTimeout(() => {
+      CT.swordPhase = 'input';
+      const disp = document.getElementById('sword-display');
+      if (disp) disp.textContent = 'Your turn — repeat the sequence';
+      document.querySelectorAll('.sword-btn').forEach(b => b.disabled = false);
+    }, 500);
+    return;
+  }
+
+  const moveIdx = CT.swordSeq[step];
+  const move = SWORD_MOVES[moveIdx];
+  const btn = document.getElementById('sb-' + moveIdx);
+  const disp = document.getElementById('sword-display');
+
+  if (disp) disp.textContent = move.label;
+  if (btn) {
+    btn.classList.add('flash');
+    btn.style.borderColor = move.color;
+  }
+
+  setTimeout(() => {
+    if (btn) { btn.classList.remove('flash'); btn.style.borderColor = 'var(--gold3)'; }
+    setTimeout(() => playSwordSequence(step + 1), 300);
+  }, 600);
+}
+
+function swordPlayerPress(moveIdx) {
+  if (CT.swordPhase !== 'input') return;
+
+  CT.playerSeq.push(moveIdx);
+  const step = CT.playerSeq.length - 1;
+  const expected = CT.swordSeq[step];
+  const correct = moveIdx === expected;
+
+  // Update dot
+  const dots = document.querySelectorAll('.seq-dot');
+  if (dots[step]) {
+    dots[step].classList.add(correct ? 'done' : 'cur');
+    dots[step].style.background = correct ? 'var(--green)' : 'var(--red)';
+    dots[step].style.borderColor = correct ? 'var(--green)' : 'var(--red)';
+  }
+
+  // Flash the button
+  const btn = document.getElementById('sb-' + moveIdx);
+  if (btn) {
+    btn.style.borderColor = correct ? 'var(--green)' : 'var(--red)';
+    setTimeout(() => { if (btn) btn.style.borderColor = 'var(--gold3)'; }, 300);
+  }
+
+  if (!correct) {
+    // Wrong move — sequence failed
+    CT.swordPhase = 'done';
+    document.querySelectorAll('.sword-btn').forEach(b => b.disabled = true);
+    const fb = document.getElementById('sword-feedback');
+    if (fb) { fb.textContent = 'Wrong move — sequence broken'; fb.style.color = 'var(--red)'; }
+    setTimeout(() => showSwordQuestion(false), 700);
+    return;
+  }
+
+  if (CT.playerSeq.length === CT.swordSeq.length) {
+    // Full sequence correct
+    CT.swordPhase = 'done';
+    document.querySelectorAll('.sword-btn').forEach(b => b.disabled = true);
+    const fb = document.getElementById('sword-feedback');
+    if (fb) { fb.textContent = 'Sequence complete!'; fb.style.color = 'var(--green)'; }
+    setTimeout(() => showSwordQuestion(true), 700);
+  }
+}
+
+function showSwordQuestion(seqCorrect) {
+  const qData = CT.questions[CT.qIdx++];
+  if (CT.qIdx >= CT.questions.length) CT.qIdx = 0;
+
+  const optsHtml = qData.opts.map((opt, i) =>
+    '<div class="c-btn" onclick="swordAnswerQ(' + i + ',' + qData.a + ',' + (seqCorrect?1:0) + ')" ' +
+    'style="padding:14px 18px;">' +
+      '<div class="c-desc" style="color:var(--text1);">' + opt + '</div>' +
+    '</div>'
+  ).join('');
+
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:4px;">&#9876; Trial II &mdash; Chiron Watches</div>',
+      '<div class="wp-title" style="font-size:20px;">Myth Question</div>',
+      (seqCorrect
+        ? '<div class="wp-sub" style="color:var(--green);">&#10003; Sequence correct &mdash; answer correctly for +2 Craft</div>'
+        : '<div class="wp-sub" style="color:var(--text2);">Sequence broken &mdash; a correct answer earns +0 this round</div>'),
+    '</div>',
+    '<div class="narr" style="border-color:var(--teal);">',
+      '<p><em>Chiron lowers his practice blade and tilts his head.</em></p>',
+      '<p style="font-size:var(--fs-md);font-weight:700;color:var(--text1);">' + qData.q + '</p>',
+    '</div>',
+    '<div class="choice-grid">' + optsHtml + '</div>',
+  ].join(''));
+}
+
+function swordAnswerQ(chosen, correct, seqCorrect) {
+  const right = chosen === correct;
+  const bonus = (seqCorrect && right) ? 2 : 0;
+  if (bonus > 0) CT.swordScore++;
+
+  render(render_chiron_feedback(
+    '&#9876; Round ' + (CT.swordRound + 1) + ' / 3',
+    right ? '&#10003; Correct' : '&#10007; Incorrect',
+    bonus > 0 ? '+2 Craft earned' : right ? 'Correct — no bonus (sequence was broken)' : 'Incorrect — no bonus this round',
+    bonus > 0 ? 'var(--green)' : right ? 'var(--teal)' : 'var(--red)',
+    () => {
+      CT.swordRound++;
+      if (CT.swordRound < 3) {
+        renderSwordRound();
+      } else {
+        finishSwordTrial();
+      }
+    }
+  ));
+}
+
+function finishSwordTrial() {
+  const bonus = CT.swordScore * 2; // max +6
+  G.chiron_bonuses.craft += bonus;
+  if (G.stats) G.stats.craft = (G.stats.craft || 0) + bonus;
+
+  renderChironBetween(
+    '&#9876; Sword Trial Complete',
+    'Craft +' + bonus,
+    bonus > 0
+      ? 'Your hands remembered faster than your mind did. That is the right kind of learning. Chiron marks something in the air with one finger.'
+      : 'The sequence is a discipline, not a talent. You will find this kind of pattern again in Colchis. Prepare better.',
+    'var(--teal)',
+    () => startLoreTrial()
+  );
+}
+
+// ============================================================
+// TRIAL 3 — CHIRON'S TEST (Lore + Honor)
+// Pure questions — 4 total. +2 Lore, +1 Honor each correct.
+// No canvas game. Chiron asks directly.
+// ============================================================
+
+function startLoreTrial() {
+  CT.loreQ = 0;
+  CT.loreScore = 0;
+  renderLoreQuestion();
+}
+
+function renderLoreQuestion() {
+  const qNum = CT.loreQ + 1;
+  const qData = CT.questions[CT.qIdx++];
+  if (CT.qIdx >= CT.questions.length) CT.qIdx = 0;
+
+  const optsHtml = qData.opts.map((opt, i) =>
+    '<div class="c-btn" onclick="loreAnswerQ(' + i + ',' + qData.a + ')" ' +
+    'style="padding:14px 18px;">' +
+      '<div class="c-desc" style="color:var(--text1);">' + opt + '</div>' +
+    '</div>'
+  ).join('');
+
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:4px;">&#128218; Trial III &mdash; Chiron&#39;s Test</div>',
+      '<div class="wp-title" style="font-size:22px;">Question ' + qNum + ' of 4</div>',
+      '<div class="wp-sub">Correct: +2 Lore, +1 Honor</div>',
+    '</div>',
+    '<div style="font-family:var(--px);font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px;">',
+      'Lore earned: <span style="color:var(--teal);">+' + (CT.loreScore * 2) + '</span>',
+      ' &nbsp;&middot;&nbsp; Honor earned: <span style="color:var(--gold);">+' + CT.loreScore + '</span>',
+    '</div>',
+    '<div class="narr" style="border-color:var(--teal);">',
+      '<p><em>Chiron folds his arms. He is done with weapons for now.</em></p>',
+      '<p style="font-size:var(--fs-md);font-weight:700;color:var(--text1);">' + qData.q + '</p>',
+    '</div>',
+    '<div class="choice-grid">' + optsHtml + '</div>',
+  ].join(''));
+}
+
+function loreAnswerQ(chosen, correct) {
+  const right = chosen === correct;
+  if (right) CT.loreScore++;
+
+  render(render_chiron_feedback(
+    '&#128218; Question ' + (CT.loreQ + 1) + ' / 4',
+    right ? '&#10003; Correct' : '&#10007; Incorrect',
+    right ? '+2 Lore, +1 Honor earned' : 'Incorrect — no bonus',
+    right ? 'var(--green)' : 'var(--red)',
+    () => {
+      CT.loreQ++;
+      if (CT.loreQ < 4) {
+        renderLoreQuestion();
+      } else {
+        finishLoreTrial();
+      }
+    }
+  ));
+}
+
+function finishLoreTrial() {
+  const loreBonus  = CT.loreScore * 2;  // max +8
+  const honorBonus = CT.loreScore;       // max +4
+  G.chiron_bonuses.lore  += loreBonus;
+  G.chiron_bonuses.honor += honorBonus;
+  if (G.stats)  G.stats.lore  = (G.stats.lore  || 0) + loreBonus;
+  G.honor += honorBonus;
+
+  renderChironBetween(
+    '&#128218; Chiron&#39;s Test Complete',
+    'Lore +' + loreBonus + ' &nbsp;&middot;&nbsp; Honor +' + honorBonus,
+    loreBonus > 0
+      ? 'You know the story you are walking into. That matters. Heroes who understand what came before them make fewer fatal surprises.'
+      : 'The myths are not decoration. They are instruction. Read them before you sail.',
+    'var(--teal)',
+    () => renderChironSummary()
+  );
+}
+
+// ============================================================
+// SHARED HELPERS
+// ============================================================
+
+// Between-round transition panel. Returns HTML string.
+// onContinue: function called when Continue button clicked.
+function render_chiron_feedback(loc, title, body, color, onContinue) {
+  // Store callback on CT and call by name
+  CT._nextFn = onContinue;
+  return [
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:4px;">' + loc + '</div>',
+      '<div class="wp-title" style="font-size:20px;color:' + color + ';">' + title + '</div>',
+    '</div>',
+    '<div style="text-align:center;background:var(--bg2);border:2px solid ' + color + ';',
+         'border-radius:4px;padding:24px;font-family:var(--px);font-size:13px;color:var(--text2);',
+         'line-height:1.9;width:100%;">',
+      body,
+    '</div>',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="CT._nextFn()">Continue &#9654;</button>',
+    '</div>',
+  ].join('');
+}
+
+// Between-trial summary panel (slightly grander than feedback)
+function renderChironBetween(title, statLine, narrative, color, onContinue) {
+  CT._nextFn = onContinue;
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:' + color + ';letter-spacing:4px;">' + title + '</div>',
+      '<div class="wp-title" style="font-size:18px;color:var(--gold);">' + statLine + '</div>',
+    '</div>',
+    '<div class="narr" style="border-color:' + color + ';">',
+      '<p>' + narrative + '</p>',
+    '</div>',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="CT._nextFn()">Next Trial &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+// ── Final Summary ────────────────────────────────────────────
+function renderChironSummary() {
+  const cb = G.chiron_bonuses;
+  const totalBonus = cb.cunning + cb.craft + cb.lore + cb.honor;
+
+  G.choices.chiron_complete = true;
+  recordChoice('chiron_training', 'complete',
+    'cunning+' + cb.cunning + ',craft+' + cb.craft + ',lore+' + cb.lore + ',honor+' + cb.honor);
+  saveCheckpoint('CHIRON');
+
+  const rows = [
+    { label: 'Cunning', earned: cb.cunning, max: 6,  hint: 'Widens gap at Symplegades &middot; Lemnos negotiation' },
+    { label: 'Craft',   earned: cb.craft,   max: 6,  hint: 'Colchis tiles &middot; Market discount stacks' },
+    { label: 'Lore',    earned: cb.lore,    max: 8,  hint: 'Dragon&#39;s Field tier &middot; Skeleton timer' },
+    { label: 'Honor',   earned: cb.honor,   max: 4,  hint: 'Hera disposition &middot; Betrayal Fork weight' },
+  ].map(r => {
+    const pct = r.max > 0 ? Math.round((r.earned / r.max) * 100) : 0;
+    const barColor = pct >= 67 ? 'var(--green)' : pct >= 34 ? 'var(--gold)' : 'var(--red)';
+    return '<div style="margin-bottom:14px;">' +
+      '<div style="font-family:var(--px);font-size:12px;display:flex;justify-content:space-between;margin-bottom:4px;">' +
+        '<span style="color:var(--text1);">' + r.label + '</span>' +
+        '<span style="color:' + barColor + ';">+' + r.earned + ' / ' + r.max + '</span>' +
+      '</div>' +
+      '<div style="height:10px;background:var(--bg3);border-radius:3px;border:1px solid var(--bg3);overflow:hidden;margin-bottom:4px;">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;transition:width .6s;"></div>' +
+      '</div>' +
+      '<div style="font-family:var(--px);font-size:10px;color:var(--text2);">' + r.hint + '</div>' +
+    '</div>';
+  }).join('');
+
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#9876; Training Complete</div>',
+      '<div class="wp-title">Chiron&#39;s Assessment</div>',
+      '<div class="wp-sub">' + (totalBonus >= 12 ? 'Exceptional' : totalBonus >= 6 ? 'Capable' : 'Needs seasoning') + '</div>',
+    '</div>',
+
+    '<div class="narr" style="border-color:var(--teal);">',
+      '<p>Chiron watches you walk back down the slope toward the road. He does not call after you.</p>',
+      '<p>' + (totalBonus >= 16
+        ? 'He will tell someone, years from now, that he knew. He always knows. But he never says it to the student\'s face.'
+        : totalBonus >= 8
+        ? '&ldquo;Enough,&rdquo; he says, to no one in particular. It is the only praise he gives.'
+        : '&ldquo;The voyage will finish what I started,&rdquo; he says. &ldquo;It usually does.&rdquo;') +
+      '</p>',
+      '<p><em>These bonuses are now part of your starting stats. You will see them on your stat card at Iolcos.</em></p>',
+    '</div>',
+
+    '<div style="background:var(--bg2);border:2px solid var(--teal);border-radius:4px;padding:20px 24px;width:100%;">',
+      '<div style="font-family:var(--px);font-size:11px;color:var(--teal);letter-spacing:3px;margin-bottom:16px;">TRAINING RESULTS</div>',
+      rows,
+    '</div>',
+
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="advanceTo(\'PELIAS_CHASE\')">To Iolcos &#9654;</button>',
     '</div>',
   ].join(''));
 }
