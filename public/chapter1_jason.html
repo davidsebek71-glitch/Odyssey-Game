@@ -639,24 +639,18 @@ function startZeusScene() {
     // Zeus sprite
     zeusY: -maxH,       // starts off top, descends to final pos
     zeusAlpha: 0,
-    zeusScale: 0.85,
+    zeusScale: 0.52,
     // Dialogue typewriter
     lines: [
-      'He comes without warning.',
-      'One moment the sky is clear. The next, the clouds split open.',
-      'Zeus stands at the edge of your walls — taller than any man,',
-      'wrapped in light. The stone beneath his feet has blackened.',
-      'He surveys what you have built. The granaries. The forge.',
-      'The walls that did not exist when your people arrived.',
-      'His expression is not impressed. It is closer to contempt.',
-      'His voice does not boom. It is quieter than that.',
-      'And worse for it.'
+      'You have taken what was not given to you.',
+      'You have built what was not asked of you.',
+      'Stop now — or be destroyed as easily as this.'
     ],
     lineIdx: 0,
     charIdx: 0,
     charTimer: 0,
-    CHAR_MS: 28,
-    LINE_PAUSE: 900,
+    CHAR_MS: 60,
+    LINE_PAUSE: 1800,
     linePauseTimer: 0,
     waiting: false,
     dialogueStarted: false
@@ -700,9 +694,9 @@ function updateZS(dt) {
 
   } else if (ZS.phase === 'descend') {
     // Zeus descends from top over 2s
-    const targetY = ZS.H * 0.02;
-    ZS.zeusY += (targetY - ZS.zeusY) * dt * 0.003;
-    ZS.zeusAlpha = Math.min(1, ZS.zeusAlpha + dt * 0.0018);
+    const targetY = ZS.H * 0.04;
+    ZS.zeusY += (targetY - ZS.zeusY) * dt * 0.0012;
+    ZS.zeusAlpha = Math.min(1, ZS.zeusAlpha + dt * 0.0009);
     if (ZS.zeusAlpha >= 0.98 && !ZS.dialogueStarted) {
       ZS.dialogueStarted = true;
       ZS.phase = 'dialogue';
@@ -798,7 +792,7 @@ function drawZS(ctx) {
       ctx.strokeStyle = 'rgba(240,220,255,' + ZS.lightningFlash + ')';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      const bx = W * 0.62;
+      const bx = W * 0.5;
       ctx.moveTo(bx, 0);
       ctx.lineTo(bx - 8, H*0.12);
       ctx.lineTo(bx + 5, H*0.22);
@@ -812,7 +806,7 @@ function drawZS(ctx) {
     const imgW = ZS.zeusImg.naturalWidth  * ZS.zeusScale;
     const imgH = ZS.zeusImg.naturalHeight * ZS.zeusScale;
     // Target: right-center of canvas, emerging from cloud band
-    const dx = W * 0.58 - imgW / 2;
+    const dx = W * 0.5 - imgW / 2;
     const dy = ZS.zeusY;
     ctx.save();
     ctx.globalAlpha = ZS.zeusAlpha;
