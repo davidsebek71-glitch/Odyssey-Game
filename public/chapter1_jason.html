@@ -2070,19 +2070,526 @@ function drawPC(ctx) {
 // HERA RIVER CROSSING — Prologue Waypoint 4  [STUB]
 // ============================================================
 
+// ============================================================
+// HERA RIVER CROSSING — Prologue Waypoint 4
+// Choice: Help the old woman → Frogger canvas game
+//         Move on          → Honor -2, skip to Iolcos
+// Frogger: side-scroll left→right, logs drift downstream,
+//          rocks stable. Debris hits drain grip meter (100→0).
+//          Grip 0% → drop woman → restart (-5 provisions).
+//          Moving backward (upstream) restores +10% grip/step.
+//          Middle third: faster current, more debris.
+//          Clear: reach right bank with grip > 0%.
+// Reveal: old woman transforms into Hera. Honor +3, blessing.
+// Students do NOT know it is Hera until successful crossing.
+// ============================================================
+
+let HR = null;  // Hera River game state
+
+// ── Entry point ──────────────────────────────────────────────
 function renderHeraRiver() {
+  if (G.choices.hera_river) { renderHeraOutcome(G.choices.hera_river); return; }
+  renderHeraChoice();
+}
+
+// ── Opening choice: help or move on ─────────────────────────
+function renderHeraChoice() {
   render([
+    '<style>',
+      '#screen-game { background: radial-gradient(ellipse at 50% 70%, #080f18 0%, #08080f 65%); }',
+    '</style>',
     '<div class="wp-hdr">',
       '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#127754; Prologue IV</div>',
       '<div class="wp-title">The River</div>',
-      '<div class="wp-sub">An old woman at the bank &mdash; coming next session</div>',
+      '<div class="wp-sub">A stranger at the bank</div>',
+    '</div>',
+    '<div class="narr" style="border-color:var(--teal);background:linear-gradient(160deg,#080f18,#08080f);">',
+      '<p>The road to the harbor runs along a river swollen with spring melt. The current is loud here &mdash; fast and brown and cold. You would not want to cross it alone.</p>',
+      '<p>An old woman sits at the bank. She is not from the city &mdash; her clothes are travel-worn, her sandals mud-caked. She watches the water the way people watch things they cannot do anymore.</p>',
+      '<p>She does not ask. She just looks up at you when you pass.</p>',
+      '<p><i>You have Pelias&#39; harbor to reach. You have a quest waiting. You have every reason not to stop.</i></p>',
+    '</div>',
+    '<div class="choice-grid">',
+      '<div class="c-btn" onclick="heraChoiceHelp()" style="border-color:var(--teal);">',
+        '<div class="c-tag" style="background:rgba(64,216,192,.12);color:var(--teal);border:1px solid var(--teal);">STOP</div>',
+        '<div class="c-title">Help her across</div>',
+        '<div class="c-desc">You offer your arm. The crossing will be slow and the current is strong &mdash; but she cannot do it alone.</div>',
+      '</div>',
+      '<div class="c-btn" onclick="heraChoiceMoveOn()">',
+        '<div class="c-tag" style="background:rgba(224,64,64,.08);color:var(--red);border:1px solid rgba(224,64,64,.4);">&minus;2 HONOR</div>',
+        '<div class="c-title">Move on</div>',
+        '<div class="c-desc">You have no time. The harbor is waiting and you cannot afford to be delayed. You keep walking.</div>',
+      '</div>',
+    '</div>',
+  ].join(''));
+}
+
+function heraChoiceMoveOn() {
+  G.hera_helped = false;
+  G.honor = Math.max(0, G.honor - 2);
+  G.choices.hera_river = 'skipped';
+  recordChoice('hera_river', 'skipped');
+  saveCheckpoint('HERA_RIVER');
+  updateHeader();
+  renderHeraOutcome('skipped');
+}
+
+function heraChoiceHelp() {
+  G.hera_helped = true;
+  renderHeraFroggerIntro();
+}
+
+// ── Frogger intro ────────────────────────────────────────────
+function renderHeraFroggerIntro() {
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#127754; The Crossing</div>',
+      '<div class="wp-title">Carry Her Across</div>',
+      '<div class="wp-sub">Grip the logs &mdash; reach the far bank</div>',
+    '</div>',
+    '<div class="narr" style="border-color:var(--teal);">',
+      '<p>She is lighter than you expected, but the river is not. The moment you step in, the current pushes against your legs. You find the first log and step up, the old woman&#39;s weight shifting against you.</p>',
+      '<p><em>You have to reach the far bank. Do not drop her.</em></p>',
+    '</div>',
+    '<div style="background:var(--bg2);border:1px solid var(--teal);border-radius:4px;padding:14px 18px;',
+         'font-family:var(--px);font-size:12px;color:var(--text2);width:100%;">',
+      '<div style="color:var(--teal);letter-spacing:2px;margin-bottom:10px;">HOW TO CROSS</div>',
+      '<div style="display:flex;flex-direction:column;gap:6px;">',
+        '<div>&#8592;&#8594; Left / Right Arrow or A / D to move across logs and rocks</div>',
+        '<div>&#127863; Grip meter: debris and fast current drain it. Reach 0% and you drop her.</div>',
+        '<div>&#8592; Moving back (upstream) restores +10% grip per step</div>',
+        '<div>&#9888; Center current is fastest &mdash; cross quickly</div>',
+        '<div>&#127939; Dropped: &minus;5 Provisions, grip resets, try again</div>',
+      '</div>',
+    '</div>',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="startHeraFrogger()">Step onto the logs &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+// ── Frogger game ─────────────────────────────────────────────
+// Layout: 13 columns (0=near bank, 12=far bank).
+// Cols 1-11 = river. Col 0 = start. Col 12 = destination.
+// Rows: 5 lanes. Each lane has a mix of logs and gaps.
+// Player moves left/right only (crossing). No vertical movement.
+// Logs drift right-to-left (downstream). Player rides log.
+// Debris spawns from right, moves left, hits player if same cell.
+
+const HR_COLS     = 13;
+const HR_LANES    = 5;
+const HR_START_C  = 0;
+const HR_DEST_C   = 12;
+
+function initHR() {
+  // Lane configs: speed (cells/sec), log pattern, debris rate
+  const LANE_CFG = [
+    { speed: 0.9,  logW: 3, gap: 2, debris: 0.015 },  // near — slow
+    { speed: 1.2,  logW: 2, gap: 3, debris: 0.025 },  // picking up
+    { speed: 1.8,  logW: 2, gap: 3, debris: 0.040 },  // center — fast (middle third)
+    { speed: 1.4,  logW: 3, gap: 2, debris: 0.028 },  // slowing
+    { speed: 1.0,  logW: 3, gap: 2, debris: 0.018 },  // far — calm
+  ];
+
+  // Build log positions for each lane (column offset of log starts, cycling)
+  const lanes = LANE_CFG.map((cfg, i) => {
+    const logs = [];
+    let c = (i * 3) % (cfg.logW + cfg.gap); // stagger start by lane
+    while (c < HR_COLS + cfg.logW) {
+      logs.push({ start: c, end: c + cfg.logW });
+      c += cfg.logW + cfg.gap;
+    }
+    return { ...cfg, logs, offset: 0, debris: [] };
+  });
+
+  return {
+    lane:     2,          // Jason starts on middle lane
+    col:      HR_START_C,
+    grip:     100,        // 0–100
+    phase:    'play',     // play | dropped | victory
+    elapsed:  0,
+    animId:   null,
+    heldL:    false,
+    heldR:    false,
+    moveTimer: 0,
+    MOVE_MS:  260,        // ms between steps
+    lanes,
+    _cleanup: null,
+    restarts: 0
+  };
+}
+
+function startHeraFrogger() {
+  HR = initHR();
+  launchHRCanvas();
+}
+
+function launchHRCanvas() {
+  const wrap = document.getElementById('wp-content');
+  const maxW = Math.min(700, window.innerWidth - 24);
+  const cellW = Math.floor(maxW / HR_COLS);
+  const cellH = Math.floor(cellW * 1.1);
+  const canvW = cellW * HR_COLS;
+  const canvH = cellH * HR_LANES + 40; // +40 for grip bar
+  HR.cellW = cellW; HR.cellH = cellH;
+
+  wrap.innerHTML =
+    '<div id="hr-wrap" style="width:100%;display:flex;flex-direction:column;align-items:center;">' +
+    '<canvas id="hr-canvas" style="display:block;image-rendering:pixelated;touch-action:none;border:2px solid var(--teal);"></canvas>' +
+    '<div id="hr-hud" style="width:' + canvW + 'px;display:flex;justify-content:space-between;align-items:center;' +
+         'background:var(--bg1);border:2px solid var(--teal);border-top:none;padding:8px 14px;font-family:var(--px);font-size:12px;">' +
+      '<span style="color:var(--teal);">&#127863; Grip: <span id="hr-grip">100</span>%</span>' +
+      '<span style="color:var(--text2);" id="hr-status">REACH THE FAR BANK</span>' +
+      '<span style="color:var(--text2);">&#127829; <span id="hr-prov">' + G.provisions + '</span></span>' +
+    '</div>' +
+    '</div>';
+
+  const canvas = document.getElementById('hr-canvas');
+  canvas.width  = canvW;
+  canvas.height = canvH;
+
+  // Input — held key state for smooth movement
+  const onKey = e => {
+    if (HR.phase !== 'play') return;
+    if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') { HR.heldL = e.type === 'keydown'; e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { HR.heldR = e.type === 'keydown'; e.preventDefault(); }
+  };
+  document.addEventListener('keydown', onKey);
+  document.addEventListener('keyup',   onKey);
+
+  // Touch: left/right half
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (HR.phase !== 'play') return;
+    const rect = canvas.getBoundingClientRect();
+    const tx = e.touches[0].clientX - rect.left;
+    if (tx < canvW / 2) HR.heldL = true; else HR.heldR = true;
+  }, {passive:false});
+  canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    HR.heldL = false; HR.heldR = false;
+  }, {passive:false});
+
+  HR._cleanup = () => {
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keyup',   onKey);
+  };
+
+  let lastTs = 0;
+  function hrLoop(ts) {
+    if (!HR) return;
+    const dt = Math.min(ts - (lastTs || ts), 50);
+    lastTs = ts;
+    if (HR.phase === 'play') updateHR(dt);
+    const c = document.getElementById('hr-canvas');
+    if (!c) { cancelAnimationFrame(HR.animId); return; }
+    drawHR(c.getContext('2d'));
+    if (HR.phase !== 'victory' && HR.phase !== 'gameover') {
+      HR.animId = requestAnimationFrame(hrLoop);
+    }
+  }
+  HR.animId = requestAnimationFrame(hrLoop);
+}
+
+// ── Physics ──────────────────────────────────────────────────
+function updateHR(dt) {
+  HR.elapsed += dt;
+
+  // Move logs and spawn/move debris per lane
+  HR.lanes.forEach((lane, li) => {
+    // Drift logs downstream (right→left = decreasing column offset)
+    lane.offset = (lane.offset + lane.speed * dt / 1000) % (lane.logW + lane.gap);
+
+    // Debris: random spawn from right edge, drift left
+    if (Math.random() < lane.debris * dt / 16) {
+      lane.debris.push({ col: HR_COLS - 1, frac: Math.random() });
+    }
+    lane.debris = lane.debris
+      .map(d => ({ ...d, col: d.col - lane.speed * dt / 1000 }))
+      .filter(d => d.col > -1);
+
+    // Debris collision with Jason
+    if (li === HR.lane) {
+      lane.debris.forEach(d => {
+        const debrisCell = Math.floor(d.col);
+        if (debrisCell === HR.col) {
+          // Grip drain — center lane hurts more
+          const drain = li === 2 ? 14 : 9;
+          HR.grip = Math.max(0, HR.grip - drain);
+          // Push debris off screen to prevent repeat hits
+          d.col = -5;
+        }
+      });
+    }
+  });
+
+  // Player movement — held key, step timer
+  HR.moveTimer = Math.max(0, HR.moveTimer - dt);
+  if (HR.moveTimer <= 0) {
+    if (HR.heldR && HR.col < HR_DEST_C) {
+      HR.col++;
+      HR.moveTimer = HR.MOVE_MS;
+      // Center zone: extra grip drain from fast current
+      if (HR.col >= 4 && HR.col <= 8) HR.grip = Math.max(0, HR.grip - 4);
+      // Reached far bank — victory
+      if (HR.col >= HR_DEST_C) { heraVictory(); return; }
+    } else if (HR.heldL && HR.col > HR_START_C) {
+      HR.col--;
+      HR.moveTimer = HR.MOVE_MS;
+      // Moving back restores grip
+      HR.grip = Math.min(100, HR.grip + 10);
+    }
+  }
+
+  // Passive grip drain from carrying the woman through current
+  const laneSpeed = HR.lanes[HR.lane].speed;
+  HR.grip = Math.max(0, HR.grip - laneSpeed * 1.2 * dt / 1000);
+
+  // Grip zero — dropped
+  if (HR.grip <= 0) { heraDropped(); return; }
+
+  // Update HUD
+  const gripEl = document.getElementById('hr-grip');
+  if (gripEl) {
+    gripEl.textContent = Math.ceil(HR.grip);
+    gripEl.style.color = HR.grip > 60 ? 'var(--green)' : HR.grip > 30 ? 'var(--gold)' : 'var(--red)';
+  }
+}
+
+function heraDropped() {
+  if (HR.phase !== 'play') return;
+  if (HR.animId) cancelAnimationFrame(HR.animId);
+  if (HR._cleanup) HR._cleanup();
+  HR.phase = 'dropped';
+  HR.restarts++;
+  G.provisions = Math.max(0, G.provisions - 5);
+  updateHeader();
+
+  const wrap = document.getElementById('wp-content');
+  wrap.innerHTML =
+    '<div class="wp" style="align-items:center;">' +
+    '<div class="wp-hdr">' +
+      '<div class="wp-loc" style="color:var(--red);letter-spacing:4px;">&#127863; Grip Lost</div>' +
+      '<div class="wp-title" style="color:var(--red);">She Slipped</div>' +
+    '</div>' +
+    '<div class="narr" style="border-color:var(--red);">' +
+      '<p>The current tears her from your grip. You both go under for a moment &mdash; cold and dark and loud &mdash; and then you find the shallows and pull her out, both of you gasping on the near bank.</p>' +
+      '<p style="font-family:var(--px);font-size:13px;color:var(--red);">&minus;5 Provisions</p>' +
+    '</div>' +
+    '<div style="text-align:center;margin-top:8px;">' +
+      '<button class="btn-go" onclick="restartHeraFrogger()" style="border-color:var(--teal);color:var(--teal);">Try again &#8635;</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function restartHeraFrogger() {
+  const prevElapsed = HR.elapsed;
+  const prevRestarts = HR.restarts;
+  HR = initHR();
+  HR.elapsed  = prevElapsed;
+  HR.restarts = prevRestarts;
+  launchHRCanvas();
+}
+
+function heraVictory() {
+  if (HR.phase !== 'play') return;
+  if (HR.animId) cancelAnimationFrame(HR.animId);
+  if (HR._cleanup) HR._cleanup();
+  HR.phase = 'victory';
+  G.hera_blessing = true;
+  renderHeraReveal();
+}
+
+// ── Draw ─────────────────────────────────────────────────────
+function drawHR(ctx) {
+  const { cellW: CW, cellH: CH, lanes, col, lane: playerLane, grip, elapsed } = HR;
+  const W = CW * HR_COLS, H = CH * HR_LANES + 40;
+
+  // Sky/bank background
+  ctx.fillStyle = '#08101a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Near bank (col 0) and far bank (col 12)
+  ctx.fillStyle = '#2a1e10';
+  ctx.fillRect(0, 0, CW, CH * HR_LANES);
+  ctx.fillStyle = '#1a2a10';
+  ctx.fillRect((HR_DEST_C) * CW, 0, CW, CH * HR_LANES);
+
+  // River lanes
+  for (let li = 0; li < HR_LANES; li++) {
+    const lane = lanes[li];
+    const y = li * CH;
+
+    // Water base — darker in center
+    const centerDist = Math.abs(li - 2) / 2;
+    const waterDark = Math.floor(12 + centerDist * 10);
+    ctx.fillStyle = 'rgb(' + waterDark + ',' + (waterDark + 20) + ',' + (waterDark + 50) + ')';
+    ctx.fillRect(CW, y, CW * (HR_COLS - 2), CH);
+
+    // Water shimmer lines
+    ctx.strokeStyle = 'rgba(64,160,220,0.08)';
+    ctx.lineWidth = 1;
+    for (let s = 0; s < CH; s += 4) {
+      ctx.beginPath();
+      ctx.moveTo(CW, y + s);
+      ctx.lineTo(CW * (HR_COLS - 1), y + s);
+      ctx.stroke();
+    }
+
+    // Logs — drift via lane.offset
+    lane.logs.forEach(log => {
+      // Effective log position adjusted by drift offset (moves right→left)
+      const logStart = log.start - lane.offset;
+      const logEnd   = log.end   - lane.offset;
+      // Draw each cell of the log that's in river bounds
+      for (let lc = Math.floor(logStart); lc < Math.ceil(logEnd); lc++) {
+        if (lc < 1 || lc >= HR_DEST_C) continue;
+        const x = lc * CW;
+        // Log color — brown banding
+        ctx.fillStyle = '#6b4423';
+        ctx.fillRect(x + 1, y + 3, CW - 2, CH - 6);
+        ctx.fillStyle = '#855433';
+        ctx.fillRect(x + 2, y + 4, CW - 4, 4);
+        ctx.fillStyle = '#5a3818';
+        ctx.fillRect(x + 2, y + CH - 8, CW - 4, 4);
+      }
+    });
+
+    // Debris
+    lane.debris.forEach(d => {
+      const dc = Math.floor(d.col);
+      if (dc < 1 || dc >= HR_DEST_C) return;
+      const x = dc * CW + CW * (d.col - dc);
+      ctx.fillStyle = 'rgba(100,70,30,0.85)';
+      ctx.fillRect(x + CW * 0.2, y + CH * 0.25, CW * 0.6, CH * 0.5);
+    });
+  }
+
+  // Jason + old woman — gold square with small figure on top
+  const jx = col * CW;
+  const jy = playerLane * CH;
+  const jpad = Math.max(2, Math.floor(CW * 0.12));
+  // Grip-based glow
+  const gripColor = grip > 60 ? '#f0c040' : grip > 30 ? '#f09020' : '#e04040';
+  ctx.fillStyle = gripColor;
+  ctx.fillRect(jx + jpad, jy + jpad, CW - jpad*2, CH - jpad*2);
+  // Small figure on top (old woman)
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillRect(jx + Math.floor(CW*0.35), jy + Math.floor(CH*0.1), Math.floor(CW*0.3), Math.floor(CH*0.35));
+
+  // Destination glow
+  const pulse = 0.3 + 0.15 * Math.sin(elapsed / 350);
+  ctx.fillStyle = 'rgba(64,216,192,' + pulse + ')';
+  ctx.fillRect(HR_DEST_C * CW + 2, 2, CW - 4, CH * HR_LANES - 4);
+  ctx.fillStyle = '#40d8c0';
+  ctx.font = Math.max(9, CW - 6) + 'px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText('>', HR_DEST_C * CW + CW/2, CH * HR_LANES / 2 + 4);
+
+  // Grip bar at bottom
+  const barY = CH * HR_LANES + 8;
+  ctx.fillStyle = 'var(--bg3)';
+  ctx.fillRect(CW, barY, CW * (HR_COLS - 2), 20);
+  const barColor = grip > 60 ? '#40c060' : grip > 30 ? '#f0c040' : '#e04040';
+  ctx.fillStyle = barColor;
+  ctx.fillRect(CW, barY, CW * (HR_COLS - 2) * grip / 100, 20);
+  ctx.fillStyle = '#f0e8d0';
+  ctx.font = '10px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText('GRIP ' + Math.ceil(grip) + '%', W / 2, barY + 14);
+}
+
+// ── The Reveal ───────────────────────────────────────────────
+function renderHeraReveal() {
+  // Apply blessing before rendering — student sees the reward land
+  G.honor += 3;
+  updateHeader();
+
+  render([
+    '<style>',
+      '.hera-reveal { animation: hreveal 1.8s ease-out forwards; }',
+      '@keyframes hreveal { 0%{opacity:0;transform:scale(.96)} 100%{opacity:1;transform:scale(1)} }',
+      '.hera-glow { animation: hglow 3s ease-in-out infinite; }',
+      '@keyframes hglow { 0%,100%{text-shadow:0 0 10px rgba(224,64,64,.4);} 50%{text-shadow:0 0 40px rgba(224,64,64,.8), 0 0 80px rgba(224,64,64,.3);} }',
+      '#screen-game { background: radial-gradient(ellipse at center, #1a0808 0%, #08080f 70%); }',
+    '</style>',
+    '<div class="hera-reveal">',
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:#fca5a5;letter-spacing:6px;">&#128065; The Far Bank</div>',
+      '<div class="wp-title hera-glow" style="color:#fca5a5;font-size:32px;">Hera</div>',
+      '<div class="wp-sub" style="color:rgba(252,165,165,.5);">She was never an old woman</div>',
+    '</div>',
+    '<div class="narr" style="border-color:rgba(224,64,64,.4);background:linear-gradient(160deg,#1a0808,#0f0505);">',
+      '<p>You set her down on the far bank and she straightens &mdash; and does not stop straightening.</p>',
+      '<p>The mud-caked sandals are gone. The travel-worn clothes are gone. She is taller than any mortal woman has a right to be, and the air around her has gone still in a way that has nothing to do with the wind.</p>',
+      '<p>She turns to look at you, and her eyes are the color of old storms.</p>',
+      '<p style="font-size:18px;font-weight:700;color:#fca5a5;line-height:2.2;text-align:center;padding:10px 0;border-top:1px solid rgba(224,64,64,.3);border-bottom:1px solid rgba(224,64,64,.3);margin:14px 0;">',
+        '&ldquo;You did not know who I was.<br>',
+        '<em style="color:var(--red);">That is why it counted.</em>&rdquo;',
+      '</p>',
+      '<p>She is gone before you can answer. The river behind you is as loud as ever, as if nothing happened at all.</p>',
+      '<p><i>But something changed. You can feel it &mdash; something watching from Olympus that was not watching before, and is not hostile.</i></p>',
+    '</div>',
+    '<div class="outcome oc-success" style="border-color:rgba(252,165,165,.4);background:rgba(252,165,165,.05);">',
+      '<div class="oc-title" style="color:#fca5a5;">Hera&#39;s Blessing</div>',
+      '<div class="oc-body">She will remember this for the entire voyage. Enemies will hesitate. Gods will weigh your actions differently. Her favor does not make you invincible &mdash; but her hostility will not be your burden to carry.</div>',
+      '<div class="eff-row" style="margin-top:12px;">',
+        pip('+3 Honor', 'pos'),
+        pip('Hera disposition: improved', 'pos'),
+        pip('Blessing active for Chapter 1', 'pos'),
+      '</div>',
+    '</div>',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="heraRiverComplete(\'blessed\')">To Iolcos &#9654;</button>',
+    '</div>',
+    '</div>',
+  ].join(''));
+}
+
+// ── Outcomes ─────────────────────────────────────────────────
+function heraRiverComplete(result) {
+  G.choices.hera_river = result;
+  recordChoice('hera_river', result);
+  saveCheckpoint('HERA_RIVER');
+  advanceTo('IOLCOS');
+}
+
+function renderHeraOutcome(result) {
+  if (result === 'blessed') {
+    // Already saw the reveal — just route forward
+    render([
+      '<div class="wp-hdr">',
+        '<div class="wp-loc" style="color:#fca5a5;letter-spacing:5px;">&#128065; Hera&#39;s Blessing</div>',
+        '<div class="wp-title">Active</div>',
+      '</div>',
+      '<div class="narr"><p>You carried her across. She was Hera. She will remember.</p></div>',
+      '<div style="text-align:center;margin-top:8px;">',
+        '<button class="btn-go" onclick="advanceTo(\'IOLCOS\')">To Iolcos &#9654;</button>',
+      '</div>',
+    ].join(''));
+    return;
+  }
+
+  // Skipped — honor loss already applied
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--text2);letter-spacing:5px;">&#127754; The River</div>',
+      '<div class="wp-title">You Kept Walking</div>',
     '</div>',
     '<div class="narr">',
-      '<p>The road to Pelias\&#39;s palace crosses a river swollen with spring flood. An old woman sits alone at the bank, unable to cross.</p>',
-      '<p><i>This waypoint is under construction. Check back soon.</i></p>',
+      '<p>You did not look back. You told yourself there would be someone else to help her. There usually is.</p>',
+      '<p><i>You will never know who she was.</i></p>',
     '</div>',
-    '<div style="text-align:center;margin-top:16px;">',
-      '<button class="btn-go" onclick="advanceTo(\'IOLCOS\')">Continue (Skip) &#9654;</button>',
+    '<div class="outcome oc-warning">',
+      '<div class="oc-title">Opportunity Missed</div>',
+      '<div class="oc-body">Some choices matter because of who is watching. This one mattered because of who was not.</div>',
+      '<div class="eff-row" style="margin-top:12px;">',
+        pip('&minus;2 Honor', 'neg'),
+        pip('No Hera blessing', 'neg'),
+      '</div>',
+    '</div>',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="advanceTo(\'IOLCOS\')">To Iolcos &#9654;</button>',
     '</div>',
   ].join(''));
 }
