@@ -1474,7 +1474,7 @@ const PC_MAZE = [
 ];
 
 // Guard starting positions [col, row]
-const PC_GUARD_STARTS = [[5,3],[13,3],[9,7],[5,9]];
+const PC_GUARD_STARTS = [[3,1],[15,1],[15,9],[3,9]];  // far corners, give Jason room
 const PC_JASON_START  = [1,11];
 const PC_HARBOR       = [17,1];
 const PC_GATES        = [[9,1],[9,7]];   // gate cells (value=2) that questions open
@@ -1492,7 +1492,8 @@ function initPC() {
     _cleanup: null,
     captures: 0,
     lastCapture: 0,      // ms timestamp, for brief immunity
-    moveQueue: [],       // pending direction inputs
+    moveQueue: [],       // pending direction inputs (touch only)
+    heldKeys:  {},       // currently held keyboard directions
     cellSize: 0,
     offX: 0, offY: 0,
     pendingQ: null,      // question data while paused
@@ -1583,7 +1584,7 @@ function launchPeliasCanvas() {
   canvas.width  = canvW;
   canvas.height = canvH;
 
-  // Key controls
+  // Key controls — track held state, not queue-push, to eliminate drift
   const DIRS = {
     ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
     w:[0,-1], s:[0,1], a:[-1,0], d:[1,0],
@@ -1592,9 +1593,12 @@ function launchPeliasCanvas() {
   const onKey = e => {
     if (PC.phase !== 'play') return;
     const d = DIRS[e.key];
-    if (d) { e.preventDefault(); PC.moveQueue.push(d); }
+    if (!d) return;
+    e.preventDefault();
+    PC.heldKeys[e.key] = e.type === 'keydown' ? d : null;
   };
   document.addEventListener('keydown', onKey);
+  document.addEventListener('keyup',   onKey);
 
   // Touch: tap quadrant = direction
   canvas.addEventListener('touchstart', e => {
@@ -1609,7 +1613,10 @@ function launchPeliasCanvas() {
     else                               PC.moveQueue.push(dy > 0 ? [0,1] : [0,-1]);
   }, {passive:false});
 
-  PC._cleanup = () => document.removeEventListener('keydown', onKey);
+  PC._cleanup = () => {
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keyup',   onKey);
+  };
 
   let lastTs = 0;
   function pcLoop(ts) {
@@ -1628,8 +1635,8 @@ function launchPeliasCanvas() {
 }
 
 // ── Physics update ───────────────────────────────────────────
-const PC_STEP_MS = 220;   // ms per cell move (Jason speed)
-const PC_GUARD_MS = 300;  // ms per cell (guard speed)
+const PC_STEP_MS  = 200;   // ms per cell move (Jason speed)
+const PC_GUARD_MS = 650;   // ms per cell (guard speed — significantly slower than Jason)
 
 function updatePC(dt) {
   PC.elapsed += dt;
@@ -1646,16 +1653,23 @@ function updatePC(dt) {
 
   if (remaining <= 0) { peliasGameOver('timeout'); return; }
 
-  // Move Jason (grid-snapped: process one queued direction per step interval)
+  // Move Jason — read current held key once per step (no queue drain drift)
   const J = PC.jason;
-  if (!J.moving && PC.moveQueue.length > 0) {
-    const d = PC.moveQueue.shift();
-    const nc = J.c + d[0], nr = J.r + d[1];
-    if (isPassable(nc, nr)) {
-      J.dir = d;
-      J.moving = true;
-      J.targetC = nc; J.targetR = nr;
-      J.progress = 0;
+  if (!J.moving) {
+    // Priority: keyboard held keys first, then touch queue
+    let dir = null;
+    const held = Object.values(PC.heldKeys).find(v => v);
+    if (held) dir = held;
+    else if (PC.moveQueue.length > 0) dir = PC.moveQueue.shift();
+
+    if (dir) {
+      const nc = J.c + dir[0], nr = J.r + dir[1];
+      if (isPassable(nc, nr)) {
+        J.dir = dir;
+        J.moving = true;
+        J.targetC = nc; J.targetR = nr;
+        J.progress = 0;
+      }
     }
   }
   if (J.moving) {
