@@ -1505,7 +1505,7 @@ function initPC() {
     jason: {
       c: PC_JASON_START[0], r: PC_JASON_START[1],
       px: 0, py: 0,
-      moving: false, dir: null, bufferedDir: null,
+      moving: false, dir: null,
       targetC: 0, targetR: 0, progress: 0
     },
     guards:  PC_GUARD_STARTS.map((s,i) => ({
@@ -1649,7 +1649,6 @@ function launchPeliasCanvas() {
 // ============================================================
 const PC_STEP_MS        = 220;  // ms per cell — Pac-Man's actual timing
 const PC_GUARD_MS       = 700;  // guards significantly slower
-const PC_TURN_THRESHOLD = 0.5;  // try turn once past halfway through a cell
 
 function updatePC(dt) {
   PC.elapsed += dt;
@@ -1665,48 +1664,60 @@ function updatePC(dt) {
   if (remaining <= 0) { peliasGameOver('timeout'); return; }
 
   // ── Jason movement ───────────────────────────────────────────
+  // Rule: Jason moves ONLY while a key is held. Releasing stops him
+  // at the next cell boundary. No auto-continue, no wall-hug.
+  // Input is read every frame into wantDir. On cell arrival:
+  //   - if wantDir is passable → take it
+  //   - else if current dir is passable AND key still held → continue
+  //   - else → stop
   const J = PC.jason;
 
-  // Update buffered direction every frame from held keys or touch
+  // Read current input — keyboard held state wins over touch queue
   const held = Object.values(PC.heldKeys).find(v => v);
-  if (held)                        J.bufferedDir = held;
-  else if (PC.moveQueue.length > 0) J.bufferedDir = PC.moveQueue.shift();
+  const wantDir = held || (PC.moveQueue.length > 0 ? PC.moveQueue[0] : null);
 
   if (J.moving) {
     J.progress += dt / PC_STEP_MS;
 
-    // Corner-cutting: once past threshold, try buffered dir
-    if (J.bufferedDir && J.progress >= PC_TURN_THRESHOLD) {
-      const bd = J.bufferedDir;
-      const bnc = J.c + bd[0], bnr = J.r + bd[1];
-      // Only turn if it's a real direction change (not same axis)
-      if ((bd[0] !== J.dir[0] || bd[1] !== J.dir[1]) && isPassable(bnc, bnr)) {
-        // Snap to current cell center and start new direction
-        J.c = J.targetC; J.r = J.targetR; // snap forward
-        // Slight correction: if we committed early, snap back to source
-        J.c = J.c - J.dir[0]; J.r = J.r - J.dir[1]; // back one
-        // Actually: snap to the cell we're entering (cleaner)
-        J.c = J.targetC; J.r = J.targetR;
-        J.dir = bd;
-        J.targetC = J.c + bd[0]; J.targetR = J.r + bd[1];
-        J.progress = 0; J.moving = true;
-        // Check arrival triggers on the snapped cell
-        checkJasonCell(J);
-        if (PC.phase !== 'play') return;
-      }
-    }
-
     if (J.progress >= 1) {
+      // Arrived — snap to target cell
       J.c = J.targetC; J.r = J.targetR;
       J.progress = 0; J.moving = false;
       checkJasonCell(J);
       if (PC.phase !== 'play') return;
 
-      // Immediately try next step: buffered first, then continue current
-      startJasonMove(J);
+      // Decide next step now that we've arrived
+      if (wantDir) {
+        // Try the held direction first
+        const nc = J.c + wantDir[0], nr = J.r + wantDir[1];
+        if (isPassable(nc, nr)) {
+          if (!held && PC.moveQueue.length > 0) PC.moveQueue.shift(); // consume touch
+          J.dir = wantDir;
+          J.targetC = nc; J.targetR = nr;
+          J.moving = true; J.progress = 0;
+        } else if (held && J.dir &&
+                   !(wantDir[0] === J.dir[0] && wantDir[1] === J.dir[1])) {
+          // Held key hits wall — try continuing current direction
+          const cc = J.c + J.dir[0], cr = J.r + J.dir[1];
+          if (isPassable(cc, cr)) {
+            J.targetC = cc; J.targetR = cr;
+            J.moving = true; J.progress = 0;
+          }
+          // else: fully blocked, stop
+        }
+        // else: only touch-queued and it's blocked — stop, don't consume
+      }
+      // No key held and no queue → stop. Player must press again to move.
     }
-  } else {
-    startJasonMove(J);
+  } else if (wantDir) {
+    // Not moving — start immediately if direction is passable
+    const nc = J.c + wantDir[0], nr = J.r + wantDir[1];
+    if (isPassable(nc, nr)) {
+      if (!held && PC.moveQueue.length > 0) PC.moveQueue.shift();
+      J.dir = wantDir;
+      J.targetC = nc; J.targetR = nr;
+      J.moving = true; J.progress = 0;
+    }
   }
 
   // ── Guards ───────────────────────────────────────────────────
@@ -1722,23 +1733,7 @@ function updatePC(dt) {
   });
 }
 
-function startJasonMove(J) {
-  // Try buffered direction first; fall back to current (wall-hug)
-  const dirs = [];
-  if (J.bufferedDir) dirs.push(J.bufferedDir);
-  if (J.dir && !(J.bufferedDir &&
-      J.bufferedDir[0] === J.dir[0] && J.bufferedDir[1] === J.dir[1])) {
-    dirs.push(J.dir);
-  }
-  for (const d of dirs) {
-    const nc = J.c + d[0], nr = J.r + d[1];
-    if (isPassable(nc, nr)) {
-      J.dir = d; J.targetC = nc; J.targetR = nr;
-      J.moving = true; J.progress = 0;
-      return;
-    }
-  }
-}
+
 
 function checkJasonCell(J) {
   // Harbor check
