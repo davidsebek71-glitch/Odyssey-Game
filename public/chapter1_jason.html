@@ -588,64 +588,300 @@ async function init() {
 // ============================================================
 
 function renderZeusConfrontation() {
-  // Already chose ignore — should not re-enter, but guard defensively
   if (G.zeus_choice === 'ignore') { advanceTo('PELIAS_CHASE'); return; }
+  startZeusScene();
+}
 
-  render([
-    // Dark electric atmosphere — override background
-    '<style>',
-      '#screen-game { background: radial-gradient(ellipse at center, #0a0a1a 0%, #08080f 75%); }',
-      '.zeus-bolt { animation: zbolts 2.4s ease-in-out infinite; }',
-      '@keyframes zbolts { 0%,100%{opacity:.5;text-shadow:0 0 10px #f0c040;} 50%{opacity:1;text-shadow:0 0 40px #f0c040, 0 0 80px #c89820;} }',
-      '.zeus-narr-pulse { animation: znpulse 4s ease-in-out infinite; }',
-      '@keyframes znpulse { 0%,100%{box-shadow:0 0 0px transparent;} 50%{box-shadow:0 0 24px rgba(240,192,64,.12);} }',
-    '</style>',
+// ── Zeus Cinematic Scene ──────────────────────────────────────
+// Three phases: city silhouette + clearing sky → Zeus descends →
+// dialogue typewriter → choice buttons appear.
+// Two sprite images layered over procedural storm canvas.
 
-    // Header
-    '<div class="wp-hdr">',
-      '<div class="wp-loc" style="color:var(--gold);letter-spacing:6px;">&#9889; Prologue</div>',
-      '<div class="wp-title zeus-bolt" style="font-size:36px;">Zeus</div>',
-      '<div class="wp-sub" style="color:rgba(240,192,64,.55);">The Father of Gods descends</div>',
-    '</div>',
+let ZS = null; // Zeus scene state
 
-    // Cinematic narrative
-    '<div class="narr zeus-narr-pulse" style="border-color:var(--gold2);background:linear-gradient(160deg,#0d0d20,#08080f);">',
-      '<p>He comes without warning.</p>',
-      '<p>One moment the sky above your alliance\&#39;s city is clear. The next, the clouds split open and <em>Zeus</em> stands at the edge of your walls &mdash; taller than any man, wrapped in light that makes it impossible to look directly at him. The stone beneath his feet has blackened where he stepped.</p>',
-      '<p>He surveys what you have built. The granaries. The temples. The forge. The walls that did not exist when your people arrived. His expression is not impressed. It is something closer to contempt.</p>',
-      '<p>His voice does not boom. It is quieter than that, and worse for it.</p>',
-      '<p style="font-size:18px;font-weight:700;color:var(--gold);line-height:2.2;text-align:center;padding:10px 0;border-top:1px solid var(--gold3);border-bottom:1px solid var(--gold3);margin:14px 0;">',
-        '&ldquo;You have taken <em>Prometheus\&#39;s fire</em>. You have accumulated knowledge that was not given to you.<br>',
-        'You have built something that was not asked of you.<br>',
-        '<span style="color:var(--red);">Stop now.</span> Or be <em>destroyed</em> as easily as this &mdash;&rdquo;',
-      '</p>',
-      '<p>He raises one hand. A stone column at the edge of your forum &mdash; one your people spent three weeks cutting &mdash; turns to dust without a sound.</p>',
-      '<p><i>He is not bluffing. Every person in the city has gone silent. They are all watching you.</i></p>',
-    '</div>',
+function startZeusScene() {
+  // Inject canvas fullscreen into wp-content
+  const wrap = document.getElementById('wp-content');
+  const maxW  = Math.min(820, window.innerWidth - 32);
+  const maxH  = Math.min(480, Math.floor(window.innerHeight * 0.55));
 
-    // The choice
-    '<div class="wp-hdr" style="margin-top:4px;">',
-      '<div class="wp-sub" style="color:var(--text2);letter-spacing:3px;">What do you do?</div>',
-    '</div>',
+  wrap.innerHTML =
+    '<div id="zs-wrap" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:0;">' +
+    '<canvas id="zs-canvas" style="display:block;image-rendering:pixelated;border:2px solid #2a2040;"></canvas>' +
+    '<div id="zs-textbox" style="width:' + maxW + 'px;min-height:90px;background:#080810;' +
+         'border:2px solid #2a2040;border-top:none;padding:16px 20px;' +
+         'font-family:var(--px);font-size:14px;color:#f0e8d0;' +
+         'line-height:1.9;letter-spacing:.4px;position:relative;"></div>' +
+    '<div id="zs-choices" style="width:' + maxW + 'px;display:none;margin-top:0;"></div>' +
+    '</div>';
 
-    '<div class="choice-grid">',
+  const canvas = document.getElementById('zs-canvas');
+  canvas.width  = maxW;
+  canvas.height = maxH;
 
-      // Listen — leads to death screen
-      '<div class="c-btn forced" onclick="zeusChoiceListen()" style="border-color:#8b4513;">',
-        '<div class="c-tag" style="background:rgba(139,69,19,.3);color:#d4a574;border:1px solid #8b4513;">COMPLY</div>',
-        '<div class="c-title" style="color:#d4a574;">Listen to Zeus</div>',
-        '<div class="c-desc">Bow your head. Order the forges cooled. The gods have spoken. Civilization ends on their schedule, not yours.</div>',
-      '</div>',
+  // Load sprites
+  const cityImg = new Image();
+  const zeusImg = new Image();
+  cityImg.src = '/images/heroic/Jason/Ancient Greek city skyline in pixels.png';
+  zeusImg.src = '/images/heroic/Jason/Zeus emerging from the storm.png';
 
-      // Ignore — the path forward
-      '<div class="c-btn" onclick="zeusChoiceIgnore()" style="border-color:var(--gold);">',
-        '<div class="c-tag" style="background:rgba(240,192,64,.15);color:var(--gold);border:1px solid var(--gold2);">DEFY</div>',
-        '<div class="c-title">Ignore Zeus</div>',
-        '<div class="c-desc">Say nothing. Turn back toward your city. Whatever comes next &mdash; the Heroic Age demands this answer.</div>',
-      '</div>',
+  ZS = {
+    W: maxW, H: maxH,
+    cityImg, zeusImg,
+    cityLoaded: false, zeusLoaded: false,
+    phase: 'sky',       // sky → descend → dialogue → choice
+    elapsed: 0,
+    animId: null,
+    // Sky animation
+    lightningFlash: 0,
+    nextLightning: 1200 + Math.random() * 1800,
+    cloudOffset: 0,
+    // Zeus sprite
+    zeusY: -maxH,       // starts off top, descends to final pos
+    zeusAlpha: 0,
+    zeusScale: 0.85,
+    // Dialogue typewriter
+    lines: [
+      'He comes without warning.',
+      'One moment the sky is clear. The next, the clouds split open.',
+      'Zeus stands at the edge of your walls — taller than any man,',
+      'wrapped in light. The stone beneath his feet has blackened.',
+      'He surveys what you have built. The granaries. The forge.',
+      'The walls that did not exist when your people arrived.',
+      'His expression is not impressed. It is closer to contempt.',
+      'His voice does not boom. It is quieter than that.',
+      'And worse for it.'
+    ],
+    lineIdx: 0,
+    charIdx: 0,
+    charTimer: 0,
+    CHAR_MS: 28,
+    LINE_PAUSE: 900,
+    linePauseTimer: 0,
+    waiting: false,
+    dialogueStarted: false
+  };
 
-    '</div>',
-  ].join(''));
+  cityImg.onload  = () => { ZS.cityLoaded = true; };
+  zeusImg.onload  = () => { ZS.zeusLoaded = true; };
+
+  let lastTs = 0;
+  function zsLoop(ts) {
+    if (!ZS) return;
+    const dt = Math.min(ts - (lastTs || ts), 50);
+    lastTs = ts;
+    updateZS(dt);
+    const c = document.getElementById('zs-canvas');
+    if (c) drawZS(c.getContext('2d'));
+    if (ZS.phase !== 'done') {
+      ZS.animId = requestAnimationFrame(zsLoop);
+    }
+  }
+  ZS.animId = requestAnimationFrame(zsLoop);
+}
+
+function updateZS(dt) {
+  ZS.elapsed += dt;
+  ZS.cloudOffset += dt * 0.012; // slow cloud drift
+
+  // Lightning flicker
+  ZS.lightningFlash = Math.max(0, ZS.lightningFlash - dt * 3);
+  ZS.nextLightning -= dt;
+  if (ZS.nextLightning <= 0) {
+    ZS.lightningFlash = 0.7 + Math.random() * 0.3;
+    ZS.nextLightning = 1500 + Math.random() * 3000;
+  }
+
+  if (ZS.phase === 'sky') {
+    // Phase 1: show city silhouette, storm builds for 2.5s then Zeus descends
+    if (ZS.elapsed > 2500) {
+      ZS.phase = 'descend';
+    }
+
+  } else if (ZS.phase === 'descend') {
+    // Zeus descends from top over 2s
+    const targetY = ZS.H * 0.02;
+    ZS.zeusY += (targetY - ZS.zeusY) * dt * 0.003;
+    ZS.zeusAlpha = Math.min(1, ZS.zeusAlpha + dt * 0.0018);
+    if (ZS.zeusAlpha >= 0.98 && !ZS.dialogueStarted) {
+      ZS.dialogueStarted = true;
+      ZS.phase = 'dialogue';
+    }
+
+  } else if (ZS.phase === 'dialogue') {
+    // Typewriter line by line
+    if (ZS.waiting) {
+      ZS.linePauseTimer -= dt;
+      if (ZS.linePauseTimer <= 0) {
+        ZS.waiting = false;
+        ZS.lineIdx++;
+        ZS.charIdx = 0;
+        if (ZS.lineIdx >= ZS.lines.length) {
+          ZS.phase = 'choice';
+          showZeusChoices();
+          return;
+        }
+      }
+    } else {
+      ZS.charTimer += dt;
+      const charsToAdd = Math.floor(ZS.charTimer / ZS.CHAR_MS);
+      if (charsToAdd > 0) {
+        ZS.charTimer -= charsToAdd * ZS.CHAR_MS;
+        ZS.charIdx = Math.min(ZS.lines[ZS.lineIdx].length, ZS.charIdx + charsToAdd);
+        if (ZS.charIdx >= ZS.lines[ZS.lineIdx].length) {
+          ZS.waiting = true;
+          ZS.linePauseTimer = ZS.LINE_PAUSE;
+        }
+      }
+      // Update textbox
+      const tb = document.getElementById('zs-textbox');
+      if (tb) {
+        const shown = ZS.lines.slice(0, ZS.lineIdx)
+          .map(l => '<span style="color:#b0a090;">' + l + '</span>')
+          .join('<br>');
+        const current = '<span style="color:#f0e8d0;">' +
+          ZS.lines[ZS.lineIdx].slice(0, ZS.charIdx) +
+          '<span style="animation:blink 0.6s step-end infinite;border-right:2px solid #f0c040;">&nbsp;</span>' +
+          '</span>';
+        tb.innerHTML = shown + (shown ? '<br>' : '') + current;
+        tb.scrollTop = tb.scrollHeight;
+      }
+    }
+  }
+}
+
+function drawZS(ctx) {
+  const { W, H } = ZS;
+
+  // ── Sky background — SNES color-banded storm ─────────────────
+  // Horizontal bands from top (storm purple) to bottom (dark blue-grey)
+  const bands = [
+    [0,    '#0a0615'],
+    [0.15, '#0d0820'],
+    [0.30, '#100d2a'],
+    [0.45, '#141230'],
+    [0.60, '#131828'],
+    [0.75, '#0f1520'],
+    [0.90, '#0a1018']
+  ];
+  for (let i = 0; i < bands.length - 1; i++) {
+    const y0 = Math.floor(bands[i][0] * H);
+    const y1 = Math.floor(bands[i+1][0] * H);
+    ctx.fillStyle = bands[i][1];
+    ctx.fillRect(0, y0, W, y1 - y0);
+  }
+  ctx.fillStyle = bands[bands.length-1][1];
+  ctx.fillRect(0, Math.floor(bands[bands.length-1][0]*H), W, H);
+
+  // ── Cloud layers — pixel rectangles drifting left ────────────
+  const cloudRows = [
+    { y:0.08, h:0.06, speed:1.0, color:'#1a1535', count:5, w:80 },
+    { y:0.14, h:0.05, speed:0.7, color:'#15102a', count:6, w:60 },
+    { y:0.20, h:0.07, speed:1.3, color:'#201840', count:4, w:100 },
+    { y:0.28, h:0.04, speed:0.5, color:'#180f35', count:7, w:50 }
+  ];
+  cloudRows.forEach(row => {
+    ctx.fillStyle = row.color;
+    const spacing = W / row.count;
+    for (let i = 0; i < row.count + 1; i++) {
+      const x = ((i * spacing - ZS.cloudOffset * row.speed * 20) % (W + row.w)) - row.w;
+      ctx.fillRect(Math.floor(x), Math.floor(row.y * H), row.w, Math.floor(row.h * H));
+    }
+  });
+
+  // ── Lightning flash overlay ───────────────────────────────────
+  if (ZS.lightningFlash > 0) {
+    ctx.fillStyle = 'rgba(200,180,255,' + ZS.lightningFlash * 0.18 + ')';
+    ctx.fillRect(0, 0, W, H);
+    // Bolt — jagged vertical line near Zeus position
+    if (ZS.lightningFlash > 0.5) {
+      ctx.strokeStyle = 'rgba(240,220,255,' + ZS.lightningFlash + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const bx = W * 0.62;
+      ctx.moveTo(bx, 0);
+      ctx.lineTo(bx - 8, H*0.12);
+      ctx.lineTo(bx + 5, H*0.22);
+      ctx.lineTo(bx - 4, H*0.35);
+      ctx.stroke();
+    }
+  }
+
+  // ── Zeus sprite — descending from clouds ─────────────────────
+  if (ZS.phase !== 'sky' && ZS.zeusLoaded && ZS.zeusImg.naturalWidth > 0) {
+    const imgW = ZS.zeusImg.naturalWidth  * ZS.zeusScale;
+    const imgH = ZS.zeusImg.naturalHeight * ZS.zeusScale;
+    // Target: right-center of canvas, emerging from cloud band
+    const dx = W * 0.58 - imgW / 2;
+    const dy = ZS.zeusY;
+    ctx.save();
+    ctx.globalAlpha = ZS.zeusAlpha;
+    // Gold glow behind Zeus
+    ctx.shadowColor = '#f0c040';
+    ctx.shadowBlur  = 28;
+    ctx.drawImage(ZS.zeusImg, dx, dy, imgW, imgH);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // ── City silhouette — bottom of canvas ───────────────────────
+  if (ZS.cityLoaded && ZS.cityImg.naturalWidth > 0) {
+    const imgW = W;
+    const imgH = Math.floor(ZS.cityImg.naturalHeight * (W / ZS.cityImg.naturalWidth));
+    const dy   = H - imgH + 4; // sit at bottom edge
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.drawImage(ZS.cityImg, 0, dy, imgW, imgH);
+    ctx.restore();
+  } else {
+    // Fallback silhouette if image not loaded
+    ctx.fillStyle = '#0a0810';
+    ctx.fillRect(0, H * 0.72, W, H * 0.28);
+    // Tower
+    ctx.fillRect(W*0.18, H*0.52, W*0.04, H*0.20);
+    ctx.fillRect(W*0.17, H*0.50, W*0.06, H*0.03);
+    // Wall battlements
+    for (let i = 0; i < 12; i++) {
+      ctx.fillRect(W*0.05 + i*(W*0.075), H*0.70, W*0.04, H*0.03);
+    }
+  }
+
+  // ── Vignette edges ────────────────────────────────────────────
+  const vg = ctx.createLinearGradient(0, 0, W, 0);
+  vg.addColorStop(0,   'rgba(4,4,12,0.55)');
+  vg.addColorStop(0.2, 'rgba(4,4,12,0)');
+  vg.addColorStop(0.8, 'rgba(4,4,12,0)');
+  vg.addColorStop(1,   'rgba(4,4,12,0.55)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function showZeusChoices() {
+  const tb = document.getElementById('zs-textbox');
+  if (tb) {
+    tb.innerHTML =
+      '<span style="color:#f0c040;font-weight:700;">' +
+      '&ldquo;You have taken Prometheus\&#39;s fire. You have built what was not asked of you.<br>' +
+      'Stop now &mdash; or be destroyed as easily as this.&rdquo;</span>';
+    tb.style.borderColor = 'var(--gold2)';
+  }
+  const cd = document.getElementById('zs-choices');
+  if (cd) {
+    cd.style.display = 'block';
+    cd.innerHTML =
+      '<div class="choice-grid" style="margin-top:8px;">' +
+        '<div class="c-btn forced" onclick="zeusChoiceListen()" style="border-color:#8b4513;">' +
+          '<div class="c-tag" style="background:rgba(139,69,19,.3);color:#d4a574;border:1px solid #8b4513;">COMPLY</div>' +
+          '<div class="c-title" style="color:#d4a574;">Listen to Zeus</div>' +
+          '<div class="c-desc">Bow your head. Order the forges cooled. Civilization ends on their schedule.</div>' +
+        '</div>' +
+        '<div class="c-btn" onclick="zeusChoiceIgnore()" style="border-color:var(--gold);">' +
+          '<div class="c-tag" style="background:rgba(240,192,64,.15);color:var(--gold);border:1px solid var(--gold2);">DEFY</div>' +
+          '<div class="c-title">Ignore Zeus</div>' +
+          '<div class="c-desc">Say nothing. Turn back toward your city. The Heroic Age demands this answer.</div>' +
+        '</div>' +
+      '</div>';
+  }
 }
 
 function zeusChoiceListen() {
