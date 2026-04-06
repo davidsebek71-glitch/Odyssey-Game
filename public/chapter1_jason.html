@@ -1432,21 +1432,591 @@ function renderChironSummary() {
 // PELIAS CHASE — Prologue Waypoint 3  [STUB]
 // ============================================================
 
+// ============================================================
+// PELIAS CHASE — Prologue Waypoint 3
+// Real-time top-down grid maze. Jason escapes to the harbor.
+// Guards chase using simple pursuit. Arrow/WASD/touch controls.
+// Question interrupts every ~10s OR at gate cells — pauses canvas.
+// Correct: nearest guard blocked 5s. Wrong: guard teleports closer.
+// Guard catches Jason: -5 provisions, restart chase (no rollback).
+// Clear: reach harbor within 90s. Under 45s: +10 Drachma.
+// ============================================================
+
+let PC = null;   // Pelias Chase game state
+
+// Questions are birth-story/Chiron/Oracle only (spec locked)
+// Draw from CHIRON_QUESTIONS pool — already shuffled on CT, but
+// PC runs independently so we pick fresh random indices.
+function pcNextQuestion() {
+  const pool = CHIRON_QUESTIONS;
+  const idx  = Math.floor(Math.random() * pool.length);
+  return pool[idx];
+}
+
+// Maze layout — 0=wall 1=path 2=gate 3=start 4=harbor
+// 19×13 grid. Gates at columns 9 (mid) and 14 (east).
+// Jason starts at [1,11] (bottom-left area), harbor at [17,1].
+const PC_COLS = 19, PC_ROWS = 13;
+const PC_MAZE = [
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  [0,1,1,1,0,1,1,1,1,2,1,1,1,0,1,1,1,4,0],
+  [0,1,0,1,0,1,0,0,1,0,1,0,1,0,1,0,0,1,0],
+  [0,1,0,1,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0],
+  [0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,1,0,0],
+  [0,1,1,1,0,1,1,1,0,1,0,1,0,1,1,1,1,1,0],
+  [0,0,0,1,0,0,0,1,0,1,0,1,0,1,0,0,0,1,0],
+  [0,1,1,1,1,1,0,1,1,2,1,1,1,1,0,1,1,1,0],
+  [0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0],
+  [0,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,0],
+  [0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0],
+  [0,3,1,1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0],
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+];
+
+// Guard starting positions [col, row]
+const PC_GUARD_STARTS = [[5,3],[13,3],[9,7],[5,9]];
+const PC_JASON_START  = [1,11];
+const PC_HARBOR       = [17,1];
+const PC_GATES        = [[9,1],[9,7]];   // gate cells (value=2) that questions open
+
+function initPC() {
+  return {
+    jason:   { c: PC_JASON_START[0], r: PC_JASON_START[1], px:0, py:0, moving:false, dir:[0,0] },
+    guards:  PC_GUARD_STARTS.map((s,i) => ({ c:s[0], r:s[1], px:0, py:0, id:i, blocked:0 })),
+    gates:   { '9,1': true, '9,7': true },  // true = closed
+    phase:   'play',     // play | question | capture | victory | gameover
+    elapsed: 0,          // ms since start
+    qTimer:  0,          // ms since last question
+    Q_INTERVAL: 10000,   // ms between timed questions
+    animId:  null,
+    _cleanup: null,
+    captures: 0,
+    lastCapture: 0,      // ms timestamp, for brief immunity
+    moveQueue: [],       // pending direction inputs
+    cellSize: 0,
+    offX: 0, offY: 0,
+    pendingQ: null,      // question data while paused
+    pendingQContext: null // 'timed' | 'gate'
+  };
+}
+
+// ── Entry point ──────────────────────────────────────────────
 function renderPeliasChase() {
+  if (G.choices.pelias_chase) { renderPeliasOutcome(G.choices.pelias_chase); return; }
+  renderPeliasIntro();
+}
+
+function renderPeliasIntro() {
+  const cunBonus = G.chiron_bonuses ? G.chiron_bonuses.cunning : 0;
+  const cunNote  = cunBonus > 0
+    ? '<div class="banner b-craft">&#127919; <strong>Chiron Training:</strong> +' + cunBonus + ' Cunning from arrow training. One guard will start blocked for 5s.</div>'
+    : '';
+
   render([
+    '<style>',
+      '#screen-game { background: radial-gradient(ellipse at center, #1a1008 0%, #08080f 70%); }',
+    '</style>',
     '<div class="wp-hdr">',
-      '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#127939; Prologue III</div>',
+      '<div class="wp-loc" style="color:#f97316;letter-spacing:5px;">&#127939; Prologue III</div>',
       '<div class="wp-title">The Chase</div>',
-      '<div class="wp-sub">Escape Pelias\&#39;s guards &mdash; coming next session</div>',
+      '<div class="wp-sub">Escape Pelias&#39; guards &mdash; reach the harbor</div>',
     '</div>',
-    '<div class="narr">',
-      '<p>You arrive in Iolcos wearing one sandal. Pelias sees you from the palace steps and goes pale.</p>',
-      '<p><i>This waypoint is under construction. Check back soon.</i></p>',
+    cunNote,
+    '<div class="narr" style="border-color:#f97316;background:linear-gradient(160deg,#1a0e05,#08080f);">',
+      '<p>You walk into Iolcos wearing one sandal. You did not notice losing the other crossing the floods &mdash; the road from Pelion is long. But <em>Pelias</em> notices. He is on the palace steps when you arrive, and the color drains from his face as his eyes drop to your feet.</p>',
+      '<p>He remembers the Oracle now. He remembers every word.</p>',
+      '<p>He keeps his expression neutral &mdash; a lifetime of practice &mdash; and waves you toward the entrance hall. <em>&ldquo;We will speak inside.&rdquo;</em> But you see him signal to the guards. The casual flick of two fingers that means: <em>take him quietly</em>.</p>',
+      '<p>You do not go inside. You turn and run.</p>',
     '</div>',
-    '<div style="text-align:center;margin-top:16px;">',
-      '<button class="btn-go" onclick="advanceTo(\'HERA_RIVER\')">Continue (Skip) &#9654;</button>',
+    '<div style="background:var(--bg2);border:1px solid #f97316;border-radius:4px;padding:14px 18px;',
+         'font-family:var(--px);font-size:12px;color:var(--text2);width:100%;">',
+      '<div style="color:#f97316;letter-spacing:2px;margin-bottom:10px;">HOW TO ESCAPE</div>',
+      '<div style="display:flex;flex-direction:column;gap:6px;">',
+        '<div>&#8592;&#8593;&#8594;&#8595; Arrow keys &nbsp;&middot;&nbsp; WASD &nbsp;&middot;&nbsp; Tap screen quadrants</div>',
+        '<div>&#9203; Reach the harbor in 90 seconds</div>',
+        '<div>&#9889; Questions pause the chase &mdash; correct answer blocks the nearest guard 5s</div>',
+        '<div>&#9888; Wrong answer &mdash; nearest guard teleports one junction closer to you</div>',
+        '<div>&#127939; Caught: &minus;5 Provisions, restart chase</div>',
+        '<div>&#9654; Under 45 seconds: +10 Drachma speed bonus</div>',
+      '</div>',
+    '</div>',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="startPeliasChase()">Run! &#9654;</button>',
     '</div>',
   ].join(''));
+}
+
+// ── Game start ───────────────────────────────────────────────
+function startPeliasChase() {
+  PC = initPC();
+
+  // Cunning bonus from Chiron: block nearest guard for 5s at start
+  if (G.chiron_bonuses && G.chiron_bonuses.cunning > 0) {
+    PC.guards[0].blocked = 5000;
+  }
+
+  launchPeliasCanvas();
+}
+
+function launchPeliasCanvas() {
+  const wrap = document.getElementById('wp-content');
+  const maxW = Math.min(760, window.innerWidth - 24);
+  const cellSz = Math.floor(maxW / PC_COLS);
+  const canvW  = cellSz * PC_COLS;
+  const canvH  = cellSz * PC_ROWS;
+  PC.cellSize  = cellSz;
+  PC.offX = Math.floor((maxW - canvW) / 2);
+  PC.offY = 0;
+
+  wrap.innerHTML =
+    '<div id="pc-wrap" style="width:100%;display:flex;flex-direction:column;align-items:center;">' +
+    '<canvas id="pc-canvas" style="display:block;image-rendering:pixelated;touch-action:none;border:2px solid #f97316;"></canvas>' +
+    '<div id="pc-hud" style="width:' + canvW + 'px;display:flex;justify-content:space-between;align-items:center;' +
+         'background:var(--bg1);border:2px solid #f97316;border-top:none;padding:8px 14px;font-family:var(--px);font-size:12px;">' +
+      '<span style="color:#f97316;" id="pc-timer">90s</span>' +
+      '<span style="color:var(--gold);" id="pc-status">REACH THE HARBOR</span>' +
+      '<span style="color:var(--text2);">&#127829; <span id="pc-prov">' + G.provisions + '</span></span>' +
+    '</div>' +
+    '</div>';
+
+  const canvas = document.getElementById('pc-canvas');
+  canvas.width  = canvW;
+  canvas.height = canvH;
+
+  // Key controls
+  const DIRS = {
+    ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
+    w:[0,-1], s:[0,1], a:[-1,0], d:[1,0],
+    W:[0,-1], S:[0,1], A:[-1,0], D:[1,0]
+  };
+  const onKey = e => {
+    if (PC.phase !== 'play') return;
+    const d = DIRS[e.key];
+    if (d) { e.preventDefault(); PC.moveQueue.push(d); }
+  };
+  document.addEventListener('keydown', onKey);
+
+  // Touch: tap quadrant = direction
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (PC.phase !== 'play') return;
+    const t = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const tx = t.clientX - rect.left, ty = t.clientY - rect.top;
+    const cx = canvW / 2, cy = canvH / 2;
+    const dx = tx - cx, dy = ty - cy;
+    if (Math.abs(dx) > Math.abs(dy)) PC.moveQueue.push(dx > 0 ? [1,0] : [-1,0]);
+    else                               PC.moveQueue.push(dy > 0 ? [0,1] : [0,-1]);
+  }, {passive:false});
+
+  PC._cleanup = () => document.removeEventListener('keydown', onKey);
+
+  let lastTs = 0;
+  function pcLoop(ts) {
+    if (!PC) return;
+    const dt = Math.min(ts - (lastTs||ts), 50);
+    lastTs = ts;
+    if (PC.phase === 'play') updatePC(dt);
+    const c = document.getElementById('pc-canvas');
+    if (!c) { cancelAnimationFrame(PC.animId); return; }
+    drawPC(c.getContext('2d'));
+    if (PC.phase !== 'victory' && PC.phase !== 'gameover') {
+      PC.animId = requestAnimationFrame(pcLoop);
+    }
+  }
+  PC.animId = requestAnimationFrame(pcLoop);
+}
+
+// ── Physics update ───────────────────────────────────────────
+const PC_STEP_MS = 220;   // ms per cell move (Jason speed)
+const PC_GUARD_MS = 300;  // ms per cell (guard speed)
+
+function updatePC(dt) {
+  PC.elapsed += dt;
+  PC.qTimer  += dt;
+
+  // Timer expired
+  const remaining = Math.max(0, 90000 - PC.elapsed);
+  const timerEl = document.getElementById('pc-timer');
+  if (timerEl) {
+    const secs = Math.ceil(remaining / 1000);
+    timerEl.textContent = secs + 's';
+    timerEl.style.color = secs <= 20 ? 'var(--red)' : '#f97316';
+  }
+
+  if (remaining <= 0) { peliasGameOver('timeout'); return; }
+
+  // Move Jason (grid-snapped: process one queued direction per step interval)
+  const J = PC.jason;
+  if (!J.moving && PC.moveQueue.length > 0) {
+    const d = PC.moveQueue.shift();
+    const nc = J.c + d[0], nr = J.r + d[1];
+    if (isPassable(nc, nr)) {
+      J.dir = d;
+      J.moving = true;
+      J.targetC = nc; J.targetR = nr;
+      J.progress = 0;
+    }
+  }
+  if (J.moving) {
+    J.progress += dt / PC_STEP_MS;
+    if (J.progress >= 1) {
+      J.c = J.targetC; J.r = J.targetR;
+      J.progress = 0; J.moving = false;
+      // Check harbor
+      if (J.c === PC_HARBOR[0] && J.r === PC_HARBOR[1]) { peliasVictory(); return; }
+      // Check gate unlock
+      const gk = J.c + ',' + J.r;
+      if (PC.gates[gk]) { triggerGateQuestion(gk); return; }
+    }
+    J.px = lerp(J.c - J.dir[0], J.targetC, J.progress) * PC.cellSize;
+    J.py = lerp(J.r - J.dir[1], J.targetR, J.progress) * PC.cellSize;
+  } else {
+    J.px = J.c * PC.cellSize;
+    J.py = J.r * PC.cellSize;
+  }
+
+  // Move guards
+  PC.guards.forEach(g => {
+    g.blocked = Math.max(0, g.blocked - dt);
+    if (g.blocked > 0) return;
+    g._stepTimer = (g._stepTimer || 0) + dt;
+    if (g._stepTimer < PC_GUARD_MS) return;
+    g._stepTimer -= PC_GUARD_MS;
+    // Simple pursuit — step toward Jason
+    const step = guardStep(g, J);
+    if (step) {
+      g.prevC = g.c; g.prevR = g.r;
+      g.c += step[0]; g.r += step[1];
+    }
+    g.px = g.c * PC.cellSize;
+    g.py = g.r * PC.cellSize;
+    // Catch check
+    if (g.c === J.c && g.r === J.r) { peliasCapture(); return; }
+  });
+
+  // Timed question trigger
+  if (PC.qTimer >= PC.Q_INTERVAL) {
+    PC.qTimer = 0;
+    pauseForQuestion('timed');
+  }
+}
+
+function lerp(a, b, t) { return a + (b - a) * Math.min(1, t); }
+
+function isPassable(c, r) {
+  if (c < 0 || r < 0 || c >= PC_COLS || r >= PC_ROWS) return false;
+  const v = PC_MAZE[r][c];
+  if (v === 0) return false;                      // wall
+  if (v === 2) return !PC.gates[c + ',' + r];    // gate: passable only if open
+  return true;
+}
+
+function guardStep(g, J) {
+  // BFS one step toward Jason ignoring gates (guards know the city)
+  const target = {c: J.c, r: J.r};
+  const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+  // Try direct moves first, pick one that reduces manhattan distance
+  const candidates = dirs
+    .map(d => ({dc:d[0], dr:d[1], nc:g.c+d[0], nr:g.r+d[1]}))
+    .filter(m => {
+      if (m.nc < 0 || m.nr < 0 || m.nc >= PC_COLS || m.nr >= PC_ROWS) return false;
+      return PC_MAZE[m.nr][m.nc] !== 0; // guards ignore gate state
+    })
+    .sort((a,b) => {
+      const da = Math.abs(a.nc-target.c)+Math.abs(a.nr-target.r);
+      const db = Math.abs(b.nc-target.c)+Math.abs(b.nr-target.r);
+      return da - db;
+    });
+  if (candidates.length === 0) return null;
+  return [candidates[0].dc, candidates[0].dr];
+}
+
+// ── Question system ──────────────────────────────────────────
+function pauseForQuestion(context) {
+  if (PC.phase !== 'play') return;
+  if (PC.animId) cancelAnimationFrame(PC.animId);
+  PC.phase = 'question';
+  PC.pendingQContext = context;
+  PC.pendingQ = pcNextQuestion();
+  renderPeliasQuestion();
+}
+
+function triggerGateQuestion(gateKey) {
+  if (PC.animId) cancelAnimationFrame(PC.animId);
+  PC.phase = 'question';
+  PC.pendingQContext = 'gate:' + gateKey;
+  PC.pendingQ = pcNextQuestion();
+  renderPeliasQuestion();
+}
+
+function renderPeliasQuestion() {
+  const q = PC.pendingQ;
+  const isGate = PC.pendingQContext && PC.pendingQContext.startsWith('gate');
+  const wrap = document.getElementById('wp-content');
+
+  const optsHtml = q.opts.map((opt, i) =>
+    '<div class="c-btn" onclick="peliasAnswerQ(' + i + ',' + q.a + ')" style="padding:14px 18px;">' +
+      '<div class="c-desc" style="color:var(--text1);">' + opt + '</div>' +
+    '</div>'
+  ).join('');
+
+  // Overlay the canvas with question panel
+  wrap.innerHTML =
+    '<div class="wp" style="align-items:center;">' +
+    '<div class="wp-hdr">' +
+      '<div class="wp-loc" style="color:#f97316;letter-spacing:4px;">&#9203; Chase Paused</div>' +
+      '<div class="wp-title" style="font-size:20px;">' + (isGate ? 'Gate Question' : 'Guard Distracted') + '</div>' +
+      '<div class="wp-sub">' + (isGate
+        ? 'Answer correctly to unlock the gate'
+        : 'Correct answer blocks the nearest guard for 5 seconds') +
+      '</div>' +
+    '</div>' +
+    '<div class="narr" style="border-color:#f97316;">' +
+      '<p style="font-size:var(--fs-md);font-weight:700;color:var(--text1);">' + q.q + '</p>' +
+    '</div>' +
+    '<div class="choice-grid">' + optsHtml + '</div>' +
+    '</div>';
+}
+
+function peliasAnswerQ(chosen, correct) {
+  const right = chosen === correct;
+  const isGate = PC.pendingQContext && PC.pendingQContext.startsWith('gate');
+  const gateKey = isGate ? PC.pendingQContext.split(':')[1] : null;
+
+  if (right) {
+    if (isGate) {
+      // Open the gate
+      delete PC.gates[gateKey];
+    } else {
+      // Block nearest guard 5s
+      const J = PC.jason;
+      let nearest = null, nearDist = Infinity;
+      PC.guards.forEach(g => {
+        const d = Math.abs(g.c - J.c) + Math.abs(g.r - J.r);
+        if (d < nearDist) { nearDist = d; nearest = g; }
+      });
+      if (nearest) nearest.blocked = 5000;
+    }
+  } else {
+    // Wrong: teleport nearest guard one junction closer
+    const J = PC.jason;
+    let nearest = null, nearDist = Infinity;
+    PC.guards.forEach(g => {
+      const d = Math.abs(g.c - J.c) + Math.abs(g.r - J.r);
+      if (d < nearDist) { nearDist = d; nearest = g; }
+    });
+    if (nearest && nearDist > 2) {
+      const step = guardStep(nearest, J);
+      if (step) { nearest.c += step[0]; nearest.r += step[1]; }
+    }
+    if (isGate) {
+      // Gate stays closed — Jason stays put (back one cell)
+      // Just leave gate closed; player must try to navigate around
+    }
+  }
+
+  // Resume canvas after brief flash
+  PC.phase = 'play';
+  PC.pendingQ = null;
+  PC.qTimer = 0; // reset timed interval
+
+  // Show brief result then relaunch canvas
+  const resultMsg = right
+    ? (isGate ? '&#128275; Gate unlocked!' : '&#128694; Guard blocked 5s!')
+    : (isGate ? '&#128274; Gate stays locked &mdash; find another path' : '&#9888; Guard moves closer!');
+
+  const wrap = document.getElementById('wp-content');
+  wrap.innerHTML =
+    '<div style="text-align:center;padding:40px;font-family:var(--px);font-size:16px;' +
+    'color:' + (right ? 'var(--green)' : 'var(--red)') + ';letter-spacing:3px;">' +
+    resultMsg + '</div>';
+
+  setTimeout(() => launchPeliasCanvas(), 900);
+}
+
+// ── Capture ──────────────────────────────────────────────────
+function peliasCapture() {
+  if (PC.phase !== 'play') return;
+  if (PC.animId) cancelAnimationFrame(PC.animId);
+  if (PC._cleanup) PC._cleanup();
+  PC.phase = 'capture';
+  PC.captures++;
+  G.provisions = Math.max(0, G.provisions - 5);
+  updateHeader();
+
+  const wrap = document.getElementById('wp-content');
+  wrap.innerHTML =
+    '<div class="wp" style="align-items:center;">' +
+    '<div class="wp-hdr">' +
+      '<div class="wp-loc" style="color:var(--red);letter-spacing:4px;">&#9888; Captured</div>' +
+      '<div class="wp-title" style="color:var(--red);">The Guard Has You</div>' +
+    '</div>' +
+    '<div class="narr" style="border-color:var(--red);">' +
+      '<p>A guard grabs your arm in an alley. You break free &mdash; but he has seen your face. You slip back into the crowd, shaken.</p>' +
+      '<p style="font-family:var(--px);font-size:13px;color:var(--red);">&minus;5 Provisions</p>' +
+      '<p style="font-family:var(--px);font-size:12px;color:var(--text2);">Provisions remaining: ' + G.provisions + '</p>' +
+    '</div>' +
+    '<div style="text-align:center;margin-top:8px;">' +
+      '<button class="btn-go" onclick="restartPeliasRun()" style="border-color:var(--red);color:var(--red);">Try Again &#8635;</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function restartPeliasRun() {
+  const elapsed = PC.elapsed; // carry elapsed time over restarts
+  PC = initPC();
+  PC.elapsed = elapsed;       // timer keeps running through captures
+  if (G.chiron_bonuses && G.chiron_bonuses.cunning > 0) {
+    PC.guards[0].blocked = 5000;
+  }
+  launchPeliasCanvas();
+}
+
+// ── Victory / Gameover ───────────────────────────────────────
+function peliasVictory() {
+  if (PC.animId) cancelAnimationFrame(PC.animId);
+  if (PC._cleanup) PC._cleanup();
+  const elapsed = PC.elapsed;
+  const speedBonus = elapsed < 45000 ? 10 : 0;
+  if (speedBonus) G.drachma += speedBonus;
+
+  G.choices.pelias_chase = elapsed < 45000 ? 'fast' : 'clear';
+  recordChoice('pelias_chase', G.choices.pelias_chase);
+  saveCheckpoint('PELIAS_CHASE');
+  renderPeliasOutcome(G.choices.pelias_chase);
+}
+
+function peliasGameOver(reason) {
+  if (PC.animId) cancelAnimationFrame(PC.animId);
+  if (PC._cleanup) PC._cleanup();
+  G.choices.pelias_chase = 'timeout';
+  G.provisions = Math.max(0, G.provisions - 5); // final penalty
+  recordChoice('pelias_chase', 'timeout');
+  saveCheckpoint('PELIAS_CHASE');
+  renderPeliasOutcome('timeout');
+}
+
+function renderPeliasOutcome(result) {
+  const fast    = result === 'fast';
+  const timeout = result === 'timeout';
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:#f97316;letter-spacing:4px;">&#127939; The Chase &mdash; ' + (timeout ? 'Cornered' : 'Escaped') + '</div>',
+      '<div class="wp-title">' + (timeout ? 'Trapped in Iolcos' : 'The Harbor') + '</div>',
+    '</div>',
+    '<div class="narr" style="border-color:#f97316;">',
+      '<p>' + (timeout
+        ? 'The guards boxed you in before you reached the docks. You spent too long in the alleys. They did not arrest you &mdash; Pelias is too careful for that &mdash; but they made it clear that Iolcos is no longer safe for you. You slip out through the fishmarket, shaken but free.'
+        : fast
+        ? 'You hit the docks at a dead sprint and did not slow down until your feet were on the gangplank. The guards arrived at the harbor gate just as the last rope was cast off. <em>Jason saw you run.</em> He did not say anything, but you caught him smiling.'
+        : 'You reached the harbor. Not fast, not clean, but you made it. Pelias&#39; guards are still somewhere in the alleys behind you.') +
+      '</p>',
+    '</div>',
+    fast ? '<div class="banner b-craft">&#9654; <strong>Speed bonus:</strong> +10 Drachma</div>' : '',
+    '<div style="text-align:center;margin-top:8px;">',
+      '<button class="btn-go" onclick="advanceTo(\'HERA_RIVER\')">To the River &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+// ── Draw ─────────────────────────────────────────────────────
+function drawPC(ctx) {
+  const S = PC.cellSize;
+  const W = PC_COLS * S, H = PC_ROWS * S;
+  const J = PC.jason;
+
+  // Background
+  ctx.fillStyle = '#0a0a10';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw maze cells
+  for (let r = 0; r < PC_ROWS; r++) {
+    for (let c = 0; c < PC_COLS; c++) {
+      const v = PC_MAZE[r][c];
+      const x = c * S, y = r * S;
+      if (v === 0) {
+        // Wall — stone blocks SNES style
+        ctx.fillStyle = '#3a2e1a';
+        ctx.fillRect(x, y, S, S);
+        ctx.fillStyle = '#4a3e28';
+        ctx.fillRect(x+1, y+1, S-2, 4);
+        ctx.fillRect(x+1, y+1, 4, S-2);
+        ctx.fillStyle = '#2a2010';
+        ctx.fillRect(x+S-3, y+1, 2, S-2);
+        ctx.fillRect(x+1, y+S-3, S-2, 2);
+      } else if (v === 1 || v === 3) {
+        // Path — cobblestone
+        ctx.fillStyle = '#181410';
+        ctx.fillRect(x, y, S, S);
+        ctx.fillStyle = '#201c16';
+        ctx.fillRect(x+2, y+2, S-4, S-4);
+        // Torch glow near edges
+        if (c === 1 || c === PC_COLS-2) {
+          ctx.fillStyle = 'rgba(240,160,32,0.06)';
+          ctx.fillRect(x, y, S, S);
+        }
+      } else if (v === 2) {
+        // Gate cell
+        const open = !PC.gates[c + ',' + r];
+        ctx.fillStyle = open ? '#181410' : '#1a1000';
+        ctx.fillRect(x, y, S, S);
+        // Gate bars
+        if (!open) {
+          ctx.fillStyle = '#a07020';
+          for (let bar = 0; bar < 3; bar++) {
+            ctx.fillRect(x + Math.floor(S*0.2) + bar * Math.floor(S*0.2), y+1, Math.floor(S*0.08), S-2);
+          }
+        } else {
+          ctx.fillStyle = 'rgba(64,192,96,0.25)';
+          ctx.fillRect(x, y, S, S);
+        }
+      } else if (v === 4) {
+        // Harbor — destination glow
+        ctx.fillStyle = '#081820';
+        ctx.fillRect(x, y, S, S);
+        const pulse = 0.3 + 0.2 * Math.sin(PC.elapsed / 400);
+        ctx.fillStyle = 'rgba(64,216,192,' + pulse + ')';
+        ctx.fillRect(x+2, y+2, S-4, S-4);
+        ctx.fillStyle = '#40d8c0';
+        ctx.font = Math.max(8, S-4) + 'px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('H', x + S/2, y + S/2 + Math.max(3, (S-4)*0.35));
+      }
+    }
+  }
+
+  // Jason — gold square with direction indicator
+  const jx = J.moving ? lerp(J.c - J.dir[0], J.targetC, J.progress) * S : J.c * S;
+  const jy = J.moving ? lerp(J.r - J.dir[1], J.targetR, J.progress) * S : J.r * S;
+  const jpad = Math.max(2, Math.floor(S * 0.15));
+  ctx.fillStyle = '#f0c040';
+  ctx.fillRect(jx + jpad, jy + jpad, S - jpad*2, S - jpad*2);
+  // Direction pip
+  ctx.fillStyle = '#805810';
+  const pip = Math.max(2, Math.floor(S * 0.18));
+  const pipX = jx + S/2 + J.dir[0] * (S/2 - pip - 1) - pip/2;
+  const pipY = jy + S/2 + J.dir[1] * (S/2 - pip - 1) - pip/2;
+  ctx.fillRect(pipX, pipY, pip, pip);
+
+  // Guards — red squares
+  PC.guards.forEach(g => {
+    const gpad = Math.max(2, Math.floor(S * 0.18));
+    ctx.fillStyle = g.blocked > 0 ? 'rgba(64,128,224,0.5)' : '#e04040';
+    ctx.fillRect(g.c * S + gpad, g.r * S + gpad, S - gpad*2, S - gpad*2);
+    // Block timer bar
+    if (g.blocked > 0) {
+      const pct = Math.min(1, g.blocked / 5000);
+      ctx.fillStyle = '#4080e0';
+      ctx.fillRect(g.c * S + gpad, g.r * S + S - gpad - 3, (S - gpad*2) * pct, 3);
+    }
+  });
+
+  // Capture flash
+  if (PC.phase === 'capture') {
+    ctx.fillStyle = 'rgba(224,64,64,0.35)';
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
 // ============================================================
