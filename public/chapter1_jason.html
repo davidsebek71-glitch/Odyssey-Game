@@ -217,21 +217,29 @@ body{background:var(--bg0);color:var(--text1);font-family:'Cinzel',serif;min-hei
   </div>
 
   <div class="trail">
-    <div class="t-node" id="t0"><div class="t-dot">&#9875;</div><div class="t-lbl">Iolcos</div></div>
+    <div class="t-node" id="t0"><div class="t-dot">&#9889;</div><div class="t-lbl">Zeus</div></div>
     <div class="t-conn" id="c0"></div>
-    <div class="t-node locked" id="t1"><div class="t-dot">&#127965;</div><div class="t-lbl">Lemnos</div></div>
+    <div class="t-node locked" id="t1"><div class="t-dot">&#9876;</div><div class="t-lbl">Chiron</div></div>
     <div class="t-conn" id="c1"></div>
-    <div class="t-node locked" id="t2"><div class="t-dot">&#129704;</div><div class="t-lbl">Rocks</div></div>
+    <div class="t-node locked" id="t2"><div class="t-dot">&#127939;</div><div class="t-lbl">Chase</div></div>
     <div class="t-conn" id="c2"></div>
-    <div class="t-node locked" id="t3"><div class="t-dot">&#127807;</div><div class="t-lbl">Colchis</div></div>
+    <div class="t-node locked" id="t3"><div class="t-dot">&#127754;</div><div class="t-lbl">River</div></div>
     <div class="t-conn" id="c3"></div>
-    <div class="t-node locked" id="t4"><div class="t-dot">&#128013;</div><div class="t-lbl">Dragon</div></div>
+    <div class="t-node locked" id="t4"><div class="t-dot">&#9875;</div><div class="t-lbl">Iolcos</div></div>
     <div class="t-conn" id="c4"></div>
-    <div class="t-node locked" id="t5"><div class="t-dot">&#127942;</div><div class="t-lbl">Fleece</div></div>
+    <div class="t-node locked" id="t5"><div class="t-dot">&#127965;</div><div class="t-lbl">Lemnos</div></div>
     <div class="t-conn" id="c5"></div>
-    <div class="t-node locked" id="t6"><div class="t-dot">&#9876;</div><div class="t-lbl">Betrayal</div></div>
+    <div class="t-node locked" id="t6"><div class="t-dot">&#129704;</div><div class="t-lbl">Rocks</div></div>
     <div class="t-conn" id="c6"></div>
-    <div class="t-node locked" id="t7"><div class="t-dot">&#127963;</div><div class="t-lbl">Return</div></div>
+    <div class="t-node locked" id="t7"><div class="t-dot">&#127807;</div><div class="t-lbl">Colchis</div></div>
+    <div class="t-conn" id="c7"></div>
+    <div class="t-node locked" id="t8"><div class="t-dot">&#128013;</div><div class="t-lbl">Dragon</div></div>
+    <div class="t-conn" id="c8"></div>
+    <div class="t-node locked" id="t9"><div class="t-dot">&#127942;</div><div class="t-lbl">Fleece</div></div>
+    <div class="t-conn" id="c9"></div>
+    <div class="t-node locked" id="t10"><div class="t-dot">&#9876;</div><div class="t-lbl">Betrayal</div></div>
+    <div class="t-conn" id="c10"></div>
+    <div class="t-node locked" id="t11"><div class="t-dot">&#127963;</div><div class="t-lbl">Return</div></div>
   </div>
 
   <div id="wp-content"></div>
@@ -257,9 +265,18 @@ const H = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/jso
 // ============================================================
 // CONSTANTS
 // ============================================================
-const WAYPOINTS = ['IOLCOS','LEMNOS','SYMPLEGADES','COLCHIS','DRAGONS_FIELD','GOLDEN_FLEECE','BETRAYAL_FORK','RETURN'];
+const WAYPOINTS = ['ZEUS','CHIRON','PELIAS_CHASE','HERA_RIVER','IOLCOS','LEMNOS','SYMPLEGADES','COLCHIS','DRAGONS_FIELD','GOLDEN_FLEECE','BETRAYAL_FORK','RETURN'];
 const WP_IDX = Object.fromEntries(WAYPOINTS.map((w,i) => [w,i]));
 const EQUIP = {1:'Wood/Leather', 2:'Bronze', 3:'Iron', 4:'Divine'};
+
+// God Destroyer weapon framework — one part earned per chapter (spec section 4)
+const GOD_DESTROYER_PARTS = {
+  wood:    { chapter:1, name:'Timber of the Argo',  hero:'Jason',     obtained:false },
+  rope:    { chapter:2, name:'Rope of Hercules',    hero:'Heracles',  obtained:false },
+  bronze:  { chapter:3, name:'TBD',                 hero:'Theseus',   obtained:false },
+  part4:   { chapter:4, name:'TBD',                 hero:'Perseus',   obtained:false },
+  crystal: { chapter:5, name:'The Power Crystal',   hero:'Tribunal',  obtained:false }
+};
 
 // Hera disposition thresholds (spec section 3.5)
 const HERA = [
@@ -313,7 +330,13 @@ const G = {
   choices: {},
   medeaHelpCount: 0,
   checkpoint_rollbacks: 0,
-  currentWaypoint: 'IOLCOS'
+  currentWaypoint: 'ZEUS',
+  // Prologue state
+  chiron_bonuses: { lore:0, craft:0, cunning:0, honor:0 },
+  zeus_choice: null,          // 'ignore' | 'listen'
+  hera_helped: false,         // did they help the old woman?
+  hera_blessing: false,       // did they complete the crossing?
+  god_destroyer_parts: []     // parts collected e.g. ['wood']
 };
 
 // ============================================================
@@ -393,7 +416,10 @@ async function saveCheckpoint(waypoint) {
           companions:G.companions, skepticalCompanion:G.skepticalCompanion,
           honor:G.honor, drachma:G.drachma, provisions:G.provisions,
           equipment:G.equipment, inventory:G.inventory, choices:G.choices,
-          medeaHelpCount:G.medeaHelpCount, checkpoint_rollbacks:G.checkpoint_rollbacks
+          medeaHelpCount:G.medeaHelpCount, checkpoint_rollbacks:G.checkpoint_rollbacks,
+          chiron_bonuses:G.chiron_bonuses, zeus_choice:G.zeus_choice,
+          hera_helped:G.hera_helped, hera_blessing:G.hera_blessing,
+          god_destroyer_parts:G.god_destroyer_parts
         },
         honor_score:G.honor, drachma_balance:G.drachma, equipment_tier:G.equipment
       })
@@ -426,6 +452,10 @@ function routeTo(key) {
   updateTrail(key);
   updateHeader();
   switch(key) {
+    case 'ZEUS':         renderZeusConfrontation(); break;
+    case 'CHIRON':       renderChironTraining();    break;
+    case 'PELIAS_CHASE': renderPeliasChase();       break;
+    case 'HERA_RIVER':   renderHeraRiver();         break;
     case 'IOLCOS':       renderIolcos();          break;
     case 'LEMNOS':       renderLemnos();          break;
     case 'SYMPLEGADES':  renderSympStub();        break;
@@ -467,9 +497,11 @@ async function init() {
         await fetch(API + '/heroic/checkpoint', {
           method:'POST', headers:H,
           body: JSON.stringify({
-            chapter:1, waypoint:'IOLCOS',
+            chapter:1, waypoint:'ZEUS',
             state_json:{companions:[],honor:10,drachma:G.student.drachma||0,provisions:20,
-              equipment:1,inventory:{},choices:{},medeaHelpCount:0,checkpoint_rollbacks:0},
+              equipment:1,inventory:{},choices:{},medeaHelpCount:0,checkpoint_rollbacks:0,
+              chiron_bonuses:{lore:0,craft:0,cunning:0,honor:0},zeus_choice:null,
+              hera_helped:false,hera_blessing:false,god_destroyer_parts:[]},
             honor_score:10, drachma_balance:G.student.drachma||0, equipment_tier:1
           })
         });
@@ -515,7 +547,12 @@ async function init() {
           G.choices              = s.choices              || {};
           G.medeaHelpCount       = s.medeaHelpCount       || 0;
           G.checkpoint_rollbacks = s.checkpoint_rollbacks || 0;
-          G.currentWaypoint      = pd.progress.waypoint   || 'IOLCOS';
+          G.chiron_bonuses       = s.chiron_bonuses       || { lore:0, craft:0, cunning:0, honor:0 };
+          G.zeus_choice          = s.zeus_choice          || null;
+          G.hera_helped          = s.hera_helped          || false;
+          G.hera_blessing        = s.hera_blessing        || false;
+          G.god_destroyer_parts  = s.god_destroyer_parts  || [];
+          G.currentWaypoint      = pd.progress.waypoint   || 'ZEUS';
           if (pd.progress.locked) { renderComplete(pd.progress); return; }
         } catch(e) { /* corrupt save — start fresh */ }
       }
@@ -540,6 +577,209 @@ async function init() {
     console.error('Init error:', e);
     showError('Failed to load Chapter 1: ' + e.message);
   }
+}
+
+// ============================================================
+// ZEUS CONFRONTATION — Prologue Waypoint 1
+// Binary choice: Listen → death screen (CYOA, no penalty, return).
+//                Ignore → advance to Chiron.
+// Atmosphere: cinematic, dark gold/lightning palette, weighty.
+// G.zeus_choice = 'ignore' required to proceed.
+// ============================================================
+
+function renderZeusConfrontation() {
+  // Already chose ignore — should not re-enter, but guard defensively
+  if (G.zeus_choice === 'ignore') { advanceTo('CHIRON'); return; }
+
+  render([
+    // Dark electric atmosphere — override background
+    '<style>',
+      '#screen-game { background: radial-gradient(ellipse at center, #0a0a1a 0%, #08080f 75%); }',
+      '.zeus-bolt { animation: zbolts 2.4s ease-in-out infinite; }',
+      '@keyframes zbolts { 0%,100%{opacity:.5;text-shadow:0 0 10px #f0c040;} 50%{opacity:1;text-shadow:0 0 40px #f0c040, 0 0 80px #c89820;} }',
+      '.zeus-narr-pulse { animation: znpulse 4s ease-in-out infinite; }',
+      '@keyframes znpulse { 0%,100%{box-shadow:0 0 0px transparent;} 50%{box-shadow:0 0 24px rgba(240,192,64,.12);} }',
+    '</style>',
+
+    // Header
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--gold);letter-spacing:6px;">&#9889; Prologue</div>',
+      '<div class="wp-title zeus-bolt" style="font-size:36px;">Zeus</div>',
+      '<div class="wp-sub" style="color:rgba(240,192,64,.55);">The Father of Gods descends</div>',
+    '</div>',
+
+    // Cinematic narrative
+    '<div class="narr zeus-narr-pulse" style="border-color:var(--gold2);background:linear-gradient(160deg,#0d0d20,#08080f);">',
+      '<p>He comes without warning.</p>',
+      '<p>One moment the sky above your alliance\&#39;s city is clear. The next, the clouds split open and <em>Zeus</em> stands at the edge of your walls &mdash; taller than any man, wrapped in light that makes it impossible to look directly at him. The stone beneath his feet has blackened where he stepped.</p>',
+      '<p>He surveys what you have built. The granaries. The temples. The forge. The walls that did not exist when your people arrived. His expression is not impressed. It is something closer to contempt.</p>',
+      '<p>His voice does not boom. It is quieter than that, and worse for it.</p>',
+      '<p style="font-size:18px;font-weight:700;color:var(--gold);line-height:2.2;text-align:center;padding:10px 0;border-top:1px solid var(--gold3);border-bottom:1px solid var(--gold3);margin:14px 0;">',
+        '&ldquo;You have taken <em>Prometheus\&#39;s fire</em>. You have accumulated knowledge that was not given to you.<br>',
+        'You have built something that was not asked of you.<br>',
+        '<span style="color:var(--red);">Stop now.</span> Or be <em>destroyed</em> as easily as this &mdash;&rdquo;',
+      '</p>',
+      '<p>He raises one hand. A stone column at the edge of your forum &mdash; one your people spent three weeks cutting &mdash; turns to dust without a sound.</p>',
+      '<p><i>He is not bluffing. Every person in the city has gone silent. They are all watching you.</i></p>',
+    '</div>',
+
+    // The choice
+    '<div class="wp-hdr" style="margin-top:4px;">',
+      '<div class="wp-sub" style="color:var(--text2);letter-spacing:3px;">What do you do?</div>',
+    '</div>',
+
+    '<div class="choice-grid">',
+
+      // Listen — leads to death screen
+      '<div class="c-btn forced" onclick="zeusChoiceListen()" style="border-color:#8b4513;">',
+        '<div class="c-tag" style="background:rgba(139,69,19,.3);color:#d4a574;border:1px solid #8b4513;">COMPLY</div>',
+        '<div class="c-title" style="color:#d4a574;">Listen to Zeus</div>',
+        '<div class="c-desc">Bow your head. Order the forges cooled. The gods have spoken. Civilization ends on their schedule, not yours.</div>',
+      '</div>',
+
+      // Ignore — the path forward
+      '<div class="c-btn" onclick="zeusChoiceIgnore()" style="border-color:var(--gold);">',
+        '<div class="c-tag" style="background:rgba(240,192,64,.15);color:var(--gold);border:1px solid var(--gold2);">DEFY</div>',
+        '<div class="c-title">Ignore Zeus</div>',
+        '<div class="c-desc">Say nothing. Turn back toward your city. Whatever comes next &mdash; the Heroic Age demands this answer.</div>',
+      '</div>',
+
+    '</div>',
+  ].join(''));
+}
+
+function zeusChoiceListen() {
+  // CYOA death screen — no state penalty, return button appears after delay
+  G.zeus_choice = 'listen';
+  recordChoice('zeus_confrontation', 'listen', null);
+
+  render([
+    '<style>',
+      '#screen-game { background: #000; }',
+      '.death-fade { animation: dfade 3.5s ease-in forwards; }',
+      '@keyframes dfade { 0%{opacity:0} 40%{opacity:1} 100%{opacity:1} }',
+      '.death-btn-fade { animation: dbtnfade 1s ease-in forwards; animation-delay: 4s; opacity:0; }',
+      '@keyframes dbtnfade { to{opacity:1} }',
+    '</style>',
+
+    '<div class="death-fade" style="display:flex;flex-direction:column;align-items:center;',
+         'justify-content:center;min-height:60vh;gap:32px;text-align:center;padding:40px;">',
+
+      '<div style="font-size:64px;opacity:.4;">&#9760;</div>',
+
+      '<div style="font-family:var(--px);font-size:11px;color:rgba(240,192,64,.4);letter-spacing:8px;',
+           'text-transform:uppercase;">The civilization ends here</div>',
+
+      '<div style="max-width:480px;font-size:var(--fs-md);color:rgba(240,220,208,.6);line-height:2.2;">',
+        '<p>The forges went cold first.</p>',
+        '<p>Then the granaries. Then the walls &mdash; not torn down, simply forgotten about, allowed to crumble into the grass over one generation and then another.</p>',
+        '<p>No one recorded your alliance\&#39;s name. That was the point.</p>',
+        '<p style="color:rgba(240,192,64,.5);font-style:italic;margin-top:8px;">History does not remember the civilizations that stopped.</p>',
+      '</div>',
+
+      '<button class="btn-go death-btn-fade" onclick="zeusReturnFromDeath()" ',
+             'style="background:transparent;border:1px solid rgba(240,192,64,.3);color:rgba(240,192,64,.5);',
+             'font-size:12px;letter-spacing:3px;padding:12px 28px;">',
+        '&#8617; Return',
+      '</button>',
+
+    '</div>',
+  ].join(''));
+}
+
+function zeusReturnFromDeath() {
+  // CYOA — no penalty, clear the listen choice and re-render Zeus
+  G.zeus_choice = null;
+  renderZeusConfrontation();
+}
+
+function zeusChoiceIgnore() {
+  G.zeus_choice = 'ignore';
+  G.choices.zeus_confrontation = 'ignore';
+  recordChoice('zeus_confrontation', 'ignore', null);
+  saveCheckpoint('CHIRON');
+
+  // Brief transition narrative before advancing
+  render([
+    '<style>',
+      '.zeus-exit { animation: zexit 2s ease-out forwards; }',
+      '@keyframes zexit { 0%{opacity:0;transform:translateY(12px)} 30%{opacity:1;transform:translateY(0)} 85%{opacity:1} 100%{opacity:0} }',
+    '</style>',
+    '<div class="zeus-exit" style="display:flex;flex-direction:column;align-items:center;',
+         'justify-content:center;min-height:50vh;gap:20px;text-align:center;padding:40px;">',
+      '<div style="font-size:56px;">&#9889;</div>',
+      '<div style="font-family:var(--px);font-size:12px;color:var(--gold);letter-spacing:6px;">You turned your back on Zeus</div>',
+      '<div style="max-width:420px;font-size:var(--fs-md);color:var(--text2);line-height:2;">',
+        'He watched you walk away.<br>He did not destroy you.<br>',
+        '<em style="color:var(--gold);">That surprised him.</em>',
+      '</div>',
+    '</div>',
+  ].join(''));
+
+  setTimeout(() => advanceTo('CHIRON'), 2200);
+}
+
+// ============================================================
+// CHIRON TRAINING — Prologue Waypoint 2  [STUB]
+// ============================================================
+
+function renderChironTraining() {
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#9876; Prologue II</div>',
+      '<div class="wp-title">Chiron\&#39;s Training</div>',
+      '<div class="wp-sub">The Centaur\&#39;s three trials &mdash; coming next session</div>',
+    '</div>',
+    '<div class="narr">',
+      '<p>An old centaur steps from the treeline of Mount Pelion. He has been watching since Zeus left.</p>',
+      '<p><i>This waypoint is under construction. Check back soon.</i></p>',
+    '</div>',
+    '<div style="text-align:center;margin-top:16px;">',
+      '<button class="btn-go" onclick="advanceTo(\'PELIAS_CHASE\')">Continue (Skip) &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+// ============================================================
+// PELIAS CHASE — Prologue Waypoint 3  [STUB]
+// ============================================================
+
+function renderPeliasChase() {
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#127939; Prologue III</div>',
+      '<div class="wp-title">The Chase</div>',
+      '<div class="wp-sub">Escape Pelias\&#39;s guards &mdash; coming next session</div>',
+    '</div>',
+    '<div class="narr">',
+      '<p>You arrive in Iolcos wearing one sandal. Pelias sees you from the palace steps and goes pale.</p>',
+      '<p><i>This waypoint is under construction. Check back soon.</i></p>',
+    '</div>',
+    '<div style="text-align:center;margin-top:16px;">',
+      '<button class="btn-go" onclick="advanceTo(\'HERA_RIVER\')">Continue (Skip) &#9654;</button>',
+    '</div>',
+  ].join(''));
+}
+
+// ============================================================
+// HERA RIVER CROSSING — Prologue Waypoint 4  [STUB]
+// ============================================================
+
+function renderHeraRiver() {
+  render([
+    '<div class="wp-hdr">',
+      '<div class="wp-loc" style="color:var(--teal);letter-spacing:5px;">&#127754; Prologue IV</div>',
+      '<div class="wp-title">The River</div>',
+      '<div class="wp-sub">An old woman at the bank &mdash; coming next session</div>',
+    '</div>',
+    '<div class="narr">',
+      '<p>The road to Pelias\&#39;s palace crosses a river swollen with spring flood. An old woman sits alone at the bank, unable to cross.</p>',
+      '<p><i>This waypoint is under construction. Check back soon.</i></p>',
+    '</div>',
+    '<div style="text-align:center;margin-top:16px;">',
+      '<button class="btn-go" onclick="advanceTo(\'IOLCOS\')">Continue (Skip) &#9654;</button>',
+    '</div>',
+  ].join(''));
 }
 
 // ============================================================
@@ -2969,11 +3209,13 @@ async function resetChapter1() {
     await fetch(API + '/heroic/checkpoint', {
       method:'POST', headers:H,
       body: JSON.stringify({
-        chapter:1, waypoint:'IOLCOS',
+        chapter:1, waypoint:'ZEUS',
         state_json:{companions:[],skepticalCompanion:null,honor:10,
           drachma:G.student ? (G.student.drachma||0) : 0,
           provisions:20,equipment:1,inventory:{},choices:{},
-          medeaHelpCount:0,checkpoint_rollbacks:0},
+          medeaHelpCount:0,checkpoint_rollbacks:0,
+          chiron_bonuses:{lore:0,craft:0,cunning:0,honor:0},zeus_choice:null,
+          hera_helped:false,hera_blessing:false,god_destroyer_parts:[]},
         honor_score:10, drachma_balance:G.student ? (G.student.drachma||0) : 0, equipment_tier:1
       })
     });
@@ -2982,8 +3224,10 @@ async function resetChapter1() {
   G.honor=10; G.drachma=G.student?(G.student.drachma||0):0; G.provisions=20;
   G.equipment=1; G.inventory={}; G.companions=[]; G.skepticalCompanion=null;
   G.choices={}; G.medeaHelpCount=0; G.checkpoint_rollbacks=0;
+  G.chiron_bonuses={lore:0,craft:0,cunning:0,honor:0}; G.zeus_choice=null;
+  G.hera_helped=false; G.hera_blessing=false; G.god_destroyer_parts=[];
   if (G.stats && craft() >= 10) G.equipment = 2;
-  routeTo('IOLCOS');
+  routeTo('ZEUS');
 }
 
 function showDevBar(showReset) {
