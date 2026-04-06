@@ -617,10 +617,14 @@ function startZeusScene() {
   canvas.height = maxH;
 
   // Sprites
-  const cityImg = new Image();
-  const zeusImg = new Image();
-  cityImg.src = '/images/heroic/Jason/Ancient Greek city skyline in pixels.png';
-  zeusImg.src = '/images/heroic/Jason/Zeus emerging from the storm.png';
+  const cityImg  = new Image();
+  const zeusImg  = new Image();
+  const boltImg  = new Image();
+  const cloudImg = new Image();
+  cityImg.src  = '/images/heroic/Jason/Ancient Greek city skyline in pixels.png';
+  zeusImg.src  = '/images/heroic/Jason/Zeus emerging from the storm.png';
+  boltImg.src  = '/images/classical/Psyche/hazard_lightning_bolt.png';
+  cloudImg.src = '/images/classical/Psyche/hazard_storm_cloud.png';
 
   // ── Timing constants (all in ms) ─────────────────────────────
   const T_SKY      = 4000;   // blue sky phase
@@ -646,8 +650,9 @@ function startZeusScene() {
 
   ZS = {
     W: maxW, H: maxH,
-    cityImg, zeusImg,
+    cityImg, zeusImg, boltImg, cloudImg,
     cityLoaded: false, zeusLoaded: false,
+    boltLoaded: false, cloudLoaded: false,
     // ── Phase tracking ──────────────────────────────────────────
     phase: 'sky',    // sky | storm | descend | dialogue | choice | done
     elapsed: 0,      // total scene ms
@@ -682,8 +687,10 @@ function startZeusScene() {
     animId:    null
   };
 
-  cityImg.onload = () => { ZS.cityLoaded = true; };
-  zeusImg.onload = () => { ZS.zeusLoaded = true; };
+  cityImg.onload  = () => { ZS.cityLoaded  = true; };
+  zeusImg.onload  = () => { ZS.zeusLoaded  = true; };
+  boltImg.onload  = () => { ZS.boltLoaded  = true; };
+  cloudImg.onload = () => { ZS.cloudLoaded = true; };
 
   let lastTs = 0;
   function zsLoop(ts) {
@@ -737,7 +744,7 @@ function updateZS(dt) {
     if (ZS.phaseElapsed >= ZS.T_STORM) {
       ZS.phase = 'descend'; ZS.phaseElapsed = 0;
       // Zeus target: upper third of canvas, centered
-      ZS.zeusTargetY = ZS.H * 0.04;
+      ZS.zeusTargetY = ZS.H * 0.06;
     }
 
   } else if (ZS.phase === 'descend') {
@@ -823,11 +830,33 @@ function drawZS(ctx) {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // ── Lightning flash ──────────────────────────────────────────
+  // ── Storm clouds from Psyche assets ─────────────────────────
+  if (ZS.cloudLoaded && ZS.stormAlpha > 0.1) {
+    const cW = Math.floor(W * 0.55);
+    const cH = Math.floor(ZS.cloudImg.naturalHeight * (cW / ZS.cloudImg.naturalWidth));
+    ctx.save();
+    ctx.globalAlpha = ZS.stormAlpha * 0.55;
+    // Two clouds offset for coverage
+    ctx.drawImage(ZS.cloudImg, -W*0.05, Math.floor(H * 0.02), cW, cH);
+    ctx.globalAlpha = ZS.stormAlpha * 0.40;
+    ctx.drawImage(ZS.cloudImg, W * 0.45, Math.floor(H * 0.05), cW, cH);
+    ctx.restore();
+  }
+
+  // ── Lightning flash + Psyche bolt sprite ─────────────────────
   if (ZS.lightFlash > 0) {
-    ctx.fillStyle = `rgba(210,195,255,${(ZS.lightFlash * 0.22).toFixed(2)})`;
+    ctx.fillStyle = `rgba(210,195,255,${(ZS.lightFlash * 0.20).toFixed(2)})`;
     ctx.fillRect(0, 0, W, H);
-    if (ZS.lightFlash > 0.45) {
+    if (ZS.lightFlash > 0.45 && ZS.boltLoaded) {
+      // Use Psyche lightning bolt sprite
+      const bW = Math.floor(W * 0.12);
+      const bH = Math.floor(ZS.boltImg.naturalHeight * (bW / ZS.boltImg.naturalWidth));
+      ctx.save();
+      ctx.globalAlpha = ZS.lightFlash * 0.85;
+      ctx.drawImage(ZS.boltImg, Math.floor(W * 0.44), 0, bW, bH);
+      ctx.restore();
+    } else if (ZS.lightFlash > 0.45) {
+      // Fallback drawn bolt
       ctx.save();
       ctx.strokeStyle = `rgba(240,225,255,${ZS.lightFlash.toFixed(2)})`;
       ctx.lineWidth = 2;
@@ -837,40 +866,62 @@ function drawZS(ctx) {
       ctx.lineTo(bx-9,  H*0.10);
       ctx.lineTo(bx+6,  H*0.20);
       ctx.lineTo(bx-5,  H*0.32);
-      ctx.lineTo(bx+3,  H*0.42);
       ctx.stroke();
       ctx.restore();
     }
   }
 
   // ── Zeus sprite ──────────────────────────────────────────────
+  // The Zeus image has fire/storm content at the bottom of the sprite.
+  // We cap render height to H*0.50 so Zeus stays in the upper sky zone
+  // and doesn't fall off the canvas bottom.
+  // drawImage 9-param: clip from top of source, render to canvas position.
   if ((ZS.phase === 'descend' || ZS.phase === 'dialogue' || ZS.phase === 'choice') &&
       ZS.zeusLoaded && ZS.zeusImg.naturalWidth > 0) {
-    const imgW = ZS.zeusImg.naturalWidth  * ZS.zeusScale;
-    const imgH = ZS.zeusImg.naturalHeight * ZS.zeusScale;
-    const dx   = W * 0.5 - imgW / 2;
+    const srcW    = ZS.zeusImg.naturalWidth;
+    const srcH    = ZS.zeusImg.naturalHeight;
+    // Scale so Zeus fills at most 45% of canvas width
+    const scale   = Math.min(ZS.zeusScale, (W * 0.45) / srcW);
+    const dstW    = Math.floor(srcW * scale);
+    // Cap rendered height to 48% of canvas
+    const maxDstH = Math.floor(H * 0.48);
+    const dstH    = Math.min(Math.floor(srcH * scale), maxDstH);
+    // Source clip: take top portion of image (where Zeus figure is)
+    const clipH   = Math.floor(dstH / scale);
+    const dx      = Math.floor(W * 0.5 - dstW / 2);
+    const dy      = Math.floor(ZS.zeusY);
     ctx.save();
     ctx.globalAlpha = ZS.zeusAlpha;
     ctx.shadowColor = '#f0c040';
     ctx.shadowBlur  = 30;
-    ctx.drawImage(ZS.zeusImg, dx, ZS.zeusY, imgW, imgH);
+    ctx.drawImage(ZS.zeusImg, 0, 0, srcW, clipH, dx, dy, dstW, dstH);
     ctx.shadowBlur  = 0;
     ctx.restore();
   }
 
-  // ── City silhouette — always pinned to very bottom ───────────
+  // ── City silhouette — clipped to show only bottom portion ────
+  // The image has dead space above the actual buildings.
+  // We use the 9-param drawImage to clip the bottom 40% of the source
+  // and pin it to the very bottom of the canvas.
+  // This accounts for any non-transparent background in the image.
   if (ZS.cityLoaded && ZS.cityImg.naturalWidth > 0) {
-    const imgW = W;
-    const imgH = Math.floor(ZS.cityImg.naturalHeight * (W / ZS.cityImg.naturalWidth));
-    ctx.drawImage(ZS.cityImg, 0, H - imgH, imgW, imgH);
+    const srcW    = ZS.cityImg.naturalWidth;
+    const srcH    = ZS.cityImg.naturalHeight;
+    // Take only the bottom 42% of the source image (where buildings actually are)
+    const clipFrac = 0.42;
+    const srcClipY = Math.floor(srcH * (1 - clipFrac));
+    const srcClipH = Math.floor(srcH * clipFrac);
+    // Render height: 28% of canvas
+    const dstH    = Math.floor(H * 0.28);
+    ctx.drawImage(ZS.cityImg, 0, srcClipY, srcW, srcClipH, 0, H - dstH, W, dstH);
   } else {
     // Fallback pixel silhouette
     ctx.fillStyle = '#050408';
-    ctx.fillRect(0, H * 0.75, W, H * 0.25);
-    ctx.fillRect(W*0.18, H*0.58, W*0.035, H*0.17);
-    ctx.fillRect(W*0.168,H*0.555,W*0.057,H*0.028);
+    ctx.fillRect(0, H * 0.78, W, H * 0.22);
+    ctx.fillRect(W*0.18, H*0.62, W*0.035, H*0.16);
+    ctx.fillRect(W*0.168,H*0.60,W*0.057,H*0.024);
     for (let i = 0; i < 14; i++)
-      ctx.fillRect(W*0.04 + i*(W*0.065), H*0.73, W*0.038, H*0.025);
+      ctx.fillRect(W*0.04 + i*(W*0.065), H*0.76, W*0.038, H*0.022);
   }
 
   // ── Dialogue overlay — RPG box on canvas ─────────────────────
