@@ -617,14 +617,10 @@ function startZeusScene() {
   canvas.height = maxH;
 
   // Sprites
-  const cityImg  = new Image();
-  const zeusImg  = new Image();
-  const boltImg  = new Image();
-  const cloudImg = new Image();
-  cityImg.src  = '/images/heroic/Jason/Ancient Greek city skyline in pixels.png';
-  zeusImg.src  = '/images/heroic/Jason/Zeus emerging from the storm.png';
-  boltImg.src  = '/images/classical/Psyche/hazard_lightning_bolt.png';
-  cloudImg.src = '/images/classical/Psyche/hazard_storm_cloud.png';
+  const cityImg = new Image();
+  const zeusImg = new Image();
+  cityImg.src = '/images/heroic/Jason/Ancient Greek city skyline in pixels.png';
+  zeusImg.src = '/images/heroic/Jason/Zeus emerging from the storm.png';
 
   // ── Timing constants (all in ms) ─────────────────────────────
   const T_SKY      = 4000;   // blue sky phase
@@ -650,9 +646,8 @@ function startZeusScene() {
 
   ZS = {
     W: maxW, H: maxH,
-    cityImg, zeusImg, boltImg, cloudImg,
+    cityImg, zeusImg,
     cityLoaded: false, zeusLoaded: false,
-    boltLoaded: false, cloudLoaded: false,
     // ── Phase tracking ──────────────────────────────────────────
     phase: 'sky',    // sky | storm | descend | dialogue | choice | done
     elapsed: 0,      // total scene ms
@@ -687,10 +682,8 @@ function startZeusScene() {
     animId:    null
   };
 
-  cityImg.onload  = () => { ZS.cityLoaded  = true; };
-  zeusImg.onload  = () => { ZS.zeusLoaded  = true; };
-  boltImg.onload  = () => { ZS.boltLoaded  = true; };
-  cloudImg.onload = () => { ZS.cloudLoaded = true; };
+  cityImg.onload = () => { ZS.cityLoaded = true; };
+  zeusImg.onload = () => { ZS.zeusLoaded = true; };
 
   let lastTs = 0;
   function zsLoop(ts) {
@@ -790,9 +783,9 @@ function updateZS(dt) {
 
 function drawZS(ctx) {
   const { W, H } = ZS;
-  const sceneT = ZS.elapsed; // total elapsed for sky color
+  const sceneT = ZS.elapsed;
 
-  // ── Sky gradient — interpolated color per phase ───────────────
+  // ── Sky gradient — blue → storm dark ─────────────────────────
   const topCol = zsLerpColor(ZS.SKY_TOP_FRAMES, Math.min(sceneT, ZS.T_SKY + ZS.T_STORM));
   const botCol = zsLerpColor(ZS.SKY_BOT_FRAMES, Math.min(sceneT, ZS.T_SKY + ZS.T_STORM));
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
@@ -801,22 +794,17 @@ function drawZS(ctx) {
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // ── Cloud layers — white/light blue in sky phase, dark purple in storm ──
-  const stormT    = ZS.stormAlpha;
+  // ── Procedural clouds — white in sky, fade out in storm ──────
+  const stormT = ZS.stormAlpha;
   const cloudRows = [
     { y:0.06, h:0.05, speed:0.8,  count:5, w:110 },
-    { y:0.13, h:0.04, speed:0.5,  count:7, w:70  },
-    { y:0.20, h:0.06, speed:1.1,  count:4, w:130 },
-    { y:0.30, h:0.03, speed:0.35, count:8, w:55  }
+    { y:0.14, h:0.04, speed:0.5,  count:7, w:70  },
+    { y:0.22, h:0.06, speed:1.1,  count:4, w:130 },
   ];
   cloudRows.forEach((row, ri) => {
-    // Blend cloud color: white-ish → dark storm purple
-    const lr = Math.round(220 - stormT * 210);
-    const lg = Math.round(230 - stormT * 224);
-    const lb = Math.round(255 - stormT * 240);
-    const la = (0.55 - ri * 0.07) - stormT * 0.3;
+    const la = Math.max(0, (0.45 - ri * 0.06) * (1 - stormT));
     if (la <= 0) return;
-    ctx.fillStyle = `rgba(${lr},${lg},${lb},${la.toFixed(2)})`;
+    ctx.fillStyle = `rgba(200,215,255,${la.toFixed(2)})`;
     const spacing = W / row.count;
     for (let i = 0; i < row.count + 2; i++) {
       const x = ((i * spacing - ZS.cloudOffset * row.speed * 18) % (W + row.w)) - row.w;
@@ -824,152 +812,114 @@ function drawZS(ctx) {
     }
   });
 
-  // ── Storm overlay — dark purple wash fades in ────────────────
+  // ── Storm dark overlay ────────────────────────────────────────
   if (stormT > 0) {
-    ctx.fillStyle = `rgba(8,4,24,${(stormT * 0.72).toFixed(2)})`;
+    ctx.fillStyle = `rgba(6,3,18,${(stormT * 0.75).toFixed(2)})`;
     ctx.fillRect(0, 0, W, H);
   }
 
-  // ── Storm clouds from Psyche assets ─────────────────────────
-  if (ZS.cloudLoaded && ZS.stormAlpha > 0.1) {
-    const cW = Math.floor(W * 0.55);
-    const cH = Math.floor(ZS.cloudImg.naturalHeight * (cW / ZS.cloudImg.naturalWidth));
-    ctx.save();
-    ctx.globalAlpha = ZS.stormAlpha * 0.55;
-    // Two clouds offset for coverage
-    ctx.drawImage(ZS.cloudImg, -W*0.05, Math.floor(H * 0.02), cW, cH);
-    ctx.globalAlpha = ZS.stormAlpha * 0.40;
-    ctx.drawImage(ZS.cloudImg, W * 0.45, Math.floor(H * 0.05), cW, cH);
-    ctx.restore();
-  }
-
-  // ── Lightning flash + Psyche bolt sprite ─────────────────────
+  // ── Lightning flash — simple drawn bolt only ──────────────────
   if (ZS.lightFlash > 0) {
-    ctx.fillStyle = `rgba(210,195,255,${(ZS.lightFlash * 0.20).toFixed(2)})`;
+    ctx.fillStyle = `rgba(200,185,255,${(ZS.lightFlash * 0.18).toFixed(2)})`;
     ctx.fillRect(0, 0, W, H);
-    if (ZS.lightFlash > 0.45 && ZS.boltLoaded) {
-      // Use Psyche lightning bolt sprite
-      const bW = Math.floor(W * 0.12);
-      const bH = Math.floor(ZS.boltImg.naturalHeight * (bW / ZS.boltImg.naturalWidth));
-      ctx.save();
-      ctx.globalAlpha = ZS.lightFlash * 0.85;
-      ctx.drawImage(ZS.boltImg, Math.floor(W * 0.44), 0, bW, bH);
-      ctx.restore();
-    } else if (ZS.lightFlash > 0.45) {
-      // Fallback drawn bolt
+    if (ZS.lightFlash > 0.5) {
       ctx.save();
       ctx.strokeStyle = `rgba(240,225,255,${ZS.lightFlash.toFixed(2)})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
       const bx = W * 0.5;
       ctx.moveTo(bx, 0);
-      ctx.lineTo(bx-9,  H*0.10);
-      ctx.lineTo(bx+6,  H*0.20);
-      ctx.lineTo(bx-5,  H*0.32);
+      ctx.lineTo(bx-10, H*0.10);
+      ctx.lineTo(bx+7,  H*0.22);
+      ctx.lineTo(bx-6,  H*0.34);
       ctx.stroke();
       ctx.restore();
     }
   }
 
-  // ── Zeus sprite ──────────────────────────────────────────────
-  // The Zeus image has fire/storm content at the bottom of the sprite.
-  // We cap render height to H*0.50 so Zeus stays in the upper sky zone
-  // and doesn't fall off the canvas bottom.
-  // drawImage 9-param: clip from top of source, render to canvas position.
+  // ── City silhouette ───────────────────────────────────────────
+  // Draw at natural aspect ratio, bottom-aligned.
+  // Then paint a gradient OVER the upper portion of the city area
+  // to blend its background into the sky — no clipping math needed.
+  let cityTop = H; // fallback: city occupies no space
+  if (ZS.cityLoaded && ZS.cityImg.naturalWidth > 0) {
+    const scale  = W / ZS.cityImg.naturalWidth;
+    const dstH   = Math.floor(ZS.cityImg.naturalHeight * scale);
+    const dstY   = H - dstH;
+    cityTop = dstY;
+    ctx.drawImage(ZS.cityImg, 0, dstY, W, dstH);
+    // Blend the top 60% of the city image into the sky with a gradient
+    const blendH = Math.floor(dstH * 0.60);
+    const blendGrad = ctx.createLinearGradient(0, dstY, 0, dstY + blendH);
+    // Get current sky bottom color to blend seamlessly
+    blendGrad.addColorStop(0, botCol);    // fully opaque sky color at top
+    blendGrad.addColorStop(1, 'rgba(0,0,0,0)'); // transparent at bottom
+    ctx.fillStyle = blendGrad;
+    ctx.fillRect(0, dstY, W, blendH);
+  } else {
+    // Fallback drawn silhouette
+    cityTop = Math.floor(H * 0.72);
+    ctx.fillStyle = '#050408';
+    ctx.fillRect(0, cityTop, W, H - cityTop);
+    ctx.fillRect(W*0.18, H*0.60, W*0.035, H*0.12);
+    ctx.fillRect(W*0.168,H*0.585,W*0.057,H*0.02);
+    for (let i = 0; i < 14; i++)
+      ctx.fillRect(W*0.04 + i*(W*0.065), cityTop, W*0.038, H*0.022);
+  }
+
+  // ── Zeus sprite ───────────────────────────────────────────────
+  // Scale to fit width. Target Y: zeus bottom touches city top.
+  // No clipping — draw the full image, let it fade in naturally.
   if ((ZS.phase === 'descend' || ZS.phase === 'dialogue' || ZS.phase === 'choice') &&
       ZS.zeusLoaded && ZS.zeusImg.naturalWidth > 0) {
-    const srcW    = ZS.zeusImg.naturalWidth;
-    const srcH    = ZS.zeusImg.naturalHeight;
-    // Scale so Zeus fills at most 45% of canvas width
-    const scale   = Math.min(ZS.zeusScale, (W * 0.45) / srcW);
-    const dstW    = Math.floor(srcW * scale);
-    // Cap rendered height to 48% of canvas
-    const maxDstH = Math.floor(H * 0.48);
-    const dstH    = Math.min(Math.floor(srcH * scale), maxDstH);
-    // Source clip: take top portion of image (where Zeus figure is)
-    const clipH   = Math.floor(dstH / scale);
-    const dx      = Math.floor(W * 0.5 - dstW / 2);
-    const dy      = Math.floor(ZS.zeusY);
+    const scale  = Math.min(ZS.zeusScale, (W * 0.50) / ZS.zeusImg.naturalWidth);
+    const dstW   = Math.floor(ZS.zeusImg.naturalWidth  * scale);
+    const dstH   = Math.floor(ZS.zeusImg.naturalHeight * scale);
+    // Target: zeus bottom edge sits at cityTop
+    ZS.zeusTargetY = cityTop - dstH;
+    const dx = Math.floor(W * 0.5 - dstW / 2);
     ctx.save();
     ctx.globalAlpha = ZS.zeusAlpha;
     ctx.shadowColor = '#f0c040';
-    ctx.shadowBlur  = 30;
-    ctx.drawImage(ZS.zeusImg, 0, 0, srcW, clipH, dx, dy, dstW, dstH);
+    ctx.shadowBlur  = 28;
+    ctx.drawImage(ZS.zeusImg, dx, Math.floor(ZS.zeusY), dstW, dstH);
     ctx.shadowBlur  = 0;
     ctx.restore();
-  }
-
-  // ── City silhouette — clipped to show only bottom portion ────
-  // The image has dead space above the actual buildings.
-  // We use the 9-param drawImage to clip the bottom 40% of the source
-  // and pin it to the very bottom of the canvas.
-  // This accounts for any non-transparent background in the image.
-  if (ZS.cityLoaded && ZS.cityImg.naturalWidth > 0) {
-    const srcW    = ZS.cityImg.naturalWidth;
-    const srcH    = ZS.cityImg.naturalHeight;
-    // Take only the bottom 42% of the source image (where buildings actually are)
-    const clipFrac = 0.42;
-    const srcClipY = Math.floor(srcH * (1 - clipFrac));
-    const srcClipH = Math.floor(srcH * clipFrac);
-    // Render height: 28% of canvas
-    const dstH    = Math.floor(H * 0.28);
-    ctx.drawImage(ZS.cityImg, 0, srcClipY, srcW, srcClipH, 0, H - dstH, W, dstH);
-  } else {
-    // Fallback pixel silhouette
-    ctx.fillStyle = '#050408';
-    ctx.fillRect(0, H * 0.78, W, H * 0.22);
-    ctx.fillRect(W*0.18, H*0.62, W*0.035, H*0.16);
-    ctx.fillRect(W*0.168,H*0.60,W*0.057,H*0.024);
-    for (let i = 0; i < 14; i++)
-      ctx.fillRect(W*0.04 + i*(W*0.065), H*0.76, W*0.038, H*0.022);
   }
 
   // ── Dialogue overlay — RPG box on canvas ─────────────────────
   if (ZS.phase === 'dialogue' || ZS.phase === 'choice') {
     const boxH  = H * 0.28;
     const boxY  = H - boxH - 2;
-    const pad   = 16;
-
-    // Semi-transparent dark panel
+    const pad   = 18;
     ctx.save();
-    ctx.globalAlpha = 0.82;
+    ctx.globalAlpha = 0.85;
     ctx.fillStyle   = '#06050f';
     ctx.fillRect(0, boxY, W, boxH + 2);
     ctx.globalAlpha = 1;
-
-    // Gold border — top line only (bottom is canvas edge)
     ctx.strokeStyle = '#805810';
     ctx.lineWidth   = 2;
     ctx.strokeRect(1, boxY, W - 2, boxH);
-
-    // Inner highlight line
-    ctx.strokeStyle = 'rgba(240,192,64,0.25)';
+    ctx.strokeStyle = 'rgba(240,192,64,0.20)';
     ctx.lineWidth   = 1;
     ctx.beginPath();
-    ctx.moveTo(pad, boxY + 4);
-    ctx.lineTo(W - pad, boxY + 4);
+    ctx.moveTo(pad, boxY + 5);
+    ctx.lineTo(W - pad, boxY + 5);
     ctx.stroke();
     ctx.restore();
-
-    // Text — draw completed lines dim, current line bright
     ctx.save();
     ctx.font      = '13px "Courier New", monospace';
     ctx.textAlign = 'left';
     const lineH   = 22;
     const textTop = boxY + pad + 8;
-
     ZS.lines.slice(0, ZS.lineIdx).forEach((line, i) => {
       ctx.fillStyle = 'rgba(176,160,144,0.75)';
       ctx.fillText(line, pad, textTop + i * lineH);
     });
-
-    // Current line being typed
     if (ZS.lineIdx < ZS.lines.length) {
       const partial = ZS.lines[ZS.lineIdx].slice(0, ZS.charIdx);
       ctx.fillStyle = '#f0e8d0';
       ctx.fillText(partial, pad, textTop + ZS.lineIdx * lineH);
-
-      // Blinking cursor
       const cursorOn = Math.floor(ZS.elapsed / 500) % 2 === 0;
       if (cursorOn) {
         const tw = ctx.measureText(partial).width;
@@ -980,16 +930,15 @@ function drawZS(ctx) {
     ctx.restore();
   }
 
-  // ── Edge vignette ────────────────────────────────────────────
+  // ── Edge vignette ─────────────────────────────────────────────
   const vg = ctx.createLinearGradient(0, 0, W, 0);
-  vg.addColorStop(0,   'rgba(2,2,8,0.5)');
-  vg.addColorStop(0.15,'rgba(2,2,8,0)');
-  vg.addColorStop(0.85,'rgba(2,2,8,0)');
-  vg.addColorStop(1,   'rgba(2,2,8,0.5)');
+  vg.addColorStop(0,    'rgba(2,2,8,0.45)');
+  vg.addColorStop(0.15, 'rgba(2,2,8,0)');
+  vg.addColorStop(0.85, 'rgba(2,2,8,0)');
+  vg.addColorStop(1,    'rgba(2,2,8,0.45)');
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
 }
-
 function showZeusChoices() {
   const cd = document.getElementById('zs-choices');
   if (!cd) return;
