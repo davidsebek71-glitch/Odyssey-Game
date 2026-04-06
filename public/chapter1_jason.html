@@ -1481,7 +1481,7 @@ const PC_GATES        = [[9,1],[9,7]];   // gate cells (value=2) that questions 
 
 function initPC() {
   return {
-    jason:   { c: PC_JASON_START[0], r: PC_JASON_START[1], px:0, py:0, moving:false, dir:[0,0] },
+    jason:   { c: PC_JASON_START[0], r: PC_JASON_START[1], px:0, py:0, moving:false, dir:null, bufferedDir:null, targetC:0, targetR:0, progress:0 },
     guards:  PC_GUARD_STARTS.map((s,i) => ({ c:s[0], r:s[1], px:0, py:0, id:i, blocked:0 })),
     gates:   { '9,1': true, '9,7': true },  // true = closed
     phase:   'play',     // play | question | capture | victory | gameover
@@ -1635,7 +1635,7 @@ function launchPeliasCanvas() {
 }
 
 // ── Physics update ───────────────────────────────────────────
-const PC_STEP_MS  = 200;   // ms per cell move (Jason speed)
+const PC_STEP_MS  = 160;   // ms per cell move — snappy but readable
 const PC_GUARD_MS = 650;   // ms per cell (guard speed — significantly slower than Jason)
 
 function updatePC(dt) {
@@ -1653,36 +1653,67 @@ function updatePC(dt) {
 
   if (remaining <= 0) { peliasGameOver('timeout'); return; }
 
-  // Move Jason — read current held key once per step (no queue drain drift)
+  // ── Jason movement — Pac-Man buffered-direction pattern ──────
+  // Every frame: update the buffered direction from held keys / touch queue.
+  // On cell completion: try buffered dir first, fall back to current dir (wall-hug).
+  // Result: zero input lag, instant corner cutting, no drift.
   const J = PC.jason;
-  if (!J.moving) {
-    // Priority: keyboard held keys first, then touch queue
-    let dir = null;
-    const held = Object.values(PC.heldKeys).find(v => v);
-    if (held) dir = held;
-    else if (PC.moveQueue.length > 0) dir = PC.moveQueue.shift();
 
-    if (dir) {
-      const nc = J.c + dir[0], nr = J.r + dir[1];
-      if (isPassable(nc, nr)) {
-        J.dir = dir;
-        J.moving = true;
-        J.targetC = nc; J.targetR = nr;
-        J.progress = 0;
-      }
-    }
-  }
+  // Always update buffer from held keys (keyboard) or touch queue (mobile)
+  const held = Object.values(PC.heldKeys).find(v => v);
+  if (held) J.bufferedDir = held;
+  else if (PC.moveQueue.length > 0) J.bufferedDir = PC.moveQueue.shift();
+
   if (J.moving) {
     J.progress += dt / PC_STEP_MS;
     if (J.progress >= 1) {
+      // Arrived at target cell
       J.c = J.targetC; J.r = J.targetR;
       J.progress = 0; J.moving = false;
-      // Check harbor
+
+      // Check harbor / gate on arrival
       if (J.c === PC_HARBOR[0] && J.r === PC_HARBOR[1]) { peliasVictory(); return; }
-      // Check gate unlock
       const gk = J.c + ',' + J.r;
       if (PC.gates[gk]) { triggerGateQuestion(gk); return; }
+
+      // Immediately try next move: buffered dir first, then continue current dir
+      const tryDirs = [];
+      if (J.bufferedDir) tryDirs.push(J.bufferedDir);
+      if (J.dir && (!J.bufferedDir ||
+          (J.bufferedDir[0] !== J.dir[0] || J.bufferedDir[1] !== J.dir[1]))) {
+        tryDirs.push(J.dir);
+      }
+      for (const d of tryDirs) {
+        const nc = J.c + d[0], nr = J.r + d[1];
+        if (isPassable(nc, nr)) {
+          J.dir = d;
+          J.targetC = nc; J.targetR = nr;
+          J.moving = true; J.progress = 0;
+          break;
+        }
+      }
     }
+  } else {
+    // Not moving: try to start — buffered dir first, then current dir
+    const tryDirs = [];
+    if (J.bufferedDir) tryDirs.push(J.bufferedDir);
+    if (J.dir && (!J.bufferedDir ||
+        (J.bufferedDir[0] !== J.dir[0] || J.bufferedDir[1] !== J.dir[1]))) {
+      tryDirs.push(J.dir);
+    }
+    for (const d of tryDirs) {
+      const nc = J.c + d[0], nr = J.r + d[1];
+      if (isPassable(nc, nr)) {
+        J.dir = d;
+        J.targetC = nc; J.targetR = nr;
+        J.moving = true; J.progress = 0;
+        break;
+      }
+    }
+  }
+
+  // Interpolated pixel position for smooth draw
+  if (J.moving) {
     J.px = lerp(J.c - J.dir[0], J.targetC, J.progress) * PC.cellSize;
     J.py = lerp(J.r - J.dir[1], J.targetR, J.progress) * PC.cellSize;
   } else {
