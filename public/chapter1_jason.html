@@ -1505,11 +1505,13 @@ function initPC() {
     jason: {
       c: PC_JASON_START[0], r: PC_JASON_START[1],
       px: 0, py: 0,
-      moving: false, dir: null,
+      moving: false, dir: null, fromC: PC_JASON_START[0], fromR: PC_JASON_START[1],
       targetC: 0, targetR: 0, progress: 0
     },
     guards:  PC_GUARD_STARTS.map((s,i) => ({
-      c: s[0], r: s[1], px: 0, py: 0, id: i, blocked: 0, _stepTimer: 0
+      c: s[0], r: s[1], fromC: s[0], fromR: s[1],
+      targetC: s[0], targetR: s[1], progress: 1,
+      id: i, blocked: 0, _stepTimer: 0
     })),
     pellets,                      // collected state per [c,r]
     phase:    'play',
@@ -1518,7 +1520,6 @@ function initPC() {
     _cleanup: null,
     captures: 0,
     moveQueue: [],
-    heldKeys:  {},
     cellSize: 0
   };
 }
@@ -1597,15 +1598,20 @@ function launchPeliasCanvas() {
     w:[0,-1], s:[0,1], a:[-1,0], d:[1,0],
     W:[0,-1], S:[0,1], A:[-1,0], D:[1,0]
   };
+  // One keydown = one cell move queued. Key-repeat ignored via lastKey guard.
+  // No keyup needed. Touch tap already queues the same way.
+  let pcLastKey = null;
   const onKey = e => {
+    if (e.type !== 'keydown') return;
     if (PC.phase !== 'play') return;
     const d = DIRS[e.key];
     if (!d) return;
     e.preventDefault();
-    PC.heldKeys[e.key] = (e.type === 'keydown') ? d : null;
+    // Ignore OS key-repeat (same key still physically held)
+    if (e.repeat) return;
+    PC.moveQueue.push(d);
   };
   document.addEventListener('keydown', onKey);
-  document.addEventListener('keyup',   onKey);
 
   // Touch: tap quadrant
   canvas.addEventListener('touchstart', e => {
@@ -1622,7 +1628,6 @@ function launchPeliasCanvas() {
 
   PC._cleanup = () => {
     document.removeEventListener('keydown', onKey);
-    document.removeEventListener('keyup',   onKey);
   };
 
   let lastTs = 0;
@@ -1664,72 +1669,58 @@ function updatePC(dt) {
   if (remaining <= 0) { peliasGameOver('timeout'); return; }
 
   // ── Jason movement ───────────────────────────────────────────
-  // Rule: Jason moves ONLY while a key is held. Releasing stops him
-  // at the next cell boundary. No auto-continue, no wall-hug.
-  // Input is read every frame into wantDir. On cell arrival:
-  //   - if wantDir is passable → take it
-  //   - else if current dir is passable AND key still held → continue
-  //   - else → stop
+  // One key press = one cell. Queue-based: each keydown pushes one
+  // direction onto moveQueue. Movement consumes one item per cell arrival.
+  // No holding, no auto-repeat, no continuation. Clean checkers-style.
   const J = PC.jason;
-
-  // Read current input — keyboard held state wins over touch queue
-  const held = Object.values(PC.heldKeys).find(v => v);
-  const wantDir = held || (PC.moveQueue.length > 0 ? PC.moveQueue[0] : null);
 
   if (J.moving) {
     J.progress += dt / PC_STEP_MS;
-
     if (J.progress >= 1) {
-      // Arrived — snap to target cell
       J.c = J.targetC; J.r = J.targetR;
       J.progress = 0; J.moving = false;
       checkJasonCell(J);
       if (PC.phase !== 'play') return;
-
-      // Decide next step now that we've arrived
-      if (wantDir) {
-        // Try the held direction first
-        const nc = J.c + wantDir[0], nr = J.r + wantDir[1];
-        if (isPassable(nc, nr)) {
-          if (!held && PC.moveQueue.length > 0) PC.moveQueue.shift(); // consume touch
-          J.dir = wantDir;
-          J.targetC = nc; J.targetR = nr;
-          J.moving = true; J.progress = 0;
-        } else if (held && J.dir &&
-                   !(wantDir[0] === J.dir[0] && wantDir[1] === J.dir[1])) {
-          // Held key hits wall — try continuing current direction
-          const cc = J.c + J.dir[0], cr = J.r + J.dir[1];
-          if (isPassable(cc, cr)) {
-            J.targetC = cc; J.targetR = cr;
-            J.moving = true; J.progress = 0;
-          }
-          // else: fully blocked, stop
-        }
-        // else: only touch-queued and it's blocked — stop, don't consume
-      }
-      // No key held and no queue → stop. Player must press again to move.
-    }
-  } else if (wantDir) {
-    // Not moving — start immediately if direction is passable
-    const nc = J.c + wantDir[0], nr = J.r + wantDir[1];
-    if (isPassable(nc, nr)) {
-      if (!held && PC.moveQueue.length > 0) PC.moveQueue.shift();
-      J.dir = wantDir;
-      J.targetC = nc; J.targetR = nr;
-      J.moving = true; J.progress = 0;
     }
   }
 
-  // ── Guards ───────────────────────────────────────────────────
+  // Start next move only if not already moving and queue has input
+  if (!J.moving && PC.moveQueue.length > 0) {
+    const d = PC.moveQueue[0];
+    const nc = J.c + d[0], nr = J.r + d[1];
+    if (isPassable(nc, nr)) {
+      PC.moveQueue.shift(); // consume
+      J.dir = d;
+      J.fromC = J.c; J.fromR = J.r; // store interpolation start
+      J.targetC = nc; J.targetR = nr;
+      J.moving = true; J.progress = 0;
+    } else {
+      PC.moveQueue.shift(); // discard blocked move, don't stall queue
+    }
+  }
+
+  // ── Guards — smooth interpolated movement ────────────────────
   PC.guards.forEach(g => {
     g.blocked = Math.max(0, g.blocked - dt);
-    if (g.blocked > 0) return;
-    g._stepTimer += dt;
-    if (g._stepTimer < PC_GUARD_MS) return;
-    g._stepTimer -= PC_GUARD_MS;
-    const step = guardStep(g, J);
-    if (step) { g.c += step.dc; g.r += step.dr; }
-    if (g.c === J.c && g.r === J.r) { peliasCapture(); return; }
+    if (g.blocked > 0) { g.progress = 1; return; } // freeze in place when blocked
+
+    // Advance interpolation progress
+    if (g.progress < 1) {
+      g.progress = Math.min(1, g.progress + dt / PC_GUARD_MS);
+    }
+
+    // Once arrived at target, pick next cell
+    if (g.progress >= 1) {
+      g.c = g.targetC; g.r = g.targetR; // snap to target
+      const step = guardStep(g, J);
+      if (step) {
+        g.fromC = g.c; g.fromR = g.r;
+        g.targetC = g.c + step.dc; g.targetR = g.r + step.dr;
+        g.progress = 0;
+      }
+      // Catch check at grid level
+      if (g.c === J.c && g.r === J.r) { peliasCapture(); return; }
+    }
   });
 }
 
@@ -1983,12 +1974,9 @@ function drawPC(ctx) {
   }
 
   // Jason — gold Pac-Man-style circle with mouth
-  const jx = (J.moving && J.dir)
-    ? lerp(J.c - J.dir[0], J.targetC, J.progress) * S
-    : J.c * S;
-  const jy = (J.moving && J.dir)
-    ? lerp(J.r - J.dir[1], J.targetR, J.progress) * S
-    : J.r * S;
+  // Interpolate from stored fromC/fromR to targetC/targetR — no stale-dir math
+  const jx = J.moving ? lerp(J.fromC, J.targetC, J.progress) * S : J.c * S;
+  const jy = J.moving ? lerp(J.fromR, J.targetR, J.progress) * S : J.r * S;
   const jr = Math.max(3, Math.floor(S * 0.38));
   const cx_ = jx + S/2, cy_ = jy + S/2;
 
@@ -2023,10 +2011,12 @@ function drawPC(ctx) {
     ctx.fill();
   }
 
-  // Guards — ghost-style colored shapes
+  // Guards — ghost-style colored shapes, smoothly interpolated
   const GUARD_COLORS = ['#e04040','#f9a8d4','#60a5fa','#4ade80'];
   PC.guards.forEach((g, gi) => {
-    const gx = g.c * S, gy = g.r * S;
+    const gpx = lerp(g.fromC, g.targetC, g.progress) * S;
+    const gpy = lerp(g.fromR, g.targetR, g.progress) * S;
+    const gx = gpx, gy = gpy;
     const gcx = gx + S/2, gcy = gy + S/2;
     const gr  = Math.max(3, Math.floor(S * 0.36));
     const col = g.blocked > 0 ? 'rgba(64,128,224,0.55)' : GUARD_COLORS[gi % 4];
