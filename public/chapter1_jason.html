@@ -840,7 +840,7 @@ function drawZS(ctx) {
   // ── City silhouette — clean transparent PNG, base flush to canvas bottom ────
   // Image is 1536x727 (aspect 2.11:1), white silhouette, transparent background.
   // Scale to canvas width. Base of image = base of silhouette = bottom of canvas.
-  const CITY_ASPECT = 1536 / 727;  // known from image analysis
+  const CITY_ASPECT = 1536 / 354;  // measured from clean cropped PNG (1536x354)
   const cityDstH    = Math.floor(W / CITY_ASPECT);
   const cityDstY    = H - cityDstH;          // top of city image
   const cityTop     = cityDstY;              // where Zeus bottom must land
