@@ -1820,12 +1820,14 @@ function initPC() {
       c: s[0], r: s[1], fromC: s[0], fromR: s[1],
       targetC: s[0], targetR: s[1], progress: 1,
       id: i, blocked: 0,
-      _stepTimer: i === 0 ? -3000 : 0,  // Pelias held 3s before first move
+      _stepTimer: i === 0 ? -999999 : 0,  // Pelias held until 3rd pellet collected
       dir: null,
       path: []   // BFS cached path
     })),
     pellets,                      // collected state per [c,r]
     avatarType: avType() || 'none',  // affects guard behavior
+    pelletsCollected: 0,   // how many questions answered
+    harborOpen: false,     // locked until all pellets collected
     phase:    'play',
     elapsed:  0,
     animId:   null,
@@ -1863,7 +1865,7 @@ function renderPeliasIntro() {
       '<div style="color:#f97316;letter-spacing:2px;margin-bottom:10px;">HOW TO ESCAPE</div>',
       '<div style="display:flex;flex-direction:column;gap:6px;">',
         '<div>&#8592;&#8593;&#8594;&#8595; Arrow keys &nbsp;&middot;&nbsp; WASD &nbsp;&middot;&nbsp; Tap screen quadrants</div>',
-        '<div>&#9203; Reach the harbor <strong style="color:var(--gold);">H</strong> in 90 seconds</div>',
+        '<div>&#9679; Collect ALL ' + PC_PELLETS.length + ' question pellets to unlock the harbor</div>',
         '<div>&#9679; Collect <strong style="color:#c084fc;">question pellets</strong> in the corridors to earn guard blocks</div>',
         '<div>&#127939; Caught by a guard: &minus;5 Provisions, restart</div>',
         '<div>&#9654; Under 45 seconds: +10 Drachma speed bonus</div>',
@@ -1878,8 +1880,7 @@ function renderPeliasIntro() {
 // ── Game start ───────────────────────────────────────────────
 function startPeliasChase() {
   PC = initPC();
-  // Devoted avatar: Pelias (guard 0) held back extra 5s
-  if (avType() === 'devoted') PC.guards[0]._stepTimer -= 5000;
+  // Devoted avatar: Pelias held until 4th pellet instead of 3rd (handled in guard move)
   launchPeliasCanvas();
 }
 
@@ -1897,7 +1898,7 @@ function launchPeliasCanvas() {
     '<div id="pc-hud" style="width:' + canvW + 'px;display:flex;justify-content:space-between;align-items:center;' +
          'background:var(--bg1);border:2px solid #4040e0;border-top:none;padding:8px 14px;font-family:var(--px);font-size:12px;">' +
       '<span id="pc-timer" style="color:#f97316;">90s</span>' +
-      '<span id="pc-status" style="color:var(--gold);">REACH THE HARBOR</span>' +
+      '<span id="pc-status" style="color:var(--gold);">&#9679; 0/' + PC_PELLETS.length + ' &mdash; Harbor Locked</span>' +
       '<span style="color:var(--text2);">&#127829; <span id="pc-prov">' + G.provisions + '</span></span>' +
     '</div>' +
     '</div>';
@@ -2011,7 +2012,7 @@ function launchPeliasCanvas() {
 // achieves instant-feeling turns at junctions.
 // ============================================================
 const PC_STEP_MS        = 220;  // ms per cell — Pac-Man's actual timing
-const PC_GUARD_MS       = 700;  // guards significantly slower
+const PC_GUARD_MS       = 480;  // aggressive but beatable
 
 function updatePC(dt) {
   PC.elapsed += dt;
@@ -2025,6 +2026,18 @@ function updatePC(dt) {
     timerEl.style.color = secs <= 20 ? 'var(--red)' : '#f97316';
   }
   if (remaining <= 0) { peliasGameOver('timeout'); return; }
+  // Update pellet/harbor status HUD
+  const statusEl = document.getElementById('pc-status');
+  if (statusEl) {
+    const tot = PC_PELLETS.length;
+    if (PC.harborOpen) {
+      statusEl.textContent = '\u2713 HARBOR OPEN \u2014 RUN!';
+      statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = '\u25cf ' + PC.pelletsCollected + '/' + tot + ' \u2014 Harbor Locked';
+      statusEl.style.color = PC.pelletsCollected >= tot - 1 ? '#f0c040' : 'var(--text2)';
+    }
+  }
 
   // ── Jason movement ───────────────────────────────────────────
   // One key press = one cell. Queue-based: each keydown pushes one
@@ -2101,12 +2114,29 @@ function updatePC(dt) {
 
 
 function checkJasonCell(J) {
-  // Harbor check
-  if (J.c === PC_HARBOR[0] && J.r === PC_HARBOR[1]) { peliasVictory(); return; }
+  // Harbor — only passable once all pellets collected
+  if (J.c === PC_HARBOR[0] && J.r === PC_HARBOR[1]) {
+    if (PC.harborOpen) { peliasVictory(); return; }
+    // Blocked — bounce back to previous cell
+    J.c = J.fromC; J.r = J.fromR;
+    J.targetC = J.fromC; J.targetR = J.fromR;
+    return;
+  }
   // Pellet collection
   const pk = J.c + ',' + J.r;
   if (pk in PC.pellets && !PC.pellets[pk]) {
-    PC.pellets[pk] = true; // collect
+    PC.pellets[pk] = true;
+    PC.pelletsCollected++;
+    const total = PC_PELLETS.length;
+    // Release Pelias after 3rd pellet (or 4th for Devoted avatar)
+    const releaseAt = PC.avatarType === 'devoted' ? 4 : 3;
+    if (PC.pelletsCollected >= releaseAt && PC.guards[0]._stepTimer < 0) {
+      PC.guards[0]._stepTimer = 0; // release Pelias NOW
+    }
+    // Open harbor once all pellets collected
+    if (PC.pelletsCollected >= total) {
+      PC.harborOpen = true;
+    }
     pauseForPelletQuestion(pk);
   }
 }
@@ -2116,7 +2146,10 @@ function lerp(a, b, t) { return a + (b - a) * Math.min(1, t); }
 function isPassable(c, r) {
   if (c < 0 || r < 0 || c >= PC_COLS || r >= PC_ROWS) return false;
   const v = PC_MAZE[r][c];
-  return v !== 0; // walls only — no gates in new maze
+  if (v === 0) return false;
+  // Harbor locked until all pellets collected
+  if (v === 4 && PC && !PC.harborOpen) return false;
+  return true;
 }
 
 // BFS shortest path through maze — returns next step toward target
@@ -2331,16 +2364,22 @@ function drawPC(ctx) {
         ctx.fillStyle = '#0a0a55';
         ctx.fillRect(x+3, y+3, S-6, S-6);
       } else if (v === 4) {
-        // Harbor — pulsing teal destination
+        // Harbor — red/locked until all pellets, then teal/open
         ctx.fillStyle = '#000';
         ctx.fillRect(x, y, S, S);
         const pulse = 0.4 + 0.3 * Math.sin(PC.elapsed / 350);
-        ctx.fillStyle = 'rgba(64,216,192,' + pulse + ')';
-        ctx.fillRect(x+2, y+2, S-4, S-4);
-        ctx.fillStyle = '#40d8c0';
+        if (PC.harborOpen) {
+          ctx.fillStyle = 'rgba(64,216,192,' + pulse + ')';
+          ctx.fillRect(x+2, y+2, S-4, S-4);
+          ctx.fillStyle = '#40d8c0';
+        } else {
+          ctx.fillStyle = 'rgba(200,40,40,' + (pulse * 0.7) + ')';
+          ctx.fillRect(x+2, y+2, S-4, S-4);
+          ctx.fillStyle = '#ff6060';
+        }
         ctx.font = 'bold ' + Math.max(8, S-4) + 'px Courier New';
         ctx.textAlign = 'center';
-        ctx.fillText('H', x + S/2, y + S*0.72);
+        ctx.fillText(PC.harborOpen ? 'H' : '\u25a0', x + S/2, y + S*0.72);
       } else if (v === 5) {
         // Question pellet — draw only if not collected
         const pk = c + ',' + r;
