@@ -845,45 +845,20 @@ function drawZS(ctx) {
   const cityDstY    = H - cityDstH;          // top of city image
   const cityTop     = cityDstY;              // where Zeus bottom must land
 
-  if (ZS.cityLoaded && ZS.cityImg.naturalWidth > 0) {
-    // Offscreen composite: fill black then mask to silhouette shape
-    // destination-in on offscreen canvas only — never touches main canvas state
-    const ofc = document.createElement('canvas');
-    ofc.width  = W;
-    ofc.height = cityDstH;
-    const ofx  = ofc.getContext('2d');
-    ofx.fillStyle = '#000';
-    ofx.fillRect(0, 0, W, cityDstH);
-    ofx.globalCompositeOperation = 'destination-in';
-    ofx.drawImage(ZS.cityImg, 0, 0, W, cityDstH);
-    // Draw the black silhouette onto main canvas at correct position
-    ctx.drawImage(ofc, 0, cityDstY);
-  } else {
-    // Fallback drawn silhouette
-    ctx.fillStyle = '#e8e0d0';
-    ctx.fillRect(0, cityTop, W, H - cityTop);
-    ctx.fillRect(W*0.12, H*0.56, W*0.04,  H*0.14);   // tower
-    ctx.fillRect(W*0.10, H*0.54, W*0.06,  H*0.02);   // tower cap
-    ctx.fillRect(W*0.36, H*0.62, W*0.12,  H*0.08);   // temple
-    ctx.fillRect(W*0.39, H*0.60, W*0.06,  H*0.02);   // pediment
-    for (let i = 0; i < 14; i++)                      // walls
-      ctx.fillRect(W*0.05 + i*(W*0.065), cityTop - 4, W*0.04, H*0.02);
-  }
+  // City — draw transparent PNG directly, no compositing needed
+  if (ZS.cityLoaded) ctx.drawImage(ZS.cityImg, 0, cityDstY, W, cityDstH);
 
-  // ── Zeus sprite ───────────────────────────────────────────────
-  // Scale so Zeus is 48% of canvas width. Bottom edge sits exactly at cityTop.
-  // zeusTargetY is computed fresh each frame from the known city position.
+  // Zeus — scale to 35% canvas width, bottom lands at cityTop
   if ((ZS.phase === 'descend' || ZS.phase === 'dialogue' || ZS.phase === 'choice') &&
       ZS.zeusLoaded && ZS.zeusImg.naturalWidth > 0) {
-    const zDstW = Math.floor(W * 0.48);
+    const zDstW = Math.floor(W * 0.35);
     const zDstH = Math.floor(ZS.zeusImg.naturalHeight * (zDstW / ZS.zeusImg.naturalWidth));
-    ZS.zeusTargetY = cityTop - zDstH;          // bottom of Zeus = top of city
-    const dx = Math.floor(W * 0.5 - zDstW / 2);
+    ZS.zeusTargetY = cityTop - zDstH;
     ctx.save();
     ctx.globalAlpha = ZS.zeusAlpha;
     ctx.shadowColor = '#f0c040';
     ctx.shadowBlur  = 28;
-    ctx.drawImage(ZS.zeusImg, dx, Math.floor(ZS.zeusY), zDstW, zDstH);
+    ctx.drawImage(ZS.zeusImg, Math.floor(W*0.5 - zDstW/2), Math.floor(ZS.zeusY), zDstW, zDstH);
     ctx.shadowBlur  = 0;
     ctx.restore();
   }
