@@ -846,7 +846,13 @@ function drawZS(ctx) {
   const cityTop     = cityDstY;              // where Zeus bottom must land
 
   // City — draw transparent PNG directly, no compositing needed
-  if (ZS.cityLoaded) ctx.drawImage(ZS.cityImg, 0, cityDstY, W, cityDstH);
+  // City silhouette — draw with subtle top-edge highlight so it reads against any sky
+  if (ZS.cityLoaded) {
+    ctx.drawImage(ZS.cityImg, 0, cityDstY, W, cityDstH);
+    // Thin bright line along the very top edge of the silhouette area for contrast
+    ctx.fillStyle = 'rgba(180,160,255,0.18)';
+    ctx.fillRect(0, cityDstY, W, 2);
+  }
 
   // Zeus — scale to 35% canvas width, bottom lands at cityTop
   if ((ZS.phase === 'descend' || ZS.phase === 'dialogue' || ZS.phase === 'choice') &&
