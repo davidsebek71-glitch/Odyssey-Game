@@ -563,10 +563,26 @@ async function init() {
     if (av) {
       const [key, gend='male', skin='light'] = av.split('_');
       const img = el('hdr-av-img');
-      img.src = '/images/heroic/avatars/' + key + '/' + key + '_' + gend + '_' + skin + '_base.png';
+      const rawSrc = '/images/heroic/avatars/' + key + '/' + key + '_' + gend + '_' + skin + '_base.png';
       img.onerror = () => { img.style.display='none'; };
       el('hdr-av-name').textContent = avLabel();
       el('hdr-av').style.display = 'flex';
+      // Strip magenta background via offscreen canvas
+      const tmpImg = new Image(); tmpImg.crossOrigin = 'anonymous';
+      tmpImg.onload = () => {
+        const ofc = document.createElement('canvas');
+        ofc.width = tmpImg.naturalWidth; ofc.height = tmpImg.naturalHeight;
+        const ofx = ofc.getContext('2d');
+        ofx.drawImage(tmpImg, 0, 0);
+        const id = ofx.getImageData(0, 0, ofc.width, ofc.height);
+        const px = id.data;
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i]>160 && px[i+1]<100 && px[i+2]>130 && (px[i]-px[i+1])>80) px[i+3]=0;
+        }
+        ofx.putImageData(id, 0, 0);
+        img.src = ofc.toDataURL();
+      };
+      tmpImg.src = rawSrc;
     }
 
     showScreen('screen-game');
@@ -737,7 +753,7 @@ function updateZS(dt) {
     if (ZS.phaseElapsed >= ZS.T_STORM) {
       ZS.phase = 'descend'; ZS.phaseElapsed = 0;
       // Zeus target: upper third of canvas, centered
-      ZS.zeusTargetY = ZS.H * 0.06;
+      ZS.zeusTargetY = ZS.H * 0.21; // descend into upper-mid sky
     }
 
   } else if (ZS.phase === 'descend') {
@@ -871,7 +887,7 @@ function drawZS(ctx) {
       ZS.zeusLoaded && ZS.zeusImg.naturalWidth > 0) {
     const zDstW = Math.floor(W * 0.35);
     const zDstH = Math.floor(ZS.zeusImg.naturalHeight * (zDstW / ZS.zeusImg.naturalWidth));
-    ZS.zeusTargetY = cityTop - zDstH;
+    ZS.zeusTargetY = cityTop - zDstH + Math.floor(ZS.H * 0.15); // 15% lower
     ctx.save();
     ctx.globalAlpha = ZS.zeusAlpha;
     ctx.shadowColor = '#f0c040';
@@ -2025,33 +2041,35 @@ function updatePC(dt) {
   // HUD drawn on canvas in drawPC — no DOM update needed
 
   // ── Jason movement ───────────────────────────────────────────
-  // One key press = one cell. Queue-based: each keydown pushes one
-  // direction onto moveQueue. Movement consumes one item per cell arrival.
-  // No holding, no auto-repeat, no continuation. Clean checkers-style.
+  // One keypress = one cell. Instant snap (PC_STEP_MS=1).
+  // Critical: only ONE move per frame. If a move completes this frame,
+  // wait until the NEXT frame to start another — prevents cascade jumps.
   const J = PC.jason;
+  let movedThisFrame = false;
 
   if (J.moving) {
     J.progress += dt / PC_STEP_MS;
     if (J.progress >= 1) {
       J.c = J.targetC; J.r = J.targetR;
       J.progress = 0; J.moving = false;
+      movedThisFrame = true;
       checkJasonCell(J);
       if (PC.phase !== 'play') return;
     }
   }
 
-  // Start next move only if not already moving and queue has input
-  if (!J.moving && PC.moveQueue.length > 0) {
+  // Only start next move if not already moving AND didn't just arrive this frame
+  if (!J.moving && !movedThisFrame && PC.moveQueue.length > 0) {
     const d = PC.moveQueue[0];
     const nc = J.c + d[0], nr = J.r + d[1];
     if (isPassable(nc, nr)) {
-      PC.moveQueue.shift(); // consume
+      PC.moveQueue.shift();
       J.dir = d;
-      J.fromC = J.c; J.fromR = J.r; // store interpolation start
+      J.fromC = J.c; J.fromR = J.r;
       J.targetC = nc; J.targetR = nr;
       J.moving = true; J.progress = 0;
     } else {
-      PC.moveQueue.shift(); // discard blocked move, don't stall queue
+      PC.moveQueue.shift(); // discard blocked
     }
   }
 
