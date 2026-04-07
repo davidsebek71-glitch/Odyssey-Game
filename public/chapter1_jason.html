@@ -1837,7 +1837,7 @@ function initPC() {
       c: s[0], r: s[1], fromC: s[0], fromR: s[1],
       targetC: s[0], targetR: s[1], progress: 1,
       id: i, blocked: 0,
-      _stepTimer: i === 0 ? -999999 : 0,  // Pelias held until 3rd pellet collected
+      _stepTimer: 0,  // all guards including Pelias hunt immediately
       dir: null,
       path: []   // BFS cached path
     })),
@@ -1897,7 +1897,25 @@ function renderPeliasIntro() {
 // ── Game start ───────────────────────────────────────────────
 function startPeliasChase() {
   PC = initPC();
-  // Devoted avatar: Pelias held until 4th pellet instead of 3rd (handled in guard move)
+
+  // Key listener added ONCE here — never duplicated on canvas rebuilds
+  const DIRS = {
+    ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
+    w:[0,-1], s:[0,1], a:[-1,0], d:[1,0],
+    W:[0,-1], S:[0,1], A:[-1,0], D:[1,0]
+  };
+  const pcKeyHandler = e => {
+    if (e.type !== 'keydown') return;
+    if (!PC || PC.phase !== 'play') return;
+    const d = DIRS[e.key];
+    if (!d) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    PC.moveQueue.push(d);
+  };
+  document.addEventListener('keydown', pcKeyHandler);
+  PC._keyCleanup = () => document.removeEventListener('keydown', pcKeyHandler);
+
   launchPeliasCanvas();
 }
 
@@ -1924,28 +1942,7 @@ function launchPeliasCanvas() {
   canvas.width  = canvW;
   canvas.height = canvH;
 
-  // ── Input: held-key state (no queue, no drift) ──────────────
-  const DIRS = {
-    ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
-    w:[0,-1], s:[0,1], a:[-1,0], d:[1,0],
-    W:[0,-1], S:[0,1], A:[-1,0], D:[1,0]
-  };
-  // One keydown = one cell move queued. Key-repeat ignored via lastKey guard.
-  // No keyup needed. Touch tap already queues the same way.
-  let pcLastKey = null;
-  const onKey = e => {
-    if (e.type !== 'keydown') return;
-    if (PC.phase !== 'play') return;
-    const d = DIRS[e.key];
-    if (!d) return;
-    e.preventDefault();
-    // Ignore OS key-repeat (same key still physically held)
-    if (e.repeat) return;
-    PC.moveQueue.push(d);
-  };
-  document.addEventListener('keydown', onKey);
-
-  // Touch: tap quadrant
+  // Touch: tap quadrant (added per-canvas, removed when canvas is replaced)
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     if (PC.phase !== 'play') return;
@@ -1957,10 +1954,6 @@ function launchPeliasCanvas() {
       ? (dx > 0 ? [1,0] : [-1,0])
       : (dy > 0 ? [0,1] : [0,-1]));
   }, {passive:false});
-
-  PC._cleanup = () => {
-    document.removeEventListener('keydown', onKey);
-  };
 
   // ── Load character sprites ──────────────────────────────────
   const DIRS_LIST = ['left','right','up','down'];
@@ -2128,11 +2121,7 @@ function checkJasonCell(J) {
     PC.pellets[pk] = true;
     PC.pelletsCollected++;
     const total = PC_PELLETS.length;
-    // Release Pelias after 3rd pellet (or 4th for Devoted avatar)
-    const releaseAt = PC.avatarType === 'devoted' ? 4 : 3;
-    if (PC.pelletsCollected >= releaseAt && PC.guards[0]._stepTimer < 0) {
-      PC.guards[0]._stepTimer = 9999; // release Pelias — skip to ready state
-    }
+    // Pelias hunts from the start — no release needed
     // Open harbor once all pellets collected
     if (PC.pelletsCollected >= total) {
       PC.harborOpen = true;
@@ -2290,6 +2279,7 @@ function restartPeliasRun() {
 function peliasVictory() {
   if (PC.animId) cancelAnimationFrame(PC.animId);
   if (PC._cleanup) PC._cleanup();
+  if (PC._keyCleanup) PC._keyCleanup();
   const elapsed = PC.elapsed;
   const speedBonus = elapsed < 45000 ? 10 : 0;
   if (speedBonus) G.drachma += speedBonus;
@@ -2302,6 +2292,7 @@ function peliasVictory() {
 function peliasGameOver(reason) {
   if (PC.animId) cancelAnimationFrame(PC.animId);
   if (PC._cleanup) PC._cleanup();
+  if (PC._keyCleanup) PC._keyCleanup();
   G.choices.pelias_chase = 'timeout';
   G.provisions = Math.max(0, G.provisions - 5);
   recordChoice('pelias_chase', 'timeout');
