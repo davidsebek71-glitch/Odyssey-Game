@@ -794,21 +794,35 @@ function drawZS(ctx) {
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // ── Procedural clouds — white in sky, fade out in storm ──────
+  // ── Puffy clouds — arc-based, fade out as storm rolls in ───────
   const stormT = ZS.stormAlpha;
-  const cloudRows = [
-    { y:0.06, h:0.05, speed:0.8,  count:5, w:110 },
-    { y:0.14, h:0.04, speed:0.5,  count:7, w:70  },
-    { y:0.22, h:0.06, speed:1.1,  count:4, w:130 },
+
+  function drawCloud(cx, cy, r, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(210,225,255,1)';
+    ctx.beginPath();
+    ctx.arc(cx,        cy,        r * 1.0, 0, Math.PI * 2);
+    ctx.arc(cx + r,    cy - r*0.3, r * 0.75, 0, Math.PI * 2);
+    ctx.arc(cx - r,    cy - r*0.2, r * 0.65, 0, Math.PI * 2);
+    ctx.arc(cx + r*1.7, cy,        r * 0.6,  0, Math.PI * 2);
+    ctx.arc(cx - r*1.5, cy + r*0.1, r * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  const cloudDefs = [
+    { y:0.09, r:18, speed:0.7,  count:4 },
+    { y:0.17, r:13, speed:0.45, count:5 },
+    { y:0.26, r:10, speed:0.9,  count:3 },
   ];
-  cloudRows.forEach((row, ri) => {
-    const la = Math.max(0, (0.45 - ri * 0.06) * (1 - stormT));
-    if (la <= 0) return;
-    ctx.fillStyle = `rgba(200,215,255,${la.toFixed(2)})`;
+  cloudDefs.forEach((row, ri) => {
+    const alpha = Math.max(0, (0.55 - ri * 0.1) * (1 - stormT));
+    if (alpha <= 0) return;
     const spacing = W / row.count;
-    for (let i = 0; i < row.count + 2; i++) {
-      const x = ((i * spacing - ZS.cloudOffset * row.speed * 18) % (W + row.w)) - row.w;
-      ctx.fillRect(Math.floor(x), Math.floor(row.y * H), row.w, Math.floor(row.h * H));
+    for (let i = 0; i < row.count + 1; i++) {
+      const x = ((i * spacing - ZS.cloudOffset * row.speed * 15) % (W + row.r * 4)) - row.r * 2;
+      drawCloud(Math.floor(x), Math.floor(row.y * H), row.r, alpha);
     }
   });
 
@@ -849,9 +863,7 @@ function drawZS(ctx) {
   // City silhouette — draw with subtle top-edge highlight so it reads against any sky
   if (ZS.cityLoaded) {
     ctx.drawImage(ZS.cityImg, 0, cityDstY, W, cityDstH);
-    // Thin bright line along the very top edge of the silhouette area for contrast
-    ctx.fillStyle = 'rgba(180,160,255,0.18)';
-    ctx.fillRect(0, cityDstY, W, 2);
+
   }
 
   // Zeus — scale to 35% canvas width, bottom lands at cityTop
