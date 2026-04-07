@@ -1815,7 +1815,7 @@ function initPC() {
     guards:  PC_GUARD_STARTS.map((s,i) => ({
       c: s[0], r: s[1], fromC: s[0], fromR: s[1],
       targetC: s[0], targetR: s[1], progress: 1,
-      id: i, blocked: 0, _stepTimer: 0
+      id: i, blocked: 0, _stepTimer: 0, dir: null
     })),
     pellets,                      // collected state per [c,r]
     phase:    'play',
@@ -1934,6 +1934,35 @@ function launchPeliasCanvas() {
     document.removeEventListener('keydown', onKey);
   };
 
+  // ── Load character sprites ──────────────────────────────────
+  const DIRS_LIST = ['left','right','up','down'];
+  if (!PC.sprites) {
+    PC.sprites = { guard:{}, pelias:{}, avatar:{} };
+
+    // Guard and Pelias directional sprites
+    DIRS_LIST.forEach(d => {
+      const gi = new Image(); gi.src = '/images/heroic/Jason/guard_' + d + '.png';
+      PC.sprites.guard[d] = gi;
+      const pi = new Image(); pi.src = '/images/heroic/Jason/pelias_' + d + '.png';
+      PC.sprites.pelias[d] = pi;
+    });
+
+    // Student avatar — use base image, flip for left
+    const av = G.student?.selected_avatar;
+    if (av) {
+      const [key, gend='male', skin='light'] = av.split('_');
+      const base = '/images/heroic/avatars/' + key + '/' + key + '_' + gend + '_' + skin + '_base.png';
+      ['right','up','down'].forEach(d => {
+        const img = new Image(); img.src = base;
+        PC.sprites.avatar[d] = img;
+      });
+      // Left = base image drawn flipped (handled in drawPC)
+      const imgL = new Image(); imgL.src = base;
+      PC.sprites.avatar['left'] = imgL;
+      PC.sprites.avatar['flip'] = true; // flag: flip horizontally for left
+    }
+  }
+
   let lastTs = 0;
   function pcLoop(ts) {
     if (!PC) return;
@@ -2020,6 +2049,7 @@ function updatePC(dt) {
       if (step) {
         g.fromC = g.c; g.fromR = g.r;
         g.targetC = g.c + step.dc; g.targetR = g.r + step.dr;
+        g.dir = [step.dc, step.dr];
         g.progress = 0;
       }
       // Catch check at grid level
@@ -2277,93 +2307,77 @@ function drawPC(ctx) {
     }
   }
 
-  // Jason — gold Pac-Man-style circle with mouth
-  // Interpolate from stored fromC/fromR to targetC/targetR — no stale-dir math
+  // Jason — student avatar sprite, directional
   const jx = J.moving ? lerp(J.fromC, J.targetC, J.progress) * S : J.c * S;
   const jy = J.moving ? lerp(J.fromR, J.targetR, J.progress) * S : J.r * S;
-  const jr = Math.max(3, Math.floor(S * 0.38));
-  const cx_ = jx + S/2, cy_ = jy + S/2;
+  const jpad = Math.max(1, Math.floor(S * 0.05));
 
-  // Mouth angle based on direction and progress (chomping animation)
-  const chompAngle = J.moving ? 0.25 * Math.abs(Math.sin(PC.elapsed / 80)) : 0;
-  let startAngle = chompAngle;
-  let endAngle   = Math.PI * 2 - chompAngle;
-  if (J.dir) {
-    const angle = J.dir[0] === 1  ? 0
-                : J.dir[0] === -1 ? Math.PI
-                : J.dir[1] === 1  ? Math.PI/2
-                : -Math.PI/2;
-    startAngle = angle + chompAngle;
-    endAngle   = angle + Math.PI * 2 - chompAngle;
-  }
+  const jDirKey = !J.dir ? 'down'
+    : J.dir[0] === 1  ? 'right'
+    : J.dir[0] === -1 ? 'left'
+    : J.dir[1] === -1 ? 'up' : 'down';
 
-  ctx.beginPath();
-  ctx.moveTo(cx_, cy_);
-  ctx.arc(cx_, cy_, jr, startAngle, endAngle);
-  ctx.closePath();
-  ctx.fillStyle = '#f0c040';
-  ctx.fill();
+  const avSprites = PC.sprites && PC.sprites.avatar;
+  const avImg = avSprites && avSprites[jDirKey];
 
-  // Eye
-  if (J.dir) {
-    const eyeOff = J.dir[1] !== 0 ? [-jr*0.4, 0] : [0, -jr*0.35];
+  if (avImg && avImg.complete && avImg.naturalWidth > 0) {
+    ctx.save();
+    if (jDirKey === 'left') {
+      // Flip horizontally: translate to right edge, scale -1 on x
+      ctx.translate(jx + S, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(avImg, jpad, jy + jpad, S - jpad*2, S - jpad*2);
+    } else {
+      ctx.drawImage(avImg, jx + jpad, jy + jpad, S - jpad*2, S - jpad*2);
+    }
+    ctx.restore();
+  } else {
+    // Fallback: gold circle
+    const jr = Math.max(3, Math.floor(S * 0.38));
     ctx.beginPath();
-    ctx.arc(cx_ + eyeOff[0] + (J.dir[0] * jr * 0.2),
-            cy_ + eyeOff[1] + (J.dir[1] * jr * 0.2),
-            Math.max(1, jr * 0.15), 0, Math.PI * 2);
-    ctx.fillStyle = '#000';
+    ctx.arc(jx + S/2, jy + S/2, jr, 0, Math.PI * 2);
+    ctx.fillStyle = '#f0c040';
     ctx.fill();
   }
 
-  // Guards — ghost-style colored shapes, smoothly interpolated
-  const GUARD_COLORS = ['#e04040','#f9a8d4','#60a5fa','#4ade80'];
+  // Guards — Pelias (guard 0) and soldiers (guards 1-3) with directional sprites
   PC.guards.forEach((g, gi) => {
     const gpx = lerp(g.fromC, g.targetC, g.progress) * S;
     const gpy = lerp(g.fromR, g.targetR, g.progress) * S;
-    const gx = gpx, gy = gpy;
-    const gcx = gx + S/2, gcy = gy + S/2;
-    const gr  = Math.max(3, Math.floor(S * 0.36));
-    const col = g.blocked > 0 ? 'rgba(64,128,224,0.55)' : GUARD_COLORS[gi % 4];
+    const gpad = Math.max(1, Math.floor(S * 0.04));
 
-    // Ghost body: semicircle top + wavy bottom
-    ctx.beginPath();
-    ctx.arc(gcx, gcy - gr*0.1, gr, Math.PI, 0); // dome
-    ctx.lineTo(gcx + gr, gcy + gr * 0.7);
-    // Wavy bottom
-    const waves = 3;
-    for (let w = 0; w < waves; w++) {
-      const wx1 = gcx + gr - (w * 2 * gr / waves);
-      const wx2 = gcx + gr - ((w + 0.5) * 2 * gr / waves);
-      const wx3 = gcx + gr - ((w + 1) * 2 * gr / waves);
-      ctx.quadraticCurveTo(wx1, gcy + gr * 0.3, wx2, gcy + gr * 0.7);
-      ctx.quadraticCurveTo(wx3, gcy + gr * 1.05, wx3, gcy + gr * 0.7);
-    }
-    ctx.lineTo(gcx - gr, gcy - gr*0.1);
-    ctx.closePath();
-    ctx.fillStyle = col;
-    ctx.fill();
+    // Direction key from last movement step
+    const gDirKey = !g.dir ? 'down'
+      : g.dir[0] === 1  ? 'right'
+      : g.dir[0] === -1 ? 'left'
+      : g.dir[1] === -1 ? 'up' : 'down';
 
-    // Ghost eyes (only when not blocked)
-    if (g.blocked <= 0) {
-      [-0.35, 0.35].forEach(ex => {
-        ctx.beginPath();
-        ctx.arc(gcx + gr * ex, gcy - gr*0.15, gr*0.22, 0, Math.PI*2);
-        ctx.fillStyle = '#fff';
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(gcx + gr * ex + gr*0.08, gcy - gr*0.1, gr*0.1, 0, Math.PI*2);
-        ctx.fillStyle = '#00f';
-        ctx.fill();
-      });
+    const spriteSet = PC.sprites && (gi === 0 ? PC.sprites.pelias : PC.sprites.guard);
+    const gImg = spriteSet && spriteSet[gDirKey];
+
+    if (g.blocked > 0) {
+      // Blocked — draw translucent blue flash over sprite
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#4080e0';
+      ctx.fillRect(gpx + gpad, gpy + gpad, S - gpad*2, S - gpad*2);
+      ctx.restore();
+    } else if (gImg && gImg.complete && gImg.naturalWidth > 0) {
+      ctx.drawImage(gImg, gpx + gpad, gpy + gpad, S - gpad*2, S - gpad*2);
+    } else {
+      // Fallback: colored square
+      const FALLBACK = ['#8b0000','#e04040','#e04040','#e04040'];
+      ctx.fillStyle = FALLBACK[gi] || '#e04040';
+      ctx.fillRect(gpx + gpad, gpy + gpad, S - gpad*2, S - gpad*2);
     }
 
-    // Block timer bar under ghost
+    // Block timer bar
     if (g.blocked > 0) {
       const pct = Math.min(1, g.blocked / 5000);
       ctx.fillStyle = 'rgba(64,128,224,0.3)';
-      ctx.fillRect(gx + 2, gy + S - 5, S - 4, 4);
+      ctx.fillRect(gpx + 2, gpy + S - 5, S - 4, 4);
       ctx.fillStyle = '#60a5fa';
-      ctx.fillRect(gx + 2, gy + S - 5, (S - 4) * pct, 4);
+      ctx.fillRect(gpx + 2, gpy + S - 5, (S - 4) * pct, 4);
     }
   });
 }
