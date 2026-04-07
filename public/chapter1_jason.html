@@ -1796,7 +1796,11 @@ for (let r = 0; r < PC_ROWS; r++) {
   }
 }
 
-const PC_GUARD_STARTS = [[9,5],[11,5],[9,6],[11,6]]; // ghost house, verified passable
+const PC_GUARD_STARTS = [
+  [10,6],   // Pelias — starts in center house, releases after delay
+  [3,7],    // Guard 1 — left corridor, aggressive from start
+  [17,7]    // Guard 2 — right corridor, aggressive from start
+];
 const PC_JASON_START  = [1,13];  // bottom-left (value=3)
 const PC_HARBOR       = [19,1];  // top-right   (value=4)
 
@@ -1815,9 +1819,13 @@ function initPC() {
     guards:  PC_GUARD_STARTS.map((s,i) => ({
       c: s[0], r: s[1], fromC: s[0], fromR: s[1],
       targetC: s[0], targetR: s[1], progress: 1,
-      id: i, blocked: 0, _stepTimer: 0, dir: null
+      id: i, blocked: 0,
+      _stepTimer: i === 0 ? -3000 : 0,  // Pelias held 3s before first move
+      dir: null,
+      path: []   // BFS cached path
     })),
     pellets,                      // collected state per [c,r]
+    avatarType: avType() || 'none',  // affects guard behavior
     phase:    'play',
     elapsed:  0,
     animId:   null,
@@ -1870,6 +1878,8 @@ function renderPeliasIntro() {
 // ── Game start ───────────────────────────────────────────────
 function startPeliasChase() {
   PC = initPC();
+  // Devoted avatar: Pelias (guard 0) held back extra 5s
+  if (avType() === 'devoted') PC.guards[0]._stepTimer -= 5000;
   launchPeliasCanvas();
 }
 
@@ -1947,19 +1957,34 @@ function launchPeliasCanvas() {
       PC.sprites.pelias[d] = pi;
     });
 
-    // Student avatar — use base image, flip for left
-    const av = G.student?.selected_avatar;
-    if (av) {
-      const [key, gend='male', skin='light'] = av.split('_');
+    // Student avatar — load and strip magenta via offscreen canvas
+    const avSel = G.student?.selected_avatar;
+    if (avSel) {
+      const [key, gend='male', skin='light'] = avSel.split('_');
       const base = '/images/heroic/avatars/' + key + '/' + key + '_' + gend + '_' + skin + '_base.png';
-      ['right','up','down'].forEach(d => {
-        const img = new Image(); img.src = base;
-        PC.sprites.avatar[d] = img;
-      });
-      // Left = base image drawn flipped (handled in drawPC)
-      const imgL = new Image(); imgL.src = base;
-      PC.sprites.avatar['left'] = imgL;
-      PC.sprites.avatar['flip'] = true; // flag: flip horizontally for left
+      const rawImg = new Image();
+      rawImg.crossOrigin = 'anonymous';
+      rawImg.onload = () => {
+        // Strip magenta on offscreen canvas
+        const ofc = document.createElement('canvas');
+        ofc.width = rawImg.naturalWidth; ofc.height = rawImg.naturalHeight;
+        const ofx = ofc.getContext('2d');
+        ofx.drawImage(rawImg, 0, 0);
+        const id = ofx.getImageData(0, 0, ofc.width, ofc.height);
+        const d = id.data;
+        for (let i = 0; i < d.length; i += 4) {
+          // Magenta: R high, G low, B high
+          if (d[i]>160 && d[i+1]<100 && d[i+2]>130 && (d[i]-d[i+1])>80) d[i+3]=0;
+        }
+        ofx.putImageData(id, 0, 0);
+        // Create clean ImageBitmap and store for all directions
+        createImageBitmap(ofc).then(bmp => {
+          ['left','right','up','down'].forEach(dir => {
+            PC.sprites.avatar[dir] = bmp;
+          });
+        });
+      };
+      rawImg.src = base;
     }
   }
 
@@ -2032,27 +2057,42 @@ function updatePC(dt) {
     }
   }
 
-  // ── Guards — smooth interpolated movement ────────────────────
+  // ── Guards — BFS pursuit with avatar-based modifiers ─────────
+  // Avatar effects on guards:
+  //   devoted  → Pelias starts blocked extra 5s
+  //   builder  → guard speed -20% (slower)
+  //   cunning  → guards shown with warning when within 3 cells (visual only)
+  //   fallen   → guards +15% faster
+  //   mirror   → guards randomize 50% instead of 25% (easier to dodge)
+  const av = PC.avatarType;
+  const guardSpeedMs = PC_GUARD_MS
+    * (av === 'fallen'  ? 0.85 : 1)   // fallen: guards faster (harder)
+    * (av === 'builder' ? 1.20 : 1);  // builder: guards slower (easier)
+
   PC.guards.forEach(g => {
     g.blocked = Math.max(0, g.blocked - dt);
-    if (g.blocked > 0) { g.progress = 1; return; } // freeze in place when blocked
+    if (g.blocked > 0) { g.progress = 1; return; }
 
-    // Advance interpolation progress
+    g._stepTimer += dt;
+    if (g._stepTimer < 0) return; // Pelias held back by negative timer
+
     if (g.progress < 1) {
-      g.progress = Math.min(1, g.progress + dt / PC_GUARD_MS);
+      g.progress = Math.min(1, g.progress + dt / guardSpeedMs);
     }
 
-    // Once arrived at target, pick next cell
     if (g.progress >= 1) {
-      g.c = g.targetC; g.r = g.targetR; // snap to target
-      const step = guardStep(g, J);
+      g.c = g.targetC; g.r = g.targetR;
+
+      // Mirror avatar: guards randomize more
+      const rChance = av === 'mirror' ? 0.50 : 0.25;
+      const randomize = g.id > 0 && Math.random() < rChance;
+      const step = bfsStep(g.c, g.r, J.c, J.r, randomize);
       if (step) {
         g.fromC = g.c; g.fromR = g.r;
         g.targetC = g.c + step.dc; g.targetR = g.r + step.dr;
         g.dir = [step.dc, step.dr];
         g.progress = 0;
       }
-      // Catch check at grid level
       if (g.c === J.c && g.r === J.r) { peliasCapture(); return; }
     }
   });
@@ -2079,15 +2119,41 @@ function isPassable(c, r) {
   return v !== 0; // walls only — no gates in new maze
 }
 
-function guardStep(g, J) {
+// BFS shortest path through maze — returns next step toward target
+function bfsStep(fromC, fromR, toC, toR, randomize) {
+  if (fromC === toC && fromR === toR) return null;
+  const key = (c,r) => r * PC_COLS + c;
+  const visited = new Set([key(fromC, fromR)]);
+  const queue = [[fromC, fromR, null]]; // [c, r, firstStep]
   const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
-  return dirs
-    .map(d => ({dc:d[0], dr:d[1], nc:g.c+d[0], nr:g.r+d[1]}))
-    .filter(m => m.nc>=0 && m.nr>=0 && m.nc<PC_COLS && m.nr<PC_ROWS && PC_MAZE[m.nr][m.nc] !== 0)
-    .sort((a,b) =>
-      (Math.abs(a.nc-J.c)+Math.abs(a.nr-J.r)) -
-      (Math.abs(b.nc-J.c)+Math.abs(b.nr-J.r))
-    )[0] || null;
+  // Shuffle dirs for randomized guards (adds unpredictability)
+  if (randomize) {
+    for (let i = dirs.length-1; i > 0; i--) {
+      const j = Math.floor(Math.random()*(i+1));
+      [dirs[i],dirs[j]] = [dirs[j],dirs[i]];
+    }
+  }
+  while (queue.length > 0) {
+    const [c, r, first] = queue.shift();
+    for (const [dc,dr] of dirs) {
+      const nc = c+dc, nr = r+dr;
+      if (nc<0||nr<0||nc>=PC_COLS||nr>=PC_ROWS) continue;
+      if (PC_MAZE[nr][nc] === 0) continue;
+      if (visited.has(key(nc,nr))) continue;
+      visited.add(key(nc,nr));
+      const step = first || {dc,dr};
+      if (nc===toC && nr===toR) return step;
+      queue.push([nc, nr, step]);
+    }
+  }
+  return null; // no path
+}
+
+function guardStep(g, J) {
+  // Pelias (id=0): full BFS, always optimal
+  // Guards (id>0): BFS with 25% random detour for unpredictability
+  const randomize = g.id > 0 && Math.random() < 0.25;
+  return bfsStep(g.c, g.r, J.c, J.r, randomize);
 }
 
 // ── Pellet question system ───────────────────────────────────
@@ -2320,7 +2386,7 @@ function drawPC(ctx) {
   const avSprites = PC.sprites && PC.sprites.avatar;
   const avImg = avSprites && avSprites[jDirKey];
 
-  if (avImg && avImg.complete && avImg.naturalWidth > 0) {
+  if (avImg && (avImg.complete === undefined || avImg.complete) && (avImg.naturalWidth === undefined || avImg.naturalWidth > 0)) {
     ctx.save();
     if (jDirKey === 'left') {
       // Flip horizontally: translate to right edge, scale -1 on x
