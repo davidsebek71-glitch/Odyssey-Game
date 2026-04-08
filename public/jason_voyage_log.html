@@ -1671,8 +1671,8 @@ body {
       </div>
       <div style="text-align:center;display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap">
         <button class="pixel-btn-sm" onclick="printLog()">🖨 PRINT MY LOG</button>
-        <button class="pixel-btn-sm" onclick="window.location.href='/student.html?view=heroic'" style="background:var(--teal);border-color:#60e0c0;color:#000">⚔ BEGIN CHAPTER 1 ▶</button>
-        <button class="pixel-btn-sm" onclick="window.location.href='/student.html?view=heroic'">CLOSE</button>
+        <button class="pixel-btn-sm" onclick="showVoyageReward()" style="background:var(--gold2);border-color:var(--gold);color:#000;font-weight:700;">⚡ CLAIM YOUR REWARD ▶</button>
+        <button class="pixel-btn-sm" onclick="window.location.href='/student.html?view=heroic'">RETURN TO DASHBOARD</button>
       </div>
     </div>
   </div>
@@ -4543,6 +4543,155 @@ function teacherUnlock(i){
     showStop(i);
   } else if(state.completed[state.currentStop-1]&&state.currentStop===i){
     showStop(i);
+  }
+}
+
+// ── VOYAGE REWARD SCREEN ──────────────────────────────────────
+function showVoyageReward() {
+  // Pull current data from results modal
+  const rankTitle = document.getElementById('r-rank-title').textContent || 'ARGONAUT';
+  const crewCode  = document.getElementById('r-code').textContent || '—';
+  const nameLine  = document.getElementById('r-name-line').textContent || '';
+  const total     = state.totalScore || 0;
+
+  // Rank colors
+  const rankColors = {
+    'OARSMAN':        { bg:'#1a2040', accent:'#6080c0', glow:'rgba(96,128,192,0.4)'  },
+    'NAVIGATOR':      { bg:'#1a2a20', accent:'#40c080', glow:'rgba(64,192,128,0.4)'  },
+    'FIRST MATE':     { bg:'#2a2010', accent:'#c0a040', glow:'rgba(192,160,64,0.4)'  },
+    'ARGONAUT':       { bg:'#20102a', accent:'#a060e0', glow:'rgba(160,96,224,0.4)'  },
+    'HERO OF THE ARGO':{ bg:'#2a1a00', accent:'#f0c020', glow:'rgba(240,192,32,0.55)' }
+  };
+  const rc = rankColors[rankTitle] || rankColors['ARGONAUT'];
+
+  // Estimate Drachma (teacher will confirm exact amount)
+  const drachmaEst = Math.round(total * 2.5);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'voyage-reward-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:99999',
+    'background:radial-gradient(ellipse at 50% 30%,' + rc.bg + ' 0%,#080810 70%)',
+    'display:flex;flex-direction:column;align-items:center;justify-content:center',
+    'padding:24px;overflow-y:auto;animation:rewardFadeIn 0.8s ease-out'
+  ].join(';');
+
+  overlay.innerHTML = [
+    '<style>',
+    '@keyframes rewardFadeIn{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}',
+    '@keyframes rewardGlow{0%,100%{text-shadow:0 0 20px ' + rc.glow + ',0 0 40px ' + rc.glow + '}',
+      '50%{text-shadow:0 0 40px ' + rc.glow + ',0 0 80px ' + rc.glow + ',0 0 120px ' + rc.glow + '}}',
+    '@keyframes coinSpin{0%{transform:rotateY(0deg)}100%{transform:rotateY(360deg)}}',
+    '@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}',
+    '</style>',
+
+    // Stars background
+    '<div style="position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0;" id="reward-stars"></div>',
+
+    '<div style="position:relative;z-index:1;max-width:680px;width:100%;text-align:center;">',
+
+      // Title
+      '<div style="font-family:\'Press Start 2P\',monospace;font-size:11px;letter-spacing:4px;',
+           'color:' + rc.accent + ';margin-bottom:16px;opacity:0.8;">',
+        'VOYAGE LOG COMPLETE', '</div>',
+
+      // Rank badge
+      '<div style="font-family:\'Cinzel\',serif;font-size:clamp(28px,5vw,48px);font-weight:700;',
+           'color:' + rc.accent + ';animation:rewardGlow 2.5s ease-in-out infinite;',
+           'margin-bottom:8px;line-height:1.2;">',
+        rankTitle,
+      '</div>',
+
+      // Name
+      '<div style="font-family:\'Press Start 2P\',monospace;font-size:9px;color:rgba(255,255,255,0.5);',
+           'margin-bottom:28px;letter-spacing:2px;">' + nameLine + '</div>',
+
+      // Divider
+      '<div style="width:60%;height:2px;background:linear-gradient(90deg,transparent,' + rc.accent + ',transparent);',
+           'margin:0 auto 28px;"></div>',
+
+      // Drachma reward block
+      '<div style="background:rgba(0,0,0,0.5);border:2px solid ' + rc.accent + ';border-radius:12px;',
+           'padding:24px 32px;margin-bottom:24px;">',
+        '<div style="font-family:\'Press Start 2P\',monospace;font-size:9px;color:rgba(255,255,255,0.4);',
+             'letter-spacing:3px;margin-bottom:14px;">YOUR VOYAGE REWARD</div>',
+        '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px;',
+             'animation:float 3s ease-in-out infinite;">',
+          '<div style="font-size:48px;animation:coinSpin 3s linear infinite;">🪙</div>',
+          '<div>',
+            '<div style="font-family:\'Press Start 2P\',monospace;font-size:clamp(18px,3vw,28px);',
+                 'color:#f0c020;font-weight:700;">~' + drachmaEst + '</div>',
+            '<div style="font-family:\'Press Start 2P\',monospace;font-size:8px;color:rgba(240,192,32,0.6);',
+                 'letter-spacing:2px;margin-top:4px;">DRACHMA</div>',
+          '</div>',
+          '<div style="font-size:48px;animation:coinSpin 3s linear infinite 0.5s;">🪙</div>',
+        '</div>',
+        '<div style="font-family:\'Cinzel\',serif;font-size:13px;color:rgba(255,255,255,0.55);',
+             'line-height:1.7;margin-top:8px;">',
+          'Your Voyage Log score of <strong style="color:' + rc.accent + ';">' + total + ' points</strong> ',
+          'will be converted to Drachma by your teacher and added to your alliance treasury.',
+        '</div>',
+      '</div>',
+
+      // Crew Code block
+      '<div style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:8px;',
+           'padding:18px 24px;margin-bottom:28px;">',
+        '<div style="font-family:\'Press Start 2P\',monospace;font-size:8px;color:rgba(255,255,255,0.35);',
+             'letter-spacing:3px;margin-bottom:10px;">YOUR CREW CODE — SAVE THIS</div>',
+        '<div style="font-family:\'Press Start 2P\',monospace;font-size:clamp(16px,3vw,24px);',
+             'color:#ffffff;letter-spacing:6px;background:rgba(255,255,255,0.06);',
+             'border-radius:6px;padding:12px 20px;display:inline-block;',
+             'border:1px solid rgba(255,255,255,0.2);">' + crewCode + '</div>',
+        '<div style="font-family:\'Cinzel\',serif;font-size:12px;color:rgba(255,255,255,0.4);',
+             'margin-top:10px;">Record this code and share it with your teacher.</div>',
+      '</div>',
+
+      // What happens next
+      '<div style="font-family:\'Cinzel\',serif;font-size:13px;color:rgba(255,255,255,0.4);',
+           'margin-bottom:28px;line-height:1.8;max-width:480px;margin-left:auto;margin-right:auto;">',
+        '1. Print your log using the button below<br>',
+        '2. Write your Crew Code on your printed log<br>',
+        '3. Submit it to your teacher to claim your Drachma',
+      '</div>',
+
+      // Buttons
+      '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">',
+        '<button onclick="printLog()" style="font-family:\'Press Start 2P\',monospace;font-size:9px;',
+          'background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.2);color:#fff;',
+          'padding:14px 20px;border-radius:6px;cursor:pointer;letter-spacing:1px;">',
+          '🖨 PRINT LOG',
+        '</button>',
+        '<button onclick="document.getElementById(\'voyage-reward-overlay\').remove();',
+          'window.location.href=\'/student.html?view=heroic\'" ',
+          'style="font-family:\'Press Start 2P\',monospace;font-size:9px;',
+          'background:' + rc.accent + ';border:2px solid ' + rc.accent + ';color:#000;',
+          'padding:14px 20px;border-radius:6px;cursor:pointer;font-weight:700;letter-spacing:1px;">',
+          '⚔ RETURN TO ODYSSEY',
+        '</button>',
+      '</div>',
+
+    '</div>',
+  ].join('');
+
+  document.body.appendChild(overlay);
+
+  // Generate pixel star field
+  const starsDiv = document.getElementById('reward-stars');
+  if (starsDiv) {
+    for (let i = 0; i < 80; i++) {
+      const star = document.createElement('div');
+      const size = Math.random() * 2.5 + 0.5;
+      star.style.cssText = [
+        'position:absolute',
+        'width:' + size + 'px', 'height:' + size + 'px',
+        'background:rgba(255,255,255,' + (Math.random() * 0.6 + 0.2) + ')',
+        'border-radius:50%',
+        'left:' + (Math.random() * 100) + '%',
+        'top:'  + (Math.random() * 100) + '%',
+        'animation:rewardFadeIn ' + (Math.random() * 2 + 0.5) + 's ease-out'
+      ].join(';');
+      starsDiv.appendChild(star);
+    }
   }
 }
 </script>

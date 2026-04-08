@@ -3409,13 +3409,14 @@
         </div>
 
 
-        <!-- Chapter 1 Portal (activates when Voyage Log is turned in) -->
+        <!-- CHAPTER 1 PORTAL — HIDDEN TEMPORARILY, RESTORE WHEN CHAPTER 1 IS READY
         <div id="chapter1-portal" class="chapter-portal-card" onclick="enterChapter1()">
             <div style="font-size: 48px; margin-bottom: 8px;">⛵</div>
             <div style="font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700; color: #c4b5fd; letter-spacing: 2px;">CHAPTER 1</div>
             <div style="font-family: 'Cinzel', serif; font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 4px;">Jason & the Argonauts</div>
             <div id="chapter1-status" style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.3);">Complete the Voyage Log to unlock</div>
         </div>
+        END CHAPTER 1 PORTAL -->
     </div>
 
                 <div class="avatar-reveal-section" id="avatar-reveal-section">
@@ -4367,7 +4368,7 @@
                     loadMissingVirtuesBadge();
                     loadTradePortalMini();
                     loadHeroicMythPips();
-                    loadHeroicChapter1Status();
+                    // loadHeroicChapter1Status(); // HIDDEN — restore when Chapter 1 is ready
                     // Show hero cards between myth portals and avatar
                     var heroCardsContainer = document.getElementById('hero-cards-container');
                     if (heroCardsContainer) heroCardsContainer.style.display = 'block';
@@ -13939,7 +13940,8 @@
             } catch (e) { /* non-critical */ }
         }
 
-        async function loadHeroicChapter1Status() {
+        // CHAPTER 1 STATUS LOADER — HIDDEN TEMPORARILY, RESTORE WHEN CHAPTER 1 IS READY
+        /* async function loadHeroicChapter1Status() {
             var portal = document.getElementById('chapter1-portal');
             var statusEl = document.getElementById('chapter1-status');
             if (!portal || !statusEl) return;
@@ -13974,7 +13976,8 @@
             } catch (e) {
                 statusEl.textContent = 'Complete the Voyage Log to unlock';
             }
-        }
+        } */
+        // END CHAPTER 1 STATUS LOADER
 
         function loadHeroicBanners() {
             var BANNERS = [
@@ -14365,14 +14368,16 @@
             popup.addEventListener('click', function(e) { if (e.target === popup) popup.remove(); });
         }
 
-        function enterChapter1() {
+        // CHAPTER 1 FUNCTIONS — HIDDEN TEMPORARILY, RESTORE WHEN CHAPTER 1 IS READY
+        /* function enterChapter1() {
             var portal = document.getElementById('chapter1-portal');
             if (portal && portal.classList.contains('ready')) {
                 window.location.href = '/chapter1_jason.html';
             } else {
                 alert('Complete the Jason Voyage Log first to unlock Chapter 1.');
             }
-        }
+        } */
+        // END CHAPTER 1 FUNCTIONS
         // ── End Heroic Age Dashboard functions ─────────────────────────
 
         // Open Hall of Honor modal
