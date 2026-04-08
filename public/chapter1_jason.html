@@ -2778,49 +2778,57 @@ const HR_START_C  = 4;
 const HR_DEST_R   = 0;
 
 function initHR() {
-  // Lane configs per river row (rows 1-5, top to bottom of river)
-  // speed = cells/sec logs move left; logW = log width in cells; gap = gap between logs
+  // ── Pixel-based log system ────────────────────────────────────
+  // Each lane has real pixel-position log objects.
+  // Player has pixel X position. Collision = pixel overlap.
+  // Open water = instant death (respawn on shore, no screen).
+
+  const CW = HR.cellW || 70;  // fallback; overwritten after canvas init
+  const W  = HR.canvW || 630;
+
+  // Lane rows 1-5 (0-indexed as 0-4).
+  // speed in px/sec, logW in px, gap in px, dir = 1(right) or -1(left)
   const LANE_CFG = [
-    { speed: 1.0, logW: 3, gap: 2 },  // row 1 — near far bank, moderate
-    { speed: 1.5, logW: 2, gap: 2 },  // row 2 — faster
-    { speed: 2.0, logW: 2, gap: 3 },  // row 3 — center, fastest, widest gaps
-    { speed: 1.6, logW: 3, gap: 2 },  // row 4 — slowing
-    { speed: 1.1, logW: 3, gap: 2 },  // row 5 — near start bank, slow
+    { speed: 55,  logW: 180, gap: 100, dir: -1 },  // row1 — moderate, left
+    { speed: 85,  logW: 130, gap: 140, dir:  1 },  // row2 — faster, right
+    { speed: 110, logW: 120, gap: 180, dir: -1 },  // row3 — fastest, left, widest gaps
+    { speed: 75,  logW: 160, gap: 110, dir:  1 },  // row4 — medium, right
+    { speed: 50,  logW: 170, gap:  90, dir: -1 },  // row5 — slow, left
   ];
 
-  // Each lane: logs are continuous segments cycling across HR_COLS+logW.
-  // offset tracks sub-cell drift (0 to logW+gap, wraps).
-  // Direction alternates per row (odd rows drift right-to-left, even left-to-right)
-  // for visual variety — but all drain grip on contact.
+  // Build 2-3 log objects per lane with staggered starting X positions
   const lanes = LANE_CFG.map((cfg, i) => {
     const period = cfg.logW + cfg.gap;
-    // Stagger start offset per lane so logs don't align
-    const offset = (i * 1.7) % period;
-    return { ...cfg, period, offset, dir: (i % 2 === 0) ? 1 : -1 };
+    const logs = [];
+    // Place enough logs to always fill canvas + overflow each side
+    const count = Math.ceil((W + period * 2) / period) + 1;
+    for (let k = 0; k < count; k++) {
+      logs.push({ x: k * period - period + (i * 37) % period });
+    }
+    return { ...cfg, period, logs };
   });
 
   return {
     row:      HR_START_R,
     col:      HR_START_C,
-    colF:     HR_START_C,   // sub-cell float for smooth log riding
-    grip:     100,
+    pxX:      HR_START_C * (HR.cellW || 70) + (HR.cellW || 70) / 2,  // pixel center X
+    grip:     100,   // kept for HUD display only — not used for death
     phase:    'play',
     elapsed:  0,
     animId:   null,
     heldU: false, heldD: false, heldL: false, heldR: false,
     moveTimer: 0,
-    MOVE_MS:  220,
+    MOVE_MS:  200,
     lanes,
-    imgs: {},      // loaded sprites
-    imgsReady: 0,
+    imgs:     HR ? (HR.imgs || {}) : {},
     _cleanup: null,
-    restarts: 0
+    restarts: 0,
+    deathFlash: 0   // frames of red flash on instant death
   };
 }
 
 function startHeraFrogger() {
-  HR = initHR();
-  // Preload sprites, strip magenta from each, then launch
+  // Preload + magenta-strip all sprites, then launch
   const toLoad = {
     bg:    '/images/heroic/river/river_bg.png',
     log:   '/images/heroic/river/log_sprite.png',
@@ -2829,11 +2837,12 @@ function startHeraFrogger() {
   };
   const keys = Object.keys(toLoad);
   let loaded = 0;
+  const imgs = {};
 
   function stripped(src, cb) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onerror = () => { loaded++; cb(null); if (loaded === keys.length) launchHRCanvas(); };
+    img.onerror = () => { loaded++; cb(null); if (loaded === keys.length) { HR.imgs = imgs; launchHRCanvas(); } };
     img.onload = () => {
       const ofc = document.createElement('canvas');
       ofc.width = img.naturalWidth; ofc.height = img.naturalHeight;
@@ -2846,23 +2855,23 @@ function startHeraFrogger() {
       }
       ofx.putImageData(id, 0, 0);
       const clean = new Image();
-      clean.onload = () => { loaded++; cb(clean); if (loaded === keys.length) launchHRCanvas(); };
+      clean.onload = () => { loaded++; cb(clean); if (loaded === keys.length) { HR.imgs = imgs; launchHRCanvas(); } };
       clean.src = ofc.toDataURL();
     };
     img.src = src;
   }
 
-  keys.forEach(k => stripped(toLoad[k], img => { HR.imgs[k] = img; }));
+  HR = initHR();
+  keys.forEach(k => stripped(toLoad[k], img => { imgs[k] = img; }));
 }
 
 function launchHRCanvas() {
   const wrap = document.getElementById('wp-content');
   if (!wrap) return;
 
-  // Canvas: each cell is square. Width fills screen up to 630px.
   const maxW  = Math.min(630, window.innerWidth - 24);
   const cellW = Math.floor(maxW / HR_COLS);
-  const cellH = cellW;                         // square cells
+  const cellH = cellW;
   const canvW = cellW * HR_COLS;
   const canvH = cellH * HR_ROWS;
 
@@ -2870,14 +2879,26 @@ function launchHRCanvas() {
   HR.cellH = cellH;
   HR.canvW = canvW;
   HR.canvH = canvH;
+  // Fix pxX now that cellW is known
+  HR.pxX = HR_START_C * cellW + cellW / 2;
+
+  // Rebuild lane log pixel positions with real canvas width
+  HR.lanes.forEach((lane, i) => {
+    const period = lane.logW + lane.gap;
+    const count = Math.ceil((canvW + period * 2) / period) + 1;
+    lane.logs = [];
+    for (let k = 0; k < count; k++) {
+      lane.logs.push({ x: k * period - period + (i * 37) % period });
+    }
+  });
 
   wrap.innerHTML =
     '<div id="hr-wrap" style="width:100%;display:flex;flex-direction:column;align-items:center;">' +
     '<canvas id="hr-canvas" style="display:block;image-rendering:pixelated;touch-action:none;border:2px solid var(--teal);"></canvas>' +
     '<div id="hr-hud" style="width:' + canvW + 'px;display:flex;justify-content:space-between;align-items:center;' +
          'background:var(--bg1);border:2px solid var(--teal);border-top:none;padding:8px 14px;font-family:var(--px);font-size:12px;">' +
-      '<span style="color:var(--teal);">&#127863; Grip: <span id="hr-grip">100</span>%</span>' +
-      '<span style="color:var(--text2);" id="hr-status">CROSS THE RIVER</span>' +
+      '<span style="color:var(--teal);">Crossings: <span id="hr-restarts">0</span></span>' +
+      '<span style="color:var(--text2);" id="hr-status">REACH THE FAR BANK</span>' +
       '<span style="color:var(--gold);">&#8593;&#8595;&#8592;&#8594; or WASD</span>' +
     '</div>' +
     '</div>';
@@ -2886,38 +2907,34 @@ function launchHRCanvas() {
   canvas.width  = canvW;
   canvas.height = canvH;
 
-  // ── Keyboard ────────────────────────────────────────────────
+  // Keyboard
   const onKey = e => {
     if (HR.phase !== 'play') return;
     const d = e.type === 'keydown';
-    if (e.key === 'ArrowUp'    || e.key === 'w' || e.key === 'W') { HR.heldU = d; e.preventDefault(); }
-    if (e.key === 'ArrowDown'  || e.key === 's' || e.key === 'S') { HR.heldD = d; e.preventDefault(); }
-    if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') { HR.heldL = d; e.preventDefault(); }
-    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { HR.heldR = d; e.preventDefault(); }
+    if (e.key==='ArrowUp'   ||e.key==='w'||e.key==='W'){HR.heldU=d;e.preventDefault();}
+    if (e.key==='ArrowDown' ||e.key==='s'||e.key==='S'){HR.heldD=d;e.preventDefault();}
+    if (e.key==='ArrowLeft' ||e.key==='a'||e.key==='A'){HR.heldL=d;e.preventDefault();}
+    if (e.key==='ArrowRight'||e.key==='d'||e.key==='D'){HR.heldR=d;e.preventDefault();}
   };
   document.addEventListener('keydown', onKey);
   document.addEventListener('keyup',   onKey);
 
-  // ── Touch: 4-quadrant tap ───────────────────────────────────
+  // Touch: 4-quadrant
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     if (HR.phase !== 'play') return;
-    HR.heldU = HR.heldD = HR.heldL = HR.heldR = false;
+    HR.heldU=HR.heldD=HR.heldL=HR.heldR=false;
     const rect = canvas.getBoundingClientRect();
     const t = e.touches[0];
-    const tx = t.clientX - rect.left;
-    const ty = t.clientY - rect.top;
-    const cx = canvW / 2, cy = canvH / 2;
-    if (Math.abs(ty - cy) > Math.abs(tx - cx)) {
-      if (ty < cy) HR.heldU = true; else HR.heldD = true;
-    } else {
-      if (tx < cx) HR.heldL = true; else HR.heldR = true;
-    }
-  }, {passive:false});
+    const tx = t.clientX-rect.left, ty = t.clientY-rect.top;
+    const cx = canvW/2, cy = canvH/2;
+    if (Math.abs(ty-cy)>Math.abs(tx-cx)){ if(ty<cy)HR.heldU=true; else HR.heldD=true; }
+    else { if(tx<cx)HR.heldL=true; else HR.heldR=true; }
+  },{passive:false});
   canvas.addEventListener('touchend', e => {
     e.preventDefault();
-    HR.heldU = HR.heldD = HR.heldL = HR.heldR = false;
-  }, {passive:false});
+    HR.heldU=HR.heldD=HR.heldL=HR.heldR=false;
+  },{passive:false});
 
   HR._cleanup = () => {
     document.removeEventListener('keydown', onKey);
@@ -2927,146 +2944,112 @@ function launchHRCanvas() {
   let lastTs = 0;
   function hrLoop(ts) {
     if (!HR) return;
-    const dt = Math.min(ts - (lastTs || ts), 50);
+    const dt = Math.min(ts - (lastTs||ts), 50);
     lastTs = ts;
     if (HR.phase === 'play') updateHR(dt);
     const c = document.getElementById('hr-canvas');
-    if (!c) { if (HR.animId) cancelAnimationFrame(HR.animId); return; }
+    if (!c) { if(HR.animId)cancelAnimationFrame(HR.animId); return; }
     drawHR(c.getContext('2d'));
-    if (HR.phase !== 'victory' && HR.phase !== 'gameover') {
-      HR.animId = requestAnimationFrame(hrLoop);
-    }
+    if (HR.phase !== 'victory') HR.animId = requestAnimationFrame(hrLoop);
   }
   HR.animId = requestAnimationFrame(hrLoop);
 }
 
-// ── Physics ──────────────────────────────────────────────────
+// ── Physics ───────────────────────────────────────────────────
 function updateHR(dt) {
   HR.elapsed += dt;
+  const CW = HR.cellW, W = HR.canvW;
 
-  // ── 1. Advance log offsets ───────────────────────────────────
+  // ── 1. Move all log objects ──────────────────────────────────
   HR.lanes.forEach(lane => {
-    lane.offset = (lane.offset + lane.dir * lane.speed * dt / 1000 + lane.period * 10) % lane.period;
+    lane.logs.forEach(log => {
+      log.x += lane.dir * lane.speed * dt / 1000;
+      // Wrap: when log fully exits one side, reappear on other
+      if (lane.dir === -1 && log.x + lane.logW < 0)  log.x += lane.period * Math.ceil((W + lane.period) / lane.period);
+      if (lane.dir ===  1 && log.x > W)               log.x -= lane.period * Math.ceil((W + lane.period) / lane.period);
+    });
   });
 
-  // ── 2. Log riding — carry player with log if standing on one ─
-  // Must run AFTER offset update, BEFORE player input.
-  // We track sub-cell position (colF) as a float so the player
-  // drifts smoothly with the log each frame.
+  // ── 2. Log riding — if on a log, carry player with it ────────
   const inRiver = HR.row >= 1 && HR.row <= HR_LANES;
   if (inRiver) {
     const lane = HR.lanes[HR.row - 1];
-    if (isLogAtCell(lane, Math.round(HR.colF))) {
-      // Carry: shift colF by same amount log moved this frame
-      HR.colF += lane.dir * lane.speed * dt / 1000;
-      // Clamp to canvas bounds — fall off edge = dropped
-      if (HR.colF < 0 || HR.colF > HR_COLS - 1) {
-        HR.grip = 0;
-      } else {
-        HR.col = Math.round(HR.colF);
-      }
+    const rideLog = getLogUnderPlayer(lane);
+    if (rideLog) {
+      HR.pxX += lane.dir * lane.speed * dt / 1000;
+      // Fell off canvas edge — instant death
+      if (HR.pxX < 0 || HR.pxX > W) { hrInstantDeath(); return; }
+      HR.col = Math.floor(HR.pxX / CW);
     }
   }
 
-  // ── 3. Player input — step-based with cooldown ───────────────
+  // ── 3. Player input ──────────────────────────────────────────
   HR.moveTimer = Math.max(0, HR.moveTimer - dt);
   if (HR.moveTimer <= 0) {
-    let moved = false;
     const prevRow = HR.row;
-    let newR = HR.row, newC = HR.col;
-
-    if      (HR.heldU && HR.row > 0)            { newR--; moved = true; }
-    else if (HR.heldD && HR.row < HR_START_R)    { newR++; moved = true; }
-    else if (HR.heldL && HR.col > 0)             { newC--; moved = true; }
-    else if (HR.heldR && HR.col < HR_COLS - 1)   { newC++; moved = true; }
+    let newR = HR.row, newC = HR.col, moved = false;
+    if      (HR.heldU && HR.row > 0)           { newR--; moved = true; }
+    else if (HR.heldD && HR.row < HR_START_R)   { newR++; moved = true; }
+    else if (HR.heldL && HR.col > 0)            { newC--; moved = true; }
+    else if (HR.heldR && HR.col < HR_COLS-1)    { newC++; moved = true; }
 
     if (moved) {
       HR.row = newR;
       HR.col = newC;
-      HR.colF = newC;   // reset sub-cell float to integer on deliberate step
+      HR.pxX = newC * CW + CW / 2;  // snap pixel X to cell center
       HR.moveTimer = HR.MOVE_MS;
-
-      // Moving back toward start bank restores grip
-      if (newR > prevRow) HR.grip = Math.min(100, HR.grip + 8);
-
-      // Reached far bank — victory
       if (HR.row === HR_DEST_R) { heraVictory(); return; }
     }
   }
 
-  // ── 4. Hazard check ──────────────────────────────────────────
-  // LOG  = safe (riding). OPEN WATER = grip drains.
-  // Banks (row 0, row 6) = fully safe.
+  // ── 4. Instant death check ───────────────────────────────────
+  // After input: if player is in river and NOT on a log → die
   if (inRiver) {
-    const lane    = HR.lanes[HR.row - 1];
-    const onLog   = isLogAtCell(lane, HR.col);
-    if (!onLog) {
-      // Wading through open water — drain grip, faster in center lane
-      const rate = (HR.row - 1 === 2) ? 14 : 8;   // %/sec
-      HR.grip = Math.max(0, HR.grip - rate * dt / 1000);
-    }
-    // On a log — no drain, riding safely
+    const lane = HR.lanes[HR.row - 1];
+    if (!getLogUnderPlayer(lane)) { hrInstantDeath(); return; }
   }
 
-  // ── 5. Grip zero = dropped ───────────────────────────────────
-  if (HR.grip <= 0) { heraDropped(); return; }
+  // Update restarts display
+  const rel = document.getElementById('hr-restarts');
+  if (rel) rel.textContent = HR.restarts;
+}
 
-  // ── 6. HUD update ────────────────────────────────────────────
-  const gripEl = document.getElementById('hr-grip');
-  if (gripEl) {
-    gripEl.textContent = Math.ceil(HR.grip);
-    gripEl.style.color = HR.grip > 60 ? 'var(--green)' : HR.grip > 30 ? 'var(--gold)' : 'var(--red)';
+// Returns the log object under the player's pixel X, or null
+function getLogUnderPlayer(lane) {
+  const px = HR.pxX;
+  for (const log of lane.logs) {
+    if (px >= log.x && px <= log.x + lane.logW) return log;
   }
+  return null;
 }
 
-// Returns true if a log occupies the given column in the given lane
-function isLogAtCell(lane, col) {
-  // Log positions: logs repeat with period = logW + gap.
-  // offset is how far the pattern has shifted (in cells).
-  // A log starts at positions: k*period - offset for integer k,
-  // and occupies cells [start, start+logW).
-  const period = lane.period;
-  const off    = lane.offset;
-  // Normalise col into [0, period) relative to pattern
-  const rel = ((col + off) % period + period) % period;
-  return rel < lane.logW;
-}
-
-function heraDropped() {
+// Instant death: flash red, respawn on shore, no screen change
+function hrInstantDeath() {
   if (HR.phase !== 'play') return;
-  if (HR.animId) cancelAnimationFrame(HR.animId);
-  if (HR._cleanup) HR._cleanup();
-  HR.phase = 'dropped';
   HR.restarts++;
-  G.provisions = Math.max(0, G.provisions - 5);
-  updateHeader();
-
-  const wrap = document.getElementById('wp-content');
-  if (!wrap) return;
-  wrap.innerHTML =
-    '<div class="wp" style="align-items:center;">' +
-    '<div class="wp-hdr">' +
-      '<div class="wp-loc" style="color:var(--red);letter-spacing:4px;">&#127863; Grip Lost</div>' +
-      '<div class="wp-title" style="color:var(--red);">She Slipped</div>' +
-    '</div>' +
-    '<div class="narr" style="border-color:var(--red);">' +
-      '<p>You step off the log into open water. The current is faster than it looks — it tears her from your grip in an instant. Both of you go under, cold and dark and loud, and then you find the shallows and drag her out, gasping on the near bank.</p>' +
-      '<p style="font-family:var(--px);font-size:13px;color:var(--red);">&minus;5 Provisions</p>' +
-    '</div>' +
-    '<div style="text-align:center;margin-top:8px;">' +
-      '<button class="btn-go" onclick="restartHeraFrogger()" style="border-color:var(--teal);color:var(--teal);">Try again &#8635;</button>' +
-    '</div>' +
-    '</div>';
+  HR.row  = HR_START_R;
+  HR.col  = HR_START_C;
+  HR.pxX  = HR_START_C * HR.cellW + HR.cellW / 2;
+  HR.moveTimer = 500;   // brief pause so player registers the death
+  HR.deathFlash = 12;   // frames of red flash
+  const rel = document.getElementById('hr-restarts');
+  if (rel) rel.textContent = HR.restarts;
+  const st = document.getElementById('hr-status');
+  if (st) { st.style.color='var(--red)'; st.textContent='FELL IN — TRY AGAIN'; }
+  setTimeout(() => {
+    const s = document.getElementById('hr-status');
+    if (s) { s.style.color=''; s.textContent='REACH THE FAR BANK'; }
+  }, 800);
 }
+
+function heraDropped() {}  // no longer used — kept to avoid reference errors
 
 function restartHeraFrogger() {
-  const prevElapsed  = HR.elapsed;
+  const prevImgs = HR.imgs;
   const prevRestarts = HR.restarts;
-  const prevImgs     = HR.imgs;
   HR = initHR();
-  HR.elapsed   = prevElapsed;
-  HR.restarts  = prevRestarts;
-  HR.imgs      = prevImgs;   // keep loaded sprites
+  HR.imgs = prevImgs;
+  HR.restarts = prevRestarts;
   launchHRCanvas();
 }
 
@@ -3079,121 +3062,71 @@ function heraVictory() {
   renderHeraReveal();
 }
 
-// ── Draw ─────────────────────────────────────────────────────
+// ── Draw ──────────────────────────────────────────────────────
 function drawHR(ctx) {
   const CW = HR.cellW, CH = HR.cellH;
-  const W  = HR.canvW,  H  = HR.canvH;
+  const W  = HR.canvW, H  = HR.canvH;
 
-  // ── Background image or procedural fallback ─────────────────
-  if (HR.imgs.bg && HR.imgs.bg.naturalWidth > 0) {
+  // Death flash
+  if (HR.deathFlash > 0) {
+    HR.deathFlash--;
+    ctx.fillStyle = 'rgba(220,40,40,0.55)';
+    ctx.fillRect(0, 0, W, H);
+    return;  // skip normal draw during flash frames
+  }
+
+  // ── Background ───────────────────────────────────────────────
+  if (HR.imgs && HR.imgs.bg) {
     ctx.drawImage(HR.imgs.bg, 0, 0, W, H);
   } else {
-    // Procedural fallback
-    ctx.fillStyle = '#1a3a20'; ctx.fillRect(0, 0, W, CH);               // top bank
-    ctx.fillStyle = '#1a3a20'; ctx.fillRect(0, CH * (HR_ROWS-1), W, CH);// bottom bank
-    for (let r = 1; r <= HR_LANES; r++) {
-      const y = r * CH;
-      const laneIdx = r - 1;
-      const dark = laneIdx === 2 ? '#081828' : '#0a2030';
-      ctx.fillStyle = dark;
-      ctx.fillRect(0, y, W, CH);
-      ctx.strokeStyle = 'rgba(64,160,220,0.12)';
-      ctx.lineWidth = 1;
-      for (let s = 0; s < CH; s += 4) {
-        ctx.beginPath(); ctx.moveTo(0, y+s); ctx.lineTo(W, y+s); ctx.stroke();
-      }
+    ctx.fillStyle = '#1a3a20'; ctx.fillRect(0, 0, W, CH);
+    ctx.fillStyle = '#1a3a20'; ctx.fillRect(0, CH*(HR_ROWS-1), W, CH);
+    for (let r=1;r<=HR_LANES;r++){
+      ctx.fillStyle = r===3?'#081828':'#0a2030';
+      ctx.fillRect(0, r*CH, W, CH);
     }
   }
 
-  // ── Logs ────────────────────────────────────────────────────
+  // ── Logs ─────────────────────────────────────────────────────
   for (let r = 1; r <= HR_LANES; r++) {
-    const lane    = HR.lanes[r - 1];
-    const y       = r * CH;
-    const period  = lane.period;
-    const logPx   = lane.logW * CW;  // log width in pixels
-
-    // Draw enough repetitions to cover the canvas in both directions
-    const reps = Math.ceil(W / (period * CW)) + 2;
-    for (let k = -1; k < reps; k++) {
-      // Log left edge in pixels, accounting for sub-cell offset
-      const drawX = lane.dir === 1
-        ? (k * period - lane.offset) * CW
-        : W - ((k * period + lane.logW - lane.offset) * CW);
-
-      if (drawX + logPx < 0 || drawX > W) continue;
-
-      if (HR.imgs.log && HR.imgs.log.naturalWidth > 0) {
-        ctx.drawImage(HR.imgs.log, drawX, y, logPx, CH);
+    const lane = HR.lanes[r-1];
+    const y    = r * CH;
+    lane.logs.forEach(log => {
+      if (log.x + lane.logW < 0 || log.x > W) return;
+      if (HR.imgs && HR.imgs.log) {
+        ctx.drawImage(HR.imgs.log, log.x, y, lane.logW, CH);
       } else {
-        // Procedural log fallback
         ctx.fillStyle = '#6b4423';
-        ctx.fillRect(drawX + 1, y + 4, logPx - 2, CH - 8);
+        ctx.fillRect(log.x+1, y+4, lane.logW-2, CH-8);
         ctx.fillStyle = '#855433';
-        ctx.fillRect(drawX + 2, y + 5, logPx - 4, 4);
+        ctx.fillRect(log.x+2, y+5, lane.logW-4, 4);
       }
-    }
+    });
   }
 
-  // ── Player (Jason + old woman) ───────────────────────────────
-  const px = Math.round(HR.colF * CW);  // smooth sub-cell position while riding log
+  // ── Player ───────────────────────────────────────────────────
+  const px = Math.round(HR.pxX - CW/2);
   const py = HR.row * CH;
 
-  // Danger flash if grip low
-  if (HR.grip < 30) {
-    const flash = Math.sin(HR.elapsed / 80) > 0;
-    if (flash) {
-      ctx.fillStyle = 'rgba(224,64,64,0.25)';
-      ctx.fillRect(px, py, CW, CH);
-    }
-  }
-
-  if (HR.imgs.woman && HR.imgs.woman.naturalWidth > 0) {
-    // Draw old woman sprite scaled to cell
+  if (HR.imgs && HR.imgs.woman) {
     ctx.drawImage(HR.imgs.woman, px, py, CW, CH);
   } else {
-    // Procedural fallback — gold square with figure
-    const gripColor = HR.grip > 60 ? '#f0c040' : HR.grip > 30 ? '#f09020' : '#e04040';
-    const pad = Math.max(2, Math.floor(CW * 0.1));
-    ctx.fillStyle = gripColor;
-    ctx.fillRect(px + pad, py + pad, CW - pad*2, CH - pad*2);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillRect(px + Math.floor(CW*0.3), py + Math.floor(CH*0.1), Math.floor(CW*0.4), Math.floor(CH*0.5));
+    ctx.fillStyle = '#f0c040';
+    ctx.fillRect(px+4, py+4, CW-8, CH-8);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillRect(px+Math.floor(CW*0.3), py+Math.floor(CH*0.1), Math.floor(CW*0.4), Math.floor(CH*0.5));
   }
 
-  // ── Open water / log status indicator ────────────────────────
-  const inRiver = HR.row >= 1 && HR.row <= HR_LANES;
-  if (inRiver) {
-    if (isLogAtCell(HR.lanes[HR.row - 1], HR.col)) {
-      // On a log — green safe indicator
-      ctx.strokeStyle = 'rgba(64,192,96,0.7)';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(px + 2, py + 2, CW - 4, CH - 4);
-    } else {
-      // Open water — red danger indicator
-      ctx.strokeStyle = 'rgba(224,64,64,0.85)';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(px + 2, py + 2, CW - 4, CH - 4);
-    }
-  }
-
-  // ── Destination bank glow ────────────────────────────────────
-  const pulse = 0.25 + 0.15 * Math.sin(HR.elapsed / 400);
-  ctx.fillStyle = 'rgba(64,216,192,' + pulse + ')';
+  // ── Destination glow ─────────────────────────────────────────
+  const pulse = 0.2 + 0.12*Math.sin(HR.elapsed/400);
+  ctx.fillStyle = 'rgba(64,216,192,'+pulse+')';
   ctx.fillRect(0, 0, W, CH);
   ctx.fillStyle = '#40d8c0';
-  ctx.font = 'bold ' + Math.max(10, CH - 8) + 'px "Courier New"';
+  ctx.font = 'bold '+Math.max(10,CH-8)+'px "Courier New"';
   ctx.textAlign = 'center';
-  ctx.fillText('REACH HERE', W / 2, CH * 0.65);
-
-  // ── Grip bar overlay at bottom of canvas ─────────────────────
-  const barH = 8;
-  const barY = H - barH;
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(0, barY, W, barH);
-  const barColor = HR.grip > 60 ? '#40c060' : HR.grip > 30 ? '#f0c040' : '#e04040';
-  ctx.fillStyle = barColor;
-  ctx.fillRect(0, barY, W * HR.grip / 100, barH);
+  ctx.fillText('REACH HERE', W/2, CH*0.65);
 }
+
 
 // ── The Reveal ───────────────────────────────────────────────
 function renderHeraReveal() {
@@ -3217,12 +3150,11 @@ function renderHeraReveal() {
       '<div class="wp-title hera-glow" style="color:#fca5a5;font-size:32px;">Hera</div>',
       '<div class="wp-sub" style="color:rgba(252,165,165,.5);">She was never an old woman</div>',
     '</div>',
-    // Hera sprite reveal
+    // Hera sprite reveal — magenta stripped via canvas
     '<div style="text-align:center;margin:18px 0 10px;position:relative;">',
-      '<img src="' + heraSrc + '" alt="Hera" style="max-height:260px;image-rendering:pixelated;',
-           'filter:drop-shadow(0 0 24px rgba(252,165,165,0.7));',
-           'animation:hreveal 2s ease-out forwards;"',
-           ' onerror="this.style.display=\'none\'">',
+      '<canvas id="hera-reveal-canvas" width="260" height="340" style="max-height:300px;',
+           'image-rendering:pixelated;filter:drop-shadow(0 0 24px rgba(252,165,165,0.7));',
+           'animation:hreveal 2s ease-out forwards;"></canvas>',
     '</div>',
     '<div class="narr" style="border-color:rgba(224,64,64,.4);background:linear-gradient(160deg,#1a0808,#0f0505);">',
       '<p>You set her down on the far bank and she straightens &mdash; and does not stop straightening.</p>',
@@ -3249,6 +3181,9 @@ function renderHeraReveal() {
     '</div>',
     '</div>',
   ].join(''));
+
+  // Strip magenta from Hera sprite and draw onto reveal canvas
+  hrLoadSprite('hera-reveal-canvas', heraSrc, 260, 340);
 }
 
 // ── Outcomes ─────────────────────────────────────────────────
