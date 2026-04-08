@@ -3788,6 +3788,8 @@ function renderSympStub() {
 }
 
 // ── START ─────────────────────────────────────────────────────
+let SG = null;  // Symplegades game state
+
 window.startSymplegades = function startSymplegades() {
   // Cancel any existing loop
   if (SG && SG.animId) cancelAnimationFrame(SG.animId);
