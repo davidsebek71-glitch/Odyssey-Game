@@ -67,6 +67,7 @@ body{background:var(--bg0);color:var(--text1);font-family:'Cinzel',serif;min-hei
 .t-dot{width:34px;height:34px;border-radius:50%;border:2px solid var(--gold3);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:5px;transition:all .3s;}
 .t-lbl{font-family:var(--px);font-size:9px;color:var(--text2);letter-spacing:1px;text-align:center;text-transform:uppercase;line-height:1.4;}
 .t-node.done   .t-dot{border-color:var(--green);background:rgba(64,192,96,0.15);}
+.t-node.done:hover .t-dot{background:rgba(64,192,96,0.3);box-shadow:0 0 8px rgba(64,192,96,0.4);}
 .t-node.cur    .t-dot{border-color:var(--gold);background:rgba(240,192,64,0.2);box-shadow:0 0 10px rgba(240,192,64,0.5);}
 .t-node.locked .t-dot{border-color:var(--bg3);background:var(--bg1);opacity:.4;}
 .t-node.done   .t-lbl{color:var(--green);}
@@ -403,6 +404,16 @@ function updateTrail(key) {
     node.classList.remove('done','cur','locked');
     node.classList.add(i < idx ? 'done' : i === idx ? 'cur' : 'locked');
     if (conn) conn.classList.toggle('done', i < idx);
+    // Completed nodes are clickable to replay
+    if (i < idx) {
+      node.style.cursor = 'pointer';
+      node.title = 'Replay ' + w.replace(/_/g,' ');
+      node.onclick = (function(wp){ return function(){ routeTo(wp); window.scrollTo({top:0,behavior:'smooth'}); }; })(w);
+    } else {
+      node.style.cursor = '';
+      node.title = '';
+      node.onclick = null;
+    }
   });
 }
 
@@ -3663,89 +3674,124 @@ function renderLemnosOutcome(choice, type, title, body, effs) {
 // navigate Argo through narrowing gap, 3 waves of increasing difficulty.
 // ============================================================
 
+// ── SYMPLEGADES CONSTANTS ─────────────────────────────────────
 const SYMP = {
+  // Min gap width — ship must physically fit through
   gapForCunning: function() {
     const c = cun();
-    if (c >= 12) return 110;  // cunning advantage: slightly wider
-    if (c >= 6)  return 95;
-    return 80;                // tight — ship is 60px wide
+    if (c >= 12) return 115;
+    if (c >= 6)  return 100;
+    return 88;
   },
+  // Rock closing speed multiplier based on provisions
   speedForProvisions: function() {
     if (G.provisions >= 15) return 1.0;
-    if (G.provisions >= 8)  return 1.2;
-    return 1.5;               // low provisions = significantly faster
+    if (G.provisions >= 8)  return 1.3;
+    return 1.65;
   },
-  // startClosed: how far rocks have already closed at wave start (fraction of half-width)
-  // 0 = edges, 1 = fully at targetGap. Higher = rocks start closer = immediate danger.
-  WAVES: [
-    { speed: 2.2,  startClosed: 0.55, vertDrift: false, gapDrift: false, extraPairs: 0 },
-    { speed: 3.0,  startClosed: 0.65, vertDrift: true,  gapDrift: true,  extraPairs: 0 },
-    { speed: 4.0,  startClosed: 0.72, vertDrift: true,  gapDrift: true,  extraPairs: 1 }
-  ],
+  // How fast rocks close (px/frame at 60fps)
+  CLOSE_RATES: [1.4, 2.0, 2.8],   // waves 1-3
+  // Gap center drift speed in gap phase (waves 2-3)
+  DRIFT_SPEED: [0, 1.0, 1.6],
   SPEED_BONUS_DRACHMA: 20,
   DAMAGE_DRACHMA_PENALTY: 15
 };
 
-let SG = null;
-
 function initSympState(canvas) {
   const W = canvas.width, H = canvas.height;
+  const targetGap = SYMP.gapForCunning();
+  const speedMult = SYMP.speedForProvisions();
   return {
     W, H,
-    argoX: W / 2, argoY: H * 0.65,
-    argoW: 60, argoH: 28,
-    keys: { left: false, right: false },
-    wave: 0, wavePhase: 'intro', phaseTimer: 0, totalTime: 0,
-    rockLeft: 0, rockRight: W,
-    targetGap: SYMP.gapForCunning(),
-    baseGap: W,
-    closingSpeed: SYMP.WAVES[0].speed * SYMP.speedForProvisions(),
-    vertOffset: 0, vertDir: 1, vertDrift: false,
-    extraPairs: 0, extraRocks: [],
-    hits: 0,
+    // Ship pixel position — starts at bottom center, must reach top
+    argoX:  W / 2,
+    argoY:  H * 0.88,        // start near bottom
+    argoVX: 0,               // horizontal velocity (momentum)
+    argoVY: 0,               // forward velocity (built by rowing)
+    argoW:  44,              // collision hitbox width
+    argoH:  60,              // collision hitbox height (elongated — top-down ship)
+    // Rowing mechanic
+    lastOar: null,           // 'left' or 'right' — last oar used
+    rowCooldown: 0,          // ms before next stroke registers
+    speed: 0,                // current forward speed 0-100
+    speedDecay: 18,          // speed lost per second (drag)
+    speedPerStroke: 22,      // speed gained per valid alternating stroke
+    // Keys currently held
+    keys: { left: false, right: false, space: false },
+    // Rocks — close from sides, ship must pass through gap
+    rockLeft:  0,
+    rockRight: W,
+    targetGap,
+    speedMult,
+    closeRate: SYMP.CLOSE_RATES[0] * speedMult,
+    gapCenter: W / 2,
+    gapDriftDir: 1,
+    // Win condition: argoY crosses past the rocks
+    rockBandY: H * 0.15,    // Y position of the rock band center
+    rockBandH: H * 0.22,    // height of the danger zone band
+    // Wave state
+    wave: 0,
+    wavePhase: 'intro',     // intro | countdown | closing | through | victory | gameover
+    phaseTimer: 0,
+    totalTime: 0,
+    countdown: 3,           // countdown beats before rocks start closing
+    // Damage
+    damaged: false,
+    bounceTimer: 0,
+    shakeFrames: 0, shakeMag: 0,
     builderBuffer: isAv('builder'),
     builderUsed: false,
     mirrorEarly: isAv('mirror'),
-    shakeFrames: 0, shakeMag: 0,
-    speedMult: SYMP.speedForProvisions(),
-    gap: SYMP.gapForCunning(),
-    gapCenter: W / 2, gapDrift: false, gapDriftDir: 1,
-    animId: null, wavesPassed: 0,
-    damaged: false, startTime: null,
+    // Sprites
     imgs: {},
+    animId: null,
+    startTime: null,
     _cleanup: null
   };
 }
 
+// ── RENDER STUB ───────────────────────────────────────────────
 function renderSympStub() {
-  // Restore: if already completed, show outcome
   if (G.choices.symplegades) { renderSympOutcome(G.choices.symplegades === 'damaged', 0, 0); return; }
   const cunv = cun();
   const provNote = G.provisions < 8
-    ? '<div class="banner b-hera">&#9889; Low provisions (' + G.provisions + ') &mdash; crew is panicked. Rocks close faster.</div>'
+    ? '<div class="banner b-hera">&#9889; Low provisions (' + G.provisions + ') &mdash; crew exhausted. Rocks close faster.</div>'
     : G.provisions < 15
-    ? '<div class="banner b-hera">&#9888; Reduced provisions (' + G.provisions + ') &mdash; crew is unsettled. Slightly faster closure.</div>'
+    ? '<div class="banner b-hera">&#9888; Reduced provisions (' + G.provisions + ') &mdash; crew is tired. Slightly faster closure.</div>'
     : '';
-  const mirNote  = isAv('mirror')  ? '<div class="banner b-avatar">&#128270; <strong>The Mirror:</strong> Pattern recognition gives you 0.5s early warning before each rock closure.</div>' : '';
-  const bldNote  = isAv('builder') ? '<div class="banner b-avatar">&#128296; <strong>The Builder:</strong> Pre-reinforced hull &mdash; absorbs one collision before damage triggers.</div>' : '';
-  const cunNote  = cunv >= 6 ? '<div class="banner b-craft">&#127919; <strong>Cunning ' + cunv + ':</strong> Tactical awareness widens your safe passage window.</div>' : '';
+  const mirNote = isAv('mirror')  ? '<div class="banner b-avatar">&#128270; <strong>The Mirror:</strong> You read the rock pattern early &mdash; extra warning time before they close.</div>' : '';
+  const bldNote = isAv('builder') ? '<div class="banner b-avatar">&#128296; <strong>The Builder:</strong> Hull reinforced &mdash; absorbs one rock collision before damage.</div>' : '';
+  const cunNote = cunv >= 6 ? '<div class="banner b-craft">&#127919; <strong>Cunning ' + cunv + ':</strong> Wider safe passage through the gap.</div>' : '';
 
   render([
-    '<div class="wp-hdr"><div class="wp-loc">&#129704; Waypoint III</div><div class="wp-title">The Symplegades</div><div class="wp-sub">The Clashing Rocks &mdash; Nothing has ever survived</div></div>',
+    '<div class="wp-hdr"><div class="wp-loc">&#129704; Waypoint III</div><div class="wp-title">The Symplegades</div><div class="wp-sub">Row the Argo through before the rocks close</div></div>',
     provNote, mirNote, bldNote, cunNote,
     '<div class="narr">',
-      '<p>The <em>Clashing Rocks</em> loom ahead &mdash; two cliff faces the size of mountains, grinding together with a sound like the earth being torn apart. The old trick: release a <em>dove</em> first. If it passes through, you have a heartbeat to follow.</p>',
-      '<p><strong>Steer the Argo left and right through three waves of closing rocks. Do not let the rocks reach you.</strong></p>',
+      '<p>The <em>Clashing Rocks</em> loom ahead &mdash; two cliff faces grinding together with a sound like the earth splitting. The old trick: release a dove. If it passes through, row hard and follow.</p>',
+      '<p>The rocks will close. You must row the Argo through the gap before they do.</p>',
     '</div>',
-    '<div style="background:var(--bg2);border:1px solid var(--gold3);border-radius:4px;padding:16px 20px;width:100%;font-family:var(--px);font-size:13px;line-height:2;color:var(--text2);">',
-      '&#8592; &#8594; Arrow keys or A / D to steer &nbsp;&middot;&nbsp; Touch: tap left or right half &nbsp;&middot;&nbsp; Under 45s = Drachma bonus',
+    '<div style="background:var(--bg2);border:1px solid var(--gold3);border-radius:4px;padding:16px 20px;width:100%;font-family:var(--px);font-size:13px;line-height:2.2;color:var(--text2);">',
+      '<div style="color:var(--gold);letter-spacing:2px;margin-bottom:10px;">HOW TO ROW</div>',
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;">',
+        '<div>&#8592; &#8594; Alternate arrows to row</div>',
+        '<div>A / D same as arrows</div>',
+        '<div>Keep alternating for speed</div>',
+        '<div>Same key twice = wasted stroke</div>',
+        '<div>Steer: hold one key while rowing</div>',
+        '<div>Touch: tap left / right halves</div>',
+      '</div>',
     '</div>',
-    '<div style="text-align:center;"><button class="btn-go" onclick="startSymplegades()">Release the Dove &#9654;</button></div>',
+    '<div style="text-align:center;margin-top:8px;"><button class="btn-go" onclick="startSymplegades()">Release the Dove &#9654;</button></div>',
     '<button class="btn-back" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Dashboard</button>'
   ].join(''));
 }
 
+// ── START ─────────────────────────────────────────────────────
 function startSymplegades() {
+  // Cancel any existing loop
+  if (SG && SG.animId) cancelAnimationFrame(SG.animId);
+  if (SG && SG._cleanup) SG._cleanup();
+
   const wrap = document.getElementById('wp-content');
   wrap.innerHTML =
     '<div id="symp-wrap" style="width:100%;display:flex;flex-direction:column;align-items:center;">' +
@@ -3753,20 +3799,19 @@ function startSymplegades() {
     '<div id="symp-hud" style="width:100%;max-width:820px;display:flex;justify-content:space-between;align-items:center;' +
          'background:var(--bg1);border:2px solid var(--gold3);border-top:none;padding:10px 18px;font-family:var(--px);font-size:13px;">' +
       '<span style="color:var(--teal);" id="symp-wave">WAVE 1 / 3</span>' +
-      '<span style="color:var(--gold);" id="symp-timer">90s</span>' +
-      '<span style="color:var(--text2);" id="symp-status">NAVIGATE THE ARGO</span>' +
+      '<span style="color:var(--gold);" id="symp-speed">SPEED: 0%</span>' +
+      '<span style="color:var(--text2);" id="symp-status">ROW!</span>' +
     '</div></div>';
 
   const canvas = document.getElementById('symp-canvas');
   const maxW = Math.min(820, window.innerWidth - 32);
   canvas.width  = maxW;
-  canvas.height = Math.floor(window.innerHeight * 0.55);
+  canvas.height = Math.floor(window.innerHeight * 0.60);
 
   SG = initSympState(canvas);
   SG.startTime = Date.now();
-  SG.imgs = {};
 
-  // Preload + magenta-strip all Symplegades sprites
+  // Preload + magenta-strip sprites
   const sympSprites = {
     bg:    '/images/heroic/symplegades/rocks_bg.png',
     left:  '/images/heroic/symplegades/rocks_left.png',
@@ -3795,26 +3840,54 @@ function startSymplegades() {
     img.src = src;
   });
 
+  // Keyboard input
   const onKey = e => {
+    if (SG.wavePhase === 'gameover' || SG.wavePhase === 'victory') return;
     const d = e.type === 'keydown';
-    if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') { SG.keys.left  = d; e.preventDefault(); }
-    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { SG.keys.right = d; e.preventDefault(); }
+    const prev = { ...SG.keys };
+    if (e.key==='ArrowLeft'  ||e.key==='a'||e.key==='A') { SG.keys.left  = d; e.preventDefault(); }
+    if (e.key==='ArrowRight' ||e.key==='d'||e.key==='D') { SG.keys.right = d; e.preventDefault(); }
+    if (e.key===' ') { e.preventDefault(); }
+    // Register rowing stroke on keydown only
+    if (d) {
+      const side = (e.key==='ArrowLeft'||e.key==='a'||e.key==='A') ? 'left'
+                 : (e.key==='ArrowRight'||e.key==='d'||e.key==='D') ? 'right' : null;
+      if (side && SG.rowCooldown <= 0) {
+        if (SG.lastOar !== side) {
+          // Valid alternating stroke
+          SG.speed = Math.min(100, SG.speed + SG.speedPerStroke);
+          SG.lastOar = side;
+          SG.rowCooldown = 160; // ms before next stroke
+          SG.rowFlash = 8;      // frames of oar flash
+        }
+        // Same key twice = wasted stroke, no penalty but no gain
+      }
+    }
   };
   document.addEventListener('keydown', onKey);
   document.addEventListener('keyup',   onKey);
 
+  // Touch: left half = left oar, right half = right oar
+  let lastTouchSide = null;
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();
-    SG.keys.left = SG.keys.right = false;
-    Array.from(e.touches).forEach(t => {
-      const rect = canvas.getBoundingClientRect();
-      if (t.clientX - rect.left < canvas.width / 2) SG.keys.left  = true;
-      else SG.keys.right = true;
+    if (SG.wavePhase === 'gameover' || SG.wavePhase === 'victory') return;
+    const rect = canvas.getBoundingClientRect();
+    Array.from(e.changedTouches).forEach(t => {
+      const side = (t.clientX - rect.left) < canvas.width / 2 ? 'left' : 'right';
+      SG.keys[side] = true;
+      if (SG.rowCooldown <= 0 && lastTouchSide !== side) {
+        SG.speed = Math.min(100, SG.speed + SG.speedPerStroke);
+        lastTouchSide = side;
+        SG.rowCooldown = 160;
+        SG.rowFlash = 8;
+      }
     });
   }, {passive:false});
   canvas.addEventListener('touchend', e => {
     e.preventDefault();
     SG.keys.left = SG.keys.right = false;
+    lastTouchSide = null;
   }, {passive:false});
 
   SG._cleanup = () => {
@@ -3822,19 +3895,18 @@ function startSymplegades() {
     document.removeEventListener('keyup',   onKey);
   };
 
-  beginWave(0);
+  // Game loop
   let lastTs = 0;
   function sympLoop(ts) {
     if (!SG) return;
-    const dt = Math.min(ts - lastTs, 50);
+    const dt = Math.min((ts - (lastTs||ts)), 50);
     lastTs = ts;
     SG.totalTime += dt;
     SG.phaseTimer += dt;
     const c = document.getElementById('symp-canvas');
     if (!c) return;
-    const ctx = c.getContext('2d');
     updateSympPhysics(dt);
-    drawSympFrame(ctx);
+    drawSympFrame(c.getContext('2d'));
     if (SG.wavePhase !== 'gameover' && SG.wavePhase !== 'victory') {
       SG.animId = requestAnimationFrame(sympLoop);
     }
@@ -3842,124 +3914,211 @@ function startSymplegades() {
   SG.animId = requestAnimationFrame(sympLoop);
 }
 
-function beginWave(waveIdx) {
-  const spec = SYMP.WAVES[waveIdx];
-  SG.wave = waveIdx; SG.wavePhase = 'intro'; SG.phaseTimer = 0;
-
-  // Start rocks already partially closed — immediate visual threat
-  const halfClose = (SG.W - SG.targetGap) / 2;
-  SG.rockLeft  = halfClose * spec.startClosed;
-  SG.rockRight = SG.W - halfClose * spec.startClosed;
-
-  SG.closingSpeed = spec.speed * SG.speedMult;
-  SG.vertDrift = spec.vertDrift;
-  SG.gapDrift  = spec.gapDrift || false;
-  SG.gapCenter = SG.W / 2;
-  SG.gapDriftDir = 1;
-  SG.extraPairs = spec.extraPairs;
-  SG.vertOffset = 0; SG.vertDir = 1; SG.warningFlashed = false;
-  SG.extraRocks = [];
-  if (spec.extraPairs > 0) {
-    for (let i = 0; i < spec.extraPairs; i++) {
-      const rH = SG.H * 0.22;
-      const y  = SG.H * 0.10 + i * SG.H * 0.14;
-      SG.extraRocks.push(
-        {x: -80,   y, w: 80, h: rH, vx:  2.0 * SG.speedMult, vy:  0.4},
-        {x: SG.W,  y, w: 80, h: rH, vx: -2.0 * SG.speedMult, vy: -0.4}
-      );
-    }
-  }
-  const wl = el('symp-wave');
-  if (wl) wl.textContent = 'WAVE ' + (waveIdx + 1) + ' / 3';
-}
-
+// ── PHYSICS ───────────────────────────────────────────────────
 function updateSympPhysics(dt) {
   const S = SG;
-  // Ship speed scales with wave — faster rocks require faster steering
-  const SPEED = 4.5 + S.wave * 1.0;
+  const dtS = dt / 1000; // seconds
+
   if (S.shakeFrames > 0) S.shakeFrames--;
+  if (S.rowCooldown > 0) S.rowCooldown -= dt;
+  if (S.rowFlash   > 0) S.rowFlash--;
+  if (S.bounceTimer > 0) S.bounceTimer -= dt;
 
-  if (S.wavePhase === 'closing' || S.wavePhase === 'gap') {
-    const half = S.argoW / 2;
-    if (S.keys.left)  S.argoX = Math.max(S.rockLeft  + half + 2, S.argoX - SPEED);
-    if (S.keys.right) S.argoX = Math.min(S.rockRight - half - 2, S.argoX + SPEED);
-  }
+  switch (S.wavePhase) {
 
-  switch(S.wavePhase) {
+    // ── INTRO: brief pause then countdown ──────────────────────
     case 'intro':
-      if (S.phaseTimer > 1000) { S.wavePhase = 'warning'; S.phaseTimer = 0; }
-      break;
-    case 'warning':
-      if (S.phaseTimer > (S.mirrorEarly ? 900 : 500)) { S.wavePhase = 'closing'; S.phaseTimer = 0; }
-      break;
-    case 'closing': {
-      const rate = S.closingSpeed * (dt / 16);
-      S.rockLeft += rate; S.rockRight -= rate;
-      if (S.vertDrift) {
-        S.vertOffset += S.vertDir * 0.8 * (dt / 16);
-        if (Math.abs(S.vertOffset) > S.H * 0.14) S.vertDir *= -1;
+      if (S.phaseTimer > 800) {
+        S.wavePhase = 'countdown';
+        S.phaseTimer = 0;
+        S.countdown = S.mirrorEarly ? 4 : 3;
       }
-      S.extraRocks.forEach(r => {
-        r.x += r.vx * (dt / 16); r.y += r.vy * (dt / 16);
-        if (r.y < 0 || r.y + r.h > S.H * 0.6) r.vy *= -1;
-      });
-      if (S.rockRight - S.rockLeft <= S.targetGap) {
-        // Snap gap to current gapCenter (drifts in waves 2-3)
+      break;
+
+    // ── COUNTDOWN: 3-2-1-ROW ──────────────────────────────────
+    case 'countdown':
+      if (S.phaseTimer > 900) {
+        S.countdown--;
+        S.phaseTimer = 0;
+        if (S.countdown <= 0) {
+          S.wavePhase = 'closing';
+          // Init rocks: start partially closed for drama
+          const halfClose = (S.W - S.targetGap) / 2;
+          const startFrac = [0.45, 0.58, 0.70][S.wave] || 0.45;
+          S.rockLeft  = halfClose * startFrac;
+          S.rockRight = S.W - halfClose * startFrac;
+          S.gapCenter = S.W / 2;
+          S.gapDriftDir = 1;
+          S.closeRate = SYMP.CLOSE_RATES[S.wave] * S.speedMult;
+        }
+      }
+      break;
+
+    // ── CLOSING: rocks close, player must row through ──────────
+    case 'closing': {
+      // Speed decay (drag)
+      S.speed = Math.max(0, S.speed - S.speedDecay * dtS);
+
+      // Forward movement — argoY decreases (moves up toward rocks)
+      const forwardPx = S.speed * 0.9 * dtS;
+      S.argoY -= forwardPx;
+
+      // Horizontal steering — momentum based
+      const steerForce = 200; // px/s²
+      if (S.keys.left  && !S.keys.right) S.argoVX -= steerForce * dtS;
+      if (S.keys.right && !S.keys.left)  S.argoVX += steerForce * dtS;
+      // Horizontal drag
+      S.argoVX *= Math.pow(0.85, dtS * 60);
+      // Clamp to gap walls
+      const halfW = S.argoW / 2;
+      S.argoX += S.argoVX * dtS;
+      S.argoX = Math.max(S.rockLeft + halfW + 2, Math.min(S.rockRight - halfW - 2, S.argoX));
+
+      // Rocks close
+      S.rockLeft  += S.closeRate * (dt / 16);
+      S.rockRight -= S.closeRate * (dt / 16);
+
+      // Gap center drifts in waves 2-3
+      if (S.wave >= 1) {
+        const driftPx = SYMP.DRIFT_SPEED[S.wave] * (dt / 16);
+        S.gapCenter += S.gapDriftDir * driftPx;
+        const margin = S.targetGap / 2 + 30;
+        if (S.gapCenter < margin || S.gapCenter > S.W - margin) S.gapDriftDir *= -1;
+        // Recentre rocks around drifting gap
+        S.rockLeft  = S.gapCenter - (S.rockRight - S.rockLeft) / 2;
+        S.rockRight = S.gapCenter + (S.rockRight - S.rockLeft + (S.closeRate * dt/16)*2) / 2;
+        // Re-clamp after arithmetic
+        const curGap = Math.max(S.targetGap, S.rockRight - S.rockLeft);
+        S.rockLeft  = S.gapCenter - curGap / 2;
+        S.rockRight = S.gapCenter + curGap / 2;
+      }
+
+      // Clamp gap — never closes tighter than targetGap
+      if (S.rockRight - S.rockLeft < S.targetGap) {
         S.rockLeft  = S.gapCenter - S.targetGap / 2;
         S.rockRight = S.gapCenter + S.targetGap / 2;
-        S.wavePhase = 'gap'; S.phaseTimer = 0;
       }
+
+      // Check if Argo has physically passed through the rocks
+      const rockBandBottom = S.rockBandY + S.rockBandH / 2;
+      if (S.argoY + S.argoH / 2 < rockBandBottom - S.argoH) {
+        // Ship nose is past the rocks — victory for this wave
+        S.wavePhase = 'through';
+        S.phaseTimer = 0;
+        break;
+      }
+
+      // Check if pushed back too far (fell behind rocks slamming)
+      if (S.argoY > S.H * 0.95) {
+        sympFail(); break;
+      }
+
+      // Rock collision check
       checkArgoCollision();
       break;
     }
-    case 'gap':
-      // Gap center drifts left/right in waves 2-3 — ship must chase safe channel
-      if (S.gapDrift) {
-        const driftSpeed = 1.2 * (dt / 16);
-        S.gapCenter += S.gapDriftDir * driftSpeed;
-        // Clamp gapCenter so gap never exits canvas
-        const margin = S.targetGap / 2 + 20;
-        if (S.gapCenter < margin || S.gapCenter > S.W - margin) S.gapDriftDir *= -1;
-        S.rockLeft  = S.gapCenter - S.targetGap / 2;
-        S.rockRight = S.gapCenter + S.targetGap / 2;
-      }
-      if (S.vertDrift) {
-        S.vertOffset += S.vertDir * 0.6 * (dt / 16);
-        if (Math.abs(S.vertOffset) > S.H * 0.12) S.vertDir *= -1;
-      }
-      S.extraRocks.forEach(r => {
-        r.x += r.vx * (dt / 16); r.y += r.vy * (dt / 16);
-        if (r.y < 0 || r.y + r.h > S.H * 0.6) r.vy *= -1;
-      });
-      checkArgoCollision();
-      if (S.phaseTimer > 1800) {  // shorter hold — get to next wave faster
-        S.wavesPassed++;
-        if (S.wavesPassed >= SYMP.WAVES.length) sympVictory();
-        else beginWave(S.wavesPassed);
+
+    // ── THROUGH: brief celebration then next wave or victory ──
+    case 'through':
+      // Keep ship moving forward past rocks
+      S.argoY -= S.speed * 0.5 * dtS;
+      S.speed = Math.max(0, S.speed - 10 * dtS);
+      if (S.phaseTimer > 1200) {
+        const nextWave = S.wave + 1;
+        if (nextWave >= SYMP.CLOSE_RATES.length) {
+          sympVictory();
+        } else {
+          // Reset for next wave
+          S.wave = nextWave;
+          S.argoY = S.H * 0.88;
+          S.argoX = S.W / 2;
+          S.argoVX = 0;
+          S.speed = 0;
+          S.wavePhase = 'intro';
+          S.phaseTimer = 0;
+          const wl = el('symp-wave');
+          if (wl) wl.textContent = 'WAVE ' + (nextWave + 1) + ' / 3';
+        }
       }
       break;
+  }
+
+  // HUD
+  const spEl = el('symp-speed');
+  if (spEl) {
+    spEl.textContent = 'SPEED: ' + Math.round(S.speed) + '%';
+    spEl.style.color = S.speed > 60 ? 'var(--green)' : S.speed > 30 ? 'var(--gold)' : 'var(--red)';
   }
 }
 
 function checkArgoCollision() {
   const S = SG;
-  const ax1 = S.argoX - S.argoW/2, ax2 = S.argoX + S.argoW/2;
-  const ay1 = S.argoY - S.argoH/2, ay2 = S.argoY + S.argoH/2;
-  let hit = ax1 <= S.rockLeft || ax2 >= S.rockRight;
-  if (!hit) S.extraRocks.forEach(r => {
-    if (ax2 > r.x && ax1 < r.x + r.w && ay2 > r.y && ay1 < r.y + r.h) hit = true;
-  });
-  if (!hit) return;
+  if (S.bounceTimer > 0) return; // invincibility frames after bounce
+
+  // Only check collision when ship is in the rock band Y zone
+  const shipTop    = S.argoY - S.argoH / 2;
+  const shipBottom = S.argoY + S.argoH / 2;
+  const bandTop    = S.rockBandY - S.rockBandH / 2;
+  const bandBottom = S.rockBandY + S.rockBandH / 2;
+  if (shipBottom < bandTop || shipTop > bandBottom) return;
+
+  // Check horizontal rock overlap
+  const shipLeft  = S.argoX - S.argoW / 2;
+  const shipRight = S.argoX + S.argoW / 2;
+  const hitLeft  = shipLeft  < S.rockLeft;
+  const hitRight = shipRight > S.rockRight;
+
+  if (!hitLeft && !hitRight) return;
+
+  // Collision
   if (S.builderBuffer && !S.builderUsed) {
-    S.builderUsed = true; S.shakeFrames = 8; S.shakeMag = 4;
-    const st = el('symp-status'); if (st) st.textContent = 'HULL REINFORCED — BUFFER USED!';
-    setTimeout(() => { const s = el('symp-status'); if (s) s.textContent = 'NAVIGATE THE ARGO'; }, 1500);
+    S.builderUsed = true;
+    S.shakeFrames = 10; S.shakeMag = 5;
+    S.bounceTimer = 600;
+    // Push away from rock
+    S.argoVX = hitLeft ? 80 : -80;
+    S.argoY += 20; // bounce back
+    S.speed *= 0.5;
+    const st = el('symp-status'); if (st) st.textContent = 'HULL REINFORCED — KEEP ROWING!';
+    setTimeout(() => { const s = el('symp-status'); if (s) s.textContent = 'ROW!'; }, 1200);
   } else if (!S.damaged) {
-    S.damaged = true; S.shakeFrames = 18; S.shakeMag = 8;
-    S.argoX = S.W / 2;
-    const st = el('symp-status'); if (st) st.textContent = 'HULL DAMAGED!';
-    setTimeout(() => { const s = el('symp-status'); if (s) s.textContent = 'NAVIGATE THE ARGO'; }, 1500);
+    S.damaged = true;
+    S.shakeFrames = 20; S.shakeMag = 10;
+    S.bounceTimer = 800;
+    S.argoVX = hitLeft ? 120 : -120;
+    S.argoY += 30;
+    S.speed *= 0.3;
+    G.equipment = Math.max(1, G.equipment - 1);
+    const st = el('symp-status'); if (st) { st.style.color='var(--red)'; st.textContent = 'HULL DAMAGED — ROW HARDER!'; }
+    setTimeout(() => { const s = el('symp-status'); if (s) { s.style.color=''; s.textContent = 'ROW!'; } }, 1500);
+  } else {
+    // Already damaged — second hit = fail
+    sympFail();
   }
+}
+
+function sympFail() {
+  if (SG.wavePhase === 'gameover') return;
+  if (SG.animId) cancelAnimationFrame(SG.animId);
+  if (SG._cleanup) SG._cleanup();
+  SG.wavePhase = 'gameover';
+
+  const wrap = document.getElementById('wp-content');
+  if (!wrap) return;
+  wrap.innerHTML =
+    '<div class="wp" style="align-items:center;">' +
+    '<div class="wp-hdr">' +
+      '<div class="wp-loc" style="color:var(--red);letter-spacing:4px;">&#129704; The Rocks</div>' +
+      '<div class="wp-title" style="color:var(--red);">The Rocks Closed</div>' +
+    '</div>' +
+    '<div class="narr" style="border-color:var(--red);">' +
+      '<p>The Symplegades slammed shut before the Argo could clear them. The crew rows back to open water, shaken. The rocks grind slowly apart again — waiting.</p>' +
+      '<p style="font-family:var(--px);font-size:13px;color:var(--gold);">Alternate &#8592; &#8594; to build speed. Keep the rhythm going all the way through.</p>' +
+    '</div>' +
+    '<div style="text-align:center;margin-top:8px;">' +
+      '<button class="btn-go" onclick="startSymplegades()">Try Again &#8635;</button>' +
+    '</div>' +
+    '</div>';
 }
 
 function sympVictory() {
@@ -3967,11 +4126,8 @@ function sympVictory() {
   if (S.animId) cancelAnimationFrame(S.animId);
   if (S._cleanup) S._cleanup();
   const elapsed = (Date.now() - S.startTime) / 1000;
-  const speedBonus = elapsed < 45 ? SYMP.SPEED_BONUS_DRACHMA : 0;
-  if (S.damaged) {
-    G.equipment = Math.max(1, G.equipment - 1);
-    G.symplegadesDamaged = true;
-  }
+  const speedBonus = elapsed < 60 ? SYMP.SPEED_BONUS_DRACHMA : 0;
+  if (S.damaged) G.symplegadesDamaged = true;
   if (speedBonus) G.drachma += speedBonus;
   G.choices.symplegades = S.damaged ? 'damaged' : 'clean';
   recordChoice('symplegades', G.choices.symplegades);
@@ -3989,16 +4145,16 @@ function renderSympOutcome(damaged, speedBonus, elapsed) {
   render([
     '<div class="wp-hdr"><div class="wp-loc">&#129704; Symplegades &mdash; Cleared</div><div class="wp-title">East of the Rocks</div></div>',
     '<div class="outcome ' + (damaged ? 'oc-warning' : 'oc-success') + '">',
-      '<div class="oc-title">' + (damaged ? 'Through the Rocks &mdash; at a Cost' : 'Clear! The Argo Passes Through!') + '</div>',
+      '<div class="oc-title">' + (damaged ? 'Through the Rocks &mdash; at a Cost' : 'The Argo Breaks Through!') + '</div>',
       '<div class="oc-body">' + (damaged
-        ? 'The Argo made it through, but the hull took damage. Equipment degraded. Repairs cost 15 Drachma at the next market.'
-        : 'The rocks snap shut behind you like thunder. The crew erupts. No ship has ever made it through &mdash; until now.'
+        ? 'The Argo scraped through, hull damaged. Equipment degraded. Find a forge at Colchis.'
+        : 'The rocks snap shut behind you like thunder. The crew erupts. No ship has ever made it through — until now.'
       ) + '</div>',
       '<div class="eff-row">' + effs.join('') + '</div>',
     '</div>',
     '<div class="narr">',
-      '<p>Ahead lies the coast of <em>Colchis</em> &mdash; kingdom of King Aeetes, guardian of the Golden Fleece. The crew is shaken but alive.</p>',
-      '<p><i>' + (damaged ? 'The hull will hold for now. Find a forge at Colchis.' : 'Hera watched the passage. She said nothing. That alone feels like approval.') + '</i></p>',
+      '<p>Ahead lies the coast of <em>Colchis</em> &mdash; kingdom of King Aeetes, guardian of the Golden Fleece.</p>',
+      '<p><i>' + (damaged ? 'The hull will hold for now. Find a forge.' : 'Hera watched the passage. She said nothing. That alone feels like approval.') + '</i></p>',
     '</div>',
     '<div style="text-align:center;"><button class="btn-go" onclick="advanceTo(\'COLCHIS\')">Sail for Colchis &#9654;</button></div>',
     '<button class="btn-back" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Dashboard</button>'
@@ -4006,167 +4162,178 @@ function renderSympOutcome(damaged, speedBonus, elapsed) {
   updateHeader();
 }
 
+// ── DRAW ──────────────────────────────────────────────────────
 function drawSympFrame(ctx) {
   const S = SG, W = S.W, H = S.H;
+
+  // Shake offset
   let sx = 0, sy = 0;
   if (S.shakeFrames > 0) { sx = (Math.random()-.5)*S.shakeMag; sy = (Math.random()-.5)*S.shakeMag; }
   ctx.save();
   ctx.translate(sx, sy);
 
-  // Background — image or procedural fallback
+  // ── Background ─────────────────────────────────────────────
   if (S.imgs && S.imgs.bg) {
     ctx.drawImage(S.imgs.bg, 0, 0, W, H);
   } else {
-    ctx.fillStyle = '#0a1520';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0a1520'; ctx.fillRect(0, 0, W, H);
     for (let y = 0; y < H; y += 6) {
       ctx.fillStyle = 'rgba(30,80,120,' + (0.12 + (y/H)*0.06) + ')';
       ctx.fillRect(0, y, W, 3);
     }
   }
-  // Wake lines
-  ctx.strokeStyle = 'rgba(64,216,192,0.2)'; ctx.lineWidth = 2;
-  for (let i = 1; i <= 4; i++) {
-    ctx.beginPath();
-    ctx.moveTo(S.argoX-18, S.argoY+S.argoH/2+i*5);
-    ctx.lineTo(S.argoX+18, S.argoY+S.argoH/2+i*5);
-    ctx.stroke();
-  }
 
-  // Main rocks — image panels sliding in from each side
-  const rockY = S.vertDrift ? H*0.05 + S.vertOffset : H*0.05;
-  const rockH = H * 0.92;
-  drawRock(ctx, 0, rockY, S.rockLeft, rockH, 'left');
-  drawRock(ctx, S.rockRight, rockY, W - S.rockRight, rockH, 'right');
+  // ── Rock walls — sliding in from each side ─────────────────
+  // Only draw during closing phase and after
+  if (S.wavePhase === 'closing' || S.wavePhase === 'through') {
+    if (S.rockLeft > 0) {
+      if (S.imgs && S.imgs.left) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, 0, S.rockLeft, H); ctx.clip();
+        ctx.drawImage(S.imgs.left, 0, 0, S.rockLeft, H);
+        ctx.restore();
+      } else {
+        // Procedural fallback
+        const C = ['#2a1a08','#3a2810','#4a3818'];
+        const bW = S.rockLeft / 3;
+        ctx.fillStyle=C[2]; ctx.fillRect(0,    0, bW,              H);
+        ctx.fillStyle=C[1]; ctx.fillRect(bW,   0, bW,              H);
+        ctx.fillStyle=C[0]; ctx.fillRect(bW*2, 0, S.rockLeft-bW*2, H);
+      }
+    }
+    if (S.rockRight < W) {
+      if (S.imgs && S.imgs.right) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(S.rockRight, 0, W - S.rockRight, H); ctx.clip();
+        ctx.drawImage(S.imgs.right, S.rockRight, 0, W - S.rockRight, H);
+        ctx.restore();
+      } else {
+        const C = ['#2a1a08','#3a2810','#4a3818'];
+        const rw = W - S.rockRight, bW = rw / 3;
+        ctx.fillStyle=C[0]; ctx.fillRect(S.rockRight,      0, bW, H);
+        ctx.fillStyle=C[1]; ctx.fillRect(S.rockRight+bW,   0, bW, H);
+        ctx.fillStyle=C[2]; ctx.fillRect(S.rockRight+bW*2, 0, rw-bW*2, H);
+      }
+    }
 
-  // Danger zone tint
-  if (S.wavePhase === 'closing' || S.wavePhase === 'gap') {
+    // Danger tint inside gap as it narrows
     const gapW = S.rockRight - S.rockLeft;
-    ctx.fillStyle = 'rgba(224,64,64,' + Math.max(0, 0.15 - gapW/W*0.15) + ')';
-    ctx.fillRect(S.rockLeft, 0, gapW, H);
+    const dangerAlpha = Math.max(0, 0.22 - (gapW / W) * 0.22);
+    if (dangerAlpha > 0) {
+      ctx.fillStyle = 'rgba(224,64,64,' + dangerAlpha + ')';
+      ctx.fillRect(S.rockLeft, 0, gapW, H);
+    }
   }
 
-  // Extra rocks
-  S.extraRocks.forEach(r => drawRock(ctx, r.x, r.y, r.w, r.h, 'chunk'));
+  // ── Speed / row indicator ──────────────────────────────────
+  if (S.wavePhase === 'closing') {
+    // Speed bar on left edge
+    const barH = H * 0.6;
+    const barY = H * 0.2;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(8, barY, 10, barH);
+    const fillH = barH * S.speed / 100;
+    const barColor = S.speed > 60 ? '#40c060' : S.speed > 30 ? '#f0c040' : '#e04040';
+    ctx.fillStyle = barColor;
+    ctx.fillRect(8, barY + barH - fillH, 10, fillH);
+    ctx.fillStyle = '#f0e8d0';
+    ctx.font = '9px "Courier New"'; ctx.textAlign = 'center';
+    ctx.fillText('SPD', 13, barY - 6);
 
-  // Warning flash
-  if (S.wavePhase === 'warning') {
-    const a = Math.abs(Math.sin(S.phaseTimer/180)) * 0.3;
-    ctx.fillStyle = 'rgba(240,192,64,' + a + ')';
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#f0c040'; ctx.font = 'bold 14px "Courier New"'; ctx.textAlign = 'center';
-    ctx.fillText(S.mirrorEarly ? '[ PATTERN DETECTED — MIRROR ADVANTAGE ]' : '[ ROCKS CLOSING ]', W/2, H*0.10);
-  }
+    // Oar flash on keystroke
+    if (S.rowFlash > 0) {
+      ctx.strokeStyle = 'rgba(64,216,192,' + (S.rowFlash / 8) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(S.argoX - S.argoW, S.argoY + S.argoH * 0.3);
+      ctx.lineTo(S.argoX - S.argoW * 1.8, S.argoY + S.argoH * 0.6);
+      ctx.moveTo(S.argoX + S.argoW, S.argoY + S.argoH * 0.3);
+      ctx.lineTo(S.argoX + S.argoW * 1.8, S.argoY + S.argoH * 0.6);
+      ctx.stroke();
+    }
 
-  // Argo
-  drawArgo(ctx, S.argoX, S.argoY, S.argoW, S.argoH, S.damaged && !S.builderBuffer);
-
-  // Intro overlay
-  if (S.wavePhase === 'intro') {
-    ctx.fillStyle = 'rgba(8,8,15,0.7)'; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle = '#f0c040'; ctx.font = 'bold 20px "Courier New"'; ctx.textAlign = 'center';
-    ctx.fillText('WAVE ' + (S.wave+1) + ' OF 3', W/2, H/2-18);
-    ctx.font = '13px "Courier New"'; ctx.fillStyle = '#40d8c0';
-    ctx.fillText(S.wave===0 ? 'NAVIGATE THROUGH THE GAP' : S.wave===1 ? 'ROCKS DRIFT — STAY CENTERED' : 'MAXIMUM SPEED — EXTRA HAZARDS', W/2, H/2+14);
-  }
-
-  // Gap indicator
-  if (S.wavePhase==='closing'||S.wavePhase==='gap') {
+    // Gap width indicator
     const gapW = S.rockRight - S.rockLeft;
-    ctx.fillStyle = gapW > S.argoW*1.6 ? 'rgba(64,192,96,0.8)' : 'rgba(224,64,64,0.9)';
+    const aw = S.argoW;
+    ctx.fillStyle = gapW > aw * 1.8 ? 'rgba(64,192,96,0.85)' : 'rgba(224,64,64,0.95)';
     ctx.font = '11px "Courier New"'; ctx.textAlign = 'center';
-    ctx.fillText('GAP: ' + Math.round(gapW) + 'px', W/2, H-10);
+    ctx.fillText('GAP: ' + Math.round(gapW) + 'px', W/2, H - 8);
   }
+
+  // ── Countdown overlay ──────────────────────────────────────
+  if (S.wavePhase === 'intro' || S.wavePhase === 'countdown') {
+    ctx.fillStyle = 'rgba(8,8,15,0.75)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#f0c040'; ctx.font = 'bold 28px "Courier New"'; ctx.textAlign = 'center';
+    const countText = S.wavePhase === 'intro' ? 'WAVE ' + (S.wave+1) + ' OF 3'
+                    : S.countdown > 0 ? String(S.countdown) : 'ROW!';
+    ctx.fillText(countText, W/2, H/2 - 10);
+    ctx.font = '13px "Courier New"'; ctx.fillStyle = '#40d8c0';
+    const subText = S.wave === 0 ? 'ALTERNATE ← → TO ROW THROUGH'
+                  : S.wave === 1 ? 'ROCKS DRIFT — STEER AND ROW'
+                  : 'MAXIMUM SPEED — ROCKS CLOSE FAST';
+    ctx.fillText(subText, W/2, H/2 + 22);
+  }
+
+  // ── Through overlay ────────────────────────────────────────
+  if (S.wavePhase === 'through') {
+    ctx.fillStyle = 'rgba(64,192,96,0.15)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = '#40c060'; ctx.font = 'bold 22px "Courier New"'; ctx.textAlign = 'center';
+    ctx.fillText('THROUGH!', W/2, H * 0.3);
+  }
+
+  // ── Argo ───────────────────────────────────────────────────
+  drawArgo(ctx, S.argoX, S.argoY, S.argoW, S.argoH, S.damaged);
 
   // Builder shield glow
-  if (S.builderBuffer && !S.builderUsed && S.shakeFrames > 0) {
-    ctx.strokeStyle = 'rgba(64,192,96,0.85)'; ctx.lineWidth = 3;
-    ctx.strokeRect(S.argoX-S.argoW/2-5, S.argoY-S.argoH/2-5, S.argoW+10, S.argoH+10);
+  if (S.builderBuffer && !S.builderUsed && S.bounceTimer > 0) {
+    ctx.strokeStyle = 'rgba(64,192,96,0.9)'; ctx.lineWidth = 3;
+    ctx.strokeRect(S.argoX - S.argoW/2 - 6, S.argoY - S.argoH/2 - 6, S.argoW + 12, S.argoH + 12);
   }
 
   ctx.restore();
-
-  // HUD timer (outside shake)
-  const rem = Math.max(0, 90 - Math.floor(SG.totalTime/1000));
-  const timerEl = el('symp-timer');
-  if (timerEl) { timerEl.textContent = rem+'s'; timerEl.style.color = rem < 20 ? '#e04040':'#f0c040'; }
-}
-
-function drawRock(ctx, x, y, w, h, side) {
-  if (w <= 0) return;
-  const imgs = SG.imgs || {};
-
-  if (side === 'left' && imgs.left) {
-    // Stretch the rock_left image to fill the current rock width
-    // Clip to avoid overdrawing into the gap
-    ctx.save();
-    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-    ctx.drawImage(imgs.left, x, y, w, h);
-    ctx.restore();
-    return;
-  }
-  if (side === 'right' && imgs.right) {
-    ctx.save();
-    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-    ctx.drawImage(imgs.right, x, y, w, h);
-    ctx.restore();
-    return;
-  }
-
-  // Procedural fallback (also used for 'chunk' extra rocks)
-  const C = ['#5a4020','#7a5830','#9a7040'];
-  const bW = Math.max(1, w/3);
-  if (side==='left') {
-    ctx.fillStyle=C[2]; ctx.fillRect(x,       y, Math.min(bW,w),            h);
-    ctx.fillStyle=C[1]; ctx.fillRect(x+bW,    y, Math.min(bW, Math.max(0,w-bW)),   h);
-    ctx.fillStyle=C[0]; ctx.fillRect(x+bW*2,  y, Math.max(0,w-bW*2),        h);
-  } else if (side==='right') {
-    ctx.fillStyle=C[0]; ctx.fillRect(x,       y, Math.min(bW,w),            h);
-    ctx.fillStyle=C[1]; ctx.fillRect(x+bW,    y, Math.min(bW, Math.max(0,w-bW)),   h);
-    ctx.fillStyle=C[2]; ctx.fillRect(x+bW*2,  y, Math.max(0,w-bW*2),        h);
-  } else {
-    ctx.fillStyle=C[1]; ctx.fillRect(x,y,w,h);
-    ctx.fillStyle=C[0]; ctx.fillRect(x,y,w,4);
-    ctx.fillStyle=C[2]; ctx.fillRect(x,y+h-4,w,4);
-  }
-  ctx.fillStyle='rgba(0,0,0,0.28)';
-  const cxs = side==='right' ? [x+w*0.25, x+w*0.6] : [x+w*0.3, x+w*0.65];
-  cxs.forEach(cx => { for (let ry=y+12; ry<y+h-12; ry+=20) ctx.fillRect(cx, ry, 2, 10); });
-  ctx.fillStyle='rgba(255,255,255,0.10)';
-  if (side==='left')  ctx.fillRect(x+w-3, y, 3, h);
-  if (side==='right') ctx.fillRect(x, y, 3, h);
 }
 
 function drawArgo(ctx, cx, cy, w, h, damaged) {
-  const x = cx - w/2, y = cy - h/2;
-  const imgs = SG.imgs || {};
-
-  if (imgs.argo) {
-    // Draw argo sprite — larger than hitbox for visual presence
-    const dw = w * 2.2, dh = h * 2.8;
-    const dx = cx - dw/2, dy = cy - dh * 0.65;
-    ctx.drawImage(imgs.argo, dx, dy, dw, dh);
-    if (damaged) {
-      ctx.fillStyle = 'rgba(224,64,64,0.35)';
-      ctx.fillRect(dx, dy, dw, dh);
-    }
+  const imgs = SG ? SG.imgs : {};
+  if (imgs && imgs.argo) {
+    // Draw argo sprite — rotate 90° so stern faces down (ship points up)
+    const dw = w * 2.0, dh = h * 1.8;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 2);  // rotate 90° so ship faces up
+    ctx.drawImage(imgs.argo, -dh/2, -dw/2, dh, dw);
+    if (damaged) { ctx.fillStyle='rgba(224,64,64,0.35)'; ctx.fillRect(-dh/2,-dw/2,dh,dw); }
+    ctx.restore();
     return;
   }
-
-  // Procedural fallback
+  // Procedural fallback — top-down ship shape
+  const x = cx - w/2, y = cy - h/2;
   const hullC = damaged ? '#804020' : '#c89820';
-  const sailC = damaged ? '#604030' : '#f0e8d0';
-  ctx.fillStyle=hullC; ctx.fillRect(x, y+h*0.4, w, h*0.6);
-  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x, y+h*0.8, w, h*0.2);
-  ctx.fillStyle='#80510a'; ctx.fillRect(cx-2, y, 4, h*0.6);
-  ctx.fillStyle=sailC; ctx.fillRect(cx-w*0.3, y+2, w*0.6, h*0.4);
-  ctx.strokeStyle='#805810'; ctx.lineWidth=2;
-  [-w*0.35, w*0.35].forEach(ox => {
-    ctx.beginPath(); ctx.moveTo(cx+ox, y+h*0.55); ctx.lineTo(cx+ox*1.5, y+h*0.85); ctx.stroke();
+  // Elongated hull (vertical — ship moves up)
+  ctx.fillStyle = hullC;
+  ctx.beginPath();
+  ctx.moveTo(cx, y);                          // bow (top)
+  ctx.lineTo(cx + w/2, y + h * 0.3);
+  ctx.lineTo(cx + w/2, y + h * 0.85);
+  ctx.lineTo(cx,       y + h);               // stern (bottom)
+  ctx.lineTo(cx - w/2, y + h * 0.85);
+  ctx.lineTo(cx - w/2, y + h * 0.3);
+  ctx.closePath();
+  ctx.fill();
+  // Mast
+  ctx.fillStyle = '#80510a';
+  ctx.fillRect(cx - 2, y + h*0.2, 4, h*0.5);
+  // Sail
+  ctx.fillStyle = damaged ? '#604030' : '#f0e8d0';
+  ctx.fillRect(cx - w*0.35, y + h*0.22, w*0.7, h*0.35);
+  // Oars
+  ctx.strokeStyle = '#805810'; ctx.lineWidth = 2;
+  [-w*0.55, w*0.55].forEach(ox => {
+    ctx.beginPath(); ctx.moveTo(cx + ox*0.8, y+h*0.45); ctx.lineTo(cx + ox*1.5, y+h*0.7); ctx.stroke();
   });
-  if (damaged) { ctx.fillStyle='rgba(224,64,64,0.45)'; ctx.fillRect(x,y,w,h); }
-  ctx.fillStyle='rgba(240,192,64,0.35)'; ctx.fillRect(x+w-4, y+h*0.4, 4, h*0.3);
+  if (damaged) { ctx.fillStyle='rgba(224,64,64,0.4)'; ctx.fillRect(x,y,w,h); }
 }
+
 
 // ============================================================
 // COLCHIS COAST — The Fire-Breathing Bulls (spec section 5.2)
