@@ -147,6 +147,7 @@ body{background:var(--bg0);color:var(--text1);font-family:'Cinzel',serif;min-hei
 /* MARKET */
 .mkt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;width:100%;}
 .mkt-item{background:var(--bg2);border:2px solid var(--gold3);border-radius:4px;padding:20px 14px;text-align:center;}
+.mkt-sprite{width:72px;height:72px;margin:0 auto 10px;display:block;image-rendering:pixelated;}
 .mkt-name{font-size:var(--fs-lg);font-weight:700;color:var(--gold);margin-bottom:6px;}
 .mkt-desc{font-family:var(--px);font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:12px;}
 .mkt-price{font-family:var(--px);font-size:var(--fs-sm);color:var(--teal);margin-bottom:10px;letter-spacing:1px;}
@@ -302,10 +303,10 @@ const AV_PROFILE = {
 
 // Market items — Wood/Leather tier (spec section 5.2 IOLCOS)
 const MARKET = [
-  {key:'short_sword',  name:'Short Sword',    icon:'&#9876;',  price:30, desc:'Standard blade. Reliable in most encounters. Degrades on Symplegades failure.'},
-  {key:'hide_shield',  name:'Hide Shield',    icon:'&#128737;', price:20, desc:'Hardened leather. Absorbs one attack per chapter before breaking.'},
-  {key:'provisions_5', name:'Provisions x5',  icon:'&#127829;', price:15, desc:'Five extra rations. Each unit eases the cost of Symplegades repairs.'},
-  {key:'rope_tackle',  name:'Rope & Tackle',  icon:'&#129522;', price:10, desc:'Ship rigging. Opens a shortcut option at the Symplegades.'}
+  {key:'short_sword',  name:'Short Sword',    icon:'&#9876;',   sprite:'/images/heroic/market/short_sword.png',  price:30, desc:'Standard blade. Reliable in most encounters. Degrades on Symplegades failure.'},
+  {key:'hide_shield',  name:'Hide Shield',    icon:'&#128737;', sprite:'/images/heroic/market/hide_shield.png',  price:20, desc:'Hardened leather. Absorbs one attack per chapter before breaking.'},
+  {key:'provisions_5', name:'Provisions x5',  icon:'&#127829;', sprite:'/images/heroic/market/provisions_5.png', price:15, desc:'Five extra rations. Each unit eases the cost of Symplegades repairs.'},
+  {key:'rope_tackle',  name:'Rope & Tackle',  icon:'&#129522;', sprite:'/images/heroic/market/rope_tackle.png',  price:10, desc:'Ship rigging. Opens a shortcut option at the Symplegades.'}
 ];
 
 // Companion data (spec section 5.2 IOLCOS)
@@ -3389,7 +3390,7 @@ function renderIolcosMarket() {
     const owned = G.inventory[item.key] || 0;
     const afford = G.drachma >= price;
     return '<div class="mkt-item">' +
-      '<div style="font-size:30px;margin-bottom:8px;">' + item.icon + '</div>' +
+      '<canvas class="mkt-sprite" id="mkt-sprite-' + item.key + '" width="72" height="72" data-src="' + item.sprite + '" data-icon="' + item.icon + '"></canvas>' +
       '<div class="mkt-name">' + item.name + '</div>' +
       '<div class="mkt-desc">' + item.desc + '</div>' +
       '<div class="mkt-price">&#128176; ' + price + ' Drachma' +
@@ -3414,6 +3415,37 @@ function renderIolcosMarket() {
     '<div style="text-align:center;"><button class="btn-go" onclick="finishMarket()">Set Sail for Lemnos &#9654;</button></div>',
     '<button class="btn-back" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Dashboard</button>'
   ].join(''));
+
+  // Strip magenta and load market item sprites
+  document.querySelectorAll('.mkt-sprite').forEach(canvas => {
+    const src = canvas.dataset.src;
+    if (!src) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onerror = () => {
+      const ctx = canvas.getContext('2d');
+      ctx.font = '36px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(canvas.dataset.icon || '?', 36, 36);
+    };
+    img.onload = () => {
+      const ofc = document.createElement('canvas');
+      ofc.width = img.naturalWidth; ofc.height = img.naturalHeight;
+      const ofx = ofc.getContext('2d');
+      ofx.drawImage(img, 0, 0);
+      const id = ofx.getImageData(0, 0, ofc.width, ofc.height);
+      const px = id.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i]>160 && px[i+1]<100 && px[i+2]>130 && (px[i]-px[i+1])>80) px[i+3]=0;
+      }
+      ofx.putImageData(id, 0, 0);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 72, 72);
+      ctx.drawImage(ofc, 0, 0, 72, 72);
+    };
+    img.src = src;
+  });
 }
 
 window.buyItem = function(key, price) {
