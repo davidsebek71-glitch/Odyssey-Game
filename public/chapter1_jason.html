@@ -3752,7 +3752,7 @@ function initSympState(canvas) {
 
 // ── RENDER STUB ───────────────────────────────────────────────
 function renderSympStub() {
-  if (G.choices.symplegades) { renderSympOutcome(G.choices.symplegades === 'damaged', 0, 0); return; }
+  if (G.choices.symplegades) { renderSympOutcome(G.choices.symplegades === 'damaged', 0, 0, true); return; }
   const cunv = cun();
   const provNote = G.provisions < 8
     ? '<div class="banner b-hera">&#9889; Low provisions (' + G.provisions + ') &mdash; crew exhausted. Rocks close faster.</div>'
@@ -4135,7 +4135,7 @@ function sympVictory() {
   renderSympOutcome(S.damaged, speedBonus, elapsed);
 }
 
-function renderSympOutcome(damaged, speedBonus, elapsed) {
+function renderSympOutcome(damaged, speedBonus, elapsed, isReplay) {
   const effs = [];
   if (damaged)    { effs.push(pip('Equipment &ndash;1 tier','neg'), pip('&ndash;15 Drachma at next market','neg')); }
   else            { effs.push(pip('Hull intact','pos')); }
@@ -4156,10 +4156,21 @@ function renderSympOutcome(damaged, speedBonus, elapsed) {
       '<p>Ahead lies the coast of <em>Colchis</em> &mdash; kingdom of King Aeetes, guardian of the Golden Fleece.</p>',
       '<p><i>' + (damaged ? 'The hull will hold for now. Find a forge.' : 'Hera watched the passage. She said nothing. That alone feels like approval.') + '</i></p>',
     '</div>',
-    '<div style="text-align:center;"><button class="btn-go" onclick="advanceTo(\'COLCHIS\')">Sail for Colchis &#9654;</button></div>',
+    '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px;">',
+      '<button class="btn-go" onclick="advanceTo(\'COLCHIS\')">Sail for Colchis &#9654;</button>',
+      '<button class="btn-back" style="border-color:var(--teal);color:var(--teal);" onclick="replaySymplegades()">&#8635; Row Again</button>',
+    '</div>',
     '<button class="btn-back" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Dashboard</button>'
   ].join(''));
   updateHeader();
+}
+
+function replaySymplegades() {
+  // Clear local choice so stub shows the game — does NOT re-save to server
+  // so the canonical completion record is preserved
+  delete G.choices.symplegades;
+  G.symplegadesDamaged = false;
+  startSymplegades();
 }
 
 // ── DRAW ──────────────────────────────────────────────────────
