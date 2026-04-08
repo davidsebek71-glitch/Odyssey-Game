@@ -995,6 +995,11 @@
                 <div class="title">Voyage Log</div>
                 <div class="description">Jason film completions</div>
             </div>
+            <div class="action-card" onclick="openHerculesLogModal()" style="background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(185,28,28,0.2)); border-color: rgba(239,68,68,0.4);">
+                <div class="icon">🦁</div>
+                <div class="title">Hercules Log</div>
+                <div class="description">12 Labors completions</div>
+            </div>
             <div class="action-card" onclick="openHeroicOverviewModal()" style="background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(109,40,217,0.25)); border-color: rgba(139,92,246,0.5);">
                 <div class="icon">⚔️</div>
                 <div class="title">Heroic Overview</div>
@@ -1669,6 +1674,37 @@
 
             <!-- Completions table -->
             <div id="voyage-log-content">
+                <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hercules Log Modal -->
+    <div id="hercules-log-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <span class="close" onclick="document.getElementById('hercules-log-modal').classList.remove('show')">&times;</span>
+            <h2 style="margin-bottom: 6px;">🦁 Hercules — The 12 Labors</h2>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
+                <button class="period-tab active" onclick="loadHerculesLogPeriod('1st')" id="hl-tab-1st">1st Period</button>
+                <button class="period-tab" onclick="loadHerculesLogPeriod('2nd')" id="hl-tab-2nd">2nd Period</button>
+                <button class="period-tab" onclick="loadHerculesLogPeriod('3rd')" id="hl-tab-3rd">3rd Period</button>
+                <button class="period-tab" onclick="loadHerculesLogPeriod('4th')" id="hl-tab-4th">4th Period</button>
+                <button class="period-tab" onclick="loadHerculesLogPeriod('Test')" id="hl-tab-Test">Test</button>
+                <a href="/hercules_12_labors.html" target="_blank" style="margin-left:auto; padding: 6px 14px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); border-radius: 6px; color: rgba(239,68,68,0.9); text-decoration: none; font-size: 12px; font-weight: 600;">🦁 Open Hercules Log</a>
+            </div>
+
+            <!-- Unlock controls -->
+            <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 600; color: rgba(239,68,68,0.9); margin-bottom: 6px;">🔓 Labor Unlock Controls</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">Control which labor each class period can access. Students' pages update automatically.</div>
+                <div id="hercules-unlock-controls" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <!-- Completions table -->
+            <div id="hercules-log-content">
                 <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
             </div>
         </div>
@@ -7421,6 +7457,163 @@
                 }
             } catch (err) {
                 alert('Override failed: ' + err.message);
+            }
+        }
+
+        // ── Hercules 12 Labors Log ──────────────────────────────────────────
+        let currentHerculesPeriod = '1st';
+
+        const HERCULES_LABOR_NAMES = [
+            'The Madness & The Oracle',
+            'Beast Slayer',
+            'The Chase & The Trap',
+            'Brains Over Brawn',
+            'Monsters & Queens',
+            'The Stolen Sun',
+            'The Cheated Hero',
+            "A Hero's Legacy"
+        ];
+
+        function openHerculesLogModal() {
+            document.getElementById('hercules-log-modal').classList.add('show');
+            loadHerculesLogPeriod('1st');
+            loadHerculesUnlockControls();
+        }
+
+        async function loadHerculesUnlockControls() {
+            const container = document.getElementById('hercules-unlock-controls');
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/teacher/hercules-log-unlock-status', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+
+                const periods = ['1st', '2nd', '3rd', '4th', 'Test'];
+                const unlockMap = {};
+                (data.unlocks || []).forEach(u => unlockMap[u.class_period] = u.unlocked_up_to);
+
+                container.innerHTML = periods.map(p => {
+                    const current = unlockMap[p] !== undefined ? unlockMap[p] : -1;
+                    const displayPeriod = p === 'Test' ? 'Test' : p + ' Period';
+                    return `
+                        <div style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:10px;">
+                            <div style="font-size:12px;font-weight:600;color:rgba(239,68,68,0.9);margin-bottom:8px;">${displayPeriod}</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:6px;">
+                                Currently: <strong style="color:${current >= 0 ? 'rgba(239,68,68,0.9)' : 'rgba(255,255,255,0.3)'}">${current >= 0 ? 'Labor ' + (current + 1) : 'None'}</strong>
+                            </div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                ${Array.from({length:8}, (_, i) => {
+                                    const isUnlocked = i <= current;
+                                    return '<button onclick="setHerculesUnlock(\'' + p + '\',' + i + ')" style="width:28px;height:26px;border-radius:4px;border:1px solid ' + (isUnlocked ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.15)') + ';background:' + (isUnlocked ? 'rgba(239,68,68,0.2)' : 'rgba(0,0,0,0.3)') + ';color:' + (isUnlocked ? 'rgba(239,68,68,1)' : 'rgba(255,255,255,0.4)') + ';font-size:11px;font-weight:600;cursor:pointer;" title="' + HERCULES_LABOR_NAMES[i] + '">' + (i + 1) + '</button>';
+                                }).join('')}
+                                <button onclick="setHerculesUnlock('${p}',-1)" style="height:26px;border-radius:4px;border:1px solid rgba(255,100,100,0.3);background:rgba(255,100,100,0.1);color:rgba(255,100,100,0.7);font-size:10px;cursor:pointer;padding:0 8px;" title="Lock all labors">✕</button>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = '<p style="color:rgba(255,100,100,0.7);font-size:12px;">Failed to load unlock status</p>';
+            }
+        }
+
+        async function setHerculesUnlock(period, laborIndex) {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('Session expired. Please refresh the page and log in again.');
+                    return;
+                }
+                const res = await fetch(API_URL + '/teacher/hercules-log-unlock', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ class_period: period, unlock_up_to: laborIndex })
+                });
+                if (res.status === 403 || res.status === 401) {
+                    alert('Session expired. Please refresh the page and log in again.');
+                    return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                    loadHerculesUnlockControls();
+                }
+            } catch (err) {
+                console.error('Hercules unlock error:', err);
+            }
+        }
+
+        async function loadHerculesLogPeriod(period) {
+            currentHerculesPeriod = period;
+            ['1st','2nd','3rd','4th','Test'].forEach(p => {
+                const tab = document.getElementById('hl-tab-' + p);
+                if (tab) tab.classList.toggle('active', p === period);
+            });
+
+            const content = document.getElementById('hercules-log-content');
+            content.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.4)">Loading...</p>';
+
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${API_URL}/hercules-log/status/${encodeURIComponent(period)}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    content.innerHTML = `<p style="color:rgba(255,100,100,0.8);text-align:center">Error: ${data.error}</p>`;
+                    return;
+                }
+
+                if (!data.completions || data.completions.length === 0) {
+                    const studentCount = data.total_students || 0;
+                    content.innerHTML = `
+                        <div style="text-align:center;padding:24px;">
+                            <div style="font-size:32px;margin-bottom:8px;opacity:0.3">🦁</div>
+                            <p style="color:rgba(255,255,255,0.4);font-size:13px">No completions yet for ${period} Period</p>
+                            <p style="color:rgba(255,255,255,0.3);font-size:12px;margin-top:4px">${studentCount} students in this period</p>
+                        </div>`;
+                    return;
+                }
+
+                const tierColors = { INI:'#94a3b8', LAB:'#60a5fa', BSL:'#34d399', CHP:'#fbbf24', HOO:'#c084fc' };
+                const totalStudents = data.total_students || data.completions.length;
+                const pct = totalStudents > 0 ? Math.round(data.completions.length / totalStudents * 100) : 0;
+
+                content.innerHTML = `
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:13px;color:rgba(255,255,255,0.6)">
+                            <strong style="color:rgba(239,68,68,0.9)">${data.completed_count}</strong> of
+                            <strong>${totalStudents}</strong> students completed
+                            <span style="margin-left:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);padding:2px 8px;border-radius:4px;font-size:11px">${pct}%</span>
+                        </div>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:0.05em;">
+                                <th style="text-align:left;padding:6px 8px">STUDENT</th>
+                                <th style="text-align:left;padding:6px 8px">ALLIANCE</th>
+                                <th style="text-align:center;padding:6px 8px">RANK</th>
+                                <th style="text-align:center;padding:6px 8px">HERO CODE</th>
+                                <th style="text-align:center;padding:6px 8px">SCORE</th>
+                                <th style="text-align:center;padding:6px 8px">COMPLETED</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.completions.map(c => `
+                                <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+                                    <td style="padding:7px 8px;color:white">${c.student_name}</td>
+                                    <td style="padding:7px 8px;color:rgba(255,255,255,0.6)">${c.alliance_name || '—'}</td>
+                                    <td style="padding:7px 8px;text-align:center">
+                                        <span style="background:rgba(0,0,0,0.3);border:1px solid ${tierColors[c.rank_tier]||'#666'};color:${tierColors[c.rank_tier]||'#aaa'};padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace">${c.rank_tier || '—'}</span>
+                                    </td>
+                                    <td style="padding:7px 8px;text-align:center;font-family:monospace;font-size:12px;color:rgba(239,68,68,0.8)">${c.hero_code || '—'}</td>
+                                    <td style="padding:7px 8px;text-align:center;color:rgba(255,255,255,0.7)">${c.total_score || 0}</td>
+                                    <td style="padding:7px 8px;text-align:center;color:rgba(255,255,255,0.4);font-size:11px">${c.completed_at ? new Date(c.completed_at).toLocaleDateString() : '—'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>`;
+            } catch (err) {
+                content.innerHTML = `<p style="color:rgba(255,100,100,0.8);text-align:center">Failed to load: ${err.message}</p>`;
             }
         }
 

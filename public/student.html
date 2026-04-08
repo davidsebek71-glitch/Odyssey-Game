@@ -3351,12 +3351,13 @@
                     <div class="hero-card-desc">Lead the quest for the Golden Fleece</div>
                     <div id="jason-card-status" class="hero-card-status active-status">Voyage Log — Tap to open</div>
                 </div>
-                <div class="hero-card locked">
+                <div class="hero-card active" onclick="openHerculesLabors()" style="cursor:pointer;">
+                    <div class="hero-card-glow"></div>
                     <div class="hero-card-icon"><img src="/images/heroic/heros/Heracles.png" alt="Heracles" style="width: 80px; height: 80px; object-fit: contain; image-rendering: pixelated;"></div>
-                    <div class="hero-card-name" style="color: rgba(239,68,68,0.5);">Heracles</div>
+                    <div class="hero-card-name" style="color: #ef4444;">Heracles</div>
                     <div class="hero-card-subtitle">The 12 Labors</div>
                     <div class="hero-card-desc">Endure impossible trials for redemption</div>
-                    <div class="hero-card-status">🔒 Coming Soon</div>
+                    <div id="hercules-card-status" class="hero-card-status active-status">12 Labors — Tap to open</div>
                 </div>
                 <div class="hero-card locked">
                     <div class="hero-card-icon"><img src="/images/heroic/heros/Theseus.png" alt="Theseus" style="width: 80px; height: 80px; object-fit: contain; image-rendering: pixelated;"></div>
@@ -3389,9 +3390,9 @@
                     <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(251,191,36,0.6); background:rgba(251,191,36,0.12); display:flex; align-items:center; justify-content:center; margin-bottom:6px; transition:all 0.3s; overflow:hidden;"><img src="/images/heroic/heros/Jason.png" alt="Jason" style="width:38px; height:38px; object-fit:contain; image-rendering:pixelated;"></div>
                     <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(251,191,36,0.7); text-align:center;">Jason</div>
                 </div>
-                <div class="hjp-node hjp-locked" id="hjp-heracles" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
-                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">💪</div>
-                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(196,181,253,0.35); text-align:center;">Heracles</div>
+                <div class="hjp-node" id="hjp-heracles" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1; cursor:pointer;" onclick="openHerculesLabors()">
+                    <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(239,68,68,0.6); background:rgba(239,68,68,0.12); display:flex; align-items:center; justify-content:center; margin-bottom:6px; transition:all 0.3s; overflow:hidden;"><img src="/images/heroic/heros/Heracles.png" alt="Heracles" style="width:38px; height:38px; object-fit:contain; image-rendering:pixelated;"></div>
+                    <div style="font-family:'Cinzel',serif; font-size:9px; font-weight:700; letter-spacing:1px; color:rgba(239,68,68,0.7); text-align:center;">Heracles</div>
                 </div>
                 <div class="hjp-node hjp-locked" id="hjp-theseus" style="z-index:1; display:flex; flex-direction:column; align-items:center; flex:1;">
                     <div class="hjp-dot" style="width:42px; height:42px; border-radius:50%; border:2px solid rgba(139,92,246,0.25); background:rgba(139,92,246,0.06); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:6px; opacity:0.4; transition:all 0.3s;">🌀</div>
@@ -14320,6 +14321,10 @@
             } else {
                 window.location.href = '/jason_voyage_log.html';
             }
+        }
+
+        function openHerculesLabors() {
+            window.location.href = '/hercules_12_labors.html';
         }
 
         function showVoyageTrophyPopup(student) {

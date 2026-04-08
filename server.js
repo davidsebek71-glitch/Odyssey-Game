@@ -14875,3 +14875,282 @@ app.post('/api/admin/restore-alliance-points', authenticateToken, (req, res) => 
     res.status(500).json({ error: 'Failed to restore points' });
   }
 });
+
+// ============================================================
+// HERCULES 12 LABORS — ENDPOINTS
+// Parallel to voyage-log (Jason) but separate tables
+// ============================================================
+
+// Ensure Hercules tables exist
+try {
+  run(`CREATE TABLE IF NOT EXISTS hercules_log_completions (
+    completion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_name TEXT NOT NULL,
+    class_period TEXT NOT NULL,
+    alliance_name TEXT,
+    hero_code TEXT,
+    rank_tier TEXT,
+    total_score INTEGER DEFAULT 0,
+    stop_scores TEXT DEFAULT '{}',
+    written_answers TEXT DEFAULT '{}',
+    completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    override_by_teacher INTEGER DEFAULT 0,
+    UNIQUE(student_name, class_period)
+  )`);
+  run(`CREATE TABLE IF NOT EXISTS hercules_log_progress (
+    student_name TEXT NOT NULL,
+    class_period TEXT NOT NULL,
+    state_json TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (student_name, class_period)
+  )`);
+  run(`CREATE TABLE IF NOT EXISTS hercules_log_unlocks (
+    class_period TEXT PRIMARY KEY,
+    unlocked_up_to INTEGER DEFAULT -1
+  )`);
+  console.log('🦁 Hercules log tables ensured');
+} catch (e) {
+  console.log('🦁 Hercules tables already exist or migration skipped');
+}
+
+// POST /api/hercules-log/submit — no JWT (standalone HTML)
+app.post('/api/hercules-log/submit', (req, res) => {
+  try {
+    const {
+      student_name, class_period, alliance_name,
+      hero_code, rank_tier, total_score,
+      stop_scores, written_answers
+    } = req.body;
+
+    if (!student_name || !class_period) {
+      return res.status(400).json({ error: 'student_name and class_period required' });
+    }
+
+    const existing = query(
+      'SELECT completion_id FROM hercules_log_completions WHERE student_name = ? AND class_period = ?',
+      [student_name, class_period]
+    );
+
+    if (existing.length > 0) {
+      run(
+        `UPDATE hercules_log_completions SET
+          alliance_name=?, hero_code=?, rank_tier=?, total_score=?,
+          stop_scores=?, written_answers=?, completed_at=CURRENT_TIMESTAMP
+         WHERE student_name=? AND class_period=?`,
+        [
+          alliance_name || null, hero_code || null, rank_tier || null,
+          total_score || 0, JSON.stringify(stop_scores || {}),
+          JSON.stringify(written_answers || {}), student_name, class_period
+        ]
+      );
+    } else {
+      run(
+        `INSERT INTO hercules_log_completions
+          (student_name, class_period, alliance_name, hero_code, rank_tier, total_score, stop_scores, written_answers)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          student_name, class_period, alliance_name || null,
+          hero_code || null, rank_tier || null, total_score || 0,
+          JSON.stringify(stop_scores || {}), JSON.stringify(written_answers || {})
+        ]
+      );
+    }
+
+    saveDatabase();
+    console.log(`🦁 Hercules log submitted: ${student_name} (${class_period}) — ${rank_tier} — ${total_score} pts`);
+    res.json({ success: true, hero_code, rank_tier });
+
+  } catch (err) {
+    console.error('Hercules log submit error:', err);
+    res.status(500).json({ error: 'Failed to save hercules log' });
+  }
+});
+
+// POST /api/hercules-log/save-progress — no JWT (standalone page)
+app.post('/api/hercules-log/save-progress', (req, res) => {
+  try {
+    const { student_name, class_period, state } = req.body;
+    if (!student_name || !class_period || !state) {
+      return res.status(400).json({ error: 'student_name, class_period, and state required' });
+    }
+
+    const stateJson = JSON.stringify(state);
+    const existing = query(
+      'SELECT student_name FROM hercules_log_progress WHERE student_name = ? AND class_period = ?',
+      [student_name, class_period]
+    );
+
+    if (existing.length > 0) {
+      run(
+        'UPDATE hercules_log_progress SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+        [stateJson, student_name, class_period]
+      );
+    } else {
+      run(
+        'INSERT INTO hercules_log_progress (student_name, class_period, state_json) VALUES (?, ?, ?)',
+        [student_name, class_period, stateJson]
+      );
+    }
+
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Hercules log save-progress error:', err);
+    res.status(500).json({ error: 'Failed to save progress' });
+  }
+});
+
+// GET /api/hercules-log/load-progress/:name/:period — no JWT
+app.get('/api/hercules-log/load-progress/:name/:period', (req, res) => {
+  try {
+    const { name, period } = req.params;
+    const rows = query(
+      'SELECT state_json, updated_at FROM hercules_log_progress WHERE student_name = ? AND class_period = ?',
+      [name, period]
+    );
+
+    if (rows.length > 0) {
+      res.json({
+        found: true,
+        state: JSON.parse(rows[0].state_json),
+        updated_at: rows[0].updated_at
+      });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (err) {
+    console.error('Hercules log load-progress error:', err);
+    res.json({ found: false });
+  }
+});
+
+// GET /api/hercules-log/unlocks/:period — no auth (standalone)
+app.get('/api/hercules-log/unlocks/:period', (req, res) => {
+  try {
+    const { period } = req.params;
+    const rows = query(
+      'SELECT unlocked_up_to FROM hercules_log_unlocks WHERE class_period = ?',
+      [period]
+    );
+    const unlocked = (rows.length > 0 && rows[0].unlocked_up_to !== null)
+      ? rows[0].unlocked_up_to : -1;
+    res.json({ period, unlocked_up_to: unlocked });
+  } catch (err) {
+    res.json({ period: req.params.period, unlocked_up_to: -1 });
+  }
+});
+
+// POST /api/hercules-log/unlock — from teacher modal in hercules page OR from teacher.html
+// No JWT required when called from standalone hercules page; JWT required from teacher.html
+app.post('/api/hercules-log/unlock', (req, res) => {
+  try {
+    const { period, unlock_up_to } = req.body;
+
+    if (!period || unlock_up_to === undefined) {
+      return res.status(400).json({ error: 'period and unlock_up_to required' });
+    }
+
+    const existing = query(
+      'SELECT class_period FROM hercules_log_unlocks WHERE class_period = ?',
+      [period]
+    );
+    if (existing.length > 0) {
+      run('UPDATE hercules_log_unlocks SET unlocked_up_to = ? WHERE class_period = ?',
+        [unlock_up_to, period]);
+    } else {
+      run('INSERT INTO hercules_log_unlocks (class_period, unlocked_up_to) VALUES (?, ?)',
+        [period, unlock_up_to]);
+    }
+
+    saveDatabase();
+    console.log(`🦁 Hercules unlock: ${period} → labor ${unlock_up_to}`);
+    res.json({ success: true, period, unlocked_up_to: unlock_up_to });
+
+  } catch (err) {
+    console.error('Hercules log unlock error:', err);
+    res.status(500).json({ error: 'Failed to set unlock' });
+  }
+});
+
+// POST /api/teacher/hercules-log-unlock — teacher JWT version
+app.post('/api/teacher/hercules-log-unlock', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { class_period, unlock_up_to } = req.body;
+
+    if (!class_period || unlock_up_to === undefined) {
+      return res.status(400).json({ error: 'class_period and unlock_up_to required' });
+    }
+
+    const existing = query(
+      'SELECT class_period FROM hercules_log_unlocks WHERE class_period = ?',
+      [class_period]
+    );
+    if (existing.length > 0) {
+      run('UPDATE hercules_log_unlocks SET unlocked_up_to = ? WHERE class_period = ?',
+        [unlock_up_to, class_period]);
+    } else {
+      run('INSERT INTO hercules_log_unlocks (class_period, unlocked_up_to) VALUES (?, ?)',
+        [class_period, unlock_up_to]);
+    }
+
+    saveDatabase();
+    console.log(`🦁 Hercules unlock (teacher): ${class_period} → labor ${unlock_up_to}`);
+    res.json({ success: true, class_period, unlocked_up_to: unlock_up_to });
+
+  } catch (err) {
+    console.error('Hercules log unlock error:', err);
+    res.status(500).json({ error: 'Failed to set unlock' });
+  }
+});
+
+// GET /api/teacher/hercules-log-unlock-status — returns all periods' unlock state
+app.get('/api/teacher/hercules-log-unlock-status', (req, res) => {
+  try {
+    const rows = query('SELECT class_period, unlocked_up_to FROM hercules_log_unlocks ORDER BY class_period');
+    res.json({ unlocks: rows });
+  } catch (err) {
+    res.json({ unlocks: [] });
+  }
+});
+
+// GET /api/hercules-log/status/:period — teacher dashboard completions
+app.get('/api/hercules-log/status/:period', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { period } = req.params;
+
+    const completions = query(
+      `SELECT student_name, alliance_name, hero_code, rank_tier,
+              total_score, completed_at
+       FROM hercules_log_completions
+       WHERE class_period = ?
+       ORDER BY total_score DESC`,
+      [period]
+    );
+
+    let studentCount = 0;
+    try {
+      const totalStudents = query(
+        'SELECT COUNT(*) as cnt FROM students WHERE class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+        [period]
+      );
+      studentCount = (totalStudents[0] && totalStudents[0].cnt) || 0;
+    } catch (countErr) {
+      const totalStudents = query(
+        'SELECT COUNT(*) as cnt FROM students WHERE class_period = ?',
+        [period]
+      );
+      studentCount = (totalStudents[0] && totalStudents[0].cnt) || 0;
+    }
+
+    res.json({
+      completions,
+      total_students: studentCount,
+      completed_count: completions.length
+    });
+  } catch (err) {
+    console.error('Hercules log status error:', err);
+    res.status(500).json({ error: 'Failed to load hercules status' });
+  }
+});
