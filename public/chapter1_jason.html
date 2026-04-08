@@ -3788,7 +3788,7 @@ function renderSympStub() {
 }
 
 // ── START ─────────────────────────────────────────────────────
-function startSymplegades() {
+window.startSymplegades = function startSymplegades() {
   // Cancel any existing loop
   if (SG && SG.animId) cancelAnimationFrame(SG.animId);
   if (SG && SG._cleanup) SG._cleanup();
