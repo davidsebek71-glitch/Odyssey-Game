@@ -2740,16 +2740,16 @@ function renderHeraFroggerIntro() {
                'border:1px solid var(--gold3);border-radius:3px;background:rgba(0,0,0,0.4);"></canvas>',
       '<div style="font-family:var(--px);font-size:12px;color:var(--text2);line-height:1.85;">',
         '<p style="color:var(--text1);margin-bottom:10px;">She takes your arm and you step into the river together. The cold hits immediately. The current pushes hard against your legs.</p>',
-        '<p>Logs sweep downstream — <strong style="color:var(--red);">avoid them</strong> or your grip fails and she goes under. Open water drains your strength too, but slower.</p>',
-        '<p style="color:var(--gold);margin-top:10px;">Cross upstream. Reach the far bank before your grip runs out.</p>',
+        '<p><strong style="color:var(--green);">Step onto logs — they carry you across.</strong> Step into open water and the current drains your strength fast. Time it carefully.</p>',
+        '<p style="color:var(--gold);margin-top:10px;">Ride the logs upstream. Reach the far bank before your grip runs out.</p>',
       '</div>',
     '</div>',
     '<div style="background:var(--bg2);border:1px solid var(--gold3);border-radius:4px;',
               'padding:12px 18px;font-family:var(--px);font-size:11px;color:var(--text2);',
               'width:100%;display:flex;flex-wrap:wrap;gap:10px 24px;">',
       '<span>&#8593;&#8595;&#8592;&#8594; or WASD to move</span>',
-      '<span style="color:var(--red);">&#9632; Log = fast grip drain</span>',
-      '<span>Open water = slow drain</span>',
+      '<span style="color:var(--green);">&#9632; Log = safe — ride it</span>',
+      '<span style="color:var(--red);">Open water = grip drains</span>',
       '<span style="color:var(--green);">&#8595; Move back = +8% grip</span>',
       '<span style="color:var(--red);">Grip 0% = &minus;5 Provisions, retry</span>',
     '</div>',
@@ -2802,6 +2802,7 @@ function initHR() {
   return {
     row:      HR_START_R,
     col:      HR_START_C,
+    colF:     HR_START_C,   // sub-cell float for smooth log riding
     grip:     100,
     phase:    'play',
     elapsed:  0,
@@ -2943,59 +2944,74 @@ function launchHRCanvas() {
 function updateHR(dt) {
   HR.elapsed += dt;
 
-  // Advance log offsets per lane
+  // ── 1. Advance log offsets ───────────────────────────────────
   HR.lanes.forEach(lane => {
     lane.offset = (lane.offset + lane.dir * lane.speed * dt / 1000 + lane.period * 10) % lane.period;
   });
 
-  // Player movement — step-based with cooldown
+  // ── 2. Log riding — carry player with log if standing on one ─
+  // Must run AFTER offset update, BEFORE player input.
+  // We track sub-cell position (colF) as a float so the player
+  // drifts smoothly with the log each frame.
+  const inRiver = HR.row >= 1 && HR.row <= HR_LANES;
+  if (inRiver) {
+    const lane = HR.lanes[HR.row - 1];
+    if (isLogAtCell(lane, Math.round(HR.colF))) {
+      // Carry: shift colF by same amount log moved this frame
+      HR.colF += lane.dir * lane.speed * dt / 1000;
+      // Clamp to canvas bounds — fall off edge = dropped
+      if (HR.colF < 0 || HR.colF > HR_COLS - 1) {
+        HR.grip = 0;
+      } else {
+        HR.col = Math.round(HR.colF);
+      }
+    }
+  }
+
+  // ── 3. Player input — step-based with cooldown ───────────────
   HR.moveTimer = Math.max(0, HR.moveTimer - dt);
   if (HR.moveTimer <= 0) {
     let moved = false;
+    const prevRow = HR.row;
     let newR = HR.row, newC = HR.col;
-    if      (HR.heldU && HR.row > 0)           { newR--; moved = true; }
-    else if (HR.heldD && HR.row < HR_START_R)   { newR++; moved = true; }
-    else if (HR.heldL && HR.col > 0)            { newC--; moved = true; }
-    else if (HR.heldR && HR.col < HR_COLS - 1)  { newC++; moved = true; }
+
+    if      (HR.heldU && HR.row > 0)            { newR--; moved = true; }
+    else if (HR.heldD && HR.row < HR_START_R)    { newR++; moved = true; }
+    else if (HR.heldL && HR.col > 0)             { newC--; moved = true; }
+    else if (HR.heldR && HR.col < HR_COLS - 1)   { newC++; moved = true; }
 
     if (moved) {
       HR.row = newR;
       HR.col = newC;
+      HR.colF = newC;   // reset sub-cell float to integer on deliberate step
       HR.moveTimer = HR.MOVE_MS;
 
-      // Moving back toward start restores grip
-      if (newR > HR.row || newR === HR_START_R) {
-        HR.grip = Math.min(100, HR.grip + 8);
-      }
+      // Moving back toward start bank restores grip
+      if (newR > prevRow) HR.grip = Math.min(100, HR.grip + 8);
 
       // Reached far bank — victory
       if (HR.row === HR_DEST_R) { heraVictory(); return; }
     }
   }
 
-  // ── Collision: is the player's cell occupied by a log? ───────
-  // Only check river rows (1–5)
-  const inRiver = HR.row >= 1 && HR.row <= HR_LANES;
+  // ── 4. Hazard check ──────────────────────────────────────────
+  // LOG  = safe (riding). OPEN WATER = grip drains.
+  // Banks (row 0, row 6) = fully safe.
   if (inRiver) {
-    const laneIdx = HR.row - 1;  // lane 0 = row 1
-    const lane = HR.lanes[laneIdx];
-    const hit = isLogAtCell(lane, HR.col);
-
-    if (hit) {
-      // Log collision — fast grip drain
-      const drain = (laneIdx === 2) ? 22 : 15;  // center lane worst
-      HR.grip = Math.max(0, HR.grip - drain * dt / 300);
-    } else {
-      // Open water — slow passive drain from wading
-      const passive = 0.8 + lane.speed * 0.4;
-      HR.grip = Math.max(0, HR.grip - passive * dt / 1000);
+    const lane    = HR.lanes[HR.row - 1];
+    const onLog   = isLogAtCell(lane, HR.col);
+    if (!onLog) {
+      // Wading through open water — drain grip, faster in center lane
+      const rate = (HR.row - 1 === 2) ? 14 : 8;   // %/sec
+      HR.grip = Math.max(0, HR.grip - rate * dt / 1000);
     }
+    // On a log — no drain, riding safely
   }
 
-  // Grip zero — dropped
+  // ── 5. Grip zero = dropped ───────────────────────────────────
   if (HR.grip <= 0) { heraDropped(); return; }
 
-  // Update HUD grip
+  // ── 6. HUD update ────────────────────────────────────────────
   const gripEl = document.getElementById('hr-grip');
   if (gripEl) {
     gripEl.textContent = Math.ceil(HR.grip);
@@ -3034,7 +3050,7 @@ function heraDropped() {
       '<div class="wp-title" style="color:var(--red);">She Slipped</div>' +
     '</div>' +
     '<div class="narr" style="border-color:var(--red);">' +
-      '<p>A log sweeps into you. The current takes her from your arms — both of you tumble under, cold and loud and dark — and then you find the shallows and drag her out, gasping on the near bank.</p>' +
+      '<p>You step off the log into open water. The current is faster than it looks — it tears her from your grip in an instant. Both of you go under, cold and dark and loud, and then you find the shallows and drag her out, gasping on the near bank.</p>' +
       '<p style="font-family:var(--px);font-size:13px;color:var(--red);">&minus;5 Provisions</p>' +
     '</div>' +
     '<div style="text-align:center;margin-top:8px;">' +
@@ -3119,7 +3135,7 @@ function drawHR(ctx) {
   }
 
   // ── Player (Jason + old woman) ───────────────────────────────
-  const px = HR.col * CW;
+  const px = Math.round(HR.colF * CW);  // smooth sub-cell position while riding log
   const py = HR.row * CH;
 
   // Danger flash if grip low
@@ -3144,12 +3160,20 @@ function drawHR(ctx) {
     ctx.fillRect(px + Math.floor(CW*0.3), py + Math.floor(CH*0.1), Math.floor(CW*0.4), Math.floor(CH*0.5));
   }
 
-  // ── Log-hit warning overlay on player cell ───────────────────
+  // ── Open water / log status indicator ────────────────────────
   const inRiver = HR.row >= 1 && HR.row <= HR_LANES;
-  if (inRiver && isLogAtCell(HR.lanes[HR.row - 1], HR.col)) {
-    ctx.strokeStyle = 'rgba(224,64,64,0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(px + 2, py + 2, CW - 4, CH - 4);
+  if (inRiver) {
+    if (isLogAtCell(HR.lanes[HR.row - 1], HR.col)) {
+      // On a log — green safe indicator
+      ctx.strokeStyle = 'rgba(64,192,96,0.7)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(px + 2, py + 2, CW - 4, CH - 4);
+    } else {
+      // Open water — red danger indicator
+      ctx.strokeStyle = 'rgba(224,64,64,0.85)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(px + 2, py + 2, CW - 4, CH - 4);
+    }
   }
 
   // ── Destination bank glow ────────────────────────────────────
