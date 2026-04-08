@@ -3666,19 +3666,21 @@ function renderLemnosOutcome(choice, type, title, body, effs) {
 const SYMP = {
   gapForCunning: function() {
     const c = cun();
-    if (c >= 12) return 270;
-    if (c >= 6)  return 240;
-    return 210;
+    if (c >= 12) return 110;  // cunning advantage: slightly wider
+    if (c >= 6)  return 95;
+    return 80;                // tight — ship is 60px wide
   },
   speedForProvisions: function() {
     if (G.provisions >= 15) return 1.0;
-    if (G.provisions >= 8)  return 1.12;
-    return 1.25;
+    if (G.provisions >= 8)  return 1.2;
+    return 1.5;               // low provisions = significantly faster
   },
+  // startClosed: how far rocks have already closed at wave start (fraction of half-width)
+  // 0 = edges, 1 = fully at targetGap. Higher = rocks start closer = immediate danger.
   WAVES: [
-    { speed: 0.6,  vertDrift: false, extraPairs: 0 },
-    { speed: 0.85, vertDrift: true,  extraPairs: 0 },
-    { speed: 1.1,  vertDrift: true,  extraPairs: 1 }
+    { speed: 2.2,  startClosed: 0.55, vertDrift: false, gapDrift: false, extraPairs: 0 },
+    { speed: 3.0,  startClosed: 0.65, vertDrift: true,  gapDrift: true,  extraPairs: 0 },
+    { speed: 4.0,  startClosed: 0.72, vertDrift: true,  gapDrift: true,  extraPairs: 1 }
   ],
   SPEED_BONUS_DRACHMA: 20,
   DAMAGE_DRACHMA_PENALTY: 15
@@ -3707,8 +3709,10 @@ function initSympState(canvas) {
     shakeFrames: 0, shakeMag: 0,
     speedMult: SYMP.speedForProvisions(),
     gap: SYMP.gapForCunning(),
+    gapCenter: W / 2, gapDrift: false, gapDriftDir: 1,
     animId: null, wavesPassed: 0,
     damaged: false, startTime: null,
+    imgs: {},
     _cleanup: null
   };
 }
@@ -3760,6 +3764,36 @@ function startSymplegades() {
 
   SG = initSympState(canvas);
   SG.startTime = Date.now();
+  SG.imgs = {};
+
+  // Preload + magenta-strip all Symplegades sprites
+  const sympSprites = {
+    bg:    '/images/heroic/symplegades/rocks_bg.png',
+    left:  '/images/heroic/symplegades/rocks_left.png',
+    right: '/images/heroic/symplegades/rocks_right.png',
+    argo:  '/images/heroic/symplegades/argo_sprite.png'
+  };
+  Object.entries(sympSprites).forEach(([key, src]) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onerror = () => { SG.imgs[key] = null; };
+    img.onload = () => {
+      const ofc = document.createElement('canvas');
+      ofc.width = img.naturalWidth; ofc.height = img.naturalHeight;
+      const ofx = ofc.getContext('2d');
+      ofx.drawImage(img, 0, 0);
+      const id = ofx.getImageData(0, 0, ofc.width, ofc.height);
+      const px = id.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i]>160 && px[i+1]<100 && px[i+2]>130 && (px[i]-px[i+1])>80) px[i+3]=0;
+      }
+      ofx.putImageData(id, 0, 0);
+      const clean = new Image();
+      clean.onload = () => { SG.imgs[key] = clean; };
+      clean.src = ofc.toDataURL();
+    };
+    img.src = src;
+  });
 
   const onKey = e => {
     const d = e.type === 'keydown';
@@ -3811,9 +3845,18 @@ function startSymplegades() {
 function beginWave(waveIdx) {
   const spec = SYMP.WAVES[waveIdx];
   SG.wave = waveIdx; SG.wavePhase = 'intro'; SG.phaseTimer = 0;
-  SG.rockLeft = 0; SG.rockRight = SG.W;
+
+  // Start rocks already partially closed — immediate visual threat
+  const halfClose = (SG.W - SG.targetGap) / 2;
+  SG.rockLeft  = halfClose * spec.startClosed;
+  SG.rockRight = SG.W - halfClose * spec.startClosed;
+
   SG.closingSpeed = spec.speed * SG.speedMult;
-  SG.vertDrift = spec.vertDrift; SG.extraPairs = spec.extraPairs;
+  SG.vertDrift = spec.vertDrift;
+  SG.gapDrift  = spec.gapDrift || false;
+  SG.gapCenter = SG.W / 2;
+  SG.gapDriftDir = 1;
+  SG.extraPairs = spec.extraPairs;
   SG.vertOffset = 0; SG.vertDir = 1; SG.warningFlashed = false;
   SG.extraRocks = [];
   if (spec.extraPairs > 0) {
@@ -3821,8 +3864,8 @@ function beginWave(waveIdx) {
       const rH = SG.H * 0.22;
       const y  = SG.H * 0.10 + i * SG.H * 0.14;
       SG.extraRocks.push(
-        {x: -80,   y, w: 80, h: rH, vx:  1.2 * SG.speedMult, vy:  0.3},
-        {x: SG.W,  y, w: 80, h: rH, vx: -1.2 * SG.speedMult, vy: -0.3}
+        {x: -80,   y, w: 80, h: rH, vx:  2.0 * SG.speedMult, vy:  0.4},
+        {x: SG.W,  y, w: 80, h: rH, vx: -2.0 * SG.speedMult, vy: -0.4}
       );
     }
   }
@@ -3831,7 +3874,9 @@ function beginWave(waveIdx) {
 }
 
 function updateSympPhysics(dt) {
-  const S = SG, SPEED = 3.5;
+  const S = SG;
+  // Ship speed scales with wave — faster rocks require faster steering
+  const SPEED = 4.5 + S.wave * 1.0;
   if (S.shakeFrames > 0) S.shakeFrames--;
 
   if (S.wavePhase === 'closing' || S.wavePhase === 'gap') {
@@ -3842,41 +3887,52 @@ function updateSympPhysics(dt) {
 
   switch(S.wavePhase) {
     case 'intro':
-      if (S.phaseTimer > 1500) { S.wavePhase = 'warning'; S.phaseTimer = 0; }
+      if (S.phaseTimer > 1000) { S.wavePhase = 'warning'; S.phaseTimer = 0; }
       break;
     case 'warning':
-      if (S.phaseTimer > (S.mirrorEarly ? 1200 : 700)) { S.wavePhase = 'closing'; S.phaseTimer = 0; }
+      if (S.phaseTimer > (S.mirrorEarly ? 900 : 500)) { S.wavePhase = 'closing'; S.phaseTimer = 0; }
       break;
     case 'closing': {
       const rate = S.closingSpeed * (dt / 16);
       S.rockLeft += rate; S.rockRight -= rate;
       if (S.vertDrift) {
-        S.vertOffset += S.vertDir * 0.5 * (dt / 16);
-        if (Math.abs(S.vertOffset) > S.H * 0.12) S.vertDir *= -1;
+        S.vertOffset += S.vertDir * 0.8 * (dt / 16);
+        if (Math.abs(S.vertOffset) > S.H * 0.14) S.vertDir *= -1;
       }
       S.extraRocks.forEach(r => {
         r.x += r.vx * (dt / 16); r.y += r.vy * (dt / 16);
         if (r.y < 0 || r.y + r.h > S.H * 0.6) r.vy *= -1;
       });
       if (S.rockRight - S.rockLeft <= S.targetGap) {
-        S.rockLeft  = (S.W - S.targetGap) / 2;
-        S.rockRight = S.rockLeft + S.targetGap;
+        // Snap gap to current gapCenter (drifts in waves 2-3)
+        S.rockLeft  = S.gapCenter - S.targetGap / 2;
+        S.rockRight = S.gapCenter + S.targetGap / 2;
         S.wavePhase = 'gap'; S.phaseTimer = 0;
       }
       checkArgoCollision();
       break;
     }
     case 'gap':
+      // Gap center drifts left/right in waves 2-3 — ship must chase safe channel
+      if (S.gapDrift) {
+        const driftSpeed = 1.2 * (dt / 16);
+        S.gapCenter += S.gapDriftDir * driftSpeed;
+        // Clamp gapCenter so gap never exits canvas
+        const margin = S.targetGap / 2 + 20;
+        if (S.gapCenter < margin || S.gapCenter > S.W - margin) S.gapDriftDir *= -1;
+        S.rockLeft  = S.gapCenter - S.targetGap / 2;
+        S.rockRight = S.gapCenter + S.targetGap / 2;
+      }
       if (S.vertDrift) {
-        S.vertOffset += S.vertDir * 0.4 * (dt / 16);
-        if (Math.abs(S.vertOffset) > S.H * 0.10) S.vertDir *= -1;
+        S.vertOffset += S.vertDir * 0.6 * (dt / 16);
+        if (Math.abs(S.vertOffset) > S.H * 0.12) S.vertDir *= -1;
       }
       S.extraRocks.forEach(r => {
         r.x += r.vx * (dt / 16); r.y += r.vy * (dt / 16);
         if (r.y < 0 || r.y + r.h > S.H * 0.6) r.vy *= -1;
       });
       checkArgoCollision();
-      if (S.phaseTimer > 2500) {
+      if (S.phaseTimer > 1800) {  // shorter hold — get to next wave faster
         S.wavesPassed++;
         if (S.wavesPassed >= SYMP.WAVES.length) sympVictory();
         else beginWave(S.wavesPassed);
@@ -3957,12 +4013,16 @@ function drawSympFrame(ctx) {
   ctx.save();
   ctx.translate(sx, sy);
 
-  // Background — dark water with SNES scanline banding
-  ctx.fillStyle = '#0a1520';
-  ctx.fillRect(0, 0, W, H);
-  for (let y = 0; y < H; y += 6) {
-    ctx.fillStyle = 'rgba(30,80,120,' + (0.12 + (y/H)*0.06) + ')';
-    ctx.fillRect(0, y, W, 3);
+  // Background — image or procedural fallback
+  if (S.imgs && S.imgs.bg) {
+    ctx.drawImage(S.imgs.bg, 0, 0, W, H);
+  } else {
+    ctx.fillStyle = '#0a1520';
+    ctx.fillRect(0, 0, W, H);
+    for (let y = 0; y < H; y += 6) {
+      ctx.fillStyle = 'rgba(30,80,120,' + (0.12 + (y/H)*0.06) + ')';
+      ctx.fillRect(0, y, W, 3);
+    }
   }
   // Wake lines
   ctx.strokeStyle = 'rgba(64,216,192,0.2)'; ctx.lineWidth = 2;
@@ -3973,7 +4033,7 @@ function drawSympFrame(ctx) {
     ctx.stroke();
   }
 
-  // Main rocks
+  // Main rocks — image panels sliding in from each side
   const rockY = S.vertDrift ? H*0.05 + S.vertOffset : H*0.05;
   const rockH = H * 0.92;
   drawRock(ctx, 0, rockY, S.rockLeft, rockH, 'left');
@@ -4034,6 +4094,26 @@ function drawSympFrame(ctx) {
 
 function drawRock(ctx, x, y, w, h, side) {
   if (w <= 0) return;
+  const imgs = SG.imgs || {};
+
+  if (side === 'left' && imgs.left) {
+    // Stretch the rock_left image to fill the current rock width
+    // Clip to avoid overdrawing into the gap
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.drawImage(imgs.left, x, y, w, h);
+    ctx.restore();
+    return;
+  }
+  if (side === 'right' && imgs.right) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.drawImage(imgs.right, x, y, w, h);
+    ctx.restore();
+    return;
+  }
+
+  // Procedural fallback (also used for 'chunk' extra rocks)
   const C = ['#5a4020','#7a5830','#9a7040'];
   const bW = Math.max(1, w/3);
   if (side==='left') {
@@ -4058,7 +4138,22 @@ function drawRock(ctx, x, y, w, h, side) {
 }
 
 function drawArgo(ctx, cx, cy, w, h, damaged) {
-  const x=cx-w/2, y=cy-h/2;
+  const x = cx - w/2, y = cy - h/2;
+  const imgs = SG.imgs || {};
+
+  if (imgs.argo) {
+    // Draw argo sprite — larger than hitbox for visual presence
+    const dw = w * 2.2, dh = h * 2.8;
+    const dx = cx - dw/2, dy = cy - dh * 0.65;
+    ctx.drawImage(imgs.argo, dx, dy, dw, dh);
+    if (damaged) {
+      ctx.fillStyle = 'rgba(224,64,64,0.35)';
+      ctx.fillRect(dx, dy, dw, dh);
+    }
+    return;
+  }
+
+  // Procedural fallback
   const hullC = damaged ? '#804020' : '#c89820';
   const sailC = damaged ? '#604030' : '#f0e8d0';
   ctx.fillStyle=hullC; ctx.fillRect(x, y+h*0.4, w, h*0.6);
