@@ -134,7 +134,9 @@ body{background:var(--bg0);color:var(--text1);font-family:'Cinzel',serif;min-hei
 .comp-card:hover{border-color:var(--gold);background:var(--bg3);}
 .comp-card.sel{border-color:var(--green);background:rgba(64,192,96,.08);box-shadow:0 0 14px rgba(64,192,96,.2);}
 .comp-card.locked{opacity:.35;cursor:not-allowed;}
-.comp-icon{font-size:38px;margin-bottom:11px;}
+.comp-icon{font-size:38px;margin-bottom:11px;min-height:44px;display:flex;align-items:center;justify-content:center;}
+.comp-sprite{width:90px;height:110px;margin:0 auto 11px;display:block;image-rendering:pixelated;object-fit:contain;}
+.comp-sprite-canvas{width:90px;height:110px;margin:0 auto 11px;display:block;image-rendering:pixelated;}
 .comp-name{font-size:var(--fs-lg);font-weight:700;color:var(--gold);margin-bottom:6px;}
 .comp-virt{font-family:var(--px);font-size:11px;color:var(--teal);letter-spacing:1px;margin-bottom:9px;}
 .comp-desc{font-family:var(--px);font-size:12px;color:var(--text2);line-height:1.7;}
@@ -308,10 +310,10 @@ const MARKET = [
 
 // Companion data (spec section 5.2 IOLCOS)
 const COMPANIONS = {
-  orpheus:  {icon:'&#127925;', name:'Orpheus',  virtue:'Perseverance & Honor',  desc:'Greatest musician alive. His lyre lulls the dragon at the Fleece. Without him, that sequence is far harder.'},
-  atalanta: {icon:'&#127999;', name:'Atalanta', virtue:'Cunning & Courage',     desc:'Finest hunter in Greece. Sees paths others miss. Never flinches from danger.'},
-  castor:   {icon:'&#9876;',   name:'Castor',   virtue:'Honor',                 desc:'One of the divine twins. Steady and unbreakable. The crew trusts him completely.'},
-  pollux:   {icon:'&#128170;', name:'Pollux',   virtue:'Strength & Courage',    desc:'Castor\'s immortal brother. When brute force is the only answer, Pollux is the answer.'}
+  orpheus:  {icon:'&#127925;', sprite:'/images/heroic/companions/orpheus_sprite.png', name:'Orpheus',  virtue:'Perseverance & Honor',  desc:'Greatest musician alive. His lyre lulls the dragon at the Fleece. Without him, that sequence is far harder.'},
+  atalanta: {icon:'&#127999;', sprite:'/images/heroic/companions/atalanta_sprite.png', name:'Atalanta', virtue:'Cunning & Courage',     desc:'Finest hunter in Greece. Sees paths others miss. Never flinches from danger.'},
+  castor:   {icon:'&#9876;',   sprite:'/images/heroic/companions/castor_sprite.png',   name:'Castor',   virtue:'Honor',                 desc:'One of the divine twins. Steady and unbreakable. The crew trusts him completely.'},
+  pollux:   {icon:'&#128170;', sprite:'/images/heroic/companions/pollux_sprite.png',   name:'Pollux',   virtue:'Strength & Courage',    desc:'Castor\'s immortal brother. When brute force is the only answer, Pollux is the answer.'}
 };
 
 // ============================================================
@@ -3280,7 +3282,7 @@ function renderIolcos() {
         Object.entries(COMPANIONS).map(([key, c]) =>
           '<div class="comp-card" data-key="' + key + '">' +
           '<div class="comp-chk">&#10003;</div>' +
-          '<div class="comp-icon">' + c.icon + '</div>' +
+          '<canvas class="comp-sprite-canvas" id="comp-sprite-' + key + '" width="90" height="110" data-src="' + c.sprite + '" data-icon="' + key + '"></canvas>' +
           '<div class="comp-name">' + c.name + '</div>' +
           '<div class="comp-virt">' + c.virtue + '</div>' +
           '<div class="comp-desc">' + c.desc + '</div>' +
@@ -3291,6 +3293,38 @@ function renderIolcos() {
     '<div style="text-align:center;"><button id="btn-sail" class="btn-go" disabled onclick="confirmCompanions()">Set Sail &#9654;</button></div>',
     '<button class="btn-back" onclick="window.location.href=\'/student.html?view=heroic\'">&#8592; Dashboard</button>'
   ].join(''));
+
+  // Strip magenta and draw companion sprites into canvases
+  document.querySelectorAll('.comp-sprite-canvas').forEach(canvas => {
+    const src = canvas.dataset.src;
+    if (!src) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onerror = () => {
+      // Fallback: draw emoji into canvas
+      const ctx = canvas.getContext('2d');
+      ctx.font = '44px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(COMPANIONS[canvas.dataset.icon]?.icon || '⚔', 45, 55);
+    };
+    img.onload = () => {
+      const ofc = document.createElement('canvas');
+      ofc.width = img.naturalWidth; ofc.height = img.naturalHeight;
+      const ofx = ofc.getContext('2d');
+      ofx.drawImage(img, 0, 0);
+      const id = ofx.getImageData(0, 0, ofc.width, ofc.height);
+      const px = id.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i]>160 && px[i+1]<100 && px[i+2]>130 && (px[i]-px[i+1])>80) px[i+3]=0;
+      }
+      ofx.putImageData(id, 0, 0);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 90, 110);
+      ctx.drawImage(ofc, 0, 0, 90, 110);
+    };
+    img.src = src;
+  });
 
   // Wire companion selection
   document.querySelectorAll('.comp-card').forEach(card => {
