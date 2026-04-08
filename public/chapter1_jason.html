@@ -3726,9 +3726,10 @@ function initSympState(canvas) {
     closeRate: SYMP.CLOSE_RATES[0] * speedMult,
     gapCenter: W / 2,
     gapDriftDir: 1,
-    // Win condition: argoY crosses past the rocks
-    rockBandY: H * 0.15,    // Y position of the rock band center
-    rockBandH: H * 0.22,    // height of the danger zone band
+    // Rock band — horizontal danger zone the ship must physically cross
+    // Placed at center of canvas so player sees it clearly
+    rockBandY: H * 0.38,    // Y center of rock band
+    rockBandH: H * 0.20,    // height of rock band visual
     // Wave state
     wave: 0,
     wavePhase: 'intro',     // intro | countdown | closing | through | victory | gameover
@@ -3917,7 +3918,7 @@ function startSymplegades() {
 // ── PHYSICS ───────────────────────────────────────────────────
 function updateSympPhysics(dt) {
   const S = SG;
-  const dtS = dt / 1000; // seconds
+  const dtS = dt / 1000;
 
   if (S.shakeFrames > 0) S.shakeFrames--;
   if (S.rowCooldown > 0) S.rowCooldown -= dt;
@@ -3926,7 +3927,6 @@ function updateSympPhysics(dt) {
 
   switch (S.wavePhase) {
 
-    // ── INTRO: brief pause then countdown ──────────────────────
     case 'intro':
       if (S.phaseTimer > 800) {
         S.wavePhase = 'countdown';
@@ -3935,16 +3935,15 @@ function updateSympPhysics(dt) {
       }
       break;
 
-    // ── COUNTDOWN: 3-2-1-ROW ──────────────────────────────────
     case 'countdown':
       if (S.phaseTimer > 900) {
         S.countdown--;
         S.phaseTimer = 0;
         if (S.countdown <= 0) {
           S.wavePhase = 'closing';
-          // Init rocks: start partially closed for drama
+          // Rocks start partially closed
           const halfClose = (S.W - S.targetGap) / 2;
-          const startFrac = [0.45, 0.58, 0.70][S.wave] || 0.45;
+          const startFrac = [0.4, 0.55, 0.65][S.wave] || 0.4;
           S.rockLeft  = halfClose * startFrac;
           S.rockRight = S.W - halfClose * startFrac;
           S.gapCenter = S.W / 2;
@@ -3954,25 +3953,21 @@ function updateSympPhysics(dt) {
       }
       break;
 
-    // ── CLOSING: rocks close, player must row through ──────────
     case 'closing': {
-      // Speed decay (drag)
+      // Speed decay
       S.speed = Math.max(0, S.speed - S.speedDecay * dtS);
 
-      // Forward movement — argoY decreases (moves up toward rocks)
-      const forwardPx = S.speed * 0.9 * dtS;
+      // Forward movement — ship moves UP (argoY decreases)
+      // Scale so max speed 100 crosses the canvas in ~3s
+      const forwardPx = (S.speed / 100) * S.H * 0.45 * dtS;
       S.argoY -= forwardPx;
 
-      // Horizontal steering — momentum based
-      const steerForce = 200; // px/s²
+      // Horizontal steering
+      const steerForce = 260;
       if (S.keys.left  && !S.keys.right) S.argoVX -= steerForce * dtS;
       if (S.keys.right && !S.keys.left)  S.argoVX += steerForce * dtS;
-      // Horizontal drag
-      S.argoVX *= Math.pow(0.85, dtS * 60);
-      // Clamp to gap walls
-      const halfW = S.argoW / 2;
-      S.argoX += S.argoVX * dtS;
-      S.argoX = Math.max(S.rockLeft + halfW + 2, Math.min(S.rockRight - halfW - 2, S.argoX));
+      S.argoVX *= Math.pow(0.80, dtS * 60);
+      S.argoX  += S.argoVX * dtS;
 
       // Rocks close
       S.rockLeft  += S.closeRate * (dt / 16);
@@ -3981,60 +3976,56 @@ function updateSympPhysics(dt) {
       // Gap center drifts in waves 2-3
       if (S.wave >= 1) {
         const driftPx = SYMP.DRIFT_SPEED[S.wave] * (dt / 16);
-        S.gapCenter += S.gapDriftDir * driftPx;
-        const margin = S.targetGap / 2 + 30;
+        S.gapCenter  += S.gapDriftDir * driftPx;
+        const margin  = S.targetGap / 2 + 30;
         if (S.gapCenter < margin || S.gapCenter > S.W - margin) S.gapDriftDir *= -1;
-        // Recentre rocks around drifting gap
-        S.rockLeft  = S.gapCenter - (S.rockRight - S.rockLeft) / 2;
-        S.rockRight = S.gapCenter + (S.rockRight - S.rockLeft + (S.closeRate * dt/16)*2) / 2;
-        // Re-clamp after arithmetic
-        const curGap = Math.max(S.targetGap, S.rockRight - S.rockLeft);
-        S.rockLeft  = S.gapCenter - curGap / 2;
-        S.rockRight = S.gapCenter + curGap / 2;
+        const curGap  = Math.max(S.targetGap, S.rockRight - S.rockLeft);
+        S.rockLeft    = S.gapCenter - curGap / 2;
+        S.rockRight   = S.gapCenter + curGap / 2;
       }
 
-      // Clamp gap — never closes tighter than targetGap
+      // Never close tighter than targetGap
       if (S.rockRight - S.rockLeft < S.targetGap) {
         S.rockLeft  = S.gapCenter - S.targetGap / 2;
         S.rockRight = S.gapCenter + S.targetGap / 2;
       }
 
-      // Check if Argo has physically passed through the rocks
-      const rockBandBottom = S.rockBandY + S.rockBandH / 2;
-      if (S.argoY + S.argoH / 2 < rockBandBottom - S.argoH) {
-        // Ship nose is past the rocks — victory for this wave
+      // Clamp ship to gap walls
+      const halfW = S.argoW / 2;
+      S.argoX = Math.max(S.rockLeft + halfW + 2,
+                Math.min(S.rockRight - halfW - 2, S.argoX));
+
+      // WIN: ship nose crosses the rock band top
+      // Rock band is drawn at rockBandY (H*0.38), ship wins when it passes above it
+      if (S.argoY < S.rockBandY - S.argoH) {
         S.wavePhase = 'through';
         S.phaseTimer = 0;
         break;
       }
 
-      // Check if pushed back too far (fell behind rocks slamming)
-      if (S.argoY > S.H * 0.95) {
+      // FAIL: ship drifts back past starting position
+      if (S.argoY > S.H) {
         sympFail(); break;
       }
 
-      // Rock collision check
       checkArgoCollision();
       break;
     }
 
-    // ── THROUGH: brief celebration then next wave or victory ──
     case 'through':
-      // Keep ship moving forward past rocks
-      S.argoY -= S.speed * 0.5 * dtS;
-      S.speed = Math.max(0, S.speed - 10 * dtS);
+      S.argoY -= (S.speed / 100) * S.H * 0.3 * dtS;
+      S.speed  = Math.max(0, S.speed - 15 * dtS);
       if (S.phaseTimer > 1200) {
         const nextWave = S.wave + 1;
         if (nextWave >= SYMP.CLOSE_RATES.length) {
           sympVictory();
         } else {
-          // Reset for next wave
-          S.wave = nextWave;
-          S.argoY = S.H * 0.88;
-          S.argoX = S.W / 2;
-          S.argoVX = 0;
-          S.speed = 0;
-          S.wavePhase = 'intro';
+          S.wave    = nextWave;
+          S.argoY   = S.H * 0.82;
+          S.argoX   = S.W / 2;
+          S.argoVX  = 0;
+          S.speed   = 0;
+          S.wavePhase  = 'intro';
           S.phaseTimer = 0;
           const wl = el('symp-wave');
           if (wl) wl.textContent = 'WAVE ' + (nextWave + 1) + ' / 3';
@@ -4193,46 +4184,58 @@ function drawSympFrame(ctx) {
     }
   }
 
-  // ── Rock walls — sliding in from each side ─────────────────
-  // Only draw during closing phase and after
+  // ── Rock band — horizontal walls with gap, drawn at rockBandY ─
+  // Left rock: fills [0, rockLeft] width. Right: [rockRight, W].
+  // Both drawn as horizontal slabs at the rock band Y position.
   if (S.wavePhase === 'closing' || S.wavePhase === 'through') {
+    const rbY = S.rockBandY - S.rockBandH / 2;  // top of rock band
+    const rbH = S.rockBandH;
+
+    // Left rock slab
     if (S.rockLeft > 0) {
       if (S.imgs && S.imgs.left) {
         ctx.save();
-        ctx.beginPath(); ctx.rect(0, 0, S.rockLeft, H); ctx.clip();
-        ctx.drawImage(S.imgs.left, 0, 0, S.rockLeft, H);
+        ctx.beginPath(); ctx.rect(0, rbY, S.rockLeft, rbH); ctx.clip();
+        ctx.drawImage(S.imgs.left, 0, rbY, S.rockLeft, rbH);
         ctx.restore();
       } else {
-        // Procedural fallback
-        const C = ['#2a1a08','#3a2810','#4a3818'];
-        const bW = S.rockLeft / 3;
-        ctx.fillStyle=C[2]; ctx.fillRect(0,    0, bW,              H);
-        ctx.fillStyle=C[1]; ctx.fillRect(bW,   0, bW,              H);
-        ctx.fillStyle=C[0]; ctx.fillRect(bW*2, 0, S.rockLeft-bW*2, H);
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(0, rbY, S.rockLeft, rbH);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(S.rockLeft - 6, rbY, 6, rbH);
       }
     }
+    // Right rock slab
     if (S.rockRight < W) {
+      const rw = W - S.rockRight;
       if (S.imgs && S.imgs.right) {
         ctx.save();
-        ctx.beginPath(); ctx.rect(S.rockRight, 0, W - S.rockRight, H); ctx.clip();
-        ctx.drawImage(S.imgs.right, S.rockRight, 0, W - S.rockRight, H);
+        ctx.beginPath(); ctx.rect(S.rockRight, rbY, rw, rbH); ctx.clip();
+        ctx.drawImage(S.imgs.right, S.rockRight, rbY, rw, rbH);
         ctx.restore();
       } else {
-        const C = ['#2a1a08','#3a2810','#4a3818'];
-        const rw = W - S.rockRight, bW = rw / 3;
-        ctx.fillStyle=C[0]; ctx.fillRect(S.rockRight,      0, bW, H);
-        ctx.fillStyle=C[1]; ctx.fillRect(S.rockRight+bW,   0, bW, H);
-        ctx.fillStyle=C[2]; ctx.fillRect(S.rockRight+bW*2, 0, rw-bW*2, H);
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(S.rockRight, rbY, rw, rbH);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(S.rockRight, rbY, 6, rbH);
       }
     }
-
-    // Danger tint inside gap as it narrows
+    // Gap danger tint
     const gapW = S.rockRight - S.rockLeft;
-    const dangerAlpha = Math.max(0, 0.22 - (gapW / W) * 0.22);
+    const dangerAlpha = Math.max(0, 0.30 - (gapW / W) * 0.30);
     if (dangerAlpha > 0) {
       ctx.fillStyle = 'rgba(224,64,64,' + dangerAlpha + ')';
-      ctx.fillRect(S.rockLeft, 0, gapW, H);
+      ctx.fillRect(S.rockLeft, rbY, gapW, rbH);
     }
+    // Gap outline so player can see the passage clearly
+    ctx.strokeStyle = 'rgba(240,192,64,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(S.rockLeft,  rbY); ctx.lineTo(S.rockLeft,  rbY + rbH);
+    ctx.moveTo(S.rockRight, rbY); ctx.lineTo(S.rockRight, rbY + rbH);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // ── Speed / row indicator ──────────────────────────────────
