@@ -2613,20 +2613,20 @@
         .hao-title { font-family: 'Cinzel', serif; font-size: 26px; font-weight: 700; color: #f3e8ff; margin-bottom: 6px; letter-spacing: 2px; text-shadow: 0 0 20px rgba(192,132,252,0.4); }
         .hao-desc { font-size: 13px; color: #a78bfa; max-width: 480px; margin: 0 auto; line-height: 1.5; }
         /* Step 1 — archetype grid */
-        .hao-grid-top { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 720px; margin-bottom: 10px; }
-        .hao-grid-bottom { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 540px; margin-bottom: 14px; }
+        .hao-grid-top { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; width: 100%; max-width: 900px; margin-bottom: 14px; }
+        .hao-grid-bottom { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: 100%; max-width: 680px; margin-bottom: 18px; }
         .hao-card { cursor: pointer; border-radius: 10px; padding: 10px 8px 12px; text-align: center; transition: all 0.2s; }
         .hao-card:hover { transform: scale(1.04); }
         .hao-card.selected { transform: scale(1.06); box-shadow: 0 0 24px rgba(192,132,252,0.45); }
-        .hao-card-art { width: 72px; height: 88px; margin: 0 auto 8px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.5); position: relative; }
-        .hao-card-silhouette { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; opacity: 0.35; }
-        .hao-card-name { font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; margin-bottom: 2px; letter-spacing: 0.5px; }
-        .hao-card-myth { font-size: 9px; color: #a78bfa; margin-bottom: 4px; }
-        .hao-card-drachma { font-size: 10px; color: #fbbf24; font-weight: 700; }
+        .hao-card-art { width: 108px; height: 132px; margin: 0 auto 10px; border-radius: 8px; overflow: hidden; background: rgba(20,10,40,0.6); position: relative; }
+        .hao-card-silhouette { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 40px; opacity: 0.35; }
+        .hao-card-name { font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; margin-bottom: 3px; letter-spacing: 0.5px; }
+        .hao-card-myth { font-size: 11px; color: #a78bfa; margin-bottom: 5px; }
+        .hao-card-drachma { font-size: 12px; color: #fbbf24; font-weight: 700; }
         /* Step 1 — detail panel */
-        .hao-detail { width: 100%; max-width: 720px; background: rgba(0,0,0,0.45); border: 1px solid rgba(167,139,250,0.3); border-radius: 12px; padding: 16px 20px; display: none; }
+        .hao-detail { width: 100%; max-width: 900px; background: rgba(0,0,0,0.45); border: 1px solid rgba(167,139,250,0.3); border-radius: 12px; padding: 16px 20px; display: none; }
         .hao-detail-body { display: flex; gap: 18px; align-items: flex-start; }
-        .hao-detail-art { width: 90px; flex-shrink: 0; height: 112px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(167,139,250,0.2); }
+        .hao-detail-art { width: 130px; flex-shrink: 0; height: 160px; border-radius: 8px; overflow: hidden; background: rgba(20,10,40,0.6); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(167,139,250,0.2); }
         .hao-art-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 32px; opacity: 0.35; color: #c084fc; }
         .hao-detail-info { flex: 1; min-width: 0; }
         .hao-detail-name { font-family: 'Cinzel', serif; font-size: 15px; color: #f3e8ff; font-weight: 700; margin-bottom: 2px; }
@@ -15045,7 +15045,7 @@
             var artImg = document.createElement('img');
             artImg.className = 'hao-card-img';
             artImg.alt = av.name;
-            artImg.style.cssText = 'display:none;width:100%;height:100%;object-fit:cover;border-radius:6px;image-rendering:pixelated;';
+            artImg.style.cssText = 'display:none;width:100%;height:100%;object-fit:contain;border-radius:6px;image-rendering:pixelated;';
             artImg.onload  = function() { artImg.style.display = 'block'; artSil.style.display = 'none'; };
             artImg.onerror = function() { artImg.style.display = 'none'; artSil.style.display = 'flex'; };
             artImg.src = artSrc;
