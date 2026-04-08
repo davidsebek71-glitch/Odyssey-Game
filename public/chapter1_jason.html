@@ -2777,58 +2777,40 @@ const HR_START_R  = 6;
 const HR_START_C  = 4;
 const HR_DEST_R   = 0;
 
-function initHR() {
-  // ── Pixel-based log system ────────────────────────────────────
-  // Each lane has real pixel-position log objects.
-  // Player has pixel X position. Collision = pixel overlap.
-  // Open water = instant death (respawn on shore, no screen).
-
-  const CW = HR.cellW || 70;  // fallback; overwritten after canvas init
-  const W  = HR.canvW || 630;
-
-  // Lane rows 1-5 (0-indexed as 0-4).
-  // speed in px/sec, logW in px, gap in px, dir = 1(right) or -1(left)
+function initHR(prevImgs, prevRestarts) {
+  const W = 630;
   const LANE_CFG = [
-    { speed: 55,  logW: 180, gap: 100, dir: -1 },  // row1 — moderate, left
-    { speed: 85,  logW: 130, gap: 140, dir:  1 },  // row2 — faster, right
-    { speed: 110, logW: 120, gap: 180, dir: -1 },  // row3 — fastest, left, widest gaps
-    { speed: 75,  logW: 160, gap: 110, dir:  1 },  // row4 — medium, right
-    { speed: 50,  logW: 170, gap:  90, dir: -1 },  // row5 — slow, left
+    { speed: 55,  logW: 180, gap: 100, dir: -1 },
+    { speed: 85,  logW: 130, gap: 140, dir:  1 },
+    { speed: 110, logW: 120, gap: 180, dir: -1 },
+    { speed: 75,  logW: 160, gap: 110, dir:  1 },
+    { speed: 50,  logW: 170, gap:  90, dir: -1 },
   ];
-
-  // Build 2-3 log objects per lane with staggered starting X positions
   const lanes = LANE_CFG.map((cfg, i) => {
     const period = cfg.logW + cfg.gap;
     const logs = [];
-    // Place enough logs to always fill canvas + overflow each side
     const count = Math.ceil((W + period * 2) / period) + 1;
     for (let k = 0; k < count; k++) {
       logs.push({ x: k * period - period + (i * 37) % period });
     }
     return { ...cfg, period, logs };
   });
-
   return {
-    row:      HR_START_R,
-    col:      HR_START_C,
-    pxX:      HR_START_C * (HR.cellW || 70) + (HR.cellW || 70) / 2,  // pixel center X
-    grip:     100,   // kept for HUD display only — not used for death
-    phase:    'play',
-    elapsed:  0,
-    animId:   null,
+    row: HR_START_R, col: HR_START_C,
+    pxX: HR_START_C * 70 + 35,
+    grip: 100, phase: 'play', elapsed: 0, animId: null,
     heldU: false, heldD: false, heldL: false, heldR: false,
-    moveTimer: 0,
-    MOVE_MS:  200,
+    moveTimer: 0, MOVE_MS: 200,
     lanes,
-    imgs:     HR ? (HR.imgs || {}) : {},
+    imgs: prevImgs || {},
     _cleanup: null,
-    restarts: 0,
-    deathFlash: 0   // frames of red flash on instant death
+    restarts: prevRestarts || 0,
+    deathFlash: 0
   };
 }
 
 function startHeraFrogger() {
-  // Preload + magenta-strip all sprites, then launch
+  HR = initHR();  // HR must exist before image callbacks fire
   const toLoad = {
     bg:    '/images/heroic/river/river_bg.png',
     log:   '/images/heroic/river/log_sprite.png',
@@ -2837,12 +2819,11 @@ function startHeraFrogger() {
   };
   const keys = Object.keys(toLoad);
   let loaded = 0;
-  const imgs = {};
 
   function stripped(src, cb) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onerror = () => { loaded++; cb(null); if (loaded === keys.length) { HR.imgs = imgs; launchHRCanvas(); } };
+    img.onerror = () => { loaded++; cb(null); if (loaded === keys.length) launchHRCanvas(); };
     img.onload = () => {
       const ofc = document.createElement('canvas');
       ofc.width = img.naturalWidth; ofc.height = img.naturalHeight;
@@ -2855,14 +2836,12 @@ function startHeraFrogger() {
       }
       ofx.putImageData(id, 0, 0);
       const clean = new Image();
-      clean.onload = () => { loaded++; cb(clean); if (loaded === keys.length) { HR.imgs = imgs; launchHRCanvas(); } };
+      clean.onload = () => { loaded++; cb(clean); if (loaded === keys.length) launchHRCanvas(); };
       clean.src = ofc.toDataURL();
     };
     img.src = src;
   }
-
-  HR = initHR();
-  keys.forEach(k => stripped(toLoad[k], img => { imgs[k] = img; }));
+  keys.forEach(k => stripped(toLoad[k], img => { HR.imgs[k] = img; }));
 }
 
 function launchHRCanvas() {
@@ -3045,11 +3024,11 @@ function hrInstantDeath() {
 function heraDropped() {}  // no longer used — kept to avoid reference errors
 
 function restartHeraFrogger() {
-  const prevImgs = HR.imgs;
-  const prevRestarts = HR.restarts;
-  HR = initHR();
-  HR.imgs = prevImgs;
-  HR.restarts = prevRestarts;
+  const prevImgs     = HR ? HR.imgs     : {};
+  const prevRestarts = HR ? HR.restarts : 0;
+  if (HR && HR.animId)  cancelAnimationFrame(HR.animId);
+  if (HR && HR._cleanup) HR._cleanup();
+  HR = initHR(prevImgs, prevRestarts);
   launchHRCanvas();
 }
 
