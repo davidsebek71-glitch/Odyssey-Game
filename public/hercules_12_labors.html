@@ -189,7 +189,7 @@ body {
 /* ══════════════════════════════════════════════
    MAIN LAYOUT: VIDEO/CANVAS + PANEL (side-by-side)
 ══════════════════════════════════════════════ */
-#app { display: none; flex: 1; overflow: hidden; }
+#app { display: none; flex: 1; overflow: hidden; flex-direction: column; }
 #main-layout {
   display: flex;
   height: 100%;
@@ -1416,7 +1416,7 @@ function beginLabors(){
 }
 
 function showApp(){
-  document.getElementById('app').style.display = 'block';
+  document.getElementById('app').style.display = 'flex';
   document.getElementById('tb-student').textContent = student.name + ' · ' + (student.periodDisplay || student.period);
   updateScore();
   buildProgress();
