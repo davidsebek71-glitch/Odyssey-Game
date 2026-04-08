@@ -4165,13 +4165,12 @@ function renderSympOutcome(damaged, speedBonus, elapsed, isReplay) {
   updateHeader();
 }
 
-function replaySymplegades() {
-  // Clear local choice so stub shows the game — does NOT re-save to server
-  // so the canonical completion record is preserved
+window.replaySymplegades = function replaySymplegades() {
+  // Clear local choice — does NOT re-save to server so completion record is preserved
   delete G.choices.symplegades;
   G.symplegadesDamaged = false;
   startSymplegades();
-}
+};
 
 // ── DRAW ──────────────────────────────────────────────────────
 function drawSympFrame(ctx) {
