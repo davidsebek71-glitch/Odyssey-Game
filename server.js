@@ -49,6 +49,40 @@ initDatabase().then(() => {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Hercules 12 Labors tables ─────────────────────────────────────────
+  try {
+    run(`CREATE TABLE IF NOT EXISTS hercules_log_completions (
+      completion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_name TEXT NOT NULL,
+      class_period TEXT NOT NULL,
+      alliance_name TEXT,
+      hero_code TEXT,
+      rank_tier TEXT,
+      total_score INTEGER DEFAULT 0,
+      stop_scores TEXT DEFAULT '{}',
+      written_answers TEXT DEFAULT '{}',
+      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      override_by_teacher INTEGER DEFAULT 0,
+      UNIQUE(student_name, class_period)
+    )`);
+    run(`CREATE TABLE IF NOT EXISTS hercules_log_progress (
+      student_name TEXT NOT NULL,
+      class_period TEXT NOT NULL,
+      state_json TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (student_name, class_period)
+    )`);
+    run(`CREATE TABLE IF NOT EXISTS hercules_log_unlocks (
+      class_period TEXT PRIMARY KEY,
+      unlocked_up_to INTEGER DEFAULT -1
+    )`);
+    saveDatabase();
+    console.log('🦁 Hercules log tables ensured');
+  } catch (e) {
+    console.log('🦁 Hercules tables already exist or migration skipped:', e.message);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // V97 backfill: unlock game quests for students who already passed the quizzes
   // before this feature was deployed. Safe to re-run — INSERT OR IGNORE skips existing rows.
   try {
@@ -14879,39 +14913,8 @@ app.post('/api/admin/restore-alliance-points', authenticateToken, (req, res) => 
 // ============================================================
 // HERCULES 12 LABORS — ENDPOINTS
 // Parallel to voyage-log (Jason) but separate tables
+// Tables created inside initDatabase().then() block at top of file
 // ============================================================
-
-// Ensure Hercules tables exist
-try {
-  run(`CREATE TABLE IF NOT EXISTS hercules_log_completions (
-    completion_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_name TEXT NOT NULL,
-    class_period TEXT NOT NULL,
-    alliance_name TEXT,
-    hero_code TEXT,
-    rank_tier TEXT,
-    total_score INTEGER DEFAULT 0,
-    stop_scores TEXT DEFAULT '{}',
-    written_answers TEXT DEFAULT '{}',
-    completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    override_by_teacher INTEGER DEFAULT 0,
-    UNIQUE(student_name, class_period)
-  )`);
-  run(`CREATE TABLE IF NOT EXISTS hercules_log_progress (
-    student_name TEXT NOT NULL,
-    class_period TEXT NOT NULL,
-    state_json TEXT NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (student_name, class_period)
-  )`);
-  run(`CREATE TABLE IF NOT EXISTS hercules_log_unlocks (
-    class_period TEXT PRIMARY KEY,
-    unlocked_up_to INTEGER DEFAULT -1
-  )`);
-  console.log('🦁 Hercules log tables ensured');
-} catch (e) {
-  console.log('🦁 Hercules tables already exist or migration skipped');
-}
 
 // POST /api/hercules-log/submit — no JWT (standalone HTML)
 app.post('/api/hercules-log/submit', (req, res) => {
