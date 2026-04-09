@@ -1671,7 +1671,8 @@ function processHercSprite(){
     const tctx = tmp.getContext('2d');
     tctx.drawImage(src, i * fw, 0, fw, fh, 0, 0, fw, fh);
 
-    // Magenta strip: R>150 && B>150 && G<80 → transparent
+    // Strip any remaining magenta: R>150 && B>150 && G<80 → transparent
+    // (safe to run even if already transparent — only affects magenta pixels)
     const idata = tctx.getImageData(0, 0, fw, fh);
     const d = idata.data;
     for(let p = 0; p < d.length; p += 4){
@@ -1689,8 +1690,10 @@ function drawHercules(ctx, x, groundY, canvasW, walkFrame){
   const frames = processHercSprite();
   if(frames){
     const frame = frames[walkFrame % HERC_FRAMES];
-    // Scale sprite to ~18% of canvas width
-    const targetH = Math.max(60, Math.round(canvasW * 0.18));
+    // Scale sprite to ~45% of canvas height for prominent display
+    const area = document.getElementById('transition-area');
+    const canvasH = area ? area.clientHeight : 300;
+    const targetH = Math.max(80, Math.round(canvasH * 0.45));
     const scale = targetH / frame.height;
     const targetW = Math.round(frame.width * scale);
     ctx.imageSmoothingEnabled = false;
