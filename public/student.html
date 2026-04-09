@@ -6613,7 +6613,8 @@
                 'Pixton Retelling': '#ffffff', 'Exit Ticket': '#ffffff',
                 'Pandora': '#FFD700', 'Phaethon': '#FF8C00', 'Orpheus': '#8B5CF6',
                 'Echo and Narcissus': '#EC4899', 'Icarus': '#3B82F6',
-                'Eros and Psyche': '#EF4444', 'Constellations': '#C0C0C0', 'Morals': '#9CA3AF'
+                'Eros and Psyche': '#EF4444', 'Constellations': '#C0C0C0', 'Morals': '#9CA3AF',
+                'Jason': '#40c0a0', 'Hercules': '#c03030', 'Theseus': '#4080d0', 'Perseus': '#d0a020'
             };
             
             const getColor = (name) => {
@@ -7569,7 +7570,12 @@
                 { myth: 'Echo and Narcissus', section: 'classical' },
                 { myth: 'Icarus', section: 'classical' },
                 { myth: 'Eros and Psyche', section: 'classical' },
-                { myth: 'Constellations', section: 'classical' }
+                { myth: 'Constellations', section: 'classical' },
+                // Heroic Age
+                { myth: 'Jason', section: 'heroic' },
+                { myth: 'Hercules', section: 'heroic' },
+                { myth: 'Theseus', section: 'heroic' },
+                { myth: 'Perseus', section: 'heroic' }
             ],
             quiz: [
                 // Section 1 (Archaic)
@@ -7585,7 +7591,12 @@
                 { myth: 'Poseidon', section: 'section_2' },
                 { myth: 'Demeter', section: 'section_2' },
                 { myth: 'Hermes', section: 'section_2' },
-                { myth: 'Hephaestus', section: 'section_2' }
+                { myth: 'Hephaestus', section: 'section_2' },
+                // Heroic Age
+                { myth: 'Jason', section: 'heroic' },
+                { myth: 'Hercules', section: 'heroic' },
+                { myth: 'Theseus', section: 'heroic' },
+                { myth: 'Perseus', section: 'heroic' }
                 // Classical quizzes handled in-game (myth portals), not in submit dropdown
             ],
             mural: [
@@ -7750,14 +7761,22 @@
                 'Echo and Narcissus': '#EC4899',
                 'Icarus': '#3B82F6',
                 'Eros and Psyche': '#EF4444',
-                'Constellations': '#C0C0C0'
+                'Constellations': '#C0C0C0',
+                // Heroic Age myths
+                'Jason': '#40c0a0',
+                'Hercules': '#c03030',
+                'Theseus': '#4080d0',
+                'Perseus': '#d0a020'
             };
             
             // Determine which view the student is on (respect ?view=archaic override)
             const currentAge = (dashboardData && dashboardData.student && dashboardData.student.current_age) || 'Archaic';
             const viewParam = new URLSearchParams(window.location.search).get('view');
-            const isClassical = (currentAge === 'Classical' || currentAge === 'Heroic') && viewParam !== 'archaic';
+            const isHeroic = currentAge === 'Heroic' && viewParam !== 'archaic' && viewParam !== 'classical';
+            const isClassical = (currentAge === 'Classical' || currentAge === 'Heroic') && viewParam !== 'archaic' && !isHeroic;
             
+            // Heroic sections
+            const heroicSections = ['heroic'];
             // Classical sections
             const classicalSections = ['classical', 'classical_creative'];
             // Archaic sections  
@@ -7767,7 +7786,9 @@
             if (options) {
                 // Filter options based on current age
                 const filtered = options.filter(opt => {
-                    if (isClassical) {
+                    if (isHeroic) {
+                        return heroicSections.includes(opt.section);
+                    } else if (isClassical) {
                         return classicalSections.includes(opt.section);
                     } else {
                         return archaicSections.includes(opt.section);
