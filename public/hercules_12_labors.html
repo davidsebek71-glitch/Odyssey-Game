@@ -1641,7 +1641,7 @@ function drawStaticScene(stopIdx){
   }
 
   // Hercules standing still
-  drawHercules(ctx, W * 0.45, H * 0.65 - 2, W, 0);
+  drawHercules(ctx, W * 0.45, H * 0.92, W, 0);
 
   // Labor label
   const caption = document.getElementById('transition-caption');
@@ -1859,7 +1859,7 @@ function runTransitionFrame(){
   }
 
   // Hercules at fixed screen position (45% from left)
-  drawHercules(ctx, W * 0.45, H * 0.65 - 2, W, transitionState.walkFrame);
+  drawHercules(ctx, W * 0.45, H * 0.92, W, transitionState.walkFrame);
 
   // Progress bar
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
