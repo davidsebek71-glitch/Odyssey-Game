@@ -6631,6 +6631,44 @@
                 </div>`;
             };
 
+            // For Heroic Age, render hero-by-hero placeholder cards
+            if (age === 'Heroic') {
+                const heroes = grades.heroes || [];
+                const heroEmoji = { 'Jason': '⚓', 'Hercules': '🦁', 'Theseus': '🏛', 'Perseus': '⚔️' };
+                const heroColors = { 'Jason': '#40c0a0', 'Hercules': '#c03030', 'Theseus': '#4080d0', 'Perseus': '#d0a020' };
+
+                let heroCards = heroes.map(hero => {
+                    const emoji = heroEmoji[hero.myth_name] || '⚔️';
+                    const col = heroColors[hero.myth_name] || '#888';
+                    return `
+                    <div style="background: rgba(255,255,255,0.04); border: 1px solid ${col}40; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 18px; font-weight: 700; color: ${col};">${emoji} ${hero.myth_name}</span>
+                            <span style="font-size: 16px; color: rgba(255,255,255,0.4);">—/—</span>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 20px; overflow: hidden; margin: 8px 0;">
+                            <div style="background: rgba(255,255,255,0.15); height: 100%; width: 0%;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.35); font-style: italic; text-align: center; padding: 8px 0;">
+                            Assignments coming soon
+                        </div>
+                    </div>`;
+                }).join('');
+
+                container.innerHTML = `
+                    <div style="background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 16px; font-weight: 700; color: #a78bfa;">Heroic Age Total</span>
+                            <span style="font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.3);">—/—</span>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 20px; overflow: hidden; margin: 8px 0;">
+                            <div style="background: rgba(139,92,246,0.3); height: 100%; width: 0%;"></div>
+                        </div>
+                    </div>
+                    ${heroCards}`;
+                return;
+            }
+
             // For Classical Age, render myth-by-myth progress
             if (age === 'Classical') {
                 // Fetch myth portal data for the progress display

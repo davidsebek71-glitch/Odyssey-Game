@@ -2225,6 +2225,24 @@ app.get('/api/student/grades', authenticateToken, (req, res) => {
           completed: bonusCompleted.map(r => ({ display_name: r.display_name, myth_god: r.myth_god, points_earned: r.points_earned, points_possible: r.assignment_max || r.points_possible }))
         }
       });
+    } else if (currentAge === 'Heroic') {
+      // HEROIC AGE GRADES - Four heroes with placeholder structure
+      const heroMyths = ['Jason', 'Hercules', 'Theseus', 'Perseus'];
+      const heroes = heroMyths.map(name => ({
+        myth_name: name,
+        earned: 0,
+        possible: 0,
+        percentage: 0,
+        assignments: []
+      }));
+      
+      res.json({
+        age: 'Heroic',
+        heroes: heroes,
+        total_earned: 0,
+        total_possible: 0,
+        total_percentage: 0
+      });
     } else {
       // CLASSICAL AGE GRADES - Split by myth grouping per grading breakdown doc
       // Section 1: Myths 1-4 (Pandora, Phaethon, Orpheus, Echo and Narcissus) = 136 baseline
