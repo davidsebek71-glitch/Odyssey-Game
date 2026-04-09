@@ -1444,6 +1444,7 @@ function showApp(){
   buildTeacherUnlockGrid();
   loadYTAPI();
   loadHercSprite();
+  loadPanoramaImages();
   initCanvas();
 
   // Show the current stop if we have one
@@ -1596,34 +1597,47 @@ function drawStaticScene(stopIdx){
   const W = canvas.width, H = canvas.height;
   if(!W || !H) return;
 
-  const sc = SCENE_COLORS[stopIdx] || SCENE_COLORS[0];
+  ctx.imageSmoothingEnabled = false;
 
-  // Sky gradient
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
-  skyGrad.addColorStop(0, sc.sky1);
-  skyGrad.addColorStop(1, sc.sky2);
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, W, H * 0.65);
-
-  // Stars (for darker skies)
-  for(let i = 0; i < 40; i++){
-    const brightness = 0.2 + (i % 5) * 0.1;
-    ctx.fillStyle = `rgba(255,255,255,${brightness})`;
-    const sx = ((i * 97 + 13 * i * i) % 1000) / 1000 * W;
-    const sy = ((i * 73 + 7 * i * i) % 1000) / 1000 * (H * 0.5);
-    ctx.fillRect(sx, sy, (i % 7 === 0 ? 2 : 1), (i % 7 === 0 ? 2 : 1));
+  // Try to show panorama background
+  // Stop 0: left side of panorama 0 (departure scene)
+  // Stop N>0: right side of panorama N-1 (arrival scene)
+  let panoImg = null;
+  let showRightSide = false;
+  if(stopIdx === 0){
+    const key = PANO_KEYS[0];
+    const img = PANO_IMAGES[key];
+    if(img && img.complete && img.naturalWidth > 0){ panoImg = img; showRightSide = false; }
+  } else if(stopIdx > 0 && stopIdx <= PANO_KEYS.length){
+    const key = PANO_KEYS[stopIdx - 1];
+    const img = PANO_IMAGES[key];
+    if(img && img.complete && img.naturalWidth > 0){ panoImg = img; showRightSide = true; }
   }
 
-  // Ground
-  ctx.fillStyle = sc.ground;
-  ctx.fillRect(0, H * 0.65, W, H * 0.35);
-
-  // Ground texture
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
-  for(let i = 0; i < 30; i++){
-    const gx = ((i * 53 + 17) % 100) / 100 * W;
-    const gy = H * 0.65 + ((i * 31 + 7) % 100) / 100 * H * 0.3;
-    ctx.fillRect(gx, gy, 3 + (i % 4), 1);
+  if(panoImg){
+    // Scale panorama to fill canvas height, scroll to show left or right side
+    const scale = H / panoImg.naturalHeight;
+    const scaledW = panoImg.naturalWidth * scale;
+    const scrollX = showRightSide ? Math.max(0, scaledW - W) : 0;
+    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+  } else {
+    // Fallback: procedural scene
+    const sc = SCENE_COLORS[stopIdx] || SCENE_COLORS[0];
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+    skyGrad.addColorStop(0, sc.sky1);
+    skyGrad.addColorStop(1, sc.sky2);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H * 0.65);
+    for(let i = 0; i < 40; i++){
+      ctx.fillStyle = `rgba(255,255,255,${0.2 + (i % 5) * 0.1})`;
+      ctx.fillRect(((i*97+13*i*i)%1000)/1000*W, ((i*73+7*i*i)%1000)/1000*(H*0.5), (i%7===0?2:1), (i%7===0?2:1));
+    }
+    ctx.fillStyle = sc.ground;
+    ctx.fillRect(0, H * 0.65, W, H * 0.35);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    for(let i = 0; i < 30; i++){
+      ctx.fillRect(((i*53+17)%100)/100*W, H*0.65+((i*31+7)%100)/100*H*0.3, 3+(i%4), 1);
+    }
   }
 
   // Hercules standing still
@@ -1651,6 +1665,31 @@ function loadHercSprite(){
   img.onload = () => { hercSpriteImg = img; };
   img.onerror = () => { console.warn('Hercules sprite failed to load — using fallback'); };
   img.src = HERC_SPRITE_URL;
+}
+
+// ═══════════════════════════════════════════════════
+// PANORAMA BACKGROUND IMAGES
+// ═══════════════════════════════════════════════════
+const PANO_BASE = '/images/heroic/hercules/transitions/';
+const PANO_KEYS = [
+  '1_oracle_to_cave',
+  '2_cave_to_swamp',
+  '3_swamp_to_fields',
+  '4_fields_to_coast',
+  '5_coast_to_desert',
+  '6_desert_to_underworld',
+  '7_underworld_to_olympus'
+];
+const PANO_IMAGES = {};
+
+function loadPanoramaImages(){
+  PANO_KEYS.forEach(key => {
+    const img = new Image();
+    img.onload = () => { console.log('🖼 Panorama loaded: ' + key); };
+    img.onerror = () => { PANO_IMAGES[key] = null; console.warn('Panorama failed: ' + key); };
+    img.src = PANO_BASE + key + '.png';
+    PANO_IMAGES[key] = img;
+  });
 }
 
 function processHercSprite(){
@@ -1756,58 +1795,67 @@ function runTransitionFrame(){
   }
 
   const p = transitionState.progress;
-  const fromSc = SCENE_COLORS[transitionState.fromIdx] || SCENE_COLORS[0];
-  const toSc = SCENE_COLORS[transitionState.toIdx] || SCENE_COLORS[0];
 
-  // Interpolate colors
-  function lerpColor(c1, c2, t){
-    const h = s => parseInt(s.slice(1), 16);
-    const v1 = h(c1), v2 = h(c2);
-    const r = Math.round(((v1 >> 16) & 0xff) * (1-t) + ((v2 >> 16) & 0xff) * t);
-    const g = Math.round(((v1 >> 8) & 0xff) * (1-t) + ((v2 >> 8) & 0xff) * t);
-    const b = Math.round((v1 & 0xff) * (1-t) + (v2 & 0xff) * t);
-    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-  }
+  // Try panorama image for this transition
+  // Transition from stop N to stop N+1 uses PANO_KEYS[N]
+  const panoKey = PANO_KEYS[transitionState.fromIdx];
+  const panoImg = panoKey ? PANO_IMAGES[panoKey] : null;
 
-  const curSky1 = lerpColor(fromSc.sky1, toSc.sky1, p);
-  const curSky2 = lerpColor(fromSc.sky2, toSc.sky2, p);
-  const curGround = lerpColor(fromSc.ground, toSc.ground, p);
+  if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
+    // ── PANORAMA SCROLL ──
+    ctx.imageSmoothingEnabled = false;
+    const scale = H / panoImg.naturalHeight;
+    const scaledW = Math.max(panoImg.naturalWidth * scale, W * 1.5);
+    const maxScroll = scaledW - W;
+    const scrollX = p * maxScroll;
+    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+  } else {
+    // ── FALLBACK: procedural color interpolation ──
+    const fromSc = SCENE_COLORS[transitionState.fromIdx] || SCENE_COLORS[0];
+    const toSc = SCENE_COLORS[transitionState.toIdx] || SCENE_COLORS[0];
 
-  // Sky gradient
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
-  skyGrad.addColorStop(0, curSky1);
-  skyGrad.addColorStop(1, curSky2);
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, W, H * 0.65);
+    function lerpColor(c1, c2, t){
+      const h = s => parseInt(s.slice(1), 16);
+      const v1 = h(c1), v2 = h(c2);
+      const r = Math.round(((v1 >> 16) & 0xff) * (1-t) + ((v2 >> 16) & 0xff) * t);
+      const g = Math.round(((v1 >> 8) & 0xff) * (1-t) + ((v2 >> 8) & 0xff) * t);
+      const b = Math.round((v1 & 0xff) * (1-t) + (v2 & 0xff) * t);
+      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
 
-  // Stars
-  for(let i = 0; i < 40; i++){
-    ctx.fillStyle = `rgba(255,255,255,${0.15 + (i % 5) * 0.08})`;
-    const sx = (((i * 97 + 13 * i * i) % 1000) / 1000 * W - p * 60 + W * 2) % W;
-    const sy = ((i * 73 + 7 * i * i) % 1000) / 1000 * (H * 0.5);
-    ctx.fillRect(sx, sy, (i % 7 === 0 ? 2 : 1), (i % 7 === 0 ? 2 : 1));
-  }
+    const curSky1 = lerpColor(fromSc.sky1, toSc.sky1, p);
+    const curSky2 = lerpColor(fromSc.sky2, toSc.sky2, p);
+    const curGround = lerpColor(fromSc.ground, toSc.ground, p);
 
-  // Ground
-  ctx.fillStyle = curGround;
-  ctx.fillRect(0, H * 0.65, W, H * 0.35);
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+    skyGrad.addColorStop(0, curSky1);
+    skyGrad.addColorStop(1, curSky2);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H * 0.65);
 
-  // Scrolling ground texture (parallax)
-  ctx.fillStyle = 'rgba(0,0,0,0.12)';
-  for(let i = 0; i < 40; i++){
-    const gx = (((i * 53 + 17) % 200) / 200 * W * 2 - p * W * 1.5 + W * 4) % W;
-    const gy = H * 0.65 + ((i * 31 + 7) % 100) / 100 * H * 0.28;
-    ctx.fillRect(gx, gy, 4 + (i % 5), 1);
-  }
+    for(let i = 0; i < 40; i++){
+      ctx.fillStyle = `rgba(255,255,255,${0.15 + (i % 5) * 0.08})`;
+      const sx = (((i * 97 + 13 * i * i) % 1000) / 1000 * W - p * 60 + W * 2) % W;
+      const sy = ((i * 73 + 7 * i * i) % 1000) / 1000 * (H * 0.5);
+      ctx.fillRect(sx, sy, (i % 7 === 0 ? 2 : 1), (i % 7 === 0 ? 2 : 1));
+    }
 
-  // Scrolling foreground rocks/trees (near ground, faster parallax)
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  for(let i = 0; i < 8; i++){
-    const rx = (((i * 137 + 29) % 400) / 400 * W * 3 - p * W * 2.5 + W * 6) % W;
-    const ry = H * 0.62 + (i % 3) * 4;
-    const rw = 4 + (i % 3) * 2;
-    const rh = 3 + (i % 2) * 2;
-    ctx.fillRect(rx, ry, rw, rh);
+    ctx.fillStyle = curGround;
+    ctx.fillRect(0, H * 0.65, W, H * 0.35);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    for(let i = 0; i < 40; i++){
+      const gx = (((i * 53 + 17) % 200) / 200 * W * 2 - p * W * 1.5 + W * 4) % W;
+      const gy = H * 0.65 + ((i * 31 + 7) % 100) / 100 * H * 0.28;
+      ctx.fillRect(gx, gy, 4 + (i % 5), 1);
+    }
+
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    for(let i = 0; i < 8; i++){
+      const rx = (((i * 137 + 29) % 400) / 400 * W * 3 - p * W * 2.5 + W * 6) % W;
+      const ry = H * 0.62 + (i % 3) * 4;
+      ctx.fillRect(rx, ry, 4 + (i % 3) * 2, 3 + (i % 2) * 2);
+    }
   }
 
   // Hercules at fixed screen position (45% from left)
