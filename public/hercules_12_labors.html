@@ -1281,6 +1281,7 @@ let state = {
   unlockedUpTo: -1, currentStop: -1,
   scores: {}, feedback: {}, completed: {}, reviseUsed: {},
   writtenText: {}, mcAnswers: {},
+  briefRevealed: {},
   totalScore: 0
 };
 let ytPlayer = null;
@@ -1313,7 +1314,14 @@ function onYouTubeIframeAPIReady(){
     videoId: 'nIIjhAuC76g',
     playerVars: { controls:1, modestbranding:1, rel:0, playsinline:1, fs:1 },
     events: {
-      onReady: () => { ytReady = true; },
+      onReady: () => {
+        ytReady = true;
+        // Auto-cue to current stop's position on reload
+        if(state.currentStop >= 0){
+          const stop = STOPS[state.currentStop];
+          if(stop) ytPlayer.cueVideoById({ videoId:'nIIjhAuC76g', startSeconds:stop.startSec });
+        }
+      },
       onError: () => {
         document.getElementById('video-fallback').style.display = 'block';
         showingFallback = true;
@@ -1338,6 +1346,7 @@ function playCurrentSegment(){
     if(ytPlayer.getCurrentTime() >= stop.endSec){
       ytPlayer.pauseVideo();
       clearInterval(window._segTimer);
+      revealBrief(i);
     }
   }, 300);
   updateVCStatus(i);
@@ -1346,6 +1355,17 @@ function playCurrentSegment(){
 function updateVCStatus(i){
   const s = STOPS[i];
   document.getElementById('vc-status').textContent = 'LABOR ' + (i+1) + ' · ' + s.time;
+}
+
+function revealBrief(stopIdx){
+  if(state.briefRevealed[stopIdx]) return;
+  state.briefRevealed[stopIdx] = true;
+  const wrapper = document.getElementById('brief-wrapper-' + stopIdx);
+  if(wrapper){
+    const stop = STOPS[stopIdx];
+    wrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div><div class="brief-box" style="animation:fadeIn 0.5s ease">' + stop.brief + '</div>';
+  }
+  saveProgress();
 }
 
 function toggleFallback(){
@@ -1391,6 +1411,7 @@ function beginLabors(){
         state.reviseUsed = saved.reviseUsed || {};
         state.writtenText = saved.writtenText || {};
         state.mcAnswers = saved.mcAnswers || {};
+        state.briefRevealed = saved.briefRevealed || {};
         state.totalScore = saved.totalScore || 0;
         if(saved.alliance) student.alliance = saved.alliance;
 
@@ -1457,6 +1478,7 @@ function saveProgress(){
     reviseUsed: state.reviseUsed,
     writtenText: state.writtenText,
     mcAnswers: state.mcAnswers,
+    briefRevealed: state.briefRevealed,
     totalScore: state.totalScore,
     alliance: student.alliance
   };
@@ -1876,10 +1898,19 @@ function showStop(i){
   playBtn.onclick = () => playSegment(i);
   sc.appendChild(playBtn);
 
-  // Brief
-  const brief = document.createElement('div');
-  brief.innerHTML = '<div class="section-label">WHAT HAPPENED</div><div class="brief-box">' + stop.brief + '</div>';
-  sc.appendChild(brief);
+  // Brief — hidden until video segment plays, unless already revealed or stop completed
+  const briefWrapper = document.createElement('div');
+  briefWrapper.id = 'brief-wrapper-' + i;
+  const alreadyRevealed = state.briefRevealed[i] || state.completed[i];
+  if(alreadyRevealed){
+    briefWrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div><div class="brief-box">' + stop.brief + '</div>';
+  } else {
+    briefWrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div>'
+      + '<div class="brief-box" style="text-align:center;color:var(--text2);font-style:italic;">'
+      + '▶ Watch the segment above to reveal Athena\'s summary.'
+      + '</div>';
+  }
+  sc.appendChild(briefWrapper);
 
   // Interactions container
   const interContainer = document.createElement('div');
@@ -1938,6 +1969,7 @@ function playSegment(i){
       if(ytPlayer.getCurrentTime() >= STOPS[i].endSec){
         ytPlayer.pauseVideo();
         clearInterval(window._segTimer);
+        revealBrief(i);
       }
     }, 300);
   }
