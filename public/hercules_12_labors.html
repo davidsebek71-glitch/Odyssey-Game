@@ -1443,6 +1443,7 @@ function showApp(){
   buildProgress();
   buildTeacherUnlockGrid();
   loadYTAPI();
+  loadHercSprite();
   initCanvas();
 
   // Show the current stop if we have one
@@ -1637,108 +1638,86 @@ function drawStaticScene(stopIdx){
 }
 
 // ═══════════════════════════════════════════════════
-// HERCULES PIXEL SPRITE
+// HERCULES SPRITE SYSTEM
 // ═══════════════════════════════════════════════════
+const HERC_SPRITE_URL = '/images/heroic/hercules/transitions/hercules_sprite.png';
+const HERC_FRAMES = 4;
+let hercSpriteImg = null;
+let hercProcessedFrames = null;
+let hercProcessed = false;
+
+function loadHercSprite(){
+  const img = new Image();
+  img.onload = () => { hercSpriteImg = img; };
+  img.onerror = () => { console.warn('Hercules sprite failed to load — using fallback'); };
+  img.src = HERC_SPRITE_URL;
+}
+
+function processHercSprite(){
+  if(hercProcessedFrames) return hercProcessedFrames;
+  if(hercProcessed) return null;
+  if(!hercSpriteImg || !hercSpriteImg.complete || hercSpriteImg.naturalWidth === 0) return null;
+
+  hercProcessed = true;
+  const src = hercSpriteImg;
+  const fw = Math.floor(src.naturalWidth / HERC_FRAMES);
+  const fh = src.naturalHeight;
+
+  hercProcessedFrames = [];
+  for(let i = 0; i < HERC_FRAMES; i++){
+    const tmp = document.createElement('canvas');
+    tmp.width = fw;
+    tmp.height = fh;
+    const tctx = tmp.getContext('2d');
+    tctx.drawImage(src, i * fw, 0, fw, fh, 0, 0, fw, fh);
+
+    // Magenta strip: R>150 && B>150 && G<80 → transparent
+    const idata = tctx.getImageData(0, 0, fw, fh);
+    const d = idata.data;
+    for(let p = 0; p < d.length; p += 4){
+      if(d[p] > 150 && d[p+2] > 150 && d[p+1] < 80){
+        d[p+3] = 0;
+      }
+    }
+    tctx.putImageData(idata, 0, 0);
+    hercProcessedFrames.push(tmp);
+  }
+  return hercProcessedFrames;
+}
+
 function drawHercules(ctx, x, groundY, canvasW, walkFrame){
-  // Scale based on canvas width (16px base → about 4% of width, min 24px)
-  const scale = Math.max(2, Math.round(canvasW * 0.04 / 16));
-  const px = scale; // pixel size
+  const frames = processHercSprite();
+  if(frames){
+    const frame = frames[walkFrame % HERC_FRAMES];
+    // Scale sprite to ~18% of canvas width
+    const targetH = Math.max(60, Math.round(canvasW * 0.18));
+    const scale = targetH / frame.height;
+    const targetW = Math.round(frame.width * scale);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(frame, Math.floor(x - targetW / 2), Math.floor(groundY - targetH), targetW, targetH);
+    return;
+  }
 
-  // groundY = bottom of feet
-  // walkFrame: 0=stand, 1=stride left, 2=stand, 3=stride right
-
-  const frame = walkFrame % 4;
-
+  // ── FALLBACK: simple pixel Hercules if sprite not loaded ──
+  const px = Math.max(2, Math.round(canvasW * 0.04 / 16));
+  const f = walkFrame % 4;
   ctx.save();
   ctx.translate(Math.floor(x), Math.floor(groundY));
-
-  // Colors
-  const skin = '#d4a574';
-  const hair = '#3a2010';
-  const cape = '#c89820';     // golden lion-skin
-  const capeDark = '#8a6810';
-  const tunic = '#6a4028';
-  const club = '#4a3018';
-  const clubDark = '#2a1808';
-
-  function px_rect(col, r, rr, w, h){
-    ctx.fillStyle = col;
-    ctx.fillRect(r * px, rr * px, w * px, h * px);
-  }
-
-  // Head (row -15 to -12 from ground, 4px wide centered)
-  const headX = -2;
-  px_rect(hair, headX - 1, -15 * px / px, 6, 1); // hair top
-  px_rect(skin, headX, -14 * px / px, 4, 3);       // face
-
-  // Actually let me do this relative to ground = 0, going up (negative y)
-  // Each "pixel" of the sprite is `px` screen pixels
-  ctx.fillStyle = hair;
-  // Hair
-  ctx.fillRect(-1 * px, -16 * px, 5 * px, 1 * px);
-  ctx.fillRect(-1 * px, -15 * px, 1 * px, 2 * px);
-  ctx.fillRect(3 * px, -15 * px, 1 * px, 2 * px);
-
-  // Face
-  ctx.fillStyle = skin;
-  ctx.fillRect(0, -15 * px, 3 * px, 3 * px);
-
-  // Eyes
-  ctx.fillStyle = '#1a1008';
-  ctx.fillRect(0, -14 * px, 1 * px, 1 * px);
-  ctx.fillRect(2 * px, -14 * px, 1 * px, 1 * px);
-
-  // Cape (drapes from shoulders, behind body)
-  ctx.fillStyle = cape;
-  ctx.fillRect(-2 * px, -12 * px, 1 * px, 6 * px);
-  ctx.fillRect(4 * px, -12 * px, 1 * px, 5 * px);
-  ctx.fillStyle = capeDark;
-  ctx.fillRect(-2 * px, -7 * px, 1 * px, 2 * px);
-
-  // Tunic / body
-  ctx.fillStyle = tunic;
-  ctx.fillRect(-1 * px, -12 * px, 5 * px, 5 * px);
-
-  // Arms (skin)
-  ctx.fillStyle = skin;
-  ctx.fillRect(-1 * px, -11 * px, 1 * px, 3 * px);
-  ctx.fillRect(4 * px, -11 * px, 1 * px, 3 * px);
-
-  // Club (right side)
-  ctx.fillStyle = club;
-  ctx.fillRect(5 * px, -13 * px, 1 * px, 7 * px);
-  ctx.fillStyle = clubDark;
-  ctx.fillRect(5 * px, -14 * px, 2 * px, 2 * px); // club head
-
-  // Legs (with walk cycle)
-  ctx.fillStyle = skin;
-  if(frame === 0 || frame === 2){
-    // Standing: legs together
-    ctx.fillRect(0, -7 * px, 1 * px, 5 * px);
-    ctx.fillRect(2 * px, -7 * px, 1 * px, 5 * px);
-  } else if(frame === 1){
-    // Left stride
-    ctx.fillRect(-1 * px, -7 * px, 1 * px, 5 * px);
-    ctx.fillRect(3 * px, -7 * px, 1 * px, 4 * px);
-  } else {
-    // Right stride
-    ctx.fillRect(0, -7 * px, 1 * px, 4 * px);
-    ctx.fillRect(2 * px, -7 * px, 1 * px, 5 * px);
-  }
-
-  // Sandals
-  ctx.fillStyle = '#3a2810';
-  if(frame === 0 || frame === 2){
-    ctx.fillRect(-1 * px, -2 * px, 2 * px, 1 * px);
-    ctx.fillRect(2 * px, -2 * px, 2 * px, 1 * px);
-  } else if(frame === 1){
-    ctx.fillRect(-2 * px, -2 * px, 2 * px, 1 * px);
-    ctx.fillRect(3 * px, -3 * px, 2 * px, 1 * px);
-  } else {
-    ctx.fillRect(-1 * px, -3 * px, 2 * px, 1 * px);
-    ctx.fillRect(2 * px, -2 * px, 2 * px, 1 * px);
-  }
-
+  ctx.fillStyle = '#c89820';
+  ctx.fillRect(-2*px, -12*px, 1*px, 6*px);
+  ctx.fillRect(4*px, -12*px, 1*px, 5*px);
+  ctx.fillStyle = '#6a4028';
+  ctx.fillRect(-1*px, -12*px, 5*px, 5*px);
+  ctx.fillStyle = '#d4a574';
+  ctx.fillRect(0, -15*px, 3*px, 3*px);
+  ctx.fillStyle = '#3a2010';
+  ctx.fillRect(-1*px, -16*px, 5*px, 1*px);
+  ctx.fillStyle = '#4a3018';
+  ctx.fillRect(5*px, -14*px, 2*px, 8*px);
+  ctx.fillStyle = '#d4a574';
+  if(f===0||f===2){ ctx.fillRect(0,-7*px,1*px,5*px); ctx.fillRect(2*px,-7*px,1*px,5*px); }
+  else if(f===1){ ctx.fillRect(-1*px,-7*px,1*px,5*px); ctx.fillRect(3*px,-7*px,1*px,4*px); }
+  else { ctx.fillRect(0,-7*px,1*px,4*px); ctx.fillRect(2*px,-7*px,1*px,5*px); }
   ctx.restore();
 }
 
