@@ -5042,7 +5042,7 @@
             if (isHeroic) {
                 // Heroic Age — categories update when hero is selected via onMythChange()
                 categorySelect.innerHTML = `
-                    <option value="">— Select a hero first —</option>
+                    <option value="">— Select a hero or choose below —</option>
                     <option value="membean">Membean</option>
                     <option value="citizenship">Citizenship</option>
                 `;
@@ -5116,25 +5116,26 @@
             const categorySelect = document.getElementById('submit-category');
 
             if (!hero) {
+                // No hero selected — show only universal categories
                 categorySelect.innerHTML = `
-                    <option value="">— Select a hero first —</option>
+                    <option value="">— Select a hero or choose below —</option>
                     <option value="membean">Membean</option>
                     <option value="citizenship">Citizenship</option>
                 `;
                 return;
             }
 
-            // Build hero-specific options + shared options
+            // Hero selected — show only that hero's specific assignments
             const heroAssignments = HEROIC_ASSIGNMENTS[hero] || [];
-            let options = '';
-            heroAssignments.forEach(a => {
-                options += `<option value="${a.value}" data-label="${a.label}">${a.label}</option>`;
-            });
-            // Add shared categories
-            options += `<option value="membean">Membean</option>`;
-            options += `<option value="citizenship">Citizenship</option>`;
-
-            categorySelect.innerHTML = options;
+            if (heroAssignments.length === 0) {
+                categorySelect.innerHTML = `<option value="">— No assignments for ${hero} yet —</option>`;
+            } else {
+                let options = '';
+                heroAssignments.forEach(a => {
+                    options += `<option value="${a.value}" data-label="${a.label}">${a.label}</option>`;
+                });
+                categorySelect.innerHTML = options;
+            }
             onCategoryChange();
         }
 
@@ -7812,12 +7813,19 @@
             const isHeroic = currentAge === 'Heroic' && viewParam !== 'archaic' && viewParam !== 'classical';
 
             if (isHeroic) {
-                // For Heroic: hero dropdown stays visible and unchanged
-                // Just hide/show max points and ensure myth group stays visible
-                mythGroup.style.display = 'block';
-                maxPointsGroup.style.display = 'none';
-                mythSelect.setAttribute('required', 'required');
-                // Don't repopulate or clear the myth dropdown
+                const universalCategories = ['membean', 'citizenship'];
+                if (universalCategories.includes(category)) {
+                    // Universal category — hero not needed
+                    mythGroup.style.display = 'block';
+                    maxPointsGroup.style.display = 'none';
+                    mythSelect.removeAttribute('required');
+                    // Don't clear the dropdown, just don't require it
+                } else {
+                    // Hero-specific assignment — keep hero selected
+                    mythGroup.style.display = 'block';
+                    maxPointsGroup.style.display = 'none';
+                    mythSelect.setAttribute('required', 'required');
+                }
                 return;
             }
             
