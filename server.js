@@ -14934,6 +14934,97 @@ app.post('/api/admin/restore-alliance-points', authenticateToken, (req, res) => 
 // Tables created inside initDatabase().then() block at top of file
 // ============================================================
 
+// GET /api/hercules-log/period-alliances/:period — list alliances with non-ghost students in a period
+app.get('/api/hercules-log/period-alliances/:period', (req, res) => {
+  try {
+    const period = req.params.period;
+    // Get alliances that have at least one non-ghost student in this period
+    const alliances = query(`
+      SELECT DISTINCT a.alliance_id, a.alliance_name
+      FROM alliances a
+      JOIN students s ON s.alliance_id = a.alliance_id
+      WHERE s.class_period = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+        AND a.is_disbanded = 0
+      ORDER BY a.alliance_name
+    `, [period]);
+
+    // Check for students without an alliance (independent)
+    const independents = query(`
+      SELECT student_id FROM students
+      WHERE class_period = ? AND (alliance_id IS NULL) AND (is_ghost = 0 OR is_ghost IS NULL)
+    `, [period]);
+
+    if (independents.length > 0) {
+      alliances.push({ alliance_id: 'independent', alliance_name: 'Independent' });
+    }
+
+    res.json({ alliances });
+  } catch (err) {
+    console.error('Hercules period-alliances error:', err);
+    res.json({ alliances: [], error: err.message });
+  }
+});
+
+// GET /api/hercules-log/alliance-students/:period/:alliance_id — list non-ghost students in an alliance+period
+app.get('/api/hercules-log/alliance-students/:period/:alliance_id', (req, res) => {
+  try {
+    const { period, alliance_id } = req.params;
+    let students;
+    if (alliance_id === 'independent') {
+      students = query(`
+        SELECT student_id, name FROM students
+        WHERE class_period = ? AND (alliance_id IS NULL) AND (is_ghost = 0 OR is_ghost IS NULL)
+        ORDER BY name
+      `, [period]);
+    } else {
+      students = query(`
+        SELECT student_id, name FROM students
+        WHERE class_period = ? AND alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)
+        ORDER BY name
+      `, [period, parseInt(alliance_id)]);
+    }
+    res.json({ students });
+  } catch (err) {
+    console.error('Hercules alliance-students error:', err);
+    res.json({ students: [], error: err.message });
+  }
+});
+
+// GET /api/hercules-log/load-progress-by-id/:student_id — load by student_id (bulletproof)
+app.get('/api/hercules-log/load-progress-by-id/:student_id', (req, res) => {
+  try {
+    const sid = parseInt(req.params.student_id);
+    // First try student_id-based lookup
+    let rows = query(
+      'SELECT state_json, updated_at FROM hercules_log_progress WHERE student_id = ?',
+      [sid]
+    );
+    if (rows.length > 0) {
+      return res.json({ found: true, state: JSON.parse(rows[0].state_json), updated_at: rows[0].updated_at });
+    }
+    // Fallback: try name+period lookup (for students who saved before the student_id migration)
+    const stu = query('SELECT name, class_period FROM students WHERE student_id = ?', [sid]);
+    if (stu.length > 0) {
+      rows = query(
+        'SELECT state_json, updated_at FROM hercules_log_progress WHERE student_name = ? AND class_period = ?',
+        [stu[0].name, stu[0].class_period]
+      );
+      if (rows.length > 0) {
+        // Migrate: add student_id to the row for future lookups
+        try { run('ALTER TABLE hercules_log_progress ADD COLUMN student_id INTEGER', []); } catch(e) {}
+        run('UPDATE hercules_log_progress SET student_id = ? WHERE student_name = ? AND class_period = ?',
+          [sid, stu[0].name, stu[0].class_period]);
+        saveDatabase();
+        return res.json({ found: true, state: JSON.parse(rows[0].state_json), updated_at: rows[0].updated_at });
+      }
+    }
+    res.json({ found: false });
+  } catch (err) {
+    console.error('Hercules load-progress-by-id error:', err);
+    res.json({ found: false });
+  }
+});
+
 // POST /api/hercules-log/submit — no JWT (standalone HTML)
 app.post('/api/hercules-log/submit', (req, res) => {
   try {
@@ -14990,26 +15081,48 @@ app.post('/api/hercules-log/submit', (req, res) => {
 // POST /api/hercules-log/save-progress — no JWT (standalone page)
 app.post('/api/hercules-log/save-progress', (req, res) => {
   try {
-    const { student_name, class_period, state } = req.body;
+    const { student_name, class_period, student_id, state } = req.body;
     if (!student_name || !class_period || !state) {
       return res.status(400).json({ error: 'student_name, class_period, and state required' });
     }
 
+    // Ensure student_id column exists
+    try { run('ALTER TABLE hercules_log_progress ADD COLUMN student_id INTEGER', []); } catch(e) {}
+
     const stateJson = JSON.stringify(state);
-    const existing = query(
-      'SELECT student_name FROM hercules_log_progress WHERE student_name = ? AND class_period = ?',
-      [student_name, class_period]
-    );
+    const sid = student_id ? parseInt(student_id) : null;
+
+    // Try student_id lookup first, then fall back to name+period
+    let existing;
+    if (sid) {
+      existing = query(
+        'SELECT student_name FROM hercules_log_progress WHERE student_id = ?',
+        [sid]
+      );
+    }
+    if (!existing || existing.length === 0) {
+      existing = query(
+        'SELECT student_name FROM hercules_log_progress WHERE student_name = ? AND class_period = ?',
+        [student_name, class_period]
+      );
+    }
 
     if (existing.length > 0) {
-      run(
-        'UPDATE hercules_log_progress SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
-        [stateJson, student_name, class_period]
-      );
+      if (sid) {
+        run(
+          'UPDATE hercules_log_progress SET state_json = ?, student_id = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+          [stateJson, sid, student_name, class_period]
+        );
+      } else {
+        run(
+          'UPDATE hercules_log_progress SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+          [stateJson, student_name, class_period]
+        );
+      }
     } else {
       run(
-        'INSERT INTO hercules_log_progress (student_name, class_period, state_json) VALUES (?, ?, ?)',
-        [student_name, class_period, stateJson]
+        'INSERT INTO hercules_log_progress (student_name, class_period, student_id, state_json) VALUES (?, ?, ?, ?)',
+        [student_name, class_period, sid, stateJson]
       );
     }
 

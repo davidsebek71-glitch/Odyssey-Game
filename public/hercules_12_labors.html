@@ -899,13 +899,9 @@ body {
   <p class="athena-intro">"Hercules was given twelve impossible tasks as punishment for a crime he did not choose to commit. What you observe in this film will reveal whether true strength lies in power — or in something else entirely. Athena watches."</p>
   <div class="form-grid">
     <div class="field">
-      <label>YOUR NAME</label>
-      <input type="text" id="inp-name" placeholder="First and last name" autocomplete="off">
-    </div>
-    <div class="field">
       <label>CLASS PERIOD</label>
-      <select id="inp-period">
-        <option value="">— Select —</option>
+      <select id="inp-period" onchange="onPeriodSelect()">
+        <option value="">— Select Period —</option>
         <option value="1st">Period 1</option>
         <option value="2nd">Period 2</option>
         <option value="3rd">Period 3</option>
@@ -914,11 +910,19 @@ body {
       </select>
     </div>
     <div class="field">
-      <label>ALLIANCE NAME (ODYSSEY TO OLYMPUS)</label>
-      <input type="text" id="inp-alliance" placeholder="e.g. House of Athena" autocomplete="off">
+      <label>YOUR ALLIANCE</label>
+      <select id="inp-alliance" disabled onchange="onAllianceSelect()">
+        <option value="">— Select period first —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>YOUR NAME</label>
+      <select id="inp-name" disabled>
+        <option value="">— Select alliance first —</option>
+      </select>
     </div>
   </div>
-  <button class="pixel-btn" onclick="beginLabors()">▶ BEGIN THE LABORS</button>
+  <button class="pixel-btn" id="btn-begin" onclick="beginLabors()" disabled>▶ BEGIN THE LABORS</button>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -1386,20 +1390,120 @@ function toggleFallback(){
 }
 
 // ═══════════════════════════════════════════════════
-// BEGIN (identical to V1)
+// CASCADING DROPDOWN LOGIN
+// ═══════════════════════════════════════════════════
+function onPeriodSelect(){
+  const period = document.getElementById('inp-period').value;
+  const allianceSel = document.getElementById('inp-alliance');
+  const nameSel = document.getElementById('inp-name');
+  const beginBtn = document.getElementById('btn-begin');
+
+  // Reset downstream dropdowns
+  allianceSel.innerHTML = '<option value="">— Loading alliances... —</option>';
+  allianceSel.disabled = true;
+  nameSel.innerHTML = '<option value="">— Select alliance first —</option>';
+  nameSel.disabled = true;
+  beginBtn.disabled = true;
+
+  if(!period) {
+    allianceSel.innerHTML = '<option value="">— Select period first —</option>';
+    return;
+  }
+
+  fetch('/api/hercules-log/period-alliances/' + encodeURIComponent(period))
+    .then(r => {
+      if(!r.ok) throw new Error('Server returned ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      const alliances = data.alliances || [];
+      if(alliances.length === 0){
+        allianceSel.innerHTML = '<option value="">— No alliances found —</option>';
+        return;
+      }
+      allianceSel.innerHTML = '<option value="">— Select your alliance —</option>';
+      alliances.forEach(a => {
+        allianceSel.innerHTML += '<option value="' + a.alliance_id + '">' + a.alliance_name + '</option>';
+      });
+      allianceSel.disabled = false;
+    })
+    .catch(err => {
+      console.error('Alliance load error:', err);
+      allianceSel.innerHTML = '<option value="">— Error loading alliances —</option>';
+    });
+}
+
+function onAllianceSelect(){
+  const period = document.getElementById('inp-period').value;
+  const allianceId = document.getElementById('inp-alliance').value;
+  const nameSel = document.getElementById('inp-name');
+  const beginBtn = document.getElementById('btn-begin');
+
+  // Reset name dropdown
+  nameSel.innerHTML = '<option value="">— Loading students... —</option>';
+  nameSel.disabled = true;
+  beginBtn.disabled = true;
+
+  if(!allianceId) {
+    nameSel.innerHTML = '<option value="">— Select alliance first —</option>';
+    return;
+  }
+
+  fetch('/api/hercules-log/alliance-students/' + encodeURIComponent(period) + '/' + encodeURIComponent(allianceId))
+    .then(r => {
+      if(!r.ok) throw new Error('Server returned ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      const students = data.students || [];
+      if(students.length === 0){
+        nameSel.innerHTML = '<option value="">— No students found —</option>';
+        return;
+      }
+      nameSel.innerHTML = '<option value="">— Select your name —</option>';
+      students.forEach(s => {
+        nameSel.innerHTML += '<option value="' + s.student_id + '" data-name="' + s.name + '">' + s.name + '</option>';
+      });
+      nameSel.disabled = false;
+      nameSel.onchange = () => {
+        beginBtn.disabled = !nameSel.value;
+      };
+    })
+    .catch(err => {
+      console.error('Student load error:', err);
+      nameSel.innerHTML = '<option value="">— Error loading students —</option>';
+    });
+}
+
+// ═══════════════════════════════════════════════════
+// BEGIN
 // ═══════════════════════════════════════════════════
 function beginLabors(){
-  const n = document.getElementById('inp-name').value.trim();
-  const p = document.getElementById('inp-period').value;
-  const sel = document.getElementById('inp-period');
-  const pDisplay = sel.options[sel.selectedIndex].textContent;
-  const a = document.getElementById('inp-alliance').value.trim();
-  if(!n || !p){ alert('Please enter your name and select your class period.'); return; }
-  student = { name:n, period:p, periodDisplay:pDisplay, alliance:a||'Independent' };
+  const periodSel = document.getElementById('inp-period');
+  const p = periodSel.value;
+  const pDisplay = periodSel.options[periodSel.selectedIndex].textContent;
+  const allianceSel = document.getElementById('inp-alliance');
+  const allianceName = allianceSel.options[allianceSel.selectedIndex].textContent;
+  const nameSel = document.getElementById('inp-name');
+  const studentId = parseInt(nameSel.value);
+  const studentName = nameSel.options[nameSel.selectedIndex].getAttribute('data-name');
+
+  if(!p || !studentId || !studentName){
+    alert('Please select your period, alliance, and name.');
+    return;
+  }
+
+  student = {
+    id: studentId,
+    name: studentName,
+    period: p,
+    periodDisplay: pDisplay,
+    alliance: allianceName || 'Independent'
+  };
   document.getElementById('splash').style.display = 'none';
 
-  // Check server for saved progress
-  fetch('/api/hercules-log/load-progress/' + encodeURIComponent(n) + '/' + encodeURIComponent(p))
+  // Load progress using student_id (bulletproof)
+  fetch('/api/hercules-log/load-progress-by-id/' + studentId)
     .then(r => r.json())
     .then(data => {
       if(data.found && data.state){
@@ -1491,6 +1595,7 @@ function saveProgress(){
     body: JSON.stringify({
       student_name: student.name,
       class_period: student.period,
+      student_id: student.id,
       state: saveData
     })
   }).catch(() => {});
@@ -2463,6 +2568,7 @@ function showResults(){
     body: JSON.stringify({
       student_name: student.name,
       class_period: student.period,
+      student_id: student.id,
       alliance_name: student.alliance || null,
       hero_code: code,
       rank_tier: tier,
