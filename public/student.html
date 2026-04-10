@@ -7805,6 +7805,21 @@
             const mythGroup = document.getElementById('myth-group');
             const maxPointsGroup = document.getElementById('max-points-group');
             const mythSelect = document.getElementById('submit-myth');
+
+            // Heroic students: hero dropdown is managed by onMythChange(), don't touch it here
+            const currentAge = (dashboardData && dashboardData.student && dashboardData.student.current_age) || 'Archaic';
+            const viewParam = new URLSearchParams(window.location.search).get('view');
+            const isHeroic = currentAge === 'Heroic' && viewParam !== 'archaic' && viewParam !== 'classical';
+
+            if (isHeroic) {
+                // For Heroic: hero dropdown stays visible and unchanged
+                // Just hide/show max points and ensure myth group stays visible
+                mythGroup.style.display = 'block';
+                maxPointsGroup.style.display = 'none';
+                mythSelect.setAttribute('required', 'required');
+                // Don't repopulate or clear the myth dropdown
+                return;
+            }
             
             // Categories that need myth tracking
             const trackedCategories = ['quiz', 'comp_conn', 'mural', 'word_cloud', 'creative', 'cer'];
