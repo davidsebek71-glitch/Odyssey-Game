@@ -3748,7 +3748,7 @@
             <form id="submit-form" style="display:flex;flex-direction:column;">
                 <div class="form-group" id="myth-group" style="order:1;">
                     <label id="myth-label">Myth / God</label>
-                    <select id="submit-myth">
+                    <select id="submit-myth" onchange="onMythChange()">
                         <option value="">Select a myth...</option>
                     </select>
                 </div>
@@ -5040,10 +5040,9 @@
             
             categorySelect.innerHTML = '';
             if (isHeroic) {
-                // Heroic Age options
+                // Heroic Age — categories update when hero is selected via onMythChange()
                 categorySelect.innerHTML = `
-                    <option value="comp_conn">Reading Guide</option>
-                    <option value="quiz">Quiz</option>
+                    <option value="">— Select a hero first —</option>
                     <option value="membean">Membean</option>
                     <option value="citizenship">Citizenship</option>
                 `;
@@ -5071,12 +5070,72 @@
             }
             
             document.getElementById('submit-modal').classList.add('show');
-            onCategoryChange(); // Initialize form visibility
+            
+            if (isHeroic) {
+                // For Heroic: myth/hero dropdown is always visible and pre-populated
+                const mythGroup = document.getElementById('myth-group');
+                const mythSelect = document.getElementById('submit-myth');
+                mythGroup.style.display = 'block';
+                mythSelect.setAttribute('required', 'required');
+                const heroColors = { 'Jason': '#40c0a0', 'Hercules': '#c03030', 'Theseus': '#4080d0', 'Perseus': '#d0a020' };
+                mythSelect.innerHTML = '<option value="">— Select a hero —</option>';
+                ['Jason', 'Hercules', 'Theseus', 'Perseus'].forEach(h => {
+                    mythSelect.innerHTML += `<option value="${h}" style="color:${heroColors[h]};background:#1a0b2e;">${h}</option>`;
+                });
+            } else {
+                onCategoryChange(); // Initialize form visibility for Archaic/Classical
+            }
         }
 
         function closeSubmitModal() {
             document.getElementById('submit-modal').classList.remove('show');
             document.getElementById('submit-form').reset();
+        }
+
+        // Hero-specific assignments for Heroic Age
+        const HEROIC_ASSIGNMENTS = {
+            'Jason': [
+                { value: 'comp_conn', label: 'Chiron 2026' },
+                { value: 'creative', label: 'Story Outline' }
+            ],
+            'Hercules': [],
+            'Theseus': [
+                { value: 'creative', label: 'Monster/Labyrinth' }
+            ],
+            'Perseus': []
+        };
+
+        function onMythChange() {
+            const currentAge = (dashboardData && dashboardData.student && dashboardData.student.current_age) || 'Archaic';
+            const viewParam = new URLSearchParams(window.location.search).get('view');
+            const isHeroic = currentAge === 'Heroic' && viewParam !== 'archaic' && viewParam !== 'classical';
+
+            if (!isHeroic) return; // Non-heroic students don't use this flow
+
+            const hero = document.getElementById('submit-myth').value;
+            const categorySelect = document.getElementById('submit-category');
+
+            if (!hero) {
+                categorySelect.innerHTML = `
+                    <option value="">— Select a hero first —</option>
+                    <option value="membean">Membean</option>
+                    <option value="citizenship">Citizenship</option>
+                `;
+                return;
+            }
+
+            // Build hero-specific options + shared options
+            const heroAssignments = HEROIC_ASSIGNMENTS[hero] || [];
+            let options = '';
+            heroAssignments.forEach(a => {
+                options += `<option value="${a.value}" data-label="${a.label}">${a.label}</option>`;
+            });
+            // Add shared categories
+            options += `<option value="membean">Membean</option>`;
+            options += `<option value="citizenship">Citizenship</option>`;
+
+            categorySelect.innerHTML = options;
+            onCategoryChange();
         }
 
         document.getElementById('submit-form').addEventListener('submit', async (e) => {
