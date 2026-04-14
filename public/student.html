@@ -7814,13 +7814,13 @@
             const isHeroic = currentAge === 'Heroic' && viewParam !== 'archaic' && viewParam !== 'classical';
 
             if (isHeroic) {
-                const universalCategories = ['membean', 'citizenship'];
+                const universalCategories = ['membean', 'citizenship', 'reading'];
                 if (universalCategories.includes(category)) {
-                    // Universal category — hero not needed
-                    mythGroup.style.display = 'block';
+                    // Universal category — no hero/god needed, hide the dropdown
+                    mythGroup.style.display = 'none';
                     maxPointsGroup.style.display = 'none';
                     mythSelect.removeAttribute('required');
-                    // Don't clear the dropdown, just don't require it
+                    mythSelect.value = '';
                 } else {
                     // Hero-specific assignment — keep hero selected
                     mythGroup.style.display = 'block';
