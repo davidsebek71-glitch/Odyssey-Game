@@ -1739,7 +1739,7 @@ function drawStaticScene(stopIdx){
     }
   }
 
-  drawTheseus(ctx, W * 0.45, H * 0.78, W, 0);
+  drawTheseus(ctx, W * 0.45, H * 0.88, W, 0);
 
   const caption = document.getElementById('transition-caption');
   if(caption){
@@ -1827,7 +1827,7 @@ function drawTheseus(ctx, x, groundY, canvasW, walkFrame){
     const frame = frames[walkFrame % THESEUS_FRAMES];
     const area = document.getElementById('transition-area');
     const canvasH = area ? area.clientHeight : 300;
-    const targetH = Math.max(40, Math.round(canvasH * 0.25));
+    const targetH = Math.max(40, Math.round(canvasH * 0.30));
     const scale = targetH / frame.height;
     const targetW = Math.round(frame.width * scale);
     ctx.imageSmoothingEnabled = false;
@@ -1955,7 +1955,7 @@ function runTransitionFrame(){
     }
   }
 
-  drawTheseus(ctx, W * 0.45, H * 0.78, W, transitionState.walkFrame);
+  drawTheseus(ctx, W * 0.45, H * 0.88, W, transitionState.walkFrame);
 
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(W/2 - 50, H - 14, 100, 6);
