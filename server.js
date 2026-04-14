@@ -117,7 +117,20 @@ initDatabase().then(() => {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
-  // V97 backfill: unlock game quests for students who already passed the quizzes
+  // ── Hercules + Theseus student columns (safe ALTER — skips if exists) ──
+  try {
+    try { run('ALTER TABLE students ADD COLUMN hercules_log_completed INTEGER DEFAULT 0'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN hercules_hero_code TEXT DEFAULT NULL'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN hercules_rank_tier TEXT DEFAULT NULL'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN theseus_log_completed INTEGER DEFAULT 0'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN theseus_hero_code TEXT DEFAULT NULL'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN theseus_rank_tier TEXT DEFAULT NULL'); } catch(e) {}
+    saveDatabase();
+    console.log('✅ Hercules + Theseus student columns ensured');
+  } catch(e) {
+    console.log('Column migration note:', e.message);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
   // before this feature was deployed. Safe to re-run — INSERT OR IGNORE skips existing rows.
   try {
     const triggerMap = [
@@ -14131,19 +14144,24 @@ app.post('/api/voyage-log/submit', (req, res) => {
     );
 
     if (students.length > 0) {
+      const currentDrachma = query('SELECT drachma FROM students WHERE student_id = ?', [students[0].student_id]);
+      const existingDrachma = (currentDrachma.length > 0 && currentDrachma[0].drachma) ? currentDrachma[0].drachma : 0;
       run(
         `UPDATE students SET
           voyage_log_completed=1, voyage_crew_code=?, voyage_rank_tier=?,
           voyage_lore_bonus=?, voyage_drachma_bonus=?,
-          voyage_hera_start=?, voyage_guide_unlocked=?
+          voyage_hera_start=?, voyage_guide_unlocked=?,
+          drachma=?
          WHERE student_id=?`,
         [
           crew_code || null, tier,
           rewards.lore, rewards.drachma,
           rewards.hera, rewards.guide,
+          existingDrachma + rewards.drachma,
           students[0].student_id
         ]
       );
+      console.log(`⚓ Voyage rewards: +${rewards.drachma} drachma → student_id ${students[0].student_id}`);
     }
 
     saveDatabase();
@@ -15104,6 +15122,34 @@ app.post('/api/hercules-log/submit', (req, res) => {
 
     saveDatabase();
     console.log(`🦁 Hercules log submitted: ${student_name} (${class_period}) — ${rank_tier} — ${total_score} pts`);
+
+    // ── Bridge rewards to student account ──
+    try {
+      const hercDrachma = { INI: 0, LAB: 15, BSL: 30, CHP: 50, HOO: 75 };
+      const tier = (rank_tier || 'INI').toUpperCase();
+      const drachmaReward = hercDrachma[tier] || 0;
+
+      const sid = student_id ? parseInt(student_id) : null;
+      let studentRow;
+      if (sid) {
+        studentRow = query('SELECT student_id, drachma FROM students WHERE student_id = ?', [sid]);
+      }
+      if ((!studentRow || studentRow.length === 0) && student_name && class_period) {
+        studentRow = query('SELECT student_id, drachma FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
+      }
+      if (studentRow && studentRow.length > 0) {
+        const currentDrachma = studentRow[0].drachma || 0;
+        run(
+          'UPDATE students SET drachma = ?, hercules_log_completed = 1, hercules_hero_code = ?, hercules_rank_tier = ? WHERE student_id = ?',
+          [currentDrachma + drachmaReward, hero_code || null, tier, studentRow[0].student_id]
+        );
+        saveDatabase();
+        console.log(`🦁 Hercules rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+      }
+    } catch (bridgeErr) {
+      console.error('🦁 Hercules reward bridge error (non-fatal):', bridgeErr.message);
+    }
+
     res.json({ success: true, hero_code, rank_tier });
 
   } catch (err) {
@@ -15621,6 +15667,34 @@ app.post('/api/theseus-log/submit', (req, res) => {
 
     saveDatabase();
     console.log(`🗡️ Theseus log submitted: ${student_name} (${class_period}) — ${rank_tier} — ${total_score} pts`);
+
+    // ── Bridge rewards to student account ──
+    try {
+      const thsDrachma = { STR: 0, TRV: 15, CTZ: 30, CHP: 50, HOA: 75 };
+      const tier = (rank_tier || 'STR').toUpperCase();
+      const drachmaReward = thsDrachma[tier] || 0;
+
+      const sid = student_id ? parseInt(student_id) : null;
+      let studentRow;
+      if (sid) {
+        studentRow = query('SELECT student_id, drachma FROM students WHERE student_id = ?', [sid]);
+      }
+      if ((!studentRow || studentRow.length === 0) && student_name && class_period) {
+        studentRow = query('SELECT student_id, drachma FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
+      }
+      if (studentRow && studentRow.length > 0) {
+        const currentDrachma = studentRow[0].drachma || 0;
+        run(
+          'UPDATE students SET drachma = ?, theseus_log_completed = 1, theseus_hero_code = ?, theseus_rank_tier = ? WHERE student_id = ?',
+          [currentDrachma + drachmaReward, hero_code || null, tier, studentRow[0].student_id]
+        );
+        saveDatabase();
+        console.log(`🗡️ Theseus rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+      }
+    } catch (bridgeErr) {
+      console.error('🗡️ Theseus reward bridge error (non-fatal):', bridgeErr.message);
+    }
+
     res.json({ success: true, hero_code, rank_tier });
 
   } catch (err) {
