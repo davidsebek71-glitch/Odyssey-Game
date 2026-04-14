@@ -15745,6 +15745,63 @@ app.get('/api/theseus-log/status/:period', authenticateToken, (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ATHENA AI — STATUS CHECK (diagnostic)
+// ═══════════════════════════════════════════════════════════════════════════
+app.get('/api/athena-status', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    return res.json({
+      configured: false,
+      mode: 'local_regex',
+      message: 'No ANTHROPIC_API_KEY set. Athena is using local regex fallback grading.'
+    });
+  }
+
+  // Key exists — try a minimal API call to verify it works
+  try {
+    const testRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Say OK' }]
+      })
+    });
+
+    if (testRes.ok) {
+      return res.json({
+        configured: true,
+        mode: 'anthropic_ai',
+        message: 'Athena AI grading is ACTIVE. Anthropic API key is valid and working.',
+        model: 'claude-sonnet-4-20250514'
+      });
+    } else {
+      const errData = await testRes.json().catch(() => ({}));
+      return res.json({
+        configured: true,
+        mode: 'fallback',
+        message: 'ANTHROPIC_API_KEY is set but API returned an error. Falling back to local regex.',
+        status: testRes.status,
+        error: errData.error?.message || 'Unknown error'
+      });
+    }
+  } catch (err) {
+    return res.json({
+      configured: true,
+      mode: 'fallback',
+      message: 'ANTHROPIC_API_KEY is set but API is unreachable. Falling back to local regex.',
+      error: err.message
+    });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // THESEUS — ATHENA AI GRADING ENDPOINT
 // Uses Anthropic API when ANTHROPIC_API_KEY is set; falls back to local regex
 // ═══════════════════════════════════════════════════════════════════════════
