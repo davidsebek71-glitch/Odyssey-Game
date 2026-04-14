@@ -1702,10 +1702,24 @@ function drawStaticScene(stopIdx){
   }
 
   if(panoImg){
-    const scale = H / panoImg.naturalHeight;
-    const scaledW = panoImg.naturalWidth * scale;
-    const scrollX = showRightSide ? Math.max(0, scaledW - W) : 0;
-    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+    // Cover the entire canvas (like CSS object-fit: cover)
+    const imgAspect = panoImg.naturalWidth / panoImg.naturalHeight;
+    const canvasAspect = W / H;
+    let drawW, drawH, drawX, drawY;
+    if(imgAspect > canvasAspect){
+      // Image is wider — fit to height, crop sides
+      drawH = H;
+      drawW = H * imgAspect;
+      drawY = 0;
+      drawX = showRightSide ? -(drawW - W) : 0;
+    } else {
+      // Image is taller — fit to width, crop top/bottom
+      drawW = W;
+      drawH = W / imgAspect;
+      drawX = 0;
+      drawY = -(drawH - H) * 0.3; // bias toward showing the ground
+    }
+    ctx.drawImage(panoImg, drawX, drawY, drawW, drawH);
   } else {
     const sc = SCENE_COLORS[stopIdx] || SCENE_COLORS[0];
     const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
@@ -1725,7 +1739,7 @@ function drawStaticScene(stopIdx){
     }
   }
 
-  drawTheseus(ctx, W * 0.45, H * 0.92, W, 0);
+  drawTheseus(ctx, W * 0.45, H * 0.78, W, 0);
 
   const caption = document.getElementById('transition-caption');
   if(caption){
@@ -1813,7 +1827,7 @@ function drawTheseus(ctx, x, groundY, canvasW, walkFrame){
     const frame = frames[walkFrame % THESEUS_FRAMES];
     const area = document.getElementById('transition-area');
     const canvasH = area ? area.clientHeight : 300;
-    const targetH = Math.max(80, Math.round(canvasH * 0.45));
+    const targetH = Math.max(40, Math.round(canvasH * 0.25));
     const scale = targetH / frame.height;
     const targetW = Math.round(frame.width * scale);
     ctx.imageSmoothingEnabled = false;
@@ -1894,11 +1908,13 @@ function runTransitionFrame(){
 
   if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
     ctx.imageSmoothingEnabled = false;
-    const scale = H / panoImg.naturalHeight;
-    const scaledW = Math.max(panoImg.naturalWidth * scale, W * 1.5);
-    const maxScroll = scaledW - W;
+    // Cover canvas height, then scroll horizontally
+    const imgAspect = panoImg.naturalWidth / panoImg.naturalHeight;
+    const drawH = H;
+    const drawW = Math.max(H * imgAspect, W * 1.5);
+    const maxScroll = drawW - W;
     const scrollX = p * maxScroll;
-    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+    ctx.drawImage(panoImg, -scrollX, 0, drawW, drawH);
   } else {
     const fromSc = SCENE_COLORS[transitionState.fromIdx] || SCENE_COLORS[0];
     const toSc = SCENE_COLORS[transitionState.toIdx] || SCENE_COLORS[0];
@@ -1939,7 +1955,7 @@ function runTransitionFrame(){
     }
   }
 
-  drawTheseus(ctx, W * 0.45, H * 0.92, W, transitionState.walkFrame);
+  drawTheseus(ctx, W * 0.45, H * 0.78, W, transitionState.walkFrame);
 
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(W/2 - 50, H - 14, 100, 6);
