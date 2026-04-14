@@ -3991,22 +3991,51 @@ function submitWrite(i){
   const btn=document.getElementById('submit-btn-'+i);
   if(btn)btn.disabled=true;
   showAthenaThinking(i);
-  setTimeout(()=>{
-    const result=localAthenaFeedback(i,text,isRevision);
-    showAthenaResult(i,result);
-    if(isRevision){
-      const oldPts=state.scores[i]||0;
-      state.scores[i]=Math.max(oldPts,result.pts);
-    } else {
-      state.scores[i]=result.pts;
-    }
-    state.feedback[i]=result;
-    updateScore();
-    // Show revise option (re-enables textarea) + complete bar (NEXT STOP)
-    showReviseBar(i);
-    showCompleteBar(i);
-    saveProgress();
-  },1800+Math.random()*800);
+
+  const stop=STOPS[i];
+  const minW=stop.interaction.minWords||25;
+
+  // Try AI grading first, fall back to local rubric
+  fetch('/api/voyage-log/athena-grade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      question: stop.interaction.prompt,
+      answer: text,
+      min_words: minW,
+      max_pts: 10,
+      is_revision: isRevision,
+      stop_title: stop.title,
+      stop_brief: stop.brief
+    })
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    const result = (data.success)
+      ? { text: data.feedback, stars: data.stars, pts: data.pts }
+      : localAthenaFeedback(i, text, isRevision);
+    applyJasonWriteResult(i, result, isRevision);
+  })
+  .catch(()=>{
+    const result = localAthenaFeedback(i, text, isRevision);
+    applyJasonWriteResult(i, result, isRevision);
+  });
+}
+
+function applyJasonWriteResult(i, result, isRevision){
+  showAthenaResult(i, result);
+  if(isRevision){
+    const oldPts=state.scores[i]||0;
+    state.scores[i]=Math.max(oldPts, result.pts);
+  } else {
+    state.scores[i]=result.pts;
+  }
+  state.feedback[i]=result;
+  updateScore();
+  showReviseBar(i);
+  showCompleteBar(i);
+  saveProgress();
 }
 
 function startRevise(i){

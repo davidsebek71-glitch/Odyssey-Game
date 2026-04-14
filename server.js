@@ -15802,10 +15802,11 @@ app.get('/api/athena-status', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// THESEUS — ATHENA AI GRADING ENDPOINT
+// SHARED ATHENA AI GRADING ENDPOINT
+// Used by Jason, Hercules, Theseus, and future viewing guides
 // Uses Anthropic API when ANTHROPIC_API_KEY is set; falls back to local regex
 // ═══════════════════════════════════════════════════════════════════════════
-app.post('/api/theseus-log/athena-grade', async (req, res) => {
+async function athenaGradeHandler(req, res) {
   try {
     const { student_name, question, answer, min_words, max_pts, is_revision, stop_title, stop_brief } = req.body;
 
@@ -15928,7 +15929,12 @@ ${answer}`
     res.json({ success: true, stars, pts, feedback });
 
   } catch (err) {
-    console.error('Theseus athena-grade error:', err);
+    console.error('Athena grade error:', err);
     res.status(500).json({ success: false, error: 'Grading failed' });
   }
-});
+}
+// Register on all viewing guide routes
+app.post('/api/athena-grade', athenaGradeHandler);
+app.post('/api/theseus-log/athena-grade', athenaGradeHandler);
+app.post('/api/hercules-log/athena-grade', athenaGradeHandler);
+app.post('/api/voyage-log/athena-grade', athenaGradeHandler);

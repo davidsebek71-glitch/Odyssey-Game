@@ -2279,33 +2279,59 @@ function submitWrite(stopIdx, qIdx){
   showAthenaThinking(globalKey);
 
   const isRevision = state.reviseUsed[globalKey] || false;
-  setTimeout(() => {
+
+  // Try AI grading first, fall back to local rubric
+  fetch('/api/hercules-log/athena-grade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      question: inter.q,
+      answer: text,
+      min_words: inter.minWords,
+      max_pts: inter.pts,
+      is_revision: isRevision,
+      stop_title: STOPS[stopIdx].title,
+      stop_brief: STOPS[stopIdx].brief
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    const result = (data.success)
+      ? { text: data.feedback, stars: data.stars, pts: data.pts }
+      : localAthenaFeedback(stopIdx, qIdx, text, isRevision);
+    applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter, ta);
+  })
+  .catch(() => {
     const result = localAthenaFeedback(stopIdx, qIdx, text, isRevision);
+    applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter, ta);
+  });
+}
 
-    if(isRevision){
-      const oldFeedback = state.feedback[globalKey];
-      if(oldFeedback){
-        state.scores[stopIdx] = Math.max(0, (state.scores[stopIdx] || 0) - oldFeedback.pts) + result.pts;
-      } else {
-        state.scores[stopIdx] = (state.scores[stopIdx] || 0) + result.pts;
-      }
+function applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter, ta){
+  if(isRevision){
+    const oldFeedback = state.feedback[globalKey];
+    if(oldFeedback){
+      state.scores[stopIdx] = Math.max(0, (state.scores[stopIdx] || 0) - oldFeedback.pts) + result.pts;
     } else {
-      if(!state.scores[stopIdx]) state.scores[stopIdx] = 0;
-      state.scores[stopIdx] += result.pts;
+      state.scores[stopIdx] = (state.scores[stopIdx] || 0) + result.pts;
     }
+  } else {
+    if(!state.scores[stopIdx]) state.scores[stopIdx] = 0;
+    state.scores[stopIdx] += result.pts;
+  }
 
-    state.feedback[globalKey] = result;
-    showAthenaResult(globalKey, result);
+  state.feedback[globalKey] = result;
+  showAthenaResult(globalKey, result);
 
-    if(result.stars < 3){
-      showReviseBar(globalKey);
-    }
+  if(result.stars < 3){
+    showReviseBar(globalKey);
+  }
 
-    updateScore();
-    saveProgress();
-    ta.disabled = true;
-    checkStopComplete(stopIdx);
-  }, 1200);
+  updateScore();
+  saveProgress();
+  if(ta) ta.disabled = true;
+  checkStopComplete(stopIdx);
 }
 
 // ═══════════════════════════════════════════════════
