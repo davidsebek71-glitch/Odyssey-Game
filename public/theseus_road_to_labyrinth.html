@@ -1,0 +1,2719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Road to the Labyrinth — Theseus & the Minotaur</title>
+<style>
+/* ── PIXEL FONT & BASE ─────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+  --bg:        #0a0a1a;
+  --bg2:       #12122a;
+  --panel:     #1a1a2e;
+  --border:    #4a4a8a;
+  --border2:   #6a6aaa;
+  --gold:      #f0c040;
+  --gold2:     #c89820;
+  --gold3:     #805010;
+  --text:      #e8e0c8;
+  --text2:     #a090a0;
+  --blue:      #4080d0;
+  --blue2:     #2050a0;
+  --teal:      #40c0a0;
+  --red:       #d04040;
+  --red2:      #802020;
+  --green:     #40b050;
+  --green2:    #206830;
+  --amber:     #d08030;
+  --locked:    #303050;
+  --locked-t:  #505080;
+  --hero-blue: #3060a0;
+  --hero-blue2:#1a3868;
+  --thread-gold:#e0b830;
+  --pixel: 'Press Start 2P', monospace;
+  --serif: 'Crimson Pro', Georgia, serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; image-rendering: pixelated; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══════════════════════════════════════════════
+   SPLASH
+══════════════════════════════════════════════ */
+#splash {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #000;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 2rem;
+  background-image: radial-gradient(ellipse at 50% 40%, #101838 0%, #000 70%);
+}
+.pixel-title {
+  font-family: var(--pixel);
+  font-size: clamp(10px, 2.5vw, 18px);
+  color: var(--gold);
+  text-align: center;
+  line-height: 2;
+  margin-bottom: 0.5rem;
+  text-shadow: 3px 3px 0 var(--gold3), -1px -1px 0 #000;
+  animation: titlePulse 2s ease-in-out infinite;
+}
+@keyframes titlePulse { 0%,100%{opacity:1} 50%{opacity:0.85} }
+.pixel-sub {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 10px);
+  color: var(--hero-blue);
+  text-align: center;
+  margin-bottom: 2rem;
+  letter-spacing: 0.05em;
+}
+.athena-intro {
+  font-family: var(--serif);
+  font-style: italic;
+  color: #a0b8e0;
+  text-align: center;
+  font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+  max-width: 480px;
+  line-height: 1.75;
+  margin-bottom: 2rem;
+  border-left: 3px solid #4060a0;
+  padding-left: 1rem;
+}
+.form-grid {
+  display: flex; flex-direction: column; gap: 0.9rem;
+  width: 100%; max-width: 380px; margin-bottom: 1.5rem;
+}
+.field label {
+  display: block;
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--gold);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+.field input, .field select {
+  width: 100%;
+  background: #080818;
+  border: 2px solid var(--border);
+  padding: 0.6rem 0.8rem;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus, .field select:focus { border-color: var(--gold); }
+.field select option { background: #080818; }
+.pixel-btn {
+  font-family: var(--pixel);
+  font-size: clamp(8px, 1.5vw, 11px);
+  background: var(--gold2);
+  color: #000;
+  border: 3px solid var(--gold);
+  padding: 0.7rem 2rem;
+  cursor: pointer;
+  transition: all 0.1s;
+  letter-spacing: 0.05em;
+  box-shadow: 3px 3px 0 var(--gold3);
+}
+.pixel-btn:hover { background: var(--gold); transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--gold3); }
+.pixel-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--gold3); }
+.pixel-btn:disabled { background: #303050; border-color: #505080; color: #505080; box-shadow: none; cursor: not-allowed; transform: none; }
+
+/* ══════════════════════════════════════════════
+   TOPBAR
+══════════════════════════════════════════════ */
+#topbar {
+  height: 44px;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 1rem; gap: 1rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 8500;
+}
+.tb-brand {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  text-shadow: 2px 2px 0 var(--gold3);
+  flex-shrink: 0;
+}
+.tb-spacer { flex: 1; }
+.tb-student {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--teal);
+  white-space: nowrap;
+}
+.tb-rank-badge {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: var(--bg);
+  border: 2px solid var(--gold2);
+  padding: 4px 8px;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.tb-pts {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: #e0c080;
+  white-space: nowrap;
+}
+.tb-teacher-btn {
+  font-family: var(--pixel);
+  font-size: 6px;
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text2);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tb-teacher-btn:hover { border-color: var(--gold2); color: var(--gold); }
+
+/* ══════════════════════════════════════════════
+   MAIN LAYOUT: CANVAS + PANEL (side-by-side)
+══════════════════════════════════════════════ */
+#app { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+#main-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── CANVAS SIDE ─────────────────────── */
+#map-side {
+  flex: 0 0 auto;
+  width: min(50%, 480px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border-right: 2px solid var(--border);
+}
+
+/* Story text panel (replaces YouTube) */
+#story-section {
+  flex-shrink: 0;
+  max-height: 35%;
+  overflow-y: auto;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  padding: 0;
+  display: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+#story-section::-webkit-scrollbar { width: 6px; }
+#story-section::-webkit-scrollbar-thumb { background: var(--border); }
+#story-text {
+  padding: 1rem 1.2rem;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  color: var(--text2);
+  line-height: 1.85;
+}
+.story-controls {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  flex-shrink: 0;
+}
+.sc-btn {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  color: var(--text2);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sc-btn:hover { border-color: var(--gold2); color: var(--gold); }
+.sc-btn.active { border-color: var(--hero-blue); color: var(--hero-blue); background: rgba(48,96,160,0.1); }
+.sc-status {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--text2);
+  flex: 1;
+  text-align: right;
+}
+
+/* Transition canvas area */
+#transition-area {
+  flex: 1;
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+  min-height: 120px;
+}
+#transition-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+#transition-caption {
+  position: absolute;
+  top: 0.8rem; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--pixel);
+  font-size: clamp(6px, 1.2vw, 9px);
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--gold3);
+  line-height: 2;
+  pointer-events: none;
+  padding: 0 0.5rem;
+}
+
+/* Progress dots (below canvas) */
+#map-progress {
+  display: flex; align-items: center;
+  padding: 6px 8px; gap: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg2);
+  border-top: 2px solid var(--border);
+  flex-shrink: 0;
+}
+#map-progress::-webkit-scrollbar { display: none; }
+.pdot {
+  width: 24px; height: 24px;
+  border: 2px solid var(--locked);
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--pixel); font-size: 6px;
+  color: var(--locked-t);
+  flex-shrink: 0; cursor: default;
+  transition: all 0.3s;
+  border-radius: 2px;
+}
+.pdot.unlocked { border-color: var(--border2); color: var(--text2); cursor: pointer; }
+.pdot.active   { border-color: var(--gold); background: var(--gold3); color: var(--gold); cursor: pointer; }
+.pdot.done     { border-color: var(--green2); background: rgba(64,176,80,0.15); color: var(--green); cursor: pointer; }
+.pline { width: 8px; height: 2px; background: var(--locked); flex-shrink: 0; transition: background 0.3s; }
+.pline.active { background: var(--gold2); }
+
+/* ── PANEL SIDE ────────────────────────────── */
+#panel-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+/* Panel header */
+#panel-header {
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  padding: 0.8rem 1rem;
+  flex-shrink: 0;
+}
+#panel-header .stop-num-badge {
+  font-family: var(--pixel);
+  font-size: 9px;
+  display: inline-block;
+  padding: 5px 10px;
+  background: var(--hero-blue);
+  color: #fff;
+  border: 2px solid #6090d0;
+  margin-bottom: 8px;
+}
+#panel-header h2 {
+  font-family: var(--pixel);
+  font-size: clamp(9px, 1.8vw, 12px);
+  color: var(--gold);
+  margin-bottom: 6px;
+  line-height: 1.8;
+  text-shadow: 2px 2px 0 var(--gold3);
+}
+#panel-header .stop-time {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--text2);
+}
+
+/* Panel scrollable body */
+#panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+#panel-body::-webkit-scrollbar { width: 6px; }
+#panel-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Welcome state */
+#welcome-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 2rem;
+  gap: 1rem;
+}
+#welcome-panel .theseus-anim {
+  font-size: 2rem;
+  animation: bob 2s ease-in-out infinite;
+}
+@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+#welcome-panel h3 {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: var(--gold);
+  line-height: 1.8;
+}
+#welcome-panel p {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--text2);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  max-width: 300px;
+}
+
+/* ── PANEL CONTENT SECTIONS ─────────────────── */
+.section-label {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--text2);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.brief-box {
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.2rem;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+/* Read passage button */
+.read-passage-btn {
+  font-family: var(--pixel);
+  font-size: 8px;
+  background: var(--hero-blue2);
+  color: #a0c0e0;
+  border: 2px solid var(--hero-blue);
+  padding: 6px 14px;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: all 0.15s;
+  display: inline-block;
+}
+.read-passage-btn:hover { background: var(--hero-blue); color: #fff; }
+
+/* Interaction boxes */
+.interaction-box {
+  background: var(--bg);
+  border: 2px solid var(--border2);
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+}
+.prompt-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: #d0c8b0;
+  margin-bottom: 1rem;
+}
+
+/* MC options */
+.mc-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.8rem; }
+.mc-opt {
+  display: flex; align-items: flex-start; gap: 0.7rem;
+  padding: 0.8rem 1rem;
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.02rem;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.65;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+.mc-opt:hover:not(:disabled) { border-color: var(--gold2); background: #1e1e38; }
+.mc-opt .mc-letter {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: var(--gold2);
+  flex-shrink: 0;
+  margin-top: 4px;
+  min-width: 16px;
+}
+.mc-opt.correct  { border-color: var(--green); background: rgba(64,176,80,0.12); }
+.mc-opt.correct .mc-letter { color: var(--green); }
+.mc-opt.wrong    { border-color: var(--red);   background: rgba(208,64,64,0.10); }
+.mc-opt.wrong .mc-letter { color: var(--red); }
+.mc-opt:disabled { cursor: default; }
+.mc-reveal {
+  display: none;
+  background: rgba(64,176,80,0.07);
+  border-left: 3px solid var(--green2);
+  padding: 0.8rem 1rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1rem;
+  color: #90d090;
+  line-height: 1.75;
+  margin-top: 0.5rem;
+}
+.mc-wrong-reveal {
+  display: none;
+  background: rgba(208,64,64,0.07);
+  border-left: 3px solid var(--red2);
+  padding: 0.8rem 1rem;
+  font-family: var(--serif);
+  font-size: 1rem;
+  color: #ffa0a0;
+  line-height: 1.75;
+  margin-top: 0.5rem;
+}
+.mc-why {
+  display: none;
+  background: rgba(64,128,208,0.08);
+  border-left: 3px solid var(--blue2);
+  padding: 0.8rem 1rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: #90b8e8;
+  line-height: 1.75;
+  margin-top: 0.4rem;
+}
+
+/* Written response */
+.response-area {
+  width: 100%;
+  min-height: 120px;
+  background: #06060f;
+  border: 2px solid var(--border);
+  padding: 0.8rem 1rem;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.response-area:focus { border-color: var(--gold2); }
+.response-area:disabled { background: #0c0c20; color: var(--text2); cursor: not-allowed; }
+.wc-bar {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--text2);
+  text-align: right;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+.wc-bar.good { color: var(--teal); }
+
+/* Submit row */
+.act-row {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  align-items: center; flex-wrap: wrap;
+}
+.act-hint {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--text2);
+  flex: 1;
+  line-height: 1.8;
+}
+.pixel-btn-sm {
+  font-family: var(--pixel);
+  font-size: 9px;
+  background: var(--gold2);
+  color: #000;
+  border: 2px solid var(--gold);
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--gold3);
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.pixel-btn-sm:hover { background: var(--gold); transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--gold3); }
+.pixel-btn-sm:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--gold3); }
+.pixel-btn-sm:disabled { background: #303050; border-color: #505080; color: #505080; box-shadow: none; cursor: not-allowed; transform: none; }
+.pixel-btn-outline {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: transparent;
+  color: var(--gold2);
+  border: 2px solid var(--gold2);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.pixel-btn-outline:hover { background: rgba(240,192,64,0.1); color: var(--gold); border-color: var(--gold); }
+.pixel-btn-outline:disabled { color: #404060; border-color: #404060; cursor: not-allowed; }
+
+/* ── ATHENA FEEDBACK ────────────────────────── */
+.athena-panel {
+  display: none;
+  background: rgba(20,30,80,0.4);
+  border: 2px solid var(--blue);
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+.athena-panel.show { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.athena-hdr {
+  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem;
+}
+.athena-icon {
+  width: 32px; height: 32px;
+  background: var(--blue2);
+  border: 2px solid var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; flex-shrink: 0;
+}
+.athena-lbl {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--blue);
+  flex: 1;
+}
+.star-row { display: flex; gap: 3px; }
+.star-row span { font-size: 16px; color: #404060; transition: color 0.3s; }
+.star-row span.lit { color: var(--gold); text-shadow: 0 0 6px var(--gold2); }
+.athena-msg {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.02rem;
+  line-height: 1.8;
+  color: #a0c0e8;
+  border-left: 3px solid var(--blue2);
+  padding-left: 0.8rem;
+  min-height: 40px;
+}
+.thinking-dots span {
+  display: inline-block; width: 5px; height: 5px;
+  background: var(--blue); border-radius: 50%;
+  margin: 0 2px;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2){animation-delay:0.2s}
+.thinking-dots span:nth-child(3){animation-delay:0.4s}
+@keyframes dotBounce{0%,80%,100%{transform:scale(0.5);opacity:0.4}40%{transform:scale(1);opacity:1}}
+.revise-bar {
+  display: flex; justify-content: flex-end; gap: 0.5rem;
+  margin-top: 0.6rem; align-items: center; flex-wrap: wrap;
+}
+.revise-hint {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--text2);
+  flex: 1;
+  line-height: 1.9;
+}
+
+/* Complete bar (bottom of panel) */
+.complete-bar {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  background: var(--bg2);
+  border-top: 2px solid var(--border);
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+.complete-bar.show { display: flex; }
+.pts-earned {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: var(--gold);
+}
+
+/* Locked state in panel */
+.locked-msg {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; text-align: center;
+  gap: 0.8rem; padding: 2rem;
+}
+.locked-msg .lock-icon {
+  font-family: var(--pixel);
+  font-size: 24px;
+  color: var(--locked-t);
+  animation: lockPulse 2s ease-in-out infinite;
+}
+@keyframes lockPulse{0%,100%{opacity:0.5}50%{opacity:1}}
+.locked-msg p {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--locked-t);
+  line-height: 2;
+}
+
+/* ══════════════════════════════════════════════
+   TEACHER MODAL
+══════════════════════════════════════════════ */
+#teacher-modal {
+  display: none;
+  position: fixed; inset: 0; z-index: 8888;
+  background: rgba(0,0,0,0.85);
+  align-items: center; justify-content: center;
+}
+#teacher-modal.show { display: flex; }
+.teacher-box {
+  background: var(--bg2);
+  border: 3px solid var(--gold2);
+  padding: 1.5rem;
+  width: min(400px, 90vw);
+  box-shadow: 6px 6px 0 var(--gold3);
+}
+.teacher-box h3 {
+  font-family: var(--pixel);
+  font-size: 10px;
+  color: var(--gold);
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 0 var(--gold3);
+  text-align: center;
+}
+.teacher-box .pw-row {
+  display: flex; gap: 0.5rem; margin-bottom: 1rem;
+}
+.teacher-box input[type=password] {
+  flex: 1;
+  background: #06060f;
+  border: 2px solid var(--border);
+  padding: 0.5rem 0.7rem;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1rem;
+  outline: none;
+}
+.teacher-box input[type=password]:focus { border-color: var(--gold2); }
+#teacher-controls { display: none; }
+#teacher-controls h4 {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--teal);
+  margin-bottom: 0.8rem;
+  margin-top: 0.5rem;
+}
+.unlock-grid {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-bottom: 1rem;
+}
+.unlock-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.unlock-row .stop-name {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--text2);
+}
+.unlock-row .stop-name.done { color: var(--teal); }
+.unlock-row button {
+  font-family: var(--pixel);
+  font-size: 5px;
+  background: var(--blue2);
+  color: var(--text);
+  border: 1px solid var(--blue);
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.unlock-row button:hover { background: var(--blue); }
+.unlock-row button.done-btn { background: var(--green2); border-color: var(--green); cursor: default; color: #a0ffa0; }
+.close-teacher {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: transparent;
+  border: 2px solid var(--border2);
+  color: var(--text2);
+  padding: 5px 12px;
+  cursor: pointer;
+  float: right;
+}
+.close-teacher:hover { border-color: var(--gold2); color: var(--gold); }
+#pw-error {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--red);
+  display: none;
+  margin-bottom: 0.5rem;
+}
+
+/* ══════════════════════════════════════════════
+   RESULTS
+══════════════════════════════════════════════ */
+#results-modal {
+  display: none;
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.92);
+  align-items: center; justify-content: center;
+  overflow-y: auto;
+  padding: 1rem;
+}
+#results-modal.show { display: flex; }
+.results-box {
+  background: var(--bg2);
+  border: 3px solid var(--gold);
+  box-shadow: 6px 6px 0 var(--gold3);
+  width: min(500px, 95vw);
+  overflow: hidden;
+}
+.results-top {
+  background: #06060f;
+  border-bottom: 3px solid var(--gold2);
+  padding: 1.5rem;
+  text-align: center;
+}
+.results-top .r-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.results-top .r-rank {
+  font-family: var(--pixel);
+  font-size: clamp(10px, 2vw, 14px);
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--gold3);
+  margin-bottom: 0.4rem;
+  line-height: 1.8;
+}
+.results-top .r-name {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--teal);
+  line-height: 1.8;
+}
+.results-body { padding: 1.2rem; }
+.r-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  color: #a0c0e8;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  border-left: 3px solid var(--blue2);
+  padding-left: 0.8rem;
+  margin-bottom: 1rem;
+}
+.score-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; margin-bottom: 1rem;
+}
+.score-cell {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  padding: 0.5rem 0.7rem;
+}
+.score-cell .sc-lbl {
+  font-family: var(--pixel);
+  font-size: 5px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.score-cell .sc-val {
+  font-family: var(--pixel);
+  font-size: 10px;
+  color: var(--gold);
+}
+.code-block {
+  background: var(--bg);
+  border: 2px solid var(--gold2);
+  padding: 1rem;
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+.code-lbl {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--text2);
+  margin-bottom: 8px;
+  line-height: 2;
+}
+.crew-code {
+  font-family: var(--pixel);
+  font-size: clamp(14px, 3vw, 20px);
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--gold3);
+  letter-spacing: 0.15em;
+}
+.code-sub {
+  font-family: var(--pixel);
+  font-size: 5px;
+  color: var(--text2);
+  margin-top: 6px;
+  line-height: 1.9;
+}
+
+/* ══════════════════════════════════════════════
+   PRINT
+══════════════════════════════════════════════ */
+@media print {
+  body { background: #fff !important; color: #000 !important; font-family: Georgia, serif; }
+  #splash, #app, #teacher-modal, #results-modal { display: none !important; }
+  #print-output { display: block !important; }
+}
+#print-output { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SPLASH
+══════════════════════════════════════════ -->
+<div id="splash">
+  <div class="pixel-title">🗡️ THE ROAD TO THE LABYRINTH 🗡️</div>
+  <div class="pixel-sub">THESEUS & THE MINOTAUR</div>
+  <p class="athena-intro">"A boy who is not yet a king walks into a city that does not yet know his name. What he does next will decide whether Athens remembers him — or forgets him. Watch carefully. Athena sees who pays attention."</p>
+  <div class="form-grid">
+    <div class="field">
+      <label>CLASS PERIOD</label>
+      <select id="inp-period" onchange="onPeriodSelect()">
+        <option value="">— Select Period —</option>
+        <option value="1st">Period 1</option>
+        <option value="2nd">Period 2</option>
+        <option value="3rd">Period 3</option>
+        <option value="4th">Period 4</option>
+        <option value="Test">Test</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>YOUR ALLIANCE</label>
+      <select id="inp-alliance" disabled onchange="onAllianceSelect()">
+        <option value="">— Select period first —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>YOUR NAME</label>
+      <select id="inp-name" disabled>
+        <option value="">— Select alliance first —</option>
+      </select>
+    </div>
+  </div>
+  <button class="pixel-btn" id="btn-begin" onclick="beginJourney()" disabled>▶ BEGIN THE JOURNEY</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     APP
+══════════════════════════════════════════ -->
+<div id="app">
+  <!-- Topbar -->
+  <div id="topbar">
+    <div class="tb-brand">🗡️ LABYRINTH</div>
+    <div class="tb-spacer"></div>
+    <div class="tb-student" id="tb-student"></div>
+    <div class="tb-rank-badge" id="tb-rank">STRANGER</div>
+    <div class="tb-pts" id="tb-pts">0 PTS</div>
+    <button class="tb-teacher-btn" onclick="openTeacher()">🏛 TEACHER</button>
+  </div>
+
+  <!-- Main layout: side by side -->
+  <div id="main-layout">
+
+    <!-- LEFT: Story Text + Canvas + Progress dots -->
+    <div id="map-side">
+      <div class="story-controls">
+        <button class="sc-btn" id="btn-read-passage" onclick="toggleStoryPanel()">📖 READ THE PASSAGE</button>
+        <div class="sc-status" id="sc-status">STOP 1 — READY</div>
+      </div>
+      <div id="story-section">
+        <div id="story-text"></div>
+      </div>
+      <div id="transition-area">
+        <canvas id="transition-canvas"></canvas>
+        <div id="transition-caption"></div>
+      </div>
+      <div id="map-progress"></div>
+    </div>
+
+    <!-- RIGHT: Single-stop panel -->
+    <div id="panel-side">
+      <div id="panel-header" style="display:none">
+        <div class="stop-num-badge" id="ph-badge">STOP 1</div>
+        <h2 id="ph-title">—</h2>
+        <div class="stop-time" id="ph-time">—</div>
+      </div>
+      <div id="panel-body">
+        <div id="welcome-panel">
+          <div class="theseus-anim">🗡️</div>
+          <h3>AWAITING ORDERS</h3>
+          <p>Your teacher will unlock each stop as the film reaches that moment. Watch carefully — Athena notices those who pay attention.</p>
+        </div>
+        <div id="stop-content" style="display:none"></div>
+      </div>
+      <div class="complete-bar" id="complete-bar">
+        <div class="pts-earned" id="pts-earned-display"></div>
+        <button class="pixel-btn-sm" id="next-btn" onclick="nextStop()">NEXT STOP ▶</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Teacher Modal -->
+<div id="teacher-modal">
+  <div class="teacher-box">
+    <h3>🏛 TEACHER CONTROLS</h3>
+    <div id="pw-error">✗ WRONG PASSWORD</div>
+    <div class="pw-row">
+      <input type="password" id="pw-input" placeholder="Enter teacher password" onkeydown="if(event.key==='Enter')checkPW()">
+      <button class="pixel-btn-sm" onclick="checkPW()">ENTER</button>
+    </div>
+    <div id="teacher-controls">
+      <h4>UNLOCK STOPS</h4>
+      <div class="unlock-grid" id="unlock-grid"></div>
+    </div>
+    <button class="close-teacher" onclick="closeTeacher()">✕ CLOSE</button>
+  </div>
+</div>
+
+<!-- Results Modal -->
+<div id="results-modal">
+  <div class="results-box">
+    <div class="results-top">
+      <div class="r-icon">🏛</div>
+      <div class="r-rank" id="r-rank-title">—</div>
+      <div class="r-name" id="r-name-line">—</div>
+    </div>
+    <div class="results-body">
+      <div class="r-quote" id="r-quote">—</div>
+      <div class="score-grid" id="r-score-grid"></div>
+      <div class="code-block">
+        <div class="code-lbl">YOUR HERO CODE — ENTER THIS IN ODYSSEY TO OLYMPUS</div>
+        <div class="crew-code" id="r-code">—</div>
+        <div class="code-sub">This code carries your rank into the next chapter.</div>
+      </div>
+      <div style="text-align:center;display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap">
+        <button class="pixel-btn-sm" onclick="printLog()">🖨 PRINT MY LOG</button>
+        <button class="pixel-btn-sm" onclick="window.location.href='/student.html?view=heroic'">RETURN TO DASHBOARD</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Print output -->
+<div id="print-output"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STOPS DATA
+// ═══════════════════════════════════════════════════
+const STOPS = [
+  {
+    id:1, title:"The Rock & The Secret", time:"Scene 1",
+    brief:"According to legend, when the great hero Heracles passed through young Theseus's village, every child ran away in terror — except Theseus. Years later, on his sixteenth birthday, his mother led him to a massive rock. Hidden beneath it were a sword and a pair of sandals left by his father, King Aegeus of Athens. She revealed that Theseus was the rightful heir to the throne — but warned him: Athens was full of people who wanted the crown for themselves. He must not reveal himself until the king recognized him first.",
+    fallbackText:"Theseus was the son of King Aegeus of Athens, though he grew up far from the city. As a child, he met Heracles and vowed to become a great hero himself. On his sixteenth birthday, his mother revealed a sword and sandals hidden under a great rock — proof of his royal identity. She warned him that Athens was dangerous, full of people scheming for the throne, and that he must let the king recognize him first before revealing who he was.",
+    interactions:[
+      {
+        type:"mc",
+        q:"What did Theseus's mother reveal was hidden under the rock?",
+        correctText:"A sword and a pair of sandals left by his father, King Aegeus of Athens",
+        opts:[
+          "A map to Athens drawn by the Oracle of Delphi and sealed in a bronze tube",
+          "A sword and a pair of sandals left by his father, King Aegeus of Athens",
+          "A golden shield blessed by Athena that would protect him on his journey",
+          "A sealed letter from King Aegeus explaining why he had to leave before Theseus was born"
+        ],
+        why:"The sword and sandals aren't just gifts — they're proof of identity. Without them, Theseus is just another stranger in Athens. With them, he's the heir to the throne.",
+        pts:5
+      },
+      {
+        type:"mc",
+        q:"Theseus's mother warned him that Athens was dangerous and that he must not reveal himself too soon. Why?",
+        correctText:"Many people in Athens wanted the throne for themselves and would see Theseus as a threat before the king could recognize him",
+        opts:[
+          "Aegeus had remarried and his new wife would not accept a rival for the king's affection",
+          "Many people in Athens wanted the throne for themselves and would see Theseus as a threat before the king could recognize him",
+          "The gods had cursed the royal family and anyone who claimed the throne publicly would be struck down",
+          "Athens was at war and all strangers were imprisoned on arrival regardless of who they claimed to be"
+        ],
+        why:"His mother understands power. Theseus is walking into a court full of people who have been scheming for years. Announcing himself to the wrong person first could get him killed before Aegeus ever sees the sword.",
+        pts:5
+      }
+    ]
+  },
+  {
+    id:2, title:"The Dangerous Road", time:"Scene 2",
+    brief:"Over the objections of his grandfather, Theseus refused to take the easy sea route to Athens. Instead, he went by foot through lands infested with bandits, beasts, and savages. He wanted to gain a heroic reputation by destroying evildoers along the way, just as Heracles would have done. By the time he arrived in Athens, he was known far and wide for making the roads safe for travelers.",
+    fallbackText:"Theseus could have sailed safely to Athens by ship — his grandfather begged him to do exactly that. But Theseus chose the overland route through dangerous bandit territory instead. He wanted to earn his reputation the way his childhood hero Heracles would have: by fighting evil and protecting ordinary people. By the time he reached Athens on foot, word of his deeds had already spread ahead of him.",
+    interactions:[
+      {
+        type:"mc",
+        q:"Why did Theseus refuse to travel to Athens by sea, even though it was the safer route?",
+        correctText:"He wanted to gain a heroic reputation by defeating bandits and monsters along the way, just as Hercules would have done",
+        opts:[
+          "He had never learned to swim and was afraid of drowning during the long voyage",
+          "He wanted to gain a heroic reputation by defeating bandits and monsters along the way, just as Hercules would have done",
+          "His grandfather had warned him that pirates controlled every sea route between their village and Athens",
+          "A prophecy told him that he would die at sea if he ever boarded a ship before his eighteenth birthday"
+        ],
+        why:"This is the first real window into who Theseus is. He doesn't just want to GET to Athens — he wants to ARRIVE as someone worth noticing. He's modeling himself on Hercules, the hero he met as a child.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"The transcript opens with young Theseus meeting Hercules — while every other child ran away in fear, Theseus stood his ground. Later, he chooses the dangerous overland road specifically because it's what Hercules would have done. What does this tell you about how heroes are made — are they born brave, or do they become brave by choosing a model to follow? Use evidence from Theseus's choices.",
+        minWords:30,
+        pts:10
+      }
+    ]
+  },
+  {
+    id:3, title:"The Poison Cup", time:"Scene 3",
+    brief:"In Athens, King Aegeus had recently married a sorceress named Medea, who had her own designs on the kingdom. When Theseus arrived, Medea instantly recognized him as the king's long-lost son — but she told no one. Instead, she convinced Aegeus that the newcomer was plotting against him, and she prepared a deadly poison to slip into his wine at the welcoming feast.",
+    fallbackText:"King Aegeus had married the sorceress Medea, who used her powers and cunning to influence him. When Theseus arrived in Athens, already famous from his road battles, Medea recognized him immediately as Aegeus's son — with her 'witch's eye.' But instead of revealing the truth, she saw him as a rival and plotted to have him killed. She told Aegeus that Theseus was a traitor plotting to steal the throne, and she brewed a deadly poison for the feast.",
+    interactions:[
+      {
+        type:"mc",
+        q:"When Theseus arrived in Athens, who was the first person to realize he was the king's son — and what did that person do with the information?",
+        correctText:"Medea, the king's new wife, recognized him instantly with her sorceress abilities — and decided to have him killed before anyone else found out",
+        opts:[
+          "King Aegeus recognized the sandals immediately but pretended not to know in order to test the boy's character first",
+          "A palace guard noticed the royal sword and reported it to the king's advisors, who debated what to do",
+          "Medea, the king's new wife, recognized him instantly with her sorceress abilities — and decided to have him killed before anyone else found out",
+          "The Oracle of Delphi sent a message to the palace revealing the boy's true identity to everyone at court"
+        ],
+        why:"Medea is the smartest person in the room. She sees the truth before the king does — and instead of revealing it, she weaponizes it. Her intelligence makes her more dangerous than any monster Theseus has faced.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"If you remember Jason's story, Medea was the woman who betrayed her own family, killed her own brother, and sacrificed everything to help Jason — only to be abandoned by him. Now she appears in Theseus's story as a villain who tries to poison an innocent young man. Is this the same Medea, or has she become someone different? Using what you know from both stories, explain what you think happened to Medea between Jason's story and Theseus's story.",
+        minWords:35,
+        pts:10
+      }
+    ]
+  },
+  {
+    id:4, title:"The Sword at the Feast", time:"Scene 4",
+    brief:"At the feast, Medea poured the poison into Theseus's goblet. As King Aegeus raised his cup to toast the young visitor, he suddenly noticed the sword at Theseus's side — the same sword he had left under the rock years ago. He knocked the poisoned goblet away just in time, embraced Theseus as his son and heir, and banished Medea from Athens forever. 'You knew this all along,' he told her.",
+    fallbackText:"The feast went ahead as planned. Medea slipped the poison into Theseus's wine. But at the critical moment, as Aegeus stood to make a toast, he spotted the sword hanging at Theseus's hip. He recognized it instantly — it was the sword he himself had hidden under the rock. He struck the goblet from Theseus's hand before he could drink, then embraced him as his long-lost son. Medea was banished from Athens, never to return.",
+    interactions:[
+      {
+        type:"mc",
+        q:"What specific moment caused King Aegeus to realize Theseus was his son?",
+        correctText:"Aegeus saw the sword Theseus was carrying — the same sword he had left under the rock years ago",
+        opts:[
+          "Theseus called out 'Father!' as he raised his goblet, and Aegeus recognized his voice from a dream",
+          "Aegeus saw the sword Theseus was carrying — the same sword he had left under the rock years ago",
+          "Medea confessed the truth in a moment of guilt just before Theseus drank the poisoned wine",
+          "A messenger arrived from Theseus's mother with a letter confirming the boy's identity"
+        ],
+        why:"The sword does exactly what it was meant to do — prove identity when words alone can't. Aegeus left it under that rock for this exact moment. The recognition happens just in time, with the poison already in the cup.",
+        pts:5
+      },
+      {
+        type:"mc",
+        q:"After Aegeus recognized Theseus, what happened to Medea?",
+        correctText:"She was banished from Athens forever and commanded never to return",
+        opts:[
+          "She was imprisoned in the palace dungeon and put on trial before the Athenian court",
+          "She apologized and was forgiven by both Aegeus and Theseus as a gesture of mercy",
+          "She was banished from Athens forever and commanded never to return",
+          "She escaped on her own before anyone could punish her, using her sorcery to vanish"
+        ],
+        why:"Aegeus doesn't execute Medea — he exiles her. But the key line is 'you knew this all along.' The betrayal isn't just the poison. It's that she used his trust against him.",
+        pts:5
+      }
+    ]
+  },
+  {
+    id:5, title:"The Tribute to the Minotaur", time:"Scene 5",
+    brief:"Theseus learned that Athens was under a terrible curse. Each year, King Aegeus was forced to send seven young men and seven young women to Crete, where they were thrown into a massive stone labyrinth — an impossible maze built by the inventor Daedalus. Living at its center was the Minotaur, a ferocious beast that was half man and half bull. No one who entered the labyrinth had ever returned. Theseus volunteered to go in place of one of the seven men, promising his father he would kill the beast. Aegeus begged him not to go. Before Theseus sailed, he made a promise: if he survived, he would change the ship's black sails to white so his father would know from the cliffs that he was alive.",
+    fallbackText:"Athens paid a terrible tribute to the powerful King Minos of Crete. Each year, seven young men and seven young women were sent into the labyrinth — a massive stone maze built by Daedalus, the famous architect. At its center lived the Minotaur, a creature half man and half bull that ate only human flesh. No one had ever escaped. Theseus insisted on going in place of one of the seven, despite his father's desperate pleas. Before departing, he promised Aegeus that if his mission succeeded, he would change the ship's sails from black to white — so Aegeus could see from the cliffs whether his son had survived.",
+    interactions:[
+      {
+        type:"mc",
+        q:"What was the tribute that Athens was forced to pay to King Minos of Crete each year?",
+        correctText:"Seven young men and seven young women, sent into the labyrinth to be hunted by the Minotaur",
+        opts:[
+          "A chest of Athenian gold and silver, plus a warship built by the city's finest craftsmen",
+          "Seven young men and seven young women, sent into the labyrinth to be hunted by the Minotaur",
+          "Athens had to surrender its strongest warrior to serve in the Cretan army for one year",
+          "The Athenians had to send their best scholars to tutor Minos's children and were never allowed to return home"
+        ],
+        why:"This isn't a tax — it's a death sentence disguised as politics. Minos designed the tribute to be psychologically devastating: Athens has to choose its own people to die.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"Theseus tells his father he will go to Crete in place of one of the seven men. Aegeus begs him not to — 'I finally have a son. Do not leave me now.' Theseus goes anyway. Was Theseus right to volunteer, knowing what it would do to his father? Or was he being selfish — choosing personal glory over the feelings of someone who loved him? Take a clear side and defend it.",
+        minWords:35,
+        pts:10
+      }
+    ]
+  },
+  {
+    id:6, title:"Ariadne & The Thread", time:"Scene 6",
+    brief:"When the black-sailed ship arrived in Crete, Princess Ariadne — King Minos's own daughter — fell instantly in love with Theseus. She secretly visited Daedalus, the architect who had built the labyrinth, and he gave her a ball of thread. The plan was simple but brilliant: Theseus would unroll the thread as he entered the maze, and it would lead him directly to the Minotaur. If he survived, he could follow the thread back out. That night, Ariadne snuck into Theseus's dungeon cell and gave him the thread, asking only that he take her back to Athens with him.",
+    fallbackText:"Princess Ariadne, daughter of King Minos, was captivated by the brave young Theseus. Determined to help him survive, she went to Daedalus — the very man who designed the labyrinth — and he gave her a special thread. When unrolled inside the maze, it would show the way to the Minotaur and guide the user back out. Ariadne sneaked into Theseus's cell and gave him the thread, on one condition: that he take her back to Athens with him. She was choosing Theseus over her own father and kingdom.",
+    interactions:[
+      {
+        type:"mc",
+        q:"Who actually came up with the solution for navigating the labyrinth — and what was the solution?",
+        correctText:"Ariadne went to Daedalus, the architect who built the labyrinth, and he gave her a thread that would show the way to the Minotaur and back out again",
+        opts:[
+          "Theseus himself studied the labyrinth walls and memorized every turn by counting his steps as he walked",
+          "Ariadne went to Daedalus, the architect who built the labyrinth, and he gave her a thread that would show the way to the Minotaur and back out again",
+          "The goddess Athena appeared to Theseus in a dream and drew him a map of every corridor in the maze",
+          "Hermes, the messenger god, flew above the labyrinth and called down directions to Theseus from the sky"
+        ],
+        why:"The thread is the real weapon in this story — not the sword. Ariadne went to the one person who knew the labyrinth's secrets, and Daedalus gave her a tool of intelligence, not violence. Without the thread, killing the Minotaur means nothing — you just die lost in the maze instead.",
+        pts:5
+      },
+      {
+        type:"mc",
+        q:"Ariadne helped Theseus even though it meant betraying her own father, King Minos. What did she ask for in return?",
+        correctText:"She asked Theseus to take her back to Athens with him — she wanted to leave Crete and be with him",
+        opts:[
+          "She asked Theseus to spare her father's life and leave Crete peacefully after killing the Minotaur",
+          "She demanded half of Athens's treasury as payment for her help and a title in the Athenian court",
+          "She asked Theseus to take her back to Athens with him — she wanted to leave Crete and be with him",
+          "She made no demands at all — she helped him purely out of love with no conditions attached"
+        ],
+        why:"Ariadne trades her family, her home, and her kingdom for a person. Sound familiar? This is the same bargain Medea made with Jason — help in exchange for a promise to take her away. The pattern repeats across myths.",
+        pts:5
+      }
+    ]
+  },
+  {
+    id:7, title:"The Labyrinth", time:"Scene 7",
+    brief:"Theseus entered the labyrinth, unrolling the thread before him. Just as Daedalus had promised, it led him straight to the Minotaur — which was still fast asleep. Theseus had the element of surprise. The beast had never been challenged before, and it wasn't prepared for someone as strong and trained as Theseus. After a ferocious fight, Theseus killed the Minotaur. He then followed the thread back through the maze and escaped through the labyrinth door, where Ariadne was waiting. They freed the other Athenians and sailed for home.",
+    fallbackText:"Theseus entered the labyrinth with the thread unrolling before him. It led him directly to the sleeping Minotaur, giving him the element of surprise — an advantage no previous victim had ever had. The battle was fierce, but Theseus's training in fighting and wrestling proved enough. The Minotaur was killed. Theseus then followed the thread back through the maze, emerging through the door where Ariadne waited. Together with the freed Athenians, they boarded their ship and fled Crete.",
+    interactions:[
+      {
+        type:"mc",
+        q:"How did the thread help Theseus defeat the Minotaur?",
+        correctText:"The thread led Theseus directly to the Minotaur while it was still asleep, giving him the element of surprise",
+        opts:[
+          "The thread was enchanted and wrapped around the Minotaur's legs, tripping it so Theseus could strike",
+          "The thread led Theseus directly to the Minotaur while it was still asleep, giving him the element of surprise",
+          "The thread glowed in the dark, blinding the Minotaur and giving Theseus an advantage in the fight",
+          "The thread created a barrier that trapped the Minotaur in a dead-end corridor where it couldn't escape"
+        ],
+        why:"The thread didn't fight the Minotaur — it gave Theseus the one advantage no one else ever had: surprise. Every previous victim wandered lost until the beast found THEM. Theseus found IT first, on his own terms.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"In this story, Theseus needed the thread from Ariadne, which came from Daedalus. In Hercules's labors, Hercules needed Iolaus for the Hydra, Athena for the lion and birds, and Atlas for the golden apples. In Jason's story, Jason needed Medea for basically everything. What does it tell you about Greek heroes that none of them succeed alone? Is needing help a weakness, or is knowing when to accept help its own kind of strength? Use at least two specific examples from any of the three heroes.",
+        minWords:40,
+        pts:10
+      }
+    ]
+  },
+  {
+    id:8, title:"The Forgotten Sails", time:"Scene 8",
+    brief:"Back in Athens, King Aegeus went to the cliffs every day to watch for the ship, desperate to know whether the sails were white or black. But in all the excitement of escaping Crete and defeating the Minotaur, Theseus forgot his promise — he never changed the sails. When Aegeus saw the black sails, he was certain his son was dead. Overcome with grief, the heartbroken king fell from the cliffs to his death. The sea where he died was named the Aegean, in his honor. Theseus became king of Athens and went on to do great things — but the forgotten promise that killed his father would shadow his legacy forever.",
+    fallbackText:"Theseus had promised his father one simple thing: change the sails from black to white if he survived. But in the rush and triumph of escaping the labyrinth, he forgot. King Aegeus, watching from the cliffs of Athens every day, finally spotted the returning ship — with black sails. Believing his son was dead, the heartbroken king threw himself into the sea below. That body of water is still called the Aegean Sea today. Theseus became king and ruled well, but his carelessness had cost him the person who loved him most.",
+    interactions:[
+      {
+        type:"mc",
+        q:"What promise did Theseus make to his father before sailing to Crete?",
+        correctText:"He promised to change the sails from black to white if his mission was successful, so his father could see from the cliffs",
+        opts:[
+          "He promised to send a messenger bird ahead of the ship so Aegeus would know he survived before the ship arrived",
+          "He promised to change the sails from black to white if his mission was successful, so his father could see from the cliffs",
+          "He promised to burn a signal fire on the bow of the ship as it entered the harbor at Athens",
+          "He promised to return within thirty days or send word through the Oracle of Delphi"
+        ],
+        why:"This is the most important promise in the story — and the only one Theseus breaks. Everything else he does right. He defeats the bandits, survives Medea, kills the Minotaur, escapes the labyrinth. But one forgotten promise undoes it all.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"Theseus forgot to change the sails. It wasn't a betrayal — he didn't mean to hurt his father. But the result was the same: Aegeus died believing his son was dead. Do you think Theseus deserves blame for what happened, even though it was an accident? Think about this: does intent matter more than outcome, or does the outcome speak for itself? Take a clear position, give at least two pieces of evidence from the story, and explain your reasoning.",
+        minWords:50,
+        pts:10
+      }
+    ]
+  }
+];
+
+const RANKS=[
+  {min:0,  max:25,  title:"STRANGER",         quote:"You walk the road, but Athens does not yet know your name."},
+  {min:26, max:40,  title:"TRAVELER",          quote:"The bandits are behind you. Keep moving — the city is ahead."},
+  {min:41, max:55,  title:"CITIZEN",           quote:"Athens sees you now. But the labyrinth still waits."},
+  {min:56, max:70,  title:"CHAMPION",          quote:"The Minotaur would hesitate. Your mind is sharper than any sword."},
+  {min:71, max:999, title:"HERO OF ATHENS",    quote:"Theseus himself would call you an equal. The Aegean remembers your name."}
+];
+
+// ═══════════════════════════════════════════════════
+// SCENE COLORS (per-stop terrain for canvas fallback)
+// ═══════════════════════════════════════════════════
+const SCENE_COLORS = [
+  { ground: '#8a7a50', sky1: '#1a1040', sky2: '#3a2060', name: 'Village/Rock' },
+  { ground: '#2a4a1a', sky1: '#0a1820', sky2: '#1a2838', name: 'Bandit Road' },
+  { ground: '#c0b8a0', sky1: '#0c1840', sky2: '#1a2868', name: 'Athens Palace' },
+  { ground: '#c8a860', sky1: '#2a1810', sky2: '#4a3828', name: 'Feast Hall' },
+  { ground: '#a09070', sky1: '#1a2030', sky2: '#304050', name: 'Harbor/Ship' },
+  { ground: '#c8b878', sky1: '#3a3018', sky2: '#6a5030', name: 'Crete Palace' },
+  { ground: '#383838', sky1: '#060608', sky2: '#0a0a14', name: 'Labyrinth' },
+  { ground: '#60a050', sky1: '#2050a0', sky2: '#60a0e0', name: 'Cliffs/Aegean' }
+];
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let student = { name:'', period:'', alliance:'', id:0 };
+let state = {
+  unlockedUpTo: -1, currentStop: -1,
+  scores: {}, feedback: {}, completed: {}, reviseUsed: {},
+  writtenText: {}, mcAnswers: {},
+  briefRevealed: {},
+  totalScore: 0
+};
+let showingStoryPanel = false;
+
+// Transition state
+let transitionState = {
+  active: false,
+  fromIdx: 0,
+  toIdx: 0,
+  progress: 0,
+  startTime: 0,
+  duration: 4500,
+  walkFrame: 0,
+  walkTimer: 0
+};
+
+// ═══════════════════════════════════════════════════
+// MC SHUFFLE — seed-based per-student randomization
+// ═══════════════════════════════════════════════════
+function seedRandom(seed){
+  // Simple seeded PRNG (mulberry32)
+  let t = seed | 0;
+  return function(){
+    t = (t + 0x6D2B79F5) | 0;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithSeed(arr, seed){
+  const rng = seedRandom(seed);
+  const shuffled = arr.slice();
+  for(let i = shuffled.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function getShuffledOpts(stopIdx, qIdx){
+  const inter = STOPS[stopIdx].interactions[qIdx];
+  // Seed = student ID * 1000 + stopIdx * 100 + qIdx — deterministic per student per question
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  return {
+    shuffledOpts: shuffledIndices.map(i => inter.opts[i]),
+    correctShuffledIdx: shuffledIndices.indexOf(inter.opts.indexOf(inter.correctText) === -1
+      ? inter.opts.findIndex(o => o === inter.correctText)
+      : inter.opts.indexOf(inter.correctText)),
+    originalToShuffled: shuffledIndices
+  };
+}
+
+// Find the correct shuffled index for a question
+function getCorrectIdx(stopIdx, qIdx){
+  const inter = STOPS[stopIdx].interactions[qIdx];
+  const origCorrectIdx = inter.opts.indexOf(inter.correctText);
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  return shuffledIndices.indexOf(origCorrectIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// STORY PANEL (replaces YouTube)
+// ═══════════════════════════════════════════════════
+function toggleStoryPanel(){
+  const section = document.getElementById('story-section');
+  const btn = document.getElementById('btn-read-passage');
+  if(showingStoryPanel){
+    section.style.display = 'none';
+    showingStoryPanel = false;
+    btn.classList.remove('active');
+  } else {
+    const i = state.currentStop >= 0 ? state.currentStop : 0;
+    document.getElementById('story-text').innerHTML = STOPS[i].fallbackText;
+    section.style.display = 'block';
+    showingStoryPanel = true;
+    btn.classList.add('active');
+    // Also reveal the brief
+    revealBrief(i);
+  }
+}
+
+function updateSCStatus(i){
+  const s = STOPS[i];
+  document.getElementById('sc-status').textContent = 'STOP ' + (i+1) + ' · ' + s.title.toUpperCase();
+}
+
+function revealBrief(stopIdx){
+  if(state.briefRevealed[stopIdx]) return;
+  state.briefRevealed[stopIdx] = true;
+  const wrapper = document.getElementById('brief-wrapper-' + stopIdx);
+  if(wrapper){
+    const stop = STOPS[stopIdx];
+    wrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div><div class="brief-box" style="animation:fadeIn 0.5s ease">' + stop.brief + '</div>';
+  }
+  saveProgress();
+}
+
+// ═══════════════════════════════════════════════════
+// CASCADING DROPDOWN LOGIN
+// ═══════════════════════════════════════════════════
+function onPeriodSelect(){
+  const period = document.getElementById('inp-period').value;
+  const allianceSel = document.getElementById('inp-alliance');
+  const nameSel = document.getElementById('inp-name');
+  const beginBtn = document.getElementById('btn-begin');
+
+  allianceSel.innerHTML = '<option value="">— Loading alliances... —</option>';
+  allianceSel.disabled = true;
+  nameSel.innerHTML = '<option value="">— Select alliance first —</option>';
+  nameSel.disabled = true;
+  beginBtn.disabled = true;
+
+  if(!period) {
+    allianceSel.innerHTML = '<option value="">— Select period first —</option>';
+    return;
+  }
+
+  fetch('/api/theseus-log/period-alliances/' + encodeURIComponent(period))
+    .then(r => {
+      if(!r.ok) throw new Error('Server returned ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      const alliances = data.alliances || [];
+      if(alliances.length === 0){
+        allianceSel.innerHTML = '<option value="">— No alliances found —</option>';
+        return;
+      }
+      allianceSel.innerHTML = '<option value="">— Select your alliance —</option>';
+      alliances.forEach(a => {
+        allianceSel.innerHTML += '<option value="' + a.alliance_id + '">' + a.alliance_name + '</option>';
+      });
+      allianceSel.disabled = false;
+    })
+    .catch(err => {
+      console.error('Alliance load error:', err);
+      allianceSel.innerHTML = '<option value="">— Error loading alliances —</option>';
+    });
+}
+
+function onAllianceSelect(){
+  const period = document.getElementById('inp-period').value;
+  const allianceId = document.getElementById('inp-alliance').value;
+  const nameSel = document.getElementById('inp-name');
+  const beginBtn = document.getElementById('btn-begin');
+
+  nameSel.innerHTML = '<option value="">— Loading students... —</option>';
+  nameSel.disabled = true;
+  beginBtn.disabled = true;
+
+  if(!allianceId) {
+    nameSel.innerHTML = '<option value="">— Select alliance first —</option>';
+    return;
+  }
+
+  fetch('/api/theseus-log/alliance-students/' + encodeURIComponent(period) + '/' + encodeURIComponent(allianceId))
+    .then(r => {
+      if(!r.ok) throw new Error('Server returned ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      const students = data.students || [];
+      if(students.length === 0){
+        nameSel.innerHTML = '<option value="">— No students found —</option>';
+        return;
+      }
+      nameSel.innerHTML = '<option value="">— Select your name —</option>';
+      students.forEach(s => {
+        nameSel.innerHTML += '<option value="' + s.student_id + '" data-name="' + s.name + '">' + s.name + '</option>';
+      });
+      nameSel.disabled = false;
+      nameSel.onchange = () => {
+        beginBtn.disabled = !nameSel.value;
+      };
+    })
+    .catch(err => {
+      console.error('Student load error:', err);
+      nameSel.innerHTML = '<option value="">— Error loading students —</option>';
+    });
+}
+
+// ═══════════════════════════════════════════════════
+// BEGIN
+// ═══════════════════════════════════════════════════
+function beginJourney(){
+  const periodSel = document.getElementById('inp-period');
+  const p = periodSel.value;
+  const pDisplay = periodSel.options[periodSel.selectedIndex].textContent;
+  const allianceSel = document.getElementById('inp-alliance');
+  const allianceName = allianceSel.options[allianceSel.selectedIndex].textContent;
+  const nameSel = document.getElementById('inp-name');
+  const studentId = parseInt(nameSel.value);
+  const studentName = nameSel.options[nameSel.selectedIndex].getAttribute('data-name');
+
+  if(!p || !studentId || !studentName){
+    alert('Please select your period, alliance, and name.');
+    return;
+  }
+
+  student = {
+    id: studentId,
+    name: studentName,
+    period: p,
+    periodDisplay: pDisplay,
+    alliance: allianceName || 'Independent'
+  };
+  document.getElementById('splash').style.display = 'none';
+
+  // Load progress using student_id
+  fetch('/api/theseus-log/load-progress-by-id/' + studentId)
+    .then(r => r.json())
+    .then(data => {
+      if(data.found && data.state){
+        const saved = data.state;
+        state.unlockedUpTo = -1;
+        state.currentStop = saved.currentStop !== undefined ? saved.currentStop : -1;
+        state.scores = saved.scores || {};
+        state.feedback = saved.feedback || {};
+        state.completed = saved.completed || {};
+        state.reviseUsed = saved.reviseUsed || {};
+        state.writtenText = saved.writtenText || {};
+        state.mcAnswers = saved.mcAnswers || {};
+        state.briefRevealed = saved.briefRevealed || {};
+        state.totalScore = saved.totalScore || 0;
+        if(saved.alliance) student.alliance = saved.alliance;
+
+        fetch('/api/theseus-log/unlocks/' + encodeURIComponent(p))
+          .then(r2 => r2.json())
+          .then(unlockData => {
+            if(unlockData.unlocked_up_to !== undefined){
+              state.unlockedUpTo = unlockData.unlocked_up_to;
+            }
+            const completedCount = Object.keys(state.completed).filter(k => state.completed[k]).length;
+            if(completedCount >= STOPS.length){
+              showResults();
+            } else {
+              showApp();
+            }
+          })
+          .catch(() => showApp());
+      } else {
+        showApp();
+      }
+    })
+    .catch(() => showApp());
+}
+
+function showApp(){
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('tb-student').textContent = student.name + ' · ' + (student.periodDisplay || student.period);
+  updateScore();
+  buildProgress();
+  buildTeacherUnlockGrid();
+  loadTheseuSprite();
+  loadPanoramaImages();
+  initCanvas();
+
+  if(state.currentStop >= 0 && state.currentStop <= state.unlockedUpTo){
+    showStop(state.currentStop);
+  } else if(state.unlockedUpTo >= 0){
+    let firstIncomplete = 0;
+    for(let i = 0; i <= state.unlockedUpTo; i++){
+      if(!state.completed[i]){ firstIncomplete = i; break; }
+      firstIncomplete = i;
+    }
+    showStop(firstIncomplete);
+  }
+
+  checkServerUnlocks();
+  setInterval(checkServerUnlocks, 8000);
+}
+
+// ═══════════════════════════════════════════════════
+// SAVE / LOAD
+// ═══════════════════════════════════════════════════
+function saveProgress(){
+  if(!student.name || !student.period) return;
+  const saveData = {
+    unlockedUpTo: state.unlockedUpTo,
+    currentStop: state.currentStop,
+    scores: state.scores,
+    feedback: state.feedback,
+    completed: state.completed,
+    reviseUsed: state.reviseUsed,
+    writtenText: state.writtenText,
+    mcAnswers: state.mcAnswers,
+    briefRevealed: state.briefRevealed,
+    totalScore: state.totalScore,
+    alliance: student.alliance
+  };
+  fetch('/api/theseus-log/save-progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      class_period: student.period,
+      student_id: student.id,
+      state: saveData
+    })
+  }).catch(() => {});
+}
+
+function checkServerUnlocks(){
+  if(!student.period) return;
+  fetch('/api/theseus-log/unlocks/' + encodeURIComponent(student.period))
+    .then(r => r.json())
+    .then(data => {
+      if(data.unlocked_up_to !== undefined && data.unlocked_up_to !== state.unlockedUpTo){
+        state.unlockedUpTo = data.unlocked_up_to;
+        renderProgress();
+        buildTeacherUnlockGrid();
+        if(state.currentStop < 0 && state.unlockedUpTo >= 0){
+          showStop(0);
+        }
+      }
+    })
+    .catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════
+// PROGRESS DOTS
+// ═══════════════════════════════════════════════════
+function buildProgress(){
+  const bar = document.getElementById('map-progress');
+  bar.innerHTML = '';
+  STOPS.forEach((s, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'pdot';
+    dot.id = 'pdot-' + i;
+    dot.textContent = i + 1;
+    dot.title = s.title;
+    dot.onclick = () => {
+      if(i <= state.unlockedUpTo && !transitionState.active){
+        showStop(i);
+      }
+    };
+    bar.appendChild(dot);
+    if(i < STOPS.length - 1){
+      const line = document.createElement('div');
+      line.className = 'pline';
+      line.id = 'pline-' + i;
+      bar.appendChild(line);
+    }
+  });
+  renderProgress();
+}
+
+function renderProgress(){
+  STOPS.forEach((_, i) => {
+    const dot = document.getElementById('pdot-' + i);
+    if(!dot) return;
+    dot.className = 'pdot';
+    if(state.completed[i]) dot.classList.add('done');
+    else if(i === state.currentStop && i <= state.unlockedUpTo) dot.classList.add('active');
+    else if(i <= state.unlockedUpTo) dot.classList.add('unlocked');
+    const line = document.getElementById('pline-' + i);
+    if(line){
+      line.className = 'pline';
+      if(i < state.unlockedUpTo) line.classList.add('active');
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// CANVAS — INIT & SCENE DRAWING
+// ═══════════════════════════════════════════════════
+function initCanvas(){
+  const area = document.getElementById('transition-area');
+  const canvas = document.getElementById('transition-canvas');
+  canvas.width = area.clientWidth;
+  canvas.height = area.clientHeight;
+
+  window.addEventListener('resize', () => {
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+    if(!transitionState.active) drawStaticScene(state.currentStop >= 0 ? state.currentStop : 0);
+  });
+
+  drawStaticScene(0);
+  requestAnimationFrame(canvasLoop);
+}
+
+function canvasLoop(){
+  if(transitionState.active){
+    runTransitionFrame();
+  }
+  requestAnimationFrame(canvasLoop);
+}
+
+function drawStaticScene(stopIdx){
+  const canvas = document.getElementById('transition-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  if(!W || !H) return;
+
+  ctx.imageSmoothingEnabled = false;
+
+  let panoImg = null;
+  let showRightSide = false;
+  if(stopIdx === 0){
+    const key = PANO_KEYS[0];
+    const img = PANO_IMAGES[key];
+    if(img && img.complete && img.naturalWidth > 0){ panoImg = img; showRightSide = false; }
+  } else if(stopIdx > 0 && stopIdx <= PANO_KEYS.length){
+    const key = PANO_KEYS[stopIdx - 1];
+    const img = PANO_IMAGES[key];
+    if(img && img.complete && img.naturalWidth > 0){ panoImg = img; showRightSide = true; }
+  }
+
+  if(panoImg){
+    const scale = H / panoImg.naturalHeight;
+    const scaledW = panoImg.naturalWidth * scale;
+    const scrollX = showRightSide ? Math.max(0, scaledW - W) : 0;
+    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+  } else {
+    const sc = SCENE_COLORS[stopIdx] || SCENE_COLORS[0];
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+    skyGrad.addColorStop(0, sc.sky1);
+    skyGrad.addColorStop(1, sc.sky2);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H * 0.65);
+    for(let i = 0; i < 40; i++){
+      ctx.fillStyle = `rgba(255,255,255,${0.2 + (i % 5) * 0.1})`;
+      ctx.fillRect(((i*97+13*i*i)%1000)/1000*W, ((i*73+7*i*i)%1000)/1000*(H*0.5), (i%7===0?2:1), (i%7===0?2:1));
+    }
+    ctx.fillStyle = sc.ground;
+    ctx.fillRect(0, H * 0.65, W, H * 0.35);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    for(let i = 0; i < 30; i++){
+      ctx.fillRect(((i*53+17)%100)/100*W, H*0.65+((i*31+7)%100)/100*H*0.3, 3+(i%4), 1);
+    }
+  }
+
+  drawTheseus(ctx, W * 0.45, H * 0.92, W, 0);
+
+  const caption = document.getElementById('transition-caption');
+  if(caption){
+    const s = STOPS[stopIdx];
+    caption.textContent = s ? 'STOP ' + s.id + ' — ' + s.title.toUpperCase() : '';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// THESEUS SPRITE SYSTEM
+// ═══════════════════════════════════════════════════
+const THESEUS_SPRITE_URL = '/images/heroic/theseus/transitions/theseus_sprite.png';
+const THESEUS_FRAMES = 4;
+let theseusSpriteImg = null;
+let theseusProcessedFrames = null;
+let theseusProcessed = false;
+
+function loadTheseuSprite(){
+  const img = new Image();
+  img.onload = () => { theseusSpriteImg = img; };
+  img.onerror = () => { console.warn('Theseus sprite failed to load — using fallback'); };
+  img.src = THESEUS_SPRITE_URL;
+}
+
+// ═══════════════════════════════════════════════════
+// PANORAMA BACKGROUND IMAGES
+// ═══════════════════════════════════════════════════
+const PANO_BASE = '/images/heroic/theseus/transitions/';
+const PANO_KEYS = [
+  '1_village_to_road',
+  '2_road_to_athens',
+  '3_athens_to_feast',
+  '4_feast_to_harbor',
+  '5_harbor_to_crete',
+  '6_crete_to_labyrinth',
+  '7_labyrinth_to_cliffs'
+];
+const PANO_IMAGES = {};
+
+function loadPanoramaImages(){
+  PANO_KEYS.forEach(key => {
+    const img = new Image();
+    img.onload = () => { console.log('🖼 Panorama loaded: ' + key); };
+    img.onerror = () => { PANO_IMAGES[key] = null; console.warn('Panorama failed: ' + key); };
+    img.src = PANO_BASE + key + '.png';
+    PANO_IMAGES[key] = img;
+  });
+}
+
+function processTheseuSprite(){
+  if(theseusProcessedFrames) return theseusProcessedFrames;
+  if(theseusProcessed) return null;
+  if(!theseusSpriteImg || !theseusSpriteImg.complete || theseusSpriteImg.naturalWidth === 0) return null;
+
+  theseusProcessed = true;
+  const src = theseusSpriteImg;
+  const fw = Math.floor(src.naturalWidth / THESEUS_FRAMES);
+  const fh = src.naturalHeight;
+
+  theseusProcessedFrames = [];
+  for(let i = 0; i < THESEUS_FRAMES; i++){
+    const tmp = document.createElement('canvas');
+    tmp.width = fw;
+    tmp.height = fh;
+    const tctx = tmp.getContext('2d');
+    tctx.drawImage(src, i * fw, 0, fw, fh, 0, 0, fw, fh);
+
+    // Strip magenta: R>150 && B>150 && G<80 → transparent
+    const idata = tctx.getImageData(0, 0, fw, fh);
+    const d = idata.data;
+    for(let p = 0; p < d.length; p += 4){
+      if(d[p] > 150 && d[p+2] > 150 && d[p+1] < 80){
+        d[p+3] = 0;
+      }
+    }
+    tctx.putImageData(idata, 0, 0);
+    theseusProcessedFrames.push(tmp);
+  }
+  return theseusProcessedFrames;
+}
+
+function drawTheseus(ctx, x, groundY, canvasW, walkFrame){
+  const frames = processTheseuSprite();
+  if(frames){
+    const frame = frames[walkFrame % THESEUS_FRAMES];
+    const area = document.getElementById('transition-area');
+    const canvasH = area ? area.clientHeight : 300;
+    const targetH = Math.max(80, Math.round(canvasH * 0.45));
+    const scale = targetH / frame.height;
+    const targetW = Math.round(frame.width * scale);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(frame, Math.floor(x - targetW / 2), Math.floor(groundY - targetH), targetW, targetH);
+    return;
+  }
+
+  // ── FALLBACK: simple pixel Theseus ──
+  const px = Math.max(2, Math.round(canvasW * 0.04 / 16));
+  const f = walkFrame % 4;
+  ctx.save();
+  ctx.translate(Math.floor(x), Math.floor(groundY));
+  // White tunic body
+  ctx.fillStyle = '#e0d8c8';
+  ctx.fillRect(-1*px, -12*px, 5*px, 6*px);
+  // Brown belt
+  ctx.fillStyle = '#6a4028';
+  ctx.fillRect(-1*px, -8*px, 5*px, 1*px);
+  // Skin — head
+  ctx.fillStyle = '#d4a574';
+  ctx.fillRect(0, -15*px, 3*px, 3*px);
+  // Dark hair
+  ctx.fillStyle = '#3a2010';
+  ctx.fillRect(-1*px, -16*px, 5*px, 1*px);
+  ctx.fillRect(-1*px, -15*px, 1*px, 2*px);
+  // Sword at hip
+  ctx.fillStyle = '#a08040';
+  ctx.fillRect(5*px, -11*px, 1*px, 6*px);
+  ctx.fillStyle = '#c0c0c0';
+  ctx.fillRect(5*px, -14*px, 1*px, 3*px);
+  // Legs — skin colored with sandals
+  ctx.fillStyle = '#d4a574';
+  if(f===0||f===2){ ctx.fillRect(0,-6*px,1*px,4*px); ctx.fillRect(2*px,-6*px,1*px,4*px); }
+  else if(f===1){ ctx.fillRect(-1*px,-6*px,1*px,4*px); ctx.fillRect(3*px,-6*px,1*px,3*px); }
+  else { ctx.fillRect(0,-6*px,1*px,3*px); ctx.fillRect(2*px,-6*px,1*px,4*px); }
+  // Sandals
+  ctx.fillStyle = '#6a4028';
+  if(f===0||f===2){ ctx.fillRect(-1*px,-2*px,3*px,1*px); ctx.fillRect(1*px,-2*px,3*px,1*px); }
+  else if(f===1){ ctx.fillRect(-2*px,-2*px,3*px,1*px); ctx.fillRect(2*px,-2*px,3*px,1*px); }
+  else { ctx.fillRect(-1*px,-2*px,3*px,1*px); ctx.fillRect(1*px,-2*px,3*px,1*px); }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+// TRANSITION ANIMATION
+// ═══════════════════════════════════════════════════
+function startTransition(fromIdx, toIdx){
+  transitionState.active = true;
+  transitionState.fromIdx = fromIdx;
+  transitionState.toIdx = toIdx;
+  transitionState.progress = 0;
+  transitionState.startTime = Date.now();
+  transitionState.walkFrame = 0;
+  transitionState.walkTimer = 0;
+
+  document.getElementById('complete-bar').classList.remove('show');
+}
+
+function runTransitionFrame(){
+  const canvas = document.getElementById('transition-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  if(!W || !H) return;
+
+  const elapsed = Date.now() - transitionState.startTime;
+  transitionState.progress = Math.min(1, elapsed / transitionState.duration);
+
+  transitionState.walkTimer += 16;
+  if(transitionState.walkTimer > 200){
+    transitionState.walkTimer = 0;
+    transitionState.walkFrame = (transitionState.walkFrame + 1) % 4;
+  }
+
+  const p = transitionState.progress;
+
+  const panoKey = PANO_KEYS[transitionState.fromIdx];
+  const panoImg = panoKey ? PANO_IMAGES[panoKey] : null;
+
+  if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
+    ctx.imageSmoothingEnabled = false;
+    const scale = H / panoImg.naturalHeight;
+    const scaledW = Math.max(panoImg.naturalWidth * scale, W * 1.5);
+    const maxScroll = scaledW - W;
+    const scrollX = p * maxScroll;
+    ctx.drawImage(panoImg, -scrollX, 0, scaledW, H);
+  } else {
+    const fromSc = SCENE_COLORS[transitionState.fromIdx] || SCENE_COLORS[0];
+    const toSc = SCENE_COLORS[transitionState.toIdx] || SCENE_COLORS[0];
+
+    function lerpColor(c1, c2, t){
+      const h = s => parseInt(s.slice(1), 16);
+      const v1 = h(c1), v2 = h(c2);
+      const r = Math.round(((v1 >> 16) & 0xff) * (1-t) + ((v2 >> 16) & 0xff) * t);
+      const g = Math.round(((v1 >> 8) & 0xff) * (1-t) + ((v2 >> 8) & 0xff) * t);
+      const b = Math.round((v1 & 0xff) * (1-t) + (v2 & 0xff) * t);
+      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    const curSky1 = lerpColor(fromSc.sky1, toSc.sky1, p);
+    const curSky2 = lerpColor(fromSc.sky2, toSc.sky2, p);
+    const curGround = lerpColor(fromSc.ground, toSc.ground, p);
+
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+    skyGrad.addColorStop(0, curSky1);
+    skyGrad.addColorStop(1, curSky2);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H * 0.65);
+
+    for(let i = 0; i < 40; i++){
+      ctx.fillStyle = `rgba(255,255,255,${0.15 + (i % 5) * 0.08})`;
+      const sx = (((i * 97 + 13 * i * i) % 1000) / 1000 * W - p * 60 + W * 2) % W;
+      const sy = ((i * 73 + 7 * i * i) % 1000) / 1000 * (H * 0.5);
+      ctx.fillRect(sx, sy, (i % 7 === 0 ? 2 : 1), (i % 7 === 0 ? 2 : 1));
+    }
+
+    ctx.fillStyle = curGround;
+    ctx.fillRect(0, H * 0.65, W, H * 0.35);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    for(let i = 0; i < 8; i++){
+      const rx = (((i * 137 + 29) % 400) / 400 * W * 3 - p * W * 2.5 + W * 6) % W;
+      const ry = H * 0.62 + (i % 3) * 4;
+      ctx.fillRect(rx, ry, 4 + (i % 3) * 2, 3 + (i % 2) * 2);
+    }
+  }
+
+  drawTheseus(ctx, W * 0.45, H * 0.92, W, transitionState.walkFrame);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(W/2 - 50, H - 14, 100, 6);
+  ctx.fillStyle = '#3060a0';
+  ctx.fillRect(W/2 - 50, H - 14, Math.floor(100 * p), 6);
+
+  const caption = document.getElementById('transition-caption');
+  if(caption && p < 0.8){
+    caption.textContent = 'THESEUS JOURNEYS ONWARD...';
+  } else if(caption && p >= 0.8){
+    const dest = STOPS[transitionState.toIdx];
+    caption.textContent = dest ? 'APPROACHING: ' + dest.title.toUpperCase() : '';
+  }
+
+  if(p >= 1){
+    transitionState.active = false;
+    if(transitionState.toIdx <= state.unlockedUpTo){
+      showStop(transitionState.toIdx);
+    } else {
+      drawStaticScene(transitionState.toIdx);
+      showLockedPanel(transitionState.toIdx);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SHOW STOP
+// ═══════════════════════════════════════════════════
+function showStop(i){
+  if(i > state.unlockedUpTo){
+    showLockedPanel(i);
+    return;
+  }
+
+  const stop = STOPS[i];
+  state.currentStop = i;
+
+  drawStaticScene(i);
+
+  document.getElementById('welcome-panel').style.display = 'none';
+  document.getElementById('panel-header').style.display = 'block';
+  document.getElementById('stop-content').style.display = 'block';
+
+  // Reset badge styling
+  document.getElementById('ph-badge').style.background = '';
+  document.getElementById('ph-badge').style.borderColor = '';
+  document.getElementById('ph-title').style.color = '';
+  document.getElementById('ph-title').style.textShadow = '';
+
+  document.getElementById('ph-badge').textContent = 'STOP ' + stop.id;
+  document.getElementById('ph-title').textContent = stop.title;
+  document.getElementById('ph-time').textContent = '🎬 ' + stop.time;
+
+  document.getElementById('complete-bar').classList.remove('show');
+
+  const sc = document.getElementById('stop-content');
+  sc.innerHTML = '';
+
+  // Read passage button
+  const readBtn = document.createElement('button');
+  readBtn.className = 'read-passage-btn';
+  readBtn.textContent = '📖 READ THIS PASSAGE';
+  readBtn.onclick = () => {
+    document.getElementById('story-text').innerHTML = stop.fallbackText;
+    document.getElementById('story-section').style.display = 'block';
+    showingStoryPanel = true;
+    document.getElementById('btn-read-passage').classList.add('active');
+    revealBrief(i);
+  };
+  sc.appendChild(readBtn);
+
+  // Brief
+  const briefWrapper = document.createElement('div');
+  briefWrapper.id = 'brief-wrapper-' + i;
+  const alreadyRevealed = state.briefRevealed[i] || state.completed[i];
+  if(alreadyRevealed){
+    briefWrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div><div class="brief-box">' + stop.brief + '</div>';
+  } else {
+    briefWrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div>'
+      + '<div class="brief-box" style="text-align:center;color:var(--text2);font-style:italic;">'
+      + '📖 Read the passage or watch the film to reveal Athena\'s summary.'
+      + '</div>';
+  }
+  sc.appendChild(briefWrapper);
+
+  const interContainer = document.createElement('div');
+  interContainer.id = 'interactions-' + i;
+  sc.appendChild(interContainer);
+
+  buildInteractions(i);
+  restoreStopState(i);
+  updateSCStatus(i);
+  renderProgress();
+
+  // Update story panel if open
+  if(showingStoryPanel){
+    document.getElementById('story-text').innerHTML = stop.fallbackText;
+  }
+
+  document.getElementById('panel-body').scrollTop = 0;
+}
+
+function showLockedPanel(i){
+  const stop = STOPS[i];
+  state.currentStop = i;
+
+  document.getElementById('welcome-panel').style.display = 'none';
+  document.getElementById('panel-header').style.display = 'block';
+  document.getElementById('stop-content').style.display = 'block';
+  document.getElementById('complete-bar').classList.remove('show');
+
+  document.getElementById('ph-badge').textContent = 'STOP ' + (stop ? stop.id : '?');
+  document.getElementById('ph-badge').style.background = 'var(--locked)';
+  document.getElementById('ph-badge').style.borderColor = 'var(--locked-t)';
+  document.getElementById('ph-title').textContent = stop ? stop.title : 'LOCKED';
+  document.getElementById('ph-title').style.color = 'var(--locked-t)';
+  document.getElementById('ph-title').style.textShadow = 'none';
+  document.getElementById('ph-time').textContent = '';
+
+  const sc = document.getElementById('stop-content');
+  sc.innerHTML = '<div class="locked-msg"><div class="lock-icon">🔒</div><p>YOUR TEACHER WILL UNLOCK THIS STOP</p></div>';
+
+  renderProgress();
+}
+
+// ═══════════════════════════════════════════════════
+// BUILD INTERACTIONS
+// ═══════════════════════════════════════════════════
+function buildInteractions(stopIdx){
+  const stop = STOPS[stopIdx];
+  const container = document.getElementById('interactions-' + stopIdx);
+  if(!container) return;
+  container.innerHTML = '';
+
+  stop.interactions.forEach((inter, qIdx) => {
+    const globalKey = stopIdx + '-' + qIdx;
+    const ibox = document.createElement('div');
+    ibox.className = 'interaction-box';
+    ibox.id = 'ibox-' + globalKey;
+
+    if(inter.type === 'mc'){
+      buildMC(ibox, inter, stopIdx, qIdx);
+    } else if(inter.type === 'write'){
+      buildWrite(ibox, inter, stopIdx, qIdx);
+    }
+
+    container.appendChild(ibox);
+
+    if(inter.type === 'write'){
+      const fb = document.createElement('div');
+      fb.className = 'athena-panel';
+      fb.id = 'athena-panel-' + globalKey;
+      fb.innerHTML = `
+        <div class="athena-hdr">
+          <div class="athena-icon">🦉</div>
+          <div class="athena-lbl">ATHENA SPEAKS</div>
+          <div class="star-row">
+            <span id="star-${globalKey}-1">★</span>
+            <span id="star-${globalKey}-2">★</span>
+            <span id="star-${globalKey}-3">★</span>
+          </div>
+        </div>
+        <div class="athena-msg" id="athena-msg-${globalKey}"></div>
+      `;
+      container.appendChild(fb);
+
+      const rb = document.createElement('div');
+      rb.id = 'revise-bar-' + globalKey;
+      container.appendChild(rb);
+    }
+  });
+}
+
+function buildMC(box, inter, stopIdx, qIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const letters = ['A','B','C','D'];
+
+  // Shuffle options per student
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  const shuffledOpts = shuffledIndices.map(i => inter.opts[i]);
+  const origCorrectIdx = inter.opts.indexOf(inter.correctText);
+  const shuffledCorrectIdx = shuffledIndices.indexOf(origCorrectIdx);
+
+  // Store shuffle map for this question
+  if(!window._shuffleMaps) window._shuffleMaps = {};
+  window._shuffleMaps[globalKey] = { shuffledIndices, shuffledCorrectIdx };
+
+  box.innerHTML = `
+    <div class="section-label">MULTIPLE CHOICE</div>
+    <p class="prompt-text">${inter.q}</p>
+    <div class="mc-list" id="mc-list-${globalKey}">
+      ${shuffledOpts.map((opt, oi) => `
+        <button class="mc-opt" id="mc-opt-${globalKey}-${oi}"
+          onclick="answerMC(${stopIdx},${qIdx},${oi})">
+          <span class="mc-letter">${letters[oi]}</span>
+          <span>${opt}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="mc-reveal" id="mc-correct-${globalKey}">✓ Correct!</div>
+    <div class="mc-wrong-reveal" id="mc-wrong-${globalKey}"></div>
+    <div class="mc-why" id="mc-why-${globalKey}">${inter.why}</div>
+  `;
+}
+
+function buildWrite(box, inter, stopIdx, qIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const savedText = state.writtenText[globalKey] || '';
+  const alreadyDone = state.feedback[globalKey] !== undefined;
+
+  box.innerHTML = `
+    <div class="section-label">SHORT ANSWER — ${inter.pts} POINTS</div>
+    <p class="prompt-text">${inter.q}</p>
+    <textarea class="response-area" id="textarea-${globalKey}"
+      placeholder="Write your answer here..."
+      oninput="updateWC('${globalKey}',${inter.minWords})">${savedText}</textarea>
+    <div class="wc-bar" id="wc-${globalKey}">0 / ${inter.minWords} WORDS</div>
+    <div class="act-row">
+      <span class="act-hint">Minimum ${inter.minWords} words</span>
+      <button class="pixel-btn-sm" id="submit-btn-${globalKey}"
+        onclick="submitWrite(${stopIdx},${qIdx})" ${alreadyDone ? 'disabled' : ''}>
+        SUMMON ATHENA ▸
+      </button>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════
+// WORD COUNT
+// ═══════════════════════════════════════════════════
+function updateWC(globalKey, minWords){
+  const ta = document.getElementById('textarea-' + globalKey);
+  const wc = document.getElementById('wc-' + globalKey);
+  if(!ta || !wc) return;
+  const words = ta.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+  wc.textContent = words + ' / ' + minWords + ' WORDS';
+  wc.className = 'wc-bar' + (words >= minWords ? ' good' : '');
+  state.writtenText[globalKey] = ta.value;
+}
+
+// ═══════════════════════════════════════════════════
+// MC ANSWER (shuffled)
+// ═══════════════════════════════════════════════════
+function answerMC(stopIdx, qIdx, chosenIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const inter = STOPS[stopIdx].interactions[qIdx];
+  const letters = ['A','B','C','D'];
+
+  if(state.mcAnswers[globalKey] !== undefined) return;
+
+  const shuffleMap = window._shuffleMaps[globalKey];
+  const correctIdx = shuffleMap.shuffledCorrectIdx;
+  const isCorrect = chosenIdx === correctIdx;
+
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  const shuffledOpts = shuffledIndices.map(i => inter.opts[i]);
+
+  shuffledOpts.forEach((_, oi) => {
+    const btn = document.getElementById('mc-opt-' + globalKey + '-' + oi);
+    if(btn){
+      btn.disabled = true;
+      if(oi === chosenIdx) btn.classList.add(isCorrect ? 'correct' : 'wrong');
+      if(oi === correctIdx && !isCorrect) btn.classList.add('correct');
+    }
+  });
+
+  if(isCorrect){
+    document.getElementById('mc-correct-' + globalKey).style.display = 'block';
+  } else {
+    const wrongDiv = document.getElementById('mc-wrong-' + globalKey);
+    wrongDiv.style.display = 'block';
+    wrongDiv.textContent = '✗ Not quite — the correct answer is ' + letters[correctIdx] + '. ';
+  }
+  document.getElementById('mc-why-' + globalKey).style.display = 'block';
+
+  state.mcAnswers[globalKey] = isCorrect;
+  const pts = isCorrect ? inter.pts : Math.round(inter.pts * 0.6);
+  if(!state.scores[stopIdx]) state.scores[stopIdx] = 0;
+  state.scores[stopIdx] += pts;
+  updateScore();
+  saveProgress();
+
+  checkStopComplete(stopIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// WRITE SUBMIT — ATHENA AI GRADING
+// ═══════════════════════════════════════════════════
+function submitWrite(stopIdx, qIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const ta = document.getElementById('textarea-' + globalKey);
+  const text = ta.value.trim();
+  const inter = STOPS[stopIdx].interactions[qIdx];
+
+  if(!text){ alert('Please write your answer before submitting.'); return; }
+  const words = text.split(/\s+/).filter(w => w.length > 0).length;
+  if(words < 10){ alert('Please write a more complete answer (at least 10 words).'); return; }
+
+  const btn = document.getElementById('submit-btn-' + globalKey);
+  btn.disabled = true;
+
+  state.writtenText[globalKey] = text;
+  showAthenaThinking(globalKey);
+
+  const isRevision = state.reviseUsed[globalKey] || false;
+
+  // Send to Athena AI endpoint for grading
+  fetch('/api/theseus-log/athena-grade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      question: inter.q,
+      answer: text,
+      min_words: inter.minWords,
+      max_pts: inter.pts,
+      is_revision: isRevision,
+      stop_title: STOPS[stopIdx].title,
+      stop_brief: STOPS[stopIdx].brief
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if(!data.success){
+      // Fallback to a basic score if AI fails
+      const result = fallbackGrade(text, inter);
+      applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter);
+      return;
+    }
+    const result = {
+      text: data.feedback,
+      stars: data.stars,
+      pts: data.pts
+    };
+    applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter);
+  })
+  .catch(() => {
+    // Network error — fallback grade
+    const result = fallbackGrade(text, inter);
+    applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter);
+  });
+}
+
+function fallbackGrade(text, inter){
+  const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  const longEnough = words >= inter.minWords;
+  const pts = longEnough ? Math.round(inter.pts * 0.7) : Math.round(inter.pts * 0.4);
+  const stars = longEnough ? 2 : 1;
+  return {
+    text: longEnough
+      ? 'Athena has received your answer, ' + student.name + '. Your response meets the length requirement. When connection is restored, a full assessment will be available.'
+      : 'Athena has received your answer, ' + student.name + '. Try to write more — aim for at least ' + inter.minWords + ' words.',
+    stars,
+    pts
+  };
+}
+
+function applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter){
+  if(isRevision){
+    const oldFeedback = state.feedback[globalKey];
+    if(oldFeedback){
+      state.scores[stopIdx] = Math.max(0, (state.scores[stopIdx] || 0) - oldFeedback.pts) + result.pts;
+    } else {
+      state.scores[stopIdx] = (state.scores[stopIdx] || 0) + result.pts;
+    }
+  } else {
+    if(!state.scores[stopIdx]) state.scores[stopIdx] = 0;
+    state.scores[stopIdx] += result.pts;
+  }
+
+  state.feedback[globalKey] = result;
+  showAthenaResult(globalKey, result);
+
+  if(result.stars < 3){
+    showReviseBar(globalKey);
+  }
+
+  const ta = document.getElementById('textarea-' + globalKey);
+  if(ta) ta.disabled = true;
+
+  updateScore();
+  saveProgress();
+  checkStopComplete(stopIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// ATHENA UI
+// ═══════════════════════════════════════════════════
+function showAthenaThinking(globalKey){
+  const panel = document.getElementById('athena-panel-' + globalKey);
+  const msg = document.getElementById('athena-msg-' + globalKey);
+  if(!panel || !msg) return;
+  panel.classList.add('show');
+  msg.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+}
+
+function showAthenaResult(globalKey, result){
+  const msg = document.getElementById('athena-msg-' + globalKey);
+  if(!msg) return;
+  msg.textContent = result.text;
+  for(let s = 1; s <= 3; s++){
+    const star = document.getElementById('star-' + globalKey + '-' + s);
+    if(star) star.classList.toggle('lit', s <= result.stars);
+  }
+}
+
+function showReviseBar(globalKey){
+  const bar = document.getElementById('revise-bar-' + globalKey);
+  if(!bar) return;
+  bar.innerHTML = `
+    <div class="revise-bar">
+      <span class="revise-hint">WANT TO IMPROVE YOUR SCORE? EDIT AND RESUBMIT.</span>
+      <button class="pixel-btn-outline" onclick="startRevise('${globalKey}')">✎ REVISE YOUR ANSWER</button>
+    </div>
+  `;
+}
+
+function startRevise(globalKey){
+  const ta = document.getElementById('textarea-' + globalKey);
+  const btn = document.getElementById('submit-btn-' + globalKey);
+  if(!ta || !btn) return;
+  ta.disabled = false;
+  ta.focus();
+  btn.disabled = false;
+  btn.textContent = 'RESUBMIT TO ATHENA ▸';
+  state.reviseUsed[globalKey] = true;
+
+  document.getElementById('complete-bar').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════
+// STOP COMPLETION
+// ═══════════════════════════════════════════════════
+function checkStopComplete(stopIdx){
+  const stop = STOPS[stopIdx];
+  let allDone = true;
+
+  stop.interactions.forEach((inter, qIdx) => {
+    const globalKey = stopIdx + '-' + qIdx;
+    if(inter.type === 'mc' && state.mcAnswers[globalKey] === undefined) allDone = false;
+    if(inter.type === 'write' && state.feedback[globalKey] === undefined) allDone = false;
+  });
+
+  if(allDone){
+    showCompleteBar(stopIdx);
+  }
+}
+
+function showCompleteBar(stopIdx){
+  const bar = document.getElementById('complete-bar');
+  const pts = state.scores[stopIdx] || 0;
+  document.getElementById('pts-earned-display').textContent = '+' + pts + ' POINTS EARNED';
+  const nextBtn = document.getElementById('next-btn');
+  if(stopIdx === STOPS.length - 1){
+    nextBtn.textContent = 'COMPLETE THE JOURNEY ★';
+    nextBtn.onclick = () => {
+      state.completed[stopIdx] = true;
+      renderProgress();
+      saveProgress();
+      showResults();
+    };
+  } else {
+    nextBtn.textContent = 'NEXT STOP ▶';
+    nextBtn.onclick = () => nextStop();
+  }
+  bar.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+function nextStop(){
+  const i = state.currentStop;
+  state.completed[i] = true;
+  renderProgress();
+  saveProgress();
+
+  const next = i + 1;
+  if(next >= STOPS.length){
+    showResults();
+    return;
+  }
+
+  startTransition(i, next);
+  state.currentStop = next;
+  renderProgress();
+}
+
+// ═══════════════════════════════════════════════════
+// RESTORE STATE
+// ═══════════════════════════════════════════════════
+function restoreStopState(stopIdx){
+  const stop = STOPS[stopIdx];
+
+  stop.interactions.forEach((inter, qIdx) => {
+    const globalKey = stopIdx + '-' + qIdx;
+
+    if(inter.type === 'mc' && state.mcAnswers[globalKey] !== undefined){
+      const isCorrect = state.mcAnswers[globalKey];
+      const letters = ['A','B','C','D'];
+
+      const shuffleMap = window._shuffleMaps[globalKey];
+      if(!shuffleMap) return;
+      const correctIdx = shuffleMap.shuffledCorrectIdx;
+
+      const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+      const indices = inter.opts.map((_, i) => i);
+      const shuffledOpts = shuffleWithSeed(indices, seed).map(i => inter.opts[i]);
+
+      shuffledOpts.forEach((_, oi) => {
+        const btn = document.getElementById('mc-opt-' + globalKey + '-' + oi);
+        if(btn){
+          btn.disabled = true;
+          if(oi === correctIdx) btn.classList.add('correct');
+        }
+      });
+      if(isCorrect){
+        document.getElementById('mc-correct-' + globalKey).style.display = 'block';
+      } else {
+        const wrongDiv = document.getElementById('mc-wrong-' + globalKey);
+        wrongDiv.style.display = 'block';
+        wrongDiv.textContent = '✗ The correct answer was ' + letters[correctIdx] + '. ';
+      }
+      document.getElementById('mc-why-' + globalKey).style.display = 'block';
+    }
+
+    if(inter.type === 'write' && state.feedback[globalKey]){
+      const ta = document.getElementById('textarea-' + globalKey);
+      if(ta){
+        ta.value = state.writtenText[globalKey] || '';
+        ta.disabled = true;
+        updateWC(globalKey, inter.minWords);
+      }
+      const panel = document.getElementById('athena-panel-' + globalKey);
+      if(panel) panel.classList.add('show');
+      showAthenaResult(globalKey, state.feedback[globalKey]);
+
+      if(state.feedback[globalKey].stars < 3){
+        showReviseBar(globalKey);
+      }
+
+      const btn = document.getElementById('submit-btn-' + globalKey);
+      if(btn) btn.disabled = true;
+    }
+  });
+
+  checkStopComplete(stopIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// SCORE & RANK
+// ═══════════════════════════════════════════════════
+function updateScore(){
+  const total = Object.values(state.scores).reduce((a, b) => a + b, 0);
+  state.totalScore = total;
+  document.getElementById('tb-pts').textContent = total + ' PTS';
+  const rank = getRank(total);
+  document.getElementById('tb-rank').textContent = rank.title;
+}
+
+function getRank(pts){
+  return RANKS.find(r => pts >= r.min && pts <= r.max) || RANKS[RANKS.length - 1];
+}
+
+// ═══════════════════════════════════════════════════
+// RESULTS
+// ═══════════════════════════════════════════════════
+function showResults(){
+  const total = state.totalScore;
+  const rank = getRank(total);
+  const stopsD = Object.keys(state.completed).filter(k => state.completed[k]).length;
+  const avgPts = stopsD ? Math.round(total / stopsD * 10) / 10 : 0;
+
+  const tierMap = {
+    'STRANGER':'STR','TRAVELER':'TRV','CITIZEN':'CTZ',
+    'CHAMPION':'CHP','HERO OF ATHENS':'HOA'
+  };
+  const tier = tierMap[rank.title] || 'STR';
+  const hash = (student.name.length * 7 + total * 3 + (student.alliance || '').length * 5) % 900 + 100;
+  const code = 'THS-' + tier + '-' + hash;
+
+  document.getElementById('r-rank-title').textContent = rank.title;
+  document.getElementById('r-name-line').textContent = student.name + ' · ' + (student.periodDisplay || student.period) + ' · ' + student.alliance;
+  document.getElementById('r-quote').textContent = '"' + rank.quote + '"';
+  document.getElementById('r-code').textContent = code;
+  document.getElementById('r-score-grid').innerHTML = `
+    <div class="score-cell"><div class="sc-lbl">TOTAL POINTS</div><div class="sc-val">${total}</div></div>
+    <div class="score-cell"><div class="sc-lbl">STOPS LOGGED</div><div class="sc-val">${stopsD}/8</div></div>
+    <div class="score-cell"><div class="sc-lbl">AVG PER STOP</div><div class="sc-val">${avgPts}</div></div>
+    <div class="score-cell"><div class="sc-lbl">RANK</div><div class="sc-val" style="font-size:7px;line-height:1.8">${rank.title}</div></div>
+  `;
+  document.getElementById('results-modal').classList.add('show');
+
+  fetch('/api/theseus-log/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      class_period: student.period,
+      student_id: student.id,
+      alliance_name: student.alliance || null,
+      hero_code: code,
+      rank_tier: tier,
+      total_score: total,
+      stop_scores: state.scores,
+      written_answers: state.writtenText
+    })
+  }).then(r => r.json()).then(d => {
+    if(d.success) console.log('🗡️ Theseus log saved');
+  }).catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════
+// TEACHER CONTROLS
+// ═══════════════════════════════════════════════════
+function openTeacher(){
+  document.getElementById('teacher-modal').classList.add('show');
+}
+function closeTeacher(){
+  document.getElementById('teacher-modal').classList.remove('show');
+}
+function checkPW(){
+  const pw = document.getElementById('pw-input').value;
+  if(pw === 'theseus' || pw === 'odyssey'){
+    document.getElementById('teacher-controls').style.display = 'block';
+    document.getElementById('pw-error').style.display = 'none';
+  } else {
+    document.getElementById('pw-error').style.display = 'block';
+  }
+}
+
+function buildTeacherUnlockGrid(){
+  const grid = document.getElementById('unlock-grid');
+  grid.innerHTML = '';
+  STOPS.forEach((s, i) => {
+    const isUnlocked = i <= state.unlockedUpTo;
+    const row = document.createElement('div');
+    row.className = 'unlock-row';
+    row.innerHTML = `
+      <span class="stop-name ${isUnlocked ? 'done' : ''}">${i+1}. ${s.title}</span>
+      <button ${isUnlocked ? 'class="done-btn" disabled' : ''}
+        onclick="teacherUnlock(${i})">${isUnlocked ? '✓ OPEN' : 'UNLOCK'}</button>
+    `;
+    grid.appendChild(row);
+  });
+}
+
+function teacherUnlock(i){
+  const newUnlock = Math.max(state.unlockedUpTo, i);
+  fetch('/api/theseus-log/unlock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      period: student.period,
+      unlock_up_to: newUnlock
+    })
+  }).then(r => r.json()).then(d => {
+    if(d.success){
+      state.unlockedUpTo = newUnlock;
+      renderProgress();
+      buildTeacherUnlockGrid();
+      if(state.currentStop < 0){
+        showStop(0);
+      } else if(state.currentStop <= state.unlockedUpTo){
+        document.getElementById('ph-badge').style.background = '';
+        document.getElementById('ph-badge').style.borderColor = '';
+        document.getElementById('ph-title').style.color = '';
+        document.getElementById('ph-title').style.textShadow = '';
+        showStop(state.currentStop);
+      }
+    }
+  }).catch(() => {
+    state.unlockedUpTo = newUnlock;
+    renderProgress();
+    buildTeacherUnlockGrid();
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PRINT LOG
+// ═══════════════════════════════════════════════════
+function printLog(){
+  const total = state.totalScore;
+  const rank = getRank(total);
+  const tierMap = {'STRANGER':'STR','TRAVELER':'TRV','CITIZEN':'CTZ','CHAMPION':'CHP','HERO OF ATHENS':'HOA'};
+  const tier = tierMap[rank.title] || 'STR';
+  const hash = (student.name.length * 7 + total * 3 + (student.alliance || '').length * 5) % 900 + 100;
+  const code = 'THS-' + tier + '-' + hash;
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+  const stopsCompleted = Object.keys(state.completed).filter(k => state.completed[k]).length;
+  const letters = ['A','B','C','D'];
+
+  const stopSections = STOPS.map((stop, i) => {
+    const pts = state.scores[i] || 0;
+    let responseHTML = '';
+
+    stop.interactions.forEach((inter, qIdx) => {
+      const globalKey = i + '-' + qIdx;
+
+      if(inter.type === 'mc'){
+        const answered = state.mcAnswers[globalKey] !== undefined;
+        const isCorrect = answered ? state.mcAnswers[globalKey] : false;
+        responseHTML += '<div style="margin-bottom:0.8rem;">' +
+          '<div style="font-weight:600;margin-bottom:4px;">Multiple Choice: ' + inter.q + '</div>' +
+          '<div style="padding:6px 10px;background:' + (answered ? (isCorrect ? '#e8f5e9' : '#fce4ec') : '#f5f5f5') + ';border-left:3px solid ' + (isCorrect ? '#4caf50' : '#ef5350') + ';">' +
+          (answered
+            ? (isCorrect ? '✓ Correct — ' + inter.correctText : '✗ Incorrect — Correct: ' + inter.correctText)
+            : 'Not answered') +
+          '</div>' +
+          '<div style="font-style:italic;color:#555;font-size:0.9rem;margin-top:4px;">💡 ' + inter.why + '</div>' +
+          '</div>';
+      }
+
+      if(inter.type === 'write'){
+        const txt = state.writtenText[globalKey] || '';
+        const fb = state.feedback[globalKey];
+        const stars = fb ? fb.stars : 0;
+        responseHTML += '<div style="margin-bottom:0.8rem;">' +
+          '<div style="font-weight:600;margin-bottom:4px;">Short Answer (' + inter.pts + ' pts): ' + inter.q + '</div>' +
+          '<div style="padding:8px 10px;background:#f5f5f5;border:1px solid #ddd;min-height:40px;">' + (txt || '<em>No response recorded.</em>') + '</div>';
+        if(fb){
+          responseHTML += '<div style="margin-top:6px;">' +
+            '<span style="color:#ffc107;">' + '★'.repeat(stars) + '</span>' +
+            '<span style="color:#ddd;">' + '★'.repeat(3 - stars) + '</span>' +
+            ' — ' + fb.pts + ' points</div>' +
+            '<div style="font-style:italic;color:#1565c0;border-left:3px solid #1565c0;padding-left:8px;margin-top:4px;">🦉 ' + fb.text + '</div>';
+        }
+        responseHTML += '</div>';
+      }
+    });
+
+    return '<div style="border:1px solid #ccc;margin-bottom:1rem;page-break-inside:avoid;">' +
+      '<div style="background:#1a3868;color:#f0c040;padding:8px 12px;font-weight:700;">Stop ' + stop.id + ' — ' + stop.title + ' <span style="float:right;font-weight:400;font-size:0.85rem;">' + stop.time + ' | +' + pts + ' pts</span></div>' +
+      '<div style="padding:10px 12px;">' +
+      '<div style="background:#f9f6f0;border:1px solid #e0d8c8;padding:8px 10px;margin-bottom:10px;font-style:italic;color:#555;">' + stop.brief + '</div>' +
+      responseHTML +
+      '</div></div>';
+  }).join('');
+
+  document.getElementById('print-output').innerHTML =
+    '<div style="max-width:800px;margin:0 auto;padding:1rem;font-family:Georgia,serif;">' +
+    '<h1 style="text-align:center;color:#1a3868;">🗡️ The Road to the Labyrinth — Theseus & the Minotaur</h1>' +
+    '<div style="text-align:center;color:#555;margin-bottom:1rem;">' +
+      '<strong>' + student.name + '</strong> · ' + (student.periodDisplay || student.period) + ' · ' + student.alliance +
+      ' · ' + today + '<br>' +
+      'Rank: <strong>' + rank.title + '</strong> · Score: <strong>' + total + ' points</strong> · Stops completed: <strong>' + stopsCompleted + '/8</strong>' +
+    '</div>' +
+    '<hr style="border:1px solid #e0d8c8;margin-bottom:1rem;">' +
+    stopSections +
+    '<div style="text-align:center;border:2px solid #c89820;padding:1rem;margin-top:1rem;background:#fdf6e3;">' +
+      '<div style="font-size:0.8rem;color:#888;margin-bottom:4px;">Hero Code — Enter in Odyssey to Olympus</div>' +
+      '<div style="font-size:1.5rem;font-weight:700;color:#1a3868;letter-spacing:0.1em;">' + code + '</div>' +
+      '<div style="font-size:0.8rem;color:#888;margin-top:4px;">' + rank.title + ' · ' + total + ' points</div>' +
+    '</div>' +
+    '<div style="margin-top:1rem;font-size:0.75rem;color:#999;border-top:1px solid #e0d8c8;padding-top:0.5rem;">' +
+      '<strong>ELA Standards:</strong> W.6.1, W.6.1b (argument writing), RL.6.1 (textual evidence), RL.6.3 (character response), SL.6.1 (discussion)' +
+    '</div>' +
+    '</div>';
+
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('results-modal').classList.remove('show');
+  document.getElementById('print-output').style.display = 'block';
+  window.print();
+  setTimeout(() => {
+    document.getElementById('print-output').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('results-modal').classList.add('show');
+  }, 1000);
+}
+
+</script>
+</body>
+</html>
