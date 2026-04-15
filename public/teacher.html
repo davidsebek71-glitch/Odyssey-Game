@@ -5034,6 +5034,26 @@
                         New Total: ${result.updatedAlliance.total_points} points
                     </div>
                     
+                    ${result.granaryApplied ? `
+                    <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); padding: 10px 14px; border-radius: 8px; margin-top: 12px;">
+                        <div style="font-size: 14px; color: #4ade80; font-weight: 700;">
+                            🌾 Granary Protection Active! Loss reduced by 30%
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${result.fate && result.fate.fate_name && result.fate.fate_name.toLowerCase().includes('circe') ? `
+                    <div style="background: rgba(147, 51, 234, 0.15); border: 2px solid rgba(147, 51, 234, 0.5); padding: 14px; border-radius: 10px; margin-top: 14px; text-align: center;">
+                        <div style="font-size: 36px; margin-bottom: 6px;">🔄</div>
+                        <div style="font-size: 18px; color: #c084fc; font-weight: 800; margin-bottom: 4px;">
+                            REVERSE CARD TRADE
+                        </div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.8);">
+                            Circe's enchantment cost your alliance points, but in return your heroes learned to resist future magic. Award this alliance a Reverse Card!
+                        </div>
+                    </div>
+                    ` : ''}
+                    
                     ${result.stealDetails ? `
                     <div style="background: rgba(147, 51, 234, 0.15); border: 1px solid rgba(147, 51, 234, 0.4); padding: 12px; border-radius: 8px; margin-top: 12px;">
                         <div style="font-size: 14px; color: #c084fc; font-weight: 700; margin-bottom: 6px;">

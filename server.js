@@ -5480,6 +5480,10 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?)`, 
         [alliance_id, fate_id, fate.fate_name, 'choice', pointsChange, teacher_id]);
     
+    // Auto-detect fates that grant items (for display purposes — teacher awards manually)
+    let reverseCardAwarded = false;
+    // Note: Circe's Enchantment grants a Reverse Card, but teacher awards it manually via the Award button
+
     // Get updated alliance
     const updatedAlliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
 
@@ -5504,6 +5508,9 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       }
     } catch(e) { /* non-critical */ }
 
+    // Check if Granary was applied (for display)
+    const granaryApplied = (typeof choiceGranaryApplied !== 'undefined') ? choiceGranaryApplied : false;
+
     res.json({
       success,
       pointsChange,
@@ -5513,7 +5520,10 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       roll: (roll * 100).toFixed(1),
       stealDetails,
       hasOracle,
-      oracleAvailable
+      oracleAvailable,
+      reverseCardAwarded,
+      granaryApplied,
+      granaryReduction: granaryApplied ? Math.round(modifiedRolledValue * 0.3) : 0
     });
   } catch (err) {
     console.error('Process fate choice error:', err);
