@@ -5718,7 +5718,13 @@
                                 const ageBuildings = buildData.buildings.filter(b => b.age_available === age);
                                 if (ageBuildings.length === 0) return;
                                 
-                                buildHtml += `<div style="font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; margin-bottom: 4px;">${age}</div>`;
+                                const ageStyles = {
+                                    'Archaic': { color: '#cd7f32', icon: '🏺', border: 'rgba(205,127,50,0.4)' },
+                                    'Classical': { color: '#3b82f6', icon: '🏛️', border: 'rgba(59,130,246,0.4)' },
+                                    'Heroic': { color: '#c084fc', icon: '⚔️', border: 'rgba(192,132,252,0.4)' }
+                                };
+                                const s = ageStyles[age] || { color: '#fff', icon: '', border: 'rgba(255,255,255,0.2)' };
+                                buildHtml += `<div style="font-size: 11px; color: ${s.color}; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-top: 12px; margin-bottom: 6px; padding: 5px 0; border-bottom: 2px solid ${s.border};">${s.icon} ${age}</div>`;
                                 
                                 ageBuildings.forEach(b => {
                                     const isOwned = b.owned_count > 0;
