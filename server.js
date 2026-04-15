@@ -5453,13 +5453,20 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       }
     } else {
       // REGULAR CHOICE: apply modified flat points to this alliance only
-      const finalPoints = modifiedRolledValue;
+      let finalPoints = modifiedRolledValue;
+      let choiceGranaryApplied = false;
+      const choiceBuildingsOwned = JSON.parse(alliance.buildings_owned || '[]');
+      if (choiceBuildingsOwned.includes('Granary') && finalPoints < 0) {
+        finalPoints = Math.round(finalPoints * 0.7);
+        choiceGranaryApplied = true;
+        console.log(`🌾 Granary protection (choice): ${modifiedRolledValue} → ${finalPoints} for alliance ${alliance_id}`);
+      }
       run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
           [finalPoints, alliance_id]);
       run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
            VALUES (?, ?, ?, ?, ?)`, 
           [alliance_id, finalPoints, 'fate',
-           `Fate: ${fate.fate_name} (${choice.risk_level} choice - ${success ? 'success' : 'failure'})${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+           `Fate: ${fate.fate_name} (${choice.risk_level} choice - ${success ? 'success' : 'failure'})${choiceGranaryApplied ? ' [Granary -30%]' : ''}${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
       pointsChange = finalPoints;
     }
     
@@ -6014,17 +6021,29 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
     }
     const finalPointsChange = scrollResult.pointsChange;
     
-    // Process fate based on type (now using finalPointsChange)
+    // Apply Granary protection: -30% on negative fate outcomes (simple_points and interactive gives)
+    let granaryApplied = false;
+    let preGranaryPoints = finalPointsChange;
+    let afterGranaryPoints = finalPointsChange;
+    const buildingsOwnedForFate = JSON.parse(alliance.buildings_owned || '[]');
+    if (buildingsOwnedForFate.includes('Granary') && finalPointsChange < 0) {
+      afterGranaryPoints = Math.round(finalPointsChange * 0.7); // reduce loss by 30%
+      granaryApplied = true;
+      console.log(`🌾 Granary protection: ${finalPointsChange} → ${afterGranaryPoints} for alliance ${alliance_id}`);
+    }
+    const effectivePointsChange = granaryApplied ? afterGranaryPoints : finalPointsChange;
+    
+    // Process fate based on type (now using effectivePointsChange)
     if (fate.fate_type === 'simple_points') {
       run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
-          [finalPointsChange, alliance_id]);
+          [effectivePointsChange, alliance_id]);
       
       run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
            VALUES (?, ?, ?, ?, ?)`, 
-          [alliance_id, finalPointsChange, 'fate',
-           `Fate: ${fate.fate_name}${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+          [alliance_id, effectivePointsChange, 'fate',
+           `Fate: ${fate.fate_name}${granaryApplied ? ' [Granary -30%]' : ''}${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
       
-      result.pointsChange = finalPointsChange;
+      result.pointsChange = effectivePointsChange;
     } 
     else if (fate.fate_type === 'interactive') {
       const allAlliances = query('SELECT alliance_id, total_points, alliance_name FROM alliances WHERE alliance_id != ? AND is_disbanded = 0', [alliance_id]);
@@ -6054,7 +6073,7 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
           result.echoRedirect = { allianceName: redirect.alliance_name, pointsReceived: totalStolen };
         } else {
           // Normal steal
-          const totalGain = finalPointsChange;
+          const totalGain = effectivePointsChange;
           run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
               [totalGain, alliance_id]);
           allAlliances.forEach(other => {
@@ -6070,7 +6089,7 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
         }
       } 
       else if (fate.gives_to_others) {
-        const totalLoss = Math.abs(finalPointsChange);
+        const totalLoss = Math.abs(effectivePointsChange); // Granary already applied to effectivePointsChange
         const perAlliance = transferAmount; // each other alliance still gets the base amount
         run('UPDATE alliances SET total_points = total_points - ? WHERE alliance_id = ?', 
             [totalLoss, alliance_id]);
@@ -6082,7 +6101,7 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
         });
         run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) VALUES (?, ?, ?, ?, ?)`, 
             [alliance_id, -totalLoss, 'fate',
-             `Fate: ${fate.fate_name} (gave to each alliance)${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+             `Fate: ${fate.fate_name} (gave to each alliance)${granaryApplied ? ' [Granary -30%]' : ''}${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
         result.pointsChange = -totalLoss;
       }
     }
@@ -6102,6 +6121,10 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
     }
 
     result.scrollResult = scrollResult.scrollType ? scrollResult : null;
+    result.granaryApplied = granaryApplied;
+    if (granaryApplied) {
+      result.granaryDetail = { before: preGranaryPoints, after: afterGranaryPoints, reduction: '30%' };
+    }
     
     // Log the fate spin
     run(`INSERT INTO fate_spins (alliance_id, fate_id, fate_name, result_type, points_change, teacher_id) 
@@ -6259,6 +6282,13 @@ app.post('/api/teacher/roll-battle', authenticateToken, (req, res) => {
       alliancePower += 50;
     }
     
+    // Armory bonus: +150 battle power (additive, like walls)
+    let armoryBonus = 0;
+    if (buildingsOwned.includes('Armory')) {
+      armoryBonus = 150;
+      alliancePower += 150;
+    }
+    
     // Get all alliances to determine underdog status
     const allAlliances = query('SELECT alliance_id, total_points FROM alliances WHERE is_disbanded = 0 ORDER BY total_points DESC');
     
@@ -6290,7 +6320,16 @@ app.post('/api/teacher/roll-battle', authenticateToken, (req, res) => {
     
     // Determine victory
     const victory = allianceRoll > threatRoll;
-    const pointsChange = victory ? fate.battle_win_points : fate.battle_lose_points;
+    let pointsChange = victory ? fate.battle_win_points : fate.battle_lose_points;
+    
+    // Granary protection: reduce battle losses by 30%
+    let battleGranaryApplied = false;
+    if (buildingsOwned.includes('Granary') && pointsChange < 0) {
+      const before = pointsChange;
+      pointsChange = Math.round(pointsChange * 0.7);
+      battleGranaryApplied = true;
+      console.log(`🌾 Granary protection (battle): ${before} → ${pointsChange} for alliance ${alliance_id}`);
+    }
     
     // Apply points
     run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
@@ -6300,7 +6339,7 @@ app.post('/api/teacher/roll-battle', authenticateToken, (req, res) => {
     const battleResult = victory ? 'Victory' : 'Defeat';
     run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
          VALUES (?, ?, ?, ?, ?)`, 
-        [alliance_id, pointsChange, 'battle', `Battle ${battleResult}: ${fate_name}`, teacher_id]);
+        [alliance_id, pointsChange, 'battle', `Battle ${battleResult}: ${fate_name}${battleGranaryApplied ? ' [Granary -30%]' : ''}`, teacher_id]);
     
     // Log battle
     run(`INSERT INTO battle_events (alliance_id, fate_name, alliance_power, threat_power, alliance_roll, threat_roll, victory, points_change, teacher_id) 
@@ -6323,6 +6362,7 @@ app.post('/api/teacher/roll-battle', authenticateToken, (req, res) => {
       basePower: alliance.total_points,
       wallBonus,
       wallType,
+      armoryBonus,
       threatPower,
       allianceRoll,
       threatRoll,
@@ -11555,6 +11595,120 @@ app.get('/api/diag/student-issues', authenticateToken, (req, res) => {
     res.json({ students: results });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Diagnostic + Repair: Check and fix quiz grades for specific students
+// GET  /api/admin/repair-quiz-grades?names=Lincoln,Anneliese  (dry run)
+// POST /api/admin/repair-quiz-grades  body: { names: "Lincoln,Anneliese" }  (execute)
+app.all('/api/admin/repair-quiz-grades', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  const isDryRun = req.method === 'GET';
+  try {
+    const names = (req.query.names || req.body?.names || '').toString();
+    if (!names) return res.status(400).json({ error: 'Provide names=Lincoln,Anneliese' });
+
+    const nameList = names.split(',').map(n => n.trim().toLowerCase());
+    const allStudents = query('SELECT student_id, name, class_period FROM students WHERE is_ghost = 0 OR is_ghost IS NULL');
+    const matched = allStudents.filter(s => nameList.some(n => s.name.toLowerCase().includes(n)));
+    if (!matched.length) return res.status(404).json({ error: 'No students found', searched: nameList });
+
+    const portals = query('SELECT portal_id, myth_name FROM myth_portals ORDER BY portal_id');
+    const portalToAssignmentName = {
+      'Icarus & Daedalus': 'Icarus', 'Icarus and Daedalus': 'Icarus',
+      'Echo & Narcissus': 'Echo and Narcissus', 'Orpheus & Eurydice': 'Orpheus',
+      'Eros & Psyche': 'Eros and Psyche', 'Eros and Psyche': 'Eros and Psyche'
+    };
+
+    const results = matched.map(student => {
+      const sid = student.student_id;
+      const portalResults = [];
+
+      portals.forEach(portal => {
+        const assignmentMythGod = portalToAssignmentName[portal.myth_name] || portal.myth_name;
+        const quizAssignment = query(
+          "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?",
+          [assignmentMythGod]
+        )[0];
+
+        // Get ALL attempts for this student+portal
+        const attempts = query(
+          'SELECT score, total_questions, percentage, passed, attempted_at FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? ORDER BY attempted_at DESC',
+          [sid, portal.portal_id]
+        );
+        if (attempts.length === 0) return; // never attempted
+
+        const bestAttempt = attempts.reduce((best, a) => (!best || a.percentage > best.percentage) ? a : best, null);
+        const anyPassed = attempts.some(a => a.passed === 1);
+
+        // Check existing grade
+        const existingGrade = quizAssignment ? query(
+          'SELECT record_id, points_earned FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+          [sid, quizAssignment.assignment_id]
+        )[0] : null;
+
+        let action = 'none';
+        let gradePoints = null;
+
+        if (quizAssignment && !existingGrade && bestAttempt) {
+          // No grade exists — compute from best attempt
+          gradePoints = Math.round((bestAttempt.score / bestAttempt.total_questions) * quizAssignment.max_points);
+          // Only insert if best attempt scored 80%+ OR any attempt was marked passed
+          if (bestAttempt.percentage >= 80 || anyPassed) {
+            action = 'INSERT_GRADE';
+            if (!isDryRun) {
+              run('INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible) VALUES (?, ?, ?, ?)',
+                [sid, quizAssignment.assignment_id, gradePoints, quizAssignment.max_points]);
+            }
+          } else {
+            action = 'BEST_SCORE_BELOW_80';
+          }
+        } else if (existingGrade) {
+          action = 'GRADE_EXISTS';
+          gradePoints = existingGrade.points_earned;
+        } else if (!quizAssignment) {
+          action = 'NO_ASSIGNMENT_REF';
+        }
+
+        portalResults.push({
+          portal: portal.myth_name,
+          portal_id: portal.portal_id,
+          assignment_myth_god: assignmentMythGod,
+          attempts: attempts.length,
+          best_percentage: bestAttempt?.percentage,
+          best_score: bestAttempt ? `${bestAttempt.score}/${bestAttempt.total_questions}` : null,
+          any_marked_passed: anyPassed,
+          grade_status: action,
+          grade_points: gradePoints,
+          assignment_max: quizAssignment?.max_points
+        });
+      });
+
+      // Also check daedalus_game_results for Icarus specifically
+      let daedalusAttempts = [];
+      try {
+        daedalusAttempts = query(
+          'SELECT first_attempt_correct, total_questions, completed, alliance_points_awarded FROM daedalus_game_results WHERE student_id = ? ORDER BY rowid DESC',
+          [sid]
+        );
+      } catch(e) { /* table might not exist */ }
+
+      return {
+        name: student.name,
+        student_id: sid,
+        class_period: student.class_period,
+        portals: portalResults,
+        daedalus_game_attempts: daedalusAttempts.length > 0 ? daedalusAttempts : 'none'
+      };
+    });
+
+    if (!isDryRun) saveDatabase();
+    res.json({ 
+      mode: isDryRun ? 'DRY_RUN (use POST to execute)' : 'EXECUTED', 
+      students: results 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
