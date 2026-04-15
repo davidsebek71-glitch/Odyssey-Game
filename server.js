@@ -5527,7 +5527,8 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       oracleAvailable,
       reverseCardAwarded,
       granaryApplied,
-      granaryReduction: granaryApplied ? Math.round(modifiedRolledValue * 0.3) : 0
+      granaryReduction: granaryApplied ? Math.abs(modifiedRolledValue) - Math.abs(pointsChange) : 0,
+      granaryOriginalLoss: granaryApplied ? modifiedRolledValue : null
     });
   } catch (err) {
     console.error('Process fate choice error:', err);
