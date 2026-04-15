@@ -3862,7 +3862,7 @@
                 <!-- Left Sidebar: Progress to Classical Age -->
                 <div id="map-sidebar-left" style="width: 200px; flex-shrink: 0; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px;">
                     <div style="margin-bottom: 12px;">
-                        <strong style="font-size: 14px; color: #ffd700;">🏛️ Progress to Classical Age</strong>
+                        <strong id="map-sidebar-title" style="font-size: 14px; color: #ffd700;">🏛️ Progress to Classical Age</strong>
                     </div>
                     <div id="map-progress-content" style="font-size: 12px;">
                         Loading...
@@ -5650,6 +5650,14 @@
                 const response = await fetch(`${API_URL}/student/age-progress`, { headers });
                 const data = await response.json();
                 
+                // Update sidebar title based on current age
+                const sidebarTitle = document.getElementById('map-sidebar-title');
+                if (sidebarTitle && data.currentAge === 'Classical') {
+                    sidebarTitle.textContent = '🏛️ Progress to Heroic Age';
+                } else if (sidebarTitle && data.currentAge === 'Archaic') {
+                    sidebarTitle.textContent = '🏛️ Progress to Classical Age';
+                }
+                
                 // If no alliance, show simplified requirements overview
                 if (!data.hasAlliance) {
                     progressContent.innerHTML = `
@@ -5687,14 +5695,64 @@
                     return;
                 }
                 
-                // If already at max age
+                // If already at max age, show building inventory instead of progress checklist
                 if (data.currentAge === 'Heroic') {
-                    progressContent.innerHTML = `
-                        <div style="padding: 15px; background: rgba(74,222,128,0.2); border-radius: 8px; text-align: center;">
-                            <div style="font-size: 24px; margin-bottom: 8px;">🏆</div>
-                            <div style="font-size: 12px; color: #4ade80;">Heroic Age - Maximum Level!</div>
-                        </div>
-                    `;
+                    document.getElementById('map-sidebar-title').textContent = '🏛️ Building Inventory';
+                    // Fetch buildings to show owned vs available
+                    try {
+                        const buildRes = await fetch(`${API_URL}/alliance/buildings/${dashboardData.student.alliance_id}`, { headers });
+                        const buildData = await buildRes.json();
+                        
+                        let buildHtml = `
+                            <div style="padding: 10px; background: rgba(74,222,128,0.15); border-radius: 8px; text-align: center; margin-bottom: 12px;">
+                                <div style="font-size: 20px; margin-bottom: 4px;">🏆</div>
+                                <div style="font-size: 11px; color: #4ade80; font-weight: 700;">Heroic Age</div>
+                            </div>
+                            <div style="font-size: 11px; color: #ffd700; font-weight: 700; margin-bottom: 8px;">🏛️ Buildings Owned</div>
+                        `;
+                        
+                        if (buildData.buildings && buildData.buildings.length > 0) {
+                            // Group by age
+                            const ages = ['Archaic', 'Classical', 'Heroic'];
+                            ages.forEach(age => {
+                                const ageBuildings = buildData.buildings.filter(b => b.age_available === age);
+                                if (ageBuildings.length === 0) return;
+                                
+                                buildHtml += `<div style="font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; margin-bottom: 4px;">${age}</div>`;
+                                
+                                ageBuildings.forEach(b => {
+                                    const isOwned = b.owned_count > 0;
+                                    const icon = isOwned ? '✅' : '⬜';
+                                    const color = isOwned ? '#4ade80' : 'rgba(255,255,255,0.4)';
+                                    const nameColor = isOwned ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)';
+                                    buildHtml += `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 11px;">
+                                            <span style="color: ${nameColor};">${b.building_name}${b.owned_count > 1 ? ' x' + b.owned_count : ''}</span>
+                                            <span style="color: ${color};">${icon}</span>
+                                        </div>
+                                    `;
+                                });
+                            });
+                            
+                            // Summary
+                            const owned = buildData.owned_buildings ? buildData.owned_buildings.length : 0;
+                            const total = buildData.buildings.length;
+                            buildHtml += `
+                                <div style="margin-top: 10px; padding: 6px; background: rgba(255,255,255,0.05); border-radius: 6px; text-align: center; font-size: 10px; color: rgba(255,255,255,0.6);">
+                                    ${owned} / ${total} buildings
+                                </div>
+                            `;
+                        }
+                        
+                        progressContent.innerHTML = buildHtml;
+                    } catch (buildErr) {
+                        progressContent.innerHTML = `
+                            <div style="padding: 15px; background: rgba(74,222,128,0.2); border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; margin-bottom: 8px;">🏆</div>
+                                <div style="font-size: 12px; color: #4ade80;">Heroic Age - Maximum Level!</div>
+                            </div>
+                        `;
+                    }
                     return;
                 }
                 
