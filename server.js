@@ -16545,7 +16545,7 @@ Your job: grade the student's response on a 1-3 star scale and give brief, speci
 RUBRIC:
 ★★★ (3 stars = full points): Student names specific evidence from the story, states a clear claim/position, and explains their reasoning with connective language (because, therefore, this shows). Response meets minimum word count.
 ★★ (2 stars = 70% points): Student has some evidence OR some reasoning but is missing one key element. Tell them exactly what is missing.
-★☆ (1 star = 40% points): Response is too vague, too short, or lacks evidence and reasoning. Tell them specifically what to add.
+★☆ (1 star = 30% points): Response is too vague, too short, or lacks evidence and reasoning. Tell them specifically what to add.
 
 IMPORTANT RULES:
 - Address the student by their first name
@@ -16579,7 +16579,7 @@ ${answer}`
             const cleaned = text.replace(/```json|```/g, '').trim();
             const parsed = JSON.parse(cleaned);
             const stars = Math.max(1, Math.min(3, parsed.stars || 1));
-            const ptsMap = { 3: max_pts, 2: Math.round(max_pts * 0.7), 1: Math.round(max_pts * 0.4) };
+            const ptsMap = { 3: max_pts, 2: Math.round(max_pts * 0.7), 1: Math.round(max_pts * 0.3) };
             return res.json({
               success: true,
               stars,
@@ -16596,7 +16596,7 @@ ${answer}`
     }
 
     // ── Local regex fallback (no API key or API failed) ──────────
-    const storyWords = /theseus|aegeus|medea|minotaur|labyrinth|ariadne|daedalus|minos|crete|athens|sword|sandals|rock|poison|sails|thread|tribute|hercules|heracles|jason|iolaus|atlas|fleece|hydra|pelias/i;
+    const storyWords = /theseus|aegeus|medea|minotaur|labyrinth|ariadne|daedalus|minos|crete|athens|sword|sandals|rock|poison|sails|thread|tribute|hercules|heracles|jason|iolaus|atlas|fleece|hydra|pelias|perseus|medusa|gorgon|acrisius|danae|polydectes|pegasus|graeae|nymphs|shield|reflection|oracle|prophecy|discus|chest|sea|invisible|helmet/i;
     const claimWords = /because|therefore|this shows|i think|i believe|clearly|however|which means|this proves|the reason|reveals|tells us|suggests|demonstrates/i;
     const reasonWords = /because|therefore|which means|this means|this shows|as a result|this suggests|this proves|this tells us|we can see|even though|although|not only|but also/i;
 
@@ -16613,7 +16613,7 @@ ${answer}`
     if (hasClaim) score += 2;
     if (hasReasoning) score += 2;
 
-    const pts = Math.min(max_pts, Math.max(Math.round(max_pts * 0.4), Math.round(score * max_pts / 10)));
+    const pts = Math.min(max_pts, Math.max(Math.round(max_pts * 0.3), Math.round(score * max_pts / 10)));
     const stars = pts >= max_pts * 0.9 ? 3 : pts >= max_pts * 0.6 ? 2 : 1;
 
     const missing = [];

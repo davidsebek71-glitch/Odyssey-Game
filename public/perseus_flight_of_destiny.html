@@ -1745,7 +1745,11 @@ function drawStaticScene(stopIdx){
     }
   }
 
-  drawHero(ctx, W * 0.45, H * 0.88, W, 0);
+  // Pick the right sprite for this stop's static scene
+  const stopSpriteKey = STOP_SPRITE_MAP[stopIdx] || 'walk';
+  const isStopAirborne = (stopSpriteKey === 'flying' || stopSpriteKey === 'pegasus' || stopSpriteKey === 'chest');
+  const staticY = isStopAirborne ? H * 0.75 : H * 0.88;
+  drawHero(ctx, W * 0.45, staticY, W, 0, stopSpriteKey);
 
   const caption = document.getElementById('transition-caption');
   if(caption){
@@ -1768,13 +1772,25 @@ const HERO_FRAMES = 4;
 // Which sprite to use for each transition (index = fromIdx, 0-based)
 // Transition 0 = stop0→stop1, transition 1 = stop1→stop2, etc.
 const TRANSITION_SPRITE_MAP = [
-  'chest',   // 0: oracle → ocean (baby in chest)
-  'walk',    // 1: ocean → island (walking to festival)
-  'flying',  // 2: island → sky (first flight on sandals)
-  'walk',    // 3: sky → cave (walking into Graeae cave)
-  'walk',    // 4: cave → meadow (walking to nymphs)
-  'flying',  // 5: meadow → gorgon (flying to island)
-  'pegasus'  // 6: gorgon → home (riding Pegasus)
+  'chest',   // 0: oracle → ocean (baby in chest on waves)
+  'walk',    // 1: ocean → island (walking to Polydectes' festival)
+  'flying',  // 2: island → sky (first flight on winged sandals)
+  'flying',  // 3: sky → cave (flying to the Graeae)
+  'flying',  // 4: cave → meadow (flying to nymphs of the north)
+  'flying',  // 5: meadow → gorgon (flying to Gorgon island)
+  'pegasus'  // 6: gorgon → home (riding Pegasus after the kill)
+];
+
+// Which sprite to use for the STATIC scene at each stop (when not transitioning)
+const STOP_SPRITE_MAP = [
+  'chest',   // 0: The Oracle's Shadow (baby cast to sea)
+  'walk',    // 1: The Impossible Promise (on island with Polydectes)
+  'walk',    // 2: Gifts of the Gods (meeting Athena and Hermes)
+  'flying',  // 3: The Cave of the Graeae (arrived by flight)
+  'flying',  // 4: The Nymphs of the North (arrived by flight)
+  'flying',  // 5: The Gorgon's Island (arrived by flight)
+  'pegasus', // 6: The King Turned to Stone (returned on Pegasus)
+  'walk'     // 7: The Oracle Fulfilled (at athletic competition)
 ];
 
 // Loaded images and processed frame caches per sprite type
@@ -1842,11 +1858,14 @@ function processSprite(spriteKey){
     const tctx = tmp.getContext('2d');
     tctx.drawImage(src, i * fw, 0, fw, fh, 0, 0, fw, fh);
 
-    // Strip magenta: R>150 && B>150 && G<80 → transparent
+    // Strip magenta background — aggressive filter for DALL-E anti-aliased edges
+    // Catches pure magenta AND the blended fringe pixels
     const idata = tctx.getImageData(0, 0, fw, fh);
     const d = idata.data;
     for(let p = 0; p < d.length; p += 4){
-      if(d[p] > 150 && d[p+2] > 150 && d[p+1] < 80){
+      const r = d[p], g = d[p+1], b = d[p+2];
+      // Pure magenta: high R, high B, low G
+      if(r > 100 && b > 100 && g < 130 && (r - g) > 30 && (b - g) > 30){
         d[p+3] = 0;
       }
     }
@@ -2371,7 +2390,7 @@ function submitWrite(stopIdx, qIdx){
 function fallbackGrade(text, inter){
   const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
   const longEnough = words >= inter.minWords;
-  const pts = longEnough ? Math.round(inter.pts * 0.7) : Math.round(inter.pts * 0.4);
+  const pts = longEnough ? Math.round(inter.pts * 0.7) : Math.round(inter.pts * 0.3);
   const stars = longEnough ? 2 : 1;
   return {
     text: longEnough
