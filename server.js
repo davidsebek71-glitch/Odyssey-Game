@@ -169,6 +169,68 @@ initDatabase().then(() => {
     console.error('V97 backfill error (non-fatal):', backfillErr.message);
   }
 
+  // ── V98 backfill: Fix missing quiz grades caused by portal-to-assignment naming mismatch ──
+  // myth_portals uses names like 'Icarus & Daedalus' but assignments_ref uses 'Icarus'
+  // Students who passed quizzes via /api/student/submit-quiz never got grade_records entries
+  try {
+    const portalToAssignmentName = {
+      'Icarus & Daedalus': 'Icarus',
+      'Icarus and Daedalus': 'Icarus',
+      'Echo & Narcissus': 'Echo and Narcissus',
+      'Orpheus & Eurydice': 'Orpheus',
+      'Eros & Psyche': 'Eros and Psyche',
+      'Eros and Psyche': 'Eros and Psyche'
+    };
+
+    // Get all portals
+    const portals = query('SELECT portal_id, myth_name FROM myth_portals');
+    let backfilledGrades = 0;
+
+    portals.forEach(portal => {
+      const assignmentMythGod = portalToAssignmentName[portal.myth_name] || portal.myth_name;
+      
+      // Find the quiz assignment for this portal
+      const quizAssignment = query(
+        "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?",
+        [assignmentMythGod]
+      )[0];
+      if (!quizAssignment) return;
+
+      // Find students who passed this quiz (best attempt) but have no grade_records entry
+      const passedStudents = query(
+        `SELECT mqa.student_id, MAX(mqa.score) as best_score, MAX(mqa.total_questions) as total_q
+         FROM myth_quiz_attempts mqa
+         WHERE mqa.portal_id = ? AND mqa.passed = 1
+         AND NOT EXISTS (
+           SELECT 1 FROM grade_records gr 
+           WHERE gr.student_id = mqa.student_id AND gr.assignment_id = ?
+         )
+         GROUP BY mqa.student_id`,
+        [portal.portal_id, quizAssignment.assignment_id]
+      );
+
+      passedStudents.forEach(s => {
+        const pointsEarned = Math.round((s.best_score / s.total_q) * quizAssignment.max_points);
+        run(
+          `INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
+           VALUES (?, ?, ?, ?)`,
+          [s.student_id, quizAssignment.assignment_id, pointsEarned, quizAssignment.max_points]
+        );
+        backfilledGrades++;
+        console.log(`📝 V98 backfill: grade recorded for student ${s.student_id} - portal ${portal.myth_name} → ${assignmentMythGod} (${pointsEarned}/${quizAssignment.max_points})`);
+      });
+    });
+
+    if (backfilledGrades > 0) {
+      saveDatabase();
+      console.log(`📝 V98 backfill: recorded ${backfilledGrades} missing quiz grades`);
+    } else {
+      console.log('✅ V98 backfill: no missing quiz grades found');
+    }
+  } catch (backfillErr) {
+    console.error('V98 backfill error (non-fatal):', backfillErr.message);
+  }
+
 }).catch(err => {
   console.error('❌ Database initialization failed:', err);
   process.exit(1);
@@ -3782,16 +3844,18 @@ app.get('/api/alliance/buildings/:alliance_id', authenticateToken, (req, res) =>
     const ownedBuildings = JSON.parse(alliance.buildings_owned || '[]');
     const currentAge = alliance.current_age || 'Archaic';
     
-    // Get buildings available for current age (Archaic shows Archaic, Classical shows both)
+    // Get buildings available for current age (Archaic shows Archaic, Classical shows both, Heroic shows all)
     const allBuildings = query(`
       SELECT 
         b.*,
         pb.building_name as prerequisite_name
       FROM buildings_ref b
       LEFT JOIN buildings_ref pb ON b.prerequisite_building_id = pb.building_id
-      WHERE b.age_available = ? OR (? = 'Classical' AND b.age_available = 'Archaic')
+      WHERE b.age_available = ? 
+        OR (? = 'Classical' AND b.age_available = 'Archaic')
+        OR (? = 'Heroic' AND b.age_available IN ('Archaic', 'Classical'))
       ORDER BY b.age_available, b.building_id
-    `, [currentAge, currentAge]);
+    `, [currentAge, currentAge, currentAge]);
     
     // Get completed god assignments for this alliance - check BOTH god_assignments table AND grade_records for bonus assignments
     const godAssignmentsFromTable = query(
@@ -3992,7 +4056,10 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
     
     // Check if building is available for alliance's current age
     const currentAge = alliance.current_age || 'Archaic';
-    if (building.age_available !== currentAge && !(currentAge === 'Classical' && building.age_available === 'Archaic')) {
+    const ageAllowed = building.age_available === currentAge 
+      || (currentAge === 'Classical' && building.age_available === 'Archaic')
+      || (currentAge === 'Heroic' && (building.age_available === 'Archaic' || building.age_available === 'Classical'));
+    if (!ageAllowed) {
       return res.status(400).json({ error: `This building requires ${building.age_available} Age` });
     }
     
@@ -4146,10 +4213,13 @@ app.post('/api/alliance/sell-building', authenticateToken, (req, res) => {
     const building = query('SELECT * FROM buildings_ref WHERE building_name = ?', [building_name])[0];
     if (!building) return res.status(404).json({ error: 'Building not found in reference data' });
 
-    // Can only sell current-age buildings (no selling Archaic buildings after advancing to Classical)
-    if (building.age_available !== currentAge) {
+    // Can only sell buildings from current age or earlier (not future ages)
+    const ageOrder = ['Archaic', 'Classical', 'Heroic'];
+    const currentAgeIdx = ageOrder.indexOf(currentAge);
+    const buildingAgeIdx = ageOrder.indexOf(building.age_available);
+    if (buildingAgeIdx > currentAgeIdx) {
       return res.status(400).json({ 
-        error: `You can only sell ${currentAge} Age buildings. ${building_name} is an ${building.age_available} Age building.`
+        error: `You can only sell buildings from your current age or earlier. ${building_name} is a ${building.age_available} Age building.`
       });
     }
 
@@ -4753,12 +4823,15 @@ app.get('/api/student/available-buildings', authenticateToken, (req, res) => {
     
     const buildingsOwned = JSON.parse(alliance.buildings_owned || '[]');
     
-    // Get all available buildings for current age
+    // Get all available buildings for current age (higher ages see all lower-age buildings too)
+    const currentAge = alliance.current_age || 'Archaic';
     const buildings = query(`
       SELECT * FROM buildings_ref 
       WHERE age_available = ?
-      ORDER BY cost_points ASC
-    `, [alliance.current_age]);
+        OR (? = 'Classical' AND age_available = 'Archaic')
+        OR (? = 'Heroic' AND age_available IN ('Archaic', 'Classical'))
+      ORDER BY age_available, cost_points ASC
+    `, [currentAge, currentAge, currentAge]);
     
     // For Gate of Erebus: check if all alliance members have completed Orpheus
     let orpheusUnlocked = false;
@@ -10084,9 +10157,19 @@ app.post('/api/student/submit-quiz', authenticateToken, (req, res) => {
       try {
         const portal = query('SELECT myth_name FROM myth_portals WHERE portal_id = ?', [portal_id])[0];
         if (portal) {
+          // Map portal myth_name to assignments_ref myth_god (naming mismatch fix)
+          const portalToAssignmentName = {
+            'Icarus & Daedalus': 'Icarus',
+            'Icarus and Daedalus': 'Icarus',
+            'Echo & Narcissus': 'Echo and Narcissus',
+            'Orpheus & Eurydice': 'Orpheus',
+            'Eros & Psyche': 'Eros and Psyche',
+            'Eros and Psyche': 'Eros and Psyche'
+          };
+          const assignmentMythGod = portalToAssignmentName[portal.myth_name] || portal.myth_name;
           const quizAssignment = query(
             "SELECT assignment_id, max_points FROM assignments_ref WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god = ?",
-            [portal.myth_name]
+            [assignmentMythGod]
           )[0];
           
           if (quizAssignment) {

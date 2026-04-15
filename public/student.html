@@ -5506,7 +5506,7 @@
                                 Buy Another (${building.owned_count}/${building.max_per_alliance})
                             </button>` : ''}
                         
-                        ${isOwned && building.age_available === (buildingData.current_age || 'Archaic') && building.building_name !== 'Transport Ship' ? 
+                        ${isOwned && (['Archaic','Classical','Heroic'].indexOf(building.age_available) <= ['Archaic','Classical','Heroic'].indexOf(buildingData.current_age || 'Archaic')) && building.building_name !== 'Transport Ship' ? 
                             `<button onclick="event.stopPropagation(); sellBuilding('${building.building_name.replace(/'/g, "\\'")}', ${Math.floor(building.base_cost * 0.9)})" 
                                 style="width: 100%; margin-top: 8px; padding: 7px; border: 1px solid rgba(239,68,68,0.5); background: rgba(239,68,68,0.15); color: #f87171; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600;">
                                 🏦 Sell Back (+${Math.floor(building.base_cost * 0.9)} pts)
