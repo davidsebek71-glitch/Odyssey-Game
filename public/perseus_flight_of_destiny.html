@@ -1,0 +1,2750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Flight of Destiny — Perseus & Medusa</title>
+<style>
+/* ── PIXEL FONT & BASE ─────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+  --bg:        #0a0a1a;
+  --bg2:       #12122a;
+  --panel:     #1a1a2e;
+  --border:    #4a4a8a;
+  --border2:   #6a6aaa;
+  --gold:      #f0c040;
+  --gold2:     #c89820;
+  --gold3:     #805010;
+  --text:      #e8e0c8;
+  --text2:     #a090a0;
+  --blue:      #4080d0;
+  --blue2:     #2050a0;
+  --teal:      #40c0a0;
+  --red:       #d04040;
+  --red2:      #802020;
+  --green:     #40b050;
+  --green2:    #206830;
+  --amber:     #d08030;
+  --locked:    #303050;
+  --locked-t:  #505080;
+  --hero-blue: #7040a0;
+  --hero-blue2:#3a1868;
+  --thread-gold:#e0b830;
+  --pixel: 'Press Start 2P', monospace;
+  --serif: 'Crimson Pro', Georgia, serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; image-rendering: pixelated; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══════════════════════════════════════════════
+   SPLASH
+══════════════════════════════════════════════ */
+#splash {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #000;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 2rem;
+  background-image: radial-gradient(ellipse at 50% 40%, #101838 0%, #000 70%);
+}
+.pixel-title {
+  font-family: var(--pixel);
+  font-size: clamp(10px, 2.5vw, 18px);
+  color: var(--gold);
+  text-align: center;
+  line-height: 2;
+  margin-bottom: 0.5rem;
+  text-shadow: 3px 3px 0 var(--gold3), -1px -1px 0 #000;
+  animation: titlePulse 2s ease-in-out infinite;
+}
+@keyframes titlePulse { 0%,100%{opacity:1} 50%{opacity:0.85} }
+.pixel-sub {
+  font-family: var(--pixel);
+  font-size: clamp(7px, 1.5vw, 10px);
+  color: var(--hero-blue);
+  text-align: center;
+  margin-bottom: 2rem;
+  letter-spacing: 0.05em;
+}
+.athena-intro {
+  font-family: var(--serif);
+  font-style: italic;
+  color: #a0b8e0;
+  text-align: center;
+  font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+  max-width: 480px;
+  line-height: 1.75;
+  margin-bottom: 2rem;
+  border-left: 3px solid #4060a0;
+  padding-left: 1rem;
+}
+.form-grid {
+  display: flex; flex-direction: column; gap: 0.9rem;
+  width: 100%; max-width: 380px; margin-bottom: 1.5rem;
+}
+.field label {
+  display: block;
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--gold);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+.field input, .field select {
+  width: 100%;
+  background: #080818;
+  border: 2px solid var(--border);
+  padding: 0.6rem 0.8rem;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus, .field select:focus { border-color: var(--gold); }
+.field select option { background: #080818; }
+.pixel-btn {
+  font-family: var(--pixel);
+  font-size: clamp(8px, 1.5vw, 11px);
+  background: var(--gold2);
+  color: #000;
+  border: 3px solid var(--gold);
+  padding: 0.7rem 2rem;
+  cursor: pointer;
+  transition: all 0.1s;
+  letter-spacing: 0.05em;
+  box-shadow: 3px 3px 0 var(--gold3);
+}
+.pixel-btn:hover { background: var(--gold); transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--gold3); }
+.pixel-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--gold3); }
+.pixel-btn:disabled { background: #303050; border-color: #505080; color: #505080; box-shadow: none; cursor: not-allowed; transform: none; }
+
+/* ══════════════════════════════════════════════
+   TOPBAR
+══════════════════════════════════════════════ */
+#topbar {
+  height: 44px;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 1rem; gap: 1rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 8500;
+}
+.tb-brand {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  text-shadow: 2px 2px 0 var(--gold3);
+  flex-shrink: 0;
+}
+.tb-spacer { flex: 1; }
+.tb-student {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--teal);
+  white-space: nowrap;
+}
+.tb-rank-badge {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: var(--bg);
+  border: 2px solid var(--gold2);
+  padding: 4px 8px;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.tb-pts {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: #e0c080;
+  white-space: nowrap;
+}
+.tb-teacher-btn {
+  font-family: var(--pixel);
+  font-size: 6px;
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text2);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tb-teacher-btn:hover { border-color: var(--gold2); color: var(--gold); }
+
+/* ══════════════════════════════════════════════
+   MAIN LAYOUT: CANVAS + PANEL (side-by-side)
+══════════════════════════════════════════════ */
+#app { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+#main-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── CANVAS SIDE ─────────────────────── */
+#map-side {
+  flex: 0 0 auto;
+  width: min(50%, 480px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border-right: 2px solid var(--border);
+}
+
+/* Story text panel (replaces YouTube) */
+#story-section {
+  flex-shrink: 0;
+  max-height: 35%;
+  overflow-y: auto;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  padding: 0;
+  display: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+#story-section::-webkit-scrollbar { width: 6px; }
+#story-section::-webkit-scrollbar-thumb { background: var(--border); }
+#story-text {
+  padding: 1rem 1.2rem;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  color: var(--text2);
+  line-height: 1.85;
+}
+.story-controls {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  flex-shrink: 0;
+}
+.sc-btn {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  color: var(--text2);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sc-btn:hover { border-color: var(--gold2); color: var(--gold); }
+.sc-btn.active { border-color: var(--hero-blue); color: var(--hero-blue); background: rgba(48,96,160,0.1); }
+.sc-status {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--text2);
+  flex: 1;
+  text-align: right;
+}
+
+/* Transition canvas area */
+#transition-area {
+  flex: 1;
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+  min-height: 120px;
+}
+#transition-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+#transition-caption {
+  position: absolute;
+  top: 0.8rem; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--pixel);
+  font-size: clamp(6px, 1.2vw, 9px);
+  color: var(--gold);
+  text-shadow: 2px 2px 0 var(--gold3);
+  line-height: 2;
+  pointer-events: none;
+  padding: 0 0.5rem;
+}
+
+/* Progress dots (below canvas) */
+#map-progress {
+  display: flex; align-items: center;
+  padding: 6px 8px; gap: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg2);
+  border-top: 2px solid var(--border);
+  flex-shrink: 0;
+}
+#map-progress::-webkit-scrollbar { display: none; }
+.pdot {
+  width: 24px; height: 24px;
+  border: 2px solid var(--locked);
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--pixel); font-size: 6px;
+  color: var(--locked-t);
+  flex-shrink: 0; cursor: default;
+  transition: all 0.3s;
+  border-radius: 2px;
+}
+.pdot.unlocked { border-color: var(--border2); color: var(--text2); cursor: pointer; }
+.pdot.active   { border-color: var(--gold); background: var(--gold3); color: var(--gold); cursor: pointer; }
+.pdot.done     { border-color: var(--green2); background: rgba(64,176,80,0.15); color: var(--green); cursor: pointer; }
+.pline { width: 8px; height: 2px; background: var(--locked); flex-shrink: 0; transition: background 0.3s; }
+.pline.active { background: var(--gold2); }
+
+/* ── PANEL SIDE ────────────────────────────── */
+#panel-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+/* Panel header */
+#panel-header {
+  background: var(--bg2);
+  border-bottom: 2px solid var(--border);
+  padding: 0.8rem 1rem;
+  flex-shrink: 0;
+}
+#panel-header .stop-num-badge {
+  font-family: var(--pixel);
+  font-size: 9px;
+  display: inline-block;
+  padding: 5px 10px;
+  background: var(--hero-blue);
+  color: #fff;
+  border: 2px solid #6090d0;
+  margin-bottom: 8px;
+}
+#panel-header h2 {
+  font-family: var(--pixel);
+  font-size: clamp(9px, 1.8vw, 12px);
+  color: var(--gold);
+  margin-bottom: 6px;
+  line-height: 1.8;
+  text-shadow: 2px 2px 0 var(--gold3);
+}
+#panel-header .stop-time {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--text2);
+}
+
+/* Panel scrollable body */
+#panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+#panel-body::-webkit-scrollbar { width: 6px; }
+#panel-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Welcome state */
+#welcome-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 2rem;
+  gap: 1rem;
+}
+#welcome-panel .hero-anim {
+  font-size: 2rem;
+  animation: bob 2s ease-in-out infinite;
+}
+@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+#welcome-panel h3 {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: var(--gold);
+  line-height: 1.8;
+}
+#welcome-panel p {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--text2);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  max-width: 300px;
+}
+
+/* ── PANEL CONTENT SECTIONS ─────────────────── */
+.section-label {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--text2);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.brief-box {
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.2rem;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+/* Read passage button */
+.read-passage-btn {
+  font-family: var(--pixel);
+  font-size: 8px;
+  background: var(--hero-blue2);
+  color: #a0c0e0;
+  border: 2px solid var(--hero-blue);
+  padding: 6px 14px;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: all 0.15s;
+  display: inline-block;
+}
+.read-passage-btn:hover { background: var(--hero-blue); color: #fff; }
+
+/* Interaction boxes */
+.interaction-box {
+  background: var(--bg);
+  border: 2px solid var(--border2);
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+}
+.prompt-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: #d0c8b0;
+  margin-bottom: 1rem;
+}
+
+/* MC options */
+.mc-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.8rem; }
+.mc-opt {
+  display: flex; align-items: flex-start; gap: 0.7rem;
+  padding: 0.8rem 1rem;
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.02rem;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.65;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+.mc-opt:hover:not(:disabled) { border-color: var(--gold2); background: #1e1e38; }
+.mc-opt .mc-letter {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: var(--gold2);
+  flex-shrink: 0;
+  margin-top: 4px;
+  min-width: 16px;
+}
+.mc-opt.correct  { border-color: var(--green); background: rgba(64,176,80,0.12); }
+.mc-opt.correct .mc-letter { color: var(--green); }
+.mc-opt.wrong    { border-color: var(--red);   background: rgba(208,64,64,0.10); }
+.mc-opt.wrong .mc-letter { color: var(--red); }
+.mc-opt:disabled { cursor: default; }
+.mc-reveal {
+  display: none;
+  background: rgba(64,176,80,0.07);
+  border-left: 3px solid var(--green2);
+  padding: 0.8rem 1rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1rem;
+  color: #90d090;
+  line-height: 1.75;
+  margin-top: 0.5rem;
+}
+.mc-wrong-reveal {
+  display: none;
+  background: rgba(208,64,64,0.07);
+  border-left: 3px solid var(--red2);
+  padding: 0.8rem 1rem;
+  font-family: var(--serif);
+  font-size: 1rem;
+  color: #ffa0a0;
+  line-height: 1.75;
+  margin-top: 0.5rem;
+}
+.mc-why {
+  display: none;
+  background: rgba(64,128,208,0.08);
+  border-left: 3px solid var(--blue2);
+  padding: 0.8rem 1rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: #90b8e8;
+  line-height: 1.75;
+  margin-top: 0.4rem;
+}
+
+/* Written response */
+.response-area {
+  width: 100%;
+  min-height: 120px;
+  background: #06060f;
+  border: 2px solid var(--border);
+  padding: 0.8rem 1rem;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.response-area:focus { border-color: var(--gold2); }
+.response-area:disabled { background: #0c0c20; color: var(--text2); cursor: not-allowed; }
+.wc-bar {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--text2);
+  text-align: right;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+.wc-bar.good { color: var(--teal); }
+
+/* Submit row */
+.act-row {
+  display: flex; justify-content: flex-end; gap: 0.6rem;
+  align-items: center; flex-wrap: wrap;
+}
+.act-hint {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--text2);
+  flex: 1;
+  line-height: 1.8;
+}
+.pixel-btn-sm {
+  font-family: var(--pixel);
+  font-size: 9px;
+  background: var(--gold2);
+  color: #000;
+  border: 2px solid var(--gold);
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--gold3);
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.pixel-btn-sm:hover { background: var(--gold); transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--gold3); }
+.pixel-btn-sm:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--gold3); }
+.pixel-btn-sm:disabled { background: #303050; border-color: #505080; color: #505080; box-shadow: none; cursor: not-allowed; transform: none; }
+.pixel-btn-outline {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: transparent;
+  color: var(--gold2);
+  border: 2px solid var(--gold2);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.pixel-btn-outline:hover { background: rgba(240,192,64,0.1); color: var(--gold); border-color: var(--gold); }
+.pixel-btn-outline:disabled { color: #404060; border-color: #404060; cursor: not-allowed; }
+
+/* ── ATHENA FEEDBACK ────────────────────────── */
+.athena-panel {
+  display: none;
+  background: rgba(20,30,80,0.4);
+  border: 2px solid var(--blue);
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+.athena-panel.show { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.athena-hdr {
+  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem;
+}
+.athena-icon {
+  width: 32px; height: 32px;
+  background: var(--blue2);
+  border: 2px solid var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; flex-shrink: 0;
+}
+.athena-lbl {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--blue);
+  flex: 1;
+}
+.star-row { display: flex; gap: 3px; }
+.star-row span { font-size: 16px; color: #404060; transition: color 0.3s; }
+.star-row span.lit { color: var(--gold); text-shadow: 0 0 6px var(--gold2); }
+.athena-msg {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.02rem;
+  line-height: 1.8;
+  color: #a0c0e8;
+  border-left: 3px solid var(--blue2);
+  padding-left: 0.8rem;
+  min-height: 40px;
+}
+.thinking-dots span {
+  display: inline-block; width: 5px; height: 5px;
+  background: var(--blue); border-radius: 50%;
+  margin: 0 2px;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2){animation-delay:0.2s}
+.thinking-dots span:nth-child(3){animation-delay:0.4s}
+@keyframes dotBounce{0%,80%,100%{transform:scale(0.5);opacity:0.4}40%{transform:scale(1);opacity:1}}
+.revise-bar {
+  display: flex; justify-content: flex-end; gap: 0.5rem;
+  margin-top: 0.6rem; align-items: center; flex-wrap: wrap;
+}
+.revise-hint {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--text2);
+  flex: 1;
+  line-height: 1.9;
+}
+
+/* Complete bar (bottom of panel) */
+.complete-bar {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  background: var(--bg2);
+  border-top: 2px solid var(--border);
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+.complete-bar.show { display: flex; }
+.pts-earned {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: var(--gold);
+}
+
+/* Locked state in panel */
+.locked-msg {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; text-align: center;
+  gap: 0.8rem; padding: 2rem;
+}
+.locked-msg .lock-icon {
+  font-family: var(--pixel);
+  font-size: 24px;
+  color: var(--locked-t);
+  animation: lockPulse 2s ease-in-out infinite;
+}
+@keyframes lockPulse{0%,100%{opacity:0.5}50%{opacity:1}}
+.locked-msg p {
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: var(--locked-t);
+  line-height: 2;
+}
+
+/* ══════════════════════════════════════════════
+   TEACHER MODAL
+══════════════════════════════════════════════ */
+#teacher-modal {
+  display: none;
+  position: fixed; inset: 0; z-index: 8888;
+  background: rgba(0,0,0,0.85);
+  align-items: center; justify-content: center;
+}
+#teacher-modal.show { display: flex; }
+.teacher-box {
+  background: var(--bg2);
+  border: 3px solid var(--gold2);
+  padding: 1.5rem;
+  width: min(400px, 90vw);
+  box-shadow: 6px 6px 0 var(--gold3);
+}
+.teacher-box h3 {
+  font-family: var(--pixel);
+  font-size: 10px;
+  color: var(--gold);
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 0 var(--gold3);
+  text-align: center;
+}
+.teacher-box .pw-row {
+  display: flex; gap: 0.5rem; margin-bottom: 1rem;
+}
+.teacher-box input[type=password] {
+  flex: 1;
+  background: #06060f;
+  border: 2px solid var(--border);
+  padding: 0.5rem 0.7rem;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1rem;
+  outline: none;
+}
+.teacher-box input[type=password]:focus { border-color: var(--gold2); }
+#teacher-controls { display: none; }
+#teacher-controls h4 {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--teal);
+  margin-bottom: 0.8rem;
+  margin-top: 0.5rem;
+}
+.unlock-grid {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-bottom: 1rem;
+}
+.unlock-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.unlock-row .stop-name {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--text2);
+}
+.unlock-row .stop-name.done { color: var(--teal); }
+.unlock-row button {
+  font-family: var(--pixel);
+  font-size: 5px;
+  background: var(--blue2);
+  color: var(--text);
+  border: 1px solid var(--blue);
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.unlock-row button:hover { background: var(--blue); }
+.unlock-row button.done-btn { background: var(--green2); border-color: var(--green); cursor: default; color: #a0ffa0; }
+.close-teacher {
+  font-family: var(--pixel);
+  font-size: 7px;
+  background: transparent;
+  border: 2px solid var(--border2);
+  color: var(--text2);
+  padding: 5px 12px;
+  cursor: pointer;
+  float: right;
+}
+.close-teacher:hover { border-color: var(--gold2); color: var(--gold); }
+#pw-error {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--red);
+  display: none;
+  margin-bottom: 0.5rem;
+}
+
+/* ══════════════════════════════════════════════
+   RESULTS
+══════════════════════════════════════════════ */
+#results-modal {
+  display: none;
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.92);
+  align-items: center; justify-content: center;
+  overflow-y: auto;
+  padding: 1rem;
+}
+#results-modal.show { display: flex; }
+.results-box {
+  background: var(--bg2);
+  border: 3px solid var(--gold);
+  box-shadow: 6px 6px 0 var(--gold3);
+  width: min(500px, 95vw);
+  overflow: hidden;
+}
+.results-top {
+  background: #06060f;
+  border-bottom: 3px solid var(--gold2);
+  padding: 1.5rem;
+  text-align: center;
+}
+.results-top .r-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.results-top .r-rank {
+  font-family: var(--pixel);
+  font-size: clamp(10px, 2vw, 14px);
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--gold3);
+  margin-bottom: 0.4rem;
+  line-height: 1.8;
+}
+.results-top .r-name {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: var(--teal);
+  line-height: 1.8;
+}
+.results-body { padding: 1.2rem; }
+.r-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  color: #a0c0e8;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  border-left: 3px solid var(--blue2);
+  padding-left: 0.8rem;
+  margin-bottom: 1rem;
+}
+.score-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; margin-bottom: 1rem;
+}
+.score-cell {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  padding: 0.5rem 0.7rem;
+}
+.score-cell .sc-lbl {
+  font-family: var(--pixel);
+  font-size: 5px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.score-cell .sc-val {
+  font-family: var(--pixel);
+  font-size: 10px;
+  color: var(--gold);
+}
+.code-block {
+  background: var(--bg);
+  border: 2px solid var(--gold2);
+  padding: 1rem;
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+.code-lbl {
+  font-family: var(--pixel);
+  font-size: 6px;
+  color: var(--text2);
+  margin-bottom: 8px;
+  line-height: 2;
+}
+.crew-code {
+  font-family: var(--pixel);
+  font-size: clamp(14px, 3vw, 20px);
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--gold3);
+  letter-spacing: 0.15em;
+}
+.code-sub {
+  font-family: var(--pixel);
+  font-size: 5px;
+  color: var(--text2);
+  margin-top: 6px;
+  line-height: 1.9;
+}
+
+/* ══════════════════════════════════════════════
+   PRINT
+══════════════════════════════════════════════ */
+@media print {
+  body { background: #fff !important; color: #000 !important; font-family: Georgia, serif; }
+  #splash, #app, #teacher-modal, #results-modal { display: none !important; }
+  #print-output { display: block !important; }
+}
+#print-output { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SPLASH
+══════════════════════════════════════════ -->
+<div id="splash">
+  <div class="pixel-title">🪽 THE FLIGHT OF DESTINY 🪽</div>
+  <div class="pixel-sub">PERSEUS & MEDUSA</div>
+  <p class="athena-intro">"A boy cast into the sea as an infant. A monster no mortal can face. A promise no wise man would make. Watch how fate and courage collide — and remember, Athena rewards those who look carefully."</p>
+  <div class="form-grid">
+    <div class="field">
+      <label>CLASS PERIOD</label>
+      <select id="inp-period" onchange="onPeriodSelect()">
+        <option value="">— Select Period —</option>
+        <option value="1st">Period 1</option>
+        <option value="2nd">Period 2</option>
+        <option value="3rd">Period 3</option>
+        <option value="4th">Period 4</option>
+        <option value="Test">Test</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>YOUR ALLIANCE</label>
+      <select id="inp-alliance" disabled onchange="onAllianceSelect()">
+        <option value="">— Select period first —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>YOUR NAME</label>
+      <select id="inp-name" disabled>
+        <option value="">— Select alliance first —</option>
+      </select>
+    </div>
+  </div>
+  <button class="pixel-btn" id="btn-begin" onclick="beginJourney()" disabled>▶ BEGIN THE JOURNEY</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     APP
+══════════════════════════════════════════ -->
+<div id="app">
+  <!-- Topbar -->
+  <div id="topbar">
+    <div class="tb-brand">🪽 PERSEUS</div>
+    <div class="tb-spacer"></div>
+    <div class="tb-student" id="tb-student"></div>
+    <div class="tb-rank-badge" id="tb-rank">CASTAWAY</div>
+    <div class="tb-pts" id="tb-pts">0 PTS</div>
+    <button class="tb-teacher-btn" onclick="openTeacher()">🏛 TEACHER</button>
+  </div>
+
+  <!-- Main layout: side by side -->
+  <div id="main-layout">
+
+    <!-- LEFT: Story Text + Canvas + Progress dots -->
+    <div id="map-side">
+      <div class="story-controls">
+        <button class="sc-btn" id="btn-read-passage" onclick="toggleStoryPanel()">📖 READ THE PASSAGE</button>
+        <div class="sc-status" id="sc-status">STOP 1 — READY</div>
+      </div>
+      <div id="story-section">
+        <div id="story-text"></div>
+      </div>
+      <div id="transition-area">
+        <canvas id="transition-canvas"></canvas>
+        <div id="transition-caption"></div>
+      </div>
+      <div id="map-progress"></div>
+    </div>
+
+    <!-- RIGHT: Single-stop panel -->
+    <div id="panel-side">
+      <div id="panel-header" style="display:none">
+        <div class="stop-num-badge" id="ph-badge">STOP 1</div>
+        <h2 id="ph-title">—</h2>
+        <div class="stop-time" id="ph-time">—</div>
+      </div>
+      <div id="panel-body">
+        <div id="welcome-panel">
+          <div class="hero-anim">🪽</div>
+          <h3>AWAITING ORDERS</h3>
+          <p>Your teacher will unlock each stop as the film reaches that moment. Watch carefully — Athena notices those who pay attention.</p>
+        </div>
+        <div id="stop-content" style="display:none"></div>
+      </div>
+      <div class="complete-bar" id="complete-bar">
+        <div class="pts-earned" id="pts-earned-display"></div>
+        <button class="pixel-btn-sm" id="next-btn" onclick="nextStop()">NEXT STOP ▶</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Teacher Modal -->
+<div id="teacher-modal">
+  <div class="teacher-box">
+    <h3>🏛 TEACHER CONTROLS</h3>
+    <div id="pw-error">✗ WRONG PASSWORD</div>
+    <div class="pw-row">
+      <input type="password" id="pw-input" placeholder="Enter teacher password" onkeydown="if(event.key==='Enter')checkPW()">
+      <button class="pixel-btn-sm" onclick="checkPW()">ENTER</button>
+    </div>
+    <div id="teacher-controls">
+      <h4>UNLOCK STOPS</h4>
+      <div class="unlock-grid" id="unlock-grid"></div>
+    </div>
+    <button class="close-teacher" onclick="closeTeacher()">✕ CLOSE</button>
+  </div>
+</div>
+
+<!-- Results Modal -->
+<div id="results-modal">
+  <div class="results-box">
+    <div class="results-top">
+      <div class="r-icon">🏛</div>
+      <div class="r-rank" id="r-rank-title">—</div>
+      <div class="r-name" id="r-name-line">—</div>
+    </div>
+    <div class="results-body">
+      <div class="r-quote" id="r-quote">—</div>
+      <div class="score-grid" id="r-score-grid"></div>
+      <div class="code-block">
+        <div class="code-lbl">YOUR HERO CODE — ENTER THIS IN ODYSSEY TO OLYMPUS</div>
+        <div class="crew-code" id="r-code">—</div>
+        <div class="code-sub">This code carries your rank into the next chapter.</div>
+      </div>
+      <div style="text-align:center;display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap">
+        <button class="pixel-btn-sm" onclick="printLog()">🖨 PRINT MY LOG</button>
+        <button class="pixel-btn-sm" onclick="window.location.href='/student.html?view=heroic'">RETURN TO DASHBOARD</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Print output -->
+<div id="print-output"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STOPS DATA
+// ═══════════════════════════════════════════════════
+const STOPS = [
+  {
+    id:1, title:"The Oracle's Shadow", time:"Scene 1",
+    brief:"King Acrisius of Argos consulted an oracle and received a terrifying prophecy: his own grandson would one day cause his death. Desperate to prevent it, Acrisius discovered that his daughter Danae already had an infant son named Perseus — whose father was none other than Zeus himself. Unable to bring himself to kill them directly, Acrisius had Danae and baby Perseus sealed inside a wooden chest and cast out to sea. But Zeus heard Danae's prayers and guided the chest safely to an island, where a kind fisherman took them in.",
+    fallbackText:"An oracle warned King Acrisius that his grandson would be the cause of his death. When he discovered that his daughter Danae already had a son — Perseus, fathered by Zeus — Acrisius couldn't bring himself to kill them outright. Instead, he placed mother and child into a wooden chest and set them adrift on the sea. Zeus intervened, guiding the chest to a distant island where a fisherman rescued them. Danae raised Perseus into a strong and gifted young man, far from the grandfather who feared him.",
+    interactions:[
+      {
+        type:"mc",
+        q:"Why didn't King Acrisius simply kill Danae and Perseus when he found out about the baby?",
+        correctText:"He feared divine punishment for directly killing his own daughter and grandson — so he let the sea decide",
+        opts:[
+          "He feared divine punishment for directly killing his own daughter and grandson — so he let the sea decide",
+          "He believed the oracle only applied if Perseus grew up in Argos, so sending him away would break the prophecy",
+          "He loved Danae too deeply to harm her himself, so he gave her a chance to survive the open sea on her own",
+          "His royal advisors warned him that killing a child of Zeus would bring a devastating curse upon his kingdom"
+        ],
+        why:"Acrisius is trying to cheat fate without getting his hands dirty. He won't kill them himself, but he'll put them in a situation where death is almost certain — and tell himself it was the gods' decision. It's cowardice disguised as piety.",
+        pts:5
+      },
+      {
+        type:"mc",
+        q:"Who saved Danae and Perseus from the sea, and how did they survive?",
+        correctText:"Zeus heard Danae's prayers and guided the chest safely to an island, where a kind fisherman took them in",
+        opts:[
+          "Poseidon calmed the storm and carried the chest to the shores of Athens, where a wealthy king took them in",
+          "Zeus heard Danae's prayers and guided the chest safely to an island, where a kind fisherman took them in",
+          "Athena sent a great eagle to lift the chest from the waves and carry it to her own temple on Mount Olympus",
+          "The chest washed ashore on the island of Crete, where King Minos recognized Danae and gave her a palace"
+        ],
+        why:"Zeus doesn't just save them — he places them with a humble fisherman, not a king. Perseus grows up poor but loved. That matters because it shapes who he becomes: someone who protects his mother, not someone handed power.",
+        pts:5
+      }
+    ]
+  },
+  {
+    id:2, title:"The Impossible Promise", time:"Scene 2",
+    brief:"The island was ruled by the greedy King Polydectes, who wanted to marry Danae — but she always refused him. When Polydectes held a great festival where subjects were expected to bring gifts, Perseus was too poor to offer anything. Ashamed but proud, he declared: 'I'll do anything you want.' The king saw his chance to get rid of Perseus forever. He demanded the head of Medusa — a Gorgon with snakes for hair whose gaze turned any living thing to stone. Perseus accepted the mission and vowed not to return without it.",
+    fallbackText:"King Polydectes wanted Danae for himself, but she refused him. He knew that as long as Perseus was around to protect her, she would never agree. When Perseus rashly promised to do anything the king asked, Polydectes sent him on what he believed was a suicide mission: bring back the head of Medusa, the most feared monster in Greek mythology. Danae warned Perseus that Medusa had snakes for hair, poisonous blood, and the power to turn anyone who looked at her into stone. She had once been beautiful, but was cursed by Athena into the hideous creature she had become.",
+    interactions:[
+      {
+        type:"mc",
+        q:"Why did King Polydectes specifically choose the mission of killing Medusa for Perseus?",
+        correctText:"He wanted Perseus to die on an impossible quest so that Danae would have no one left to protect her",
+        opts:[
+          "He genuinely believed Perseus was strong enough to succeed and wanted Medusa's head as a powerful weapon",
+          "He wanted Perseus to die on an impossible quest so that Danae would have no one left to protect her",
+          "Medusa had been terrorizing the island's villages and Polydectes needed someone expendable to stop her",
+          "The Oracle of Delphi told him that whoever delivered Medusa's head would become his strongest political ally"
+        ],
+        why:"Polydectes doesn't care about Medusa's head. He cares about removing the one person standing between him and Danae. The 'quest' is just a death sentence wrapped in a dare.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"Perseus promises 'anything' to a king he barely knows — without thinking about what might be asked. Later, Theseus volunteered to fight the Minotaur, and Jason accepted Pelias's quest for the Golden Fleece. All three heroes made dangerous promises. But were their reasons the same? Was Perseus being brave, reckless, or something else entirely? Compare his promise to at least one other hero's decision.",
+        minWords:30,
+        pts:10
+      }
+    ]
+  },
+  {
+    id:3, title:"Gifts of the Gods", time:"Scene 3",
+    brief:"Perseus had no weapons, no plan, and no idea where to find Medusa. Fortunately, the goddess Athena and the messenger god Hermes appeared to help him. Athena gave him a polished bronze shield and warned him: never look directly at Medusa — only at her reflection. Hermes gave him a magical sword to cut off her head and winged sandals that would carry him across vast distances. But first, they told him, he had to visit the Graeae — three strange old women who shared a single eye — and convince them to reveal the path to the Gorgons.",
+    fallbackText:"Perseus was brave but completely unprepared. He had no weapons and no idea even where Medusa lived. The gods intervened: Athena gave him a polished shield and the critical instruction to never look directly at Medusa — only at her reflection in the shield's surface. Hermes provided a magical sword and winged sandals for flight. But they also told him the journey had stages: first he had to find the Graeae, three ancient women born old with gray hair who shared one eye between them. Only they could tell him where to go next.",
+    interactions:[
+      {
+        type:"mc",
+        q:"What was Athena's specific warning about how to fight Medusa?",
+        correctText:"Never look directly at Medusa — use the polished shield to see only her reflection, which was safe",
+        opts:[
+          "Attack Medusa only while she is sleeping, because her gaze has no power when her eyes are closed",
+          "Never look directly at Medusa — use the polished shield to see only her reflection, which was safe",
+          "Blind Medusa first by throwing sand in her eyes, then strike before she has time to recover her sight",
+          "Approach Medusa from behind and strike before she turns around, because her power only works face-to-face"
+        ],
+        why:"The shield isn't a defensive weapon here — it's a mirror. Athena's solution is about intelligence, not strength. The key insight is that you can fight something deadly without facing it directly.",
+        pts:5
+      },
+      {
+        type:"mc",
+        q:"What three gifts did Perseus receive from the gods, and who gave each one?",
+        correctText:"Athena provided the polished bronze shield, while Hermes provided the magical sword and winged sandals",
+        opts:[
+          "Athena provided the polished bronze shield, while Hermes provided the magical sword and winged sandals",
+          "Hermes provided the shield and the sword, while Athena provided the winged sandals and a map to Colchis",
+          "Zeus provided all three gifts — the shield, the sword, and the sandals — delivered by a messenger eagle",
+          "Athena provided the curved sword, Hermes provided the bronze shield, and Hephaestus forged the sandals"
+        ],
+        why:"Each god gives something that matches their domain. Athena, goddess of wisdom, gives the tool that requires thinking. Hermes, the traveler, gives the tools for the journey. The gifts aren't random — they reflect who the gods are.",
+        pts:5
+      }
+    ]
+  },
+  {
+    id:4, title:"The Cave of the Graeae", time:"Scene 4",
+    brief:"Perseus flew on his winged sandals to the cave of the Graeae — three ancient women who had been born old and gray. They shared a single eye between them, passing it back and forth. The Graeae were guardians of the Gorgons and would never willingly reveal their location. Perseus had to be clever: he snatched the eye while they were passing it, and threatened to throw it into a boiling kettle unless they told him the way. Left with no choice, they directed him to the nymphs of the north.",
+    fallbackText:"The Graeae were bizarre creatures — three women born ancient, with gray hair from birth, sharing one eye among them. They served as protectors of the Gorgon sisters and would never betray their location willingly. Perseus waited for the moment when the eye was being passed between them, then grabbed it. Holding their only source of sight hostage, he forced them to reveal the next step: the nymphs of the north, who could give him what he still needed to reach Medusa.",
+    interactions:[
+      {
+        type:"mc",
+        q:"How did Perseus convince the Graeae to help him, even though they were loyal protectors of the Gorgons?",
+        correctText:"He grabbed their shared eye while they were passing it and threatened to destroy it unless they revealed the path",
+        opts:[
+          "He offered them a powerful gift from the gods in exchange for the information, and they accepted the bargain",
+          "He grabbed their shared eye while they were passing it and threatened to destroy it unless they revealed the path",
+          "He disguised himself as a lost traveler and tricked them into revealing the location during a casual conversation",
+          "Hermes appeared in the cave and commanded them to obey, and they could not refuse a direct order from a god"
+        ],
+        why:"This is the first time Perseus uses brains instead of bravery. He can't fight three women — he has to outsmart them. The eye is their one vulnerability, and he spots it. Athena told him to think before he acts, and here he finally does.",
+        pts:5
+      },
+      {
+        type:"mc",
+        q:"Where did the Graeae tell Perseus to go next?",
+        correctText:"To the nymphs of the north, who would provide the remaining tools he still needed to reach Medusa",
+        opts:[
+          "Directly to the Gorgon island, with instructions to approach from the western coast at sunset while they slept",
+          "To the Oracle of Delphi, where he would receive a sacred vision showing the exact path through Medusa's lair",
+          "To the nymphs of the north, who would provide the remaining tools he still needed to reach Medusa",
+          "To the peak of Mount Olympus, where Zeus himself would escort Perseus to the island and shield him in battle"
+        ],
+        why:"The quest has layers — each stage leads to the next. The Graeae don't take him to Medusa directly. They point him to the nymphs, who will give him the final tools. Perseus has to earn each step.",
+        pts:5
+      }
+    ]
+  },
+  {
+    id:5, title:"The Nymphs of the North", time:"Scene 5",
+    brief:"Unlike the hostile Graeae, the nymphs of the north welcomed Perseus warmly. They liked him and wanted to help. They gave him two final gifts: a magic bag strong enough to hold the head of Medusa, and a helmet of invisibility that would hide him from Medusa's immortal sisters after the kill. The nymphs told him to fly straight toward the setting sun — and when he saw an island covered with stone statues of animals and men, he would know he had found Medusa. Those statues had once been living creatures. He had to reach the island while the Gorgon slept.",
+    fallbackText:"The nymphs of the north were the opposite of the Graeae — kind, welcoming, and eager to help. They fed Perseus and gave him the last tools he needed: a magic bag to safely carry Medusa's severed head, and a helmet of invisibility to escape her immortal sisters. They warned him: fly toward the setting sun, and look for an island full of stone statues. Those statues were Medusa's victims — once living creatures turned to stone by her gaze. He had to arrive while she was sleeping. That was his only chance.",
+    interactions:[
+      {
+        type:"mc",
+        q:"What two gifts did the nymphs of the north give Perseus, and why was each one essential?",
+        correctText:"A magic bag to safely carry Medusa's severed head and a helmet of invisibility to escape her immortal sisters",
+        opts:[
+          "A magic bag to safely carry Medusa's severed head and a helmet of invisibility to escape her immortal sisters",
+          "A golden net strong enough to trap Medusa while she slept and a torch of divine fire to light the dark island",
+          "A sacred potion that made Perseus immune to Medusa's gaze for one hour and a suit of armor forged by the gods",
+          "A detailed map showing every path on the Gorgon island and a horn that would put all three sisters into sleep"
+        ],
+        why:"Think about what happens AFTER Perseus kills Medusa. The bag means he can carry the head without accidentally looking at it. The helmet means he can disappear when the immortal sisters come for revenge. The nymphs are thinking two steps ahead.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"You now know that Medusa was once a beautiful woman who was cursed by Athena and turned into a monster with snakes for hair. She lives alone on a desolate island, surrounded by the stone remains of everyone who ever came near her. In a moment, Perseus will arrive to cut off her head. Before that happens — describe what you think Medusa was thinking or feeling as she saw Perseus flying toward her, right before her death.",
+        minWords:35,
+        pts:10
+      }
+    ]
+  },
+  {
+    id:6, title:"The Gorgon's Island", time:"Scene 6",
+    brief:"Perseus reached the island and saw Medusa's victims scattered everywhere — statues of animals and men frozen in stone. He held up Athena's shield, looked only at Medusa's reflection, and with one bold sweep of his sword, struck her head clean off. From Medusa's neck flew Pegasus, a beautiful white winged horse. But there was no time to admire the creature — Medusa's two immortal sisters woke and shrieked for revenge. Perseus placed the head in the magic bag, put on the helmet of invisibility, and vanished before they could reach him.",
+    fallbackText:"The island was exactly as the nymphs described — a dark, rocky place littered with stone figures that had once been living things. Perseus held up the polished shield, found Medusa's reflection in its surface, and struck with the sword. Medusa was dead. Out of her neck sprang Pegasus, a white winged horse. But the kill woke her two immortal sisters, and they came screaming for blood. Perseus stuffed the head into the magic bag, jammed the helmet onto his head, and disappeared. The Gorgon sisters searched the empty air, baffled. Perseus was already gone.",
+    interactions:[
+      {
+        type:"mc",
+        q:"What happened immediately after Perseus killed Medusa?",
+        correctText:"A winged horse called Pegasus burst from Medusa's neck, and her two immortal sisters woke and chased him",
+        opts:[
+          "The entire island began to crumble and sink into the sea, and Perseus barely escaped on his winged sandals",
+          "A winged horse called Pegasus burst from Medusa's neck, and her two immortal sisters woke and chased him",
+          "All of the stone victims on the island returned to life and helped Perseus fight the two remaining Gorgons",
+          "Zeus himself appeared in the sky and declared Perseus a true hero, warning the Gorgon sisters to let him go"
+        ],
+        why:"Pegasus being born from Medusa's death is one of the most striking images in Greek mythology — beauty coming from destruction. Meanwhile, the sisters' rage proves that this mission is only half done. The kill was the easy part; the escape required every tool he'd gathered.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"You've now heard Medusa's full story: she was once beautiful, was cursed by Athena into a monster, lived in isolation on a barren island surrounded by the stone remains of her victims, and was killed in her sleep by a hero she never wronged. Do you feel bad for Medusa? Why or why not? There is no right answer — but you must explain your reasoning.",
+        minWords:30,
+        pts:10
+      }
+    ]
+  },
+  {
+    id:7, title:"The King Turned to Stone", time:"Scene 7",
+    brief:"After many adventures on his long journey home — slaying dragons and rescuing damsels in distress — Perseus finally returned to the island. King Polydectes couldn't believe his eyes. He had been certain Perseus would die on the quest and never return. When the king demanded to see the head of Medusa as proof, Perseus warned him: 'Are you sure you want to see it?' The king insisted — and upon seeing the head, Polydectes was turned to stone. Perseus was reunited with his mother at last.",
+    fallbackText:"Perseus had a long journey home filled with more adventures. When he finally returned, King Polydectes was stunned — he had sent Perseus to die and never expected to see him again. Furious and disbelieving, the king demanded proof that Perseus actually had Medusa's head. Perseus gave him one final warning, but the greedy king insisted. Perseus revealed the head, and Polydectes was instantly turned to stone. Perseus was reunited with his mother Danae, who was finally free from the king who had tried to force her into marriage.",
+    interactions:[
+      {
+        type:"mc",
+        q:"When Perseus returned, what was King Polydectes' reaction?",
+        correctText:"He was stunned that Perseus had actually survived a quest that was specifically designed to kill him",
+        opts:[
+          "He welcomed Perseus warmly as a returning hero and admitted that he had been wrong to ever doubt him",
+          "He was stunned that Perseus had actually survived a quest that was specifically designed to kill him",
+          "He pretended not to remember sending Perseus on the quest and denied that he had ever asked for the head",
+          "He immediately surrendered his throne to Perseus, realizing the young man was now far more powerful than he"
+        ],
+        why:"Polydectes' shock reveals the truth of his plan. He never wanted the head — he wanted Perseus dead. When his scheme fails, he still can't stop himself from demanding proof. His arrogance is what kills him.",
+        pts:5
+      },
+      {
+        type:"mc",
+        q:"Perseus warned Polydectes before showing him the head. Why is this detail important?",
+        correctText:"It shows Perseus gave the king a fair chance to back down — the king's own greed and arrogance destroyed him",
+        opts:[
+          "It proves that Perseus himself did not know the head would actually work and was surprised by its true power",
+          "It shows that Perseus was deeply afraid of the head's power and was hesitant to use it against any person",
+          "It shows Perseus gave the king a fair chance to back down — the king's own greed and arrogance destroyed him",
+          "It was a direct requirement from Athena, who had commanded Perseus to always warn enemies before using it"
+        ],
+        why:"Perseus doesn't ambush Polydectes. He asks 'are you sure?' — and the king says yes. This makes the death the king's own fault. Perseus is merciful enough to warn, but the king is too arrogant to listen.",
+        pts:5
+      }
+    ]
+  },
+  {
+    id:8, title:"The Oracle Fulfilled", time:"Scene 8",
+    brief:"After returning the magical gifts to Athena and Hermes, Perseus traveled the world competing in athletic games. At one competition, his discus accidentally slipped from his hand and flew into the royal box, killing a king who had come to watch. That king turned out to be his grandfather, Acrisius — the very man who had tried to escape the oracle's prophecy by casting Perseus out to sea. The prophecy was fulfilled, but not through any deliberate act. Perseus went on to become a great king himself, and his constellation remains a permanent feature in the night sky.",
+    fallbackText:"Perseus wisely returned all the magical gifts to Athena and Hermes. Athena placed Medusa's head on her own shield as a permanent weapon. Later, during an athletic competition in a distant town, Perseus threw a discus that slipped from his hand and struck a king in the royal viewing box. That king was Acrisius — his own grandfather, who had sailed far from home trying to outrun the prophecy. The oracle's words came true, but through pure accident, not revenge or intention. Perseus eventually became a great king, and the gods honored him with a constellation that still shines in the night sky.",
+    interactions:[
+      {
+        type:"mc",
+        q:"How was the oracle's prophecy about Acrisius finally fulfilled?",
+        correctText:"Perseus accidentally killed Acrisius with a stray discus throw at a distant athletic competition he was visiting",
+        opts:[
+          "Perseus tracked Acrisius down after learning the truth and confronted him for casting him out to sea as an infant",
+          "Acrisius visited Perseus's kingdom in disguise and was killed by palace guards who did not recognize him as a king",
+          "Perseus accidentally killed Acrisius with a stray discus throw at a distant athletic competition he was visiting",
+          "Zeus struck Acrisius down with a lightning bolt as divine punishment for trying to destroy his own son and grandson"
+        ],
+        why:"This is the most important moment in the myth. Acrisius did everything possible to avoid the prophecy — and the prophecy came true anyway, through a random accident. No one chose this outcome. That's what makes it fate.",
+        pts:5
+      },
+      {
+        type:"write",
+        q:"According to other sources for this myth, after Athena takes Medusa's head from Perseus, she gives Asclepius, the god of medicine and healing, two drops of Medusa's blood. One drop heals any wound, and the other drop is a deadly poison. Why do you think the ancient Greeks imagined Medusa as a character who contained both powers — the power to heal and the power to destroy? What might this tell us about how the Greeks understood dangerous or frightening things?",
+        minWords:40,
+        pts:10
+      }
+    ]
+  }
+];
+
+const RANKS=[
+  {min:0,  max:25,  title:"CASTAWAY",          quote:"You drift on the waves, but your story has not yet begun."},
+  {min:26, max:40,  title:"WANDERER",           quote:"The gods have noticed you. Keep moving — there is far to go."},
+  {min:41, max:55,  title:"SEEKER",             quote:"You ask the right questions. The path to the Gorgon grows clearer."},
+  {min:56, max:70,  title:"SLAYER",             quote:"Medusa herself would flinch. Your mind cuts sharper than any blade."},
+  {min:71, max:999, title:"HERO OF PROPHECY",   quote:"Fate itself bends around you. Perseus would call you an equal."}
+];
+
+// ═══════════════════════════════════════════════════
+// SCENE COLORS (per-stop terrain for canvas fallback)
+// ═══════════════════════════════════════════════════
+const SCENE_COLORS = [
+  { ground: '#c8a860', sky1: '#1a1040', sky2: '#3a2060', name: 'Palace/Oracle' },
+  { ground: '#4a6080', sky1: '#0a1828', sky2: '#182840', name: 'Ocean/Chest' },
+  { ground: '#3a6a3a', sky1: '#0c1840', sky2: '#1a2868', name: 'Island/Temple' },
+  { ground: '#2a2030', sky1: '#080810', sky2: '#101020', name: 'Graeae Cave' },
+  { ground: '#e0d8b0', sky1: '#4060a0', sky2: '#80b0e0', name: 'Nymph Meadow' },
+  { ground: '#383030', sky1: '#1a0808', sky2: '#301010', name: 'Gorgon Island' },
+  { ground: '#c0b8a0', sky1: '#2a1810', sky2: '#4a3828', name: 'Polydectes Hall' },
+  { ground: '#60a050', sky1: '#2050a0', sky2: '#60a0e0', name: 'Athletic Fields' }
+];
+
+// STATE
+// ═══════════════════════════════════════════════════
+let student = { name:'', period:'', alliance:'', id:0 };
+let state = {
+  unlockedUpTo: -1, currentStop: -1,
+  scores: {}, feedback: {}, completed: {}, reviseUsed: {},
+  writtenText: {}, mcAnswers: {},
+  briefRevealed: {},
+  totalScore: 0
+};
+let showingStoryPanel = false;
+
+// Transition state
+let transitionState = {
+  active: false,
+  fromIdx: 0,
+  toIdx: 0,
+  progress: 0,
+  startTime: 0,
+  duration: 4500,
+  walkFrame: 0,
+  walkTimer: 0
+};
+
+// ═══════════════════════════════════════════════════
+// MC SHUFFLE — seed-based per-student randomization
+// ═══════════════════════════════════════════════════
+function seedRandom(seed){
+  // Simple seeded PRNG (mulberry32)
+  let t = seed | 0;
+  return function(){
+    t = (t + 0x6D2B79F5) | 0;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleWithSeed(arr, seed){
+  const rng = seedRandom(seed);
+  const shuffled = arr.slice();
+  for(let i = shuffled.length - 1; i > 0; i--){
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function getShuffledOpts(stopIdx, qIdx){
+  const inter = STOPS[stopIdx].interactions[qIdx];
+  // Seed = student ID * 1000 + stopIdx * 100 + qIdx — deterministic per student per question
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  return {
+    shuffledOpts: shuffledIndices.map(i => inter.opts[i]),
+    correctShuffledIdx: shuffledIndices.indexOf(inter.opts.indexOf(inter.correctText) === -1
+      ? inter.opts.findIndex(o => o === inter.correctText)
+      : inter.opts.indexOf(inter.correctText)),
+    originalToShuffled: shuffledIndices
+  };
+}
+
+// Find the correct shuffled index for a question
+function getCorrectIdx(stopIdx, qIdx){
+  const inter = STOPS[stopIdx].interactions[qIdx];
+  const origCorrectIdx = inter.opts.indexOf(inter.correctText);
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  return shuffledIndices.indexOf(origCorrectIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// STORY PANEL (replaces YouTube)
+// ═══════════════════════════════════════════════════
+function toggleStoryPanel(){
+  const section = document.getElementById('story-section');
+  const btn = document.getElementById('btn-read-passage');
+  if(showingStoryPanel){
+    section.style.display = 'none';
+    showingStoryPanel = false;
+    btn.classList.remove('active');
+  } else {
+    const i = state.currentStop >= 0 ? state.currentStop : 0;
+    document.getElementById('story-text').innerHTML = STOPS[i].fallbackText;
+    section.style.display = 'block';
+    showingStoryPanel = true;
+    btn.classList.add('active');
+    // Also reveal the brief
+    revealBrief(i);
+  }
+}
+
+function updateSCStatus(i){
+  const s = STOPS[i];
+  document.getElementById('sc-status').textContent = 'STOP ' + (i+1) + ' · ' + s.title.toUpperCase();
+}
+
+function revealBrief(stopIdx){
+  if(state.briefRevealed[stopIdx]) return;
+  state.briefRevealed[stopIdx] = true;
+  const wrapper = document.getElementById('brief-wrapper-' + stopIdx);
+  if(wrapper){
+    const stop = STOPS[stopIdx];
+    wrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div><div class="brief-box" style="animation:fadeIn 0.5s ease">' + stop.brief + '</div>';
+  }
+  saveProgress();
+}
+
+// ═══════════════════════════════════════════════════
+// CASCADING DROPDOWN LOGIN
+// ═══════════════════════════════════════════════════
+function onPeriodSelect(){
+  const period = document.getElementById('inp-period').value;
+  const allianceSel = document.getElementById('inp-alliance');
+  const nameSel = document.getElementById('inp-name');
+  const beginBtn = document.getElementById('btn-begin');
+
+  allianceSel.innerHTML = '<option value="">— Loading alliances... —</option>';
+  allianceSel.disabled = true;
+  nameSel.innerHTML = '<option value="">— Select alliance first —</option>';
+  nameSel.disabled = true;
+  beginBtn.disabled = true;
+
+  if(!period) {
+    allianceSel.innerHTML = '<option value="">— Select period first —</option>';
+    return;
+  }
+
+  fetch('/api/perseus-log/period-alliances/' + encodeURIComponent(period))
+    .then(r => {
+      if(!r.ok) throw new Error('Server returned ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      const alliances = data.alliances || [];
+      if(alliances.length === 0){
+        allianceSel.innerHTML = '<option value="">— No alliances found —</option>';
+        return;
+      }
+      allianceSel.innerHTML = '<option value="">— Select your alliance —</option>';
+      alliances.forEach(a => {
+        allianceSel.innerHTML += '<option value="' + a.alliance_id + '">' + a.alliance_name + '</option>';
+      });
+      allianceSel.disabled = false;
+    })
+    .catch(err => {
+      console.error('Alliance load error:', err);
+      allianceSel.innerHTML = '<option value="">— Error loading alliances —</option>';
+    });
+}
+
+function onAllianceSelect(){
+  const period = document.getElementById('inp-period').value;
+  const allianceId = document.getElementById('inp-alliance').value;
+  const nameSel = document.getElementById('inp-name');
+  const beginBtn = document.getElementById('btn-begin');
+
+  nameSel.innerHTML = '<option value="">— Loading students... —</option>';
+  nameSel.disabled = true;
+  beginBtn.disabled = true;
+
+  if(!allianceId) {
+    nameSel.innerHTML = '<option value="">— Select alliance first —</option>';
+    return;
+  }
+
+  fetch('/api/perseus-log/alliance-students/' + encodeURIComponent(period) + '/' + encodeURIComponent(allianceId))
+    .then(r => {
+      if(!r.ok) throw new Error('Server returned ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      const students = data.students || [];
+      if(students.length === 0){
+        nameSel.innerHTML = '<option value="">— No students found —</option>';
+        return;
+      }
+      nameSel.innerHTML = '<option value="">— Select your name —</option>';
+      students.forEach(s => {
+        nameSel.innerHTML += '<option value="' + s.student_id + '" data-name="' + s.name + '">' + s.name + '</option>';
+      });
+      nameSel.disabled = false;
+      nameSel.onchange = () => {
+        beginBtn.disabled = !nameSel.value;
+      };
+    })
+    .catch(err => {
+      console.error('Student load error:', err);
+      nameSel.innerHTML = '<option value="">— Error loading students —</option>';
+    });
+}
+
+// ═══════════════════════════════════════════════════
+// BEGIN
+// ═══════════════════════════════════════════════════
+function beginJourney(){
+  const periodSel = document.getElementById('inp-period');
+  const p = periodSel.value;
+  const pDisplay = periodSel.options[periodSel.selectedIndex].textContent;
+  const allianceSel = document.getElementById('inp-alliance');
+  const allianceName = allianceSel.options[allianceSel.selectedIndex].textContent;
+  const nameSel = document.getElementById('inp-name');
+  const studentId = parseInt(nameSel.value);
+  const studentName = nameSel.options[nameSel.selectedIndex].getAttribute('data-name');
+
+  if(!p || !studentId || !studentName){
+    alert('Please select your period, alliance, and name.');
+    return;
+  }
+
+  student = {
+    id: studentId,
+    name: studentName,
+    period: p,
+    periodDisplay: pDisplay,
+    alliance: allianceName || 'Independent'
+  };
+  document.getElementById('splash').style.display = 'none';
+
+  // Load progress using student_id
+  fetch('/api/perseus-log/load-progress-by-id/' + studentId)
+    .then(r => r.json())
+    .then(data => {
+      if(data.found && data.state){
+        const saved = data.state;
+        state.unlockedUpTo = -1;
+        state.currentStop = saved.currentStop !== undefined ? saved.currentStop : -1;
+        state.scores = saved.scores || {};
+        state.feedback = saved.feedback || {};
+        state.completed = saved.completed || {};
+        state.reviseUsed = saved.reviseUsed || {};
+        state.writtenText = saved.writtenText || {};
+        state.mcAnswers = saved.mcAnswers || {};
+        state.briefRevealed = saved.briefRevealed || {};
+        state.totalScore = saved.totalScore || 0;
+        if(saved.alliance) student.alliance = saved.alliance;
+
+        fetch('/api/perseus-log/unlocks/' + encodeURIComponent(p))
+          .then(r2 => r2.json())
+          .then(unlockData => {
+            if(unlockData.unlocked_up_to !== undefined){
+              state.unlockedUpTo = unlockData.unlocked_up_to;
+            }
+            const completedCount = Object.keys(state.completed).filter(k => state.completed[k]).length;
+            if(completedCount >= STOPS.length){
+              showResults();
+            } else {
+              showApp();
+            }
+          })
+          .catch(() => showApp());
+      } else {
+        showApp();
+      }
+    })
+    .catch(() => showApp());
+}
+
+function showApp(){
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('tb-student').textContent = student.name + ' · ' + (student.periodDisplay || student.period);
+  updateScore();
+  buildProgress();
+  buildTeacherUnlockGrid();
+  loadHeroSprite();
+  loadPanoramaImages();
+  initCanvas();
+
+  if(state.currentStop >= 0 && state.currentStop <= state.unlockedUpTo){
+    showStop(state.currentStop);
+  } else if(state.unlockedUpTo >= 0){
+    let firstIncomplete = 0;
+    for(let i = 0; i <= state.unlockedUpTo; i++){
+      if(!state.completed[i]){ firstIncomplete = i; break; }
+      firstIncomplete = i;
+    }
+    showStop(firstIncomplete);
+  }
+
+  checkServerUnlocks();
+  setInterval(checkServerUnlocks, 8000);
+}
+
+// ═══════════════════════════════════════════════════
+// SAVE / LOAD
+// ═══════════════════════════════════════════════════
+function saveProgress(){
+  if(!student.name || !student.period) return;
+  const saveData = {
+    unlockedUpTo: state.unlockedUpTo,
+    currentStop: state.currentStop,
+    scores: state.scores,
+    feedback: state.feedback,
+    completed: state.completed,
+    reviseUsed: state.reviseUsed,
+    writtenText: state.writtenText,
+    mcAnswers: state.mcAnswers,
+    briefRevealed: state.briefRevealed,
+    totalScore: state.totalScore,
+    alliance: student.alliance
+  };
+  fetch('/api/perseus-log/save-progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      class_period: student.period,
+      student_id: student.id,
+      state: saveData
+    })
+  }).catch(() => {});
+}
+
+function checkServerUnlocks(){
+  if(!student.period) return;
+  fetch('/api/perseus-log/unlocks/' + encodeURIComponent(student.period))
+    .then(r => r.json())
+    .then(data => {
+      if(data.unlocked_up_to !== undefined && data.unlocked_up_to !== state.unlockedUpTo){
+        state.unlockedUpTo = data.unlocked_up_to;
+        renderProgress();
+        buildTeacherUnlockGrid();
+        if(state.currentStop < 0 && state.unlockedUpTo >= 0){
+          showStop(0);
+        }
+      }
+    })
+    .catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════
+// PROGRESS DOTS
+// ═══════════════════════════════════════════════════
+function buildProgress(){
+  const bar = document.getElementById('map-progress');
+  bar.innerHTML = '';
+  STOPS.forEach((s, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'pdot';
+    dot.id = 'pdot-' + i;
+    dot.textContent = i + 1;
+    dot.title = s.title;
+    dot.onclick = () => {
+      if(i <= state.unlockedUpTo && !transitionState.active){
+        showStop(i);
+      }
+    };
+    bar.appendChild(dot);
+    if(i < STOPS.length - 1){
+      const line = document.createElement('div');
+      line.className = 'pline';
+      line.id = 'pline-' + i;
+      bar.appendChild(line);
+    }
+  });
+  renderProgress();
+}
+
+function renderProgress(){
+  STOPS.forEach((_, i) => {
+    const dot = document.getElementById('pdot-' + i);
+    if(!dot) return;
+    dot.className = 'pdot';
+    if(state.completed[i]) dot.classList.add('done');
+    else if(i === state.currentStop && i <= state.unlockedUpTo) dot.classList.add('active');
+    else if(i <= state.unlockedUpTo) dot.classList.add('unlocked');
+    const line = document.getElementById('pline-' + i);
+    if(line){
+      line.className = 'pline';
+      if(i < state.unlockedUpTo) line.classList.add('active');
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// CANVAS — INIT & SCENE DRAWING
+// ═══════════════════════════════════════════════════
+function initCanvas(){
+  const area = document.getElementById('transition-area');
+  const canvas = document.getElementById('transition-canvas');
+  canvas.width = area.clientWidth;
+  canvas.height = area.clientHeight;
+
+  window.addEventListener('resize', () => {
+    canvas.width = area.clientWidth;
+    canvas.height = area.clientHeight;
+    if(!transitionState.active) drawStaticScene(state.currentStop >= 0 ? state.currentStop : 0);
+  });
+
+  drawStaticScene(0);
+  requestAnimationFrame(canvasLoop);
+}
+
+function canvasLoop(){
+  if(transitionState.active){
+    runTransitionFrame();
+  }
+  requestAnimationFrame(canvasLoop);
+}
+
+function drawStaticScene(stopIdx){
+  const canvas = document.getElementById('transition-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  if(!W || !H) return;
+
+  ctx.imageSmoothingEnabled = false;
+
+  let panoImg = null;
+  let showRightSide = false;
+  if(stopIdx === 0){
+    const key = PANO_KEYS[0];
+    const img = PANO_IMAGES[key];
+    if(img && img.complete && img.naturalWidth > 0){ panoImg = img; showRightSide = false; }
+  } else if(stopIdx > 0 && stopIdx <= PANO_KEYS.length){
+    const key = PANO_KEYS[stopIdx - 1];
+    const img = PANO_IMAGES[key];
+    if(img && img.complete && img.naturalWidth > 0){ panoImg = img; showRightSide = true; }
+  }
+
+  if(panoImg){
+    // Cover the entire canvas (like CSS object-fit: cover)
+    const imgAspect = panoImg.naturalWidth / panoImg.naturalHeight;
+    const canvasAspect = W / H;
+    let drawW, drawH, drawX, drawY;
+    if(imgAspect > canvasAspect){
+      // Image is wider — fit to height, crop sides
+      drawH = H;
+      drawW = H * imgAspect;
+      drawY = 0;
+      drawX = showRightSide ? -(drawW - W) : 0;
+    } else {
+      // Image is taller — fit to width, crop top/bottom
+      drawW = W;
+      drawH = W / imgAspect;
+      drawX = 0;
+      drawY = -(drawH - H) * 0.3; // bias toward showing the ground
+    }
+    ctx.drawImage(panoImg, drawX, drawY, drawW, drawH);
+  } else {
+    const sc = SCENE_COLORS[stopIdx] || SCENE_COLORS[0];
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+    skyGrad.addColorStop(0, sc.sky1);
+    skyGrad.addColorStop(1, sc.sky2);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H * 0.65);
+    for(let i = 0; i < 40; i++){
+      ctx.fillStyle = `rgba(255,255,255,${0.2 + (i % 5) * 0.1})`;
+      ctx.fillRect(((i*97+13*i*i)%1000)/1000*W, ((i*73+7*i*i)%1000)/1000*(H*0.5), (i%7===0?2:1), (i%7===0?2:1));
+    }
+    ctx.fillStyle = sc.ground;
+    ctx.fillRect(0, H * 0.65, W, H * 0.35);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    for(let i = 0; i < 30; i++){
+      ctx.fillRect(((i*53+17)%100)/100*W, H*0.65+((i*31+7)%100)/100*H*0.3, 3+(i%4), 1);
+    }
+  }
+
+  drawHero(ctx, W * 0.45, H * 0.88, W, 0);
+
+  const caption = document.getElementById('transition-caption');
+  if(caption){
+    const s = STOPS[stopIdx];
+    caption.textContent = s ? 'STOP ' + s.id + ' — ' + s.title.toUpperCase() : '';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// PERSEUS SPRITE SYSTEM
+// ═══════════════════════════════════════════════════
+const HERO_SPRITE_URL = '/images/heroic/perseus/transitions/perseus_sprite.png';
+const HERO_FRAMES = 4;
+let heroSpriteImg = null;
+let heroProcessedFrames = null;
+let heroProcessed = false;
+
+function loadHeroSprite(){
+  const img = new Image();
+  img.onload = () => { heroSpriteImg = img; };
+  img.onerror = () => { console.warn('Perseus sprite failed to load — using fallback'); };
+  img.src = HERO_SPRITE_URL;
+}
+
+// ═══════════════════════════════════════════════════
+// PANORAMA BACKGROUND IMAGES
+// ═══════════════════════════════════════════════════
+const PANO_BASE = '/images/heroic/perseus/transitions/';
+const PANO_KEYS = [
+  '1_oracle_to_ocean',
+  '2_ocean_to_island',
+  '3_island_to_sky',
+  '4_sky_to_cave',
+  '5_cave_to_meadow',
+  '6_meadow_to_gorgon',
+  '7_gorgon_to_home'
+];
+const PANO_IMAGES = {};
+
+function loadPanoramaImages(){
+  PANO_KEYS.forEach(key => {
+    const img = new Image();
+    img.onload = () => { console.log('🖼 Panorama loaded: ' + key); };
+    img.onerror = () => { PANO_IMAGES[key] = null; console.warn('Panorama failed: ' + key); };
+    img.src = PANO_BASE + key + '.png';
+    PANO_IMAGES[key] = img;
+  });
+}
+
+function processHeroSprite(){
+  if(heroProcessedFrames) return heroProcessedFrames;
+  if(heroProcessed) return null;
+  if(!heroSpriteImg || !heroSpriteImg.complete || heroSpriteImg.naturalWidth === 0) return null;
+
+  heroProcessed = true;
+  const src = heroSpriteImg;
+  const fw = Math.floor(src.naturalWidth / HERO_FRAMES);
+  const fh = src.naturalHeight;
+
+  heroProcessedFrames = [];
+  for(let i = 0; i < HERO_FRAMES; i++){
+    const tmp = document.createElement('canvas');
+    tmp.width = fw;
+    tmp.height = fh;
+    const tctx = tmp.getContext('2d');
+    tctx.drawImage(src, i * fw, 0, fw, fh, 0, 0, fw, fh);
+
+    // Strip magenta: R>150 && B>150 && G<80 → transparent
+    const idata = tctx.getImageData(0, 0, fw, fh);
+    const d = idata.data;
+    for(let p = 0; p < d.length; p += 4){
+      if(d[p] > 150 && d[p+2] > 150 && d[p+1] < 80){
+        d[p+3] = 0;
+      }
+    }
+    tctx.putImageData(idata, 0, 0);
+    heroProcessedFrames.push(tmp);
+  }
+  return heroProcessedFrames;
+}
+
+function drawHero(ctx, x, groundY, canvasW, walkFrame){
+  const frames = processHeroSprite();
+  if(frames){
+    const frame = frames[walkFrame % HERO_FRAMES];
+    const area = document.getElementById('transition-area');
+    const canvasH = area ? area.clientHeight : 300;
+    const targetH = Math.max(40, Math.round(canvasH * 0.30));
+    const scale = targetH / frame.height;
+    const targetW = Math.round(frame.width * scale);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(frame, Math.floor(x - targetW / 2), Math.floor(groundY - targetH), targetW, targetH);
+    return;
+  }
+
+  // ── FALLBACK: simple pixel Perseus ──
+  const px = Math.max(2, Math.round(canvasW * 0.04 / 16));
+  const f = walkFrame % 4;
+  ctx.save();
+  ctx.translate(Math.floor(x), Math.floor(groundY));
+  // White tunic body
+  ctx.fillStyle = '#e0d8c8';
+  ctx.fillRect(-1*px, -12*px, 5*px, 6*px);
+  // Brown belt
+  ctx.fillStyle = '#6a4028';
+  ctx.fillRect(-1*px, -8*px, 5*px, 1*px);
+  // Skin — head
+  ctx.fillStyle = '#d4a574';
+  ctx.fillRect(0, -15*px, 3*px, 3*px);
+  // Golden-brown hair
+  ctx.fillStyle = '#8a6020';
+  ctx.fillRect(-1*px, -16*px, 5*px, 1*px);
+  ctx.fillRect(-1*px, -15*px, 1*px, 2*px);
+  // Shield (left arm) — polished bronze circle
+  ctx.fillStyle = '#c0a050';
+  ctx.fillRect(-4*px, -13*px, 3*px, 4*px);
+  ctx.fillStyle = '#e0c070';
+  ctx.fillRect(-3*px, -12*px, 1*px, 2*px);
+  // Sword at hip
+  ctx.fillStyle = '#a08040';
+  ctx.fillRect(5*px, -11*px, 1*px, 6*px);
+  ctx.fillStyle = '#c0c0c0';
+  ctx.fillRect(5*px, -14*px, 1*px, 3*px);
+  // Legs — skin colored
+  ctx.fillStyle = '#d4a574';
+  if(f===0||f===2){ ctx.fillRect(0,-6*px,1*px,4*px); ctx.fillRect(2*px,-6*px,1*px,4*px); }
+  else if(f===1){ ctx.fillRect(-1*px,-6*px,1*px,4*px); ctx.fillRect(3*px,-6*px,1*px,3*px); }
+  else { ctx.fillRect(0,-6*px,1*px,3*px); ctx.fillRect(2*px,-6*px,1*px,4*px); }
+  // Winged sandals — brown with small white wings
+  ctx.fillStyle = '#6a4028';
+  if(f===0||f===2){ ctx.fillRect(-1*px,-2*px,3*px,1*px); ctx.fillRect(1*px,-2*px,3*px,1*px); }
+  else if(f===1){ ctx.fillRect(-2*px,-2*px,3*px,1*px); ctx.fillRect(2*px,-2*px,3*px,1*px); }
+  else { ctx.fillRect(-1*px,-2*px,3*px,1*px); ctx.fillRect(1*px,-2*px,3*px,1*px); }
+  // Wing details on sandals
+  ctx.fillStyle = '#ffffff';
+  if(f===0||f===2){ ctx.fillRect(-2*px,-3*px,1*px,1*px); ctx.fillRect(4*px,-3*px,1*px,1*px); }
+  else { ctx.fillRect(-3*px,-3*px,1*px,1*px); ctx.fillRect(3*px,-3*px,1*px,1*px); }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+// TRANSITION ANIMATION
+// ═══════════════════════════════════════════════════
+function startTransition(fromIdx, toIdx){
+  transitionState.active = true;
+  transitionState.fromIdx = fromIdx;
+  transitionState.toIdx = toIdx;
+  transitionState.progress = 0;
+  transitionState.startTime = Date.now();
+  transitionState.walkFrame = 0;
+  transitionState.walkTimer = 0;
+
+  document.getElementById('complete-bar').classList.remove('show');
+}
+
+function runTransitionFrame(){
+  const canvas = document.getElementById('transition-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  if(!W || !H) return;
+
+  const elapsed = Date.now() - transitionState.startTime;
+  transitionState.progress = Math.min(1, elapsed / transitionState.duration);
+
+  transitionState.walkTimer += 16;
+  if(transitionState.walkTimer > 200){
+    transitionState.walkTimer = 0;
+    transitionState.walkFrame = (transitionState.walkFrame + 1) % 4;
+  }
+
+  const p = transitionState.progress;
+
+  const panoKey = PANO_KEYS[transitionState.fromIdx];
+  const panoImg = panoKey ? PANO_IMAGES[panoKey] : null;
+
+  if(panoImg && panoImg.complete && panoImg.naturalWidth > 0){
+    ctx.imageSmoothingEnabled = false;
+    // Cover canvas height, then scroll horizontally
+    const imgAspect = panoImg.naturalWidth / panoImg.naturalHeight;
+    const drawH = H;
+    const drawW = Math.max(H * imgAspect, W * 1.5);
+    const maxScroll = drawW - W;
+    const scrollX = p * maxScroll;
+    ctx.drawImage(panoImg, -scrollX, 0, drawW, drawH);
+  } else {
+    const fromSc = SCENE_COLORS[transitionState.fromIdx] || SCENE_COLORS[0];
+    const toSc = SCENE_COLORS[transitionState.toIdx] || SCENE_COLORS[0];
+
+    function lerpColor(c1, c2, t){
+      const h = s => parseInt(s.slice(1), 16);
+      const v1 = h(c1), v2 = h(c2);
+      const r = Math.round(((v1 >> 16) & 0xff) * (1-t) + ((v2 >> 16) & 0xff) * t);
+      const g = Math.round(((v1 >> 8) & 0xff) * (1-t) + ((v2 >> 8) & 0xff) * t);
+      const b = Math.round((v1 & 0xff) * (1-t) + (v2 & 0xff) * t);
+      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    const curSky1 = lerpColor(fromSc.sky1, toSc.sky1, p);
+    const curSky2 = lerpColor(fromSc.sky2, toSc.sky2, p);
+    const curGround = lerpColor(fromSc.ground, toSc.ground, p);
+
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+    skyGrad.addColorStop(0, curSky1);
+    skyGrad.addColorStop(1, curSky2);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H * 0.65);
+
+    for(let i = 0; i < 40; i++){
+      ctx.fillStyle = `rgba(255,255,255,${0.15 + (i % 5) * 0.08})`;
+      const sx = (((i * 97 + 13 * i * i) % 1000) / 1000 * W - p * 60 + W * 2) % W;
+      const sy = ((i * 73 + 7 * i * i) % 1000) / 1000 * (H * 0.5);
+      ctx.fillRect(sx, sy, (i % 7 === 0 ? 2 : 1), (i % 7 === 0 ? 2 : 1));
+    }
+
+    ctx.fillStyle = curGround;
+    ctx.fillRect(0, H * 0.65, W, H * 0.35);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    for(let i = 0; i < 8; i++){
+      const rx = (((i * 137 + 29) % 400) / 400 * W * 3 - p * W * 2.5 + W * 6) % W;
+      const ry = H * 0.62 + (i % 3) * 4;
+      ctx.fillRect(rx, ry, 4 + (i % 3) * 2, 3 + (i % 2) * 2);
+    }
+  }
+
+  drawHero(ctx, W * 0.45, H * 0.88, W, transitionState.walkFrame);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(W/2 - 50, H - 14, 100, 6);
+  ctx.fillStyle = '#3060a0';
+  ctx.fillRect(W/2 - 50, H - 14, Math.floor(100 * p), 6);
+
+  const caption = document.getElementById('transition-caption');
+  if(caption && p < 0.8){
+    caption.textContent = 'PERSEUS FLIES ONWARD...';
+  } else if(caption && p >= 0.8){
+    const dest = STOPS[transitionState.toIdx];
+    caption.textContent = dest ? 'APPROACHING: ' + dest.title.toUpperCase() : '';
+  }
+
+  if(p >= 1){
+    transitionState.active = false;
+    if(transitionState.toIdx <= state.unlockedUpTo){
+      showStop(transitionState.toIdx);
+    } else {
+      drawStaticScene(transitionState.toIdx);
+      showLockedPanel(transitionState.toIdx);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SHOW STOP
+// ═══════════════════════════════════════════════════
+function showStop(i){
+  if(i > state.unlockedUpTo){
+    showLockedPanel(i);
+    return;
+  }
+
+  const stop = STOPS[i];
+  state.currentStop = i;
+
+  drawStaticScene(i);
+
+  document.getElementById('welcome-panel').style.display = 'none';
+  document.getElementById('panel-header').style.display = 'block';
+  document.getElementById('stop-content').style.display = 'block';
+
+  // Reset badge styling
+  document.getElementById('ph-badge').style.background = '';
+  document.getElementById('ph-badge').style.borderColor = '';
+  document.getElementById('ph-title').style.color = '';
+  document.getElementById('ph-title').style.textShadow = '';
+
+  document.getElementById('ph-badge').textContent = 'STOP ' + stop.id;
+  document.getElementById('ph-title').textContent = stop.title;
+  document.getElementById('ph-time').textContent = '🎬 ' + stop.time;
+
+  document.getElementById('complete-bar').classList.remove('show');
+
+  const sc = document.getElementById('stop-content');
+  sc.innerHTML = '';
+
+  // Read passage button
+  const readBtn = document.createElement('button');
+  readBtn.className = 'read-passage-btn';
+  readBtn.textContent = '📖 READ THIS PASSAGE';
+  readBtn.onclick = () => {
+    document.getElementById('story-text').innerHTML = stop.fallbackText;
+    document.getElementById('story-section').style.display = 'block';
+    showingStoryPanel = true;
+    document.getElementById('btn-read-passage').classList.add('active');
+    revealBrief(i);
+  };
+  sc.appendChild(readBtn);
+
+  // Brief
+  const briefWrapper = document.createElement('div');
+  briefWrapper.id = 'brief-wrapper-' + i;
+  const alreadyRevealed = state.briefRevealed[i] || state.completed[i];
+  if(alreadyRevealed){
+    briefWrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div><div class="brief-box">' + stop.brief + '</div>';
+  } else {
+    briefWrapper.innerHTML = '<div class="section-label">WHAT HAPPENED</div>'
+      + '<div class="brief-box" style="text-align:center;color:var(--text2);font-style:italic;">'
+      + '📖 Read the passage or watch the film to reveal Athena\'s summary.'
+      + '</div>';
+  }
+  sc.appendChild(briefWrapper);
+
+  const interContainer = document.createElement('div');
+  interContainer.id = 'interactions-' + i;
+  sc.appendChild(interContainer);
+
+  buildInteractions(i);
+  restoreStopState(i);
+  updateSCStatus(i);
+  renderProgress();
+
+  // Update story panel if open
+  if(showingStoryPanel){
+    document.getElementById('story-text').innerHTML = stop.fallbackText;
+  }
+
+  document.getElementById('panel-body').scrollTop = 0;
+}
+
+function showLockedPanel(i){
+  const stop = STOPS[i];
+  state.currentStop = i;
+
+  document.getElementById('welcome-panel').style.display = 'none';
+  document.getElementById('panel-header').style.display = 'block';
+  document.getElementById('stop-content').style.display = 'block';
+  document.getElementById('complete-bar').classList.remove('show');
+
+  document.getElementById('ph-badge').textContent = 'STOP ' + (stop ? stop.id : '?');
+  document.getElementById('ph-badge').style.background = 'var(--locked)';
+  document.getElementById('ph-badge').style.borderColor = 'var(--locked-t)';
+  document.getElementById('ph-title').textContent = stop ? stop.title : 'LOCKED';
+  document.getElementById('ph-title').style.color = 'var(--locked-t)';
+  document.getElementById('ph-title').style.textShadow = 'none';
+  document.getElementById('ph-time').textContent = '';
+
+  const sc = document.getElementById('stop-content');
+  sc.innerHTML = '<div class="locked-msg"><div class="lock-icon">🔒</div><p>YOUR TEACHER WILL UNLOCK THIS STOP</p></div>';
+
+  renderProgress();
+}
+
+// ═══════════════════════════════════════════════════
+// BUILD INTERACTIONS
+// ═══════════════════════════════════════════════════
+function buildInteractions(stopIdx){
+  const stop = STOPS[stopIdx];
+  const container = document.getElementById('interactions-' + stopIdx);
+  if(!container) return;
+  container.innerHTML = '';
+
+  stop.interactions.forEach((inter, qIdx) => {
+    const globalKey = stopIdx + '-' + qIdx;
+    const ibox = document.createElement('div');
+    ibox.className = 'interaction-box';
+    ibox.id = 'ibox-' + globalKey;
+
+    if(inter.type === 'mc'){
+      buildMC(ibox, inter, stopIdx, qIdx);
+    } else if(inter.type === 'write'){
+      buildWrite(ibox, inter, stopIdx, qIdx);
+    }
+
+    container.appendChild(ibox);
+
+    if(inter.type === 'write'){
+      const fb = document.createElement('div');
+      fb.className = 'athena-panel';
+      fb.id = 'athena-panel-' + globalKey;
+      fb.innerHTML = `
+        <div class="athena-hdr">
+          <div class="athena-icon">🦉</div>
+          <div class="athena-lbl">ATHENA SPEAKS</div>
+          <div class="star-row">
+            <span id="star-${globalKey}-1">★</span>
+            <span id="star-${globalKey}-2">★</span>
+            <span id="star-${globalKey}-3">★</span>
+          </div>
+        </div>
+        <div class="athena-msg" id="athena-msg-${globalKey}"></div>
+      `;
+      container.appendChild(fb);
+
+      const rb = document.createElement('div');
+      rb.id = 'revise-bar-' + globalKey;
+      container.appendChild(rb);
+    }
+  });
+}
+
+function buildMC(box, inter, stopIdx, qIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const letters = ['A','B','C','D'];
+
+  // Shuffle options per student
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  const shuffledOpts = shuffledIndices.map(i => inter.opts[i]);
+  const origCorrectIdx = inter.opts.indexOf(inter.correctText);
+  const shuffledCorrectIdx = shuffledIndices.indexOf(origCorrectIdx);
+
+  // Store shuffle map for this question
+  if(!window._shuffleMaps) window._shuffleMaps = {};
+  window._shuffleMaps[globalKey] = { shuffledIndices, shuffledCorrectIdx };
+
+  box.innerHTML = `
+    <div class="section-label">MULTIPLE CHOICE</div>
+    <p class="prompt-text">${inter.q}</p>
+    <div class="mc-list" id="mc-list-${globalKey}">
+      ${shuffledOpts.map((opt, oi) => `
+        <button class="mc-opt" id="mc-opt-${globalKey}-${oi}"
+          onclick="answerMC(${stopIdx},${qIdx},${oi})">
+          <span class="mc-letter">${letters[oi]}</span>
+          <span>${opt}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="mc-reveal" id="mc-correct-${globalKey}">✓ Correct!</div>
+    <div class="mc-wrong-reveal" id="mc-wrong-${globalKey}"></div>
+    <div class="mc-why" id="mc-why-${globalKey}">${inter.why}</div>
+  `;
+}
+
+function buildWrite(box, inter, stopIdx, qIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const savedText = state.writtenText[globalKey] || '';
+  const alreadyDone = state.feedback[globalKey] !== undefined;
+
+  box.innerHTML = `
+    <div class="section-label">SHORT ANSWER — ${inter.pts} POINTS</div>
+    <p class="prompt-text">${inter.q}</p>
+    <textarea class="response-area" id="textarea-${globalKey}"
+      placeholder="Write your answer here..."
+      oninput="updateWC('${globalKey}',${inter.minWords})">${savedText}</textarea>
+    <div class="wc-bar" id="wc-${globalKey}">0 / ${inter.minWords} WORDS</div>
+    <div class="act-row">
+      <span class="act-hint">Minimum ${inter.minWords} words</span>
+      <button class="pixel-btn-sm" id="submit-btn-${globalKey}"
+        onclick="submitWrite(${stopIdx},${qIdx})" ${alreadyDone ? 'disabled' : ''}>
+        SUMMON ATHENA ▸
+      </button>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════
+// WORD COUNT
+// ═══════════════════════════════════════════════════
+function updateWC(globalKey, minWords){
+  const ta = document.getElementById('textarea-' + globalKey);
+  const wc = document.getElementById('wc-' + globalKey);
+  if(!ta || !wc) return;
+  const words = ta.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+  wc.textContent = words + ' / ' + minWords + ' WORDS';
+  wc.className = 'wc-bar' + (words >= minWords ? ' good' : '');
+  state.writtenText[globalKey] = ta.value;
+}
+
+// ═══════════════════════════════════════════════════
+// MC ANSWER (shuffled)
+// ═══════════════════════════════════════════════════
+function answerMC(stopIdx, qIdx, chosenIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const inter = STOPS[stopIdx].interactions[qIdx];
+  const letters = ['A','B','C','D'];
+
+  if(state.mcAnswers[globalKey] !== undefined) return;
+
+  const shuffleMap = window._shuffleMaps[globalKey];
+  const correctIdx = shuffleMap.shuffledCorrectIdx;
+  const isCorrect = chosenIdx === correctIdx;
+
+  const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+  const indices = inter.opts.map((_, i) => i);
+  const shuffledIndices = shuffleWithSeed(indices, seed);
+  const shuffledOpts = shuffledIndices.map(i => inter.opts[i]);
+
+  shuffledOpts.forEach((_, oi) => {
+    const btn = document.getElementById('mc-opt-' + globalKey + '-' + oi);
+    if(btn){
+      btn.disabled = true;
+      if(oi === chosenIdx) btn.classList.add(isCorrect ? 'correct' : 'wrong');
+      if(oi === correctIdx && !isCorrect) btn.classList.add('correct');
+    }
+  });
+
+  if(isCorrect){
+    document.getElementById('mc-correct-' + globalKey).style.display = 'block';
+  } else {
+    const wrongDiv = document.getElementById('mc-wrong-' + globalKey);
+    wrongDiv.style.display = 'block';
+    wrongDiv.textContent = '✗ Not quite — the correct answer is ' + letters[correctIdx] + '. ';
+  }
+  document.getElementById('mc-why-' + globalKey).style.display = 'block';
+
+  state.mcAnswers[globalKey] = isCorrect;
+  const pts = isCorrect ? inter.pts : Math.round(inter.pts * 0.6);
+  if(!state.scores[stopIdx]) state.scores[stopIdx] = 0;
+  state.scores[stopIdx] += pts;
+  updateScore();
+  saveProgress();
+
+  checkStopComplete(stopIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// WRITE SUBMIT — ATHENA AI GRADING
+// ═══════════════════════════════════════════════════
+function submitWrite(stopIdx, qIdx){
+  const globalKey = stopIdx + '-' + qIdx;
+  const ta = document.getElementById('textarea-' + globalKey);
+  const text = ta.value.trim();
+  const inter = STOPS[stopIdx].interactions[qIdx];
+
+  if(!text){ alert('Please write your answer before submitting.'); return; }
+  const words = text.split(/\s+/).filter(w => w.length > 0).length;
+  if(words < 10){ alert('Please write a more complete answer (at least 10 words).'); return; }
+
+  const btn = document.getElementById('submit-btn-' + globalKey);
+  btn.disabled = true;
+
+  state.writtenText[globalKey] = text;
+  showAthenaThinking(globalKey);
+
+  const isRevision = state.reviseUsed[globalKey] || false;
+
+  // Send to Athena AI endpoint for grading
+  fetch('/api/perseus-log/athena-grade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      question: inter.q,
+      answer: text,
+      min_words: inter.minWords,
+      max_pts: inter.pts,
+      is_revision: isRevision,
+      stop_title: STOPS[stopIdx].title,
+      stop_brief: STOPS[stopIdx].brief
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if(!data.success){
+      // Fallback to a basic score if AI fails
+      const result = fallbackGrade(text, inter);
+      applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter);
+      return;
+    }
+    const result = {
+      text: data.feedback,
+      stars: data.stars,
+      pts: data.pts
+    };
+    applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter);
+  })
+  .catch(() => {
+    // Network error — fallback grade
+    const result = fallbackGrade(text, inter);
+    applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter);
+  });
+}
+
+function fallbackGrade(text, inter){
+  const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  const longEnough = words >= inter.minWords;
+  const pts = longEnough ? Math.round(inter.pts * 0.7) : Math.round(inter.pts * 0.4);
+  const stars = longEnough ? 2 : 1;
+  return {
+    text: longEnough
+      ? 'Athena has received your answer, ' + student.name + '. Your response meets the length requirement. When connection is restored, a full assessment will be available.'
+      : 'Athena has received your answer, ' + student.name + '. Try to write more — aim for at least ' + inter.minWords + ' words.',
+    stars,
+    pts
+  };
+}
+
+function applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter){
+  if(isRevision){
+    const oldFeedback = state.feedback[globalKey];
+    if(oldFeedback){
+      state.scores[stopIdx] = Math.max(0, (state.scores[stopIdx] || 0) - oldFeedback.pts) + result.pts;
+    } else {
+      state.scores[stopIdx] = (state.scores[stopIdx] || 0) + result.pts;
+    }
+  } else {
+    if(!state.scores[stopIdx]) state.scores[stopIdx] = 0;
+    state.scores[stopIdx] += result.pts;
+  }
+
+  state.feedback[globalKey] = result;
+  showAthenaResult(globalKey, result);
+
+  if(result.stars < 3){
+    showReviseBar(globalKey);
+  }
+
+  const ta = document.getElementById('textarea-' + globalKey);
+  if(ta) ta.disabled = true;
+
+  updateScore();
+  saveProgress();
+  checkStopComplete(stopIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// ATHENA UI
+// ═══════════════════════════════════════════════════
+function showAthenaThinking(globalKey){
+  const panel = document.getElementById('athena-panel-' + globalKey);
+  const msg = document.getElementById('athena-msg-' + globalKey);
+  if(!panel || !msg) return;
+  panel.classList.add('show');
+  msg.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+}
+
+function showAthenaResult(globalKey, result){
+  const msg = document.getElementById('athena-msg-' + globalKey);
+  if(!msg) return;
+  msg.textContent = result.text;
+  for(let s = 1; s <= 3; s++){
+    const star = document.getElementById('star-' + globalKey + '-' + s);
+    if(star) star.classList.toggle('lit', s <= result.stars);
+  }
+}
+
+function showReviseBar(globalKey){
+  const bar = document.getElementById('revise-bar-' + globalKey);
+  if(!bar) return;
+  bar.innerHTML = `
+    <div class="revise-bar">
+      <span class="revise-hint">WANT TO IMPROVE YOUR SCORE? EDIT AND RESUBMIT.</span>
+      <button class="pixel-btn-outline" onclick="startRevise('${globalKey}')">✎ REVISE YOUR ANSWER</button>
+    </div>
+  `;
+}
+
+function startRevise(globalKey){
+  const ta = document.getElementById('textarea-' + globalKey);
+  const btn = document.getElementById('submit-btn-' + globalKey);
+  if(!ta || !btn) return;
+  ta.disabled = false;
+  ta.focus();
+  btn.disabled = false;
+  btn.textContent = 'RESUBMIT TO ATHENA ▸';
+  state.reviseUsed[globalKey] = true;
+
+  document.getElementById('complete-bar').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════════════
+// STOP COMPLETION
+// ═══════════════════════════════════════════════════
+function checkStopComplete(stopIdx){
+  const stop = STOPS[stopIdx];
+  let allDone = true;
+
+  stop.interactions.forEach((inter, qIdx) => {
+    const globalKey = stopIdx + '-' + qIdx;
+    if(inter.type === 'mc' && state.mcAnswers[globalKey] === undefined) allDone = false;
+    if(inter.type === 'write' && state.feedback[globalKey] === undefined) allDone = false;
+  });
+
+  if(allDone){
+    showCompleteBar(stopIdx);
+  }
+}
+
+function showCompleteBar(stopIdx){
+  const bar = document.getElementById('complete-bar');
+  const pts = state.scores[stopIdx] || 0;
+  document.getElementById('pts-earned-display').textContent = '+' + pts + ' POINTS EARNED';
+  const nextBtn = document.getElementById('next-btn');
+  if(stopIdx === STOPS.length - 1){
+    nextBtn.textContent = 'COMPLETE THE JOURNEY ★';
+    nextBtn.onclick = () => {
+      state.completed[stopIdx] = true;
+      renderProgress();
+      saveProgress();
+      showResults();
+    };
+  } else {
+    nextBtn.textContent = 'NEXT STOP ▶';
+    nextBtn.onclick = () => nextStop();
+  }
+  bar.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+function nextStop(){
+  const i = state.currentStop;
+  state.completed[i] = true;
+  renderProgress();
+  saveProgress();
+
+  const next = i + 1;
+  if(next >= STOPS.length){
+    showResults();
+    return;
+  }
+
+  startTransition(i, next);
+  state.currentStop = next;
+  renderProgress();
+}
+
+// ═══════════════════════════════════════════════════
+// RESTORE STATE
+// ═══════════════════════════════════════════════════
+function restoreStopState(stopIdx){
+  const stop = STOPS[stopIdx];
+
+  stop.interactions.forEach((inter, qIdx) => {
+    const globalKey = stopIdx + '-' + qIdx;
+
+    if(inter.type === 'mc' && state.mcAnswers[globalKey] !== undefined){
+      const isCorrect = state.mcAnswers[globalKey];
+      const letters = ['A','B','C','D'];
+
+      const shuffleMap = window._shuffleMaps[globalKey];
+      if(!shuffleMap) return;
+      const correctIdx = shuffleMap.shuffledCorrectIdx;
+
+      const seed = (student.id || 1) * 1000 + stopIdx * 100 + qIdx;
+      const indices = inter.opts.map((_, i) => i);
+      const shuffledOpts = shuffleWithSeed(indices, seed).map(i => inter.opts[i]);
+
+      shuffledOpts.forEach((_, oi) => {
+        const btn = document.getElementById('mc-opt-' + globalKey + '-' + oi);
+        if(btn){
+          btn.disabled = true;
+          if(oi === correctIdx) btn.classList.add('correct');
+        }
+      });
+      if(isCorrect){
+        document.getElementById('mc-correct-' + globalKey).style.display = 'block';
+      } else {
+        const wrongDiv = document.getElementById('mc-wrong-' + globalKey);
+        wrongDiv.style.display = 'block';
+        wrongDiv.textContent = '✗ The correct answer was ' + letters[correctIdx] + '. ';
+      }
+      document.getElementById('mc-why-' + globalKey).style.display = 'block';
+    }
+
+    if(inter.type === 'write' && state.feedback[globalKey]){
+      const ta = document.getElementById('textarea-' + globalKey);
+      if(ta){
+        ta.value = state.writtenText[globalKey] || '';
+        ta.disabled = true;
+        updateWC(globalKey, inter.minWords);
+      }
+      const panel = document.getElementById('athena-panel-' + globalKey);
+      if(panel) panel.classList.add('show');
+      showAthenaResult(globalKey, state.feedback[globalKey]);
+
+      if(state.feedback[globalKey].stars < 3){
+        showReviseBar(globalKey);
+      }
+
+      const btn = document.getElementById('submit-btn-' + globalKey);
+      if(btn) btn.disabled = true;
+    }
+  });
+
+  checkStopComplete(stopIdx);
+}
+
+// ═══════════════════════════════════════════════════
+// SCORE & RANK
+// ═══════════════════════════════════════════════════
+function updateScore(){
+  const total = Object.values(state.scores).reduce((a, b) => a + b, 0);
+  state.totalScore = total;
+  document.getElementById('tb-pts').textContent = total + ' PTS';
+  const rank = getRank(total);
+  document.getElementById('tb-rank').textContent = rank.title;
+}
+
+function getRank(pts){
+  return RANKS.find(r => pts >= r.min && pts <= r.max) || RANKS[RANKS.length - 1];
+}
+
+// ═══════════════════════════════════════════════════
+// RESULTS
+// ═══════════════════════════════════════════════════
+function showResults(){
+  const total = state.totalScore;
+  const rank = getRank(total);
+  const stopsD = Object.keys(state.completed).filter(k => state.completed[k]).length;
+  const avgPts = stopsD ? Math.round(total / stopsD * 10) / 10 : 0;
+
+  const tierMap = {
+    'CASTAWAY':'CAS','WANDERER':'WAN','SEEKER':'SEE',
+    'SLAYER':'SLA','HERO OF PROPHECY':'HOP'
+  };
+  const tier = tierMap[rank.title] || 'CAS';
+  const hash = (student.name.length * 7 + total * 3 + (student.alliance || '').length * 5) % 900 + 100;
+  const code = 'PRS-' + tier + '-' + hash;
+
+  document.getElementById('r-rank-title').textContent = rank.title;
+  document.getElementById('r-name-line').textContent = student.name + ' · ' + (student.periodDisplay || student.period) + ' · ' + student.alliance;
+  document.getElementById('r-quote').textContent = '"' + rank.quote + '"';
+  document.getElementById('r-code').textContent = code;
+  document.getElementById('r-score-grid').innerHTML = `
+    <div class="score-cell"><div class="sc-lbl">TOTAL POINTS</div><div class="sc-val">${total}</div></div>
+    <div class="score-cell"><div class="sc-lbl">STOPS LOGGED</div><div class="sc-val">${stopsD}/8</div></div>
+    <div class="score-cell"><div class="sc-lbl">AVG PER STOP</div><div class="sc-val">${avgPts}</div></div>
+    <div class="score-cell"><div class="sc-lbl">RANK</div><div class="sc-val" style="font-size:7px;line-height:1.8">${rank.title}</div></div>
+  `;
+  document.getElementById('results-modal').classList.add('show');
+
+  fetch('/api/perseus-log/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      student_name: student.name,
+      class_period: student.period,
+      student_id: student.id,
+      alliance_name: student.alliance || null,
+      hero_code: code,
+      rank_tier: tier,
+      total_score: total,
+      stop_scores: state.scores,
+      written_answers: state.writtenText
+    })
+  }).then(r => r.json()).then(d => {
+    if(d.success) console.log('🪽 Perseus log saved');
+  }).catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════
+// TEACHER CONTROLS
+// ═══════════════════════════════════════════════════
+function openTeacher(){
+  document.getElementById('teacher-modal').classList.add('show');
+}
+function closeTeacher(){
+  document.getElementById('teacher-modal').classList.remove('show');
+}
+function checkPW(){
+  const pw = document.getElementById('pw-input').value;
+  if(pw === 'perseus' || pw === 'odyssey'){
+    document.getElementById('teacher-controls').style.display = 'block';
+    document.getElementById('pw-error').style.display = 'none';
+  } else {
+    document.getElementById('pw-error').style.display = 'block';
+  }
+}
+
+function buildTeacherUnlockGrid(){
+  const grid = document.getElementById('unlock-grid');
+  grid.innerHTML = '';
+  STOPS.forEach((s, i) => {
+    const isUnlocked = i <= state.unlockedUpTo;
+    const row = document.createElement('div');
+    row.className = 'unlock-row';
+    row.innerHTML = `
+      <span class="stop-name ${isUnlocked ? 'done' : ''}">${i+1}. ${s.title}</span>
+      <button ${isUnlocked ? 'class="done-btn" disabled' : ''}
+        onclick="teacherUnlock(${i})">${isUnlocked ? '✓ OPEN' : 'UNLOCK'}</button>
+    `;
+    grid.appendChild(row);
+  });
+}
+
+function teacherUnlock(i){
+  const newUnlock = Math.max(state.unlockedUpTo, i);
+  fetch('/api/perseus-log/unlock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      period: student.period,
+      unlock_up_to: newUnlock
+    })
+  }).then(r => r.json()).then(d => {
+    if(d.success){
+      state.unlockedUpTo = newUnlock;
+      renderProgress();
+      buildTeacherUnlockGrid();
+      if(state.currentStop < 0){
+        showStop(0);
+      } else if(state.currentStop <= state.unlockedUpTo){
+        document.getElementById('ph-badge').style.background = '';
+        document.getElementById('ph-badge').style.borderColor = '';
+        document.getElementById('ph-title').style.color = '';
+        document.getElementById('ph-title').style.textShadow = '';
+        showStop(state.currentStop);
+      }
+    }
+  }).catch(() => {
+    state.unlockedUpTo = newUnlock;
+    renderProgress();
+    buildTeacherUnlockGrid();
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// PRINT LOG
+// ═══════════════════════════════════════════════════
+function printLog(){
+  const total = state.totalScore;
+  const rank = getRank(total);
+  const tierMap = {'CASTAWAY':'CAS','WANDERER':'WAN','SEEKER':'SEE','SLAYER':'SLA','HERO OF PROPHECY':'HOP'};
+  const tier = tierMap[rank.title] || 'CAS';
+  const hash = (student.name.length * 7 + total * 3 + (student.alliance || '').length * 5) % 900 + 100;
+  const code = 'PRS-' + tier + '-' + hash;
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+  const stopsCompleted = Object.keys(state.completed).filter(k => state.completed[k]).length;
+  const letters = ['A','B','C','D'];
+
+  const stopSections = STOPS.map((stop, i) => {
+    const pts = state.scores[i] || 0;
+    let responseHTML = '';
+
+    stop.interactions.forEach((inter, qIdx) => {
+      const globalKey = i + '-' + qIdx;
+
+      if(inter.type === 'mc'){
+        const answered = state.mcAnswers[globalKey] !== undefined;
+        const isCorrect = answered ? state.mcAnswers[globalKey] : false;
+        responseHTML += '<div style="margin-bottom:0.8rem;">' +
+          '<div style="font-weight:600;margin-bottom:4px;">Multiple Choice: ' + inter.q + '</div>' +
+          '<div style="padding:6px 10px;background:' + (answered ? (isCorrect ? '#e8f5e9' : '#fce4ec') : '#f5f5f5') + ';border-left:3px solid ' + (isCorrect ? '#4caf50' : '#ef5350') + ';">' +
+          (answered
+            ? (isCorrect ? '✓ Correct — ' + inter.correctText : '✗ Incorrect — Correct: ' + inter.correctText)
+            : 'Not answered') +
+          '</div>' +
+          '<div style="font-style:italic;color:#555;font-size:0.9rem;margin-top:4px;">💡 ' + inter.why + '</div>' +
+          '</div>';
+      }
+
+      if(inter.type === 'write'){
+        const txt = state.writtenText[globalKey] || '';
+        const fb = state.feedback[globalKey];
+        const stars = fb ? fb.stars : 0;
+        responseHTML += '<div style="margin-bottom:0.8rem;">' +
+          '<div style="font-weight:600;margin-bottom:4px;">Short Answer (' + inter.pts + ' pts): ' + inter.q + '</div>' +
+          '<div style="padding:8px 10px;background:#f5f5f5;border:1px solid #ddd;min-height:40px;">' + (txt || '<em>No response recorded.</em>') + '</div>';
+        if(fb){
+          responseHTML += '<div style="margin-top:6px;">' +
+            '<span style="color:#ffc107;">' + '★'.repeat(stars) + '</span>' +
+            '<span style="color:#ddd;">' + '★'.repeat(3 - stars) + '</span>' +
+            ' — ' + fb.pts + ' points</div>' +
+            '<div style="font-style:italic;color:#1565c0;border-left:3px solid #1565c0;padding-left:8px;margin-top:4px;">🦉 ' + fb.text + '</div>';
+        }
+        responseHTML += '</div>';
+      }
+    });
+
+    return '<div style="border:1px solid #ccc;margin-bottom:1rem;page-break-inside:avoid;">' +
+      '<div style="background:#1a3868;color:#f0c040;padding:8px 12px;font-weight:700;">Stop ' + stop.id + ' — ' + stop.title + ' <span style="float:right;font-weight:400;font-size:0.85rem;">' + stop.time + ' | +' + pts + ' pts</span></div>' +
+      '<div style="padding:10px 12px;">' +
+      '<div style="background:#f9f6f0;border:1px solid #e0d8c8;padding:8px 10px;margin-bottom:10px;font-style:italic;color:#555;">' + stop.brief + '</div>' +
+      responseHTML +
+      '</div></div>';
+  }).join('');
+
+  document.getElementById('print-output').innerHTML =
+    '<div style="max-width:800px;margin:0 auto;padding:1rem;font-family:Georgia,serif;">' +
+    '<h1 style="text-align:center;color:#3a1868;">🪽 The Flight of Destiny — Perseus & Medusa</h1>' +
+    '<div style="text-align:center;color:#555;margin-bottom:1rem;">' +
+      '<strong>' + student.name + '</strong> · ' + (student.periodDisplay || student.period) + ' · ' + student.alliance +
+      ' · ' + today + '<br>' +
+      'Rank: <strong>' + rank.title + '</strong> · Score: <strong>' + total + ' points</strong> · Stops completed: <strong>' + stopsCompleted + '/8</strong>' +
+    '</div>' +
+    '<hr style="border:1px solid #e0d8c8;margin-bottom:1rem;">' +
+    stopSections +
+    '<div style="text-align:center;border:2px solid #c89820;padding:1rem;margin-top:1rem;background:#fdf6e3;">' +
+      '<div style="font-size:0.8rem;color:#888;margin-bottom:4px;">Hero Code — Enter in Odyssey to Olympus</div>' +
+      '<div style="font-size:1.5rem;font-weight:700;color:#1a3868;letter-spacing:0.1em;">' + code + '</div>' +
+      '<div style="font-size:0.8rem;color:#888;margin-top:4px;">' + rank.title + ' · ' + total + ' points</div>' +
+    '</div>' +
+    '<div style="margin-top:1rem;font-size:0.75rem;color:#999;border-top:1px solid #e0d8c8;padding-top:0.5rem;">' +
+      '<strong>ELA Standards:</strong> W.6.1, W.6.1b (argument writing), RL.6.1 (textual evidence), RL.6.3 (character response), SL.6.1 (discussion)' +
+    '</div>' +
+    '</div>';
+
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('results-modal').classList.remove('show');
+  document.getElementById('print-output').style.display = 'block';
+  window.print();
+  setTimeout(() => {
+    document.getElementById('print-output').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('results-modal').classList.add('show');
+  }, 1000);
+}
+
+</script>
+</body>
+</html>

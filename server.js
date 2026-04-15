@@ -115,6 +115,40 @@ initDatabase().then(() => {
   } catch (e) {
     console.log('🗡️ Theseus tables already exist or migration skipped:', e.message);
   }
+
+  // ── Perseus log tables ──
+  try {
+    run(`CREATE TABLE IF NOT EXISTS perseus_log_completions (
+      completion_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_name TEXT NOT NULL,
+      class_period TEXT NOT NULL,
+      alliance_name TEXT,
+      hero_code TEXT,
+      rank_tier TEXT,
+      total_score INTEGER DEFAULT 0,
+      stop_scores TEXT DEFAULT '{}',
+      written_answers TEXT DEFAULT '{}',
+      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      override_by_teacher INTEGER DEFAULT 0,
+      UNIQUE(student_name, class_period)
+    )`);
+    run(`CREATE TABLE IF NOT EXISTS perseus_log_progress (
+      student_name TEXT NOT NULL,
+      class_period TEXT NOT NULL,
+      student_id INTEGER,
+      state_json TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (student_name, class_period)
+    )`);
+    run(`CREATE TABLE IF NOT EXISTS perseus_log_unlocks (
+      class_period TEXT PRIMARY KEY,
+      unlocked_up_to INTEGER DEFAULT -1
+    )`);
+    saveDatabase();
+    console.log('🪽 Perseus log tables ensured');
+  } catch (e) {
+    console.log('🪽 Perseus tables already exist or migration skipped:', e.message);
+  }
   // ─────────────────────────────────────────────────────────────────────────
 
   // ── Hercules + Theseus student columns (safe ALTER — skips if exists) ──
@@ -125,8 +159,11 @@ initDatabase().then(() => {
     try { run('ALTER TABLE students ADD COLUMN theseus_log_completed INTEGER DEFAULT 0'); } catch(e) {}
     try { run('ALTER TABLE students ADD COLUMN theseus_hero_code TEXT DEFAULT NULL'); } catch(e) {}
     try { run('ALTER TABLE students ADD COLUMN theseus_rank_tier TEXT DEFAULT NULL'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN perseus_log_completed INTEGER DEFAULT 0'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN perseus_hero_code TEXT DEFAULT NULL'); } catch(e) {}
+    try { run('ALTER TABLE students ADD COLUMN perseus_rank_tier TEXT DEFAULT NULL'); } catch(e) {}
     saveDatabase();
-    console.log('✅ Hercules + Theseus student columns ensured');
+    console.log('✅ Hercules + Theseus + Perseus student columns ensured');
   } catch(e) {
     console.log('Column migration note:', e.message);
   }
@@ -16044,6 +16081,378 @@ app.get('/api/theseus-log/status/:period', authenticateToken, (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PERSEUS VIEWING GUIDE — "The Flight of Destiny"
+// ═══════════════════════════════════════════════════════════════════════════
+
+// GET /api/perseus-log/period-alliances/:period — list alliances with non-ghost students
+app.get('/api/perseus-log/period-alliances/:period', (req, res) => {
+  try {
+    const period = req.params.period;
+    const alliances = query(`
+      SELECT DISTINCT a.alliance_id, a.alliance_name
+      FROM alliances a
+      JOIN students s ON s.alliance_id = a.alliance_id
+      WHERE s.class_period = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+        AND a.is_disbanded = 0
+      ORDER BY a.alliance_name
+    `, [period]);
+
+    const independents = query(`
+      SELECT student_id FROM students
+      WHERE class_period = ? AND (alliance_id IS NULL) AND (is_ghost = 0 OR is_ghost IS NULL)
+    `, [period]);
+
+    if (independents.length > 0) {
+      alliances.push({ alliance_id: 'independent', alliance_name: 'Independent' });
+    }
+
+    res.json({ alliances });
+  } catch (err) {
+    console.error('Perseus period-alliances error:', err);
+    res.json({ alliances: [], error: err.message });
+  }
+});
+
+// GET /api/perseus-log/alliance-students/:period/:alliance_id — list non-ghost students
+app.get('/api/perseus-log/alliance-students/:period/:alliance_id', (req, res) => {
+  try {
+    const { period, alliance_id } = req.params;
+    let students;
+    if (alliance_id === 'independent') {
+      students = query(`
+        SELECT student_id, name FROM students
+        WHERE class_period = ? AND (alliance_id IS NULL) AND (is_ghost = 0 OR is_ghost IS NULL)
+        ORDER BY name
+      `, [period]);
+    } else {
+      students = query(`
+        SELECT student_id, name FROM students
+        WHERE class_period = ? AND alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)
+        ORDER BY name
+      `, [period, parseInt(alliance_id)]);
+    }
+    res.json({ students });
+  } catch (err) {
+    console.error('Perseus alliance-students error:', err);
+    res.json({ students: [], error: err.message });
+  }
+});
+
+// GET /api/perseus-log/load-progress-by-id/:student_id — load by student_id
+app.get('/api/perseus-log/load-progress-by-id/:student_id', (req, res) => {
+  try {
+    const sid = parseInt(req.params.student_id);
+    let rows = query(
+      'SELECT state_json, updated_at FROM perseus_log_progress WHERE student_id = ?',
+      [sid]
+    );
+    if (rows.length > 0) {
+      return res.json({ found: true, state: JSON.parse(rows[0].state_json), updated_at: rows[0].updated_at });
+    }
+    // Fallback: name+period lookup
+    const stu = query('SELECT name, class_period FROM students WHERE student_id = ?', [sid]);
+    if (stu.length > 0) {
+      rows = query(
+        'SELECT state_json, updated_at FROM perseus_log_progress WHERE student_name = ? AND class_period = ?',
+        [stu[0].name, stu[0].class_period]
+      );
+      if (rows.length > 0) {
+        run('UPDATE perseus_log_progress SET student_id = ? WHERE student_name = ? AND class_period = ?',
+          [sid, stu[0].name, stu[0].class_period]);
+        saveDatabase();
+        return res.json({ found: true, state: JSON.parse(rows[0].state_json), updated_at: rows[0].updated_at });
+      }
+    }
+    res.json({ found: false });
+  } catch (err) {
+    console.error('Perseus load-progress-by-id error:', err);
+    res.json({ found: false });
+  }
+});
+
+// POST /api/perseus-log/save-progress — no JWT (standalone page)
+app.post('/api/perseus-log/save-progress', (req, res) => {
+  try {
+    const { student_name, class_period, student_id, state } = req.body;
+    if (!student_name || !class_period || !state) {
+      return res.status(400).json({ error: 'student_name, class_period, and state required' });
+    }
+
+    const stateJson = JSON.stringify(state);
+    const sid = student_id ? parseInt(student_id) : null;
+
+    let existing;
+    if (sid) {
+      existing = query(
+        'SELECT student_name FROM perseus_log_progress WHERE student_id = ?',
+        [sid]
+      );
+    }
+    if (!existing || existing.length === 0) {
+      existing = query(
+        'SELECT student_name FROM perseus_log_progress WHERE student_name = ? AND class_period = ?',
+        [student_name, class_period]
+      );
+    }
+
+    if (existing.length > 0) {
+      if (sid) {
+        run(
+          'UPDATE perseus_log_progress SET state_json = ?, student_id = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+          [stateJson, sid, student_name, class_period]
+        );
+      } else {
+        run(
+          'UPDATE perseus_log_progress SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+          [stateJson, student_name, class_period]
+        );
+      }
+    } else {
+      run(
+        'INSERT INTO perseus_log_progress (student_name, class_period, student_id, state_json) VALUES (?, ?, ?, ?)',
+        [student_name, class_period, sid, stateJson]
+      );
+    }
+
+    saveDatabase();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Perseus log save-progress error:', err);
+    res.status(500).json({ error: 'Failed to save progress' });
+  }
+});
+
+// GET /api/perseus-log/load-progress/:name/:period — no JWT (legacy fallback)
+app.get('/api/perseus-log/load-progress/:name/:period', (req, res) => {
+  try {
+    const { name, period } = req.params;
+    const rows = query(
+      'SELECT state_json, updated_at FROM perseus_log_progress WHERE student_name = ? AND class_period = ?',
+      [name, period]
+    );
+    if (rows.length > 0) {
+      res.json({ found: true, state: JSON.parse(rows[0].state_json), updated_at: rows[0].updated_at });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (err) {
+    console.error('Perseus log load-progress error:', err);
+    res.json({ found: false });
+  }
+});
+
+// GET /api/perseus-log/unlocks/:period — no auth (standalone)
+app.get('/api/perseus-log/unlocks/:period', (req, res) => {
+  try {
+    const { period } = req.params;
+    const rows = query(
+      'SELECT unlocked_up_to FROM perseus_log_unlocks WHERE class_period = ?',
+      [period]
+    );
+    const unlocked = (rows.length > 0 && rows[0].unlocked_up_to !== null)
+      ? rows[0].unlocked_up_to : -1;
+    res.json({ period, unlocked_up_to: unlocked });
+  } catch (err) {
+    res.json({ period: req.params.period, unlocked_up_to: -1 });
+  }
+});
+
+// POST /api/perseus-log/unlock — from teacher modal in perseus page
+app.post('/api/perseus-log/unlock', (req, res) => {
+  try {
+    const { period, unlock_up_to } = req.body;
+
+    if (!period || unlock_up_to === undefined) {
+      return res.status(400).json({ error: 'period and unlock_up_to required' });
+    }
+
+    const existing = query(
+      'SELECT class_period FROM perseus_log_unlocks WHERE class_period = ?',
+      [period]
+    );
+    if (existing.length > 0) {
+      run('UPDATE perseus_log_unlocks SET unlocked_up_to = ? WHERE class_period = ?',
+        [unlock_up_to, period]);
+    } else {
+      run('INSERT INTO perseus_log_unlocks (class_period, unlocked_up_to) VALUES (?, ?)',
+        [period, unlock_up_to]);
+    }
+
+    saveDatabase();
+    console.log(`🪽 Perseus unlock: ${period} → stop ${unlock_up_to}`);
+    res.json({ success: true, period, unlocked_up_to: unlock_up_to });
+
+  } catch (err) {
+    console.error('Perseus log unlock error:', err);
+    res.status(500).json({ error: 'Failed to set unlock' });
+  }
+});
+
+// POST /api/teacher/perseus-log-unlock — teacher JWT version
+app.post('/api/teacher/perseus-log-unlock', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { class_period, unlock_up_to } = req.body;
+
+    if (!class_period || unlock_up_to === undefined) {
+      return res.status(400).json({ error: 'class_period and unlock_up_to required' });
+    }
+
+    const existing = query(
+      'SELECT class_period FROM perseus_log_unlocks WHERE class_period = ?',
+      [class_period]
+    );
+    if (existing.length > 0) {
+      run('UPDATE perseus_log_unlocks SET unlocked_up_to = ? WHERE class_period = ?',
+        [unlock_up_to, class_period]);
+    } else {
+      run('INSERT INTO perseus_log_unlocks (class_period, unlocked_up_to) VALUES (?, ?)',
+        [class_period, unlock_up_to]);
+    }
+
+    saveDatabase();
+    console.log(`🪽 Perseus unlock (teacher): ${class_period} → stop ${unlock_up_to}`);
+    res.json({ success: true, class_period, unlocked_up_to: unlock_up_to });
+
+  } catch (err) {
+    console.error('Perseus log unlock error:', err);
+    res.status(500).json({ error: 'Failed to set unlock' });
+  }
+});
+
+// GET /api/teacher/perseus-log-unlock-status — returns all periods' unlock state
+app.get('/api/teacher/perseus-log-unlock-status', (req, res) => {
+  try {
+    const rows = query('SELECT class_period, unlocked_up_to FROM perseus_log_unlocks ORDER BY class_period');
+    res.json({ unlocks: rows });
+  } catch (err) {
+    res.json({ unlocks: [] });
+  }
+});
+
+// POST /api/perseus-log/submit — no JWT (standalone HTML)
+app.post('/api/perseus-log/submit', (req, res) => {
+  try {
+    const {
+      student_name, class_period, student_id, alliance_name,
+      hero_code, rank_tier, total_score,
+      stop_scores, written_answers
+    } = req.body;
+
+    if (!student_name || !class_period) {
+      return res.status(400).json({ error: 'student_name and class_period required' });
+    }
+
+    const existing = query(
+      'SELECT completion_id FROM perseus_log_completions WHERE student_name = ? AND class_period = ?',
+      [student_name, class_period]
+    );
+
+    if (existing.length > 0) {
+      run(
+        `UPDATE perseus_log_completions SET
+          alliance_name=?, hero_code=?, rank_tier=?, total_score=?,
+          stop_scores=?, written_answers=?, completed_at=CURRENT_TIMESTAMP
+         WHERE student_name=? AND class_period=?`,
+        [
+          alliance_name || null, hero_code || null, rank_tier || null,
+          total_score || 0, JSON.stringify(stop_scores || {}),
+          JSON.stringify(written_answers || {}), student_name, class_period
+        ]
+      );
+    } else {
+      run(
+        `INSERT INTO perseus_log_completions
+          (student_name, class_period, alliance_name, hero_code, rank_tier, total_score, stop_scores, written_answers)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          student_name, class_period, alliance_name || null,
+          hero_code || null, rank_tier || null, total_score || 0,
+          JSON.stringify(stop_scores || {}), JSON.stringify(written_answers || {})
+        ]
+      );
+    }
+
+    saveDatabase();
+    console.log(`🪽 Perseus log submitted: ${student_name} (${class_period}) — ${rank_tier} — ${total_score} pts`);
+
+    // ── Bridge rewards to student account ──
+    try {
+      const prsDrachma = { CAS: 0, WAN: 15, SEE: 30, SLA: 50, HOP: 75 };
+      const tier = (rank_tier || 'CAS').toUpperCase();
+      const drachmaReward = prsDrachma[tier] || 0;
+
+      const sid = student_id ? parseInt(student_id) : null;
+      let studentRow;
+      if (sid) {
+        studentRow = query('SELECT student_id, drachma FROM students WHERE student_id = ?', [sid]);
+      }
+      if ((!studentRow || studentRow.length === 0) && student_name && class_period) {
+        studentRow = query('SELECT student_id, drachma FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
+      }
+      if (studentRow && studentRow.length > 0) {
+        const currentDrachma = studentRow[0].drachma || 0;
+        run(
+          'UPDATE students SET drachma = ?, perseus_log_completed = 1, perseus_hero_code = ?, perseus_rank_tier = ? WHERE student_id = ?',
+          [currentDrachma + drachmaReward, hero_code || null, tier, studentRow[0].student_id]
+        );
+        saveDatabase();
+        console.log(`🪽 Perseus rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+      }
+    } catch (bridgeErr) {
+      console.error('🪽 Perseus reward bridge error (non-fatal):', bridgeErr.message);
+    }
+
+    res.json({ success: true, hero_code, rank_tier });
+
+  } catch (err) {
+    console.error('Perseus log submit error:', err);
+    res.status(500).json({ error: 'Failed to save perseus log' });
+  }
+});
+
+// GET /api/perseus-log/status/:period — teacher dashboard completions
+app.get('/api/perseus-log/status/:period', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { period } = req.params;
+
+    const completions = query(
+      `SELECT student_name, alliance_name, hero_code, rank_tier,
+              total_score, completed_at
+       FROM perseus_log_completions
+       WHERE class_period = ?
+       ORDER BY total_score DESC`,
+      [period]
+    );
+
+    let studentCount = 0;
+    try {
+      const totalStudents = query(
+        'SELECT COUNT(*) as cnt FROM students WHERE class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
+        [period]
+      );
+      studentCount = (totalStudents[0] && totalStudents[0].cnt) || 0;
+    } catch (countErr) {
+      const totalStudents = query(
+        'SELECT COUNT(*) as cnt FROM students WHERE class_period = ?',
+        [period]
+      );
+      studentCount = (totalStudents[0] && totalStudents[0].cnt) || 0;
+    }
+
+    res.json({
+      completions,
+      total_students: studentCount,
+      completed_count: completions.length
+    });
+  } catch (err) {
+    console.error('Perseus log status error:', err);
+    res.status(500).json({ error: 'Failed to load perseus status' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ATHENA AI — STATUS CHECK (diagnostic)
 // ═══════════════════════════════════════════════════════════════════════════
 app.get('/api/athena-status', async (req, res) => {
@@ -16236,4 +16645,5 @@ ${answer}`
 app.post('/api/athena-grade', athenaGradeHandler);
 app.post('/api/theseus-log/athena-grade', athenaGradeHandler);
 app.post('/api/hercules-log/athena-grade', athenaGradeHandler);
+app.post('/api/perseus-log/athena-grade', athenaGradeHandler);
 app.post('/api/voyage-log/athena-grade', athenaGradeHandler);
