@@ -5451,10 +5451,14 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
           }))
         };
       }
-    } else {
+    }
+    
+    // Apply Granary protection for regular (non-steal) choices
+    let choiceGranaryApplied = false;
+    
+    if (fate.fate_type !== 'steal_choice') {
       // REGULAR CHOICE: apply modified flat points to this alliance only
       let finalPoints = modifiedRolledValue;
-      let choiceGranaryApplied = false;
       const choiceBuildingsOwned = JSON.parse(alliance.buildings_owned || '[]');
       if (choiceBuildingsOwned.includes('Granary') && finalPoints < 0) {
         finalPoints = Math.round(finalPoints * 0.7);
@@ -5509,7 +5513,7 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
     } catch(e) { /* non-critical */ }
 
     // Check if Granary was applied (for display)
-    const granaryApplied = (typeof choiceGranaryApplied !== 'undefined') ? choiceGranaryApplied : false;
+    const granaryApplied = choiceGranaryApplied;
 
     res.json({
       success,
