@@ -1755,20 +1755,47 @@ function drawStaticScene(stopIdx){
 }
 
 // ═══════════════════════════════════════════════════
-// PERSEUS SPRITE SYSTEM
+// PERSEUS SPRITE SYSTEM — multiple sprites per transition
 // ═══════════════════════════════════════════════════
-const HERO_SPRITE_URL = '/images/heroic/perseus/transitions/perseus_sprite.png';
+const SPRITE_URLS = {
+  walk:    '/images/heroic/perseus/transitions/perseus_sprite.png',
+  chest:   '/images/heroic/perseus/transitions/perseus_chest_sprite.png',
+  flying:  '/images/heroic/perseus/transitions/perseus_flying_sprite.png',
+  pegasus: '/images/heroic/perseus/transitions/perseus_pegasus_sprite.png'
+};
 const HERO_FRAMES = 4;
+
+// Which sprite to use for each transition (index = fromIdx, 0-based)
+// Transition 0 = stop0→stop1, transition 1 = stop1→stop2, etc.
+const TRANSITION_SPRITE_MAP = [
+  'chest',   // 0: oracle → ocean (baby in chest)
+  'walk',    // 1: ocean → island (walking to festival)
+  'flying',  // 2: island → sky (first flight on sandals)
+  'walk',    // 3: sky → cave (walking into Graeae cave)
+  'walk',    // 4: cave → meadow (walking to nymphs)
+  'flying',  // 5: meadow → gorgon (flying to island)
+  'pegasus'  // 6: gorgon → home (riding Pegasus)
+];
+
+// Loaded images and processed frame caches per sprite type
+const spriteImages = {};
+const spriteFrameCache = {};
+const spriteProcessed = {};
+
+function loadHeroSprite(){
+  for (const [key, url] of Object.entries(SPRITE_URLS)) {
+    const img = new Image();
+    img.onload = () => { spriteImages[key] = img; };
+    img.onerror = () => { console.warn('Sprite failed to load: ' + key); };
+    img.src = url;
+    spriteImages[key] = img; // store ref immediately so .complete check works
+  }
+}
+
+// Keep legacy references working for static scene drawing
 let heroSpriteImg = null;
 let heroProcessedFrames = null;
 let heroProcessed = false;
-
-function loadHeroSprite(){
-  const img = new Image();
-  img.onload = () => { heroSpriteImg = img; };
-  img.onerror = () => { console.warn('Perseus sprite failed to load — using fallback'); };
-  img.src = HERO_SPRITE_URL;
-}
 
 // ═══════════════════════════════════════════════════
 // PANORAMA BACKGROUND IMAGES
@@ -1795,17 +1822,19 @@ function loadPanoramaImages(){
   });
 }
 
-function processHeroSprite(){
-  if(heroProcessedFrames) return heroProcessedFrames;
-  if(heroProcessed) return null;
-  if(!heroSpriteImg || !heroSpriteImg.complete || heroSpriteImg.naturalWidth === 0) return null;
+function processSprite(spriteKey){
+  // Check cache first
+  if(spriteFrameCache[spriteKey]) return spriteFrameCache[spriteKey];
+  if(spriteProcessed[spriteKey]) return null;
 
-  heroProcessed = true;
-  const src = heroSpriteImg;
+  const src = spriteImages[spriteKey];
+  if(!src || !src.complete || src.naturalWidth === 0) return null;
+
+  spriteProcessed[spriteKey] = true;
   const fw = Math.floor(src.naturalWidth / HERO_FRAMES);
   const fh = src.naturalHeight;
 
-  heroProcessedFrames = [];
+  spriteFrameCache[spriteKey] = [];
   for(let i = 0; i < HERO_FRAMES; i++){
     const tmp = document.createElement('canvas');
     tmp.width = fw;
@@ -1822,22 +1851,33 @@ function processHeroSprite(){
       }
     }
     tctx.putImageData(idata, 0, 0);
-    heroProcessedFrames.push(tmp);
+    spriteFrameCache[spriteKey].push(tmp);
   }
-  return heroProcessedFrames;
+  return spriteFrameCache[spriteKey];
 }
 
-function drawHero(ctx, x, groundY, canvasW, walkFrame){
-  const frames = processHeroSprite();
+// Legacy wrapper — used for static scene drawing (non-transition)
+function processHeroSprite(){
+  return processSprite('walk');
+}
+
+function drawHero(ctx, x, groundY, canvasW, walkFrame, spriteKey){
+  const key = spriteKey || 'walk';
+  const frames = processSprite(key);
   if(frames){
     const frame = frames[walkFrame % HERO_FRAMES];
     const area = document.getElementById('transition-area');
     const canvasH = area ? area.clientHeight : 300;
-    const targetH = Math.max(40, Math.round(canvasH * 0.30));
+    // Flying and pegasus sprites render higher (not on ground)
+    const isAirborne = (key === 'flying' || key === 'pegasus');
+    const targetH = Math.max(40, Math.round(canvasH * (key === 'pegasus' ? 0.38 : 0.30)));
     const scale = targetH / frame.height;
     const targetW = Math.round(frame.width * scale);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(frame, Math.floor(x - targetW / 2), Math.floor(groundY - targetH), targetW, targetH);
+    const yPos = isAirborne
+      ? Math.floor(groundY - targetH - canvasH * 0.15)
+      : Math.floor(groundY - targetH);
+    ctx.drawImage(frame, Math.floor(x - targetW / 2), yPos, targetW, targetH);
     return;
   }
 
@@ -1970,7 +2010,11 @@ function runTransitionFrame(){
     }
   }
 
-  drawHero(ctx, W * 0.45, H * 0.88, W, transitionState.walkFrame);
+  // Pick the right sprite for this transition
+  const transitionSpriteKey = TRANSITION_SPRITE_MAP[transitionState.fromIdx] || 'walk';
+  const isAirborne = (transitionSpriteKey === 'flying' || transitionSpriteKey === 'pegasus' || transitionSpriteKey === 'chest');
+  const heroY = isAirborne ? H * 0.75 : H * 0.88;
+  drawHero(ctx, W * 0.45, heroY, W, transitionState.walkFrame, transitionSpriteKey);
 
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(W/2 - 50, H - 14, 100, 6);
@@ -1979,7 +2023,13 @@ function runTransitionFrame(){
 
   const caption = document.getElementById('transition-caption');
   if(caption && p < 0.8){
-    caption.textContent = 'PERSEUS FLIES ONWARD...';
+    const captions = {
+      chest: 'ADRIFT ON THE WAVES...',
+      walk: 'PERSEUS JOURNEYS ONWARD...',
+      flying: 'PERSEUS TAKES FLIGHT...',
+      pegasus: 'RIDING PEGASUS HOME...'
+    };
+    caption.textContent = captions[transitionSpriteKey] || 'PERSEUS JOURNEYS ONWARD...';
   } else if(caption && p >= 0.8){
     const dest = STOPS[transitionState.toIdx];
     caption.textContent = dest ? 'APPROACHING: ' + dest.title.toUpperCase() : '';
