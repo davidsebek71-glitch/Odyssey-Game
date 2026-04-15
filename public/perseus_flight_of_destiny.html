@@ -1783,7 +1783,7 @@ const TRANSITION_SPRITE_MAP = [
 
 // Which sprite to use for the STATIC scene at each stop (when not transitioning)
 const STOP_SPRITE_MAP = [
-  'chest',   // 0: The Oracle's Shadow (baby cast to sea)
+  'walk',    // 0: The Oracle's Shadow (Acrisius at palace — before the sea)
   'walk',    // 1: The Impossible Promise (on island with Polydectes)
   'walk',    // 2: Gifts of the Gods (meeting Athena and Hermes)
   'flying',  // 3: The Cave of the Graeae (arrived by flight)
@@ -1857,19 +1857,6 @@ function processSprite(spriteKey){
     tmp.height = fh;
     const tctx = tmp.getContext('2d');
     tctx.drawImage(src, i * fw, 0, fw, fh, 0, 0, fw, fh);
-
-    // Strip magenta background — aggressive filter for DALL-E anti-aliased edges
-    // Catches pure magenta AND the blended fringe pixels
-    const idata = tctx.getImageData(0, 0, fw, fh);
-    const d = idata.data;
-    for(let p = 0; p < d.length; p += 4){
-      const r = d[p], g = d[p+1], b = d[p+2];
-      // Pure magenta: high R, high B, low G
-      if(r > 100 && b > 100 && g < 130 && (r - g) > 30 && (b - g) > 30){
-        d[p+3] = 0;
-      }
-    }
-    tctx.putImageData(idata, 0, 0);
     spriteFrameCache[spriteKey].push(tmp);
   }
   return spriteFrameCache[spriteKey];
