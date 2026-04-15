@@ -1777,19 +1777,19 @@ const TRANSITION_SPRITE_MAP = [
   'flying',  // 2: island → sky (first flight on winged sandals)
   'flying',  // 3: sky → cave (flying to the Graeae)
   'flying',  // 4: cave → meadow (flying to nymphs of the north)
-  'flying',  // 5: meadow → gorgon (flying to Gorgon island)
-  'pegasus'  // 6: gorgon → home (riding Pegasus after the kill)
+  'pegasus', // 5: gorgon → king (Pegasus born from Medusa, riding home)
+  'walk'     // 6: king → oracle (gifts returned, traveling on foot to games)
 ];
 
 // Which sprite to use for the STATIC scene at each stop (when not transitioning)
 const STOP_SPRITE_MAP = [
-  'walk',    // 0: The Oracle's Shadow (Acrisius at palace — before the sea)
+  'walk',    // 0: The Oracle's Shadow (Acrisius at palace)
   'walk',    // 1: The Impossible Promise (on island with Polydectes)
   'walk',    // 2: Gifts of the Gods (meeting Athena and Hermes)
   'flying',  // 3: The Cave of the Graeae (arrived by flight)
   'flying',  // 4: The Nymphs of the North (arrived by flight)
   'flying',  // 5: The Gorgon's Island (arrived by flight)
-  'pegasus', // 6: The King Turned to Stone (returned on Pegasus)
+  'walk',    // 6: The King Turned to Stone (confronting Polydectes on foot)
   'walk'     // 7: The Oracle Fulfilled (at athletic competition)
 ];
 
@@ -2413,7 +2413,8 @@ function applyWriteResult(stopIdx, qIdx, globalKey, result, isRevision, inter){
 
   updateScore();
   saveProgress();
-  checkStopComplete(stopIdx);
+  // Always check completion after applying result — with slight delay to ensure DOM updated
+  setTimeout(() => checkStopComplete(stopIdx), 150);
 }
 
 // ═══════════════════════════════════════════════════
@@ -2497,6 +2498,11 @@ function showCompleteBar(stopIdx){
     nextBtn.onclick = () => nextStop();
   }
   bar.classList.add('show');
+  bar.style.display = 'flex';
+  // Ensure bar is visible — scroll it into view
+  setTimeout(() => {
+    bar.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, 150);
 }
 
 // ═══════════════════════════════════════════════════
