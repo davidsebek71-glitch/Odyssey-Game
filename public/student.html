@@ -3367,12 +3367,13 @@
                     <div class="hero-card-desc">Navigate the maze and slay the Minotaur</div>
                     <div id="theseus-card-status" class="hero-card-status active-status">Road to the Labyrinth — Tap to open</div>
                 </div>
-                <div class="hero-card locked">
+                <div class="hero-card active" onclick="openPerseusLog()" style="cursor:pointer;">
+                    <div class="hero-card-glow"></div>
                     <div class="hero-card-icon"><img src="/images/heroic/heros/Perseus.png" alt="Perseus" style="width: 80px; height: 80px; object-fit: contain; image-rendering: pixelated;"></div>
-                    <div class="hero-card-name" style="color: rgba(74,222,128,0.5);">Perseus</div>
+                    <div class="hero-card-name" style="color: #4ade80;">Perseus</div>
                     <div class="hero-card-subtitle">The Gorgon</div>
                     <div class="hero-card-desc">Defeat Medusa with courage and cunning</div>
-                    <div class="hero-card-status">🔒 Coming Soon</div>
+                    <div id="perseus-card-status" class="hero-card-status active-status">Flight of Destiny — Tap to open</div>
                 </div>
             </div>
         </div>
@@ -14550,6 +14551,10 @@
 
         function openTheseusLabyrinth() {
             window.location.href = '/theseus_road_to_labyrinth.html';
+        }
+
+        function openPerseusLog() {
+            window.location.href = '/perseus_flight_of_destiny.html';
         }
 
         function showVoyageTrophyPopup(student) {
