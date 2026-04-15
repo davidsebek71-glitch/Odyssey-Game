@@ -2868,6 +2868,45 @@ function seedClassicalData() {
     console.log('Classical buildings seed note:', err.message);
   }
 
+  // === HEROIC AGE BUILDINGS ===
+  try {
+    const heroicBuildingsCheck = db.exec("SELECT COUNT(*) FROM buildings_ref WHERE age_available = 'Heroic'");
+    const heroicBuildingsExist = heroicBuildingsCheck[0] && heroicBuildingsCheck[0].values[0][0] > 0;
+    
+    if (!heroicBuildingsExist) {
+      console.log('🏗️ Seeding Heroic buildings...');
+      // Look up prerequisite IDs by name (safer than hardcoded IDs)
+      const getIdByName = (name) => {
+        const row = db.exec(`SELECT building_id FROM buildings_ref WHERE building_name = '${name}'`);
+        return row[0] && row[0].values[0] ? row[0].values[0][0] : null;
+      };
+      const armoryId = getIdByName('Armory');
+      const dockId = getIdByName('Dock');
+      const theaterId = getIdByName('Theater');
+      const oracleId = getIdByName('Oracle');
+
+      // Format: [name, cost, prereq_id, god, requires_god_assignment, max_per_alliance, age, battle_bonus, point_bonus, active_hours, cooldown_hours, always_active, required_for_age, description]
+      const heroicBuildings = [
+        // Hero's Forge: 600 pts, requires Armory, Hephaestus, +200 battle bonus, always active
+        ["Hero's Forge", 600, armoryId, 'Hephaestus', 0, 1, 'Heroic', 200, 0, 0, 0, 1, 0, "Where legendary weapons are crafted for heroes who dare to face the impossible. +200 battle bonus. Always active. Requires Armory."],
+        // Harbor of the Argo: 525 pts, requires Dock, Poseidon, +6% points, 48h/48h activation
+        ['Harbor of the Argo', 525, dockId, 'Poseidon', 0, 1, 'Heroic', 0, 0.06, 48, 48, 0, 0, "A grand harbor where the Argo was built. +6% point bonus when active. +1 Reverse Card on purchase. Requires Dock."],
+        // Labyrinth Arena: 450 pts, requires Theater, Athena, +5% points, 36h/60h activation
+        ['Labyrinth Arena', 450, theaterId, 'Athena', 0, 1, 'Heroic', 0, 0.05, 36, 60, 0, 0, "A training ground modeled after the Cretan Labyrinth. +5% point bonus when active. Requires Theater."],
+        // Shrine of the Fates: 675 pts, requires Oracle, The Moirai, -35% negative fates, always active
+        ['Shrine of the Fates', 675, oracleId, 'The Moirai', 0, 1, 'Heroic', 0, 0, 0, 0, 1, 0, "A sacred shrine where the three Fates weave destiny. -35% on negative fate outcomes (overrides Granary). Always active. Requires Oracle."]
+      ];
+
+      heroicBuildings.forEach(b => {
+        db.run(`INSERT INTO buildings_ref (building_name, cost_points, prerequisite_building_id, god_associated, requires_god_assignment, max_per_alliance, age_available, battle_bonus, point_bonus, active_duration_hours, cooldown_hours, always_active, required_for_age, description) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, b);
+      });
+      console.log('✅ Heroic buildings seeded (4 buildings)');
+    }
+  } catch (err) {
+    console.log('Heroic buildings seed note:', err.message);
+  }
+
   // === MYTH PORTALS ===
   try {
     // Migrate myth_portals: add virtue columns if they don't exist

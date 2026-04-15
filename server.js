@@ -3115,7 +3115,11 @@ const BUILDING_ICONS = {
   'Armory': '/buildings/armory.png',
   'Theater': '/buildings/theater.png',
   'Agora': '/buildings/agora.png',
-  'Oracle': '/buildings/oracle.png'
+  'Oracle': '/buildings/oracle.png',
+  "Hero's Forge": '🔥',
+  'Harbor of the Argo': '⚓',
+  'Labyrinth Arena': '🏟️',
+  'Shrine of the Fates': '🏛️'
 };
 
 // Student: Upload map
@@ -4165,11 +4169,20 @@ app.post('/api/alliance/purchase-building', authenticateToken, (req, res) => {
          VALUES (?, ?, ?)`,
         [alliance_id, building.building_name, instanceNum]);
     
+    // Special: Harbor of the Argo grants +1 Reverse Card on purchase
+    let reverseCardBonus = false;
+    if (building.building_name === 'Harbor of the Argo') {
+      run('UPDATE alliances SET reverse_cards = COALESCE(reverse_cards, 0) + 1 WHERE alliance_id = ?', [alliance_id]);
+      reverseCardBonus = true;
+      console.log(`🔄 Harbor of the Argo: +1 Reverse Card awarded to alliance ${alliance_id}`);
+    }
+    
     res.json({ 
       success: true, 
-      message: `Purchased ${building.building_name} for ${effectiveCost} points${hasPickaxe ? ' (10% discount!)' : ''}`,
+      message: `Purchased ${building.building_name} for ${effectiveCost} points${hasPickaxe ? ' (10% discount!)' : ''}${reverseCardBonus ? ' +1 Reverse Card!' : ''}`,
       new_balance: alliance.total_points - effectiveCost,
-      buildings_owned: ownedBuildings
+      buildings_owned: ownedBuildings,
+      reverseCardBonus
     });
   } catch (err) {
     console.error('Purchase building error:', err);
@@ -5453,16 +5466,24 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       }
     }
     
-    // Apply Granary protection for regular (non-steal) choices
+    // Apply Granary/Shrine protection for regular (non-steal) choices
     let choiceGranaryApplied = false;
+    let choiceProtectionSource = null;
     
     if (fate.fate_type !== 'steal_choice') {
       // REGULAR CHOICE: apply modified flat points to this alliance only
       let finalPoints = modifiedRolledValue;
       const choiceBuildingsOwned = JSON.parse(alliance.buildings_owned || '[]');
-      if (choiceBuildingsOwned.includes('Granary') && finalPoints < 0) {
+      // Shrine of the Fates (-35%) overrides Granary (-30%)
+      if (choiceBuildingsOwned.includes('Shrine of the Fates') && finalPoints < 0) {
+        finalPoints = Math.round(finalPoints * 0.65);
+        choiceGranaryApplied = true;
+        choiceProtectionSource = 'Shrine of the Fates';
+        console.log(`🏛️ Shrine of the Fates protection (choice): ${modifiedRolledValue} → ${finalPoints} for alliance ${alliance_id}`);
+      } else if (choiceBuildingsOwned.includes('Granary') && finalPoints < 0) {
         finalPoints = Math.round(finalPoints * 0.7);
         choiceGranaryApplied = true;
+        choiceProtectionSource = 'Granary';
         console.log(`🌾 Granary protection (choice): ${modifiedRolledValue} → ${finalPoints} for alliance ${alliance_id}`);
       }
       run('UPDATE alliances SET total_points = total_points + ? WHERE alliance_id = ?', 
@@ -5470,7 +5491,7 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       run(`INSERT INTO point_transactions (alliance_id, amount, category, reason, teacher_id) 
            VALUES (?, ?, ?, ?, ?)`, 
           [alliance_id, finalPoints, 'fate',
-           `Fate: ${fate.fate_name} (${choice.risk_level} choice - ${success ? 'success' : 'failure'})${choiceGranaryApplied ? ' [Granary -30%]' : ''}${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
+           `Fate: ${fate.fate_name} (${choice.risk_level} choice - ${success ? 'success' : 'failure'})${choiceGranaryApplied ? ' [' + choiceProtectionSource + ' -' + (choiceProtectionSource === 'Shrine of the Fates' ? '35' : '30') + '%]' : ''}${scrollResult.scrollNote ? ' [' + scrollResult.scrollNote + ']' : ''}`, teacher_id]);
       pointsChange = finalPoints;
     }
     
@@ -5528,7 +5549,8 @@ app.post('/api/teacher/process-fate-choice', authenticateToken, (req, res) => {
       reverseCardAwarded,
       granaryApplied,
       granaryReduction: granaryApplied ? Math.abs(modifiedRolledValue) - Math.abs(pointsChange) : 0,
-      granaryOriginalLoss: granaryApplied ? modifiedRolledValue : null
+      granaryOriginalLoss: granaryApplied ? modifiedRolledValue : null,
+      protectionSource: choiceProtectionSource
     });
   } catch (err) {
     console.error('Process fate choice error:', err);
@@ -6036,14 +6058,22 @@ app.post('/api/teacher/spin-fate', authenticateToken, (req, res) => {
     }
     const finalPointsChange = scrollResult.pointsChange;
     
-    // Apply Granary protection: -30% on negative fate outcomes (simple_points and interactive gives)
+    // Apply Granary/Shrine protection: reduce negative fate outcomes
+    // Shrine of the Fates (-35%) overrides Granary (-30%)
     let granaryApplied = false;
+    let protectionSource = null;
     let preGranaryPoints = finalPointsChange;
     let afterGranaryPoints = finalPointsChange;
     const buildingsOwnedForFate = JSON.parse(alliance.buildings_owned || '[]');
-    if (buildingsOwnedForFate.includes('Granary') && finalPointsChange < 0) {
+    if (buildingsOwnedForFate.includes('Shrine of the Fates') && finalPointsChange < 0) {
+      afterGranaryPoints = Math.round(finalPointsChange * 0.65); // reduce loss by 35%
+      granaryApplied = true;
+      protectionSource = 'Shrine of the Fates';
+      console.log(`🏛️ Shrine of the Fates protection: ${finalPointsChange} → ${afterGranaryPoints} for alliance ${alliance_id}`);
+    } else if (buildingsOwnedForFate.includes('Granary') && finalPointsChange < 0) {
       afterGranaryPoints = Math.round(finalPointsChange * 0.7); // reduce loss by 30%
       granaryApplied = true;
+      protectionSource = 'Granary';
       console.log(`🌾 Granary protection: ${finalPointsChange} → ${afterGranaryPoints} for alliance ${alliance_id}`);
     }
     const effectivePointsChange = granaryApplied ? afterGranaryPoints : finalPointsChange;
@@ -6304,6 +6334,13 @@ app.post('/api/teacher/roll-battle', authenticateToken, (req, res) => {
       alliancePower += 150;
     }
     
+    // Hero's Forge bonus: +200 battle power (Heroic Age upgrade to Armory)
+    let forgeBonus = 0;
+    if (buildingsOwned.includes("Hero's Forge")) {
+      forgeBonus = 200;
+      alliancePower += 200;
+    }
+    
     // Get all alliances to determine underdog status
     const allAlliances = query('SELECT alliance_id, total_points FROM alliances WHERE is_disbanded = 0 ORDER BY total_points DESC');
     
@@ -6337,12 +6374,21 @@ app.post('/api/teacher/roll-battle', authenticateToken, (req, res) => {
     const victory = allianceRoll > threatRoll;
     let pointsChange = victory ? fate.battle_win_points : fate.battle_lose_points;
     
-    // Granary protection: reduce battle losses by 30%
+    // Granary/Shrine protection: reduce battle losses
+    // Shrine of the Fates (-35%) overrides Granary (-30%)
     let battleGranaryApplied = false;
-    if (buildingsOwned.includes('Granary') && pointsChange < 0) {
+    let battleProtectionSource = null;
+    if (buildingsOwned.includes('Shrine of the Fates') && pointsChange < 0) {
+      const before = pointsChange;
+      pointsChange = Math.round(pointsChange * 0.65);
+      battleGranaryApplied = true;
+      battleProtectionSource = 'Shrine of the Fates';
+      console.log(`🏛️ Shrine of the Fates protection (battle): ${before} → ${pointsChange} for alliance ${alliance_id}`);
+    } else if (buildingsOwned.includes('Granary') && pointsChange < 0) {
       const before = pointsChange;
       pointsChange = Math.round(pointsChange * 0.7);
       battleGranaryApplied = true;
+      battleProtectionSource = 'Granary';
       console.log(`🌾 Granary protection (battle): ${before} → ${pointsChange} for alliance ${alliance_id}`);
     }
     
@@ -6378,6 +6424,7 @@ app.post('/api/teacher/roll-battle', authenticateToken, (req, res) => {
       wallBonus,
       wallType,
       armoryBonus,
+      forgeBonus,
       threatPower,
       allianceRoll,
       threatRoll,
