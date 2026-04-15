@@ -5352,6 +5352,12 @@
                     🏰 ${battleResult.wallType}: +${battleResult.wallBonus} Power
                 </div>
             ` : '';
+            
+            const armoryBonusHtml = battleResult.armoryBonus > 0 ? `
+                <div style="color: #f97316; font-weight: 700; margin-top: 8px; padding: 6px 12px; background: rgba(249, 115, 22, 0.2); border-radius: 8px; display: inline-block;">
+                    ⚔️ Armory: +${battleResult.armoryBonus} Power
+                </div>
+            ` : '';
 
             content.innerHTML = `
                 <div class="battle-arena">
@@ -5367,6 +5373,7 @@
                             <div class="battle-power" id="alliance-power">${battleResult.alliancePower}</div>
                             <div style="color: rgba(255,255,255,0.7);">Alliance Power</div>
                             ${wallBonusHtml}
+                            ${armoryBonusHtml}
                             ${battleResult.isUnderdog ? '<div style="color: #9333ea; font-weight: 700; margin-top: 8px;">🛡️ Underdog Blessing +25%</div>' : ''}
                         </div>
 
