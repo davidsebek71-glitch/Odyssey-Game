@@ -1014,7 +1014,14 @@
                 <div class="icon">⚔️</div>
                 <div class="title">Heroic Overview</div>
                 <div class="description">Stats, avatars & Hera by student</div>
+            
+            <div class="action-card" onclick="openRevengeModal()" style="background:linear-gradient(160deg,#0a0a12 0%,#0d1a2e 60%,#0a1220 100%);border:2px solid #00bfff;box-shadow:0 0 12px rgba(0,191,255,0.35),inset 0 0 20px rgba(0,100,180,0.1);position:relative;overflow:hidden;">
+                <div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 18px,rgba(0,191,255,0.04) 18px,rgba(0,191,255,0.04) 19px);pointer-events:none;"></div>
+                <div class="icon" style="font-size:28px;filter:drop-shadow(0 0 6px #00bfff);">&#9889;</div>
+                <div class="title" style="color:#00cfff;font-family:'Cinzel',serif;letter-spacing:1px;text-shadow:0 0 8px rgba(0,191,255,0.7);">Revenge</div>
+                <div class="description" style="color:rgba(150,220,255,0.75);">Culminating game controls</div>
             </div>
+        </div>
         </div>
 
         <div class="dashboard-grid">
@@ -1302,6 +1309,30 @@
             </form>
         </div>
     </div>
+
+    <!-- Revenge of the Gods Modal -->
+    <div id="revenge-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:900px;max-height:90vh;overflow-y:auto;background:linear-gradient(160deg,#08080f 0%,#0b1525 100%);border:2px solid #00bfff;box-shadow:0 0 30px rgba(0,191,255,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+                <div style="font-family:'Cinzel',serif;font-size:22px;color:#00cfff;text-shadow:0 0 10px rgba(0,191,255,0.8);letter-spacing:2px;">&#9889; REVENGE OF THE GODS</div>
+                <button onclick="closeRevengeModal()" style="background:transparent;border:1px solid rgba(0,191,255,0.4);color:#00bfff;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:18px;">&#10005;</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+                <button class="revenge-tab active" data-period="1st" onclick="switchRevengePeriod('1st')">1st</button>
+                <button class="revenge-tab" data-period="2nd" onclick="switchRevengePeriod('2nd')">2nd</button>
+                <button class="revenge-tab" data-period="3rd" onclick="switchRevengePeriod('3rd')">3rd</button>
+                <button class="revenge-tab" data-period="4th" onclick="switchRevengePeriod('4th')">4th</button>
+                <button class="revenge-tab" data-period="Test Period" onclick="switchRevengePeriod('Test Period')">Test</button>
+            </div>
+            <div id="revenge-period-content" style="min-height:200px;">
+                <div style="color:rgba(150,220,255,0.5);text-align:center;padding:40px;">Loading...</div>
+            </div>
+        </div>
+    </div>
+    <style>
+        .revenge-tab { padding:8px 18px; background:rgba(0,100,180,0.15); border:1px solid rgba(0,191,255,0.3); border-radius:6px; color:rgba(150,220,255,0.7); cursor:pointer; font-weight:600; transition:all 0.2s; }
+        .revenge-tab.active, .revenge-tab:hover { background:rgba(0,191,255,0.2); border-color:#00bfff; color:#00cfff; box-shadow:0 0 8px rgba(0,191,255,0.3); }
+    </style>
 
     <!-- Age Gate Modal -->
     <div id="age-gate-modal" class="modal">
@@ -8461,6 +8492,120 @@
         function escapeAttr(s) {
             return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
         }
+
+        // ── REVENGE OF THE GODS ─────────────────────────────────────────────
+        let revengeActivePeriod = '1st';
+
+        function openRevengeModal() {
+            document.getElementById('revenge-modal').style.display = 'flex';
+            loadRevengePeriod(revengeActivePeriod);
+        }
+
+        function closeRevengeModal() {
+            document.getElementById('revenge-modal').style.display = 'none';
+        }
+
+        function switchRevengePeriod(period) {
+            revengeActivePeriod = period;
+            document.querySelectorAll('.revenge-tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.period === period);
+            });
+            loadRevengePeriod(period);
+        }
+
+        async function loadRevengePeriod(period) {
+            const el = document.getElementById('revenge-period-content');
+            el.innerHTML = '<div style="color:rgba(150,220,255,0.5);text-align:center;padding:40px;">Loading...</div>';
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/olympus/teacher/monitor', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+                renderRevengePeriod(el, period, data[period] || []);
+            } catch (err) {
+                el.innerHTML = '<div style="color:rgba(255,130,130,0.8);text-align:center;padding:40px;">' + err.message + '</div>';
+            }
+        }
+
+        function renderRevengePeriod(el, period, alliances) {
+            const phaseLabel = {
+                opening:'Opening', medea_moment:'Medea Moment', path_choice:'Choosing Path',
+                combat:'Combat', puzzle:'Puzzle Room', god_test:'God Test',
+                hades_waiting:'Hades Waiting', summit:'Summit', finished:'Finished', not_started:'Not Started'
+            };
+            const safeP = escapeAttr(period);
+            let html = '<div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">';
+            html += '<button onclick="revengeStartRace(\'' + safeP + '\')" style="padding:10px 20px;background:rgba(0,191,255,0.2);border:1px solid #00bfff;border-radius:8px;color:#00cfff;cursor:pointer;font-weight:700;">&#9654; Start Race</button>';
+            if (period === 'Test Period') {
+                html += '<button onclick="revengeResetRace(\'' + safeP + '\')" style="padding:10px 20px;background:rgba(220,38,38,0.2);border:1px solid rgba(220,38,38,0.5);border-radius:8px;color:#fca5a5;cursor:pointer;font-weight:700;">Reset Race (Test Only)</button>';
+            }
+            html += '</div>';
+            if (!alliances.length) {
+                html += '<div style="color:rgba(150,220,255,0.4);text-align:center;padding:30px;">No alliances found for this period.</div>';
+                el.innerHTML = html;
+                return;
+            }
+            html += '<table style="width:100%;border-collapse:collapse;">';
+            html += '<thead><tr style="color:rgba(0,191,255,0.7);font-size:12px;border-bottom:1px solid rgba(0,191,255,0.2);">' +
+                '<th style="text-align:left;padding:8px;">Alliance</th>' +
+                '<th style="padding:8px;">Points</th>' +
+                '<th style="padding:8px;">Round</th>' +
+                '<th style="padding:8px;">Phase</th>' +
+                '<th style="padding:8px;">Phoenix</th>' +
+                '<th style="padding:8px;">Hades</th>' +
+                '<th style="padding:8px;">Ghost Runner</th>' +
+                '</tr></thead><tbody>';
+            alliances.forEach(function(a) {
+                const ph = phaseLabel[a.current_phase] || a.current_phase;
+                html += '<tr style="border-bottom:1px solid rgba(0,191,255,0.08);font-size:13px;">' +
+                    '<td style="padding:8px;color:#e2e8f0;font-weight:600;">' + escapeAttr(a.name) + '</td>' +
+                    '<td style="padding:8px;text-align:center;color:#ffd700;">' + a.total_points + '</td>' +
+                    '<td style="padding:8px;text-align:center;color:rgba(200,220,255,0.8);">' + (a.current_round || '&mdash;') + '</td>' +
+                    '<td style="padding:8px;text-align:center;color:rgba(150,220,255,0.7);">' + ph + '</td>' +
+                    '<td style="padding:8px;text-align:center;">' + (a.phoenix_feather_used ? '&#10003; Used' : 'Ready') + '</td>' +
+                    '<td style="padding:8px;text-align:center;">' + (a.hades_visits || 0) + '</td>' +
+                    '<td style="padding:8px;text-align:center;">' + (a.ghost_runner_mode ? 'Yes' : '&mdash;') + '</td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table>';
+            el.innerHTML = html;
+        }
+
+        async function revengeStartRace(period) {
+            if (!confirm('Initialize Revenge of the Gods for ' + period + '?\nCreates race state rows for all alliances in this period.')) return;
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/olympus/teacher/start-race', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ period })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+                alert('Race initialized: ' + data.alliances_initialized + ' of ' + data.total_alliances + ' alliances created.');
+                loadRevengePeriod(period);
+            } catch (err) { alert('Error: ' + err.message); }
+        }
+
+        async function revengeResetRace(period) {
+            if (period !== 'Test Period') return alert('Reset only available for Test Period.');
+            if (!confirm('RESET all Revenge of the Gods data for ' + period + '?\n\nDeletes all race state, votes, combat logs, and Medea choices. Cannot be undone.')) return;
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/olympus/teacher/reset-race', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ period, confirm_period: period })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+                alert('Reset complete: ' + data.alliances_cleared + ' alliances cleared.');
+                loadRevengePeriod(period);
+            } catch (err) { alert('Error: ' + err.message); }
+        }
+        // ── END REVENGE OF THE GODS ──────────────────────────────────────────
     </script>
 </body>
 </html>

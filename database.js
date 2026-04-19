@@ -2140,6 +2140,90 @@ function seedReferenceData() {
     console.log('Migration note: V99 heroic_choices -', e.message);
   }
 
+  // ── REVENGE OF THE GODS migrations ──────────────────────────────────────
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_race_state (
+      state_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id          INTEGER NOT NULL,
+      period               TEXT NOT NULL,
+      version              TEXT NOT NULL DEFAULT 'A',
+      current_round        INTEGER NOT NULL DEFAULT 0,
+      current_phase        TEXT NOT NULL DEFAULT 'opening',
+      secret_words         TEXT,
+      god_test_results     TEXT,
+      phoenix_feather_used INTEGER NOT NULL DEFAULT 0,
+      hades_visits         INTEGER NOT NULL DEFAULT 0,
+      ghost_runner_mode    INTEGER NOT NULL DEFAULT 0,
+      finish_order         INTEGER,
+      interrupt_active     TEXT,
+      started_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
+      finished_at          DATETIME,
+      UNIQUE(alliance_id)
+    )`);
+    console.log('✅ olympus_race_state ready');
+  } catch(e) { console.log('Migration note: olympus_race_state -', e.message); }
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_path_locks (
+      lock_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      period         TEXT NOT NULL,
+      version        TEXT NOT NULL DEFAULT 'A',
+      round_number   INTEGER NOT NULL,
+      path_index     INTEGER NOT NULL,
+      alliance_id    INTEGER NOT NULL,
+      alliance_name  TEXT NOT NULL,
+      claimed_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(period, version, round_number, path_index)
+    )`);
+    console.log('✅ olympus_path_locks ready');
+  } catch(e) { console.log('Migration note: olympus_path_locks -', e.message); }
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_votes (
+      vote_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id    INTEGER NOT NULL,
+      student_id     INTEGER NOT NULL,
+      round_number   INTEGER NOT NULL,
+      vote_type      TEXT NOT NULL,
+      vote_value     TEXT NOT NULL,
+      voted_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(alliance_id, student_id, round_number, vote_type)
+    )`);
+    console.log('✅ olympus_votes ready');
+  } catch(e) { console.log('Migration note: olympus_votes -', e.message); }
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_combat_log (
+      log_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id         INTEGER NOT NULL,
+      round_number        INTEGER NOT NULL,
+      god_name            TEXT NOT NULL,
+      attack_value        INTEGER NOT NULL,
+      points_before       INTEGER NOT NULL,
+      points_deducted     INTEGER NOT NULL,
+      points_after        INTEGER NOT NULL,
+      phoenix_triggered   INTEGER NOT NULL DEFAULT 0,
+      hades_triggered     INTEGER NOT NULL DEFAULT 0,
+      logged_at           DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('✅ olympus_combat_log ready');
+  } catch(e) { console.log('Migration note: olympus_combat_log -', e.message); }
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_medea_choices (
+      choice_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      alliance_id INTEGER NOT NULL,
+      period     TEXT NOT NULL,
+      version    TEXT NOT NULL DEFAULT 'A',
+      choice     TEXT NOT NULL,
+      chosen_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(student_id)
+    )`);
+    console.log('✅ olympus_medea_choices ready');
+  } catch(e) { console.log('Migration note: olympus_medea_choices -', e.message); }
+  // ── END REVENGE OF THE GODS migrations ──────────────────────────────────
+
   // Always run Classical seeding — it has its own internal guards
   // This must be ABOVE the early return so it runs even when Archaic data exists
   seedClassicalData();

@@ -15275,6 +15275,522 @@ app.get('/api/teacher/heroic-chapter-progress', authenticateToken, (req, res) =>
 // END HEROIC AGE CHAPTER ENDPOINTS
 // ============================================================
 
+// ============================================================
+// REVENGE OF THE GODS — /api/olympus/*
+// ============================================================
+
+const ROUND_1_PATHS = [
+  { idx:0, label:'Climb the Mountain', god:'Artemis',   attack:365, hook:'Army of enchanted forest animals overwhelm you',    safe:false },
+  { idx:1, label:'Hide in the Forest',  god:'Athena',    attack:295, hook:'Magic blanket trap — escape before transformation', safe:false },
+  { idx:2, label:'Sail Across the Sea', god:'Apollo',    attack:325, hook:'Seagulls screech a divine alarm',                   safe:false },
+  { idx:3, label:'Walk Through Desert', god:'Zeus',      attack:400, hook:'Aerokinesis sandstorm buries your alliance',         safe:false },
+  { idx:4, label:'Attack Head On',      god:'Aphrodite', attack:405, hook:'Hearts and flowers disarm you',                     safe:false },
+  { idx:5, label:'Make an Alliance',    god:null,        attack:0,   hook:'You were out of town. Advance without combat.',     safe:true  }
+];
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function getAllianceForStudent(studentId) {
+  const rows = query(
+    `SELECT a.alliance_id, a.name, a.total_points, a.class_period
+     FROM alliances a
+     JOIN alliance_members am ON am.alliance_id = a.alliance_id
+     WHERE am.student_id = ?`,
+    [studentId]
+  );
+  return rows[0] || null;
+}
+
+function getOlympusState(allianceId) {
+  const rows = query('SELECT * FROM olympus_race_state WHERE alliance_id = ?', [allianceId]);
+  return rows[0] || null;
+}
+
+function getMajority(allianceId, round, voteType) {
+  // Returns { winner, count, total } or null if no majority
+  const members = query(
+    `SELECT COUNT(*) as cnt FROM alliance_members am
+     JOIN students s ON s.student_id = am.student_id
+     WHERE am.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
+    [allianceId]
+  );
+  const total = members[0] ? members[0].cnt : 1;
+  const votes = query(
+    `SELECT vote_value, COUNT(*) as cnt FROM olympus_votes
+     WHERE alliance_id = ? AND round_number = ? AND vote_type = ?
+     GROUP BY vote_value ORDER BY cnt DESC`,
+    [allianceId, round, voteType]
+  );
+  if (!votes.length) return null;
+  const needed = Math.floor(total / 2) + 1;
+  if (votes[0].cnt >= needed) return { winner: votes[0].vote_value, count: votes[0].cnt, total };
+  // Tie-break: if all members voted and no majority, pick leader vote
+  const totalVotes = votes.reduce((s, v) => s + v.cnt, 0);
+  if (totalVotes >= total) return { winner: votes[0].vote_value, count: votes[0].cnt, total, tiebreak: true };
+  return null;
+}
+
+// ── GET /api/olympus/state ────────────────────────────────────────────────────
+app.get('/api/olympus/state', authenticateToken, (req, res) => {
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    res.json({ alliance, state });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/start ───────────────────────────────────────────────────
+app.post('/api/olympus/start', authenticateToken, (req, res) => {
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const existing = getOlympusState(alliance.alliance_id);
+    if (existing) return res.json({ state: existing, created: false });
+    run(
+      `INSERT INTO olympus_race_state (alliance_id, period, current_round, current_phase)
+       VALUES (?, ?, 0, 'opening')`,
+      [alliance.alliance_id, alliance.class_period]
+    );
+    const state = getOlympusState(alliance.alliance_id);
+    res.json({ state, created: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/scoreboard/:period ──────────────────────────────────────
+app.get('/api/olympus/scoreboard/:period', authenticateToken, (req, res) => {
+  try {
+    const { period } = req.params;
+    const alliances = query(
+      `SELECT a.alliance_id, a.name, a.total_points,
+              COALESCE(o.current_round, 0) as current_round,
+              COALESCE(o.current_phase, 'not_started') as current_phase,
+              COALESCE(o.ghost_runner_mode, 0) as ghost_runner_mode
+       FROM alliances a
+       LEFT JOIN olympus_race_state o ON o.alliance_id = a.alliance_id
+       WHERE a.class_period = ?
+       ORDER BY COALESCE(o.current_round,0) DESC, a.total_points DESC`,
+      [period]
+    );
+    res.json({ period, alliances });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/medea-vote ──────────────────────────────────────────────
+app.post('/api/olympus/medea-vote', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { choice } = req.body; // 'accept' | 'refuse'
+    if (!['accept','refuse'].includes(choice)) return res.status(400).json({ error: 'Invalid choice' });
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    run(
+      `INSERT INTO olympus_votes (alliance_id, student_id, round_number, vote_type, vote_value)
+       VALUES (?,?,0,'medea',?)
+       ON CONFLICT(alliance_id, student_id, round_number, vote_type) DO UPDATE SET vote_value=excluded.vote_value`,
+      [alliance.alliance_id, req.user.id, choice]
+    );
+    const tally = query(
+      `SELECT vote_value, COUNT(*) as cnt FROM olympus_votes
+       WHERE alliance_id = ? AND round_number = 0 AND vote_type = 'medea'
+       GROUP BY vote_value`,
+      [alliance.alliance_id]
+    );
+    const majority = getMajority(alliance.alliance_id, 0, 'medea');
+    res.json({ tally, majority });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/medea-commit ────────────────────────────────────────────
+app.post('/api/olympus/medea-commit', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const majority = getMajority(alliance.alliance_id, 0, 'medea');
+    if (!majority) return res.status(400).json({ error: 'No majority yet' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    if (state.current_phase !== 'opening' && state.current_phase !== 'medea_moment') {
+      return res.status(400).json({ error: 'Medea moment already resolved' });
+    }
+    // Record each voter's choice in olympus_medea_choices
+    const votes = query(
+      `SELECT student_id FROM olympus_votes
+       WHERE alliance_id = ? AND round_number = 0 AND vote_type = 'medea'`,
+      [alliance.alliance_id]
+    );
+    for (const v of votes) {
+      run(
+        `INSERT OR IGNORE INTO olympus_medea_choices
+         (student_id, alliance_id, period, version, choice)
+         VALUES (?,?,?,?,?)`,
+        [v.student_id, alliance.alliance_id, state.period, state.version, majority.winner]
+      );
+    }
+    run(
+      `UPDATE olympus_race_state SET current_round=1, current_phase='path_choice'
+       WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+    res.json({ committed: true, choice: majority.winner });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/paths/:round ─────────────────────────────────────────────
+app.get('/api/olympus/paths/:round', authenticateToken, (req, res) => {
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    const round = parseInt(req.params.round);
+    const locks = query(
+      `SELECT path_index, alliance_id, alliance_name FROM olympus_path_locks
+       WHERE period=? AND version=? AND round_number=?`,
+      [state.period, state.version, round]
+    );
+    const lockMap = {};
+    locks.forEach(l => { lockMap[l.path_index] = { alliance_id: l.alliance_id, alliance_name: l.alliance_name }; });
+    // Session 1: only Round 1 paths defined; stub other rounds
+    const pathDefs = round === 1 ? ROUND_1_PATHS : [];
+    const paths = pathDefs.map(p => ({
+      ...p,
+      locked: !!lockMap[p.idx],
+      locked_by: lockMap[p.idx] || null,
+      is_safe: p.safe  // never reveal which is safe via this flag in prod — kept for teacher diagnostic only
+    }));
+    // Include this alliance's current votes
+    const myVotes = query(
+      `SELECT vote_value FROM olympus_votes
+       WHERE alliance_id=? AND round_number=? AND vote_type='path'`,
+      [alliance.alliance_id, round]
+    );
+    res.json({ paths, my_vote: myVotes[0] ? myVotes[0].vote_value : null });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/vote-path ───────────────────────────────────────────────
+app.post('/api/olympus/vote-path', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { path_index } = req.body;
+    if (path_index === undefined) return res.status(400).json({ error: 'path_index required' });
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    run(
+      `INSERT INTO olympus_votes (alliance_id, student_id, round_number, vote_type, vote_value)
+       VALUES (?,?,?,'path',?)
+       ON CONFLICT(alliance_id, student_id, round_number, vote_type) DO UPDATE SET vote_value=excluded.vote_value`,
+      [alliance.alliance_id, req.user.id, state.current_round, String(path_index)]
+    );
+    const tally = query(
+      `SELECT vote_value, COUNT(*) as cnt FROM olympus_votes
+       WHERE alliance_id=? AND round_number=? AND vote_type='path'
+       GROUP BY vote_value`,
+      [alliance.alliance_id, state.current_round]
+    );
+    const majority = getMajority(alliance.alliance_id, state.current_round, 'path');
+    res.json({ tally, majority });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/commit-path ─────────────────────────────────────────────
+app.post('/api/olympus/commit-path', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    const majority = getMajority(alliance.alliance_id, state.current_round, 'path');
+    if (!majority) return res.status(400).json({ error: 'No majority yet' });
+    const pathIdx = parseInt(majority.winner);
+    const pathDef = ROUND_1_PATHS[pathIdx];
+    if (!pathDef) return res.status(400).json({ error: 'Invalid path' });
+    // Attempt to claim the lock (UNIQUE constraint prevents double-claim)
+    try {
+      run(
+        `INSERT INTO olympus_path_locks (period, version, round_number, path_index, alliance_id, alliance_name)
+         VALUES (?,?,?,?,?,?)`,
+        [state.period, state.version, state.current_round, pathIdx, alliance.alliance_id, alliance.name]
+      );
+    } catch(lockErr) {
+      // Another alliance claimed this path first
+      const claimer = query(
+        `SELECT alliance_name FROM olympus_path_locks
+         WHERE period=? AND version=? AND round_number=? AND path_index=?`,
+        [state.period, state.version, state.current_round, pathIdx]
+      );
+      return res.status(409).json({
+        error: 'Path already claimed',
+        claimed_by: claimer[0] ? claimer[0].alliance_name : 'Another alliance'
+      });
+    }
+    // Advance to combat phase
+    run(
+      `UPDATE olympus_race_state SET current_phase='combat' WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+    res.json({ committed: true, path: pathDef });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/combat-resolve ─────────────────────────────────────────
+app.post('/api/olympus/combat-resolve', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'combat') {
+      return res.status(400).json({ error: 'Not in combat phase' });
+    }
+    // Find committed path for this alliance/round
+    const lock = query(
+      `SELECT path_index FROM olympus_path_locks
+       WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, state.current_round]
+    );
+    if (!lock.length) return res.status(400).json({ error: 'No committed path found' });
+    const path = ROUND_1_PATHS[lock[0].path_index];
+    const pointsBefore = alliance.total_points;
+    let deducted = 0;
+    let phoenixTriggered = 0;
+    let hadesTriggered = 0;
+    let nextPhase = 'puzzle';
+
+    if (!path.safe) {
+      deducted = Math.min(path.attack, pointsBefore);
+      let newTotal = pointsBefore - deducted;
+      if (newTotal === 0) {
+        if (!state.phoenix_feather_used) {
+          // Phoenix saves — revive at 1
+          newTotal = 1;
+          deducted = pointsBefore - 1;
+          phoenixTriggered = 1;
+          run(`UPDATE olympus_race_state SET phoenix_feather_used=1 WHERE alliance_id=?`, [alliance.alliance_id]);
+        } else {
+          hadesTriggered = 1;
+          nextPhase = 'hades_waiting';
+          run(
+            `UPDATE olympus_race_state SET hades_visits=hades_visits+1, current_phase='hades_waiting'
+             WHERE alliance_id=?`,
+            [alliance.alliance_id]
+          );
+        }
+      }
+      // Update alliance points
+      run(`UPDATE alliances SET total_points=? WHERE alliance_id=?`, [newTotal, alliance.alliance_id]);
+    }
+
+    // Log combat
+    const finalTotal = !path.safe
+      ? (query(`SELECT total_points FROM alliances WHERE alliance_id=?`, [alliance.alliance_id])[0] || {}).total_points
+      : pointsBefore;
+    run(
+      `INSERT INTO olympus_combat_log
+       (alliance_id, round_number, god_name, attack_value, points_before, points_deducted, points_after, phoenix_triggered, hades_triggered)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [alliance.alliance_id, state.current_round, path.god || 'None', path.attack, pointsBefore, deducted, finalTotal, phoenixTriggered, hadesTriggered]
+    );
+
+    if (!hadesTriggered) {
+      run(`UPDATE olympus_race_state SET current_phase='puzzle' WHERE alliance_id=?`, [alliance.alliance_id]);
+    }
+
+    res.json({
+      path,
+      points_before: pointsBefore,
+      points_deducted: deducted,
+      points_after: finalTotal,
+      phoenix_triggered: phoenixTriggered,
+      hades_triggered: hadesTriggered,
+      next_phase: nextPhase
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/puzzle-submit ──────────────────────────────────────────
+app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'puzzle') return res.status(400).json({ error: 'Not in puzzle phase' });
+    // Round 1 stub: accept any answer, store secret word "BOX"
+    const words = JSON.parse(state.secret_words || '[]');
+    if (!words.includes('BOX')) words.push('BOX');
+    run(
+      `UPDATE olympus_race_state SET secret_words=?, current_phase='god_test' WHERE alliance_id=?`,
+      [JSON.stringify(words), alliance.alliance_id]
+    );
+    res.json({ accepted: true, secret_word: 'BOX', words });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/godtest-submit ─────────────────────────────────────────
+app.post('/api/olympus/godtest-submit', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'god_test') return res.status(400).json({ error: 'Not in god_test phase' });
+    const results = JSON.parse(state.god_test_results || '{}');
+    const godOrder = ['Hermes','Hephaestus','Athena','Zeus','Hera'];
+    const godName = godOrder[state.current_round - 1] || 'Unknown';
+    results[godName] = { passed: true, round: state.current_round };
+    const nextRound = state.current_round + 1;
+    const nextPhase = nextRound > 5 ? 'summit' : 'path_choice';
+    run(
+      `UPDATE olympus_race_state SET god_test_results=?, current_round=?, current_phase=?
+       WHERE alliance_id=?`,
+      [JSON.stringify(results), nextRound, nextPhase, alliance.alliance_id]
+    );
+    res.json({ passed: true, god: godName, next_round: nextRound, next_phase: nextPhase });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/teacher/diagnostic ──────────────────────────────────────
+app.get('/api/olympus/teacher/diagnostic', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const { period } = req.query;
+    if (!period) return res.status(400).json({ error: 'period query param required' });
+    const alliances = query(
+      `SELECT a.alliance_id, a.name, a.total_points,
+              COUNT(am.student_id) as member_count
+       FROM alliances a
+       LEFT JOIN alliance_members am ON am.alliance_id = a.alliance_id
+       LEFT JOIN students s ON s.student_id = am.student_id AND (s.is_ghost=0 OR s.is_ghost IS NULL)
+       WHERE a.class_period=?
+       GROUP BY a.alliance_id`,
+      [period]
+    );
+    const result = alliances.map(al => {
+      const members = query(
+        `SELECT s.student_id, s.name, s.lore, s.craft, s.cunning, s.honor, s.is_ghost
+         FROM students s
+         JOIN alliance_members am ON am.student_id = s.student_id
+         WHERE am.alliance_id=?`,
+        [al.alliance_id]
+      );
+      const missing_stats = members.filter(m => !m.is_ghost && (!m.lore && !m.craft && !m.cunning && !m.honor));
+      const ghosts = members.filter(m => m.is_ghost);
+      return { ...al, members, missing_stats, ghost_count: ghosts.length };
+    });
+    res.json({ period, alliances: result });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/teacher/monitor ─────────────────────────────────────────
+app.get('/api/olympus/teacher/monitor', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const periods = ['1st','2nd','3rd','4th','Test Period'];
+    const result = {};
+    for (const p of periods) {
+      result[p] = query(
+        `SELECT a.alliance_id, a.name, a.total_points,
+                COALESCE(o.current_round,0) as current_round,
+                COALESCE(o.current_phase,'not_started') as current_phase,
+                o.phoenix_feather_used, o.hades_visits, o.ghost_runner_mode,
+                o.secret_words, o.interrupt_active
+         FROM alliances a
+         LEFT JOIN olympus_race_state o ON o.alliance_id=a.alliance_id
+         WHERE a.class_period=?
+         ORDER BY COALESCE(o.current_round,0) DESC, a.total_points DESC`,
+        [p]
+      );
+    }
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/teacher/start-race ─────────────────────────────────────
+app.post('/api/olympus/teacher/start-race', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const { period } = req.body;
+    if (!period) return res.status(400).json({ error: 'period required' });
+    const alliances = query(`SELECT alliance_id, class_period FROM alliances WHERE class_period=?`, [period]);
+    let created = 0;
+    for (const a of alliances) {
+      const existing = getOlympusState(a.alliance_id);
+      if (!existing) {
+        run(
+          `INSERT INTO olympus_race_state (alliance_id, period, current_round, current_phase)
+           VALUES (?,?,0,'opening')`,
+          [a.alliance_id, period]
+        );
+        created++;
+      }
+    }
+    res.json({ period, alliances_initialized: created, total_alliances: alliances.length });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/teacher/reset-race ─────────────────────────────────────
+app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const { period, confirm_period } = req.body;
+    if (!period) return res.status(400).json({ error: 'period required' });
+    if (confirm_period !== period) return res.status(400).json({ error: 'confirm_period must match period' });
+    if (period !== 'Test Period') {
+      return res.status(403).json({ error: 'Reset only allowed for Test Period via this endpoint' });
+    }
+    const alliances = query(`SELECT alliance_id FROM alliances WHERE class_period=?`, [period]);
+    const ids = alliances.map(a => a.alliance_id);
+    for (const id of ids) {
+      run(`DELETE FROM olympus_race_state WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_votes WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_combat_log WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_medea_choices WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
+    }
+    res.json({ reset: true, period, alliances_cleared: ids.length });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// END REVENGE OF THE GODS
+// ============================================================
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
