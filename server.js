@@ -9827,6 +9827,27 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     const voyageByName = {};
     voyageRows.forEach(v => { voyageByName[v.student_name] = v; });
 
+    // All-four-logs data — defensive PRAGMA check for each column
+    let logCols = [];
+    try { logCols = query('PRAGMA table_info(students)').map(c => c.name); } catch(e) {}
+    const hasCol = (n) => logCols.includes(n);
+    const logSelect = [
+      hasCol('voyage_log_completed')   ? 's.voyage_log_completed'   : 'NULL as voyage_log_completed',
+      hasCol('voyage_rank_tier')       ? 's.voyage_rank_tier'       : 'NULL as voyage_rank_tier',
+      hasCol('hercules_log_completed') ? 's.hercules_log_completed' : 'NULL as hercules_log_completed',
+      hasCol('hercules_rank_tier')     ? 's.hercules_rank_tier'     : 'NULL as hercules_rank_tier',
+      hasCol('theseus_log_completed')  ? 's.theseus_log_completed'  : 'NULL as theseus_log_completed',
+      hasCol('theseus_rank_tier')      ? 's.theseus_rank_tier'      : 'NULL as theseus_rank_tier',
+      hasCol('perseus_log_completed')  ? 's.perseus_log_completed'  : 'NULL as perseus_log_completed',
+      hasCol('perseus_rank_tier')      ? 's.perseus_rank_tier'      : 'NULL as perseus_rank_tier',
+    ].join(', ');
+    let logRows = [];
+    try {
+      logRows = query(`SELECT s.student_id, ${logSelect} FROM students s WHERE s.student_id IN (${placeholders})`, studentIds);
+    } catch(e) { console.error('heroic-overview log query failed:', e.message); }
+    const logByStudent = {};
+    logRows.forEach(r => { logByStudent[r.student_id] = r; });
+
     // Aggregate stats
     const statsByStudent = {};
     studentIds.forEach(id => { statsByStudent[id] = { lore: 0, craft: 0, honor: 0 }; });
@@ -9866,7 +9887,16 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
         hera_level: heraLevel,
         voyage_complete: voyage !== null,
         voyage_rank:     voyage ? (voyage.rank_tier || null) : null,
-        voyage_score:    voyage ? (voyage.total_score || null) : null
+        voyage_score:    voyage ? (voyage.total_score || null) : null,
+        logs: (() => {
+          const lr = logByStudent[s.student_id] || {};
+          return {
+            jason:    { complete: !!(lr.voyage_log_completed),   rank_tier: lr.voyage_rank_tier   || null },
+            hercules: { complete: !!(lr.hercules_log_completed), rank_tier: lr.hercules_rank_tier || null },
+            theseus:  { complete: !!(lr.theseus_log_completed),  rank_tier: lr.theseus_rank_tier  || null },
+            perseus:  { complete: !!(lr.perseus_log_completed),  rank_tier: lr.perseus_rank_tier  || null }
+          };
+        })()
       };
     });
 

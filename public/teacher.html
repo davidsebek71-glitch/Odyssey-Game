@@ -1010,16 +1010,16 @@
                 <div class="title">Perseus Log</div>
                 <div class="description">Flight of Destiny</div>
             </div>
-            <div class="action-card" onclick="openHeroicOverviewModal()" style="background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(109,40,217,0.25)); border-color: rgba(139,92,246,0.5);">
-                <div class="icon">⚔️</div>
-                <div class="title">Heroic Overview</div>
-                <div class="description">Stats, avatars & Hera by student</div>
-            
             <div class="action-card" onclick="openRevengeModal()" style="background:linear-gradient(160deg,#0a0a12 0%,#0d1a2e 60%,#0a1220 100%);border:2px solid #00bfff;box-shadow:0 0 12px rgba(0,191,255,0.35),inset 0 0 20px rgba(0,100,180,0.1);position:relative;overflow:hidden;">
                 <div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 18px,rgba(0,191,255,0.04) 18px,rgba(0,191,255,0.04) 19px);pointer-events:none;"></div>
                 <div class="icon" style="font-size:28px;filter:drop-shadow(0 0 6px #00bfff);">&#9889;</div>
                 <div class="title" style="color:#00cfff;font-family:'Cinzel',serif;letter-spacing:1px;text-shadow:0 0 8px rgba(0,191,255,0.7);">Revenge</div>
                 <div class="description" style="color:rgba(150,220,255,0.75);">Culminating game controls</div>
+            </div>
+            <div class="action-card" onclick="openHeroicOverviewModal()" style="background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(109,40,217,0.25)); border-color: rgba(139,92,246,0.5);">
+                <div class="icon">⚔️</div>
+                <div class="title">Heroic Overview</div>
+                <div class="description">Stats, avatars & Hera by student</div>
             </div>
         </div>
         </div>
@@ -1849,8 +1849,13 @@
                 <button onclick="setHeroicSort('lore')"      id="ho-sort-lore"    class="ho-sort-btn">Lore ↓</button>
                 <button onclick="setHeroicSort('craft')"     id="ho-sort-craft"   class="ho-sort-btn">Craft ↓</button>
                 <button onclick="setHeroicSort('cunning')"   id="ho-sort-cunning" class="ho-sort-btn">Cunning ↓</button>
-                <button onclick="setHeroicSort('voyage')"    id="ho-sort-voyage"  class="ho-sort-btn">Voyage</button>
-                <button onclick="setHeroicSort('hera')"      id="ho-sort-hera"    class="ho-sort-btn">Hera</button>
+                <button onclick="setHeroicSort('voyage')"    id="ho-sort-voyage"    class="ho-sort-btn">Voyage</button>
+                <button onclick="setHeroicSort('jason')"     id="ho-sort-jason"     class="ho-sort-btn">⚓ Jason</button>
+                <button onclick="setHeroicSort('hercules')"  id="ho-sort-hercules"  class="ho-sort-btn">🦁 Hercules</button>
+                <button onclick="setHeroicSort('theseus')"   id="ho-sort-theseus"   class="ho-sort-btn">🗡️ Theseus</button>
+                <button onclick="setHeroicSort('perseus')"   id="ho-sort-perseus"   class="ho-sort-btn">🪽 Perseus</button>
+                <button onclick="setHeroicSort('bestlog')"   id="ho-sort-bestlog"   class="ho-sort-btn">Best Log</button>
+                <button onclick="setHeroicSort('hera')"      id="ho-sort-hera"      class="ho-sort-btn">Hera</button>
             </div>
 
             <!-- Summary pills -->
@@ -8179,32 +8184,53 @@
             renderHeroicOverview();
         }
 
+        const HERO_LOG_TIER_NAMES = {
+            jason:    { OAR: "Ship's Oarsman", NAV: 'Navigator', FM: 'First Mate', ARG: 'Argonaut', HOA: 'Hero of the Argo' },
+            hercules: { INI: 'Initiate', LAB: 'Laborer', BSL: 'Beast Slayer', CHP: 'Champion', HOO: 'Hero of Olympus' },
+            theseus:  { STR: 'Stranger', TRV: 'Traveler', CTZ: 'Citizen', CHP: 'Champion', HOA: 'Hero of Athens' },
+            perseus:  { CAS: 'Castaway', WAN: 'Wanderer', SEE: 'Seer', SLA: 'Slayer', HOP: 'Hero of Prophecy' }
+        };
+        const HERO_LOG_TIER_ORDER = { OAR:1, INI:1, STR:1, CAS:1, NAV:2, LAB:2, TRV:2, WAN:2, FM:3, BSL:3, CTZ:3, SEE:3, ARG:4, CHP:4, SLA:4, HOA:5, HOO:5, HOP:5 };
+
         function renderHeroicOverview() {
             const students = [...heroicOverviewData];
 
             // Sort
+            const logRank = (s, hero) => { const l = (s.logs || {})[hero] || {}; return l.complete ? (HERO_LOG_TIER_ORDER[l.rank_tier] || 0) : -1; };
+            const bestLogRank = (s) => Math.max(logRank(s,'jason'), logRank(s,'hercules'), logRank(s,'theseus'), logRank(s,'perseus'));
             students.sort((a, b) => {
-                if (heroicSortKey === 'name')    return a.name.localeCompare(b.name);
-                if (heroicSortKey === 'honor')   return b.honor - a.honor;
-                if (heroicSortKey === 'lore')    return b.lore - a.lore;
-                if (heroicSortKey === 'craft')   return b.craft - a.craft;
-                if (heroicSortKey === 'cunning') return b.cunning - a.cunning;
-                if (heroicSortKey === 'voyage')  return (b.voyage_complete ? 1 : 0) - (a.voyage_complete ? 1 : 0);
-                if (heroicSortKey === 'hera')    return b.hera_level - a.hera_level;
+                if (heroicSortKey === 'name')     return a.name.localeCompare(b.name);
+                if (heroicSortKey === 'honor')    return b.honor - a.honor;
+                if (heroicSortKey === 'lore')     return b.lore - a.lore;
+                if (heroicSortKey === 'craft')    return b.craft - a.craft;
+                if (heroicSortKey === 'cunning')  return b.cunning - a.cunning;
+                if (heroicSortKey === 'voyage')   return (b.voyage_complete ? 1 : 0) - (a.voyage_complete ? 1 : 0);
+                if (heroicSortKey === 'hera')     return b.hera_level - a.hera_level;
+                if (heroicSortKey === 'jason')    { const d = logRank(b,'jason')    - logRank(a,'jason');    return d !== 0 ? d : a.name.localeCompare(b.name); }
+                if (heroicSortKey === 'hercules') { const d = logRank(b,'hercules') - logRank(a,'hercules'); return d !== 0 ? d : a.name.localeCompare(b.name); }
+                if (heroicSortKey === 'theseus')  { const d = logRank(b,'theseus')  - logRank(a,'theseus');  return d !== 0 ? d : a.name.localeCompare(b.name); }
+                if (heroicSortKey === 'perseus')  { const d = logRank(b,'perseus')  - logRank(a,'perseus');  return d !== 0 ? d : a.name.localeCompare(b.name); }
+                if (heroicSortKey === 'bestlog')  { const d = bestLogRank(b) - bestLogRank(a); return d !== 0 ? d : a.name.localeCompare(b.name); }
                 return 0;
             });
 
             // Summary pills
             const total = students.length;
             const avatarChosen = students.filter(s => s.selected_avatar).length;
-            const voyageDone  = students.filter(s => s.voyage_complete).length;
-            const wrathful    = students.filter(s => s.hera_level === 1).length;
-            const heroic      = students.filter(s => s.current_age === 'Heroic').length;
+            const wrathful     = students.filter(s => s.hera_level === 1).length;
+            const heroic       = students.filter(s => s.current_age === 'Heroic').length;
+            const jDone  = students.filter(s => (s.logs||{}).jason    && s.logs.jason.complete).length;
+            const hDone  = students.filter(s => (s.logs||{}).hercules && s.logs.hercules.complete).length;
+            const tDone  = students.filter(s => (s.logs||{}).theseus  && s.logs.theseus.complete).length;
+            const pDone  = students.filter(s => (s.logs||{}).perseus  && s.logs.perseus.complete).length;
 
             document.getElementById('ho-summary').innerHTML =
                 pill(heroic + ' / ' + total + ' Heroic') +
                 pill(avatarChosen + ' / ' + total + ' Avatar chosen') +
-                pill(voyageDone  + ' / ' + total + ' Voyage complete') +
+                pill('⚓ ' + jDone + '/' + total + ' Jason',    'rgba(20,184,166,0.9)')  +
+                pill('🦁 ' + hDone + '/' + total + ' Hercules', 'rgba(239,68,68,0.9)')   +
+                pill('🗡️ ' + tDone + '/' + total + ' Theseus',  'rgba(96,165,250,0.9)')  +
+                pill('🪽 ' + pDone + '/' + total + ' Perseus',  'rgba(74,222,128,0.9)')  +
                 (wrathful > 0 ? pill('⚠️ ' + wrathful + ' Wrathful', '#f87171') : '');
 
             if (students.length === 0) {
@@ -8228,10 +8254,30 @@
                 const hm = HERA_META[s.hera_label] || HERA_META['Indifferent'];
                 const heraBadge = `<span class="ho-hera-badge" style="color:${hm.color};background:${hm.bg};">${s.hera_label}</span>`;
 
-                // Voyage
-                const voyageHtml = s.voyage_complete
-                    ? `<span class="ho-voyage-yes">✓ ${s.voyage_rank || ''}</span>`
-                    : '<span class="ho-voyage-no">—</span>';
+                // Four log icons
+                const LOG_ICON_DEFS = [
+                    { key: 'jason',    letter: 'J', hero: 'Jason' },
+                    { key: 'hercules', letter: 'H', hero: 'Hercules' },
+                    { key: 'theseus',  letter: 'T', hero: 'Theseus' },
+                    { key: 'perseus',  letter: 'P', hero: 'Perseus' }
+                ];
+                const TIER_BG = { 1:'#6b7280', 2:'#b87333', 3:'#c0c0c0', 4:'#FFD700', 5:'#00ffff' };
+                const TIER_LETTER_COLOR = { 1:'#fff', 2:'#fff', 3:'#1a1a2e', 4:'#1a1a2e', 5:'#1a1a2e' };
+                const logsData = s.logs || {};
+                const logIconsHtml = LOG_ICON_DEFS.map(({ key, letter, hero }) => {
+                    const log = logsData[key] || {};
+                    const tier = HERO_LOG_TIER_ORDER[log.rank_tier] || 0;
+                    const done = log.complete && tier > 0;
+                    const tierNames = HERO_LOG_TIER_NAMES[key] || {};
+                    const rankName = tierNames[log.rank_tier] || null;
+                    const tipText = done ? `${hero} — ${rankName} (${log.rank_tier})` : `${hero} — not completed`;
+                    const bg = done ? (TIER_BG[tier] || '#6b7280') : '#1a1a2e';
+                    const lc = done ? (TIER_LETTER_COLOR[tier] || '#fff') : '#666';
+                    const border = done ? 'none' : '1px solid #444';
+                    const opacity = done ? '1' : '0.4';
+                    const glow = (done && tier === 5) ? ';box-shadow:0 0 8px #00ffff' : '';
+                    return `<span title="${tipText}" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:${bg};border:${border};opacity:${opacity};color:${lc};font-size:11px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.6)${glow};">${letter}</span>`;
+                }).join('<span style="display:inline-block;width:3px;"></span>');
 
                 // Stat color helpers
                 const sc = (v, th1, th2) => v >= th2 ? '#fcd34d' : v >= th1 ? '#a5b4fc' : 'rgba(255,255,255,0.5)';
@@ -8245,7 +8291,7 @@
                     <td class="ho-stat-val" style="color:${sc(s.cunning,6,15)}">${s.cunning}</td>
                     <td class="ho-stat-val" style="color:${sc(s.honor,10,30)}">${s.honor}</td>
                     <td>${heraBadge}</td>
-                    <td>${voyageHtml}</td>
+                    <td style="white-space:nowrap;">${logIconsHtml}</td>
                 </tr>`;
             }).join('');
 
@@ -8260,7 +8306,7 @@
                         <th>🎯 Cunning</th>
                         <th>⚖️ Honor</th>
                         <th>Hera</th>
-                        <th>Voyage Log</th>
+                        <th>Logs</th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
