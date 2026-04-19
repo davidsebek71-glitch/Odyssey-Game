@@ -151,6 +151,19 @@ initDatabase().then(() => {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Voyage Log: add student_id column to existing voyage_log_progress ──
+  // Brings Jason's login parity with Theseus/Perseus/Hercules (cascading dropdown).
+  // Safe ALTER — skips if column already exists. Old rows keep NULL student_id
+  // until they log in once, then the load-by-id endpoint backfills it.
+  try {
+    try { run('ALTER TABLE voyage_log_progress ADD COLUMN student_id INTEGER'); } catch(e) {}
+    saveDatabase();
+    console.log('⚓ Voyage log progress.student_id column ensured');
+  } catch(e) {
+    console.log('Voyage log migration note:', e.message);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Hercules + Theseus student columns (safe ALTER — skips if exists) ──
   try {
     try { run('ALTER TABLE students ADD COLUMN hercules_log_completed INTEGER DEFAULT 0'); } catch(e) {}
@@ -14647,26 +14660,34 @@ app.post('/api/teacher/voyage-log-override', authenticateToken, (req, res) => {
 // POST /api/voyage-log/save-progress — no JWT (standalone page)
 app.post('/api/voyage-log/save-progress', (req, res) => {
   try {
-    const { student_name, class_period, state } = req.body;
+    const { student_name, class_period, student_id, state } = req.body;
     if (!student_name || !class_period || !state) {
       return res.status(400).json({ error: 'student_name, class_period, and state required' });
     }
 
     const stateJson = JSON.stringify(state);
+    const sid = student_id ? parseInt(student_id) : null;
     const existing = query(
       'SELECT student_name FROM voyage_log_progress WHERE student_name = ? AND class_period = ?',
       [student_name, class_period]
     );
 
     if (existing.length > 0) {
-      run(
-        'UPDATE voyage_log_progress SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
-        [stateJson, student_name, class_period]
-      );
+      if (sid !== null) {
+        run(
+          'UPDATE voyage_log_progress SET state_json = ?, student_id = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+          [stateJson, sid, student_name, class_period]
+        );
+      } else {
+        run(
+          'UPDATE voyage_log_progress SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?',
+          [stateJson, student_name, class_period]
+        );
+      }
     } else {
       run(
-        'INSERT INTO voyage_log_progress (student_name, class_period, state_json) VALUES (?, ?, ?)',
-        [student_name, class_period, stateJson]
+        'INSERT INTO voyage_log_progress (student_name, class_period, student_id, state_json) VALUES (?, ?, ?, ?)',
+        [student_name, class_period, sid, stateJson]
       );
     }
 
@@ -14698,6 +14719,101 @@ app.get('/api/voyage-log/load-progress/:name/:period', (req, res) => {
     }
   } catch (err) {
     console.error('Voyage log load-progress error:', err);
+    res.json({ found: false });
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// VOYAGE LOG — CASCADING DROPDOWN LOGIN
+// ══════════════════════════════════════════════════════════
+
+// GET /api/voyage-log/period-alliances/:period — list alliances with non-ghost students
+app.get('/api/voyage-log/period-alliances/:period', (req, res) => {
+  try {
+    const period = req.params.period;
+    const alliances = query(`
+      SELECT DISTINCT a.alliance_id, a.alliance_name
+      FROM alliances a
+      JOIN students s ON s.alliance_id = a.alliance_id
+      WHERE s.class_period = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+        AND a.is_disbanded = 0
+      ORDER BY a.alliance_name
+    `, [period]);
+
+    const independents = query(`
+      SELECT student_id FROM students
+      WHERE class_period = ? AND (alliance_id IS NULL) AND (is_ghost = 0 OR is_ghost IS NULL)
+    `, [period]);
+
+    if (independents.length > 0) {
+      alliances.push({ alliance_id: 'independent', alliance_name: 'Independent' });
+    }
+
+    res.json({ alliances });
+  } catch (err) {
+    console.error('Voyage log period-alliances error:', err);
+    res.json({ alliances: [], error: err.message });
+  }
+});
+
+// GET /api/voyage-log/alliance-students/:period/:alliance_id — list non-ghost students
+app.get('/api/voyage-log/alliance-students/:period/:alliance_id', (req, res) => {
+  try {
+    const { period, alliance_id } = req.params;
+    let students;
+    if (alliance_id === 'independent') {
+      students = query(`
+        SELECT student_id, name FROM students
+        WHERE class_period = ? AND (alliance_id IS NULL) AND (is_ghost = 0 OR is_ghost IS NULL)
+        ORDER BY name
+      `, [period]);
+    } else {
+      students = query(`
+        SELECT student_id, name FROM students
+        WHERE class_period = ? AND alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)
+        ORDER BY name
+      `, [period, parseInt(alliance_id)]);
+    }
+    res.json({ students });
+  } catch (err) {
+    console.error('Voyage log alliance-students error:', err);
+    res.json({ students: [], error: err.message });
+  }
+});
+
+// GET /api/voyage-log/load-progress-by-id/:student_id — load by student_id (bulletproof)
+// Falls back to name+period lookup for legacy saves and backfills student_id for next time.
+app.get('/api/voyage-log/load-progress-by-id/:student_id', (req, res) => {
+  try {
+    const sid = parseInt(req.params.student_id);
+    // Try student_id-based lookup first
+    let rows = query(
+      'SELECT state_json, updated_at FROM voyage_log_progress WHERE student_id = ?',
+      [sid]
+    );
+    if (rows.length > 0) {
+      return res.json({ found: true, state: JSON.parse(rows[0].state_json), updated_at: rows[0].updated_at });
+    }
+    // Fallback: name+period lookup (legacy saves from free-text login era)
+    const stu = query('SELECT name, class_period FROM students WHERE student_id = ?', [sid]);
+    if (stu.length > 0) {
+      rows = query(
+        'SELECT state_json, updated_at FROM voyage_log_progress WHERE student_name = ? AND class_period = ?',
+        [stu[0].name, stu[0].class_period]
+      );
+      if (rows.length > 0) {
+        // Migrate: backfill student_id for future lookups
+        try {
+          run('UPDATE voyage_log_progress SET student_id = ? WHERE student_name = ? AND class_period = ?',
+            [sid, stu[0].name, stu[0].class_period]);
+          saveDatabase();
+        } catch(e) { /* backfill is best-effort, don't block the response */ }
+        return res.json({ found: true, state: JSON.parse(rows[0].state_json), updated_at: rows[0].updated_at });
+      }
+    }
+    res.json({ found: false });
+  } catch (err) {
+    console.error('Voyage log load-progress-by-id error:', err);
     res.json({ found: false });
   }
 });
@@ -16647,3 +16763,242 @@ app.post('/api/theseus-log/athena-grade', athenaGradeHandler);
 app.post('/api/hercules-log/athena-grade', athenaGradeHandler);
 app.post('/api/perseus-log/athena-grade', athenaGradeHandler);
 app.post('/api/voyage-log/athena-grade', athenaGradeHandler);
+
+// ══════════════════════════════════════════════════════════════════════════
+// TEACHER RESET / REWIND — Heroic chapters (Jason, Hercules, Theseus, Perseus)
+// ══════════════════════════════════════════════════════════════════════════
+// All endpoints JWT-authenticated and require req.user.type === 'teacher'.
+// Factory generates the three reset endpoints + the "students with progress"
+// listing endpoint for one game, keeping behavior consistent across chapters.
+//
+// gameKey:       URL slug, e.g. 'voyage-log' | 'hercules-log' | 'theseus-log' | 'perseus-log'
+// progressTable: e.g. 'voyage_log_progress'
+// completionsTable: e.g. 'voyage_log_completions'
+// totalStops:    expected number of stops for rewind-validity check
+// studentFields: optional array of column names on the students table to clear
+//                  (e.g. ['hercules_log_completed','hercules_hero_code','hercules_rank_tier'])
+// ──────────────────────────────────────────────────────────────────────────
+function registerHeroicResetEndpoints(gameKey, progressTable, completionsTable, totalStops, studentFields){
+  const logLabel = gameKey.replace(/-log$/, '').replace(/^./, c => c.toUpperCase());
+
+  // Helper: clear any completion-linked fields on the students table so the
+  // student's main dashboard no longer shows them as completed.
+  function clearStudentCompletionFields(studentIds){
+    if(!studentFields || studentFields.length === 0 || !studentIds || studentIds.length === 0) return;
+    const setClause = studentFields.map(f => {
+      if(f.endsWith('_completed')) return `${f} = 0`;
+      return `${f} = NULL`;
+    }).join(', ');
+    studentIds.forEach(sid => {
+      try { run(`UPDATE students SET ${setClause} WHERE student_id = ?`, [sid]); } catch(e) {}
+    });
+  }
+
+  // ── GET /api/teacher/<game>-students-with-progress/:period ────────────────
+  // Returns the list of non-ghost students in this period along with their
+  // saved progress summary (currentStop, completedCount) and whether they've
+  // submitted a completion row. Drives the reset UI's student picker.
+  app.get(`/api/teacher/${gameKey}-students-with-progress/:period`, authenticateToken, (req, res) => {
+    if(req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+    try {
+      const period = req.params.period;
+      const students = query(`
+        SELECT s.student_id, s.name, a.alliance_name
+        FROM students s
+        LEFT JOIN alliances a ON a.alliance_id = s.alliance_id
+        WHERE s.class_period = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+        ORDER BY s.name
+      `, [period]);
+
+      const out = students.map(s => {
+        // Progress — prefer student_id, fall back to name+period
+        let progRows = query(`SELECT state_json FROM ${progressTable} WHERE student_id = ?`, [s.student_id]);
+        if(progRows.length === 0){
+          progRows = query(`SELECT state_json FROM ${progressTable} WHERE student_name = ? AND class_period = ?`, [s.name, period]);
+        }
+        let currentStop = -1, completedCount = 0;
+        if(progRows.length > 0){
+          try {
+            const st = JSON.parse(progRows[0].state_json);
+            currentStop = (typeof st.currentStop === 'number') ? st.currentStop : -1;
+            completedCount = Object.keys(st.completed || {}).filter(k => st.completed[k]).length;
+          } catch(e) {}
+        }
+        // Completion
+        const compRows = query(`SELECT completion_id FROM ${completionsTable} WHERE student_name = ? AND class_period = ?`, [s.name, period]);
+        return {
+          student_id: s.student_id,
+          name: s.name,
+          alliance_name: s.alliance_name || 'Independent',
+          has_progress: progRows.length > 0,
+          current_stop: currentStop,
+          completed_count: completedCount,
+          has_completion: compRows.length > 0
+        };
+      });
+      res.json({ students: out });
+    } catch (err) {
+      console.error(`${logLabel} students-with-progress error:`, err);
+      res.status(500).json({ error: 'Failed to load students' });
+    }
+  });
+
+  // ── POST /api/teacher/<game>-reset-student ────────────────────────────────
+  // Full reset for one student. Wipes both progress and completion rows.
+  // Body: { student_id, class_period }  (class_period needed for name-based fallback)
+  app.post(`/api/teacher/${gameKey}-reset-student`, authenticateToken, (req, res) => {
+    if(req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+    try {
+      const { student_id, class_period } = req.body;
+      const sid = parseInt(student_id);
+      if(!sid || !class_period) return res.status(400).json({ error: 'student_id and class_period required' });
+
+      const stu = query('SELECT name FROM students WHERE student_id = ?', [sid]);
+      if(stu.length === 0) return res.status(404).json({ error: 'Student not found' });
+      const name = stu[0].name;
+
+      // Wipe progress (both id-matched and name+period-matched rows, in case of dupes)
+      run(`DELETE FROM ${progressTable} WHERE student_id = ?`, [sid]);
+      run(`DELETE FROM ${progressTable} WHERE student_name = ? AND class_period = ?`, [name, class_period]);
+      // Wipe completion
+      run(`DELETE FROM ${completionsTable} WHERE student_name = ? AND class_period = ?`, [name, class_period]);
+      // Clear completion flags on the students table
+      clearStudentCompletionFields([sid]);
+
+      saveDatabase();
+      res.json({ success: true, student_id: sid, name });
+    } catch (err) {
+      console.error(`${logLabel} reset-student error:`, err);
+      res.status(500).json({ error: 'Reset failed' });
+    }
+  });
+
+  // ── POST /api/teacher/<game>-rewind-student ───────────────────────────────
+  // Rewind one student to stop N. Loads their state JSON, truncates
+  // completed/scores/feedback/etc. past stop N, sets currentStop = N,
+  // writes it back. Also deletes any completion row (they are now incomplete).
+  // Body: { student_id, class_period, rewind_to_stop }
+  app.post(`/api/teacher/${gameKey}-rewind-student`, authenticateToken, (req, res) => {
+    if(req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+    try {
+      const { student_id, class_period, rewind_to_stop } = req.body;
+      const sid = parseInt(student_id);
+      const targetStop = parseInt(rewind_to_stop);
+      if(!sid || !class_period || isNaN(targetStop)){
+        return res.status(400).json({ error: 'student_id, class_period, and rewind_to_stop required' });
+      }
+      if(targetStop < 0 || targetStop >= totalStops){
+        return res.status(400).json({ error: `rewind_to_stop must be 0..${totalStops - 1}` });
+      }
+
+      const stu = query('SELECT name FROM students WHERE student_id = ?', [sid]);
+      if(stu.length === 0) return res.status(404).json({ error: 'Student not found' });
+      const name = stu[0].name;
+
+      // Find the progress row (id first, then name+period)
+      let progRows = query(`SELECT state_json FROM ${progressTable} WHERE student_id = ?`, [sid]);
+      if(progRows.length === 0){
+        progRows = query(`SELECT state_json FROM ${progressTable} WHERE student_name = ? AND class_period = ?`, [name, class_period]);
+      }
+      if(progRows.length === 0){
+        return res.status(404).json({ error: 'No saved progress to rewind' });
+      }
+
+      let st;
+      try { st = JSON.parse(progRows[0].state_json); }
+      catch(e){ return res.status(500).json({ error: 'Saved state is corrupt' }); }
+
+      // Truncate any per-stop map keyed by numeric index, keeping only keys < targetStop
+      const mapKeys = ['completed','scores','feedback','reviseUsed','writtenText',
+                       'predAnswers','dragAnswers','mcAnswers','dragSorts'];
+      mapKeys.forEach(k => {
+        if(st[k] && typeof st[k] === 'object'){
+          Object.keys(st[k]).forEach(key => {
+            const n = parseInt(key);
+            if(!isNaN(n) && n >= targetStop){
+              delete st[k][key];
+            }
+          });
+        }
+      });
+      // Recompute totalScore from remaining scores
+      if(st.scores && typeof st.scores === 'object'){
+        st.totalScore = Object.values(st.scores).reduce((a, b) => a + (parseInt(b) || 0), 0);
+      } else {
+        st.totalScore = 0;
+      }
+      // Set currentStop to the rewind target
+      st.currentStop = targetStop;
+
+      // Save back (ensure student_id is set for future id-based lookups)
+      const stateJson = JSON.stringify(st);
+      const existsById = query(`SELECT student_name FROM ${progressTable} WHERE student_id = ?`, [sid]);
+      if(existsById.length > 0){
+        run(`UPDATE ${progressTable} SET state_json = ?, updated_at = CURRENT_TIMESTAMP WHERE student_id = ?`,
+          [stateJson, sid]);
+      } else {
+        run(`UPDATE ${progressTable} SET state_json = ?, student_id = ?, updated_at = CURRENT_TIMESTAMP WHERE student_name = ? AND class_period = ?`,
+          [stateJson, sid, name, class_period]);
+      }
+      // Drop any completion row — they're incomplete again
+      run(`DELETE FROM ${completionsTable} WHERE student_name = ? AND class_period = ?`, [name, class_period]);
+      // Clear completion flags on students table
+      clearStudentCompletionFields([sid]);
+
+      saveDatabase();
+      res.json({ success: true, student_id: sid, name, rewound_to: targetStop });
+    } catch (err) {
+      console.error(`${logLabel} rewind-student error:`, err);
+      res.status(500).json({ error: 'Rewind failed' });
+    }
+  });
+
+  // ── POST /api/teacher/<game>-reset-period ─────────────────────────────────
+  // Bulk wipe of all progress + completions for the period. Destructive.
+  // Body: { class_period, confirm_period }  — confirm_period must match class_period exactly
+  app.post(`/api/teacher/${gameKey}-reset-period`, authenticateToken, (req, res) => {
+    if(req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+    try {
+      const { class_period, confirm_period } = req.body;
+      if(!class_period) return res.status(400).json({ error: 'class_period required' });
+      if(confirm_period !== class_period){
+        return res.status(400).json({ error: 'confirm_period must match class_period (safety check)' });
+      }
+
+      // Find all non-ghost students in this period so we can clear their completion flags
+      const students = query(`
+        SELECT student_id, name FROM students
+        WHERE class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL)
+      `, [class_period]);
+      const studentIds = students.map(s => s.student_id);
+
+      // Count first so we can report impact
+      const progCount = query(`SELECT COUNT(*) as c FROM ${progressTable} WHERE class_period = ?`, [class_period]);
+      const compCount = query(`SELECT COUNT(*) as c FROM ${completionsTable} WHERE class_period = ?`, [class_period]);
+      const progN = (progCount[0] && progCount[0].c) || 0;
+      const compN = (compCount[0] && compCount[0].c) || 0;
+
+      run(`DELETE FROM ${progressTable} WHERE class_period = ?`, [class_period]);
+      run(`DELETE FROM ${completionsTable} WHERE class_period = ?`, [class_period]);
+      clearStudentCompletionFields(studentIds);
+
+      saveDatabase();
+      res.json({
+        success: true,
+        class_period,
+        progress_rows_deleted: progN,
+        completion_rows_deleted: compN,
+        students_affected: studentIds.length
+      });
+    } catch (err) {
+      console.error(`${logLabel} reset-period error:`, err);
+      res.status(500).json({ error: 'Period reset failed' });
+    }
+  });
+}
+
+// Register for all four Heroic-chapter games
+registerHeroicResetEndpoints('voyage-log',    'voyage_log_progress',    'voyage_log_completions',    10, []);
+registerHeroicResetEndpoints('hercules-log',  'hercules_log_progress',  'hercules_log_completions',  8,  ['hercules_log_completed','hercules_hero_code','hercules_rank_tier']);
+registerHeroicResetEndpoints('theseus-log',   'theseus_log_progress',   'theseus_log_completions',   8,  ['theseus_log_completed','theseus_hero_code','theseus_rank_tier']);
+registerHeroicResetEndpoints('perseus-log',   'perseus_log_progress',   'perseus_log_completions',   8,  ['perseus_log_completed','perseus_hero_code','perseus_rank_tier']);

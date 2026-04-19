@@ -1682,6 +1682,9 @@
                 </div>
             </div>
 
+            <!-- Reset panel (populated by renderResetPanel) -->
+            <div id="voyage-reset-panel"></div>
+
             <!-- Completions table -->
             <div id="voyage-log-content">
                 <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
@@ -1713,6 +1716,9 @@
                 </div>
             </div>
 
+            <!-- Reset panel (populated by renderResetPanel) -->
+            <div id="hercules-reset-panel"></div>
+
             <!-- Completions table -->
             <div id="hercules-log-content">
                 <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
@@ -1725,6 +1731,34 @@
         <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
             <span class="close" onclick="document.getElementById('theseus-log-modal').classList.remove('show')">&times;</span>
             <h2 style="margin-bottom: 6px;">🗡️ Theseus — The Road to the Labyrinth</h2>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
+                <button class="period-tab active" onclick="loadTheseusLogPeriod('1st')" id="tl-tab-1st">1st Period</button>
+                <button class="period-tab" onclick="loadTheseusLogPeriod('2nd')" id="tl-tab-2nd">2nd Period</button>
+                <button class="period-tab" onclick="loadTheseusLogPeriod('3rd')" id="tl-tab-3rd">3rd Period</button>
+                <button class="period-tab" onclick="loadTheseusLogPeriod('4th')" id="tl-tab-4th">4th Period</button>
+                <button class="period-tab" onclick="loadTheseusLogPeriod('Test')" id="tl-tab-Test">Test</button>
+                <a href="/theseus_road_to_labyrinth.html" target="_blank" style="margin-left:auto; padding: 6px 14px; background: rgba(96,165,250,0.2); border: 1px solid rgba(96,165,250,0.5); border-radius: 6px; color: rgba(96,165,250,0.9); text-decoration: none; font-size: 12px; font-weight: 600;">🗡️ Open Theseus Log</a>
+            </div>
+
+            <!-- Unlock controls -->
+            <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 600; color: rgba(96,165,250,0.9); margin-bottom: 6px;">🔓 Stop Unlock Controls</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">Control which stop each class period can access. Students' pages update automatically.</div>
+                <div id="theseus-unlock-controls" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+
+            <!-- Reset panel (populated by renderResetPanel) -->
+            <div id="theseus-reset-panel"></div>
+
+            <!-- Completions table -->
+            <div id="theseus-log-content">
+                <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
+            </div>
+        </div>
+    </div>
 
     <!-- Perseus Log Modal -->
     <div id="perseus-log-modal" class="modal">
@@ -1750,33 +1784,11 @@
                 </div>
             </div>
 
+            <!-- Reset panel (populated by renderResetPanel) -->
+            <div id="perseus-reset-panel"></div>
+
             <!-- Completions table -->
             <div id="perseus-log-content">
-                <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
-            </div>
-        </div>
-    </div>
-
-            <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
-                <button class="period-tab active" onclick="loadTheseusLogPeriod('1st')" id="tl-tab-1st">1st Period</button>
-                <button class="period-tab" onclick="loadTheseusLogPeriod('2nd')" id="tl-tab-2nd">2nd Period</button>
-                <button class="period-tab" onclick="loadTheseusLogPeriod('3rd')" id="tl-tab-3rd">3rd Period</button>
-                <button class="period-tab" onclick="loadTheseusLogPeriod('4th')" id="tl-tab-4th">4th Period</button>
-                <button class="period-tab" onclick="loadTheseusLogPeriod('Test')" id="tl-tab-Test">Test</button>
-                <a href="/theseus_road_to_labyrinth.html" target="_blank" style="margin-left:auto; padding: 6px 14px; background: rgba(96,165,250,0.2); border: 1px solid rgba(96,165,250,0.5); border-radius: 6px; color: rgba(96,165,250,0.9); text-decoration: none; font-size: 12px; font-weight: 600;">🗡️ Open Theseus Log</a>
-            </div>
-
-            <!-- Unlock controls -->
-            <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
-                <div style="font-size: 13px; font-weight: 600; color: rgba(96,165,250,0.9); margin-bottom: 6px;">🔓 Stop Unlock Controls</div>
-                <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">Control which stop each class period can access. Students' pages update automatically.</div>
-                <div id="theseus-unlock-controls" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <!-- Filled dynamically -->
-                </div>
-            </div>
-
-            <!-- Completions table -->
-            <div id="theseus-log-content">
                 <p style="text-align: center; color: rgba(255,255,255,0.4);">Select a period above to view completions</p>
             </div>
         </div>
@@ -7421,6 +7433,7 @@
             document.getElementById('voyage-log-modal').classList.add('show');
             loadVoyageLogPeriod('1st');
             loadVoyageUnlockControls();
+            renderResetPanel('voyage');
         }
 
         async function loadVoyageUnlockControls() {
@@ -7614,6 +7627,7 @@
             document.getElementById('hercules-log-modal').classList.add('show');
             loadHerculesLogPeriod('1st');
             loadHerculesUnlockControls();
+            renderResetPanel('hercules');
         }
 
         async function loadHerculesUnlockControls() {
@@ -7773,6 +7787,7 @@
             document.getElementById('theseus-log-modal').classList.add('show');
             loadTheseusLogPeriod('1st');
             loadTheseusUnlockControls();
+            renderResetPanel('theseus');
         }
 
         async function loadTheseusUnlockControls() {
@@ -7931,6 +7946,7 @@
             document.getElementById('perseus-log-modal').classList.add('show');
             loadPerseusLogPeriod('1st');
             loadPerseusUnlockControls();
+            renderResetPanel('perseus');
         }
 
         async function loadPerseusUnlockControls() {
@@ -8222,6 +8238,228 @@
         function pill(text, color) {
             color = color || 'rgba(196,181,253,0.8)';
             return `<span class="ho-summary-pill" style="color:${color};">${text}</span>`;
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // RESET PANEL — shared factory for all four Heroic-chapter log modals
+        // Adds Full Reset / Rewind to Stop N / Bulk Reset Period controls.
+        // ════════════════════════════════════════════════════════════════════
+        const RESET_PANEL_CONFIG = {
+            voyage: {
+                apiSlug: 'voyage-log',
+                hexColor: 'rgba(240,192,64',
+                label: '⚓ Voyage Log',
+                totalStops: 10,
+                stopNoun: 'Stop',
+                getCurrentPeriod: () => (typeof currentVoyagePeriod !== 'undefined' ? currentVoyagePeriod : '1st'),
+                refreshParent: (p) => { if (typeof loadVoyageLogPeriod === 'function') loadVoyageLogPeriod(p); if (typeof loadVoyageUnlockControls === 'function') loadVoyageUnlockControls(); }
+            },
+            hercules: {
+                apiSlug: 'hercules-log',
+                hexColor: 'rgba(239,68,68',
+                label: '🦁 Hercules',
+                totalStops: 8,
+                stopNoun: 'Stop',
+                getCurrentPeriod: () => (typeof currentHerculesPeriod !== 'undefined' ? currentHerculesPeriod : '1st'),
+                refreshParent: (p) => { if (typeof loadHerculesLogPeriod === 'function') loadHerculesLogPeriod(p); if (typeof loadHerculesUnlockControls === 'function') loadHerculesUnlockControls(); }
+            },
+            theseus: {
+                apiSlug: 'theseus-log',
+                hexColor: 'rgba(96,165,250',
+                label: '🗡️ Theseus',
+                totalStops: 8,
+                stopNoun: 'Stop',
+                getCurrentPeriod: () => (typeof currentTheseusPeriod !== 'undefined' ? currentTheseusPeriod : '1st'),
+                refreshParent: (p) => { if (typeof loadTheseusLogPeriod === 'function') loadTheseusLogPeriod(p); if (typeof loadTheseusUnlockControls === 'function') loadTheseusUnlockControls(); }
+            },
+            perseus: {
+                apiSlug: 'perseus-log',
+                hexColor: 'rgba(74,222,128',
+                label: '🪽 Perseus',
+                totalStops: 8,
+                stopNoun: 'Stop',
+                getCurrentPeriod: () => (typeof currentPerseusPeriod !== 'undefined' ? currentPerseusPeriod : '1st'),
+                refreshParent: (p) => { if (typeof loadPerseusLogPeriod === 'function') loadPerseusLogPeriod(p); if (typeof loadPerseusUnlockControls === 'function') loadPerseusUnlockControls(); }
+            }
+        };
+
+        // Top-level entry point called by each openXxxLogModal()
+        function renderResetPanel(gameKey) {
+            const cfg = RESET_PANEL_CONFIG[gameKey];
+            if (!cfg) return;
+            const container = document.getElementById(gameKey + '-reset-panel');
+            if (!container) return;
+
+            const c = cfg.hexColor;
+            const totalStops = cfg.totalStops;
+            const periodOpts = ['1st','2nd','3rd','4th','Test']
+                .map(p => `<option value="${p}">${p === 'Test' ? 'Test Period' : 'Period ' + p[0]}</option>`).join('');
+            let stopOpts = '';
+            for (let i = 0; i < totalStops; i++) {
+                stopOpts += `<option value="${i}">${cfg.stopNoun} ${i + 1}</option>`;
+            }
+
+            container.innerHTML = `
+                <div style="background: ${c},0.08); border: 1px solid ${c},0.3); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                    <div style="font-size: 13px; font-weight: 600; color: ${c},0.95); margin-bottom: 6px;">🔁 Reset Progress</div>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.55); margin-bottom: 12px;">Reset one student, rewind them to an earlier stop, or wipe an entire period's progress. Full resets also delete completion records and reset the student's completion badge.</div>
+
+                    <!-- Per-student controls -->
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px;">
+                        <div style="flex: 0 0 110px;">
+                            <label style="font-size: 10px; color: rgba(255,255,255,0.45); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Period</label>
+                            <select id="rp-${gameKey}-period" onchange="resetPanelLoadStudents('${gameKey}')" style="width: 100%; padding: 7px 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: white; font-size: 13px;">
+                                ${periodOpts}
+                            </select>
+                        </div>
+                        <div style="flex: 1 1 220px; min-width: 200px;">
+                            <label style="font-size: 10px; color: rgba(255,255,255,0.45); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Student</label>
+                            <select id="rp-${gameKey}-student" style="width: 100%; padding: 7px 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: white; font-size: 13px;">
+                                <option value="">— Loading... —</option>
+                            </select>
+                        </div>
+                        <div style="flex: 0 0 140px;">
+                            <label style="font-size: 10px; color: rgba(255,255,255,0.45); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Rewind To</label>
+                            <select id="rp-${gameKey}-stop" style="width: 100%; padding: 7px 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: white; font-size: 13px;">
+                                ${stopOpts}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button onclick="resetPanelFullReset('${gameKey}')" style="padding: 8px 16px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.5); border-radius: 6px; color: rgba(255,200,200,0.95); cursor: pointer; font-size: 12px; font-weight: 600;">🗑️ Full Reset Student</button>
+                        <button onclick="resetPanelRewind('${gameKey}')" style="padding: 8px 16px; background: ${c},0.2); border: 1px solid ${c},0.5); border-radius: 6px; color: white; cursor: pointer; font-size: 12px; font-weight: 600;">⏪ Rewind Student</button>
+                        <button onclick="resetPanelBulkReset('${gameKey}')" style="padding: 8px 16px; background: rgba(0,0,0,0.4); border: 1px solid rgba(239,68,68,0.4); border-radius: 6px; color: rgba(255,160,160,0.9); cursor: pointer; font-size: 12px; font-weight: 600; margin-left: auto;">⚠️ Bulk Reset Period</button>
+                    </div>
+
+                    <div id="rp-${gameKey}-status" style="margin-top: 10px; font-size: 12px; min-height: 16px;"></div>
+                </div>
+            `;
+
+            // Default period to whatever the parent modal is currently showing
+            const curPeriod = cfg.getCurrentPeriod();
+            const periodSel = document.getElementById('rp-' + gameKey + '-period');
+            if (periodSel) periodSel.value = curPeriod;
+            resetPanelLoadStudents(gameKey);
+        }
+
+        async function resetPanelLoadStudents(gameKey) {
+            const cfg = RESET_PANEL_CONFIG[gameKey];
+            const period = document.getElementById('rp-' + gameKey + '-period').value;
+            const studentSel = document.getElementById('rp-' + gameKey + '-student');
+            studentSel.innerHTML = '<option value="">— Loading... —</option>';
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/teacher/' + cfg.apiSlug + '-students-with-progress/' + encodeURIComponent(period), {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+                const list = data.students || [];
+                if (list.length === 0) {
+                    studentSel.innerHTML = '<option value="">— No students in this period —</option>';
+                    return;
+                }
+                // Highlight students who actually have progress
+                studentSel.innerHTML = '<option value="">— Select a student —</option>' + list.map(s => {
+                    const tag = s.has_completion ? ' ✓ complete'
+                              : s.has_progress ? ` · stop ${s.current_stop >= 0 ? s.current_stop + 1 : '?'} (${s.completed_count} done)`
+                              : '';
+                    return `<option value="${s.student_id}" data-name="${escapeAttr(s.name)}" data-has-progress="${s.has_progress ? 1 : 0}">${escapeAttr(s.name)} — ${escapeAttr(s.alliance_name)}${tag}</option>`;
+                }).join('');
+            } catch (err) {
+                console.error('Reset panel load students error:', err);
+                studentSel.innerHTML = '<option value="">— Error loading students —</option>';
+            }
+        }
+
+        function resetPanelReadInputs(gameKey) {
+            const period = document.getElementById('rp-' + gameKey + '-period').value;
+            const studentSel = document.getElementById('rp-' + gameKey + '-student');
+            const studentId = studentSel.value;
+            const studentName = studentSel.options[studentSel.selectedIndex] ? studentSel.options[studentSel.selectedIndex].getAttribute('data-name') : '';
+            const stopIdx = parseInt(document.getElementById('rp-' + gameKey + '-stop').value);
+            return { period, studentId, studentName, stopIdx };
+        }
+
+        function resetPanelStatus(gameKey, msg, isError) {
+            const el = document.getElementById('rp-' + gameKey + '-status');
+            if (!el) return;
+            el.style.color = isError ? 'rgba(255,130,130,0.95)' : 'rgba(130,230,160,0.95)';
+            el.textContent = msg;
+        }
+
+        async function resetPanelFullReset(gameKey) {
+            const cfg = RESET_PANEL_CONFIG[gameKey];
+            const { period, studentId, studentName } = resetPanelReadInputs(gameKey);
+            if (!studentId) return resetPanelStatus(gameKey, 'Pick a student first.', true);
+            if (!resetPanelConfirm(`Full reset ${studentName}'s ${cfg.label} progress?\n\nThis wipes their saved progress, any completion record, and clears their completion badge. This cannot be undone.`)) return;
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/teacher/' + cfg.apiSlug + '-reset-student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ student_id: parseInt(studentId), class_period: period })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Reset failed');
+                resetPanelStatus(gameKey, `✓ Reset ${data.name}. They can start over from the beginning.`, false);
+                resetPanelLoadStudents(gameKey);
+                cfg.refreshParent(period);
+            } catch (err) {
+                resetPanelStatus(gameKey, '✗ ' + err.message, true);
+            }
+        }
+
+        async function resetPanelRewind(gameKey) {
+            const cfg = RESET_PANEL_CONFIG[gameKey];
+            const { period, studentId, studentName, stopIdx } = resetPanelReadInputs(gameKey);
+            if (!studentId) return resetPanelStatus(gameKey, 'Pick a student first.', true);
+            if (isNaN(stopIdx)) return resetPanelStatus(gameKey, 'Pick a stop to rewind to.', true);
+            if (!resetPanelConfirm(`Rewind ${studentName} to ${cfg.stopNoun} ${stopIdx + 1}?\n\nThis clears their answers from ${cfg.stopNoun} ${stopIdx + 1} onward and sets them back to that stop. Earlier answers are preserved. Their completion record (if any) will be removed.`)) return;
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/teacher/' + cfg.apiSlug + '-rewind-student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ student_id: parseInt(studentId), class_period: period, rewind_to_stop: stopIdx })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Rewind failed');
+                resetPanelStatus(gameKey, `✓ Rewound ${data.name} to ${cfg.stopNoun} ${data.rewound_to + 1}.`, false);
+                resetPanelLoadStudents(gameKey);
+                cfg.refreshParent(period);
+            } catch (err) {
+                resetPanelStatus(gameKey, '✗ ' + err.message, true);
+            }
+        }
+
+        async function resetPanelBulkReset(gameKey) {
+            const cfg = RESET_PANEL_CONFIG[gameKey];
+            const { period } = resetPanelReadInputs(gameKey);
+            const typed = prompt(`⚠️ BULK RESET WARNING\n\nThis will wipe ALL ${cfg.label} progress AND completion records for EVERY student in "${period}".\n\nThis cannot be undone.\n\nType the period name exactly to confirm (e.g. "${period}"):`);
+            if (typed === null) return; // cancelled
+            if (typed !== period) return resetPanelStatus(gameKey, '✗ Confirmation did not match period. Aborted.', true);
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/teacher/' + cfg.apiSlug + '-reset-period', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ class_period: period, confirm_period: typed })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'Bulk reset failed');
+                resetPanelStatus(gameKey, `✓ Bulk reset complete: ${data.progress_rows_deleted} progress rows, ${data.completion_rows_deleted} completions, ${data.students_affected} students affected.`, false);
+                resetPanelLoadStudents(gameKey);
+                cfg.refreshParent(period);
+            } catch (err) {
+                resetPanelStatus(gameKey, '✗ ' + err.message, true);
+            }
+        }
+
+        // Lightweight confirm wrapper — easy to swap to a nicer modal later
+        function resetPanelConfirm(msg) { return window.confirm(msg); }
+        function escapeAttr(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
         }
     </script>
 </body>
