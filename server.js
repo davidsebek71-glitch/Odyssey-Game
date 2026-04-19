@@ -9827,24 +9827,35 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     const voyageByName = {};
     voyageRows.forEach(v => { voyageByName[v.student_name] = v; });
 
-    // All-four-logs data — defensive PRAGMA check for each column
-    let logCols = [];
-    try { logCols = query('PRAGMA table_info(students)').map(c => c.name); } catch(e) {}
-    const hasCol = (n) => logCols.includes(n);
-    const logSelect = [
-      hasCol('voyage_log_completed')   ? 's.voyage_log_completed'   : 'NULL as voyage_log_completed',
-      hasCol('voyage_rank_tier')       ? 's.voyage_rank_tier'       : 'NULL as voyage_rank_tier',
-      hasCol('hercules_log_completed') ? 's.hercules_log_completed' : 'NULL as hercules_log_completed',
-      hasCol('hercules_rank_tier')     ? 's.hercules_rank_tier'     : 'NULL as hercules_rank_tier',
-      hasCol('theseus_log_completed')  ? 's.theseus_log_completed'  : 'NULL as theseus_log_completed',
-      hasCol('theseus_rank_tier')      ? 's.theseus_rank_tier'      : 'NULL as theseus_rank_tier',
-      hasCol('perseus_log_completed')  ? 's.perseus_log_completed'  : 'NULL as perseus_log_completed',
-      hasCol('perseus_rank_tier')      ? 's.perseus_rank_tier'      : 'NULL as perseus_rank_tier',
-    ].join(', ');
+    // All-four-logs data — direct query (all columns are confirmed schema columns)
+    // Falls back to PRAGMA-safe column detection only if the direct query throws
     let logRows = [];
     try {
-      logRows = query(`SELECT s.student_id, ${logSelect} FROM students s WHERE s.student_id IN (${placeholders})`, studentIds);
-    } catch(e) { console.error('heroic-overview log query failed:', e.message); }
+      logRows = query(
+        `SELECT s.student_id,
+                s.voyage_log_completed,   s.voyage_rank_tier,
+                s.hercules_log_completed, s.hercules_rank_tier,
+                s.theseus_log_completed,  s.theseus_rank_tier,
+                s.perseus_log_completed,  s.perseus_rank_tier
+         FROM students s WHERE s.student_id IN (${placeholders})`,
+        studentIds
+      );
+    } catch(e) {
+      console.error('heroic-overview log query failed, retrying defensively:', e.message);
+      try {
+        const allCols = query('PRAGMA table_info(students)').map(c => c.name);
+        const safe = (col) => allCols.includes(col) ? 's.' + col : '0 as ' + col;
+        logRows = query(
+          `SELECT s.student_id,
+                  ${safe('voyage_log_completed')},   ${safe('voyage_rank_tier')},
+                  ${safe('hercules_log_completed')}, ${safe('hercules_rank_tier')},
+                  ${safe('theseus_log_completed')},  ${safe('theseus_rank_tier')},
+                  ${safe('perseus_log_completed')},  ${safe('perseus_rank_tier')}
+           FROM students s WHERE s.student_id IN (${placeholders})`,
+          studentIds
+        );
+      } catch(e2) { console.error('heroic-overview log fallback also failed:', e2.message); }
+    }
     const logByStudent = {};
     logRows.forEach(r => { logByStudent[r.student_id] = r; });
 
