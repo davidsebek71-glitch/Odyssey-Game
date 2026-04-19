@@ -9768,49 +9768,98 @@ app.post('/api/teacher/reset-avatar', authenticateToken, (req, res) => {
 // ── DIAGNOSTIC: heroic-overview data audit ───────────────────────────────────
 // Temporary endpoint — compare what's in voyage_log_completions vs students table
 // Remove after root cause is confirmed
+
+// ── ONE-TIME DATA REPAIR: fix voyage_log_completions name/period mismatches ──
+// Remove this endpoint after confirming repairs are applied.
+app.post('/api/teacher/repair-voyage-names', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+
+    const repairs = [];
+
+    // 1. King T (3rd) → Tucker (matches students.name in 3rd period)
+    const kingT = query("SELECT completion_id, student_name, class_period FROM voyage_log_completions WHERE student_name = 'King T' AND class_period = '3rd'");
+    if (kingT.length > 0) {
+      run("UPDATE voyage_log_completions SET student_name = 'Tucker' WHERE student_name = 'King T' AND class_period = '3rd'");
+      repairs.push({ fixed: 'King T → Tucker (3rd)' });
+    } else {
+      repairs.push({ skipped: 'King T not found in 3rd — already fixed or never existed' });
+    }
+
+    // 2. Penelope Williams (3rd) → class_period = 4th (she submitted under wrong period)
+    const penelope = query("SELECT completion_id, student_name, class_period FROM voyage_log_completions WHERE student_name = 'Penelope Williams' AND class_period = '3rd'");
+    if (penelope.length > 0) {
+      run("UPDATE voyage_log_completions SET class_period = '4th' WHERE student_name = 'Penelope Williams' AND class_period = '3rd'");
+      repairs.push({ fixed: 'Penelope Williams period: 3rd → 4th' });
+    } else {
+      repairs.push({ skipped: 'Penelope Williams/3rd not found — already fixed or never existed' });
+    }
+
+    // 3. GREg (Period 1) → class_period = Test
+    const greg = query("SELECT completion_id, student_name, class_period FROM voyage_log_completions WHERE student_name = 'GREg' AND class_period = 'Period 1'");
+    if (greg.length > 0) {
+      run("UPDATE voyage_log_completions SET class_period = 'Test' WHERE student_name = 'GREg' AND class_period = 'Period 1'");
+      repairs.push({ fixed: 'GREg period: Period 1 → Test' });
+    } else {
+      repairs.push({ skipped: 'GREg/Period 1 not found — already fixed or never existed' });
+    }
+
+    saveDatabase();
+    res.json({ success: true, repairs });
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/teacher/heroic-overview-debug', authenticateToken, (req, res) => {
   try {
     if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
     const { period } = req.query;
     if (!period) return res.status(400).json({ error: 'period required' });
 
-    // Students in this period
     const students = query(
       'SELECT student_id, name, class_period FROM students WHERE class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL) ORDER BY name',
       [period]
     );
 
-    // All voyage completions (parameterized to avoid sql.js no-param issue)
-    let voyageRows = [];
-    try { voyageRows = query('SELECT student_name, class_period, rank_tier FROM voyage_log_completions WHERE 1=1'); } catch(e) { voyageRows = [{ _error: e.message }]; }
+    // All four log completions for this period
+    let voyageRows = [], herculesRows = [], theseusRows = [], perseusRows = [];
+    try { voyageRows   = query('SELECT student_name, class_period, rank_tier FROM voyage_log_completions   WHERE class_period = ?', [period]); } catch(e) {}
+    try { herculesRows = query('SELECT student_name, rank_tier FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) {}
+    try { theseusRows  = query('SELECT student_name, rank_tier FROM theseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
+    try { perseusRows  = query('SELECT student_name, rank_tier FROM perseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
 
-    // Hercules completions for this period only
-    let herculesRows = [];
-    try { herculesRows = query('SELECT student_name, class_period, rank_tier FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) { herculesRows = [{ _error: e.message }]; }
+    // Same 3-strategy match used by heroic-overview
+    const nameWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
+    const sharesWord = (a, b) => { const aw = nameWords(a), bw = nameWords(b); for (const w of aw) { if (bw.has(w)) return true; } return false; };
+    const findMatch = (rows, name) => {
+      const nl = name.toLowerCase().trim();
+      return rows.find(r => r.student_name === name) ||
+             rows.find(r => typeof r.student_name === 'string' && r.student_name.toLowerCase().trim() === nl) ||
+             rows.find(r => typeof r.student_name === 'string' && sharesWord(r.student_name, name)) ||
+             null;
+    };
 
-    // Per-student audit: exact match, case-insensitive match, wrong-period match
     const audit = students.map(s => {
-      const exactMatch   = voyageRows.find(v => v.student_name === s.name && v.class_period === s.class_period);
-      const looseMatch   = voyageRows.find(v => typeof v.student_name === 'string' && v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period === s.class_period);
-      const wrongPeriod  = voyageRows.find(v => typeof v.student_name === 'string' && v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period !== s.class_period);
+      const vm = findMatch(voyageRows,   s.name);
+      const hm = findMatch(herculesRows, s.name);
+      const tm = findMatch(theseusRows,  s.name);
+      const pm = findMatch(perseusRows,  s.name);
       return {
-        student_name:        s.name,
-        student_period:      s.class_period,
-        voyage_exact_match:  !!exactMatch,
-        voyage_loose_match:  !!looseMatch,
-        voyage_rank_tier:    looseMatch ? looseMatch.rank_tier : null,
-        voyage_wrong_period: wrongPeriod ? wrongPeriod.class_period : null,
-        voyage_stored_name:  looseMatch ? looseMatch.student_name : (wrongPeriod ? wrongPeriod.student_name : null),
+        student:          s.name,
+        jason:   vm ? { complete: true,  rank: vm.rank_tier, stored_as: vm.student_name } : { complete: false },
+        hercules:hm ? { complete: true,  rank: hm.rank_tier, stored_as: hm.student_name } : { complete: false },
+        theseus: tm ? { complete: true,  rank: tm.rank_tier, stored_as: tm.student_name } : { complete: false },
+        perseus: pm ? { complete: true,  rank: pm.rank_tier, stored_as: pm.student_name } : { complete: false },
       };
     });
 
-    res.json({
-      period_queried:                period,
-      students_in_period:            students.length,
-      voyage_completions_all_periods: voyageRows,
-      hercules_completions_this_period: herculesRows,
-      audit
-    });
+    // Also show any voyage rows that didn't match any student (orphaned)
+    const orphanedVoyage = voyageRows.filter(v =>
+      !students.find(s => findMatch([v], s.name))
+    );
+
+    res.json({ period, audit, orphaned_voyage_rows: orphanedVoyage });
   } catch(err) {
     res.status(500).json({ error: err.message, stack: err.stack });
   }
@@ -9934,14 +9983,22 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     const result = students.map(s => {
       const stats = statsByStudent[s.student_id] || { lore: 0, craft: 0, honor: 0 };
       const cunning = (battleByStudent[s.student_id] || 0) * 3;
-      // Multi-strategy voyage match: exact → case-insensitive → first-word-within-period
-      const sNameLower = s.name.toLowerCase().trim();
-      const sFirstWord = s.name.trim().toLowerCase().split(/\s+/)[0];
-      const voyage =
-        voyageRows.find(v => v.student_name === s.name) ||
-        voyageRows.find(v => v.student_name.toLowerCase().trim() === sNameLower) ||
-        voyageRows.find(v => v.student_name.trim().toLowerCase().split(/\s+/)[0] === sFirstWord) ||
-        null;
+      // Multi-strategy name match: exact → case-insensitive → shared-word within period
+      // Shared-word: any meaningful word (>1 char) in completion name matches any word in student name
+      const nameWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
+      const sharesWord = (rowName, studentName) => {
+        const rw = nameWords(rowName), sw = nameWords(studentName);
+        for (const w of rw) { if (sw.has(w)) return true; }
+        return false;
+      };
+      const bestMatch = (rows, studentName) => {
+        const nl = studentName.toLowerCase().trim();
+        return rows.find(r => r.student_name === studentName) ||
+               rows.find(r => r.student_name.toLowerCase().trim() === nl) ||
+               rows.find(r => sharesWord(r.student_name, studentName)) ||
+               null;
+      };
+      const voyage = bestMatch(voyageRows, s.name);
       const h = stats.honor;
       let heraLabel, heraLevel;
       if      (h >= 45) { heraLabel = 'Favored';     heraLevel = 5; }
@@ -9967,18 +10024,10 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
         logs: (() => {
           // Use each hero's _log_completions table as the authoritative source.
           // The students column bridge is non-fatal and may miss students with name mismatches.
-          // Multi-strategy match for each log (same logic as voyage)
-          const findInRows = (rows, name) => {
-            const nl = name.toLowerCase().trim();
-            const nf = nl.split(/\s+/)[0];
-            return rows.find(r => r.student_name === name) ||
-                   rows.find(r => r.student_name.toLowerCase().trim() === nl) ||
-                   rows.find(r => r.student_name.trim().toLowerCase().split(/\s+/)[0] === nf) ||
-                   null;
-          };
-          const herc = findInRows(herculesRows, s.name);
-          const thes = findInRows(theseusRows,  s.name);
-          const pers = findInRows(perseusRows,   s.name);
+          // Re-use bestMatch (defined above in this scope) for all four logs
+          const herc = bestMatch(herculesRows, s.name);
+          const thes = bestMatch(theseusRows,  s.name);
+          const pers = bestMatch(perseusRows,   s.name);
           return {
             jason:    { complete: voyage !== null, rank_tier: voyage ? (voyage.rank_tier || null) : null },
             hercules: { complete: herc !== null,   rank_tier: herc   ? (herc.rank_tier   || null) : null },
