@@ -9827,6 +9827,37 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     const voyageByName = {};
     voyageRows.forEach(v => { voyageByName[v.student_name] = v; });
 
+    // Hercules, Theseus, Perseus completions — same pattern as voyage, use completions tables as authoritative source
+    let herculesRows = [];
+    try {
+      herculesRows = query(
+        'SELECT student_name, rank_tier FROM hercules_log_completions WHERE class_period = ?',
+        [period]
+      );
+    } catch(e) { console.error('heroic-overview hercules query failed:', e.message); }
+    const herculesByName = {};
+    herculesRows.forEach(r => { herculesByName[r.student_name] = r; });
+
+    let theseusRows = [];
+    try {
+      theseusRows = query(
+        'SELECT student_name, rank_tier FROM theseus_log_completions WHERE class_period = ?',
+        [period]
+      );
+    } catch(e) { console.error('heroic-overview theseus query failed:', e.message); }
+    const theseusByName = {};
+    theseusRows.forEach(r => { theseusByName[r.student_name] = r; });
+
+    let perseusRows = [];
+    try {
+      perseusRows = query(
+        'SELECT student_name, rank_tier FROM perseus_log_completions WHERE class_period = ?',
+        [period]
+      );
+    } catch(e) { console.error('heroic-overview perseus query failed:', e.message); }
+    const perseusByName = {};
+    perseusRows.forEach(r => { perseusByName[r.student_name] = r; });
+
     // All-four-logs data — direct query (all columns are confirmed schema columns)
     // Falls back to PRAGMA-safe column detection only if the direct query throws
     let logRows = [];
@@ -9900,12 +9931,16 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
         voyage_rank:     voyage ? (voyage.rank_tier || null) : null,
         voyage_score:    voyage ? (voyage.total_score || null) : null,
         logs: (() => {
-          const lr = logByStudent[s.student_id] || {};
+          // Use each hero's _log_completions table as the authoritative source.
+          // The students column bridge is non-fatal and may miss students with name mismatches.
+          const herc = herculesByName[s.name] || null;
+          const thes = theseusByName[s.name]  || null;
+          const pers = perseusByName[s.name]   || null;
           return {
-            jason:    { complete: !!(lr.voyage_log_completed),   rank_tier: lr.voyage_rank_tier   || null },
-            hercules: { complete: !!(lr.hercules_log_completed), rank_tier: lr.hercules_rank_tier || null },
-            theseus:  { complete: !!(lr.theseus_log_completed),  rank_tier: lr.theseus_rank_tier  || null },
-            perseus:  { complete: !!(lr.perseus_log_completed),  rank_tier: lr.perseus_rank_tier  || null }
+            jason:    { complete: voyage !== null, rank_tier: voyage ? (voyage.rank_tier || null) : null },
+            hercules: { complete: herc !== null,   rank_tier: herc   ? (herc.rank_tier   || null) : null },
+            theseus:  { complete: thes !== null,   rank_tier: thes   ? (thes.rank_tier   || null) : null },
+            perseus:  { complete: pers !== null,   rank_tier: pers   ? (pers.rank_tier   || null) : null }
           };
         })()
       };
