@@ -9764,6 +9764,58 @@ app.post('/api/teacher/reset-avatar', authenticateToken, (req, res) => {
 });
 
 // --- Teacher: Heroic Age Overview ---
+
+// ── DIAGNOSTIC: heroic-overview data audit ───────────────────────────────────
+// Temporary endpoint — compare what's in voyage_log_completions vs students table
+// Remove after root cause is confirmed
+app.get('/api/teacher/heroic-overview-debug', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+    const { period } = req.query;
+    if (!period) return res.status(400).json({ error: 'period required' });
+
+    const students = query(
+      `SELECT student_id, name, class_period FROM students
+       WHERE class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL)
+       ORDER BY name`,
+      [period]
+    );
+
+    const voyageRows = query(
+      'SELECT student_name, class_period, rank_tier FROM voyage_log_completions ORDER BY class_period, student_name'
+    );
+
+    const herculesRows = query(
+      'SELECT student_name, class_period, rank_tier FROM hercules_log_completions ORDER BY class_period, student_name'
+    ).filter(r => r.class_period === period);
+
+    // For each student, check exact string match vs what's stored
+    const audit = students.map(s => {
+      const vMatch = voyageRows.find(v => v.student_name === s.name && v.class_period === s.class_period);
+      const vLoose = voyageRows.find(v => v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period === s.class_period);
+      const vAnyPeriod = voyageRows.find(v => v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim());
+      return {
+        student_name: s.name,
+        student_period: s.class_period,
+        voyage_exact_match: !!vMatch,
+        voyage_loose_match: !!vLoose,
+        voyage_wrong_period: vAnyPeriod && !vLoose ? vAnyPeriod.class_period : null,
+        voyage_stored_name: vLoose ? voyageRows.find(v => v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period === s.class_period)?.student_name : null,
+      };
+    });
+
+    res.json({
+      period_queried: period,
+      students_in_period: students.length,
+      voyage_completions_all_periods: voyageRows,
+      hercules_completions_this_period: herculesRows,
+      audit
+    });
+  } catch(err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
   try {
     if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Not authorized' });
@@ -9816,47 +9868,68 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     const battleByStudent = {};
     battleRows.forEach(b => { battleByStudent[b.student_id] = b.wins || 0; });
 
-    // Voyage log completions — row existence = completed (no voyage_log_completed column)
-    let voyageRows = [];
+    // Voyage log completions — JOIN to students to match by student_id (avoids name mismatch)
+    // Falls back to name-based lookup if JOIN returns nothing
+    const voyageById = {};
+    const voyageByName = {};
     try {
-      voyageRows = query(`
+      const voyageJoinRows = query(`
+        SELECT s.student_id, vlc.rank_tier, vlc.total_score
+        FROM voyage_log_completions vlc
+        JOIN students s ON LOWER(TRIM(s.name)) = LOWER(TRIM(vlc.student_name))
+                       AND s.class_period = vlc.class_period
+        WHERE vlc.class_period = ?
+      `, [period]);
+      voyageJoinRows.forEach(v => { voyageById[v.student_id] = v; });
+    } catch(e) { console.error('heroic-overview voyage JOIN failed:', e.message); }
+    // Name-based fallback (for any rows the JOIN missed)
+    try {
+      const voyageRows = query(`
         SELECT student_name, rank_tier, total_score
         FROM voyage_log_completions WHERE class_period = ?
       `, [period]);
-    } catch(e) { console.error('heroic-overview voyage query failed:', e.message); }
-    const voyageByName = {};
-    voyageRows.forEach(v => { voyageByName[v.student_name] = v; });
+      voyageRows.forEach(v => { voyageByName[v.student_name] = v; });
+    } catch(e) { console.error('heroic-overview voyage name-fallback failed:', e.message); }
 
-    // Hercules, Theseus, Perseus completions — same pattern as voyage, use completions tables as authoritative source
-    let herculesRows = [];
+    // Hercules, Theseus, Perseus completions — JOIN on normalized name to avoid case/spacing mismatches
+    const herculesById = {}, herculesByName = {};
     try {
-      herculesRows = query(
-        'SELECT student_name, rank_tier FROM hercules_log_completions WHERE class_period = ?',
-        [period]
-      );
-    } catch(e) { console.error('heroic-overview hercules query failed:', e.message); }
-    const herculesByName = {};
-    herculesRows.forEach(r => { herculesByName[r.student_name] = r; });
+      query(`SELECT s.student_id, hlc.rank_tier FROM hercules_log_completions hlc
+             JOIN students s ON LOWER(TRIM(s.name)) = LOWER(TRIM(hlc.student_name))
+                            AND s.class_period = hlc.class_period
+             WHERE hlc.class_period = ?`, [period])
+        .forEach(r => { herculesById[r.student_id] = r; });
+    } catch(e) { console.error('heroic-overview hercules JOIN failed:', e.message); }
+    try {
+      query('SELECT student_name, rank_tier FROM hercules_log_completions WHERE class_period = ?', [period])
+        .forEach(r => { herculesByName[r.student_name] = r; });
+    } catch(e) { console.error('heroic-overview hercules fallback failed:', e.message); }
 
-    let theseusRows = [];
+    const theseusById = {}, theseusByName = {};
     try {
-      theseusRows = query(
-        'SELECT student_name, rank_tier FROM theseus_log_completions WHERE class_period = ?',
-        [period]
-      );
-    } catch(e) { console.error('heroic-overview theseus query failed:', e.message); }
-    const theseusByName = {};
-    theseusRows.forEach(r => { theseusByName[r.student_name] = r; });
+      query(`SELECT s.student_id, tlc.rank_tier FROM theseus_log_completions tlc
+             JOIN students s ON LOWER(TRIM(s.name)) = LOWER(TRIM(tlc.student_name))
+                            AND s.class_period = tlc.class_period
+             WHERE tlc.class_period = ?`, [period])
+        .forEach(r => { theseusById[r.student_id] = r; });
+    } catch(e) { console.error('heroic-overview theseus JOIN failed:', e.message); }
+    try {
+      query('SELECT student_name, rank_tier FROM theseus_log_completions WHERE class_period = ?', [period])
+        .forEach(r => { theseusByName[r.student_name] = r; });
+    } catch(e) { console.error('heroic-overview theseus fallback failed:', e.message); }
 
-    let perseusRows = [];
+    const perseusById = {}, perseusByName = {};
     try {
-      perseusRows = query(
-        'SELECT student_name, rank_tier FROM perseus_log_completions WHERE class_period = ?',
-        [period]
-      );
-    } catch(e) { console.error('heroic-overview perseus query failed:', e.message); }
-    const perseusByName = {};
-    perseusRows.forEach(r => { perseusByName[r.student_name] = r; });
+      query(`SELECT s.student_id, plc.rank_tier FROM perseus_log_completions plc
+             JOIN students s ON LOWER(TRIM(s.name)) = LOWER(TRIM(plc.student_name))
+                            AND s.class_period = plc.class_period
+             WHERE plc.class_period = ?`, [period])
+        .forEach(r => { perseusById[r.student_id] = r; });
+    } catch(e) { console.error('heroic-overview perseus JOIN failed:', e.message); }
+    try {
+      query('SELECT student_name, rank_tier FROM perseus_log_completions WHERE class_period = ?', [period])
+        .forEach(r => { perseusByName[r.student_name] = r; });
+    } catch(e) { console.error('heroic-overview perseus fallback failed:', e.message); }
 
     // All-four-logs data — direct query (all columns are confirmed schema columns)
     // Falls back to PRAGMA-safe column detection only if the direct query throws
@@ -9907,7 +9980,7 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     const result = students.map(s => {
       const stats = statsByStudent[s.student_id] || { lore: 0, craft: 0, honor: 0 };
       const cunning = (battleByStudent[s.student_id] || 0) * 3;
-      const voyage = voyageByName[s.name] || null;
+      const voyage = voyageById[s.student_id] || voyageByName[s.name] || null;
       const h = stats.honor;
       let heraLabel, heraLevel;
       if      (h >= 45) { heraLabel = 'Favored';     heraLevel = 5; }
