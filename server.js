@@ -9774,39 +9774,39 @@ app.get('/api/teacher/heroic-overview-debug', authenticateToken, (req, res) => {
     const { period } = req.query;
     if (!period) return res.status(400).json({ error: 'period required' });
 
+    // Students in this period
     const students = query(
-      `SELECT student_id, name, class_period FROM students
-       WHERE class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL)
-       ORDER BY name`,
+      'SELECT student_id, name, class_period FROM students WHERE class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL) ORDER BY name',
       [period]
     );
 
-    const voyageRows = query(
-      'SELECT student_name, class_period, rank_tier FROM voyage_log_completions ORDER BY class_period, student_name'
-    );
+    // All voyage completions (parameterized to avoid sql.js no-param issue)
+    let voyageRows = [];
+    try { voyageRows = query('SELECT student_name, class_period, rank_tier FROM voyage_log_completions WHERE 1=1'); } catch(e) { voyageRows = [{ _error: e.message }]; }
 
-    const herculesRows = query(
-      'SELECT student_name, class_period, rank_tier FROM hercules_log_completions ORDER BY class_period, student_name'
-    ).filter(r => r.class_period === period);
+    // Hercules completions for this period only
+    let herculesRows = [];
+    try { herculesRows = query('SELECT student_name, class_period, rank_tier FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) { herculesRows = [{ _error: e.message }]; }
 
-    // For each student, check exact string match vs what's stored
+    // Per-student audit: exact match, case-insensitive match, wrong-period match
     const audit = students.map(s => {
-      const vMatch = voyageRows.find(v => v.student_name === s.name && v.class_period === s.class_period);
-      const vLoose = voyageRows.find(v => v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period === s.class_period);
-      const vAnyPeriod = voyageRows.find(v => v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim());
+      const exactMatch   = voyageRows.find(v => v.student_name === s.name && v.class_period === s.class_period);
+      const looseMatch   = voyageRows.find(v => typeof v.student_name === 'string' && v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period === s.class_period);
+      const wrongPeriod  = voyageRows.find(v => typeof v.student_name === 'string' && v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period !== s.class_period);
       return {
-        student_name: s.name,
-        student_period: s.class_period,
-        voyage_exact_match: !!vMatch,
-        voyage_loose_match: !!vLoose,
-        voyage_wrong_period: vAnyPeriod && !vLoose ? vAnyPeriod.class_period : null,
-        voyage_stored_name: vLoose ? voyageRows.find(v => v.student_name.toLowerCase().trim() === s.name.toLowerCase().trim() && v.class_period === s.class_period)?.student_name : null,
+        student_name:        s.name,
+        student_period:      s.class_period,
+        voyage_exact_match:  !!exactMatch,
+        voyage_loose_match:  !!looseMatch,
+        voyage_rank_tier:    looseMatch ? looseMatch.rank_tier : null,
+        voyage_wrong_period: wrongPeriod ? wrongPeriod.class_period : null,
+        voyage_stored_name:  looseMatch ? looseMatch.student_name : (wrongPeriod ? wrongPeriod.student_name : null),
       };
     });
 
     res.json({
-      period_queried: period,
-      students_in_period: students.length,
+      period_queried:                period,
+      students_in_period:            students.length,
       voyage_completions_all_periods: voyageRows,
       hercules_completions_this_period: herculesRows,
       audit
