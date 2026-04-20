@@ -9834,9 +9834,9 @@ app.get('/api/teacher/heroic-overview-debug', authenticateToken, (req, res) => {
     // All four log completions for this period
     let voyageRows = [], herculesRows = [], theseusRows = [], perseusRows = [];
     try { voyageRows   = query('SELECT student_name, class_period, rank_tier FROM voyage_log_completions   WHERE class_period = ?', [period]); } catch(e) {}
-    try { herculesRows = query('SELECT student_name, rank_tier FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) {}
-    try { theseusRows  = query('SELECT student_name, rank_tier FROM theseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
-    try { perseusRows  = query('SELECT student_name, rank_tier FROM perseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
+    try { herculesRows = query('SELECT student_name, rank_tier, total_score FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) {}
+    try { theseusRows  = query('SELECT student_name, rank_tier, total_score FROM theseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
+    try { perseusRows  = query('SELECT student_name, rank_tier, total_score FROM perseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
 
     // Same 3-strategy match used by heroic-overview
     const nameWords = (str) => new Set(str.toLowerCase().replace(/@/g, 'a').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
@@ -9939,9 +9939,9 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     // Hercules, Theseus, Perseus completions — JOIN on normalized name to avoid case/spacing mismatches
     // Hercules/Theseus/Perseus completions for this period — matched via findInRows() in result map
     let herculesRows = [], theseusRows = [], perseusRows = [];
-    try { herculesRows = query('SELECT student_name, rank_tier FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) { console.error('heroic-overview hercules query failed:', e.message); }
-    try { theseusRows  = query('SELECT student_name, rank_tier FROM theseus_log_completions  WHERE class_period = ?', [period]); } catch(e) { console.error('heroic-overview theseus query failed:', e.message); }
-    try { perseusRows  = query('SELECT student_name, rank_tier FROM perseus_log_completions  WHERE class_period = ?', [period]); } catch(e) { console.error('heroic-overview perseus query failed:', e.message); }
+    try { herculesRows = query('SELECT student_name, rank_tier, total_score FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) { console.error('heroic-overview hercules query failed:', e.message); }
+    try { theseusRows  = query('SELECT student_name, rank_tier, total_score FROM theseus_log_completions  WHERE class_period = ?', [period]); } catch(e) { console.error('heroic-overview theseus query failed:', e.message); }
+    try { perseusRows  = query('SELECT student_name, rank_tier, total_score FROM perseus_log_completions  WHERE class_period = ?', [period]); } catch(e) { console.error('heroic-overview perseus query failed:', e.message); }
 
     // All-four-logs data — direct query (all columns are confirmed schema columns)
     // Falls back to PRAGMA-safe column detection only if the direct query throws
@@ -10038,10 +10038,10 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
           const thes = bestMatch(theseusRows,  s.name);
           const pers = bestMatch(perseusRows,   s.name);
           return {
-            jason:    { complete: voyage !== null, rank_tier: voyage ? (voyage.rank_tier || null) : null },
-            hercules: { complete: herc !== null,   rank_tier: herc   ? (herc.rank_tier   || null) : null },
-            theseus:  { complete: thes !== null,   rank_tier: thes   ? (thes.rank_tier   || null) : null },
-            perseus:  { complete: pers !== null,   rank_tier: pers   ? (pers.rank_tier   || null) : null }
+            jason:    { complete: voyage !== null, rank_tier: voyage ? (voyage.rank_tier || null) : null, score: voyage ? (voyage.total_score || 0) : null },
+            hercules: { complete: herc !== null,   rank_tier: herc   ? (herc.rank_tier   || null) : null, score: herc   ? (herc.total_score   || 0) : null },
+            theseus:  { complete: thes !== null,   rank_tier: thes   ? (thes.rank_tier   || null) : null, score: thes   ? (thes.total_score   || 0) : null },
+            perseus:  { complete: pers !== null,   rank_tier: pers   ? (pers.rank_tier   || null) : null, score: pers   ? (pers.total_score   || 0) : null }
           };
         })()
       };
