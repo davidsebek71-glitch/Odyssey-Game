@@ -15469,10 +15469,10 @@ const ROUND_1_PATHS = [
 
 function getAllianceForStudent(studentId) {
   const rows = query(
-    `SELECT a.alliance_id, a.name, a.total_points, a.class_period
+    `SELECT a.alliance_id, a.alliance_name AS name, a.total_points, a.class_period
      FROM alliances a
-     JOIN alliance_members am ON am.alliance_id = a.alliance_id
-     WHERE am.student_id = ?`,
+     JOIN students s ON s.alliance_id = a.alliance_id
+     WHERE s.student_id = ?`,
     [studentId]
   );
   return rows[0] || null;
@@ -15486,9 +15486,8 @@ function getOlympusState(allianceId) {
 function getMajority(allianceId, round, voteType) {
   // Returns { winner, count, total } or null if no majority
   const members = query(
-    `SELECT COUNT(*) as cnt FROM alliance_members am
-     JOIN students s ON s.student_id = am.student_id
-     WHERE am.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
+    `SELECT COUNT(*) as cnt FROM students s
+     WHERE s.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
     [allianceId]
   );
   const total = members[0] ? members[0].cnt : 1;
@@ -15543,7 +15542,7 @@ app.get('/api/olympus/scoreboard/:period', authenticateToken, (req, res) => {
   try {
     const { period } = req.params;
     const alliances = query(
-      `SELECT a.alliance_id, a.name, a.total_points,
+      `SELECT a.alliance_id, a.alliance_name AS name, a.total_points,
               COALESCE(o.current_round, 0) as current_round,
               COALESCE(o.current_phase, 'not_started') as current_phase,
               COALESCE(o.ghost_runner_mode, 0) as ghost_runner_mode
@@ -15861,21 +15860,20 @@ app.get('/api/olympus/teacher/diagnostic', authenticateToken, (req, res) => {
     const { period } = req.query;
     if (!period) return res.status(400).json({ error: 'period query param required' });
     const alliances = query(
-      `SELECT a.alliance_id, a.name, a.total_points,
-              COUNT(am.student_id) as member_count
+      `SELECT a.alliance_id, a.alliance_name AS name, a.total_points,
+              COUNT(s.student_id) as member_count
        FROM alliances a
-       LEFT JOIN alliance_members am ON am.alliance_id = a.alliance_id
-       LEFT JOIN students s ON s.student_id = am.student_id AND (s.is_ghost=0 OR s.is_ghost IS NULL)
-       WHERE a.class_period=?
-       GROUP BY a.alliance_id`,
+       LEFT JOIN students s ON s.alliance_id = a.alliance_id
+                            AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+       WHERE a.class_period = ?
+       GROUP BY a.alliance_id, a.alliance_name, a.total_points`,
       [period]
     );
     const result = alliances.map(al => {
       const members = query(
-        `SELECT s.student_id, s.name, s.lore, s.craft, s.cunning, s.honor, s.is_ghost
-         FROM students s
-         JOIN alliance_members am ON am.student_id = s.student_id
-         WHERE am.alliance_id=?`,
+        `SELECT student_id, name, lore, craft, cunning, honor, is_ghost
+         FROM students
+         WHERE alliance_id = ?`,
         [al.alliance_id]
       );
       const missing_stats = members.filter(m => !m.is_ghost && (!m.lore && !m.craft && !m.cunning && !m.honor));
@@ -15896,7 +15894,7 @@ app.get('/api/olympus/teacher/monitor', authenticateToken, (req, res) => {
     const result = {};
     for (const p of periods) {
       result[p] = query(
-        `SELECT a.alliance_id, a.name, a.total_points,
+        `SELECT a.alliance_id, a.alliance_name AS name, a.total_points,
                 COALESCE(o.current_round,0) as current_round,
                 COALESCE(o.current_phase,'not_started') as current_phase,
                 o.phoenix_feather_used, o.hades_visits, o.ghost_runner_mode,
