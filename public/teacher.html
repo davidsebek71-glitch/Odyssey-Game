@@ -1322,7 +1322,7 @@
                 <button class="revenge-tab" data-period="2nd" onclick="switchRevengePeriod('2nd')">2nd</button>
                 <button class="revenge-tab" data-period="3rd" onclick="switchRevengePeriod('3rd')">3rd</button>
                 <button class="revenge-tab" data-period="4th" onclick="switchRevengePeriod('4th')">4th</button>
-                <button class="revenge-tab" data-period="Test Period" onclick="switchRevengePeriod('Test Period')">Test</button>
+                <button class="revenge-tab" data-period="Test" onclick="switchRevengePeriod('Test')">Test</button>
             </div>
             <div id="revenge-period-content" style="min-height:200px;">
                 <div style="color:rgba(150,220,255,0.5);text-align:center;padding:40px;">Loading...</div>
@@ -8587,7 +8587,7 @@
             const safeP = escapeAttr(period);
             let html = '<div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">';
             html += '<button onclick="revengeStartRace(\'' + safeP + '\')" style="padding:10px 20px;background:rgba(0,191,255,0.2);border:1px solid #00bfff;border-radius:8px;color:#00cfff;cursor:pointer;font-weight:700;">&#9654; Start Race</button>';
-            if (period === 'Test Period') {
+            if (period === 'Test') {
                 html += '<button onclick="revengeResetRace(\'' + safeP + '\')" style="padding:10px 20px;background:rgba(220,38,38,0.2);border:1px solid rgba(220,38,38,0.5);border-radius:8px;color:#fca5a5;cursor:pointer;font-weight:700;">Reset Race (Test Only)</button>';
             }
             html += '</div>';
@@ -8639,7 +8639,7 @@
         }
 
         async function revengeResetRace(period) {
-            if (period !== 'Test Period') return alert('Reset only available for Test Period.');
+            if (period !== 'Test') return alert('Reset only available for Test Period.');
             if (!confirm('RESET all Revenge of the Gods data for ' + period + '?\n\nDeletes all race state, votes, combat logs, and Medea choices. Cannot be undone.')) return;
             try {
                 const token = localStorage.getItem('token');
