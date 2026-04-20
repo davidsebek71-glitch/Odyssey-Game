@@ -15889,7 +15889,7 @@ app.get('/api/olympus/teacher/diagnostic', authenticateToken, (req, res) => {
 app.get('/api/olympus/teacher/monitor', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
   try {
-    const periods = ['1st','2nd','3rd','4th','Test Period'];
+    const periods = ['1st','2nd','3rd','4th', TEST_PERIOD];
     const result = {};
     for (const p of periods) {
       result[p] = query(
@@ -15943,7 +15943,7 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
     const { period, confirm_period } = req.body;
     if (!period) return res.status(400).json({ error: 'period required' });
     if (confirm_period !== period) return res.status(400).json({ error: 'confirm_period must match period' });
-    if (period !== 'Test Period') {
+    if (period !== TEST_PERIOD) {
       return res.status(403).json({ error: 'Reset only allowed for Test Period via this endpoint' });
     }
     const alliances = query(`SELECT alliance_id FROM alliances WHERE class_period=?`, [period]);
