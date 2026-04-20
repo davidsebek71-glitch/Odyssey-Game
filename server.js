@@ -15807,6 +15807,191 @@ app.post('/api/olympus/combat-resolve', authenticateToken, (req, res) => {
   }
 });
 
+// ── Puzzle Room constants ─────────────────────────────────────────────────────
+const PUZZLE_DATA = {
+  1: {
+    correctGateAnswer: 'pandora',
+    correctCipherAnswer: 'box',
+    secretWord: 'BOX',
+    gateHint: 'She was the first woman, created by the gods and given a jar — or box — she was told never to open.',
+    cipherHint: 'The answer starts with the letter B'
+  },
+  2: {
+    correctGateAnswer: 'phaethon',
+    correctCipherAnswer: 'chariot',
+    secretWord: 'CHARIOT',
+    gateHint: 'He was the son of Apollo who begged to drive the sun chariot — and lost control.',
+    cipherHint: 'The cipher key: A=1, B=2, C=3... decode each number as a letter'
+  },
+  3: {
+    correctGateAnswer: 'perseus',
+    correctCipherAnswer: 'pegasus',
+    secretWord: 'PEGASUS',
+    gateHint: 'He used a mirrored shield to defeat a monster whose gaze turned men to stone.',
+    cipherHint: 'Three letters decoded for you: P _ G _ S U S'
+  },
+  4: {
+    correctGateAnswer: 'ariadne',
+    correctCipherAnswer: 'labyrinth',
+    secretWord: 'LABYRINTH',
+    gateHint: 'She was the daughter of King Minos who gave the hero a ball of thread to navigate the labyrinth.',
+    cipherHint: 'The Braille key is shown — use it to decode each dot pattern'
+  }
+};
+
+// Levenshtein distance for fuzzy matching
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// ── POST /api/olympus/gate-check ──────────────────────────────────────────────
+app.post('/api/olympus/gate-check', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'puzzle') return res.status(400).json({ error: 'Not in puzzle phase' });
+
+    const round = state.current_round;
+    const puzzle = PUZZLE_DATA[round];
+    if (!puzzle) return res.status(400).json({ error: 'No puzzle for this round' });
+
+    const answer = (req.body.answer || '').trim().toLowerCase();
+
+    // Track attempts
+    const attemptRow = query(
+      `SELECT attempts FROM olympus_gate_attempts WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    let attempts = attemptRow.length > 0 ? attemptRow[0].attempts : 0;
+    attempts++;
+    run(
+      `INSERT INTO olympus_gate_attempts (alliance_id, round_number, attempts)
+       VALUES (?, ?, 1)
+       ON CONFLICT(alliance_id, round_number) DO UPDATE SET attempts=attempts+1`,
+      [alliance.alliance_id, round]
+    );
+
+    const correct = puzzle.correctGateAnswer;
+    const dist = levenshtein(answer, correct);
+
+    if (dist === 0) {
+      return res.json({ result: 'correct' });
+    } else if (dist <= 2 && answer.length >= correct.length - 2) {
+      return res.json({ result: 'close', attempts });
+    } else {
+      // After 3 wrong attempts, flag that hint is available for purchase
+      return res.json({ result: 'wrong', attempts, hintAvailable: attempts >= 3 });
+    }
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/hint-purchase ──────────────────────────────────────────
+app.post('/api/olympus/hint-purchase', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'puzzle') return res.status(400).json({ error: 'Not in puzzle phase' });
+
+    const round = state.current_round;
+    const { hint_type } = req.body; // 'gate' or 'cipher'
+    if (!['gate', 'cipher'].includes(hint_type)) return res.status(400).json({ error: 'Invalid hint_type' });
+
+    const puzzle = PUZZLE_DATA[round];
+    if (!puzzle) return res.status(400).json({ error: 'No puzzle for this round' });
+
+    // Check if already purchased (alliance-wide)
+    const existing = query(
+      `SELECT hint_id FROM olympus_hints WHERE alliance_id=? AND round_number=? AND hint_type=?`,
+      [alliance.alliance_id, round, hint_type]
+    );
+    if (existing.length > 0) {
+      // Already purchased — return hint text for free (they already paid)
+      const hintText = hint_type === 'gate' ? puzzle.gateHint : puzzle.cipherHint;
+      return res.json({ success: true, already_purchased: true, hint: hintText });
+    }
+
+    // Check Drachma on the purchasing student
+    const studentRow = query(`SELECT drachma FROM students WHERE student_id=?`, [req.user.id]);
+    if (!studentRow.length) return res.status(400).json({ error: 'Student not found' });
+    const currentDrachma = studentRow[0].drachma || 0;
+    const HINT_COST = 120;
+
+    if (currentDrachma < HINT_COST) {
+      return res.status(400).json({ error: 'Not enough Drachma', have: currentDrachma, need: HINT_COST });
+    }
+
+    // Deduct Drachma from the purchasing student
+    run(`UPDATE students SET drachma = drachma - ? WHERE student_id=?`, [HINT_COST, req.user.id]);
+
+    // Record purchase (alliance-wide so teammates see it too)
+    run(
+      `INSERT INTO olympus_hints (alliance_id, round_number, hint_type, drachma_cost)
+       VALUES (?, ?, ?, ?)`,
+      [alliance.alliance_id, round, hint_type, HINT_COST]
+    );
+
+    saveDatabase();
+
+    const hintText = hint_type === 'gate' ? puzzle.gateHint : puzzle.cipherHint;
+    res.json({ success: true, hint: hintText, drachma_spent: HINT_COST, drachma_remaining: currentDrachma - HINT_COST });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/hint-status ──────────────────────────────────────────────
+app.get('/api/olympus/hint-status', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'No race state' });
+
+    const round = state.current_round;
+    const puzzle = PUZZLE_DATA[round];
+    const studentRow = query(`SELECT drachma FROM students WHERE student_id=?`, [req.user.id]);
+    const drachma = studentRow.length ? (studentRow[0].drachma || 0) : 0;
+
+    const purchased = query(
+      `SELECT hint_type FROM olympus_hints WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    const purchasedTypes = purchased.map(r => r.hint_type);
+
+    const attemptRow = query(
+      `SELECT attempts FROM olympus_gate_attempts WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    const attempts = attemptRow.length ? attemptRow[0].attempts : 0;
+
+    const result = { drachma, attempts, hints: {} };
+    ['gate', 'cipher'].forEach(type => {
+      const bought = purchasedTypes.includes(type);
+      result.hints[type] = {
+        purchased: bought,
+        text: bought && puzzle ? (type === 'gate' ? puzzle.gateHint : puzzle.cipherHint) : null
+      };
+    });
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── POST /api/olympus/puzzle-submit ──────────────────────────────────────────
 app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
@@ -15815,14 +16000,30 @@ app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
     if (!state || state.current_phase !== 'puzzle') return res.status(400).json({ error: 'Not in puzzle phase' });
-    // Round 1 stub: accept any answer, store secret word "BOX"
-    const words = JSON.parse(state.secret_words || '[]');
-    if (!words.includes('BOX')) words.push('BOX');
-    run(
-      `UPDATE olympus_race_state SET secret_words=?, current_phase='god_test' WHERE alliance_id=?`,
-      [JSON.stringify(words), alliance.alliance_id]
-    );
-    res.json({ accepted: true, secret_word: 'BOX', words });
+
+    const round = state.current_round;
+    const puzzle = PUZZLE_DATA[round];
+    if (!puzzle) return res.status(400).json({ error: 'No puzzle defined for round ' + round });
+
+    const answer = (req.body.answer || '').trim().toLowerCase();
+    const correct = puzzle.correctCipherAnswer;
+    const dist = levenshtein(answer, correct);
+
+    if (dist === 0) {
+      // Correct — store secret word and advance phase
+      const words = JSON.parse(state.secret_words || '[]');
+      if (!words.includes(puzzle.secretWord)) words.push(puzzle.secretWord);
+      run(
+        `UPDATE olympus_race_state SET secret_words=?, current_phase='god_test' WHERE alliance_id=?`,
+        [JSON.stringify(words), alliance.alliance_id]
+      );
+      saveDatabase();
+      return res.json({ accepted: true, secret_word: puzzle.secretWord, words });
+    } else if (dist <= 2 && answer.length >= correct.length - 2) {
+      return res.json({ accepted: false, result: 'close' });
+    } else {
+      return res.json({ accepted: false, result: 'wrong' });
+    }
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

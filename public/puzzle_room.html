@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Puzzle Chamber — Revenge of the Gods</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap');
+
+  :root {
+    --olympus-blue: #1B3A5C;
+    --deep-blue: #0d1f33;
+    --gold: #B8860B;
+    --bright-gold: #d4a017;
+    --pale-gold: #f0d060;
+    --storm-gray: #4A4A4A;
+    --divine-purple: #2C1A4A;
+    --stone: #5a4a3a;
+    --stone-light: #8a7a6a;
+    --torch-orange: #c44a00;
+    --fire: #ff6600;
+    --blood-red: #8b0000;
+    --parchment: #d4b896;
+    --dark-parchment: #9a7a5a;
+    --success-green: #2a6a2a;
+    --wrong-red: #6a1a1a;
+    --close-orange: #6a3a00;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--deep-blue);
+    color: var(--pale-gold);
+    font-family: 'IM Fell English', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── STONE CHAMBER BACKGROUND ── */
+  .chamber {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at 15% 50%, rgba(196,74,0,0.15) 0%, transparent 40%),
+      radial-gradient(ellipse at 85% 50%, rgba(196,74,0,0.12) 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 100%, rgba(44,26,74,0.4) 0%, transparent 50%),
+      linear-gradient(180deg, #0a0a0f 0%, #111827 30%, #1a1210 70%, #0a0a0f 100%);
+    position: relative;
+  }
+
+  /* Stone wall texture overlay */
+  .chamber::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 48px, rgba(0,0,0,0.08) 48px, rgba(0,0,0,0.08) 50px),
+      repeating-linear-gradient(90deg, transparent, transparent 98px, rgba(0,0,0,0.06) 98px, rgba(0,0,0,0.06) 100px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── TORCHES ── */
+  .torch {
+    position: fixed;
+    top: 60px;
+    width: 40px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .torch-left { left: 24px; }
+  .torch-right { right: 24px; }
+
+  .torch-body {
+    width: 12px;
+    height: 40px;
+    background: linear-gradient(180deg, #8b6914 0%, #5a3d0a 100%);
+    border-radius: 3px 3px 6px 6px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .torch-flame {
+    width: 20px;
+    height: 30px;
+    margin: -10px auto 0;
+    position: relative;
+    animation: flicker 1.5s ease-in-out infinite alternate;
+  }
+
+  .torch-flame::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 30px;
+    background: radial-gradient(ellipse at 50% 80%, #fff 0%, #ffdd00 20%, #ff6600 50%, #cc2200 80%, transparent 100%);
+    border-radius: 50% 50% 40% 40%;
+    filter: blur(1px);
+  }
+
+  .torch-glow {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(ellipse, rgba(255,120,0,0.25) 0%, transparent 70%);
+    animation: glowPulse 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes flicker {
+    0% { transform: scaleX(1) scaleY(1) rotate(-1deg); }
+    25% { transform: scaleX(0.9) scaleY(1.05) rotate(2deg); }
+    50% { transform: scaleX(1.05) scaleY(0.95) rotate(-2deg); }
+    75% { transform: scaleX(0.95) scaleY(1.1) rotate(1deg); }
+    100% { transform: scaleX(1) scaleY(1) rotate(-1deg); }
+  }
+  @keyframes glowPulse {
+    0% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+    100% { opacity: 1; transform: translateX(-50%) scale(1.2); }
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .page-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+  }
+
+  /* ── HEADER ── */
+  .chamber-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .round-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    color: var(--stone-light);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .box-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 2rem;
+    color: var(--bright-gold);
+    text-shadow: 0 0 30px rgba(212,160,23,0.5);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .box-subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    color: var(--stone-light);
+    letter-spacing: 0.15em;
+  }
+
+  .gold-divider {
+    width: 200px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 16px auto;
+  }
+
+  /* ── DRACHMA BAR ── */
+  .drachma-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 24px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    color: var(--pale-gold);
+  }
+
+  .drachma-coin {
+    width: 28px;
+    height: 28px;
+    background: radial-gradient(circle at 35% 35%, var(--pale-gold), var(--gold));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--olympus-blue);
+    font-weight: 900;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+
+  /* ── SECTION PANELS ── */
+  .section-panel {
+    background: linear-gradient(135deg, rgba(26,18,16,0.95) 0%, rgba(15,10,8,0.98) 100%);
+    border: 1px solid rgba(184,134,11,0.25);
+    border-radius: 8px;
+    padding: 28px;
+    margin-bottom: 20px;
+    position: relative;
+    box-shadow:
+      inset 0 0 40px rgba(0,0,0,0.5),
+      0 4px 20px rgba(0,0,0,0.6);
+  }
+
+  .section-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .section-num {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+    color: var(--pale-gold);
+    margin-bottom: 16px;
+  }
+
+  /* ── MYTH PAINTING ── */
+  .myth-painting {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto 20px;
+    display: block;
+    border: 3px solid rgba(184,134,11,0.4);
+    border-radius: 4px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+  }
+
+  .painting-caption {
+    text-align: center;
+    font-style: italic;
+    color: var(--stone-light);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+  }
+
+  /* ── GATE QUESTION ── */
+  .gate-question {
+    font-family: 'Cinzel', serif;
+    font-size: 1.05rem;
+    color: var(--pale-gold);
+    line-height: 1.6;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  /* ── INPUT FIELDS ── */
+  .answer-input {
+    width: 100%;
+    background: rgba(10,10,20,0.9);
+    border: 1px solid rgba(184,134,11,0.4);
+    border-radius: 4px;
+    color: var(--pale-gold);
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    margin-bottom: 12px;
+  }
+
+  .answer-input:focus {
+    border-color: var(--bright-gold);
+    box-shadow: 0 0 15px rgba(212,160,23,0.2);
+  }
+
+  .answer-input.input-correct { border-color: #4a8a4a; box-shadow: 0 0 15px rgba(74,138,74,0.3); }
+  .answer-input.input-close   { border-color: #c47a00; box-shadow: 0 0 15px rgba(196,122,0,0.3); }
+  .answer-input.input-wrong   { border-color: #8a2a2a; box-shadow: 0 0 15px rgba(138,42,42,0.3); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #b8860b, #8b6400);
+    color: #fff8e0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .btn-primary:hover { background: linear-gradient(135deg, #d4a017, #b8860b); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.5); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-hint {
+    background: linear-gradient(135deg, rgba(44,26,74,0.9), rgba(28,16,48,0.95));
+    color: var(--pale-gold);
+    border: 1px solid rgba(184,134,11,0.4);
+    font-size: 0.8rem;
+    padding: 8px 18px;
+  }
+  .btn-hint:hover { border-color: var(--bright-gold); background: linear-gradient(135deg, rgba(60,36,100,0.9), rgba(40,22,68,0.95)); }
+  .btn-hint:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  /* ── FEEDBACK MESSAGES ── */
+  .feedback-box {
+    padding: 14px 18px;
+    border-radius: 4px;
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-top: 14px;
+    display: none;
+  }
+  .feedback-box.show { display: block; animation: fadeIn 0.3s ease; }
+  .feedback-correct { background: rgba(42,106,42,0.2); border: 1px solid rgba(74,138,74,0.5); color: #8ae08a; }
+  .feedback-close   { background: rgba(106,58,0,0.2);  border: 1px solid rgba(196,122,0,0.5);  color: #e0a040; }
+  .feedback-wrong   { background: rgba(106,26,26,0.2); border: 1px solid rgba(138,42,42,0.5);  color: #e07070; }
+  .feedback-hint    { background: rgba(44,26,74,0.3);  border: 1px solid rgba(120,80,200,0.4); color: #c0a0f0; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── HINT REVEALED BOX ── */
+  .hint-revealed {
+    background: rgba(44,26,74,0.25);
+    border: 1px solid rgba(120,80,200,0.35);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-style: italic;
+    color: #c0a0f0;
+    font-size: 0.9rem;
+    display: none;
+  }
+  .hint-revealed.show { display: block; animation: fadeIn 0.3s ease; }
+  .hint-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: rgba(192,160,240,0.7);
+    margin-bottom: 6px;
+    font-style: normal;
+  }
+
+  /* ── STONE TABLET (cipher display) ── */
+  .stone-tablet {
+    background: linear-gradient(135deg, #3a2a1a 0%, #2a1c10 50%, #1e1408 100%);
+    border: 2px solid rgba(120,90,40,0.6);
+    border-radius: 6px;
+    padding: 28px;
+    margin: 20px 0;
+    position: relative;
+    box-shadow:
+      inset 0 2px 8px rgba(0,0,0,0.6),
+      inset 0 -2px 8px rgba(0,0,0,0.4),
+      0 6px 20px rgba(0,0,0,0.5);
+    text-align: center;
+  }
+
+  .stone-tablet::before {
+    content: '⚱';
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.4rem;
+    color: var(--gold);
+    background: #1e1408;
+    padding: 0 10px;
+  }
+
+  .tablet-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: var(--stone-light);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* ── WORD ALGEBRA (Box 1) ── */
+  .word-algebra {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .algebra-word {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem;
+    color: var(--pale-gold);
+    text-shadow: 0 0 20px rgba(240,208,96,0.3);
+  }
+
+  .algebra-op {
+    font-family: 'Cinzel', serif;
+    font-size: 1.4rem;
+    color: var(--stone-light);
+  }
+
+  .algebra-highlight {
+    color: var(--torch-orange);
+    text-decoration: line-through;
+    text-decoration-color: rgba(196,74,0,0.7);
+  }
+
+  .algebra-result {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 2rem;
+    color: var(--bright-gold);
+    text-shadow: 0 0 20px rgba(212,160,23,0.5);
+    margin-left: 4px;
+  }
+
+  .algebra-equals { color: var(--bright-gold); }
+
+  /* ── NUMBER CIPHER (Box 2) ── */
+  .number-cipher {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .cipher-num {
+    font-family: 'Cinzel', serif;
+    font-size: 1.4rem;
+    color: var(--pale-gold);
+    background: rgba(0,0,0,0.3);
+    padding: 6px 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(184,134,11,0.2);
+    min-width: 42px;
+    text-align: center;
+  }
+  .cipher-sep {
+    font-size: 1.2rem;
+    color: var(--stone-light);
+    font-family: 'Cinzel', serif;
+  }
+  .cipher-key-note {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    color: var(--stone-light);
+    font-size: 0.85rem;
+    margin-top: 14px;
+  }
+
+  /* ── SEMAPHORE (Box 3) ── */
+  .semaphore-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 10px 0;
+  }
+
+  .semaphore-char {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .semaphore-figure {
+    width: 60px;
+    height: 70px;
+    position: relative;
+  }
+
+  .sem-svg {
+    width: 60px;
+    height: 70px;
+  }
+
+  /* ── BRAILLE (Box 4) ── */
+  .braille-container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .braille-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .braille-dots {
+    display: grid;
+    grid-template-columns: repeat(2, 16px);
+    grid-template-rows: repeat(3, 16px);
+    gap: 4px;
+    background: rgba(0,0,0,0.4);
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(120,90,40,0.4);
+  }
+
+  .dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(90,74,58,0.5);
+    border: 1px solid rgba(120,90,40,0.3);
+  }
+
+  .dot.filled {
+    background: radial-gradient(circle at 35% 35%, #fff 0%, #ddd 40%, #aaa 100%);
+    border-color: rgba(200,200,200,0.5);
+    box-shadow: 0 1px 4px rgba(255,255,255,0.3);
+  }
+
+  /* ── LOCKED CIPHER OVERLAY ── */
+  .cipher-locked {
+    text-align: center;
+    padding: 20px;
+    color: var(--stone-light);
+    font-style: italic;
+  }
+
+  .lock-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 10px;
+    opacity: 0.5;
+  }
+
+  /* ── SECTION STATES ── */
+  .section-panel.locked { opacity: 0.4; pointer-events: none; }
+  .section-panel.completed { border-color: rgba(74,138,74,0.4); }
+  .section-panel.completed::before { background: linear-gradient(90deg, transparent, #4a8a4a, transparent); }
+
+  .completed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(42,106,42,0.2);
+    border: 1px solid rgba(74,138,74,0.4);
+    color: #8ae08a;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+  }
+
+  /* ── ADVANCE BUTTON ── */
+  .advance-section {
+    text-align: center;
+    padding: 30px 20px;
+    display: none;
+  }
+  .advance-section.show { display: block; animation: fadeIn 0.5s ease; }
+
+  .advance-text {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    color: var(--pale-gold);
+    margin-bottom: 20px;
+    line-height: 1.7;
+  }
+
+  .secret-word-reveal {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 2.2rem;
+    color: var(--bright-gold);
+    text-shadow: 0 0 30px rgba(212,160,23,0.6);
+    letter-spacing: 0.15em;
+    margin: 16px 0;
+    animation: wordGlow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes wordGlow {
+    from { text-shadow: 0 0 20px rgba(212,160,23,0.4); }
+    to   { text-shadow: 0 0 40px rgba(212,160,23,0.8), 0 0 60px rgba(212,160,23,0.3); }
+  }
+
+  .btn-advance {
+    background: linear-gradient(135deg, #2a5a2a, #1a3a1a);
+    color: #8ae08a;
+    border: 1px solid rgba(74,138,74,0.5);
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    padding: 14px 40px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-advance:hover { background: linear-gradient(135deg, #3a7a3a, #2a5a2a); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(74,138,74,0.3); }
+
+  /* ── ATTEMPTS COUNTER ── */
+  .attempts-note {
+    font-size: 0.78rem;
+    color: var(--stone-light);
+    font-style: italic;
+    margin-top: 8px;
+  }
+
+  /* ── LOADING STATE ── */
+  .loading-dots::after {
+    content: '...';
+    animation: dots 1.2s steps(3, end) infinite;
+  }
+  @keyframes dots {
+    0%, 100% { content: '.'; }
+    33% { content: '..'; }
+    66% { content: '...'; }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .box-title { font-size: 1.4rem; }
+    .section-panel { padding: 18px; }
+    .algebra-word { font-size: 1.2rem; }
+    .algebra-result { font-size: 1.6rem; }
+    .torch { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="chamber">
+
+  <!-- Torches -->
+  <div class="torch torch-left">
+    <div class="torch-glow"></div>
+    <div class="torch-flame"></div>
+    <div class="torch-body"></div>
+  </div>
+  <div class="torch torch-right">
+    <div class="torch-glow"></div>
+    <div class="torch-flame"></div>
+    <div class="torch-body"></div>
+  </div>
+
+  <div class="page-wrap">
+
+    <!-- Header -->
+    <div class="chamber-header">
+      <div class="round-label" id="roundLabel">Round 1 — The Foothills</div>
+      <div class="box-title" id="boxTitle">The First Locked Box</div>
+      <div class="box-subtitle" id="boxSubtitle">Temple of Pandora</div>
+      <div class="gold-divider"></div>
+    </div>
+
+    <!-- Drachma bar -->
+    <div class="drachma-bar">
+      <div class="drachma-coin">Ð</div>
+      <span id="drachmaDisplay">— Drachma</span>
+    </div>
+
+    <!-- ══ SECTION 1: GATE QUESTION ══ -->
+    <div class="section-panel" id="gatePanel">
+      <div class="section-num">Section I — The Gate</div>
+      <div class="section-title" id="gateTitle">Prove Your Knowledge</div>
+
+      <div class="gate-question" id="gateQuestion">Loading...</div>
+
+      <div class="hint-revealed" id="gateHintBox">
+        <div class="hint-label">⚡ Athena's Whisper</div>
+        <span id="gateHintText"></span>
+      </div>
+
+      <input type="text" class="answer-input" id="gateInput" placeholder="Type your answer..." autocomplete="off" autocorrect="off" spellcheck="false">
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="gateSubmitBtn" onclick="submitGate()">Open the Gate</button>
+        <button class="btn btn-hint" id="gateHintBtn" onclick="purchaseHint('gate')">🪙 Hint — 120 Drachma</button>
+      </div>
+
+      <div class="feedback-box" id="gateFeedback"></div>
+      <div class="attempts-note" id="gateAttemptsNote"></div>
+    </div>
+
+    <!-- ══ SECTION 2: CIPHER PUZZLE ══ -->
+    <div class="section-panel locked" id="cipherPanel">
+      <div class="section-num">Section II — The Cipher</div>
+      <div class="section-title" id="cipherTitle">Decode the Ancient Tablet</div>
+
+      <!-- Cipher content injected per box -->
+      <div id="cipherContent">
+        <div class="cipher-locked">
+          <span class="lock-icon">🔒</span>
+          <em>Answer the gate question to reveal the cipher...</em>
+        </div>
+      </div>
+
+      <div class="hint-revealed" id="cipherHintBox">
+        <div class="hint-label">⚡ Hermes' Message</div>
+        <span id="cipherHintText"></span>
+      </div>
+
+      <input type="text" class="answer-input" id="cipherInput" placeholder="Type the secret word..." autocomplete="off" autocorrect="off" spellcheck="false" style="margin-top:16px;">
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="cipherSubmitBtn" onclick="submitCipher()">Submit Answer</button>
+        <button class="btn btn-hint" id="cipherHintBtn" onclick="purchaseHint('cipher')">🪙 Hint — 120 Drachma</button>
+      </div>
+
+      <div class="feedback-box" id="cipherFeedback"></div>
+    </div>
+
+    <!-- ══ SECTION 3: SUCCESS ══ -->
+    <div class="advance-section" id="advanceSection">
+      <div class="section-panel completed">
+        <div style="text-align:center; padding: 10px 0;">
+          <div style="font-size:2.5rem; margin-bottom:12px;">⚗️</div>
+          <div style="font-family:'Cinzel',serif; color:var(--bright-gold); font-size:1rem; letter-spacing:0.2em; margin-bottom:8px;">SECRET WORD UNLOCKED</div>
+          <div class="secret-word-reveal" id="secretWordDisplay">—</div>
+          <div style="font-family:'IM Fell English',serif; font-style:italic; color:var(--stone-light); font-size:0.9rem; margin: 12px 0 24px;">
+            Write this word down. You will need it for the Final Puzzle.
+          </div>
+          <div style="font-family:'IM Fell English',serif; color:var(--pale-gold); font-size:0.95rem; line-height:1.7; margin-bottom:24px;" id="successMessage"></div>
+          <button class="btn-advance" onclick="advanceToGodTest()">Proceed to the God Test →</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-wrap -->
+</div><!-- /chamber -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// PUZZLE ROOM — Client Logic
+// ═══════════════════════════════════════════════════════════════════
+
+const API = '';
+const token = localStorage.getItem('token');
+
+// Per-round UI configuration
+const ROUND_CONFIG = {
+  1: {
+    roundLabel:  'Round 1 — The Foothills',
+    boxTitle:    'The First Locked Box',
+    boxSubtitle: 'Temple of Pandora',
+    gateTitle:   'Prove Your Knowledge',
+    gateQuestion:'Which character from Greek mythology is gifted with curiosity and then told never to use it?',
+    cipherTitle: 'Decode the Ancient Tablet',
+    wrongMessages: [
+      'That name holds no power here. Think carefully — who did the gods gift with curiosity, then punish for using it?',
+      'The gods grow impatient. Search your memory — who was the first woman, and what was she given?',
+      'Still wrong, mortal. The answer is hidden in Prometheus\'s story — who came after him?'
+    ],
+    successMessage: 'The stone grinds open. You feel the weight of Pandora\'s choice — all the evils of the world, and one thing left at the bottom of the jar.'
+  },
+  2: {
+    roundLabel:  'Round 2 — The Lower Slopes',
+    boxTitle:    'The Second Locked Box',
+    boxSubtitle: 'Hall of Helios',
+    gateTitle:   'Prove Your Knowledge',
+    gateQuestion:'Which myth does this painting portray? Name the character who stole the sun chariot.',
+    cipherTitle: 'Decode the Hidden Item',
+    wrongMessages: [
+      'That is not the myth. Look at the painting — who rides the sun chariot and falls?',
+      'Wrong. The gods are watching. A young boy, son of Apollo, who flew too close — what is his name?',
+      'You are running out of chances. Think of the chariot, the fall, the burned earth.'
+    ],
+    successMessage: 'The chariot wheel turns. You remember Phaethon\'s reckless ride — and the lesson written in scorched earth across the sky.'
+  },
+  3: {
+    roundLabel:  'Round 3 — The Cloud Line',
+    boxTitle:    'The Third Locked Box',
+    boxSubtitle: 'Gallery of Perseus',
+    gateTitle:   'Prove Your Knowledge',
+    gateQuestion:'Who is holding Medusa\'s head in this painting?',
+    cipherTitle: 'Read the Flag Signals',
+    wrongMessages: [
+      'Look at the painting carefully. Who carries the severed head of the Gorgon?',
+      'Wrong. This hero used a mirrored shield and winged sandals. Name him.',
+      'Still incorrect. He rescued Andromeda and slew the sea monster. Think.'
+    ],
+    successMessage: 'The winged horse soars free. Perseus\'s victory lives on — not just in stone, but in the sky where he rides forever.'
+  },
+  4: {
+    roundLabel:  'Round 4 — The Temple Gates',
+    boxTitle:    'The Fourth Locked Box',
+    boxSubtitle: 'Labyrinth of Minos',
+    gateTitle:   'Prove Your Knowledge',
+    gateQuestion:'What is the name of the lady giving Theseus the thread before he faces the Minotaur?',
+    cipherTitle: 'Decode the Braille Message',
+    wrongMessages: [
+      'That name is not correct. Who loved Theseus enough to give him the one thing that could save him?',
+      'Wrong. She was the daughter of King Minos, and she betrayed her own father for this hero.',
+      'Think carefully. Without her thread, Theseus would have been lost in the labyrinth forever.'
+    ],
+    successMessage: 'The thread leads you back through the darkness. Ariadne\'s gift was never just string — it was trust, sacrifice, and hope.'
+  }
+};
+
+// Cipher HTML per round
+const CIPHER_HTML = {
+  1: `
+    <div class="tablet-label">Ancient Inscription — Solve the Word Equation</div>
+    <div class="stone-tablet">
+      <div class="word-algebra">
+        <span class="algebra-word">B<span class="algebra-highlight">ook</span></span>
+        <span class="algebra-op">−</span>
+        <span class="algebra-word" style="color:var(--torch-orange);">ok</span>
+        <span class="algebra-op">+</span>
+        <span class="algebra-word" style="color:var(--bright-gold);">x</span>
+        <span class="algebra-equals">=</span>
+        <span class="algebra-result">?</span>
+      </div>
+    </div>
+    <p style="text-align:center; font-style:italic; color:var(--stone-light); font-size:0.88rem;">
+      Remove the letters shown, add the new letter. What word remains?
+    </p>`,
+
+  2: `
+    <div class="tablet-label">Number Cipher — Each Number Is a Letter (A=1, B=2, C=3...)</div>
+    <div class="stone-tablet">
+      <div class="number-cipher">
+        <span class="cipher-num">3</span>
+        <span class="cipher-sep">·</span>
+        <span class="cipher-num">8</span>
+        <span class="cipher-sep">·</span>
+        <span class="cipher-num">1</span>
+        <span class="cipher-sep">·</span>
+        <span class="cipher-num">18</span>
+        <span class="cipher-sep">·</span>
+        <span class="cipher-num">9</span>
+        <span class="cipher-sep">·</span>
+        <span class="cipher-num">15</span>
+        <span class="cipher-sep">·</span>
+        <span class="cipher-num">20</span>
+      </div>
+      <p class="cipher-key-note">What hidden item from the myth of Phaethon do these numbers spell?</p>
+    </div>`,
+
+  3: `
+    <div class="tablet-label">Semaphore Alphabet — Decode the Flag Signals</div>
+    <div class="stone-tablet">
+      <div class="semaphore-container" id="semaphoreDisplay">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+    <p style="text-align:center; font-style:italic; color:var(--stone-light); font-size:0.85rem; margin-top:8px;">
+      Each figure holds flags in a specific position — each position is a letter.
+    </p>`,
+
+  4: `
+    <div class="tablet-label">Braille Cipher — Decode the Dot Patterns</div>
+    <div class="stone-tablet">
+      <div class="braille-container" id="brailleDisplay">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+    <p style="text-align:center; font-style:italic; color:var(--stone-light); font-size:0.85rem; margin-top:8px;">
+      Each grid of dots represents one letter in Braille. Decode all letters.
+    </p>`
+};
+
+// ── Semaphore definitions for PEGASUS ─────────────────────────────
+// Each letter: [leftArmAngle, rightArmAngle] in degrees from straight down (0=down, 45=down-right, 90=right, 135=up-right, 180=up, 225=up-left, 270=left, 315=down-left)
+const SEMAPHORE_ANGLES = {
+  'P': [315, 135], 'E': [135, 270], 'G': [180, 270],
+  'A': [315, 270], 'S': [45, 90],  'U': [45, 180]
+};
+
+function drawSemaphore(letter) {
+  const angles = SEMAPHORE_ANGLES[letter];
+  if (!angles) return '';
+  const [la, ra] = angles;
+
+  // Convert angle to x,y endpoint (arm length 22px from shoulder at 30,25)
+  const armLen = 22;
+  const cx = 30, cy = 26;
+
+  function angleToXY(deg) {
+    const rad = (deg - 90) * Math.PI / 180;
+    return { x: cx + armLen * Math.cos(rad), y: cy + armLen * Math.sin(rad) };
+  }
+
+  const L = angleToXY(la);
+  const R = angleToXY(ra);
+
+  return `
+    <div class="semaphore-char">
+      <svg class="sem-svg" viewBox="0 0 60 70">
+        <!-- Body -->
+        <line x1="30" y1="26" x2="30" y2="52" stroke="#c8a050" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Head -->
+        <circle cx="30" cy="20" r="7" fill="none" stroke="#c8a050" stroke-width="2"/>
+        <!-- Legs -->
+        <line x1="30" y1="52" x2="22" y2="65" stroke="#c8a050" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="30" y1="52" x2="38" y2="65" stroke="#c8a050" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Left flag arm -->
+        <line x1="${cx}" y1="${cy}" x2="${L.x.toFixed(1)}" y2="${L.y.toFixed(1)}" stroke="#c8a050" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="${L.x.toFixed(1)},${L.y.toFixed(1)} ${(L.x + 5*(Math.cos((la-90)*Math.PI/180+0.4))).toFixed(1)},${(L.y + 5*(Math.sin((la-90)*Math.PI/180+0.4))).toFixed(1)} ${(L.x + 5*(Math.cos((la-90)*Math.PI/180-0.4))).toFixed(1)},${(L.y + 5*(Math.sin((la-90)*Math.PI/180-0.4))).toFixed(1)}" fill="#e04020"/>
+        <!-- Right flag arm -->
+        <line x1="${cx}" y1="${cy}" x2="${R.x.toFixed(1)}" y2="${R.y.toFixed(1)}" stroke="#c8a050" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="${R.x.toFixed(1)},${R.y.toFixed(1)} ${(R.x + 5*(Math.cos((ra-90)*Math.PI/180+0.4))).toFixed(1)},${(R.y + 5*(Math.sin((ra-90)*Math.PI/180+0.4))).toFixed(1)} ${(R.x + 5*(Math.cos((ra-90)*Math.PI/180-0.4))).toFixed(1)},${(R.y + 5*(Math.sin((ra-90)*Math.PI/180-0.4))).toFixed(1)}" fill="#ffe020"/>
+      </svg>
+      <span style="font-family:'Cinzel',serif; font-size:0.65rem; color:var(--stone-light);">?</span>
+    </div>`;
+}
+
+// ── Braille definitions for LABYRINTH ────────────────────────────
+// Braille 6-dot cell: positions [1,2,3,4,5,6] = top-left, mid-left, bot-left, top-right, mid-right, bot-right
+const BRAILLE_CELLS = {
+  'L': [1,2,3,0,0,0],
+  'A': [1,0,0,0,0,0],
+  'B': [1,2,0,0,0,0],
+  'Y': [1,0,1,1,1,1],
+  'R': [1,2,0,1,0,1],
+  'I': [0,0,0,1,1,0],
+  'N': [1,0,1,1,0,0],
+  'T': [0,0,0,1,1,1],
+  'H': [1,0,1,1,1,0]
+};
+
+function drawBrailleCell(letter) {
+  const dots = BRAILLE_CELLS[letter] || [0,0,0,0,0,0];
+  const dotEls = dots.map(d => `<div class="dot${d ? ' filled' : ''}"></div>`).join('');
+  return `
+    <div class="braille-cell">
+      <div class="braille-dots">${dotEls}</div>
+      <span style="font-family:'Cinzel',serif; font-size:0.65rem; color:var(--stone-light);">?</span>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let currentRound = 1;
+let gateAnswered = false;
+let gateAttempts = 0;
+let cipherAttempts = 0;
+let drachma = 0;
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+async function init() {
+  if (!token) { window.location.href = '/'; return; }
+
+  // Load race state
+  try {
+    const stateRes = await fetch(`${API}/api/olympus/state`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const stateData = await stateRes.json();
+    if (stateData.state) {
+      currentRound = stateData.state.current_round || 1;
+      if (stateData.state.current_phase !== 'puzzle') {
+        // Not in puzzle phase — redirect back
+        window.location.href = '/student.html';
+        return;
+      }
+    }
+  } catch(e) {
+    console.error('State load error:', e);
+  }
+
+  // Load hint status and drachma
+  try {
+    const hintRes = await fetch(`${API}/api/olympus/hint-status`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const hintData = await hintRes.json();
+    drachma = hintData.drachma || 0;
+    gateAttempts = hintData.attempts || 0;
+
+    // Restore purchased hints
+    if (hintData.hints?.gate?.purchased) {
+      showHint('gate', hintData.hints.gate.text);
+    }
+    if (hintData.hints?.cipher?.purchased) {
+      showHint('cipher', hintData.hints.cipher.text);
+    }
+  } catch(e) {
+    console.error('Hint status error:', e);
+  }
+
+  renderPage();
+}
+
+function renderPage() {
+  const cfg = ROUND_CONFIG[currentRound] || ROUND_CONFIG[1];
+
+  document.getElementById('roundLabel').textContent  = cfg.roundLabel;
+  document.getElementById('boxTitle').textContent    = cfg.boxTitle;
+  document.getElementById('boxSubtitle').textContent = cfg.boxSubtitle;
+  document.getElementById('gateTitle').textContent   = cfg.gateTitle;
+  document.getElementById('gateQuestion').textContent = cfg.gateQuestion;
+  document.getElementById('cipherTitle').textContent  = cfg.cipherTitle;
+  document.getElementById('drachmaDisplay').textContent = `${drachma} Drachma`;
+
+  // Cipher content
+  document.getElementById('cipherContent').innerHTML = CIPHER_HTML[currentRound] || '<p>No cipher found.</p>';
+
+  // Post-render hooks
+  if (currentRound === 3) {
+    const sem = document.getElementById('semaphoreDisplay');
+    if (sem) sem.innerHTML = 'PEGASUS'.split('').map(drawSemaphore).join('');
+  }
+  if (currentRound === 4) {
+    const br = document.getElementById('brailleDisplay');
+    if (br) br.innerHTML = 'LABYRINTH'.split('').map(drawBrailleCell).join('');
+  }
+
+  updateDrachmaUI();
+}
+
+function updateDrachmaUI() {
+  document.getElementById('drachmaDisplay').textContent = `${drachma} Drachma`;
+  const ghb = document.getElementById('gateHintBtn');
+  const chb = document.getElementById('cipherHintBtn');
+  if (ghb) ghb.disabled = drachma < 120;
+  if (chb) chb.disabled = drachma < 120;
+}
+
+// ═══════════════════════════════════════════════════
+// GATE SUBMISSION
+// ═══════════════════════════════════════════════════
+async function submitGate() {
+  const input = document.getElementById('gateInput');
+  const answer = input.value.trim();
+  if (!answer) return;
+
+  const btn = document.getElementById('gateSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Consulting the oracle...';
+
+  try {
+    const res = await fetch(`${API}/api/olympus/gate-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ answer })
+    });
+    const data = await res.json();
+
+    gateAttempts = data.attempts || gateAttempts + 1;
+    showGateFeedback(data.result, data.hintAvailable);
+
+    if (data.result === 'correct') {
+      unlockCipher();
+    }
+  } catch(e) {
+    showFeedback('gateFeedback', 'wrong', 'The oracle is silent. Try again.');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Open the Gate';
+}
+
+function showGateFeedback(result, hintAvailable) {
+  const cfg = ROUND_CONFIG[currentRound] || ROUND_CONFIG[1];
+  const input = document.getElementById('gateInput');
+
+  if (result === 'correct') {
+    input.classList.add('input-correct');
+    showFeedback('gateFeedback', 'correct', '✓ The ancient lock clicks open. The stone chamber shifts...');
+    document.getElementById('gateAttemptsNote').textContent = '';
+  } else if (result === 'close') {
+    input.classList.add('input-close');
+    showFeedback('gateFeedback', 'close', '"Almost, mortal. Check your spelling — the gods demand precision."');
+    document.getElementById('gateAttemptsNote').textContent = `Attempt ${gateAttempts} — check your spelling and try again.`;
+  } else {
+    input.classList.add('input-wrong');
+    const msgIdx = Math.min(gateAttempts - 1, cfg.wrongMessages.length - 1);
+    const msg = cfg.wrongMessages[msgIdx] || cfg.wrongMessages[cfg.wrongMessages.length - 1];
+    showFeedback('gateFeedback', 'wrong', `"${msg}"`);
+
+    const note = document.getElementById('gateAttemptsNote');
+    if (hintAvailable) {
+      note.textContent = `${gateAttempts} attempts — a hint is available for 120 Drachma.`;
+      document.getElementById('gateHintBtn').style.animation = 'glowPulse 1s ease-in-out infinite alternate';
+    } else {
+      note.textContent = `Attempt ${gateAttempts}`;
+    }
+
+    setTimeout(() => {
+      input.classList.remove('input-wrong');
+    }, 1500);
+  }
+}
+
+function unlockCipher() {
+  gateAnswered = true;
+  const gatePanel = document.getElementById('gatePanel');
+  const cipherPanel = document.getElementById('cipherPanel');
+
+  gatePanel.classList.add('completed');
+
+  // Short delay for dramatic effect
+  setTimeout(() => {
+    cipherPanel.classList.remove('locked');
+    cipherPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 800);
+}
+
+// ═══════════════════════════════════════════════════
+// CIPHER SUBMISSION
+// ═══════════════════════════════════════════════════
+async function submitCipher() {
+  const input = document.getElementById('cipherInput');
+  const answer = input.value.trim();
+  if (!answer) return;
+
+  const btn = document.getElementById('cipherSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+
+  try {
+    const res = await fetch(`${API}/api/olympus/puzzle-submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ answer })
+    });
+    const data = await res.json();
+
+    if (data.accepted) {
+      input.classList.add('input-correct');
+      showFeedback('cipherFeedback', 'correct', '✓ Correct! The secret word has been recorded.');
+      setTimeout(() => showSuccess(data.secret_word), 800);
+    } else if (data.result === 'close') {
+      input.classList.add('input-close');
+      showFeedback('cipherFeedback', 'close', '"Almost... check your spelling. The answer is just one or two letters away."');
+      setTimeout(() => input.classList.remove('input-close'), 1500);
+    } else {
+      input.classList.add('input-wrong');
+      cipherAttempts++;
+      const msgs = [
+        '"That is not the word. Decode each symbol carefully."',
+        '"Wrong. Study the cipher again — every character matters."',
+        '"Still incorrect. Consider purchasing a hint if you are truly lost."'
+      ];
+      const msg = msgs[Math.min(cipherAttempts - 1, msgs.length - 1)];
+      showFeedback('cipherFeedback', 'wrong', msg);
+      setTimeout(() => input.classList.remove('input-wrong'), 1500);
+    }
+  } catch(e) {
+    showFeedback('cipherFeedback', 'wrong', 'An error occurred. Try again.');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Submit Answer';
+}
+
+// ═══════════════════════════════════════════════════
+// HINT PURCHASE
+// ═══════════════════════════════════════════════════
+async function purchaseHint(type) {
+  if (drachma < 120) {
+    alert('Not enough Drachma! You need 120 Drachma to purchase a hint.');
+    return;
+  }
+
+  const confirmed = confirm(`Spend 120 Drachma for a ${type === 'gate' ? 'gate question' : 'cipher'} hint? Your alliance currently has ${drachma} Drachma.`);
+  if (!confirmed) return;
+
+  const btn = document.getElementById(`${type}HintBtn`);
+  btn.disabled = true;
+  btn.textContent = 'Purchasing...';
+
+  try {
+    const res = await fetch(`${API}/api/olympus/hint-purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ hint_type: type })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      if (!data.already_purchased) {
+        drachma = data.drachma_remaining;
+        updateDrachmaUI();
+      }
+      showHint(type, data.hint);
+    } else {
+      alert(data.error || 'Could not purchase hint.');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    alert('Error purchasing hint. Try again.');
+    btn.disabled = false;
+  }
+
+  btn.textContent = `🪙 Hint — 120 Drachma`;
+}
+
+function showHint(type, text) {
+  const boxId = type === 'gate' ? 'gateHintBox' : 'cipherHintBox';
+  const textId = type === 'gate' ? 'gateHintText' : 'cipherHintText';
+  const box = document.getElementById(boxId);
+  const textEl = document.getElementById(textId);
+  if (box && textEl) {
+    textEl.textContent = text;
+    box.classList.add('show');
+    // Disable the hint button
+    const btn = document.getElementById(`${type}HintBtn`);
+    if (btn) { btn.disabled = true; btn.textContent = '✓ Hint purchased'; }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SUCCESS
+// ═══════════════════════════════════════════════════
+function showSuccess(secretWord) {
+  const cfg = ROUND_CONFIG[currentRound] || ROUND_CONFIG[1];
+  document.getElementById('secretWordDisplay').textContent = secretWord;
+  document.getElementById('successMessage').textContent = cfg.successMessage;
+  document.getElementById('cipherPanel').classList.add('completed');
+  document.getElementById('advanceSection').classList.add('show');
+  document.getElementById('advanceSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function advanceToGodTest() {
+  // Navigate to god test — placeholder for now
+  window.location.href = '/student.html';
+}
+
+// ═══════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════
+function showFeedback(id, type, message) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `feedback-box feedback-${type} show`;
+  el.textContent = message;
+}
+
+// Enter key support
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('gateInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitGate();
+  });
+  document.getElementById('cipherInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitCipher();
+  });
+  init();
+});
+</script>
+</body>
+</html>

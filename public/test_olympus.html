@@ -35,11 +35,28 @@
 </head>
 <body>
 
-<h1>OLYMPUS RACE — TEST HARNESS (Session 1 Verification)</h1>
-<div class="warning">⚠ This is a testing tool. Do not use with live student accounts. Use Test Period students only.</div>
+<h1>OLYMPUS RACE — TEST HARNESS (Session 1 + 2 Verification)</h1>
+<div class="warning">⚠ Testing tool — use Test Period students only. Combat resolve deducts REAL points.</div>
 <div class="info-bar" id="info-bar">Loading student info…</div>
 
-<p class="seq-note">Buttons must be run IN ORDER — each phase gate requires the previous step to have completed successfully.</p>
+<p class="seq-note">Run buttons IN ORDER through the full round loop: Medea → Path → Combat → Puzzle Room → God Test → next round. After combat resolves use 7b to open puzzle_room.html OR use 8a/8d to test gate+cipher APIs directly.</p>
+
+<!-- RESET -->
+<div class="btn-group" style="border-color:#aa3333; background:#0a0000;">
+  <label style="color:#ff6666;">⟳ RESET TEST STATE</label>
+  <div class="endpoint">POST /api/olympus/teacher/reset-race (teacher token required — must be logged in as teacher in another tab)</div>
+  <div class="note">Wipes all olympus_race_state, votes, path_locks for the Test period. Run this between full test loops. After reset, re-run steps 1 → UTILITY START → 3 onward.</div>
+  <div class="input-row">
+    <span>Teacher token:</span>
+    <input type="text" id="teacher-token" placeholder="paste teacher JWT here" style="width:340px; font-size:10px;">
+  </div>
+  <div class="input-row">
+    <span>period:</span>
+    <input type="text" id="reset-period" value="Test" style="width:60px;">
+    <button class="run" style="background:#1a0000;border-color:#aa3333;color:#ff6666;" onclick="runReset('resultReset')">RESET RACE</button>
+  </div>
+  <pre class="result" id="resultReset"></pre>
+</div>
 
 <!-- 1. GET STATE -->
 <div class="btn-group">
@@ -120,24 +137,80 @@
   <pre class="result" id="result7"></pre>
 </div>
 
-<!-- 8. PUZZLE SUBMIT -->
+<!-- 7b. NAVIGATE TO PUZZLE ROOM -->
+<div class="btn-group" style="border-color:#b8860b; background:#0a0800;">
+  <label style="color:#ffd700;">7b. OPEN PUZZLE ROOM</label>
+  <div class="endpoint">→ /puzzle_room.html (after combat resolves, phase = 'puzzle')</div>
+  <div class="note">Opens the full puzzle room UI in a new tab. Come back here after solving to continue API testing.</div>
+  <button class="run" onclick="openPuzzleRoom()" style="background:#1a1400; border-color:#ffd700;">OPEN PUZZLE ROOM →</button>
+</div>
+
+<!-- 8a. GATE CHECK (direct API test) -->
 <div class="btn-group">
-  <label>8. PUZZLE SUBMIT (stub)</label>
-  <div class="endpoint">POST /api/olympus/puzzle-submit</div>
-  <div class="note">Server ignores the answer field in Round 1 stub — any value accepted, secret word "BOX" stored.</div>
+  <label>8a. GATE CHECK (direct API)</label>
+  <div class="endpoint">POST /api/olympus/gate-check</div>
+  <div class="note">Tests gate question answer validation. Round 1 correct answer: "Pandora". Try wrong answers to test fuzzy match and attempt tracking.</div>
   <div class="input-row">
     <span>answer:</span>
-    <input type="text" id="puzzle-answer" value="test_answer">
-    <button class="run" onclick="runPuzzleSubmit('result8')">RUN</button>
+    <input type="text" id="gate-answer" value="Pandora" style="width:200px;">
+    <button class="run" onclick="runGateCheck('result8a')">RUN</button>
   </div>
-  <pre class="result" id="result8"></pre>
+  <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+    <button class="run" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('gate-answer').value='Pandora';runGateCheck('result8a')">✓ Correct</button>
+    <button class="run" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('gate-answer').value='Pandorra';runGateCheck('result8a')">~ Close</button>
+    <button class="run" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('gate-answer').value='Zeus';runGateCheck('result8a')">✗ Wrong</button>
+  </div>
+  <pre class="result" id="result8a"></pre>
+</div>
+
+<!-- 8b. HINT STATUS -->
+<div class="btn-group">
+  <label>8b. HINT STATUS</label>
+  <div class="endpoint">GET /api/olympus/hint-status</div>
+  <div class="note">Shows Drachma balance, attempt count, and which hints have been purchased by this alliance.</div>
+  <button class="run" onclick="runHintStatus('result8b')">RUN</button>
+  <pre class="result" id="result8b"></pre>
+</div>
+
+<!-- 8c. HINT PURCHASE -->
+<div class="btn-group">
+  <label>8c. HINT PURCHASE (direct API)</label>
+  <div class="endpoint">POST /api/olympus/hint-purchase</div>
+  <div class="note">Costs 120 Drachma. Alliance-wide — teammates see it too. hint_type = 'gate' or 'cipher'.</div>
+  <div class="input-row">
+    <select id="hint-type">
+      <option value="gate">gate</option>
+      <option value="cipher">cipher</option>
+    </select>
+    <button class="run" onclick="runHintPurchase('result8c')">RUN (costs 120 Ð)</button>
+  </div>
+  <pre class="result" id="result8c"></pre>
+</div>
+
+<!-- 8d. CIPHER SUBMIT -->
+<div class="btn-group">
+  <label>8d. CIPHER SUBMIT (direct API)</label>
+  <div class="endpoint">POST /api/olympus/puzzle-submit</div>
+  <div class="note">Round 1 correct answer: "BOX". Fuzzy match: "boks" → close. Wrong → try again. Correct stores secret word and advances phase to god_test.</div>
+  <div class="input-row">
+    <span>answer:</span>
+    <input type="text" id="puzzle-answer" value="box" style="width:160px;">
+    <button class="run" onclick="runPuzzleSubmit('result8d')">RUN</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+    <button class="run" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('puzzle-answer').value='box';runPuzzleSubmit('result8d')">✓ box</button>
+    <button class="run" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('puzzle-answer').value='BOX';runPuzzleSubmit('result8d')">✓ BOX</button>
+    <button class="run" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('puzzle-answer').value='boks';runPuzzleSubmit('result8d')">~ boks</button>
+    <button class="run" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('puzzle-answer').value='chariot';runPuzzleSubmit('result8d')">✗ chariot</button>
+  </div>
+  <pre class="result" id="result8d"></pre>
 </div>
 
 <!-- 9. GOD TEST SUBMIT -->
 <div class="btn-group">
   <label>9. GOD TEST SUBMIT (stub)</label>
   <div class="endpoint">POST /api/olympus/godtest-submit</div>
-  <div class="note">No body required. Stub passes automatically and advances to Round 2.</div>
+  <div class="note">No body required. Stub auto-passes and advances round. Round 1 god = Hermes. After this: round=2, phase='path_choice'.</div>
   <button class="run" onclick="runGodtestSubmit('result9')">RUN</button>
   <pre class="result" id="result9"></pre>
 </div>
@@ -146,9 +219,22 @@
 <div class="btn-group">
   <label>10. GET STATE (final verification)</label>
   <div class="endpoint">GET /api/olympus/state</div>
-  <div class="note">Expected: current_round=2, current_phase='path_choice'. Changes vs step 1 highlighted below.</div>
+  <div class="note">Expected after full round 1: current_round=2, current_phase='path_choice', secret_words=['BOX']. Diffs vs step 1 shown below.</div>
   <button class="run" onclick="runGetStateFinal('result10')">RUN</button>
   <pre class="result" id="result10"></pre>
+</div>
+
+<!-- 11. SCOREBOARD -->
+<div class="btn-group">
+  <label>11. SCOREBOARD (period check)</label>
+  <div class="endpoint">GET /api/olympus/scoreboard/:period</div>
+  <div class="note">Shows all alliance positions in the current period. Confirms path locks and round progress are visible across alliances.</div>
+  <div class="input-row">
+    <span>period:</span>
+    <input type="text" id="scoreboard-period" value="Test" style="width:80px;">
+    <button class="run" onclick="runScoreboard('result11')">RUN</button>
+  </div>
+  <pre class="result" id="result11"></pre>
 </div>
 
 <h2>EVENT LOG</h2>
@@ -211,18 +297,31 @@ async function call(method, url, body, resultId, label) {
 
 async function loadInfoBar() {
   try {
-    const resp = await fetch(API_URL + '/olympus/state', { headers });
-    if (!resp.ok) { document.getElementById('info-bar').textContent = 'Could not load student info (not logged in as student?)'; return; }
-    const d = await resp.json();
+    // Get student name from dashboard (alliance state doesn't return it)
+    const [stateResp, dashResp] = await Promise.all([
+      fetch(API_URL + '/olympus/state', { headers }),
+      fetch(API_URL + '/student/dashboard', { headers })
+    ]);
+    if (!stateResp.ok) { document.getElementById('info-bar').textContent = 'Could not load student info (not logged in as student?)'; return; }
+    const d = await stateResp.json();
     const a = d.alliance || {};
     const s = d.state || {};
+    let studentName = '?';
+    let drachma = '?';
+    if (dashResp.ok) {
+      const dash = await dashResp.json();
+      studentName = dash.student?.name || dash.name || '?';
+      drachma = dash.student?.drachma ?? dash.drachma ?? '?';
+    }
+    const phaseColor = s.current_phase === 'puzzle' ? '#ffd700' : s.current_phase === 'combat' ? '#ff6666' : '#aaffaa';
     document.getElementById('info-bar').innerHTML =
-      `<span>Student: ${a.student_name || '?'}</span>` +
-      `<span>Alliance: ${a.alliance_name || '?'} (id:${a.alliance_id || '?'})</span>` +
+      `<span>Student: <b>${studentName}</b></span>` +
+      `<span>Alliance: ${a.name || a.alliance_name || '?'} (id:${a.alliance_id || '?'})</span>` +
       `<span>Period: ${a.class_period || '?'}</span>` +
       `<span>Points: ${a.total_points ?? '?'}</span>` +
+      `<span>Drachma: ${drachma}Ð</span>` +
       `<span>Round: ${s.current_round ?? '—'}</span>` +
-      `<span>Phase: ${s.current_phase || '—'}</span>`;
+      `<span style="color:${phaseColor}">Phase: <b>${s.current_phase || '—'}</b></span>`;
   } catch(e) {
     document.getElementById('info-bar').textContent = 'Info bar error: ' + e.message;
   }
@@ -231,7 +330,14 @@ async function loadInfoBar() {
 async function runGetState(rid) {
   const r = await call('GET', '/olympus/state', undefined, rid, 'GET STATE');
   if (r.ok && !firstStateSnapshot) firstStateSnapshot = r.data;
-  if (r.ok) loadInfoBar();
+  if (r.ok) {
+    loadInfoBar();
+    // Auto-highlight if phase is puzzle — remind tester to use puzzle room
+    const phase = r.data?.state?.current_phase;
+    if (phase === 'puzzle') {
+      document.getElementById(rid).textContent += '\n\n⚡ Phase is PUZZLE — use button 7b to open puzzle_room.html, or use 8a/8d to test APIs directly.';
+    }
+  }
 }
 
 async function runGetPaths(rid) {
@@ -264,19 +370,66 @@ async function runCommitPath(rid) {
 }
 
 async function runCombatResolve(rid) {
-  await call('POST', '/olympus/combat-resolve', {}, rid, 'COMBAT RESOLVE');
+  const r = await call('POST', '/olympus/combat-resolve', {}, rid, 'COMBAT RESOLVE');
   loadInfoBar();
+  if (r.ok) {
+    document.getElementById(rid).textContent += '\n\n→ Combat done. Phase should now be "puzzle". Use button 7b or 8a to continue.';
+  }
+}
+
+function openPuzzleRoom() {
+  window.open('/puzzle_room.html', '_blank');
+}
+
+async function runGateCheck(rid) {
+  const answer = document.getElementById('gate-answer').value;
+  const r = await call('POST', '/olympus/gate-check', { answer }, rid, `GATE CHECK ("${answer}")`);
+  if (r.ok) {
+    const result = r.data.result;
+    const note = result === 'correct' ? '\n✅ Gate passed — cipher will unlock in puzzle room.'
+      : result === 'close' ? '\n⚠️ Close — check spelling.'
+      : `\n❌ Wrong — attempt ${r.data.attempts}${r.data.hintAvailable ? ' (hint available for 120Ð)' : ''}`;
+    document.getElementById(rid).textContent += note;
+  }
+}
+
+async function runHintStatus(rid) {
+  await call('GET', '/olympus/hint-status', undefined, rid, 'HINT STATUS');
+}
+
+async function runHintPurchase(rid) {
+  const hint_type = document.getElementById('hint-type').value;
+  const r = await call('POST', '/olympus/hint-purchase', { hint_type }, rid, `HINT PURCHASE (${hint_type})`);
+  if (r.ok) {
+    loadInfoBar();
+    if (r.data.hint) {
+      document.getElementById(rid).textContent += `\n\n💡 HINT TEXT: "${r.data.hint}"`;
+    }
+  }
 }
 
 async function runPuzzleSubmit(rid) {
   const answer = document.getElementById('puzzle-answer').value;
-  await call('POST', '/olympus/puzzle-submit', { answer }, rid, `PUZZLE SUBMIT (answer:"${answer}")`);
-  loadInfoBar();
+  const r = await call('POST', '/olympus/puzzle-submit', { answer }, rid, `CIPHER SUBMIT ("${answer}")`);
+  if (r.ok) {
+    loadInfoBar();
+    if (r.data.accepted) {
+      document.getElementById(rid).textContent += `\n\n✅ SECRET WORD: "${r.data.secret_word}" — phase now god_test. Run step 9.`;
+    } else {
+      const note = r.data.result === 'close' ? '\n⚠️ Close — check spelling.' : '\n❌ Wrong answer.';
+      document.getElementById(rid).textContent += note;
+    }
+  }
 }
 
 async function runGodtestSubmit(rid) {
   await call('POST', '/olympus/godtest-submit', {}, rid, 'GOD TEST SUBMIT');
   loadInfoBar();
+}
+
+async function runScoreboard(rid) {
+  const period = document.getElementById('scoreboard-period').value || 'Test';
+  await call('GET', `/olympus/scoreboard/${period}`, undefined, rid, `SCOREBOARD (period:${period})`);
 }
 
 async function runGetStateFinal(rid) {
@@ -295,6 +448,54 @@ async function runGetStateFinal(rid) {
       ? '\n\n=== CHANGES VS STEP 1 ===\n' + changes.join('\n')
       : '\n\n=== NO STATE CHANGES DETECTED ===';
     document.getElementById(rid).textContent += note;
+  }
+}
+
+async function runGetStateFinal(rid) {
+  const r = await call('GET', '/olympus/state', undefined, rid, 'GET STATE (final)');
+  if (r.ok && firstStateSnapshot) {
+    const before = firstStateSnapshot.state || {};
+    const after = r.data.state || {};
+    const changes = [];
+    ['current_round','current_phase','secret_words','god_test_results','phoenix_feather_used','hades_visits']
+      .forEach(k => {
+        const bv = JSON.stringify(before[k]);
+        const av = JSON.stringify(after[k]);
+        if (bv !== av) changes.push(`  ${k}: ${bv} → ${av}`);
+      });
+    const note = changes.length
+      ? '\n\n=== CHANGES VS STEP 1 ===\n' + changes.join('\n')
+      : '\n\n=== NO STATE CHANGES DETECTED ===';
+    document.getElementById(rid).textContent += note;
+  }
+}
+
+async function runReset(rid) {
+  const teacherToken = document.getElementById('teacher-token').value.trim();
+  const period = document.getElementById('reset-period').value || 'Test';
+  if (!teacherToken) {
+    setResult(rid, 'ERROR: Paste a teacher JWT token in the field above. Get it from localStorage in a teacher-logged-in tab: localStorage.getItem("token")', true);
+    return;
+  }
+  const teacherHeaders = { 'Authorization': `Bearer ${teacherToken}`, 'Content-Type': 'application/json' };
+  const t0 = Date.now();
+  try {
+    const resp = await fetch('/api/olympus/teacher/reset-race', {
+      method: 'POST',
+      headers: teacherHeaders,
+      body: JSON.stringify({ period })
+    });
+    const ms = Date.now() - t0;
+    const data = await resp.json();
+    const text = `REQUEST: POST /api/olympus/teacher/reset-race\nBODY: {"period":"${period}"}\nRESPONSE: ${resp.status}\n${JSON.stringify(data, null, 2)}\nTIME: ${ms}ms`;
+    setResult(rid, text, !resp.ok);
+    appendLog(`[${ts()}] RESET RACE (period:${period})\n${text}`);
+    if (resp.ok) {
+      firstStateSnapshot = null;
+      loadInfoBar();
+    }
+  } catch(e) {
+    setResult(rid, 'NETWORK ERROR: ' + e.message, true);
   }
 }
 

@@ -2222,6 +2222,30 @@ function seedReferenceData() {
     )`);
     console.log('✅ olympus_medea_choices ready');
   } catch(e) { console.log('Migration note: olympus_medea_choices -', e.message); }
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_hints (
+      hint_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id  INTEGER NOT NULL,
+      round_number INTEGER NOT NULL,
+      hint_type    TEXT NOT NULL,
+      drachma_cost INTEGER NOT NULL DEFAULT 120,
+      purchased_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(alliance_id, round_number, hint_type)
+    )`);
+    console.log('✅ olympus_hints ready');
+  } catch(e) { console.log('Migration note: olympus_hints -', e.message); }
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_gate_attempts (
+      attempt_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id  INTEGER NOT NULL,
+      round_number INTEGER NOT NULL,
+      attempts     INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(alliance_id, round_number)
+    )`);
+    console.log('✅ olympus_gate_attempts ready');
+  } catch(e) { console.log('Migration note: olympus_gate_attempts -', e.message); }
+
   // ── END REVENGE OF THE GODS migrations ──────────────────────────────────
 
   // Always run Classical seeding — it has its own internal guards
