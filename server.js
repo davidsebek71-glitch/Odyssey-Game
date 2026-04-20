@@ -9804,6 +9804,15 @@ app.post('/api/teacher/repair-voyage-names', authenticateToken, (req, res) => {
       repairs.push({ skipped: 'GREg/Period 1 not found — already fixed or never existed' });
     }
 
+    // 4. Mark Stubbe (3rd) → student_name = m@rk (matches students.name in 3rd period)
+    const markStudbe = query("SELECT completion_id FROM voyage_log_completions WHERE student_name = 'Mark Stubbe' AND class_period = '3rd'");
+    if (markStudbe.length > 0) {
+      run("UPDATE voyage_log_completions SET student_name = 'm@rk' WHERE student_name = 'Mark Stubbe' AND class_period = '3rd'");
+      repairs.push({ fixed: 'Mark Stubbe → m@rk (3rd)' });
+    } else {
+      repairs.push({ skipped: 'Mark Stubbe/3rd not found — already fixed or never existed' });
+    }
+
     saveDatabase();
     res.json({ success: true, repairs });
   } catch(err) {
@@ -9830,7 +9839,7 @@ app.get('/api/teacher/heroic-overview-debug', authenticateToken, (req, res) => {
     try { perseusRows  = query('SELECT student_name, rank_tier FROM perseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
 
     // Same 3-strategy match used by heroic-overview
-    const nameWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
+    const nameWords = (str) => new Set(str.toLowerCase().replace(/@/g, 'a').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
     const sharesWord = (a, b) => { const aw = nameWords(a), bw = nameWords(b); for (const w of aw) { if (bw.has(w)) return true; } return false; };
     const findMatch = (rows, name) => {
       const nl = name.toLowerCase().trim();
@@ -9985,7 +9994,7 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
       const cunning = (battleByStudent[s.student_id] || 0) * 3;
       // Multi-strategy name match: exact → case-insensitive → shared-word within period
       // Shared-word: any meaningful word (>1 char) in completion name matches any word in student name
-      const nameWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
+      const nameWords = (str) => new Set(str.toLowerCase().replace(/@/g, 'a').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
       const sharesWord = (rowName, studentName) => {
         const rw = nameWords(rowName), sw = nameWords(studentName);
         for (const w of rw) { if (sw.has(w)) return true; }
