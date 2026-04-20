@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OLYMPUS RACE — TEST HARNESS</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; color: #fff; font-family: monospace; font-size: 13px; padding: 16px; }
+  h1 { color: #ffd700; font-size: 16px; margin-bottom: 8px; }
+  .warning { background: #8b0000; color: #fff; padding: 8px 12px; margin-bottom: 16px; border: 1px solid #ff4444; }
+  .info-bar { background: #111; border: 1px solid #ffd700; padding: 8px 12px; margin-bottom: 20px; color: #ffd700; }
+  .info-bar span { color: #fff; margin-right: 16px; }
+  .btn-group { border: 1px solid #333; margin-bottom: 12px; padding: 12px; }
+  .btn-group label { color: #ffd700; display: block; margin-bottom: 4px; font-weight: bold; }
+  .btn-group .endpoint { color: #888; font-size: 11px; margin-bottom: 8px; }
+  .btn-group .note { color: #666; font-size: 11px; margin-bottom: 6px; font-style: italic; }
+  .input-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .input-row input, .input-row select { background: #222; color: #fff; border: 1px solid #555; padding: 4px 8px; font-family: monospace; font-size: 12px; }
+  .input-row input[type=number] { width: 60px; }
+  .input-row input[type=text] { width: 200px; }
+  button.run { background: #1a1a00; color: #ffd700; border: 1px solid #ffd700; padding: 4px 16px; cursor: pointer; font-family: monospace; font-size: 12px; }
+  button.run:hover { background: #333300; }
+  pre.result { background: #0a0a0a; border: 1px solid #333; margin-top: 8px; padding: 8px; white-space: pre-wrap; word-break: break-all; font-size: 11px; min-height: 32px; max-height: 200px; overflow-y: auto; }
+  pre.result.error { border-color: #ff4444; color: #ff6666; }
+  pre.result.ok { border-color: #226622; }
+  #event-log { background: #050505; border: 1px solid #444; padding: 8px; white-space: pre-wrap; word-break: break-all; font-size: 11px; max-height: 300px; overflow-y: auto; }
+  .util-btns { margin: 8px 0 4px; display: flex; gap: 8px; }
+  button.util { background: #111; color: #aaa; border: 1px solid #555; padding: 4px 12px; cursor: pointer; font-family: monospace; font-size: 12px; }
+  button.util:hover { background: #222; }
+  button.util.logout { color: #ff6666; border-color: #aa3333; }
+  h2 { color: #ffd700; font-size: 13px; margin: 20px 0 6px; }
+  .seq-note { color: #888; font-size: 11px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<h1>OLYMPUS RACE — TEST HARNESS (Session 1 Verification)</h1>
+<div class="warning">⚠ This is a testing tool. Do not use with live student accounts. Use Test Period students only.</div>
+<div class="info-bar" id="info-bar">Loading student info…</div>
+
+<p class="seq-note">Buttons must be run IN ORDER — each phase gate requires the previous step to have completed successfully.</p>
+
+<!-- 1. GET STATE -->
+<div class="btn-group">
+  <label>1. GET STATE</label>
+  <div class="endpoint">GET /api/olympus/state</div>
+  <button class="run" onclick="runGetState('result1')">RUN</button>
+  <pre class="result" id="result1"></pre>
+</div>
+
+<!-- 2. GET PATHS FOR ROUND 1 -->
+<div class="btn-group">
+  <label>2. GET PATHS FOR ROUND 1</label>
+  <div class="endpoint">GET /api/olympus/paths/1</div>
+  <div class="note">Requires race to be started (teacher must run Start Race first, or use the start stub below)</div>
+  <button class="run" onclick="runGetPaths('result2')">RUN</button>
+  <pre class="result" id="result2"></pre>
+</div>
+
+<!-- 2b. START utility -->
+<div class="btn-group" style="border-color:#555;">
+  <label style="color:#aaa;">UTILITY — POST /api/olympus/start</label>
+  <div class="endpoint">POST /api/olympus/start  (no body required)</div>
+  <div class="note">Only needed if GET STATE returns null state. Teacher start-race is the real trigger.</div>
+  <button class="run" onclick="runStart('resultStart')">RUN</button>
+  <pre class="result" id="resultStart"></pre>
+</div>
+
+<!-- 3. MEDEA VOTE -->
+<div class="btn-group">
+  <label>3. MEDEA VOTE</label>
+  <div class="endpoint">POST /api/olympus/medea-vote</div>
+  <div class="input-row">
+    <select id="medea-choice">
+      <option value="accept">accept</option>
+      <option value="refuse">refuse</option>
+    </select>
+    <button class="run" onclick="runMedeaVote('result3')">RUN</button>
+  </div>
+  <pre class="result" id="result3"></pre>
+</div>
+
+<!-- 4. MEDEA COMMIT -->
+<div class="btn-group">
+  <label>4. MEDEA COMMIT</label>
+  <div class="endpoint">POST /api/olympus/medea-commit</div>
+  <div class="note">Requires majority vote from step 3. On a solo test student this will work immediately after one vote.</div>
+  <button class="run" onclick="runMedeaCommit('result4')">RUN</button>
+  <pre class="result" id="result4"></pre>
+</div>
+
+<!-- 5. PATH VOTE -->
+<div class="btn-group">
+  <label>5. PATH VOTE</label>
+  <div class="endpoint">POST /api/olympus/vote-path</div>
+  <div class="input-row">
+    <span>path_index (0–5):</span>
+    <input type="number" id="path-index" value="0" min="0" max="5">
+    <button class="run" onclick="runVotePath('result5')">RUN</button>
+  </div>
+  <pre class="result" id="result5"></pre>
+</div>
+
+<!-- 6. COMMIT PATH -->
+<div class="btn-group">
+  <label>6. COMMIT PATH</label>
+  <div class="endpoint">POST /api/olympus/commit-path</div>
+  <div class="note">Requires majority path vote. May return 409 if another alliance claimed the same path — try a different path_index in step 5.</div>
+  <button class="run" onclick="runCommitPath('result6')">RUN</button>
+  <pre class="result" id="result6"></pre>
+</div>
+
+<!-- 7. COMBAT RESOLVE -->
+<div class="btn-group">
+  <label>7. COMBAT RESOLVE</label>
+  <div class="endpoint">POST /api/olympus/combat-resolve</div>
+  <div class="note">⚠ REAL POINT DEDUCTION from live DB. Use Test Period only. Safe path = 0 deducted.</div>
+  <button class="run" onclick="runCombatResolve('result7')">RUN</button>
+  <pre class="result" id="result7"></pre>
+</div>
+
+<!-- 8. PUZZLE SUBMIT -->
+<div class="btn-group">
+  <label>8. PUZZLE SUBMIT (stub)</label>
+  <div class="endpoint">POST /api/olympus/puzzle-submit</div>
+  <div class="note">Server ignores the answer field in Round 1 stub — any value accepted, secret word "BOX" stored.</div>
+  <div class="input-row">
+    <span>answer:</span>
+    <input type="text" id="puzzle-answer" value="test_answer">
+    <button class="run" onclick="runPuzzleSubmit('result8')">RUN</button>
+  </div>
+  <pre class="result" id="result8"></pre>
+</div>
+
+<!-- 9. GOD TEST SUBMIT -->
+<div class="btn-group">
+  <label>9. GOD TEST SUBMIT (stub)</label>
+  <div class="endpoint">POST /api/olympus/godtest-submit</div>
+  <div class="note">No body required. Stub passes automatically and advances to Round 2.</div>
+  <button class="run" onclick="runGodtestSubmit('result9')">RUN</button>
+  <pre class="result" id="result9"></pre>
+</div>
+
+<!-- 10. GET STATE final -->
+<div class="btn-group">
+  <label>10. GET STATE (final verification)</label>
+  <div class="endpoint">GET /api/olympus/state</div>
+  <div class="note">Expected: current_round=2, current_phase='path_choice'. Changes vs step 1 highlighted below.</div>
+  <button class="run" onclick="runGetStateFinal('result10')">RUN</button>
+  <pre class="result" id="result10"></pre>
+</div>
+
+<h2>EVENT LOG</h2>
+<div class="util-btns">
+  <button class="util" onclick="clearLog()">CLEAR LOG</button>
+  <button class="util" onclick="copyLog()">COPY LOG TO CLIPBOARD</button>
+  <button class="util logout" onclick="logout()">LOGOUT</button>
+</div>
+<pre id="event-log">(no events yet)</pre>
+
+<script>
+const API_URL = '/api';
+const token = localStorage.getItem('token');
+if (!token) {
+  document.body.innerHTML = '<h1 style="color:#ffd700;font-family:monospace;padding:20px;">NOT LOGGED IN</h1><a href="/" style="color:#aaa;font-family:monospace;padding:20px;display:block;">Go to login</a>';
+  throw new Error('No token');
+}
+const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+let firstStateSnapshot = null;
+let logLines = [];
+
+function ts() { return new Date().toISOString().substr(11, 12); }
+
+function appendLog(entry) {
+  logLines.unshift(entry);
+  document.getElementById('event-log').textContent = logLines.join('\n\n---\n\n');
+}
+
+function setResult(id, text, isError) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'result ' + (isError ? 'error' : 'ok');
+}
+
+async function call(method, url, body, resultId, label) {
+  const fullUrl = API_URL + url;
+  const opts = { method, headers };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const reqStr = `REQUEST: ${method} ${fullUrl}\n` + (body !== undefined ? `BODY: ${JSON.stringify(body, null, 2)}\n` : '');
+  const t0 = Date.now();
+  try {
+    const resp = await fetch(fullUrl, opts);
+    const ms = Date.now() - t0;
+    let data;
+    try { data = await resp.json(); } catch(e) { data = { raw: await resp.text() }; }
+    const resStr = `RESPONSE: ${resp.status}\n${JSON.stringify(data, null, 2)}`;
+    const timeStr = `TIME: ${ms}ms`;
+    const full = `[${ts()}] ${label}\n${reqStr}${resStr}\n${timeStr}`;
+    setResult(resultId, `${reqStr}${resStr}\n${timeStr}`, !resp.ok);
+    appendLog(full);
+    return { ok: resp.ok, status: resp.status, data };
+  } catch(e) {
+    const full = `[${ts()}] ${label}\nNETWORK ERROR: ${e.message}`;
+    setResult(resultId, `NETWORK ERROR: ${e.message}`, true);
+    appendLog(full);
+    return { ok: false, error: e.message };
+  }
+}
+
+async function loadInfoBar() {
+  try {
+    const resp = await fetch(API_URL + '/olympus/state', { headers });
+    if (!resp.ok) { document.getElementById('info-bar').textContent = 'Could not load student info (not logged in as student?)'; return; }
+    const d = await resp.json();
+    const a = d.alliance || {};
+    const s = d.state || {};
+    document.getElementById('info-bar').innerHTML =
+      `<span>Student: ${a.student_name || '?'}</span>` +
+      `<span>Alliance: ${a.alliance_name || '?'} (id:${a.alliance_id || '?'})</span>` +
+      `<span>Period: ${a.class_period || '?'}</span>` +
+      `<span>Points: ${a.total_points ?? '?'}</span>` +
+      `<span>Round: ${s.current_round ?? '—'}</span>` +
+      `<span>Phase: ${s.current_phase || '—'}</span>`;
+  } catch(e) {
+    document.getElementById('info-bar').textContent = 'Info bar error: ' + e.message;
+  }
+}
+
+async function runGetState(rid) {
+  const r = await call('GET', '/olympus/state', undefined, rid, 'GET STATE');
+  if (r.ok && !firstStateSnapshot) firstStateSnapshot = r.data;
+  if (r.ok) loadInfoBar();
+}
+
+async function runGetPaths(rid) {
+  await call('GET', '/olympus/paths/1', undefined, rid, 'GET PATHS ROUND 1');
+}
+
+async function runStart(rid) {
+  await call('POST', '/olympus/start', {}, rid, 'START (utility)');
+  loadInfoBar();
+}
+
+async function runMedeaVote(rid) {
+  const choice = document.getElementById('medea-choice').value;
+  await call('POST', '/olympus/medea-vote', { choice }, rid, `MEDEA VOTE (${choice})`);
+}
+
+async function runMedeaCommit(rid) {
+  await call('POST', '/olympus/medea-commit', {}, rid, 'MEDEA COMMIT');
+  loadInfoBar();
+}
+
+async function runVotePath(rid) {
+  const path_index = parseInt(document.getElementById('path-index').value);
+  await call('POST', '/olympus/vote-path', { path_index }, rid, `VOTE PATH (index:${path_index})`);
+}
+
+async function runCommitPath(rid) {
+  await call('POST', '/olympus/commit-path', {}, rid, 'COMMIT PATH');
+  loadInfoBar();
+}
+
+async function runCombatResolve(rid) {
+  await call('POST', '/olympus/combat-resolve', {}, rid, 'COMBAT RESOLVE');
+  loadInfoBar();
+}
+
+async function runPuzzleSubmit(rid) {
+  const answer = document.getElementById('puzzle-answer').value;
+  await call('POST', '/olympus/puzzle-submit', { answer }, rid, `PUZZLE SUBMIT (answer:"${answer}")`);
+  loadInfoBar();
+}
+
+async function runGodtestSubmit(rid) {
+  await call('POST', '/olympus/godtest-submit', {}, rid, 'GOD TEST SUBMIT');
+  loadInfoBar();
+}
+
+async function runGetStateFinal(rid) {
+  const r = await call('GET', '/olympus/state', undefined, rid, 'GET STATE (final)');
+  if (r.ok && firstStateSnapshot) {
+    const before = firstStateSnapshot.state || {};
+    const after = r.data.state || {};
+    const changes = [];
+    ['current_round','current_phase','secret_words','god_test_results','phoenix_feather_used','hades_visits']
+      .forEach(k => {
+        const bv = JSON.stringify(before[k]);
+        const av = JSON.stringify(after[k]);
+        if (bv !== av) changes.push(`  ${k}: ${bv} → ${av}`);
+      });
+    const note = changes.length
+      ? '\n\n=== CHANGES VS STEP 1 ===\n' + changes.join('\n')
+      : '\n\n=== NO STATE CHANGES DETECTED ===';
+    document.getElementById(rid).textContent += note;
+  }
+}
+
+function clearLog() {
+  logLines = [];
+  document.getElementById('event-log').textContent = '(log cleared)';
+}
+
+async function copyLog() {
+  const text = document.getElementById('event-log').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Log copied to clipboard.');
+  } catch(e) {
+    alert('Copy failed: ' + e.message);
+  }
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  window.location.href = '/';
+}
+
+loadInfoBar();
+</script>
+</body>
+</html>
