@@ -15871,14 +15871,13 @@ app.get('/api/olympus/teacher/diagnostic', authenticateToken, (req, res) => {
     );
     const result = alliances.map(al => {
       const members = query(
-        `SELECT student_id, name, lore, craft, cunning, honor, is_ghost
+        `SELECT student_id, name, is_ghost
          FROM students
          WHERE alliance_id = ?`,
         [al.alliance_id]
       );
-      const missing_stats = members.filter(m => !m.is_ghost && (!m.lore && !m.craft && !m.cunning && !m.honor));
       const ghosts = members.filter(m => m.is_ghost);
-      return { ...al, members, missing_stats, ghost_count: ghosts.length };
+      return { ...al, members, ghost_count: ghosts.length };
     });
     res.json({ period, alliances: result });
   } catch(e) {
