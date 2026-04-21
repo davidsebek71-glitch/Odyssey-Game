@@ -61,8 +61,8 @@
     text-align:center;
   }
   .medea-title { font-family:'Cinzel Decorative',serif; font-size:2.2rem; color:var(--bright-gold); margin-bottom:10px; }
-  .medea-subtitle { font-family:'Cinzel',serif; font-size:0.9rem; letter-spacing:0.2em; color:rgba(192,160,240,0.7); margin-bottom:28px; }
-  .medea-text { font-family:'Cinzel',serif; font-style:normal; color:#e8d5a0; line-height:2; font-size:1.15rem; margin-bottom:36px; font-weight:400; }
+  .medea-subtitle { font-family:'Cinzel',serif; font-size:0.8rem; letter-spacing:0.2em; color:rgba(192,160,240,0.7); margin-bottom:24px; }
+  .medea-text { font-family:'Cinzel',serif; font-style:normal; color:#e8d5a0; line-height:2; font-size:1.15rem; margin-bottom:36px; }
   .vote-options { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
   .vote-btn {
     font-family:'Cinzel',serif;
@@ -107,19 +107,19 @@
   .path-card.safe { border-color:rgba(74,138,74,0.4); }
   .path-card.committed-by-us { border-color:#4a8a4a; background:rgba(26,74,26,0.2); pointer-events:none; }
 
-  .path-name { font-family:'Cinzel',serif; font-size:1.25rem; color:var(--pale-gold); text-align:center; padding:10px 0; font-weight:600; letter-spacing:0.05em; }
+  .path-name { font-family:'Cinzel',serif; font-size:1.2rem; color:var(--pale-gold); text-align:center; padding:8px 0; font-weight:600; letter-spacing:0.05em; }
   .path-god { display:none; }
   .path-attack { display:none; }
   .path-hook { display:none; }
-  .path-claimed { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#e07070; letter-spacing:0.1em; }
-  .path-safe-badge { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#8ae08a; letter-spacing:0.1em; }
-  .path-vote-count { font-family:'Cinzel',serif; font-size:0.7rem; color:rgba(192,160,240,0.7); margin-top:8px; text-align:center; }
-  /* Reveal details only after selection */
+  /* Reveal on selection */
   .path-card.selected .path-god { display:block; font-size:0.78rem; color:var(--stone); margin-top:8px; font-family:'Cinzel',serif; text-align:center; }
   .path-card.selected .path-attack { display:block; font-size:0.82rem; font-family:'Cinzel',serif; text-align:center; margin-top:4px; }
   .path-card.selected .path-attack.danger { color:#e07070; }
   .path-card.selected .path-attack.safe-label { color:#8ae08a; }
   .path-card.selected .path-hook { display:block; font-style:italic; font-size:0.82rem; color:rgba(240,208,96,0.6); margin-top:8px; line-height:1.5; text-align:center; }
+  .path-claimed { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#e07070; letter-spacing:0.1em; }
+  .path-safe-badge { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#8ae08a; letter-spacing:0.1em; }
+  .path-vote-count { font-family:'Cinzel',serif; font-size:0.7rem; color:rgba(192,160,240,0.7); margin-top:8px; }
 
   .paths-actions { text-align:center; padding:16px 20px 32px; }
   .btn-commit { font-family:'Cinzel',serif; font-size:0.9rem; letter-spacing:0.1em; padding:13px 40px; background:linear-gradient(135deg,#b8860b,#8b6400); color:#fff8e0; border:none; border-radius:4px; cursor:pointer; transition:all 0.2s; }
@@ -147,10 +147,6 @@
   .btn-fight { font-family:'Cinzel',serif; font-size:0.95rem; letter-spacing:0.1em; padding:14px 48px; background:linear-gradient(135deg,#8b1a1a,#5a0a0a); color:#ffd0d0; border:1px solid rgba(224,112,112,0.4); border-radius:4px; cursor:pointer; transition:all 0.2s; }
   .btn-fight:hover { background:linear-gradient(135deg,#aa2222,#8b1a1a); }
   .btn-fight:disabled { opacity:0.35; cursor:not-allowed; }
-
-  /* ── OLYMPUS RACE BUTTON BANNER FALLBACK ── */
-  /* When the purple banner image doesn't exist, render a proper styled banner */
-  #screen-paths .path-card:not(.locked):not(.selected):hover .path-name { color:var(--bright-gold); }
 
   /* ── WAITING SCREEN ── */
   #screen-waiting {
@@ -352,6 +348,11 @@ function routeToPhase(phase, round) {
       showPathChoice(round);
       break;
 
+    case 'medea_waiting':
+      showWaiting('Waiting for alliance vote…', 'Your vote is in. Waiting for your teammates.', phase);
+      startPolling();
+      break;
+
     case 'path_waiting':
       showWaiting('Waiting for alliance vote…', 'Your path vote is in. Waiting for your teammates.', phase);
       startPolling();
@@ -422,7 +423,7 @@ async function castMedeaVote(choice) {
   document.getElementById('medea-vote-status').textContent = 'Casting vote…';
 
   try {
-    // Step 1: Cast the vote
+    // Step 1: Cast vote
     const res = await fetch('/api/olympus/medea-vote', {
       method:'POST', headers:H, body:JSON.stringify({ choice })
     });
@@ -434,7 +435,7 @@ async function castMedeaVote(choice) {
       return;
     }
 
-    // Step 2: Try to commit (works immediately if majority reached)
+    // Step 2: Try commit immediately (works for solo)
     const commitRes = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
     const commitData = await commitRes.json();
 
@@ -445,23 +446,25 @@ async function castMedeaVote(choice) {
       return;
     }
 
-    // Step 3: Majority not reached yet — show waiting but keep phase as 'opening'
-    // DO NOT fake a new phase — server needs phase to stay 'opening' for commit to work
+    // Step 3: Majority not reached — stay on Medea screen, poll for commit
+    // IMPORTANT: do NOT change phase or call showWaiting — server needs phase='opening' to commit
     const tally = data.tally || [];
-    const voteCount = tally.reduce((s, v) => s + (v.cnt || 0), 0);
+    const voteCount = tally.reduce(function(s, v) { return s + (v.cnt || 0); }, 0);
     document.getElementById('medea-vote-status').innerHTML =
-      `<span style="color:rgba(192,160,240,0.8);">Your vote is in (${voteCount} voted). Waiting for teammates…<span class="poll-dot"></span></span>`;
+      '<span style="color:rgba(192,160,240,0.9); font-family:Cinzel,serif; font-size:0.85rem;">' +
+      'Your vote is in (' + voteCount + ' voted). Waiting for teammates…' +
+      '<span class="poll-dot"></span></span>';
 
-    // Poll for the commit — try commit every 3s while waiting
+    // Poll: try commit every 3s — server will succeed once majority is reached
     stopPolling();
-    pollTimer = setInterval(async () => {
+    pollTimer = setInterval(async function() {
       try {
         const tryCommit = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
         const tryData = await tryCommit.json();
         if (tryData.committed) {
           stopPolling();
           await loadState();
-          showPathChoice(raceState.current_round || 1);
+          showPathChoice(raceState ? raceState.current_round || 1 : 1);
         }
       } catch(e) {}
     }, 3000);
@@ -741,14 +744,13 @@ function showWaiting(title, sub, phase) {
 
 function startPolling() {
   stopPolling();
-  let lastPhase = raceState ? raceState.current_phase : null;
-  let lastRound = raceState ? raceState.current_round : null;
-  pollTimer = setInterval(async () => {
+  var lastPhase = raceState ? raceState.current_phase : null;
+  var lastRound = raceState ? raceState.current_round : null;
+  pollTimer = setInterval(async function() {
     const data = await loadState();
     if (data && raceState) {
       const phase = raceState.current_phase;
       const round = raceState.current_round;
-      // Only re-route if phase actually changed
       if (phase !== lastPhase || round !== lastRound) {
         lastPhase = phase;
         lastRound = round;
