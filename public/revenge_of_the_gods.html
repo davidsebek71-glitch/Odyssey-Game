@@ -352,11 +352,6 @@ function routeToPhase(phase, round) {
       showPathChoice(round);
       break;
 
-    case 'medea_waiting':
-      showWaiting('Waiting for alliance vote…', 'Your vote is in. Waiting for your teammates.', phase);
-      startPolling();
-      break;
-
     case 'path_waiting':
       showWaiting('Waiting for alliance vote…', 'Your path vote is in. Waiting for your teammates.', phase);
       startPolling();
@@ -427,6 +422,7 @@ async function castMedeaVote(choice) {
   document.getElementById('medea-vote-status').textContent = 'Casting vote…';
 
   try {
+    // Step 1: Cast the vote
     const res = await fetch('/api/olympus/medea-vote', {
       method:'POST', headers:H, body:JSON.stringify({ choice })
     });
@@ -438,20 +434,38 @@ async function castMedeaVote(choice) {
       return;
     }
 
-    // Try to commit immediately (works for solo alliances)
+    // Step 2: Try to commit (works immediately if majority reached)
     const commitRes = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
     const commitData = await commitRes.json();
 
     if (commitData.committed) {
-      document.getElementById('medea-vote-status').innerHTML = '<span class="vote-committed">✓ Vote committed — entering the race…</span>';
+      document.getElementById('medea-vote-status').innerHTML = '<span class="vote-committed">✓ Decided — entering the race…</span>';
       await loadState();
       setTimeout(() => showPathChoice(1), 1200);
-    } else {
-      // Need more votes — show waiting
-      document.getElementById('medea-vote-status').textContent = `Your vote is in (${data.tally?.[0]?.cnt || 1} of ${data.tally?.[0]?.cnt || '?'} needed). Waiting for teammates…`;
-      showWaiting('Waiting for Alliance', 'Your Medea vote is in. Waiting for teammates to vote.', 'medea_waiting');
-      startPolling();
+      return;
     }
+
+    // Step 3: Majority not reached yet — show waiting but keep phase as 'opening'
+    // DO NOT fake a new phase — server needs phase to stay 'opening' for commit to work
+    const tally = data.tally || [];
+    const voteCount = tally.reduce((s, v) => s + (v.cnt || 0), 0);
+    document.getElementById('medea-vote-status').innerHTML =
+      `<span style="color:rgba(192,160,240,0.8);">Your vote is in (${voteCount} voted). Waiting for teammates…<span class="poll-dot"></span></span>`;
+
+    // Poll for the commit — try commit every 3s while waiting
+    stopPolling();
+    pollTimer = setInterval(async () => {
+      try {
+        const tryCommit = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
+        const tryData = await tryCommit.json();
+        if (tryData.committed) {
+          stopPolling();
+          await loadState();
+          showPathChoice(raceState.current_round || 1);
+        }
+      } catch(e) {}
+    }, 3000);
+
   } catch(e) {
     document.getElementById('medea-vote-status').textContent = 'Error: ' + e.message;
     document.querySelector('.vote-options').style.pointerEvents = '';
