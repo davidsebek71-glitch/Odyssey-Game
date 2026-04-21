@@ -16166,6 +16166,112 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
 // END REVENGE OF THE GODS
 // ============================================================
 
+// ============================================================
+// EMERGENCY SPAM CLEANUP ENDPOINTS
+// ============================================================
+
+// Step 1: Diagnose — read-only, shows what WOULD be deleted
+app.get('/api/teacher/spam-diagnose', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
+
+  const { student_name, target_date, spam_pattern } = req.query;
+  if (!student_name || !target_date) return res.status(400).json({ error: 'student_name and target_date required' });
+
+  try {
+    const studentRows = query(
+      `SELECT student_id, name, class_period FROM students WHERE LOWER(name) LIKE LOWER(?) AND (is_ghost = 0 OR is_ghost IS NULL)`,
+      [`%${student_name}%`]
+    );
+    if (!studentRows.length) return res.json({ spam_count: 0, safe_count: 0, student_name: null, preview: [] });
+
+    const student = studentRows[0];
+    const sid = student.student_id;
+
+    const allToday = query(
+      `SELECT id, category, notes, submitted_at FROM point_submissions
+       WHERE student_id = ? AND DATE(submitted_at) = DATE(?)
+       ORDER BY submitted_at DESC`,
+      [sid, target_date]
+    );
+
+    const patternLower = (spam_pattern || '').toLowerCase();
+    const spam = allToday.filter(r =>
+      !patternLower || (r.notes || '').toLowerCase().includes(patternLower)
+    );
+    const safe = allToday.filter(r =>
+      patternLower && !(r.notes || '').toLowerCase().includes(patternLower)
+    );
+
+    res.json({
+      student_id: sid,
+      student_name: student.name,
+      period: student.class_period,
+      target_date,
+      spam_count: spam.length,
+      safe_count: safe.length,
+      preview: spam.slice(0, 10).map(r => ({
+        id: r.id,
+        category: r.category,
+        notes: r.notes,
+        submitted_at: r.submitted_at
+      }))
+    });
+  } catch (e) {
+    console.error('[SPAM-DIAGNOSE] error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Step 2: Delete — permanently removes spam submissions
+app.post('/api/teacher/spam-delete', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
+
+  const { student_name, target_date, spam_pattern } = req.body;
+  if (!student_name || !target_date) return res.status(400).json({ error: 'student_name and target_date required' });
+
+  try {
+    const studentRows = query(
+      `SELECT student_id, name FROM students WHERE LOWER(name) LIKE LOWER(?) AND (is_ghost = 0 OR is_ghost IS NULL)`,
+      [`%${student_name}%`]
+    );
+    if (!studentRows.length) return res.json({ deleted_count: 0, safe_count: 0 });
+
+    const sid = studentRows[0].student_id;
+    const patternLower = (spam_pattern || '').toLowerCase();
+
+    const allToday = query(
+      `SELECT id, notes FROM point_submissions WHERE student_id = ? AND DATE(submitted_at) = DATE(?)`,
+      [sid, target_date]
+    );
+
+    const spamIds = allToday
+      .filter(r => !patternLower || (r.notes || '').toLowerCase().includes(patternLower))
+      .map(r => r.id);
+
+    const safeCount = allToday.length - spamIds.length;
+
+    if (spamIds.length > 0) {
+      const chunkSize = 100;
+      for (let i = 0; i < spamIds.length; i += chunkSize) {
+        const chunk = spamIds.slice(i, i + chunkSize);
+        const placeholders = chunk.map(() => '?').join(',');
+        run(`DELETE FROM point_submissions WHERE id IN (${placeholders})`, chunk);
+      }
+      saveDatabase();
+    }
+
+    console.log(`[SPAM-CLEANUP] Deleted ${spamIds.length} spam submissions from ${studentRows[0].name} (id:${sid}) on ${target_date}`);
+    res.json({ deleted_count: spamIds.length, safe_count: safeCount });
+  } catch (e) {
+    console.error('[SPAM-DELETE] error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// END EMERGENCY SPAM CLEANUP
+// ============================================================
+
 app.listen(PORT, () => {
   console.log(`\n🏛️  ODYSSEY TO OLYMPUS SERVER RUNNING 🏛️`);
   console.log(`\n📍 Server: http://localhost:${PORT}`);
