@@ -16178,29 +16178,31 @@ app.get('/api/teacher/spam-diagnose', authenticateToken, (req, res) => {
   if (!student_name || !target_date) return res.status(400).json({ error: 'student_name and target_date required' });
 
   try {
+    // Inspect actual schema so we never guess column names
+    const schemaRows = query(`PRAGMA table_info(point_submissions)`, []);
+    const columnNames = schemaRows.map(r => r.name);
+    const pkCol = columnNames.includes('submission_id') ? 'submission_id' : columnNames.includes('id') ? 'id' : columnNames[0];
+    const notesCol = columnNames.includes('notes') ? 'notes' : columnNames.includes('description') ? 'description' : null;
+    const tsCol = columnNames.includes('submitted_at') ? 'submitted_at' : columnNames.includes('created_at') ? 'created_at' : columnNames.includes('timestamp') ? 'timestamp' : null;
+
     const studentRows = query(
       `SELECT student_id, name, class_period FROM students WHERE LOWER(name) LIKE LOWER(?) AND (is_ghost = 0 OR is_ghost IS NULL)`,
       [`%${student_name}%`]
     );
-    if (!studentRows.length) return res.json({ spam_count: 0, safe_count: 0, student_name: null, preview: [] });
+    if (!studentRows.length) return res.json({ spam_count: 0, safe_count: 0, student_name: null, preview: [], debug_columns: columnNames });
 
     const student = studentRows[0];
     const sid = student.student_id;
 
-    const allToday = query(
-      `SELECT submission_id, category, notes, submitted_at FROM point_submissions
-       WHERE student_id = ? AND DATE(submitted_at) = DATE(?)
-       ORDER BY submitted_at DESC`,
-      [sid, target_date]
-    );
+    const allToday = tsCol
+      ? query(`SELECT * FROM point_submissions WHERE student_id = ? AND DATE(${tsCol}) = DATE(?) ORDER BY ${tsCol} DESC`, [sid, target_date])
+      : query(`SELECT * FROM point_submissions WHERE student_id = ?`, [sid]);
 
     const patternLower = (spam_pattern || '').toLowerCase();
-    const spam = allToday.filter(r =>
-      !patternLower || (r.notes || '').toLowerCase().includes(patternLower)
-    );
-    const safe = allToday.filter(r =>
-      patternLower && !(r.notes || '').toLowerCase().includes(patternLower)
-    );
+    const noteVal = (r) => (notesCol ? (r[notesCol] || '') : '');
+
+    const spam = allToday.filter(r => !patternLower || noteVal(r).toLowerCase().includes(patternLower));
+    const safe = allToday.filter(r => patternLower && !noteVal(r).toLowerCase().includes(patternLower));
 
     res.json({
       student_id: sid,
@@ -16209,11 +16211,12 @@ app.get('/api/teacher/spam-diagnose', authenticateToken, (req, res) => {
       target_date,
       spam_count: spam.length,
       safe_count: safe.length,
+      debug_columns: columnNames,
       preview: spam.slice(0, 10).map(r => ({
-        id: r.submission_id,
-        category: r.category,
-        notes: r.notes,
-        submitted_at: r.submitted_at
+        id: r[pkCol],
+        category: r.category || '',
+        notes: noteVal(r),
+        submitted_at: tsCol ? r[tsCol] : ''
       }))
     });
   } catch (e) {
@@ -16240,12 +16243,12 @@ app.post('/api/teacher/spam-delete', authenticateToken, (req, res) => {
     const patternLower = (spam_pattern || '').toLowerCase();
 
     const allToday = query(
-      `SELECT submission_id, notes FROM point_submissions WHERE student_id = ? AND DATE(submitted_at) = DATE(?)`,
+      `SELECT submission_id, description FROM point_submissions WHERE student_id = ? AND DATE(submitted_at) = DATE(?)`,
       [sid, target_date]
     );
 
     const spamIds = allToday
-      .filter(r => !patternLower || (r.notes || '').toLowerCase().includes(patternLower))
+      .filter(r => !patternLower || (r.description || '').toLowerCase().includes(patternLower))
       .map(r => r.submission_id);
 
     const safeCount = allToday.length - spamIds.length;
