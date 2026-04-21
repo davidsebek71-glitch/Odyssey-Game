@@ -118,7 +118,6 @@
   .path-card.selected .path-attack.safe-label { color:#8ae08a; }
   .path-card.selected .path-hook { display:block; font-style:italic; font-size:0.82rem; color:rgba(240,208,96,0.6); margin-top:8px; line-height:1.5; text-align:center; }
   .path-claimed { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#e07070; letter-spacing:0.1em; }
-  .path-safe-badge { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#8ae08a; letter-spacing:0.1em; }
   .path-vote-count { font-family:'Cinzel',serif; font-size:0.7rem; color:rgba(192,160,240,0.7); margin-top:8px; }
 
   .paths-actions { text-align:center; padding:16px 20px 32px; }
@@ -129,24 +128,77 @@
 
   /* ── COMBAT SCREEN ── */
   #screen-combat {
-    background: radial-gradient(ellipse at 50% 30%, rgba(139,26,26,0.4) 0%, var(--deep) 60%);
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(180,20,20,0.5) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(80,0,0,0.6) 0%, transparent 60%),
+      linear-gradient(180deg, #050000 0%, #120000 40%, #080000 100%);
     align-items:center;
     justify-content:center;
   }
-  .combat-card { max-width:580px; width:100%; padding:40px 32px; text-align:center; }
-  .combat-god { font-family:'Cinzel Decorative',serif; font-size:2rem; color:#e07070; margin-bottom:8px; text-shadow:0 0 30px rgba(224,112,112,0.5); }
-  .combat-hook { font-style:italic; color:var(--pale-gold); line-height:1.8; font-size:1rem; margin:16px 0; }
-  .combat-attack { font-family:'Cinzel',serif; font-size:1.1rem; color:#e07070; margin-bottom:24px; }
-  .combat-points-before { font-family:'Cinzel',serif; font-size:0.85rem; color:var(--stone); margin-bottom:8px; }
-  .combat-result-box { background:rgba(10,10,20,0.8); border:1px solid rgba(184,134,11,0.3); border-radius:6px; padding:20px; margin:20px 0; display:none; }
-  .combat-result-box.show { display:block; animation:fadeIn 0.5s ease; }
-  .combat-deducted { font-family:'Cinzel',serif; font-size:1.4rem; color:#e07070; margin-bottom:6px; }
-  .combat-remaining { font-family:'Cinzel',serif; font-size:1rem; color:var(--pale-gold); }
-  .combat-safe-msg { font-family:'Cinzel',serif; font-size:1.1rem; color:#8ae08a; }
+  .combat-phase { width:100%; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .combat-story-card { max-width:680px; width:100%; padding:50px 40px; text-align:center; }
+  .combat-god-title {
+    font-family:'Cinzel Decorative',serif;
+    font-size:clamp(2rem,5vw,3.2rem);
+    color:#e07070;
+    margin-bottom:6px;
+    text-shadow: 0 0 40px rgba(220,60,60,0.7), 0 0 80px rgba(180,20,20,0.3);
+    animation: godPulse 3s ease-in-out infinite alternate;
+  }
+  @keyframes godPulse {
+    from { text-shadow: 0 0 30px rgba(220,60,60,0.6), 0 0 60px rgba(180,20,20,0.2); }
+    to   { text-shadow: 0 0 60px rgba(220,60,60,0.9), 0 0 100px rgba(220,60,60,0.4); }
+  }
+  .combat-power-label {
+    font-family:'Cinzel',serif; font-size:0.8rem; letter-spacing:0.3em;
+    color:rgba(224,112,112,0.6); text-transform:uppercase; margin-bottom:12px;
+  }
+  .combat-story-lines { margin:20px 0 16px; }
+  .combat-story-line {
+    font-family:'Cinzel',serif;
+    font-size:1.05rem;
+    color:#e8d5a0;
+    line-height:1.9;
+    margin-bottom:10px;
+    opacity:0;
+    transform:translateY(8px);
+    transition:opacity 0.6s ease, transform 0.6s ease;
+  }
+  .combat-story-line.reveal { opacity:1; transform:translateY(0); }
+  .combat-story-line.dramatic {
+    font-size:1.3rem;
+    color:#ff9999;
+    font-weight:600;
+    letter-spacing:0.05em;
+    margin:16px 0;
+  }
+  .combat-roll-line {
+    font-family:'Cinzel',serif;
+    font-size:0.95rem;
+    color:rgba(224,112,112,0.8);
+    font-style:italic;
+    margin:20px 0 28px;
+    opacity:0;
+    transition:opacity 0.6s ease;
+  }
+  .combat-roll-line.reveal { opacity:1; }
+  .combat-result-box { background:rgba(5,0,0,0.85); border:1px solid rgba(224,112,112,0.3); border-radius:6px; padding:28px; margin:20px 0; animation:fadeIn 0.8s ease; }
+  .combat-deducted { font-family:'Cinzel Decorative',serif; font-size:2.4rem; color:#ff6060; margin-bottom:10px; text-shadow:0 0 20px rgba(255,80,80,0.5); }
+  .combat-remaining { font-family:'Cinzel',serif; font-size:1.1rem; color:var(--pale-gold); }
+  .combat-safe-msg { font-family:'Cinzel',serif; font-size:1.2rem; color:#8ae08a; }
   .combat-hades { color:#c0a0f0; font-style:italic; }
-  .btn-fight { font-family:'Cinzel',serif; font-size:0.95rem; letter-spacing:0.1em; padding:14px 48px; background:linear-gradient(135deg,#8b1a1a,#5a0a0a); color:#ffd0d0; border:1px solid rgba(224,112,112,0.4); border-radius:4px; cursor:pointer; transition:all 0.2s; }
-  .btn-fight:hover { background:linear-gradient(135deg,#aa2222,#8b1a1a); }
-  .btn-fight:disabled { opacity:0.35; cursor:not-allowed; }
+  .btn-fight {
+    font-family:'Cinzel',serif; font-size:1rem; letter-spacing:0.15em;
+    padding:15px 52px;
+    background:linear-gradient(135deg,#8b1a1a,#5a0a0a);
+    color:#ffd0d0; border:1px solid rgba(224,112,112,0.5);
+    border-radius:4px; cursor:pointer; transition:all 0.2s;
+    box-shadow:0 4px 20px rgba(139,0,0,0.4);
+    opacity:0; transition:opacity 0.6s ease, background 0.2s, box-shadow 0.2s;
+  }
+  .btn-fight.reveal { opacity:1; }
+  .btn-fight:hover { background:linear-gradient(135deg,#aa2222,#8b1a1a); box-shadow:0 6px 28px rgba(180,0,0,0.6); }
+  .btn-fight:disabled { opacity:0.3 !important; cursor:not-allowed; }
 
   /* ── WAITING SCREEN ── */
   #screen-waiting {
@@ -238,19 +290,29 @@
 
 <!-- ══ SCREEN: COMBAT ════════════════════════════════════════════ -->
 <div class="screen" id="screen-combat">
-  <div class="combat-card">
-    <div class="combat-god" id="combat-god-name">Artemis</div>
-    <div class="gold-divider"></div>
-    <div class="combat-hook" id="combat-hook"></div>
-    <div class="combat-attack" id="combat-attack-val"></div>
-    <div class="combat-points-before" id="combat-pts-before"></div>
-    <button class="btn-fight" id="fight-btn" onclick="resolveCombat()">Defend Your Alliance</button>
-    <div class="combat-result-box" id="combat-result">
-      <div class="combat-deducted" id="combat-deducted"></div>
-      <div class="combat-remaining" id="combat-remaining"></div>
+  <!-- Phase 1: Story -->
+  <div id="combat-story-phase" class="combat-phase">
+    <div class="combat-story-card">
+      <div class="combat-god-title" id="combat-god-name">Artemis</div>
+      <div class="combat-power-label" id="combat-power-name"></div>
+      <div class="gold-divider"></div>
+      <div class="combat-story-lines" id="combat-story-lines"></div>
+      <div class="combat-roll-line" id="combat-roll-line"></div>
+      <button class="btn-fight" id="fight-btn" onclick="resolveCombat()">Roll to Defend →</button>
     </div>
-    <div style="margin-top:20px; display:none;" id="combat-continue-wrap">
-      <button class="btn-commit" onclick="proceedToPuzzle()">Enter the Puzzle Chamber →</button>
+  </div>
+  <!-- Phase 2: Resolution -->
+  <div id="combat-result-phase" class="combat-phase" style="display:none;">
+    <div class="combat-story-card">
+      <div class="combat-god-title" id="combat-result-god"></div>
+      <div class="gold-divider"></div>
+      <div class="combat-result-box show" id="combat-result">
+        <div class="combat-deducted" id="combat-deducted"></div>
+        <div class="combat-remaining" id="combat-remaining"></div>
+      </div>
+      <div id="combat-continue-wrap" style="margin-top:24px;">
+        <button class="btn-commit" onclick="proceedToPuzzle()">Enter the Puzzle Chamber →</button>
+      </div>
     </div>
   </div>
 </div>
@@ -509,36 +571,23 @@ function renderPaths(paths, round) {
 
   paths.forEach(path => {
     const card = document.createElement('div');
-    card.className = 'path-card' + (path.locked ? ' locked' : '') + (path.safe ? ' safe' : '');
-
-    let attackHtml = '';
-    if (path.safe) {
-      attackHtml = '<div class="path-attack safe-label">⚡ Safe Path — No Combat</div>';
-    } else if (path.locked) {
-      attackHtml = `<div class="path-attack danger">⚔ ${path.attack} point attack</div>`;
-    } else {
-      attackHtml = `<div class="path-attack danger">⚔ ${path.attack} point attack</div>`;
-    }
+    card.className = 'path-card' + (path.locked ? ' locked' : '');
 
     card.innerHTML = `
-      ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by || 'Claimed'}</div>` : ''}
-      ${path.safe && !path.locked ? '<div class="path-safe-badge">✦ SAFE</div>' : ''}
+      ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
       <div class="path-name">${path.label}</div>
-      <div class="path-god">${path.god ? `God: ${path.god}` : 'No encounter'}</div>
-      ${attackHtml}
-      <div class="path-hook">${path.hook || ''}</div>
       <div class="path-vote-count" id="path-votes-${path.idx}"></div>
     `;
 
     if (!path.locked) {
-      card.onclick = () => selectPath(path.idx, card, path.safe);
+      card.onclick = () => selectPath(path.idx, card);
     }
 
     grid.appendChild(card);
   });
 }
 
-function selectPath(idx, cardEl, isSafe) {
+function selectPath(idx, cardEl) {
   // Deselect all
   document.querySelectorAll('.path-card').forEach(c => c.classList.remove('selected'));
   cardEl.classList.add('selected');
@@ -546,7 +595,7 @@ function selectPath(idx, cardEl, isSafe) {
 
   const btn = document.getElementById('commit-path-btn');
   btn.disabled = false;
-  btn.textContent = isSafe ? 'Take the Safe Path →' : 'Commit to This Path';
+  btn.textContent = 'Commit to This Path';
 
   document.getElementById('paths-vote-note').textContent = 'Selected — click to lock this path for your alliance.';
 }
@@ -612,42 +661,134 @@ function showPathsError(msg) {
 }
 
 // ═══════════════════════════════════════════════════
-// COMBAT
+// COMBAT — Full PDF narrative per path
 // ═══════════════════════════════════════════════════
 const PATH_DATA = {
   1: [
-    { label:'Climb the Mountain', god:'Artemis',   attack:365, hook:'Army of enchanted forest animals overwhelm you.',    safe:false },
-    { label:'Hide in the Forest',  god:'Athena',    attack:295, hook:'A magic blanket traps you before transformation.',   safe:false },
-    { label:'Sail Across the Sea', god:'Apollo',    attack:325, hook:'Seagulls screech a divine alarm across the water.',  safe:false },
-    { label:'Walk Through Desert', god:'Zeus',      attack:400, hook:'Aerokinesis whips up a vicious sandstorm.',          safe:false },
-    { label:'Attack Head On',      god:'Aphrodite', attack:405, hook:'Hearts and flowers disarm your entire alliance.',    safe:false },
-    { label:'Make an Alliance',    god:null,        attack:0,   hook:'You were out of town. The gods never found you.',   safe:true  }
+    {
+      label: 'Climb the Mountain',
+      god: 'Artemis', attack: 365, safe: false,
+      power: 'Zoolinguism',
+      story: [
+        'You decide to climb the mountain.',
+        'IT'S A TRAP!',
+        'Artemis is controlling an army of forest animals with Zoolinguism.',
+        'You are soon overwhelmed by bunnies, birdies, and furry little man-eating creatures.'
+      ],
+      roll: 'Their attack against you is worth 365 points. Roll to defend yourself.'
+    },
+    {
+      label: 'Hide in the Forest',
+      god: 'Athena', attack: 295, safe: false,
+      power: 'Weaving Spell',
+      story: [
+        'You sneak from tree to tree, hiding in the shadows. The rumble of battle is not far off.',
+        'As you make your way to a clearing, you trip over a magic trap.',
+        'A blanket, controlled by the Weaving spell, covers you.',
+        'You need to escape before Athena shows up to turn you into Stink Beetles.'
+      ],
+      roll: 'You need at least 295 points to escape the blanket. Roll to defend yourself.'
+    },
+    {
+      label: 'Sail Across the Sea',
+      god: 'Apollo', attack: 325, safe: false,
+      power: 'Audiokinesis',
+      story: [
+        'You race to the docks. The only way to get out of this is to flee to another island.',
+        'The seagulls are controlled by Apollo who is using Audiokinesis.',
+        'The birds hover over your ship, screaming like an alarm.',
+        'It will be up to you to find their snooze button.'
+      ],
+      roll: 'Roll to defend your ship against Apollo's 325 point attack.'
+    },
+    {
+      label: 'Walk Through the Desert',
+      god: 'Zeus', attack: 400, safe: false,
+      power: 'Aerokinesis',
+      story: [
+        'No one will look for you in the desert. After Phaethon burned the earth with his tragic chariot ride, the area is barren.',
+        'You cover yourself in many blankets to protect against the sun, load up with water, and begin your trip.',
+        'Unfortunately the gods see all.',
+        'Zeus laughs as he uses Aerokinesis to whip up a vicious sand storm.'
+      ],
+      roll: 'Will you die buried in the dunes or will you repel his 400 point attack? Roll to defend yourself.'
+    },
+    {
+      label: 'Attack Head On',
+      god: 'Aphrodite', attack: 405, safe: false,
+      power: 'Amokinesis',
+      story: [
+        'Fortune favors the brave. As other teams race to hide and escape, you know a hero's journey only begins with accepting the call to adventure.',
+        'You race ahead, armed with your points, ready to end this battle now.',
+        'But wait — what are all these pretty flowers and hearts surrounding the gods!',
+        'OH NO! Aphrodite is using Amokinesis…'
+      ],
+      roll: 'Can you defend yourself against her 405 point attack?'
+    },
+    {
+      label: 'Make an Alliance',
+      god: null, attack: 0, safe: true,
+      power: null,
+      story: [
+        'Lucky for you, you were out of town when the Gods came looking for you.',
+        'You were out of town when the Gods came looking for you.'
+      ],
+      roll: null
+    }
   ]
 };
 
+// Reveal story lines one by one with delays
+function revealStoryLines(lines, rollText, onComplete) {
+  const container = document.getElementById('combat-story-lines');
+  const rollEl = document.getElementById('combat-roll-line');
+  const fightBtn = document.getElementById('fight-btn');
+  container.innerHTML = '';
+  rollEl.classList.remove('reveal');
+  fightBtn.classList.remove('reveal');
+
+  lines.forEach((line, i) => {
+    const el = document.createElement('div');
+    el.className = 'combat-story-line' + (i === lines.length - 1 && line === line.toUpperCase() ? ' dramatic' : '');
+    el.textContent = line;
+    container.appendChild(el);
+    setTimeout(() => el.classList.add('reveal'), 400 + i * 700);
+  });
+
+  const totalDelay = 400 + lines.length * 700 + 300;
+  if (rollText) {
+    rollEl.textContent = rollText;
+    setTimeout(() => rollEl.classList.add('reveal'), totalDelay);
+    setTimeout(() => {
+      fightBtn.classList.add('reveal');
+      if (onComplete) onComplete();
+    }, totalDelay + 600);
+  } else {
+    // Safe path — show button immediately styled green
+    setTimeout(() => {
+      fightBtn.textContent = 'Move On →';
+      fightBtn.style.background = 'linear-gradient(135deg,#1a4a1a,#0a2a0a)';
+      fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
+      fightBtn.style.color = '#8ae08a';
+      fightBtn.classList.add('reveal');
+      if (onComplete) onComplete();
+    }, totalDelay);
+  }
+}
+
 async function showCombat(round) {
   showScreen('combat');
-  document.getElementById('combat-result').classList.remove('show');
-  document.getElementById('combat-continue-wrap').style.display = 'none';
-  const fightBtn = document.getElementById('fight-btn');
-  fightBtn.disabled = false;
-  fightBtn.style.display = 'inline-block';
-  fightBtn.textContent = 'Defend Your Alliance';
-  fightBtn.style.background = '';
-  fightBtn.style.borderColor = '';
-  fightBtn.style.color = '';
+  document.getElementById('combat-story-phase').style.display = 'flex';
+  document.getElementById('combat-result-phase').style.display = 'none';
 
   await loadState();
 
-  // Use committedPath if we have it, otherwise look it up from path_locks
+  // Find our path
   let path = committedPath;
-
   if (!path) {
     try {
-      // Find our path from the lock table via paths endpoint
       const pathsRes = await fetch(`/api/olympus/paths/${round}`, { headers:H });
       const pathsData = await pathsRes.json();
-      // The path locked by our alliance
       const ourAllianceId = allianceData?.alliance_id;
       const locked = (pathsData.paths || []).find(p =>
         p.locked && p.locked_by && p.locked_by.alliance_id === ourAllianceId
@@ -656,37 +797,48 @@ async function showCombat(round) {
     } catch(e) {}
   }
 
-  if (path && path.safe) {
-    document.getElementById('combat-god-name').textContent = 'Safe Path Taken';
+  // Find full path data with narrative
+  const pathDefs = PATH_DATA[round] || PATH_DATA[1];
+  let fullPath = null;
+  if (path) {
+    fullPath = pathDefs.find(p => p.label === path.label) || null;
+  }
+  if (!fullPath && path) {
+    // Fallback: match by index
+    fullPath = pathDefs[path.idx] || null;
+  }
+
+  const fightBtn = document.getElementById('fight-btn');
+  fightBtn.disabled = false;
+  fightBtn.textContent = 'Roll to Defend →';
+  fightBtn.style.background = '';
+  fightBtn.style.borderColor = '';
+  fightBtn.style.color = '';
+  fightBtn.classList.remove('reveal');
+
+  if (fullPath && fullPath.safe) {
+    document.getElementById('combat-god-name').textContent = 'You Were Out of Town';
     document.getElementById('combat-god-name').style.color = '#8ae08a';
-    document.getElementById('combat-hook').textContent = path.hook || 'You were out of town. The gods never found you.';
-    document.getElementById('combat-attack-val').textContent = '';
-    document.getElementById('combat-pts-before').textContent = '';
-    fightBtn.textContent = 'Advance Without Combat →';
-    fightBtn.style.background = 'linear-gradient(135deg,#1a4a1a,#0a2a0a)';
-    fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
-    fightBtn.style.color = '#8ae08a';
-  } else if (path) {
-    document.getElementById('combat-god-name').textContent = path.god || 'Unknown God';
+    document.getElementById('combat-power-name').textContent = '';
+    revealStoryLines(fullPath.story, null, null);
+  } else if (fullPath) {
+    document.getElementById('combat-god-name').textContent = fullPath.god;
     document.getElementById('combat-god-name').style.color = '#e07070';
-    document.getElementById('combat-hook').textContent = path.hook || '';
-    document.getElementById('combat-attack-val').textContent = `⚡ Attack Power: ${path.attack} points`;
-    document.getElementById('combat-pts-before').textContent =
-      `Your alliance currently has ${allianceData?.total_points || '?'} points`;
+    document.getElementById('combat-power-name').textContent = `Power: ${fullPath.power}`;
+    revealStoryLines(fullPath.story, fullPath.roll, null);
   } else {
+    // Fallback if we can't identify path
     document.getElementById('combat-god-name').textContent = 'The Gods Attack';
     document.getElementById('combat-god-name').style.color = '#e07070';
-    document.getElementById('combat-hook').textContent = 'The divine assault begins. Defend your alliance.';
-    document.getElementById('combat-attack-val').textContent = '';
-    document.getElementById('combat-pts-before').textContent =
-      `Your alliance has ${allianceData?.total_points || '?'} points`;
+    document.getElementById('combat-power-name').textContent = '';
+    revealStoryLines(['The divine assault begins.', 'Defend your alliance.'], 'Roll to defend yourself.', null);
   }
 }
 
 async function resolveCombat() {
   const btn = document.getElementById('fight-btn');
   btn.disabled = true;
-  btn.textContent = 'Resolving…';
+  btn.textContent = 'Rolling…';
 
   try {
     const res = await fetch('/api/olympus/combat-resolve', { method:'POST', headers:H });
@@ -694,36 +846,55 @@ async function resolveCombat() {
 
     if (!res.ok) {
       btn.disabled = false;
-      btn.textContent = 'Defend Your Alliance';
+      btn.textContent = 'Roll to Defend →';
       alert(data.error || 'Combat failed.');
       return;
     }
 
-    btn.style.display = 'none';
-    const resultBox = document.getElementById('combat-result');
-    resultBox.classList.add('show');
-
-    if (data.safe_path) {
-      resultBox.innerHTML = '<div class="combat-safe-msg">✦ Safe path — no damage taken. Advance.</div>';
-    } else if (data.hades_triggered) {
-      resultBox.innerHTML = `
-        <div class="combat-deducted" style="color:#c0a0f0;">Hades has claimed you.</div>
-        <div class="combat-remaining combat-hades">Your alliance enters the shadow realm. Fight on.</div>
-      `;
-    } else {
-      const deducted = data.points_deducted || 0;
-      const remaining = data.points_after || 0;
-      resultBox.innerHTML = `
-        <div class="combat-deducted">−${deducted} points</div>
-        <div class="combat-remaining">${remaining} points remaining</div>
-      `;
-    }
-
-    document.getElementById('combat-continue-wrap').style.display = 'block';
     await loadState();
+
+    // Dramatic transition — flash screen then show result
+    const storyPhase = document.getElementById('combat-story-phase');
+    const resultPhase = document.getElementById('combat-result-phase');
+
+    storyPhase.style.transition = 'opacity 0.4s ease';
+    storyPhase.style.opacity = '0';
+
+    setTimeout(() => {
+      storyPhase.style.display = 'none';
+      resultPhase.style.display = 'flex';
+      resultPhase.style.opacity = '0';
+      resultPhase.style.transition = 'opacity 0.6s ease';
+
+      const pathDefs = PATH_DATA[raceState?.current_round || 1] || PATH_DATA[1];
+      const godName = committedPath ? (committedPath.god || 'The Gods') : 'The Gods';
+      document.getElementById('combat-result-god').textContent = godName;
+      document.getElementById('combat-result-god').style.color = data.safe_path ? '#8ae08a' : '#e07070';
+
+      const resultBox = document.getElementById('combat-result');
+
+      if (data.safe_path) {
+        resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>';
+      } else if (data.hades_triggered) {
+        resultBox.innerHTML = `
+          <div class="combat-deducted" style="color:#c0a0f0; font-size:1.6rem;">Hades has claimed you.</div>
+          <div class="combat-remaining" style="color:#c0a0f0; font-style:italic;">Your alliance enters the shadow realm. Fight on.</div>
+        `;
+      } else {
+        const deducted = data.points_deducted || 0;
+        const remaining = data.points_after || 0;
+        resultBox.innerHTML = `
+          <div class="combat-deducted">−${deducted} points</div>
+          <div class="combat-remaining">${remaining} points remaining</div>
+        `;
+      }
+
+      setTimeout(() => { resultPhase.style.opacity = '1'; }, 50);
+    }, 450);
+
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = 'Defend Your Alliance';
+    btn.textContent = 'Roll to Defend →';
     alert('Error: ' + e.message);
   }
 }
