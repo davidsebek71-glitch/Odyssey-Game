@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🚨 Emergency Spam Cleanup — Odyssey to Olympus</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  h1 { color: #ff4444; font-size: 1.4rem; margin-bottom: 4px; }
+  .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 24px; }
+  .card {
+    background: #161616;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1rem; color: #aaa; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  label { display: block; color: #bbb; font-size: 0.8rem; margin-bottom: 4px; margin-top: 10px; }
+  input, select {
+    width: 100%;
+    background: #0f0f0f;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+  input:focus, select:focus { outline: none; border-color: #ff9900; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  .btn {
+    display: inline-block;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-top: 14px;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-diagnose { background: #ff9900; color: #000; }
+  .btn-delete { background: #cc2222; color: #fff; }
+  .btn-cancel { background: #333; color: #ccc; margin-left: 8px; }
+  #status {
+    background: #0d1a0d;
+    border: 1px solid #2a4a2a;
+    border-radius: 6px;
+    padding: 16px;
+    margin-top: 16px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    max-height: 420px;
+    overflow-y: auto;
+    display: none;
+  }
+  #status.error { background: #1a0d0d; border-color: #4a2a2a; }
+  .count-badge {
+    display: inline-block;
+    background: #cc2222;
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: bold;
+    padding: 6px 16px;
+    border-radius: 6px;
+    margin: 10px 0;
+  }
+  .safe-badge {
+    display: inline-block;
+    background: #2a6a2a;
+    color: #aaffaa;
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+  .confirm-box {
+    background: #1a0808;
+    border: 2px solid #cc2222;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 14px;
+    display: none;
+  }
+  .confirm-box p { color: #ffaaaa; font-size: 0.9rem; margin-bottom: 10px; }
+  .preview-row {
+    background: #111;
+    border-left: 3px solid #ff4444;
+    padding: 6px 10px;
+    margin: 4px 0;
+    font-size: 0.78rem;
+    color: #ccc;
+    border-radius: 0 4px 4px 0;
+  }
+  .preview-row span { color: #ff9999; }
+  .section-divider { border: none; border-top: 1px solid #2a2a2a; margin: 20px 0; }
+  .warning-text { color: #ffaa44; font-size: 0.82rem; margin-top: 6px; }
+  .success { color: #44ff88; font-weight: bold; font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<h1>🚨 Emergency Spam Cleanup Tool</h1>
+<p class="subtitle">Odyssey to Olympus — Production Database — Use with care</p>
+
+<div class="card">
+  <h2>⚙️ Connection</h2>
+  <label>Railway App URL</label>
+  <input type="text" id="baseUrl" value="https://odyssey-game-production.up.railway.app" />
+  <label>Teacher JWT Token</label>
+  <input type="password" id="token" placeholder="Paste your JWT token from browser localStorage..." />
+  <p class="warning-text">💡 To get your token: Open teacher dashboard → F12 → Console → type: <code style="color:#ff9900">localStorage.getItem('token')</code> → copy the result</p>
+</div>
+
+<div class="card">
+  <h2>🎯 Spam Filter Criteria</h2>
+  <div class="row">
+    <div>
+      <label>Student First Name (partial match OK)</label>
+      <input type="text" id="studentName" value="Carter" />
+    </div>
+    <div>
+      <label>Delete submissions from (date)</label>
+      <input type="date" id="targetDate" />
+    </div>
+  </div>
+  <label>Spam pattern in notes (optional — leave blank to delete ALL of student's submissions today)</label>
+  <input type="text" id="spamPattern" value="eeeee" placeholder="e.g. eeeee" />
+  <p class="warning-text">⚠️ Matching is case-insensitive. Submissions whose notes contain this pattern AND were submitted by the named student on the selected date will be deleted.</p>
+
+  <button class="btn btn-diagnose" id="btnDiagnose" onclick="runDiagnose()">🔍 Step 1: Diagnose (No Changes)</button>
+</div>
+
+<div id="resultsCard" class="card" style="display:none">
+  <h2>📊 Diagnosis Results</h2>
+  <div id="diagResults"></div>
+  <div class="confirm-box" id="confirmBox">
+    <p>⚠️ <strong>You are about to permanently delete the submissions listed above.</strong> This cannot be undone. Legitimate submissions for other students are NOT affected.</p>
+    <button class="btn btn-delete" id="btnDelete" onclick="runDelete()">🗑️ Step 2: DELETE These Submissions</button>
+    <button class="btn btn-cancel" onclick="cancelDelete()">Cancel</button>
+  </div>
+</div>
+
+<div id="status"></div>
+
+<script>
+// Set today's date by default
+document.getElementById('targetDate').valueAsDate = new Date();
+
+function getHeaders() {
+  const token = document.getElementById('token').value.trim();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + token
+  };
+}
+
+function getBaseUrl() {
+  return document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+}
+
+function showStatus(msg, isError = false) {
+  const el = document.getElementById('status');
+  el.style.display = 'block';
+  el.className = isError ? 'error' : '';
+  el.textContent = msg;
+}
+
+async function runDiagnose() {
+  const btn = document.getElementById('btnDiagnose');
+  btn.disabled = true;
+  btn.textContent = '⏳ Diagnosing...';
+  document.getElementById('resultsCard').style.display = 'none';
+  document.getElementById('confirmBox').style.display = 'none';
+  showStatus('Connecting to server...');
+
+  const params = new URLSearchParams({
+    student_name: document.getElementById('studentName').value.trim(),
+    target_date: document.getElementById('targetDate').value,
+    spam_pattern: document.getElementById('spamPattern').value.trim()
+  });
+
+  try {
+    const resp = await fetch(`${getBaseUrl()}/api/teacher/spam-diagnose?${params}`, {
+      headers: getHeaders()
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      showStatus(`❌ Server error ${resp.status}: ${data.error || JSON.stringify(data)}`, true);
+      return;
+    }
+
+    renderDiagnosis(data);
+  } catch (e) {
+    showStatus(`❌ Network error: ${e.message}\n\nMake sure the endpoint is deployed and your token is correct.`, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Step 1: Diagnose (No Changes)';
+  }
+}
+
+function renderDiagnosis(data) {
+  const card = document.getElementById('resultsCard');
+  const diagDiv = document.getElementById('diagResults');
+  card.style.display = 'block';
+
+  if (data.spam_count === 0) {
+    diagDiv.innerHTML = `<div class="safe-badge">✅ No matching spam submissions found</div>
+      <p style="color:#888;font-size:0.85rem;margin-top:8px;">Student: <strong style="color:#fff">${data.student_name || 'Not found'}</strong> — no submissions matching the criteria on ${data.target_date}.</p>`;
+    document.getElementById('confirmBox').style.display = 'none';
+    document.getElementById('status').style.display = 'none';
+    return;
+  }
+
+  let html = `
+    <p style="color:#aaa;font-size:0.82rem;margin-bottom:6px;">Student found: <strong style="color:#fff">${data.student_name}</strong> (ID: ${data.student_id}) — Period ${data.period}</p>
+    <div class="count-badge">🗑️ ${data.spam_count} spam submission${data.spam_count !== 1 ? 's' : ''} to delete</div>
+    <div class="safe-badge">✅ ${data.safe_count} legitimate submission${data.safe_count !== 1 ? 's' : ''} will be preserved</div>
+    <p style="color:#888;font-size:0.8rem;margin:8px 0 4px;">Preview (first 10 shown):</p>
+  `;
+
+  const preview = data.preview || [];
+  preview.forEach(row => {
+    const notes = (row.notes || '').substring(0, 80);
+    html += `<div class="preview-row">ID #${row.id} — ${row.category} — <span>"${notes}${row.notes && row.notes.length > 80 ? '...' : ''}"</span> — submitted ${row.submitted_at}</div>`;
+  });
+
+  if (data.spam_count > 10) {
+    html += `<p style="color:#888;font-size:0.78rem;margin-top:6px;">...and ${data.spam_count - 10} more</p>`;
+  }
+
+  diagDiv.innerHTML = html;
+  document.getElementById('confirmBox').style.display = 'block';
+  document.getElementById('status').style.display = 'none';
+}
+
+async function runDelete() {
+  const btn = document.getElementById('btnDelete');
+  btn.disabled = true;
+  btn.textContent = '⏳ Deleting...';
+
+  const body = {
+    student_name: document.getElementById('studentName').value.trim(),
+    target_date: document.getElementById('targetDate').value,
+    spam_pattern: document.getElementById('spamPattern').value.trim()
+  };
+
+  try {
+    const resp = await fetch(`${getBaseUrl()}/api/teacher/spam-delete`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(body)
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      showStatus(`❌ Delete failed ${resp.status}: ${data.error || JSON.stringify(data)}`, true);
+      return;
+    }
+
+    document.getElementById('confirmBox').style.display = 'none';
+    const diagDiv = document.getElementById('diagResults');
+    diagDiv.innerHTML += `<p class="success" style="margin-top:14px;">✅ SUCCESS — ${data.deleted_count} spam submissions deleted! Database saved.</p>
+      <p style="color:#888;font-size:0.82rem;margin-top:4px;">${data.safe_count} legitimate submissions preserved. Student's actual valid work is intact.</p>`;
+    showStatus(`✅ Done. Deleted ${data.deleted_count} submissions. The teacher dashboard should now load normally.\n\nNext step: Hard-refresh your teacher dashboard (Ctrl+Shift+R).`);
+  } catch (e) {
+    showStatus(`❌ Network error during delete: ${e.message}`, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🗑️ Step 2: DELETE These Submissions';
+  }
+}
+
+function cancelDelete() {
+  document.getElementById('confirmBox').style.display = 'none';
+  showStatus('Cancelled. No changes were made.');
+}
+</script>
+</body>
+</html>

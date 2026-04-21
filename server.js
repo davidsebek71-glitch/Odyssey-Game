@@ -16188,7 +16188,7 @@ app.get('/api/teacher/spam-diagnose', authenticateToken, (req, res) => {
     const sid = student.student_id;
 
     const allToday = query(
-      `SELECT id, category, notes, submitted_at FROM point_submissions
+      `SELECT submission_id, category, notes, submitted_at FROM point_submissions
        WHERE student_id = ? AND DATE(submitted_at) = DATE(?)
        ORDER BY submitted_at DESC`,
       [sid, target_date]
@@ -16210,7 +16210,7 @@ app.get('/api/teacher/spam-diagnose', authenticateToken, (req, res) => {
       spam_count: spam.length,
       safe_count: safe.length,
       preview: spam.slice(0, 10).map(r => ({
-        id: r.id,
+        id: r.submission_id,
         category: r.category,
         notes: r.notes,
         submitted_at: r.submitted_at
@@ -16240,13 +16240,13 @@ app.post('/api/teacher/spam-delete', authenticateToken, (req, res) => {
     const patternLower = (spam_pattern || '').toLowerCase();
 
     const allToday = query(
-      `SELECT id, notes FROM point_submissions WHERE student_id = ? AND DATE(submitted_at) = DATE(?)`,
+      `SELECT submission_id, notes FROM point_submissions WHERE student_id = ? AND DATE(submitted_at) = DATE(?)`,
       [sid, target_date]
     );
 
     const spamIds = allToday
       .filter(r => !patternLower || (r.notes || '').toLowerCase().includes(patternLower))
-      .map(r => r.id);
+      .map(r => r.submission_id);
 
     const safeCount = allToday.length - spamIds.length;
 
@@ -16255,7 +16255,7 @@ app.post('/api/teacher/spam-delete', authenticateToken, (req, res) => {
       for (let i = 0; i < spamIds.length; i += chunkSize) {
         const chunk = spamIds.slice(i, i + chunkSize);
         const placeholders = chunk.map(() => '?').join(',');
-        run(`DELETE FROM point_submissions WHERE id IN (${placeholders})`, chunk);
+        run(`DELETE FROM point_submissions WHERE submission_id IN (${placeholders})`, chunk);
       }
       saveDatabase();
     }
