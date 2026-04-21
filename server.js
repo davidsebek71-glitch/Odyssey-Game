@@ -3101,44 +3101,78 @@ app.get('/api/teacher/student-submissions/:student_id', authenticateToken, (req,
 app.delete('/api/teacher/delete-submission/:submission_id', authenticateToken, (req, res) => {
   try {
     const { submission_id } = req.params;
-    
+
     // Get the submission first to know how many points to remove
     const submission = query('SELECT * FROM point_submissions WHERE submission_id = ?', [submission_id])[0];
-    
+
     if (!submission) {
       return res.status(404).json({ error: 'Submission not found' });
     }
-    
+
     // Only allow deleting approved submissions (pending ones can just be rejected)
     if (submission.status !== 'approved') {
       return res.status(400).json({ error: 'Can only delete approved submissions. Reject pending submissions instead.' });
     }
-    
+
     const student_id = submission.student_id;
     const points_to_remove = submission.points_claimed || 0;
-    
+    const myth_god = submission.myth_god || null;
+
     // Get student's alliance
     const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    
+
+    // --- Cascade: clean up myth portal completion if applicable ---
+    // Only wipe student_myth_completion if this submission was the SOLE approved source for that myth
+    const MYTH_GOD_TO_PORTAL = {
+      'Pandora': 1, 'Phaethon': 2, 'Orpheus': 3,
+      'Echo and Narcissus': 4, 'Echo & Narcissus': 4,
+      'Icarus': 5, 'Eros and Psyche': 6, 'Eros & Psyche': 6,
+      'Constellations': 7
+    };
+    const portalId = myth_god ? MYTH_GOD_TO_PORTAL[myth_god] : null;
+    let mythPortalCleared = false;
+
+    if (portalId) {
+      // Check if there are OTHER approved submissions for this student+myth beyond this one
+      const otherApproved = query(
+        `SELECT COUNT(*) as cnt FROM point_submissions
+         WHERE student_id = ? AND myth_god = ? AND status = 'approved' AND submission_id != ?`,
+        [student_id, myth_god, submission_id]
+      )[0];
+      const otherGradeRecords = query(
+        `SELECT COUNT(*) as cnt FROM grade_records gr
+         JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+         WHERE gr.student_id = ? AND ar.myth_god IN (?, ?) AND gr.submission_id != ?`,
+        [student_id, myth_god, myth_god === 'Icarus' ? 'Icarus & Daedalus' : myth_god, submission_id]
+      )[0];
+      const noOtherSources = (otherApproved.cnt === 0) && (otherGradeRecords.cnt === 0);
+      if (noOtherSources) {
+        run('DELETE FROM student_myth_completion WHERE student_id = ? AND portal_id = ?', [student_id, portalId]);
+        mythPortalCleared = true;
+        console.log(`🏛️ Cleared myth portal completion: student ${student_id}, portal ${portalId} (${myth_god})`);
+      }
+    }
+
     // Delete the submission
     run('DELETE FROM point_submissions WHERE submission_id = ?', [submission_id]);
-    
+
     // Delete from grade_records if exists
     run('DELETE FROM grade_records WHERE submission_id = ?', [submission_id]);
-    
+
     // Subtract points from alliance if student is in one
     if (student && student.alliance_id && points_to_remove > 0) {
-      run('UPDATE alliances SET total_points = MAX(0, total_points - ?) WHERE alliance_id = ?', 
+      run('UPDATE alliances SET total_points = MAX(0, total_points - ?) WHERE alliance_id = ?',
         [points_to_remove, student.alliance_id]);
     }
-    
+
     console.log(`Deleted submission ${submission_id} for student ${student_id}, removed ${points_to_remove} points`);
-    
-    res.json({ 
+
+    res.json({
       message: 'Submission deleted successfully',
-      points_removed: points_to_remove
+      points_removed: points_to_remove,
+      myth_portal_cleared: mythPortalCleared
     });
-    
+
     saveDatabase();
   } catch (err) {
     console.error('Delete submission error:', err);
@@ -16165,6 +16199,105 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
 // ============================================================
 // END REVENGE OF THE GODS
 // ============================================================
+
+// ============================================================
+// TEACHER: FORCE-PASS QUIZ FOR A STUDENT
+// ============================================================
+app.post('/api/teacher/force-pass-quiz', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
+
+  const { student_name, class_period, portal_id, score, total_questions } = req.body;
+  if (!student_name || !class_period || !portal_id) {
+    return res.status(400).json({ error: 'student_name, class_period, and portal_id required' });
+  }
+
+  try {
+    // Find the student
+    const students = query(
+      `SELECT student_id, name, class_period FROM students
+       WHERE LOWER(name) LIKE LOWER(?) AND class_period = ? AND (is_ghost = 0 OR is_ghost IS NULL)`,
+      [`%${student_name}%`, class_period]
+    );
+    if (!students.length) return res.status(404).json({ error: `No student matching "${student_name}" in period ${class_period}` });
+    const student = students[0];
+    const sid = student.student_id;
+
+    const forcedScore = score || 15;
+    const forcedTotal = total_questions || 17;
+    const percentage = Math.round((forcedScore / forcedTotal) * 100);
+
+    // Check for existing passing attempt
+    const existingPass = query(
+      'SELECT attempt_id FROM myth_quiz_attempts WHERE student_id = ? AND portal_id = ? AND passed = 1',
+      [sid, portal_id]
+    )[0];
+
+    if (!existingPass) {
+      run(
+        `INSERT INTO myth_quiz_attempts (student_id, portal_id, score, total_questions, percentage, passed, attempted_at)
+         VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
+        [sid, portal_id, forcedScore, forcedTotal, percentage]
+      );
+    }
+
+    // Find the quiz assignment in assignments_ref for this portal
+    const PORTAL_TO_MYTH = {
+      1: 'Pandora', 2: 'Phaethon', 3: 'Orpheus',
+      4: 'Echo and Narcissus', 5: 'Icarus', 6: 'Eros and Psyche', 7: 'Constellations'
+    };
+    const mythGod = PORTAL_TO_MYTH[parseInt(portal_id)];
+    let gradeInserted = false;
+
+    if (mythGod) {
+      const mythAliases = mythGod === 'Icarus'
+        ? ["'Icarus'", "'Icarus & Daedalus'", "'Icarus and Daedalus'"]
+        : [`'${mythGod}'`];
+      const quizAssignment = query(
+        `SELECT assignment_id, max_points FROM assignments_ref
+         WHERE section = 'classical' AND assignment_type = 'quiz' AND myth_god IN (${mythAliases.join(',')})
+         LIMIT 1`
+      )[0];
+
+      if (quizAssignment) {
+        const pointsEarned = Math.round((forcedScore / forcedTotal) * quizAssignment.max_points);
+        const existingGrade = query(
+          'SELECT record_id FROM grade_records WHERE student_id = ? AND assignment_id = ?',
+          [sid, quizAssignment.assignment_id]
+        )[0];
+
+        if (!existingGrade) {
+          run(
+            `INSERT INTO grade_records (student_id, assignment_id, points_earned, points_possible)
+             VALUES (?, ?, ?, ?)`,
+            [sid, quizAssignment.assignment_id, pointsEarned, quizAssignment.max_points]
+          );
+          gradeInserted = true;
+        } else {
+          run('UPDATE grade_records SET points_earned = ? WHERE record_id = ?',
+            [pointsEarned, existingGrade.record_id]);
+          gradeInserted = true;
+        }
+      }
+    }
+
+    saveDatabase();
+    console.log(`[FORCE-PASS] ${student.name} (id:${sid}) portal ${portal_id} — ${forcedScore}/${forcedTotal} (${percentage}%) grade_inserted:${gradeInserted}`);
+
+    res.json({
+      success: true,
+      student_name: student.name,
+      student_id: sid,
+      portal_id,
+      score: `${forcedScore}/${forcedTotal}`,
+      percentage: `${percentage}%`,
+      already_had_pass: !!existingPass,
+      grade_record_updated: gradeInserted
+    });
+  } catch (e) {
+    console.error('[FORCE-PASS] error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ============================================================
 // EMERGENCY SPAM CLEANUP ENDPOINTS
