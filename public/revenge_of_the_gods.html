@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revenge of the Gods — The Olympus Race</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --olympus-blue: #1B3A5C;
+    --deep: #06090f;
+    --gold: #B8860B;
+    --bright-gold: #d4a017;
+    --pale-gold: #f0d060;
+    --purple: #2C1A4A;
+    --stone: #5a4a3a;
+    --fire: #c44a00;
+    --blood: #8b1a1a;
+    --safe-green: #1a4a1a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--deep); color:var(--pale-gold); font-family:'IM Fell English',serif; min-height:100vh; overflow-x:hidden; }
+
+  /* ── SCREENS ── */
+  .screen { display:none; min-height:100vh; }
+  .screen.active { display:flex; flex-direction:column; }
+
+  /* ── CINEMATIC SCREEN ── */
+  #screen-cinematic {
+    background: #000;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+  }
+  .cinematic-line {
+    font-family:'Cinzel',serif;
+    font-size:clamp(1.2rem,4vw,2.2rem);
+    color:#fff;
+    opacity:0;
+    margin:12px 0;
+    transition: opacity 1s ease;
+    letter-spacing:0.05em;
+  }
+  .cinematic-line.zeus { color:#a0c8ff; }
+  .cinematic-line.athena { color:#d4a017; }
+  .cinematic-line.show { opacity:1; }
+  #cinematic-content { max-width:700px; padding:40px 20px; }
+  #cinematic-skip { position:fixed; bottom:30px; right:30px; font-family:'Cinzel',serif; font-size:0.75rem; color:rgba(255,255,255,0.3); cursor:pointer; border:1px solid rgba(255,255,255,0.15); padding:6px 16px; border-radius:3px; }
+  #cinematic-skip:hover { color:rgba(255,255,255,0.6); border-color:rgba(255,255,255,0.4); }
+
+  /* ── MEDEA SCREEN ── */
+  #screen-medea {
+    background: radial-gradient(ellipse at 50% 30%, rgba(44,26,74,0.6) 0%, var(--deep) 70%);
+    align-items:center;
+    justify-content:center;
+  }
+  .medea-card {
+    max-width:620px;
+    width:100%;
+    padding:40px 32px;
+    text-align:center;
+  }
+  .medea-title { font-family:'Cinzel Decorative',serif; font-size:1.6rem; color:var(--bright-gold); margin-bottom:8px; }
+  .medea-subtitle { font-family:'Cinzel',serif; font-size:0.8rem; letter-spacing:0.2em; color:rgba(192,160,240,0.7); margin-bottom:24px; }
+  .medea-text { font-style:italic; color:var(--pale-gold); line-height:1.8; font-size:1rem; margin-bottom:30px; }
+  .vote-options { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+  .vote-btn {
+    font-family:'Cinzel',serif;
+    font-size:0.9rem;
+    letter-spacing:0.1em;
+    padding:14px 36px;
+    border-radius:4px;
+    cursor:pointer;
+    border:1px solid;
+    transition:all 0.2s;
+    min-width:160px;
+  }
+  .vote-btn-accept { background:rgba(26,74,26,0.4); border-color:rgba(74,138,74,0.6); color:#8ae08a; }
+  .vote-btn-accept:hover { background:rgba(26,74,26,0.7); }
+  .vote-btn-refuse { background:rgba(106,26,26,0.4); border-color:rgba(138,42,42,0.6); color:#e07070; }
+  .vote-btn-refuse:hover { background:rgba(106,26,26,0.7); }
+  .vote-status { margin-top:20px; font-family:'Cinzel',serif; font-size:0.8rem; color:rgba(192,160,240,0.7); min-height:24px; }
+  .vote-committed { color:#8ae08a; font-size:0.85rem; }
+
+  /* ── PATH CHOICE SCREEN ── */
+  #screen-paths {
+    background: radial-gradient(ellipse at 50% 0%, rgba(27,58,92,0.5) 0%, var(--deep) 60%);
+  }
+  .paths-header { text-align:center; padding:32px 20px 20px; }
+  .paths-round-label { font-family:'Cinzel',serif; font-size:0.75rem; letter-spacing:0.3em; color:var(--stone); text-transform:uppercase; margin-bottom:6px; }
+  .paths-title { font-family:'Cinzel Decorative',serif; font-size:1.8rem; color:var(--bright-gold); margin-bottom:8px; }
+  .paths-subtitle { font-family:'IM Fell English',serif; font-style:italic; color:rgba(240,208,96,0.6); font-size:0.95rem; }
+  .paths-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; padding:20px; max-width:900px; margin:0 auto; }
+
+  .path-card {
+    background:linear-gradient(135deg, rgba(26,18,16,0.95), rgba(15,10,8,0.98));
+    border:1px solid rgba(184,134,11,0.2);
+    border-radius:6px;
+    padding:20px;
+    cursor:pointer;
+    transition:all 0.2s;
+    position:relative;
+  }
+  .path-card:hover:not(.locked):not(.selected) { border-color:var(--bright-gold); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.5); }
+  .path-card.selected { border-color:#4a8a4a; background:rgba(26,74,26,0.25); }
+  .path-card.locked { opacity:0.45; cursor:not-allowed; }
+  .path-card.safe { border-color:rgba(74,138,74,0.4); }
+  .path-card.committed-by-us { border-color:#4a8a4a; background:rgba(26,74,26,0.2); pointer-events:none; }
+
+  .path-name { font-family:'Cinzel',serif; font-size:1rem; color:var(--pale-gold); margin-bottom:8px; }
+  .path-god { font-size:0.78rem; color:var(--stone); margin-bottom:4px; font-family:'Cinzel',serif; }
+  .path-attack { font-size:0.78rem; font-family:'Cinzel',serif; }
+  .path-attack.danger { color:#e07070; }
+  .path-attack.safe-label { color:#8ae08a; }
+  .path-hook { font-style:italic; font-size:0.82rem; color:rgba(240,208,96,0.5); margin-top:8px; line-height:1.4; }
+  .path-claimed { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#e07070; letter-spacing:0.1em; }
+  .path-safe-badge { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#8ae08a; letter-spacing:0.1em; }
+  .path-vote-count { font-family:'Cinzel',serif; font-size:0.7rem; color:rgba(192,160,240,0.7); margin-top:8px; }
+
+  .paths-actions { text-align:center; padding:16px 20px 32px; }
+  .btn-commit { font-family:'Cinzel',serif; font-size:0.9rem; letter-spacing:0.1em; padding:13px 40px; background:linear-gradient(135deg,#b8860b,#8b6400); color:#fff8e0; border:none; border-radius:4px; cursor:pointer; transition:all 0.2s; }
+  .btn-commit:hover { background:linear-gradient(135deg,#d4a017,#b8860b); }
+  .btn-commit:disabled { opacity:0.35; cursor:not-allowed; }
+  .paths-vote-note { font-family:'Cinzel',serif; font-size:0.78rem; color:rgba(192,160,240,0.6); margin-top:10px; }
+
+  /* ── COMBAT SCREEN ── */
+  #screen-combat {
+    background: radial-gradient(ellipse at 50% 30%, rgba(139,26,26,0.4) 0%, var(--deep) 60%);
+    align-items:center;
+    justify-content:center;
+  }
+  .combat-card { max-width:580px; width:100%; padding:40px 32px; text-align:center; }
+  .combat-god { font-family:'Cinzel Decorative',serif; font-size:2rem; color:#e07070; margin-bottom:8px; text-shadow:0 0 30px rgba(224,112,112,0.5); }
+  .combat-hook { font-style:italic; color:var(--pale-gold); line-height:1.8; font-size:1rem; margin:16px 0; }
+  .combat-attack { font-family:'Cinzel',serif; font-size:1.1rem; color:#e07070; margin-bottom:24px; }
+  .combat-points-before { font-family:'Cinzel',serif; font-size:0.85rem; color:var(--stone); margin-bottom:8px; }
+  .combat-result-box { background:rgba(10,10,20,0.8); border:1px solid rgba(184,134,11,0.3); border-radius:6px; padding:20px; margin:20px 0; display:none; }
+  .combat-result-box.show { display:block; animation:fadeIn 0.5s ease; }
+  .combat-deducted { font-family:'Cinzel',serif; font-size:1.4rem; color:#e07070; margin-bottom:6px; }
+  .combat-remaining { font-family:'Cinzel',serif; font-size:1rem; color:var(--pale-gold); }
+  .combat-safe-msg { font-family:'Cinzel',serif; font-size:1.1rem; color:#8ae08a; }
+  .combat-hades { color:#c0a0f0; font-style:italic; }
+  .btn-fight { font-family:'Cinzel',serif; font-size:0.95rem; letter-spacing:0.1em; padding:14px 48px; background:linear-gradient(135deg,#8b1a1a,#5a0a0a); color:#ffd0d0; border:1px solid rgba(224,112,112,0.4); border-radius:4px; cursor:pointer; transition:all 0.2s; }
+  .btn-fight:hover { background:linear-gradient(135deg,#aa2222,#8b1a1a); }
+  .btn-fight:disabled { opacity:0.35; cursor:not-allowed; }
+
+  /* ── WAITING SCREEN ── */
+  #screen-waiting {
+    align-items:center;
+    justify-content:center;
+  }
+  .waiting-card { text-align:center; padding:60px 40px; }
+  .waiting-icon { font-size:3rem; margin-bottom:20px; animation:spin 3s linear infinite; display:inline-block; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .waiting-title { font-family:'Cinzel',serif; font-size:1.2rem; color:var(--bright-gold); margin-bottom:10px; }
+  .waiting-sub { font-style:italic; color:var(--stone); font-size:0.9rem; }
+  .waiting-phase { font-family:'Cinzel',serif; font-size:0.8rem; color:rgba(192,160,240,0.7); margin-top:16px; letter-spacing:0.2em; }
+
+  /* ── SHARED ── */
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+  .gold-divider { width:200px; height:1px; background:linear-gradient(90deg,transparent,var(--gold),transparent); margin:16px auto; }
+
+  .back-btn { position:fixed; top:14px; left:14px; font-family:'Cinzel',serif; font-size:0.72rem; color:rgba(240,208,96,0.5); cursor:pointer; border:1px solid rgba(240,208,96,0.2); padding:5px 12px; border-radius:3px; z-index:200; text-decoration:none; }
+  .back-btn:hover { color:var(--bright-gold); border-color:rgba(240,208,96,0.5); }
+
+  .phase-indicator { position:fixed; top:14px; right:14px; font-family:'Cinzel',serif; font-size:0.68rem; color:rgba(192,160,240,0.6); letter-spacing:0.2em; z-index:200; background:rgba(6,9,15,0.8); padding:4px 10px; border-radius:3px; border:1px solid rgba(44,26,74,0.5); }
+
+  .error-banner { background:rgba(139,26,26,0.3); border:1px solid rgba(224,112,112,0.4); color:#e07070; padding:10px 16px; margin:12px; border-radius:4px; font-family:'Cinzel',serif; font-size:0.8rem; text-align:center; display:none; }
+  .error-banner.show { display:block; }
+
+  /* ── POLL INDICATOR ── */
+  .poll-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#4a8a4a; margin-left:6px; animation:pollPulse 2s ease-in-out infinite; }
+  @keyframes pollPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+</style>
+</head>
+<body>
+
+<a class="back-btn" href="/student.html">← Dashboard</a>
+<div class="phase-indicator" id="phase-indicator">—</div>
+
+<!-- ══ SCREEN: CINEMATIC ══════════════════════════════════════════ -->
+<div class="screen active" id="screen-cinematic">
+  <div id="cinematic-content">
+    <div class="cinematic-line zeus" id="cl-1">"You were warned."</div>
+    <div class="cinematic-line zeus" id="cl-2">"You were told to stop."</div>
+    <div class="cinematic-line zeus" id="cl-3">"You chose fire anyway."</div>
+    <div class="gold-divider" id="cl-div" style="opacity:0; transition:opacity 1s ease;"></div>
+    <div class="cinematic-line athena" id="cl-4">"You built something the gods cannot ignore."</div>
+    <div class="cinematic-line athena" id="cl-5">"Four heroes. Four trials. One weapon that should not exist."</div>
+    <div class="cinematic-line athena" id="cl-6">"The gods do not test the strong. They test the worthy."</div>
+    <div class="cinematic-line athena" id="cl-7" style="font-size:1.4rem; color:var(--bright-gold);">"Prove which one you are."</div>
+  </div>
+  <div id="cinematic-skip" onclick="skipCinematic()">Skip →</div>
+</div>
+
+<!-- ══ SCREEN: MEDEA VOTE ════════════════════════════════════════ -->
+<div class="screen" id="screen-medea">
+  <div class="medea-card">
+    <div class="medea-title">The Choice of Medea</div>
+    <div class="medea-subtitle">Before the Race Begins</div>
+    <div class="gold-divider"></div>
+    <div class="medea-text" id="medea-text">
+      Medea stands before you, her eyes dark with knowledge the gods would rather keep hidden.
+      She has power that could help your alliance survive what is coming.
+      But accepting her help means becoming indebted to someone the gods already despise.
+      <br><br>
+      Do you accept her aid — or face Olympus alone?
+    </div>
+    <div class="vote-options">
+      <button class="vote-btn vote-btn-accept" onclick="castMedeaVote('accept')">Accept Her Help</button>
+      <button class="vote-btn vote-btn-refuse" onclick="castMedeaVote('refuse')">Refuse — Go Alone</button>
+    </div>
+    <div class="vote-status" id="medea-vote-status"></div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: PATH CHOICE ═══════════════════════════════════════ -->
+<div class="screen" id="screen-paths">
+  <div class="paths-header">
+    <div class="paths-round-label" id="paths-round-label">Round 1 — The Foothills</div>
+    <div class="paths-title">Choose Your Path</div>
+    <div class="paths-subtitle" id="paths-subtitle">Six paths up the mountain. Only one is safe.</div>
+  </div>
+  <div class="error-banner" id="paths-error"></div>
+  <div class="paths-grid" id="paths-grid">
+    <!-- Injected by JS -->
+  </div>
+  <div class="paths-actions">
+    <button class="btn-commit" id="commit-path-btn" onclick="commitPath()" disabled>Commit to This Path</button>
+    <div class="paths-vote-note" id="paths-vote-note"></div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: COMBAT ════════════════════════════════════════════ -->
+<div class="screen" id="screen-combat">
+  <div class="combat-card">
+    <div class="combat-god" id="combat-god-name">Artemis</div>
+    <div class="gold-divider"></div>
+    <div class="combat-hook" id="combat-hook"></div>
+    <div class="combat-attack" id="combat-attack-val"></div>
+    <div class="combat-points-before" id="combat-pts-before"></div>
+    <button class="btn-fight" id="fight-btn" onclick="resolveCombat()">Defend Your Alliance</button>
+    <div class="combat-result-box" id="combat-result">
+      <div class="combat-deducted" id="combat-deducted"></div>
+      <div class="combat-remaining" id="combat-remaining"></div>
+    </div>
+    <div style="margin-top:20px; display:none;" id="combat-continue-wrap">
+      <button class="btn-commit" onclick="proceedToPuzzle()">Enter the Puzzle Chamber →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: WAITING ═══════════════════════════════════════════ -->
+<div class="screen" id="screen-waiting">
+  <div class="waiting-card">
+    <div class="waiting-icon">⏳</div>
+    <div class="waiting-title" id="waiting-title">Waiting for your alliance…</div>
+    <div class="waiting-sub" id="waiting-sub">All members must vote before proceeding.</div>
+    <div class="waiting-phase" id="waiting-phase"></div>
+    <div style="margin-top:24px;">
+      <span style="font-family:'Cinzel',serif; font-size:0.75rem; color:rgba(192,160,240,0.5);">Checking for updates</span>
+      <span class="poll-dot"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// OLYMPUS RACE — MAIN UI
+// ═══════════════════════════════════════════════════════
+
+const token = localStorage.getItem('token');
+if (!token) { window.location.href = '/'; }
+const H = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+let allianceData = null;
+let raceState    = null;
+let selectedPathIndex = null;
+let committedPath = null;   // stores path def from commit-path response
+let pollTimer = null;
+
+// ── Screen manager ───────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + id);
+  if (el) el.classList.add('active');
+}
+
+function setPhaseIndicator(text) {
+  document.getElementById('phase-indicator').textContent = text;
+}
+
+// ── Fetch current state ──────────────────────────────────
+async function loadState() {
+  try {
+    const res = await fetch('/api/olympus/state', { headers: H });
+    const data = await res.json();
+    allianceData = data.alliance;
+    raceState = data.state;
+    return data;
+  } catch(e) {
+    console.error('loadState error:', e);
+    return null;
+  }
+}
+
+// ── INIT ─────────────────────────────────────────────────
+async function init() {
+  const data = await loadState();
+
+  if (!data || !raceState) {
+    // No state — try to start (utility mode for testing)
+    await fetch('/api/olympus/start', { method:'POST', headers:H });
+    await loadState();
+  }
+
+  if (!raceState) {
+    // Still nothing — show waiting
+    showWaiting('Race not started', 'Your teacher needs to launch the Olympus Race.');
+    return;
+  }
+
+  routeToPhase(raceState.current_phase, raceState.current_round);
+}
+
+// ── Phase router ─────────────────────────────────────────
+function routeToPhase(phase, round) {
+  stopPolling();
+  setPhaseIndicator(`Round ${round || 0} · ${phase || '—'}`);
+
+  switch(phase) {
+    case 'opening':
+    case 'medea':
+      // Show cinematic first if we haven't seen it this session
+      if (!sessionStorage.getItem('cinematic_done')) {
+        startCinematic();
+      } else {
+        showMedeaVote();
+      }
+      break;
+
+    case 'path_choice':
+      showPathChoice(round);
+      break;
+
+    case 'medea_waiting':
+      showWaiting('Waiting for alliance vote…', 'Your vote is in. Waiting for your teammates.', phase);
+      startPolling();
+      break;
+
+    case 'path_waiting':
+      showWaiting('Waiting for alliance vote…', 'Your path vote is in. Waiting for your teammates.', phase);
+      startPolling();
+      break;
+
+    case 'combat':
+      showCombat(round);
+      break;
+
+    case 'puzzle':
+      // Redirect directly to puzzle room
+      window.location.href = '/puzzle_room.html';
+      break;
+
+    case 'god_test':
+      showWaiting('God Test', 'The God Test is coming in Session 3.', phase);
+      break;
+
+    case 'summit':
+      showWaiting('The Summit', 'The Summit is coming in Session 4.', phase);
+      break;
+
+    default:
+      showWaiting('Loading…', 'Determining your position in the race.', phase);
+      setTimeout(init, 2000);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// CINEMATIC
+// ═══════════════════════════════════════════════════
+function startCinematic() {
+  showScreen('cinematic');
+  const lines = ['cl-1','cl-2','cl-3','cl-div','cl-4','cl-5','cl-6','cl-7'];
+  const delays = [800, 2000, 3400, 4600, 5400, 6800, 8200, 9800];
+  lines.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) el.style.opacity = '1';
+    }, delays[i]);
+  });
+  // Auto-advance after last line
+  setTimeout(() => {
+    sessionStorage.setItem('cinematic_done', '1');
+    showMedeaVote();
+  }, 12500);
+}
+
+function skipCinematic() {
+  sessionStorage.setItem('cinematic_done', '1');
+  showMedeaVote();
+}
+
+// ═══════════════════════════════════════════════════
+// MEDEA VOTE
+// ═══════════════════════════════════════════════════
+function showMedeaVote() {
+  showScreen('medea');
+  // If phase is past medea, skip forward
+  if (raceState && raceState.current_phase === 'path_choice') {
+    showPathChoice(raceState.current_round);
+    return;
+  }
+}
+
+async function castMedeaVote(choice) {
+  document.querySelector('.vote-options').style.pointerEvents = 'none';
+  document.getElementById('medea-vote-status').textContent = 'Casting vote…';
+
+  try {
+    const res = await fetch('/api/olympus/medea-vote', {
+      method:'POST', headers:H, body:JSON.stringify({ choice })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('medea-vote-status').textContent = data.error || 'Error voting.';
+      document.querySelector('.vote-options').style.pointerEvents = '';
+      return;
+    }
+
+    // Try to commit immediately (works for solo alliances)
+    const commitRes = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
+    const commitData = await commitRes.json();
+
+    if (commitData.committed) {
+      document.getElementById('medea-vote-status').innerHTML = '<span class="vote-committed">✓ Vote committed — entering the race…</span>';
+      await loadState();
+      setTimeout(() => showPathChoice(1), 1200);
+    } else {
+      // Need more votes — show waiting
+      document.getElementById('medea-vote-status').textContent = `Your vote is in (${data.tally?.[0]?.cnt || 1} of ${data.tally?.[0]?.cnt || '?'} needed). Waiting for teammates…`;
+      showWaiting('Waiting for Alliance', 'Your Medea vote is in. Waiting for teammates to vote.', 'medea_waiting');
+      startPolling();
+    }
+  } catch(e) {
+    document.getElementById('medea-vote-status').textContent = 'Error: ' + e.message;
+    document.querySelector('.vote-options').style.pointerEvents = '';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// PATH CHOICE
+// ═══════════════════════════════════════════════════
+const ROUND_LABELS = {
+  1:'Round 1 — The Foothills',
+  2:'Round 2 — The Lower Slopes',
+  3:'Round 3 — The Cloud Line',
+  4:'Round 4 — The Temple Gates',
+  5:'Round 5 — The Summit'
+};
+
+async function showPathChoice(round) {
+  showScreen('paths');
+  selectedPathIndex = null;
+  document.getElementById('commit-path-btn').disabled = true;
+  document.getElementById('paths-vote-note').textContent = '';
+  document.getElementById('paths-error').classList.remove('show');
+  document.getElementById('paths-round-label').textContent = ROUND_LABELS[round] || `Round ${round}`;
+
+  try {
+    const res = await fetch(`/api/olympus/paths/${round}`, { headers:H });
+    const data = await res.json();
+    renderPaths(data.paths || [], round);
+  } catch(e) {
+    showPathsError('Could not load paths: ' + e.message);
+  }
+}
+
+function renderPaths(paths, round) {
+  const grid = document.getElementById('paths-grid');
+  grid.innerHTML = '';
+
+  paths.forEach(path => {
+    const card = document.createElement('div');
+    card.className = 'path-card' + (path.locked ? ' locked' : '') + (path.safe ? ' safe' : '');
+
+    let attackHtml = '';
+    if (path.safe) {
+      attackHtml = '<div class="path-attack safe-label">⚡ Safe Path — No Combat</div>';
+    } else if (path.locked) {
+      attackHtml = `<div class="path-attack danger">⚔ ${path.attack} point attack</div>`;
+    } else {
+      attackHtml = `<div class="path-attack danger">⚔ ${path.attack} point attack</div>`;
+    }
+
+    card.innerHTML = `
+      ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by || 'Claimed'}</div>` : ''}
+      ${path.safe && !path.locked ? '<div class="path-safe-badge">✦ SAFE</div>' : ''}
+      <div class="path-name">${path.label}</div>
+      <div class="path-god">${path.god ? `God: ${path.god}` : 'No encounter'}</div>
+      ${attackHtml}
+      <div class="path-hook">${path.hook || ''}</div>
+      <div class="path-vote-count" id="path-votes-${path.idx}"></div>
+    `;
+
+    if (!path.locked) {
+      card.onclick = () => selectPath(path.idx, card, path.safe);
+    }
+
+    grid.appendChild(card);
+  });
+}
+
+function selectPath(idx, cardEl, isSafe) {
+  // Deselect all
+  document.querySelectorAll('.path-card').forEach(c => c.classList.remove('selected'));
+  cardEl.classList.add('selected');
+  selectedPathIndex = idx;
+
+  const btn = document.getElementById('commit-path-btn');
+  btn.disabled = false;
+  btn.textContent = isSafe ? 'Take the Safe Path →' : 'Commit to This Path';
+
+  document.getElementById('paths-vote-note').textContent = 'Selected — click to lock this path for your alliance.';
+}
+
+async function commitPath() {
+  if (selectedPathIndex === null) return;
+
+  const btn = document.getElementById('commit-path-btn');
+  btn.disabled = true;
+  btn.textContent = 'Voting…';
+
+  try {
+    // Vote
+    const voteRes = await fetch('/api/olympus/vote-path', {
+      method:'POST', headers:H, body:JSON.stringify({ path_index: selectedPathIndex })
+    });
+    if (!voteRes.ok) {
+      const d = await voteRes.json();
+      showPathsError(d.error || 'Vote failed.');
+      btn.disabled = false;
+      btn.textContent = 'Commit to This Path';
+      return;
+    }
+
+    // Try commit
+    const commitRes = await fetch('/api/olympus/commit-path', { method:'POST', headers:H });
+    const commitData = await commitRes.json();
+
+    if (commitRes.status === 409) {
+      // Path already claimed by another alliance
+      showPathsError('That path was just claimed by another alliance! Choose a different one.');
+      btn.disabled = false;
+      btn.textContent = 'Commit to This Path';
+      selectedPathIndex = null;
+      // Refresh paths
+      await showPathChoice(raceState.current_round);
+      return;
+    }
+
+    if (commitData.committed || commitData.path) {
+      if (commitData.path) committedPath = commitData.path;
+      await loadState();
+      document.getElementById('paths-vote-note').innerHTML = '<span style="color:#8ae08a;">✓ Path locked! Preparing for battle…</span>';
+      setTimeout(() => showCombat(raceState.current_round), 1200);
+    } else {
+      // Needs more votes
+      document.getElementById('paths-vote-note').textContent = 'Your vote is in. Waiting for teammates…';
+      showWaiting('Waiting for Alliance', 'Your path vote is in. Waiting for teammates.', 'path_waiting');
+      startPolling();
+    }
+  } catch(e) {
+    showPathsError('Error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Commit to This Path';
+  }
+}
+
+function showPathsError(msg) {
+  const el = document.getElementById('paths-error');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+// ═══════════════════════════════════════════════════
+// COMBAT
+// ═══════════════════════════════════════════════════
+const PATH_DATA = {
+  1: [
+    { label:'Climb the Mountain', god:'Artemis',   attack:365, hook:'Army of enchanted forest animals overwhelm you.',    safe:false },
+    { label:'Hide in the Forest',  god:'Athena',    attack:295, hook:'A magic blanket traps you before transformation.',   safe:false },
+    { label:'Sail Across the Sea', god:'Apollo',    attack:325, hook:'Seagulls screech a divine alarm across the water.',  safe:false },
+    { label:'Walk Through Desert', god:'Zeus',      attack:400, hook:'Aerokinesis whips up a vicious sandstorm.',          safe:false },
+    { label:'Attack Head On',      god:'Aphrodite', attack:405, hook:'Hearts and flowers disarm your entire alliance.',    safe:false },
+    { label:'Make an Alliance',    god:null,        attack:0,   hook:'You were out of town. The gods never found you.',   safe:true  }
+  ]
+};
+
+async function showCombat(round) {
+  showScreen('combat');
+  document.getElementById('combat-result').classList.remove('show');
+  document.getElementById('combat-continue-wrap').style.display = 'none';
+  const fightBtn = document.getElementById('fight-btn');
+  fightBtn.disabled = false;
+  fightBtn.style.display = 'inline-block';
+  fightBtn.textContent = 'Defend Your Alliance';
+  fightBtn.style.background = '';
+  fightBtn.style.borderColor = '';
+  fightBtn.style.color = '';
+
+  await loadState();
+
+  // Use committedPath if we have it, otherwise look it up from path_locks
+  let path = committedPath;
+
+  if (!path) {
+    try {
+      // Find our path from the lock table via paths endpoint
+      const pathsRes = await fetch(`/api/olympus/paths/${round}`, { headers:H });
+      const pathsData = await pathsRes.json();
+      // The path locked by our alliance
+      const ourAllianceId = allianceData?.alliance_id;
+      const locked = (pathsData.paths || []).find(p =>
+        p.locked && p.locked_by && p.locked_by.alliance_id === ourAllianceId
+      );
+      if (locked) path = locked;
+    } catch(e) {}
+  }
+
+  if (path && path.safe) {
+    document.getElementById('combat-god-name').textContent = 'Safe Path Taken';
+    document.getElementById('combat-god-name').style.color = '#8ae08a';
+    document.getElementById('combat-hook').textContent = path.hook || 'You were out of town. The gods never found you.';
+    document.getElementById('combat-attack-val').textContent = '';
+    document.getElementById('combat-pts-before').textContent = '';
+    fightBtn.textContent = 'Advance Without Combat →';
+    fightBtn.style.background = 'linear-gradient(135deg,#1a4a1a,#0a2a0a)';
+    fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
+    fightBtn.style.color = '#8ae08a';
+  } else if (path) {
+    document.getElementById('combat-god-name').textContent = path.god || 'Unknown God';
+    document.getElementById('combat-god-name').style.color = '#e07070';
+    document.getElementById('combat-hook').textContent = path.hook || '';
+    document.getElementById('combat-attack-val').textContent = `⚡ Attack Power: ${path.attack} points`;
+    document.getElementById('combat-pts-before').textContent =
+      `Your alliance currently has ${allianceData?.total_points || '?'} points`;
+  } else {
+    document.getElementById('combat-god-name').textContent = 'The Gods Attack';
+    document.getElementById('combat-god-name').style.color = '#e07070';
+    document.getElementById('combat-hook').textContent = 'The divine assault begins. Defend your alliance.';
+    document.getElementById('combat-attack-val').textContent = '';
+    document.getElementById('combat-pts-before').textContent =
+      `Your alliance has ${allianceData?.total_points || '?'} points`;
+  }
+}
+
+async function resolveCombat() {
+  const btn = document.getElementById('fight-btn');
+  btn.disabled = true;
+  btn.textContent = 'Resolving…';
+
+  try {
+    const res = await fetch('/api/olympus/combat-resolve', { method:'POST', headers:H });
+    const data = await res.json();
+
+    if (!res.ok) {
+      btn.disabled = false;
+      btn.textContent = 'Defend Your Alliance';
+      alert(data.error || 'Combat failed.');
+      return;
+    }
+
+    btn.style.display = 'none';
+    const resultBox = document.getElementById('combat-result');
+    resultBox.classList.add('show');
+
+    if (data.safe_path) {
+      resultBox.innerHTML = '<div class="combat-safe-msg">✦ Safe path — no damage taken. Advance.</div>';
+    } else if (data.hades_triggered) {
+      resultBox.innerHTML = `
+        <div class="combat-deducted" style="color:#c0a0f0;">Hades has claimed you.</div>
+        <div class="combat-remaining combat-hades">Your alliance enters the shadow realm. Fight on.</div>
+      `;
+    } else {
+      const deducted = data.points_deducted || 0;
+      const remaining = data.points_after || 0;
+      resultBox.innerHTML = `
+        <div class="combat-deducted">−${deducted} points</div>
+        <div class="combat-remaining">${remaining} points remaining</div>
+      `;
+    }
+
+    document.getElementById('combat-continue-wrap').style.display = 'block';
+    await loadState();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Defend Your Alliance';
+    alert('Error: ' + e.message);
+  }
+}
+
+function proceedToPuzzle() {
+  window.location.href = '/puzzle_room.html';
+}
+
+// ═══════════════════════════════════════════════════
+// WAITING + POLLING
+// ═══════════════════════════════════════════════════
+function showWaiting(title, sub, phase) {
+  showScreen('waiting');
+  document.getElementById('waiting-title').textContent = title;
+  document.getElementById('waiting-sub').textContent = sub;
+  document.getElementById('waiting-phase').textContent = phase ? `Phase: ${phase}` : '';
+}
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    const data = await loadState();
+    if (data && raceState) {
+      const phase = raceState.current_phase;
+      // Re-route if phase has changed
+      routeToPhase(phase, raceState.current_round);
+    }
+  }, 3000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// ── Boot ─────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
