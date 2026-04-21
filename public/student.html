@@ -14225,104 +14225,67 @@
 
                 // Custom-styled buttons with no banner image
                 if (cfg.customStyle) {
-                    // Build an SVG banner that matches the pixel-art banner images exactly
-                    // Same 260px height, same shape (rectangle body + pointed bottom)
-                    var svgNS = 'http://www.w3.org/2000/svg';
-                    var svgEl = document.createElementNS(svgNS, 'svg');
-                    svgEl.setAttribute('xmlns', svgNS);
-                    svgEl.setAttribute('width', '120');
-                    svgEl.setAttribute('height', '260');
-                    svgEl.setAttribute('viewBox', '0 0 120 260');
-                    svgEl.style.filter = 'drop-shadow(0 4px 10px rgba(0,0,0,0.7))';
-                    svgEl.style.transition = 'filter 0.2s, transform 0.2s';
-                    svgEl.style.imageRendering = 'pixelated';
-                    svgEl.style.display = 'block';
+                    // Use the Indigo banner image as the base, tint purple via canvas
+                    var purpleSrc = '/images/heroic/banners/Indigo rod with indigo banner.png';
+                    var purpleLoader = new Image();
+                    purpleLoader.crossOrigin = 'anonymous';
+                    purpleLoader.onerror = function() { /* fallback — leave as plain button */ };
+                    purpleLoader.onload = (function(button, label) {
+                        return function() {
+                            var finalSrc = purpleSrc;
+                            try {
+                                var canvas = document.createElement('canvas');
+                                canvas.width  = purpleLoader.naturalWidth;
+                                canvas.height = purpleLoader.naturalHeight;
+                                var ctx = canvas.getContext('2d');
+                                ctx.drawImage(purpleLoader, 0, 0);
+                                var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                                var d = imageData.data;
+                                for (var i = 0; i < d.length; i += 4) {
+                                    // Strip magenta background
+                                    if (d[i] > 150 && d[i+2] > 150 && d[i+1] < 80) { d[i+3] = 0; continue; }
+                                    // Tint non-gold, non-transparent pixels toward deep purple
+                                    var r = d[i], g = d[i+1], b = d[i+2], a = d[i+3];
+                                    if (a > 10) {
+                                        // Is it gold/yellow? Keep it (r>150, g>100, b<80)
+                                        var isGold = (r > 140 && g > 90 && b < 100);
+                                        if (!isGold) {
+                                            // Tint to purple: boost red slightly, boost blue strongly, reduce green
+                                            d[i]   = Math.min(255, Math.round(r * 0.5 + 40));  // R
+                                            d[i+1] = Math.min(255, Math.round(g * 0.2 + 10));  // G
+                                            d[i+2] = Math.min(255, Math.round(b * 0.8 + 80));  // B
+                                        }
+                                    }
+                                }
+                                ctx.putImageData(imageData, 0, 0);
+                                finalSrc = canvas.toDataURL('image/png');
+                            } catch(e) { /* CORS fallback */ }
 
-                    // Rod across top (gold bar)
-                    var rod = document.createElementNS(svgNS, 'rect');
-                    rod.setAttribute('x', '0'); rod.setAttribute('y', '8');
-                    rod.setAttribute('width', '120'); rod.setAttribute('height', '14');
-                    rod.setAttribute('fill', '#B8860B');
-                    rod.setAttribute('rx', '3');
-                    svgEl.appendChild(rod);
+                            var wrapper = document.createElement('div');
+                            wrapper.className = 'arena-banner-wrapper';
 
-                    // Rod end caps
-                    var cap1 = document.createElementNS(svgNS, 'circle');
-                    cap1.setAttribute('cx', '6'); cap1.setAttribute('cy', '15');
-                    cap1.setAttribute('r', '9'); cap1.setAttribute('fill', '#d4a017');
-                    svgEl.appendChild(cap1);
-                    var cap2 = document.createElementNS(svgNS, 'circle');
-                    cap2.setAttribute('cx', '114'); cap2.setAttribute('cy', '15');
-                    cap2.setAttribute('r', '9'); cap2.setAttribute('fill', '#d4a017');
-                    svgEl.appendChild(cap2);
+                            var bannerImg = document.createElement('img');
+                            bannerImg.className = 'arena-banner-img';
+                            bannerImg.src = finalSrc;
+                            bannerImg.alt = label;
 
-                    // Banner body (rectangle + pointed bottom)
-                    var banner = document.createElementNS(svgNS, 'polygon');
-                    banner.setAttribute('points', '8,22 112,22 112,230 60,258 8,230');
-                    banner.setAttribute('fill', '#3a1a6a');
-                    svgEl.appendChild(banner);
+                            var bannerTxt = document.createElement('span');
+                            bannerTxt.className = 'arena-banner-text';
+                            bannerTxt.textContent = label;
 
-                    // Inner border accent
-                    var inner = document.createElementNS(svgNS, 'polygon');
-                    inner.setAttribute('points', '14,28 106,28 106,226 60,250 14,226');
-                    inner.setAttribute('fill', 'none');
-                    inner.setAttribute('stroke', '#B8860B');
-                    inner.setAttribute('stroke-width', '2');
-                    svgEl.appendChild(inner);
+                            wrapper.appendChild(bannerImg);
+                            wrapper.appendChild(bannerTxt);
 
-                    // Lightning bolt icon
-                    var bolt = document.createElementNS(svgNS, 'text');
-                    bolt.setAttribute('x', '60'); bolt.setAttribute('y', '105');
-                    bolt.setAttribute('text-anchor', 'middle');
-                    bolt.setAttribute('font-size', '36');
-                    bolt.setAttribute('fill', '#d4a017');
-                    bolt.textContent = '⚡';
-                    svgEl.appendChild(bolt);
-
-                    // Text lines
-                    var t1 = document.createElementNS(svgNS, 'text');
-                    t1.setAttribute('x', '60'); t1.setAttribute('y', '152');
-                    t1.setAttribute('text-anchor', 'middle');
-                    t1.setAttribute('font-family', 'Cinzel, serif');
-                    t1.setAttribute('font-size', '13');
-                    t1.setAttribute('font-weight', '700');
-                    t1.setAttribute('letter-spacing', '1');
-                    t1.setAttribute('fill', '#ffffff');
-                    t1.textContent = 'OLYMPUS';
-                    svgEl.appendChild(t1);
-
-                    var t2 = document.createElementNS(svgNS, 'text');
-                    t2.setAttribute('x', '60'); t2.setAttribute('y', '170');
-                    t2.setAttribute('text-anchor', 'middle');
-                    t2.setAttribute('font-family', 'Cinzel, serif');
-                    t2.setAttribute('font-size', '13');
-                    t2.setAttribute('font-weight', '700');
-                    t2.setAttribute('letter-spacing', '1');
-                    t2.setAttribute('fill', '#ffffff');
-                    t2.textContent = 'RACE';
-                    svgEl.appendChild(t2);
-
-                    // Wrap in same structure as real banners
-                    var wrapper = document.createElement('div');
-                    wrapper.className = 'arena-banner-wrapper';
-                    wrapper.appendChild(svgEl);
-
-                    btn.innerHTML = '';
-                    btn.appendChild(wrapper);
-                    btn.classList.add('heroic-banner-btn');
-                    btn.style.fontSize = '0';
-                    btn.style.background = 'transparent';
-                    btn.style.border = 'none';
-                    btn.style.boxShadow = 'none';
-
-                    btn.onmouseenter = function() {
-                        svgEl.style.filter = 'drop-shadow(0 6px 16px rgba(0,0,0,0.6)) brightness(1.15)';
-                        svgEl.style.transform = 'translateY(-3px) scale(1.05)';
-                    };
-                    btn.onmouseleave = function() {
-                        svgEl.style.filter = 'drop-shadow(0 4px 10px rgba(0,0,0,0.7))';
-                        svgEl.style.transform = '';
-                    };
+                            button.innerHTML = '';
+                            button.appendChild(wrapper);
+                            button.classList.add('heroic-banner-btn');
+                            button.style.fontSize   = '0';
+                            button.style.background = 'transparent';
+                            button.style.border     = 'none';
+                            button.style.boxShadow  = 'none';
+                        };
+                    })(btn, cfg.label);
+                    purpleLoader.src = purpleSrc;
                     return;
                 }
 
