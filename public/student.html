@@ -14222,6 +14222,45 @@
             BANNERS.forEach(function(cfg) {
                 var btn = document.getElementById(cfg.id);
                 if (!btn) return;
+
+                // Custom-styled buttons with no banner image
+                if (cfg.customStyle) {
+                    btn.innerHTML = '';
+                    btn.style.cssText = [
+                        'background:linear-gradient(180deg,#3a1a6a 0%,#2C1A4A 40%,#1a0f30 100%)',
+                        'border:2px solid #B8860B',
+                        'border-top:4px solid #d4a017',
+                        'border-bottom:4px solid #d4a017',
+                        'color:#f0d060',
+                        'font-family:Cinzel,serif',
+                        'font-size:13px',
+                        'font-weight:700',
+                        'letter-spacing:2px',
+                        'text-transform:uppercase',
+                        'min-height:120px',
+                        'width:140px',
+                        'display:inline-flex',
+                        'align-items:center',
+                        'justify-content:center',
+                        'text-align:center',
+                        'padding:12px 8px',
+                        'clip-path:polygon(8px 0%,calc(100% - 8px) 0%,100% 8px,100% calc(100% - 16px),50% 100%,0% calc(100% - 16px),0% 8px)',
+                        'box-shadow:0 4px 20px rgba(184,134,11,0.3)',
+                        'cursor:pointer',
+                        'transition:all 0.2s'
+                    ].join(';');
+                    btn.textContent = cfg.label;
+                    btn.onmouseenter = function() {
+                        this.style.background = 'linear-gradient(180deg,#5a2a9a 0%,#3C1A6A 40%,#2a1040 100%)';
+                        this.style.boxShadow = '0 6px 24px rgba(184,134,11,0.5)';
+                    };
+                    btn.onmouseleave = function() {
+                        this.style.background = 'linear-gradient(180deg,#3a1a6a 0%,#2C1A4A 40%,#1a0f30 100%)';
+                        this.style.boxShadow = '0 4px 20px rgba(184,134,11,0.3)';
+                    };
+                    return;
+                }
+
                 var src = '/images/heroic/banners/' + cfg.file;
 
                 var loader = new Image();
