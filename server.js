@@ -1905,28 +1905,46 @@ app.post('/api/student/submit-points', authenticateToken, (req, res) => {
   try {
     const { points_claimed, max_points, category, myth_god, section, description } = req.body;
     const student_id = req.user.id;
-    
-    // Validate points - reject anything over 100
+
+    // Validate points
     if (!points_claimed || points_claimed < 1) {
       return res.status(400).json({ error: 'Points must be at least 1' });
     }
     if (points_claimed > 100) {
       return res.status(400).json({ error: 'Maximum submission is 100 points. Contact your teacher if you need to submit more.' });
     }
-    
+
+    // ── Daily submission limit: max 10 per student per day ──
+    const todayCount = query(
+      `SELECT COUNT(*) as cnt FROM point_submissions WHERE student_id = ? AND DATE(submitted_at) = DATE('now')`,
+      [student_id]
+    )[0];
+    if (todayCount && todayCount.cnt >= 10) {
+      return res.status(429).json({ error: 'You have reached the daily limit of 10 submissions. See your teacher if you need to submit more.' });
+    }
+
+    // ── Description word limit: max 10 words ──
+    const rawDesc = (description || '').trim();
+    const wordCount = rawDesc === '' ? 0 : rawDesc.split(/\s+/).length;
+    if (wordCount > 10) {
+      return res.status(400).json({ error: `Description is too long (${wordCount} words). Please keep it to 10 words or fewer.` });
+    }
+    // Also hard-cap characters to prevent giant strings even with short word count
+    const safeDesc = rawDesc.slice(0, 100);
+
     // Get student's alliance
     const student = query('SELECT alliance_id FROM students WHERE student_id = ?', [student_id])[0];
-    
     if (!student || !student.alliance_id) {
       return res.status(400).json({ error: 'You must be in an alliance to submit points' });
     }
-    
-    // Create submission with max_points, myth_god, and section
-    run(`INSERT INTO point_submissions (student_id, alliance_id, points_claimed, max_points, category, myth_god, section, description, status) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, 
-        [student_id, student.alliance_id, points_claimed, max_points || null, category, myth_god || null, section || null, description]);
-    
-    res.json({ success: true, message: 'Points submitted for teacher approval!' });
+
+    // Create submission
+    run(`INSERT INTO point_submissions (student_id, alliance_id, points_claimed, max_points, category, myth_god, section, description, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        [student_id, student.alliance_id, points_claimed, max_points || null, category, myth_god || null, section || null, safeDesc]);
+
+    const remaining = 10 - (todayCount.cnt + 1);
+    res.json({ success: true, message: `Points submitted for teacher approval! (${remaining} submission${remaining !== 1 ? 's' : ''} remaining today)` });
   } catch (err) {
     console.error('Submit points error:', err);
     res.status(500).json({ error: 'Failed to submit points' });
@@ -5693,21 +5711,7 @@ app.post('/api/teacher/use-reverse-card/:alliance_id', authenticateToken, (req, 
     run('UPDATE alliances SET reverse_cards = COALESCE(reverse_cards, 0) - 1 WHERE alliance_id = ? AND reverse_cards > 0', [alliance_id]);
     
     const alliance = query('SELECT * FROM alliances WHERE alliance_id = ?', [alliance_id])[0];
-
-    // Award Fate Breaker badge to all non-ghost alliance members
-    const members = query(
-      'SELECT student_id FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL)',
-      [alliance_id]
-    );
-    members.forEach(m => {
-      try {
-        run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by)
-             VALUES (?, 'honor_fate_breaker', 0, 0, 'system')`, [m.student_id]);
-      } catch(e) { /* already has it */ }
-    });
-    saveDatabase();
-    console.log(`🔄 Teacher used Reverse Card for alliance ${alliance_id} — Fate Breaker badge awarded to ${members.length} members`);
-
+    
     res.json({
       success: true,
       message: 'Reverse card used!',

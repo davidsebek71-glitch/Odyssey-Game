@@ -3787,7 +3787,8 @@
                 </div>
                 <div class="form-group" style="order:5;">
                     <label>Description</label>
-                    <textarea id="submit-description" placeholder="Describe what you completed (optional)..."></textarea>
+                    <textarea id="submit-description" placeholder="Describe what you completed (optional, 10 words max)..." maxlength="100" oninput="checkDescWordCount(this)"></textarea>
+                    <div id="desc-word-counter" style="font-size:11px; color:rgba(255,255,255,0.4); margin-top:4px; text-align:right;">0 / 10 words</div>
                 </div>
                 <div class="modal-buttons" style="order:6;">
                     <button type="button" class="btn btn-secondary" onclick="closeSubmitModal()">Cancel</button>
@@ -5151,9 +5152,38 @@
             onCategoryChange();
         }
 
+        // Word count checker for description field
+        function checkDescWordCount(textarea) {
+            const words = textarea.value.trim() === '' ? [] : textarea.value.trim().split(/\s+/);
+            const count = words.length;
+            const counter = document.getElementById('desc-word-counter');
+            if (counter) {
+                counter.textContent = count + ' / 10 words';
+                counter.style.color = count > 10 ? '#ff6b6b' : 'rgba(255,255,255,0.4)';
+            }
+            // Truncate to 10 words on the fly
+            if (count > 10) {
+                textarea.value = words.slice(0, 10).join(' ');
+                if (counter) { counter.textContent = '10 / 10 words'; counter.style.color = '#ffaa44'; }
+            }
+        }
+
+        // Submit button cooldown — prevents rapid re-clicks
+        let submitCooldown = false;
+
         document.getElementById('submit-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
+            // Cooldown guard
+            if (submitCooldown) return;
+            submitCooldown = true;
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
+            setTimeout(() => {
+                submitCooldown = false;
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit for Approval'; }
+            }, 5000); // 5-second cooldown between submissions
+
             const category = document.getElementById('submit-category').value;
             const mythGroup = document.getElementById('myth-group');
             
@@ -14880,7 +14910,7 @@
                     if (!badge) {
                         slot.classList.add('empty');
                         slot.innerHTML = '<div class="badge-icon" style="font-size:10px;opacity:0.2;">?</div>';
-                    } else if (badge.age_available === 'heroic' && !badge.earned) {
+                    } else if (badge.age_available === 'heroic') {
                         slot.classList.add('locked');
                         slot.innerHTML = `<div class="badge-icon">🔒</div>`;
                         slot.title = badge.badge_name + '\n' + badge.description;
