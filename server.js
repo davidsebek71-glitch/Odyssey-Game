@@ -16152,6 +16152,174 @@ app.post('/api/olympus/godtest-submit', authenticateToken, (req, res) => {
   }
 });
 
+// ── POST /api/olympus/godtest-answer ─────────────────────────────────────────
+// Records an individual student's answer to a Hermes gauntlet comprehension question.
+// Non-blocking: the student always advances regardless of correctness.
+// answer_value: string the student typed/selected
+// question_idx: 0-based index of the question within this round's god test
+app.post('/api/olympus/godtest-answer', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { question_idx, answer_value, correct_answer } = req.body;
+    if (question_idx === undefined || !answer_value || !correct_answer) {
+      return res.status(400).json({ error: 'question_idx, answer_value, and correct_answer required' });
+    }
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'god_test') {
+      return res.status(400).json({ error: 'Not in god_test phase' });
+    }
+    // Normalise both sides: lowercase, trim, collapse whitespace
+    const normalise = s => s.toLowerCase().trim().replace(/\s+/g, ' ');
+    const is_correct = normalise(answer_value) === normalise(correct_answer) ? 1 : 0;
+    run(
+      `INSERT INTO olympus_godtest_answers
+         (alliance_id, student_id, round_number, question_idx, answer_value, is_correct)
+       VALUES (?,?,?,?,?,?)
+       ON CONFLICT(alliance_id, student_id, round_number, question_idx)
+         DO UPDATE SET answer_value=excluded.answer_value, is_correct=excluded.is_correct`,
+      [alliance.alliance_id, req.user.id, state.current_round, question_idx, answer_value, is_correct]
+    );
+    res.json({ recorded: true, is_correct: !!is_correct });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/godtest-vote-fork ───────────────────────────────────────
+// Cast a vote for one of the fork options during a god test path-choice moment.
+// fork_idx: which fork in the test (0-based, Hermes has 3)
+// vote_value: integer index of the chosen option
+app.post('/api/olympus/godtest-vote-fork', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { fork_idx, vote_value } = req.body;
+    if (fork_idx === undefined || vote_value === undefined) {
+      return res.status(400).json({ error: 'fork_idx and vote_value required' });
+    }
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'god_test') {
+      return res.status(400).json({ error: 'Not in god_test phase' });
+    }
+    run(
+      `INSERT INTO olympus_godtest_votes
+         (alliance_id, student_id, round_number, fork_idx, vote_value)
+       VALUES (?,?,?,?,?)
+       ON CONFLICT(alliance_id, student_id, round_number, fork_idx)
+         DO UPDATE SET vote_value=excluded.vote_value`,
+      [alliance.alliance_id, req.user.id, state.current_round, fork_idx, vote_value]
+    );
+    const tally = query(
+      `SELECT vote_value, COUNT(*) as cnt
+       FROM olympus_godtest_votes
+       WHERE alliance_id=? AND round_number=? AND fork_idx=?
+       GROUP BY vote_value ORDER BY cnt DESC`,
+      [alliance.alliance_id, state.current_round, fork_idx]
+    );
+    const majority = getMajority_godtest(alliance.alliance_id, state.current_round, fork_idx);
+    res.json({ tally, majority });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/godtest-commit-fork ─────────────────────────────────────
+// Commits the majority fork vote and locks it against other alliances.
+// Returns { committed, path_value, locked_by } or 409 if already locked.
+app.post('/api/olympus/godtest-commit-fork', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { fork_idx } = req.body;
+    if (fork_idx === undefined) return res.status(400).json({ error: 'fork_idx required' });
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'god_test') {
+      return res.status(400).json({ error: 'Not in god_test phase' });
+    }
+    const majority = getMajority_godtest(alliance.alliance_id, state.current_round, fork_idx);
+    if (!majority) return res.status(400).json({ error: 'No majority yet' });
+    const pathValue = parseInt(majority.winner);
+    // Attempt to claim the lock — UNIQUE constraint prevents race conditions
+    try {
+      run(
+        `INSERT INTO olympus_godtest_locks
+           (period, version, round_number, fork_idx, path_value, alliance_id, alliance_name)
+         VALUES (?,?,?,?,?,?,?)`,
+        [state.period, state.version, state.current_round, fork_idx, pathValue,
+         alliance.alliance_id, alliance.name]
+      );
+    } catch(lockErr) {
+      const claimer = query(
+        `SELECT alliance_name FROM olympus_godtest_locks
+         WHERE period=? AND version=? AND round_number=? AND fork_idx=? AND path_value=?`,
+        [state.period, state.version, state.current_round, fork_idx, pathValue]
+      );
+      return res.status(409).json({
+        error: 'Path already claimed',
+        claimed_by: claimer[0] ? claimer[0].alliance_name : 'Another alliance'
+      });
+    }
+    res.json({ committed: true, path_value: pathValue });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/godtest-fork-status ──────────────────────────────────────
+// Returns locked paths for a specific round and fork so the client can
+// grey out unavailable options before the student votes.
+app.get('/api/olympus/godtest-fork-status', authenticateToken, (req, res) => {
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    const { fork_idx } = req.query;
+    if (fork_idx === undefined) return res.status(400).json({ error: 'fork_idx required' });
+    const locks = query(
+      `SELECT path_value, alliance_id, alliance_name FROM olympus_godtest_locks
+       WHERE period=? AND version=? AND round_number=? AND fork_idx=?`,
+      [state.period, state.version, state.current_round, parseInt(fork_idx)]
+    );
+    // What has THIS alliance already locked for this fork?
+    const ownLock = locks.find(l => l.alliance_id === alliance.alliance_id);
+    res.json({ locks, own_lock: ownLock || null });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── helper: getMajority for god test fork votes ───────────────────────────────
+function getMajority_godtest(allianceId, round, forkIdx) {
+  const members = query(
+    `SELECT COUNT(*) as cnt FROM students
+     WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+    [allianceId]
+  );
+  const total = members[0] ? members[0].cnt : 1;
+  const votes = query(
+    `SELECT vote_value, COUNT(*) as cnt FROM olympus_godtest_votes
+     WHERE alliance_id=? AND round_number=? AND fork_idx=?
+     GROUP BY vote_value ORDER BY cnt DESC`,
+    [allianceId, round, forkIdx]
+  );
+  if (!votes.length) return null;
+  const needed = Math.floor(total / 2) + 1;
+  if (votes[0].cnt >= needed) {
+    return { winner: votes[0].vote_value, count: votes[0].cnt, total };
+  }
+  // Tie-break: all members voted, pick plurality
+  const totalVotes = votes.reduce((s, v) => s + v.cnt, 0);
+  if (totalVotes >= total) {
+    return { winner: votes[0].vote_value, count: votes[0].cnt, total, tiebreak: true };
+  }
+  return null;
+}
+
 // ── GET /api/olympus/teacher/diagnostic ──────────────────────────────────────
 app.get('/api/olympus/teacher/diagnostic', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
@@ -16254,7 +16422,10 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_medea_choices WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_hints WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_gate_attempts WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_godtest_answers WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_godtest_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
+      run(`DELETE FROM olympus_godtest_locks WHERE period=?`, [period]);
     }
     res.json({ reset: true, period, alliances_cleared: ids.length });
   } catch(e) {

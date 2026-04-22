@@ -2257,6 +2257,51 @@ function seedReferenceData() {
     console.log('✅ olympus_gate_attempts ready');
   } catch(e) { console.log('Migration note: olympus_gate_attempts -', e.message); }
 
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_godtest_answers (
+      answer_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id  INTEGER NOT NULL,
+      student_id   INTEGER NOT NULL,
+      round_number INTEGER NOT NULL,
+      question_idx INTEGER NOT NULL,
+      answer_value TEXT NOT NULL,
+      is_correct   INTEGER NOT NULL DEFAULT 0,
+      answered_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(alliance_id, student_id, round_number, question_idx)
+    )`);
+    console.log('✅ olympus_godtest_answers ready');
+  } catch(e) { console.log('Migration note: olympus_godtest_answers -', e.message); }
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_godtest_votes (
+      vote_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id  INTEGER NOT NULL,
+      student_id   INTEGER NOT NULL,
+      round_number INTEGER NOT NULL,
+      fork_idx     INTEGER NOT NULL,
+      vote_value   INTEGER NOT NULL,
+      voted_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(alliance_id, student_id, round_number, fork_idx)
+    )`);
+    console.log('✅ olympus_godtest_votes ready');
+  } catch(e) { console.log('Migration note: olympus_godtest_votes -', e.message); }
+
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_godtest_locks (
+      lock_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      period        TEXT NOT NULL,
+      version       TEXT NOT NULL DEFAULT 'A',
+      round_number  INTEGER NOT NULL,
+      fork_idx      INTEGER NOT NULL,
+      path_value    INTEGER NOT NULL,
+      alliance_id   INTEGER NOT NULL,
+      alliance_name TEXT NOT NULL,
+      locked_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(period, version, round_number, fork_idx, path_value)
+    )`);
+    console.log('✅ olympus_godtest_locks ready');
+  } catch(e) { console.log('Migration note: olympus_godtest_locks -', e.message); }
+
   // ── END REVENGE OF THE GODS migrations ──────────────────────────────────
 
   // Always run Classical seeding — it has its own internal guards

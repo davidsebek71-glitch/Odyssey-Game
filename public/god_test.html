@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>God Test — Olympus Race</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════════ */
+:root {
+  --bg:           #0a0612;
+  --bg2:          #110920;
+  --gold:         #c8a84b;
+  --gold-bright:  #f0cc6a;
+  --gold-dim:     #7a6428;
+  --purple:       #6b3fa0;
+  --purple-light: #9b6fd0;
+  --purple-dim:   #2a1540;
+  --teal:         #4ab8c4;
+  --teal-dim:     #1a4a50;
+  --green:        #4a9a5a;
+  --green-bright: #7adc8a;
+  --red:          #c84040;
+  --red-bright:   #f06060;
+  --text:         #e8dcc8;
+  --text-dim:     rgba(232,220,200,0.55);
+  --border:       rgba(200,168,75,0.25);
+  --border-bright:rgba(200,168,75,0.55);
+  --radius:       8px;
+  --transition:   0.3s ease;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IM Fell English', Georgia, serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Stars background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 15% 20%, rgba(200,168,75,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 8%,  rgba(200,168,75,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 15%, rgba(200,168,75,0.35)0%, transparent 100%),
+    radial-gradient(1px 1px at 88% 25%, rgba(200,168,75,0.25)0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 85%, rgba(200,168,75,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 90%, rgba(200,168,75,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 92% 75%, rgba(200,168,75,0.25)0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   LAYOUT SHELL
+═══════════════════════════════════════════════ */
+#app {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 40px;
+}
+
+/* ═══════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════ */
+.god-header {
+  width: 100%;
+  max-width: 700px;
+  text-align: center;
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+
+.god-header .eyebrow {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.god-header .god-name {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-shadow: 0 0 30px rgba(200,168,75,0.4);
+  line-height: 1.1;
+}
+
+.god-header .test-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--purple-light);
+  letter-spacing: 0.12em;
+  margin-top: 6px;
+}
+
+/* ═══════════════════════════════════════════════
+   STAT BAR
+═══════════════════════════════════════════════ */
+.stat-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(107,63,160,0.15);
+  border: 1px solid rgba(107,63,160,0.3);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 24px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+}
+
+.stat-bar .stat-label { color: var(--text-dim); letter-spacing: 0.1em; }
+.stat-bar .stat-value { color: var(--teal); font-weight: 600; font-size: 0.9rem; }
+.stat-bar .stat-divider { color: var(--border-bright); margin: 0 4px; }
+.stat-bar .timer-label { margin-left: auto; color: var(--text-dim); }
+.stat-bar .timer-value { color: var(--gold); font-weight: 600; font-size: 0.9rem; }
+
+/* ═══════════════════════════════════════════════
+   SCREENS
+═══════════════════════════════════════════════ */
+.screen { display: none; width: 100%; max-width: 700px; }
+.screen.active { display: block; }
+
+/* ═══════════════════════════════════════════════
+   GOD INTRO SCREEN
+═══════════════════════════════════════════════ */
+.god-portrait {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  border: 2px solid var(--gold-dim);
+  background: var(--purple-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  box-shadow: 0 0 40px rgba(107,63,160,0.5);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 40px rgba(107,63,160,0.5); }
+  50%       { box-shadow: 0 0 60px rgba(107,63,160,0.8), 0 0 80px rgba(200,168,75,0.2); }
+}
+
+.god-speech {
+  background: linear-gradient(135deg, var(--purple-dim), rgba(10,6,18,0.9));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.god-speech::before {
+  content: '"';
+  position: absolute;
+  top: -10px;
+  left: 20px;
+  font-size: 4rem;
+  color: var(--gold-dim);
+  font-family: 'Cinzel Decorative', serif;
+  line-height: 1;
+}
+
+.god-speech p {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text);
+  font-style: italic;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.god-speech p.reveal { opacity: 1; transform: translateY(0); }
+
+.intro-rules {
+  background: rgba(74,184,196,0.08);
+  border: 1px solid rgba(74,184,196,0.2);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+.intro-rules strong { color: var(--teal); }
+
+/* ═══════════════════════════════════════════════
+   OBSTACLE COURSE
+═══════════════════════════════════════════════ */
+.course-track {
+  background: linear-gradient(135deg, rgba(10,6,18,0.95), var(--purple-dim));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 20px;
+  min-height: 180px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated speed lines */
+.course-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 40px,
+    rgba(200,168,75,0.03) 40px,
+    rgba(200,168,75,0.03) 41px
+  );
+  animation: speed-lines 1.2s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes speed-lines {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-41px); }
+}
+
+.obstacle-header {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.obstacle-number {
+  display: inline-block;
+  background: var(--purple);
+  color: var(--gold-bright);
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-right: 8px;
+}
+
+.obstacle-text {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--text);
+  position: relative;
+}
+
+.obstacle-emoji {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* Progress pips */
+.progress-pips {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--purple-dim);
+  border: 1px solid var(--purple);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.pip.done     { background: var(--green); border-color: var(--green-bright); }
+.pip.current  { background: var(--gold); border-color: var(--gold-bright); animation: pip-pulse 1s ease-in-out infinite; }
+.pip.question { background: var(--purple); border-color: var(--purple-light); }
+
+@keyframes pip-pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.4); }
+}
+
+/* ═══════════════════════════════════════════════
+   QUESTION INTERRUPT
+═══════════════════════════════════════════════ */
+.question-overlay {
+  background: linear-gradient(135deg, #0d0820, #1a0830);
+  border: 2px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 20px;
+  position: relative;
+  box-shadow: 0 0 40px rgba(200,168,75,0.2);
+  animation: question-drop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+
+@keyframes question-drop {
+  from { transform: translateY(-20px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+
+.question-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold);
+  color: #0a0612;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 4px 10px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.question-timer-bar {
+  height: 4px;
+  background: rgba(200,168,75,0.15);
+  border-radius: 2px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.question-timer-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.question-timer-fill.warning { background: linear-gradient(90deg, var(--red), var(--red-bright)); }
+
+.myth-fragment {
+  background: rgba(200,168,75,0.06);
+  border-left: 3px solid var(--gold-dim);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-style: italic;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+  border-radius: 0 4px 4px 0;
+}
+
+.question-text {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 18px;
+  font-weight: 600;
+}
+
+.answer-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.answer-btn {
+  background: rgba(107,63,160,0.15);
+  border: 1px solid rgba(107,63,160,0.4);
+  color: var(--text);
+  font-family: 'IM Fell English', Georgia, serif;
+  font-size: 0.85rem;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition), border-color var(--transition), transform 0.15s;
+  line-height: 1.4;
+}
+
+.answer-btn:hover:not(:disabled) {
+  background: rgba(107,63,160,0.35);
+  border-color: var(--purple-light);
+  transform: translateY(-1px);
+}
+
+.answer-btn.selected {
+  background: rgba(107,63,160,0.5);
+  border-color: var(--purple-light);
+  box-shadow: 0 0 12px rgba(107,63,160,0.4);
+}
+
+.answer-btn.correct {
+  background: rgba(74,154,90,0.3);
+  border-color: var(--green-bright);
+  color: var(--green-bright);
+}
+
+.answer-btn.incorrect {
+  background: rgba(200,64,64,0.2);
+  border-color: var(--red);
+  color: var(--red-bright);
+}
+
+.answer-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+
+.question-feedback {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  text-align: center;
+  margin-bottom: 14px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.question-feedback.show { opacity: 1; }
+.question-feedback.correct-fb  { background: rgba(74,154,90,0.2); border: 1px solid var(--green); color: var(--green-bright); }
+.question-feedback.incorrect-fb { background: rgba(200,64,64,0.15); border: 1px solid var(--red); color: var(--red-bright); }
+.question-feedback.timeout-fb   { background: rgba(200,168,75,0.1); border: 1px solid var(--gold-dim); color: var(--gold); }
+
+/* ═══════════════════════════════════════════════
+   FORK VOTE SCREEN
+═══════════════════════════════════════════════ */
+.fork-header {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.fork-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  color: var(--gold-bright);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.fork-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.fork-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.fork-option {
+  background: rgba(10,6,18,0.8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), transform 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.fork-option:hover:not(.locked):not(.voted) {
+  background: rgba(107,63,160,0.2);
+  border-color: var(--purple-light);
+  transform: translateX(4px);
+}
+
+.fork-option.selected {
+  background: rgba(107,63,160,0.3);
+  border-color: var(--purple-light);
+  box-shadow: 0 0 16px rgba(107,63,160,0.3);
+}
+
+.fork-option.committed {
+  background: rgba(74,154,90,0.15);
+  border-color: var(--green);
+  cursor: default;
+}
+
+.fork-option.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.fork-option-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.fork-option-desc {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.fork-lock-badge {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  color: var(--red-bright);
+  letter-spacing: 0.1em;
+}
+
+.fork-vote-tally {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+}
+
+.fork-vote-tally span { color: var(--gold); }
+
+.fork-waiting {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  padding: 10px 0;
+}
+
+.poll-dot::after {
+  content: '…';
+  animation: dots 1.4s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%  { content: '.'; }
+  33% { content: '..'; }
+  66% { content: '...'; }
+}
+
+/* ═══════════════════════════════════════════════
+   PASS / COMPLETE SCREEN
+═══════════════════════════════════════════════ */
+.pass-screen {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.pass-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  animation: pass-bounce 0.6s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+
+@keyframes pass-bounce {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.pass-title {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 1.6rem;
+  color: var(--gold-bright);
+  text-shadow: 0 0 30px rgba(200,168,75,0.5);
+  margin-bottom: 10px;
+}
+
+.pass-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════
+   STUB SCREENS (rounds 2-5)
+═══════════════════════════════════════════════ */
+.stub-screen {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.stub-icon  { font-size: 3rem; margin-bottom: 16px; }
+.stub-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+  color: var(--gold-bright);
+  margin-bottom: 10px;
+}
+
+.stub-body {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════ */
+.btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 13px 28px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.btn:hover:not(:disabled) { transform: translateY(-2px); }
+.btn:active:not(:disabled){ transform: translateY(0); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-gold {
+  background: linear-gradient(135deg, #8a6820, #c8a84b, #8a6820);
+  color: #0a0612;
+  box-shadow: 0 4px 16px rgba(200,168,75,0.3);
+}
+.btn-gold:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(200,168,75,0.5); }
+
+.btn-purple {
+  background: linear-gradient(135deg, #3a1f70, #6b3fa0, #3a1f70);
+  color: var(--text);
+  border: 1px solid rgba(107,63,160,0.5);
+  box-shadow: 0 4px 14px rgba(107,63,160,0.3);
+}
+.btn-purple:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(107,63,160,0.5); }
+
+.btn-green {
+  background: linear-gradient(135deg, #1a4a2a, #4a9a5a, #1a4a2a);
+  color: var(--text);
+  border: 1px solid rgba(74,154,90,0.4);
+  box-shadow: 0 4px 14px rgba(74,154,90,0.25);
+}
+.btn-green:hover:not(:disabled) { box-shadow: 0 6px 20px rgba(74,154,90,0.4); }
+
+.btn-center { display: block; margin: 0 auto; }
+
+/* ═══════════════════════════════════════════════
+   WAITING / LOADING
+═══════════════════════════════════════════════ */
+.waiting-box {
+  text-align: center;
+  padding: 32px 20px;
+  background: rgba(107,63,160,0.08);
+  border: 1px solid rgba(107,63,160,0.2);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+}
+
+.waiting-box p { font-style: italic; color: var(--text-dim); font-size: 0.9rem; }
+
+#loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  color: var(--gold-dim);
+}
+
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--purple-dim);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Fade-in utility */
+.fade-in { animation: fadeIn 0.5s ease forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="loading-screen">
+    <div class="spinner"></div>
+    <span>Summoning the gods…</span>
+  </div>
+
+  <!-- Header (hidden until loaded) -->
+  <div class="god-header" id="god-header" style="display:none">
+    <div class="eyebrow">God Test — Round <span id="hdr-round">1</span></div>
+    <div class="god-name" id="hdr-god-name">Hermes</div>
+    <div class="test-title" id="hdr-test-title">The Speed Gauntlet</div>
+  </div>
+
+  <!-- Stat bar (hidden until loaded) -->
+  <div class="stat-bar" id="stat-bar" style="display:none">
+    <span class="stat-label">CUNNING</span>
+    <span class="stat-value" id="stat-cunning">—</span>
+    <span class="stat-divider">|</span>
+    <span class="stat-label">EFFECTIVE</span>
+    <span class="stat-value" id="stat-effective">—</span>
+    <span class="stat-divider stat-timer-divider" style="display:none">|</span>
+    <span class="timer-label" id="timer-label" style="display:none">TIME</span>
+    <span class="timer-value" id="timer-value" style="display:none">—</span>
+  </div>
+
+  <!-- ── SCREEN: INTRO ─────────────────────────────── -->
+  <div class="screen" id="screen-intro">
+    <div class="god-portrait" id="intro-portrait">⚡</div>
+    <div class="god-speech" id="intro-speech">
+      <!-- lines injected by JS -->
+    </div>
+    <div class="intro-rules" id="intro-rules"></div>
+    <button class="btn btn-gold btn-center" id="intro-begin-btn" onclick="beginCourse()" style="display:none">
+      Begin the Gauntlet →
+    </button>
+  </div>
+
+  <!-- ── SCREEN: OBSTACLE COURSE ───────────────────── -->
+  <div class="screen" id="screen-course">
+    <div class="progress-pips" id="progress-pips"></div>
+    <div class="course-track" id="course-track">
+      <div class="obstacle-header">
+        <span class="obstacle-number" id="obstacle-number">1</span>
+        <span id="obstacle-type-label">Obstacle</span>
+      </div>
+      <div class="obstacle-emoji" id="obstacle-emoji">🏛️</div>
+      <div class="obstacle-text" id="obstacle-text"></div>
+    </div>
+    <button class="btn btn-purple btn-center" id="dodge-btn" onclick="dodgeObstacle()">
+      Dodge →
+    </button>
+  </div>
+
+  <!-- ── SCREEN: QUESTION ──────────────────────────── -->
+  <div class="screen" id="screen-question">
+    <div class="question-overlay">
+      <div class="question-badge">⚡ Hermes Intervenes</div>
+      <div class="question-timer-bar">
+        <div class="question-timer-fill" id="q-timer-fill"></div>
+      </div>
+      <div class="myth-fragment" id="q-fragment"></div>
+      <div class="question-text" id="q-text"></div>
+      <div class="answer-options" id="q-options"></div>
+      <div class="question-feedback" id="q-feedback"></div>
+      <button class="btn btn-purple btn-center" id="q-continue-btn"
+              onclick="afterQuestion()" style="display:none">
+        Keep Running →
+      </button>
+    </div>
+  </div>
+
+  <!-- ── SCREEN: FORK VOTE ─────────────────────────── -->
+  <div class="screen" id="screen-fork">
+    <div class="fork-header">Choose Your Path</div>
+    <div class="fork-title" id="fork-title"></div>
+    <div class="fork-subtitle" id="fork-subtitle"></div>
+    <div class="fork-options" id="fork-options"></div>
+    <div class="fork-vote-tally" id="fork-tally"></div>
+    <div class="fork-waiting" id="fork-waiting" style="display:none">
+      Waiting for your alliance<span class="poll-dot"></span>
+    </div>
+    <button class="btn btn-purple btn-center" id="fork-commit-btn"
+            onclick="commitFork()" disabled>
+      Lock This Path
+    </button>
+  </div>
+
+  <!-- ── SCREEN: PASS ───────────────────────────────── -->
+  <div class="screen" id="screen-pass">
+    <div class="pass-screen">
+      <div class="pass-icon" id="pass-icon">⚡</div>
+      <div class="pass-title" id="pass-title">The Gauntlet Is Complete</div>
+      <div class="pass-subtitle" id="pass-subtitle">
+        Hermes watches you sprint past. For a mortal, that was almost impressive.
+      </div>
+      <button class="btn btn-gold btn-center" id="pass-btn" onclick="advanceToNextRound()">
+        Continue the Race →
+      </button>
+    </div>
+  </div>
+
+  <!-- ── SCREEN: STUB (rounds 2-5) ─────────────────── -->
+  <div class="screen" id="screen-stub">
+    <div class="stub-screen">
+      <div class="stub-icon" id="stub-icon">🔨</div>
+      <div class="stub-title" id="stub-title">God Test</div>
+      <div class="stub-body" id="stub-body">This test is coming soon.</div>
+      <button class="btn btn-gold btn-center" onclick="submitStub()">
+        Pass the Test →
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+const TOKEN  = localStorage.getItem('token');
+const H      = { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' };
+
+let raceState    = null;
+let allianceData = null;
+let stats        = null;   // { lore, craft, cunning, honor }
+let effectiveCunning = 0;
+let questionTimer    = null;
+let pollTimer        = null;
+
+// Course state (Hermes)
+let courseStep      = 0;   // which step we're on (0-indexed over COURSE_STEPS)
+let currentForkIdx  = null;
+let selectedForkVal = null;
+let forkVoted       = false;
+
+// ═══════════════════════════════════════════════════
+// HERMES GAUNTLET DATA
+// 8 steps total:
+//   steps 0,1,2 → obstacle then question (question after step 2 = fork 0)
+//   steps 3,4,5 → obstacle then question (question after step 5 = fork 1)
+//   steps 6,7   → obstacle then question (question after step 7 = fork 2)
+//
+// Structure: each step is either type:'obstacle' or type:'question' or type:'fork'
+// We flatten into a linear sequence for simplicity.
+// ═══════════════════════════════════════════════════
+
+const HERMES_SEQUENCE = [
+  // ── Section 1 ──────────────────────────────────────
+  {
+    type: 'obstacle', idx: 0,
+    emoji: '🏛️',
+    label: 'Obstacle 1',
+    text: 'A crumbling column crashes across the path. You leap sideways, barely clearing the rubble. The mountain shakes with distant thunder.',
+  },
+  {
+    type: 'obstacle', idx: 1,
+    emoji: '🪨',
+    label: 'Obstacle 2',
+    text: 'A boulder, perfectly round, rolls from the ridge above. Someone — or something — pushed it. You dive into a crevice as it thunders past.',
+  },
+  {
+    type: 'obstacle', idx: 2,
+    emoji: '🌪️',
+    label: 'Obstacle 3',
+    text: 'A sudden gust becomes a wall of wind. You lean into it, fighting for every step. Hermes watches from above, wings folded, amused.',
+  },
+  {
+    type: 'question', idx: 0,
+    fragment: 'Hermes was the only Olympian who could travel freely between the worlds of the living and the dead. He served as a guide — a psychopomp — leading souls to the underworld. But Hermes was also a thief, a trickster, and an inventor. He created the lyre from a tortoise shell on the day he was born, then traded it to Apollo for the golden cattle he had just stolen.',
+    question: 'What did Hermes trade to Apollo?',
+    options: ['The golden cattle he stole', 'A lyre made from a tortoise shell', 'His winged sandals', 'A map of the underworld'],
+    correct: 1,
+    correctAnswer: 'A lyre made from a tortoise shell'
+  },
+  // ── Section 2 ──────────────────────────────────────
+  {
+    type: 'obstacle', idx: 3,
+    emoji: '⚡',
+    label: 'Obstacle 4',
+    text: 'Lightning strikes the ridge twenty meters ahead. The path is scorched black. You run anyway — there is no other way forward.',
+  },
+  {
+    type: 'obstacle', idx: 4,
+    emoji: '🌊',
+    label: 'Obstacle 5',
+    text: 'A flash flood sweeps across the lower path. You scramble to higher ground, soaked and breathing hard. Keep moving.',
+  },
+  {
+    type: 'obstacle', idx: 5,
+    emoji: '🔥',
+    label: 'Obstacle 6',
+    text: 'The path narrows between two burning torches the size of trees. The heat is intense. You sprint through, smoke stinging your eyes.',
+  },
+  {
+    type: 'question', idx: 1,
+    fragment: 'Perseus was sent to kill Medusa by King Polydectes, who expected him to fail. Hermes and Athena helped Perseus obtain three tools: winged sandals, a polished bronze shield, and an adamantine sword. Perseus used the shield as a mirror to avoid Medusa\'s petrifying gaze, cutting off her head without looking directly at her.',
+    question: 'Why did Perseus use the shield as a mirror?',
+    options: ['To reflect the sunlight and blind Medusa', 'To avoid being turned to stone by her gaze', 'To signal Athena for help', 'To see where her sisters were'],
+    correct: 1,
+    correctAnswer: 'To avoid being turned to stone by her gaze'
+  },
+  // ── Section 3 ──────────────────────────────────────
+  {
+    type: 'obstacle', idx: 6,
+    emoji: '🗿',
+    label: 'Obstacle 7',
+    text: 'Stone statues line the path — heroes who looked the wrong way at the wrong moment. You keep your eyes forward and run.',
+  },
+  {
+    type: 'obstacle', idx: 7,
+    emoji: '🌩️',
+    label: 'Obstacle 8',
+    text: 'The final stretch. The sky splits open. Rain comes sideways. The summit is above you, wreathed in cloud. You push on.',
+  },
+  {
+    type: 'question', idx: 2,
+    fragment: 'Jason needed the Golden Fleece to reclaim his throne from King Pelias. He assembled the greatest heroes of the age — the Argonauts — and sailed the Argo through impossible dangers. At Colchis, King Aeëtes agreed to give Jason the fleece, but only if he completed three impossible tasks in a single day. He succeeded only because Medea, the king\'s daughter, chose to help him.',
+    question: 'Why was Jason able to complete the three tasks at Colchis?',
+    options: ['He used the Argo\'s power', 'Athena guided him in a dream', 'Medea chose to help him', 'He bribed the king\'s guards'],
+    correct: 2,
+    correctAnswer: 'Medea chose to help him'
+  }
+];
+
+// Fork definitions (3 forks woven into the course)
+// Fork idx maps to: 0 = after question 0, 1 = after question 1, 2 = after question 2
+const HERMES_FORKS = [
+  {
+    idx: 0,
+    title: 'The First Crossroads',
+    subtitle: 'Hermes blocks the path. "Two roads. Your alliance chooses one."',
+    options: [
+      { value: 0, label: 'The Ridge Path',   desc: 'Exposed but fast. Full view of the summit.' },
+      { value: 1, label: 'The Valley Path',  desc: 'Sheltered but longer. Lower risk of ambush.' }
+    ]
+  },
+  {
+    idx: 1,
+    title: 'The Second Crossroads',
+    subtitle: 'The path splits again. One way is darker than it should be.',
+    options: [
+      { value: 0, label: 'Through the Ruins', desc: 'Ancient walls provide cover but strange sounds echo.' },
+      { value: 1, label: 'Across the Bridge',  desc: 'Open ground, fast crossing — but fully visible.' }
+    ]
+  },
+  {
+    idx: 2,
+    title: 'The Final Approach',
+    subtitle: 'One last choice before the summit.',
+    options: [
+      { value: 0, label: 'The Direct Climb', desc: 'Straight up. Steep, exhausting, unambiguous.' },
+      { value: 1, label: 'The Hidden Stair',  desc: 'A staircase carved into the stone. Faster, but narrow.' }
+    ]
+  }
+];
+
+// Timer window based on effective Cunning
+function getTimerSeconds(effCunning) {
+  if (effCunning >= 15) return 30;
+  if (effCunning >= 8)  return 20;
+  return 15;
+}
+
+// ═══════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════
+async function init() {
+  if (!TOKEN) { window.location.href = '/student.html'; return; }
+  try {
+    const [stateRes, statsRes] = await Promise.all([
+      fetch('/api/olympus/state',        { headers: H }),
+      fetch('/api/student/heroic-stats', { headers: H })
+    ]);
+    const stateData = await stateRes.json();
+    const statsData = await statsRes.json();
+
+    if (!stateRes.ok || !stateData.state) {
+      window.location.href = '/revenge_of_the_gods.html';
+      return;
+    }
+
+    raceState    = stateData.state;
+    allianceData = stateData.alliance;
+    stats        = statsData;
+
+    if (raceState.current_phase !== 'god_test') {
+      window.location.href = '/revenge_of_the_gods.html';
+      return;
+    }
+
+    // Compute effective Cunning using stat pooling formula
+    // effective = max(individual) + floor(avg(all) / 2)
+    // Since we only have the current student's stats here, we use their
+    // cunning as the base. A future enhancement can fetch all member stats.
+    const c = stats.cunning || 0;
+    effectiveCunning = c + Math.floor(c / 2);
+
+    document.getElementById('stat-cunning').textContent  = c;
+    document.getElementById('stat-effective').textContent = effectiveCunning;
+    document.getElementById('hdr-round').textContent = raceState.current_round;
+
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('god-header').style.display     = '';
+    document.getElementById('stat-bar').style.display       = '';
+
+    routeByRound(raceState.current_round);
+  } catch(e) {
+    document.getElementById('loading-screen').innerHTML =
+      '<p style="color:var(--red-bright);font-family:Cinzel,serif">Error loading game state. ' +
+      '<a href="/revenge_of_the_gods.html" style="color:var(--gold)">Return to race</a></p>';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════════
+function routeByRound(round) {
+  switch(round) {
+    case 1: showHermesIntro(); break;
+    case 2: showStub('🔨', 'Hephaestus — The Forge Repair',
+              'The god of the forge watches you enter his workshop. This test is coming in the next build session.'); break;
+    case 3: showStub('🦉', 'Athena — The Wisdom Puzzle',
+              'Athena gestures at a grid of myth excerpts. This test is coming in the next build session.'); break;
+    case 4: showStub('⚡', 'Zeus — The Judgment Seat',
+              'Zeus reads your Medea decision back to you. This test is coming in the next build session.'); break;
+    case 5: showStub('👑', 'Hera — The Final Judgment',
+              'Hera sits in her garden and waits. This test is coming in the next build session.'); break;
+    default:
+      window.location.href = '/revenge_of_the_gods.html';
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + id);
+  if (el) { el.classList.add('active'); el.classList.add('fade-in'); }
+}
+
+// ═══════════════════════════════════════════════════
+// STUBS (rounds 2-5)
+// ═══════════════════════════════════════════════════
+function showStub(icon, title, body) {
+  document.getElementById('hdr-god-name').textContent  = title.split('—')[0].trim();
+  document.getElementById('hdr-test-title').textContent = title.split('—')[1]?.trim() || '';
+  document.getElementById('stat-bar').style.display = 'none';
+  document.getElementById('stub-icon').textContent  = icon;
+  document.getElementById('stub-title').textContent = title;
+  document.getElementById('stub-body').textContent  = body;
+  showScreen('stub');
+}
+
+async function submitStub() {
+  try {
+    const res  = await fetch('/api/olympus/godtest-submit', { method:'POST', headers:H });
+    const data = await res.json();
+    if (data.passed) window.location.href = '/revenge_of_the_gods.html';
+    else alert(data.error || 'Error submitting test');
+  } catch(e) { alert('Network error. Please try again.'); }
+}
+
+// ═══════════════════════════════════════════════════
+// HERMES INTRO
+// ═══════════════════════════════════════════════════
+function showHermesIntro() {
+  document.getElementById('hdr-god-name').textContent  = 'Hermes';
+  document.getElementById('hdr-test-title').textContent = 'The Speed Gauntlet';
+  document.getElementById('intro-portrait').textContent = '⚡';
+
+  const lines = [
+    'You made it this far. Interesting.',
+    'I move between worlds, carry messages the gods refuse to deliver themselves, and once stole Apollo\'s cattle before breakfast.',
+    'I respect speed. I respect wit. I do not respect hesitation.',
+    'Eight obstacles. Three reading checks. Three crossroads where your alliance must choose together.',
+    'Your Cunning score determines how long you have to answer. Use it wisely.'
+  ];
+
+  const speech = document.getElementById('intro-speech');
+  speech.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
+
+  const timerSec = getTimerSeconds(effectiveCunning);
+  document.getElementById('intro-rules').innerHTML =
+    `<strong>How this works:</strong> Click through each obstacle, then answer a myth question before time runs out. ` +
+    `Three times your alliance will vote on a crossroads — majority rules, and once a path is claimed, ` +
+    `other alliances cannot take it.<br><br>` +
+    `<strong>Your time window per question: ${timerSec} seconds</strong> ` +
+    `(based on effective Cunning ${effectiveCunning}).`;
+
+  // Reveal speech lines with stagger
+  const paragraphs = speech.querySelectorAll('p');
+  paragraphs.forEach((p, i) => {
+    setTimeout(() => p.classList.add('reveal'), 300 + i * 500);
+  });
+  // Show begin button after all lines revealed
+  setTimeout(() => {
+    document.getElementById('intro-begin-btn').style.display = '';
+    document.getElementById('intro-begin-btn').classList.add('fade-in');
+  }, 300 + lines.length * 500 + 300);
+
+  showScreen('intro');
+}
+
+// ═══════════════════════════════════════════════════
+// OBSTACLE COURSE
+// ═══════════════════════════════════════════════════
+function beginCourse() {
+  courseStep = 0;
+  buildProgressPips();
+  showCourseStep();
+}
+
+function buildProgressPips() {
+  const container = document.getElementById('progress-pips');
+  container.innerHTML = '';
+  HERMES_SEQUENCE.forEach((step, i) => {
+    const pip = document.createElement('div');
+    pip.className = 'pip' + (step.type === 'question' ? ' question' : '');
+    pip.id = 'pip-' + i;
+    container.appendChild(pip);
+  });
+  // Also add a final "done" pip
+  const donePip = document.createElement('div');
+  donePip.className = 'pip';
+  donePip.id = 'pip-done';
+  container.appendChild(donePip);
+}
+
+function updatePips() {
+  HERMES_SEQUENCE.forEach((_, i) => {
+    const pip = document.getElementById('pip-' + i);
+    if (!pip) return;
+    pip.classList.remove('current', 'done');
+    if (i < courseStep)  pip.classList.add('done');
+    if (i === courseStep) pip.classList.add('current');
+  });
+}
+
+function showCourseStep() {
+  if (courseStep >= HERMES_SEQUENCE.length) {
+    // All steps complete
+    showPassScreen();
+    return;
+  }
+
+  const step = HERMES_SEQUENCE[courseStep];
+  updatePips();
+
+  if (step.type === 'obstacle') {
+    showObstacle(step);
+  } else if (step.type === 'question') {
+    showQuestion(step);
+  }
+}
+
+function showObstacle(step) {
+  document.getElementById('obstacle-number').textContent = step.label;
+  document.getElementById('obstacle-emoji').textContent  = step.emoji;
+  document.getElementById('obstacle-text').textContent   = step.text;
+  document.getElementById('obstacle-type-label').textContent = 'Obstacle';
+  document.getElementById('dodge-btn').textContent = 'Dodge →';
+  document.getElementById('dodge-btn').disabled = false;
+  showScreen('course');
+}
+
+function dodgeObstacle() {
+  document.getElementById('dodge-btn').disabled = true;
+  courseStep++;
+  showCourseStep();
+}
+
+// ═══════════════════════════════════════════════════
+// QUESTIONS
+// ═══════════════════════════════════════════════════
+let questionAnswered = false;
+let timerRemaining   = 0;
+
+function showQuestion(step) {
+  questionAnswered = false;
+  clearInterval(questionTimer);
+
+  document.getElementById('q-fragment').textContent = step.fragment;
+  document.getElementById('q-text').textContent     = step.question;
+
+  // Show timer config in stat bar
+  document.getElementById('stat-bar').querySelector('.stat-timer-divider').style.display = '';
+  document.getElementById('timer-label').style.display = '';
+  document.getElementById('timer-value').style.display = '';
+
+  const timerSec = getTimerSeconds(effectiveCunning);
+  timerRemaining = timerSec;
+
+  // Build answer buttons
+  const optContainer = document.getElementById('q-options');
+  optContainer.innerHTML = '';
+  step.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = opt;
+    btn.dataset.idx = i;
+    btn.onclick = () => selectAnswer(step, i);
+    optContainer.appendChild(btn);
+  });
+
+  document.getElementById('q-feedback').className = 'question-feedback';
+  document.getElementById('q-feedback').textContent = '';
+  document.getElementById('q-continue-btn').style.display = 'none';
+
+  showScreen('question');
+  startQuestionTimer(step, timerSec);
+}
+
+function startQuestionTimer(step, seconds) {
+  const fill   = document.getElementById('q-timer-fill');
+  const display = document.getElementById('timer-value');
+  fill.style.width = '100%';
+  fill.classList.remove('warning');
+  display.textContent = seconds + 's';
+  timerRemaining = seconds;
+
+  questionTimer = setInterval(() => {
+    timerRemaining--;
+    const pct = (timerRemaining / seconds) * 100;
+    fill.style.width = pct + '%';
+    display.textContent = timerRemaining + 's';
+    if (timerRemaining <= 5) fill.classList.add('warning');
+    if (timerRemaining <= 0) {
+      clearInterval(questionTimer);
+      if (!questionAnswered) timeoutQuestion(step);
+    }
+  }, 1000);
+}
+
+async function selectAnswer(step, selectedIdx) {
+  if (questionAnswered) return;
+  questionAnswered = true;
+  clearInterval(questionTimer);
+
+  const isCorrect = selectedIdx === step.correct;
+  const btns = document.querySelectorAll('.answer-btn');
+
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === step.correct)  btn.classList.add('correct');
+    if (i === selectedIdx && !isCorrect) btn.classList.add('incorrect');
+  });
+
+  // Record answer server-side (non-blocking — fire and don't wait on pass/fail)
+  fetch('/api/olympus/godtest-answer', {
+    method: 'POST', headers: H,
+    body: JSON.stringify({
+      question_idx:  step.idx,
+      answer_value:  step.options[selectedIdx],
+      correct_answer: step.options[step.correct]
+    })
+  }).catch(() => {});
+
+  const fb = document.getElementById('q-feedback');
+  if (isCorrect) {
+    fb.className = 'question-feedback correct-fb show';
+    fb.textContent = '✓ Correct — Hermes nods, barely.';
+  } else {
+    fb.className = 'question-feedback incorrect-fb show';
+    fb.textContent = `✗ The answer was: ${step.options[step.correct]}`;
+  }
+
+  document.getElementById('q-continue-btn').style.display = '';
+}
+
+function timeoutQuestion(step) {
+  questionAnswered = true;
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === step.correct) btn.classList.add('correct');
+  });
+
+  fetch('/api/olympus/godtest-answer', {
+    method: 'POST', headers: H,
+    body: JSON.stringify({
+      question_idx:  step.idx,
+      answer_value:  'TIMEOUT',
+      correct_answer: step.options[step.correct]
+    })
+  }).catch(() => {});
+
+  const fb = document.getElementById('q-feedback');
+  fb.className = 'question-feedback timeout-fb show';
+  fb.textContent = 'Time expired. The answer was: ' + step.options[step.correct];
+  document.getElementById('q-continue-btn').style.display = '';
+}
+
+function afterQuestion() {
+  // Hide timer from stat bar
+  document.getElementById('stat-bar').querySelector('.stat-timer-divider').style.display = 'none';
+  document.getElementById('timer-label').style.display = 'none';
+  document.getElementById('timer-value').style.display = 'none';
+
+  courseStep++;
+  // After each question, show the corresponding fork vote
+  const questionStep = HERMES_SEQUENCE[courseStep - 1];
+  if (questionStep && questionStep.type === 'question') {
+    showFork(questionStep.idx);
+  } else {
+    showCourseStep();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// FORK VOTES
+// ═══════════════════════════════════════════════════
+async function showFork(forkIdx) {
+  currentForkIdx  = forkIdx;
+  selectedForkVal = null;
+  forkVoted       = false;
+
+  const fork = HERMES_FORKS[forkIdx];
+  document.getElementById('fork-title').textContent    = fork.title;
+  document.getElementById('fork-subtitle').textContent = fork.subtitle;
+  document.getElementById('fork-tally').textContent    = '';
+  document.getElementById('fork-waiting').style.display = 'none';
+  document.getElementById('fork-commit-btn').disabled  = true;
+
+  // Fetch current locks for this fork
+  let locks = [];
+  try {
+    const res = await fetch(
+      `/api/olympus/godtest-fork-status?fork_idx=${forkIdx}`,
+      { headers: H }
+    );
+    const data = await res.json();
+    locks = data.locks || [];
+
+    // If this alliance already has a lock for this fork, skip straight ahead
+    if (data.own_lock) {
+      courseStep++;
+      showCourseStep();
+      return;
+    }
+  } catch(e) {}
+
+  // Build option buttons
+  const lockedValues = locks
+    .filter(l => l.alliance_id !== allianceData?.alliance_id)
+    .map(l => l.path_value);
+
+  const container = document.getElementById('fork-options');
+  container.innerHTML = '';
+  fork.options.forEach(opt => {
+    const isLocked = lockedValues.includes(opt.value);
+    const div = document.createElement('div');
+    div.className = 'fork-option' + (isLocked ? ' locked' : '');
+    div.dataset.value = opt.value;
+    div.innerHTML = `
+      <div class="fork-option-label">${opt.label}</div>
+      <div class="fork-option-desc">${opt.desc}</div>
+      ${isLocked ? `<span class="fork-lock-badge">CLAIMED</span>` : ''}
+    `;
+    if (!isLocked) div.onclick = () => selectForkOption(opt.value, div);
+    container.appendChild(div);
+  });
+
+  showScreen('fork');
+}
+
+function selectForkOption(value, el) {
+  if (forkVoted) return;
+  document.querySelectorAll('.fork-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedForkVal = value;
+  document.getElementById('fork-commit-btn').disabled = false;
+}
+
+async function commitFork() {
+  if (selectedForkVal === null || forkVoted) return;
+
+  const btn = document.getElementById('fork-commit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Voting…';
+
+  // Step 1: cast vote
+  try {
+    await fetch('/api/olympus/godtest-vote-fork', {
+      method: 'POST', headers: H,
+      body: JSON.stringify({ fork_idx: currentForkIdx, vote_value: selectedForkVal })
+    });
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Lock This Path';
+    return;
+  }
+
+  forkVoted = true;
+
+  // Step 2: try to commit (succeeds instantly for solo alliances)
+  const committed = await tryCommitFork();
+  if (committed) return;
+
+  // Step 3: wait for teammates via polling
+  document.getElementById('fork-waiting').style.display = '';
+  document.getElementById('fork-tally').textContent = 'Your vote is in. Waiting for teammates…';
+  btn.textContent = 'Waiting…';
+
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    const done = await tryCommitFork();
+    if (done) stopPolling();
+  }, 3000);
+}
+
+async function tryCommitFork() {
+  try {
+    const res  = await fetch('/api/olympus/godtest-commit-fork', {
+      method: 'POST', headers: H,
+      body: JSON.stringify({ fork_idx: currentForkIdx })
+    });
+    const data = await res.json();
+
+    if (data.committed) {
+      stopPolling();
+      // Mark the chosen option as committed
+      document.querySelectorAll('.fork-option').forEach(o => {
+        if (parseInt(o.dataset.value) === data.path_value) o.classList.add('committed');
+      });
+      document.getElementById('fork-waiting').style.display = 'none';
+      document.getElementById('fork-tally').innerHTML =
+        `<span>✓ Path locked by your alliance.</span>`;
+      // Brief pause then continue
+      setTimeout(() => {
+        courseStep++;
+        showCourseStep();
+      }, 1200);
+      return true;
+    }
+
+    if (data.error === 'Path already claimed') {
+      // Teammate committed first — reload and re-show fork with updated locks
+      stopPolling();
+      await showFork(currentForkIdx);
+      return false;
+    }
+
+    // Still waiting for majority — update tally display
+    return false;
+  } catch(e) { return false; }
+}
+
+// ═══════════════════════════════════════════════════
+// PASS SCREEN
+// ═══════════════════════════════════════════════════
+function showPassScreen() {
+  stopPolling();
+  document.getElementById('pass-icon').textContent  = '⚡';
+  document.getElementById('pass-title').textContent = 'The Gauntlet Is Complete';
+  document.getElementById('pass-subtitle').textContent =
+    'Hermes watches you sprint past. For a mortal, that was almost impressive.';
+  document.getElementById('pass-btn').disabled = false;
+  showScreen('pass');
+}
+
+async function advanceToNextRound() {
+  const btn = document.getElementById('pass-btn');
+  btn.disabled = true;
+  btn.textContent = 'Advancing…';
+  try {
+    const res  = await fetch('/api/olympus/godtest-submit', { method:'POST', headers:H });
+    const data = await res.json();
+    if (data.passed) {
+      window.location.href = '/revenge_of_the_gods.html';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Continue the Race →';
+      alert(data.error || 'Error advancing. Please try again.');
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Continue the Race →';
+    alert('Network error. Please try again.');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// POLL UTILITIES
+// ═══════════════════════════════════════════════════
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// ═══════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
