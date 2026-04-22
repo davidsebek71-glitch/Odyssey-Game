@@ -15582,12 +15582,21 @@ function getOlympusState(allianceId) {
 
 function getMajority(allianceId, round, voteType) {
   // Returns { winner, count, total } or null if no majority
-  const members = query(
-    `SELECT COUNT(*) as cnt FROM students s
-     WHERE s.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
-    [allianceId]
-  );
-  const total = members[0] ? members[0].cnt : 1;
+  // Uses present_members from race state if set (absent student handling),
+  // otherwise falls back to all non-ghost members.
+  const state = getOlympusState(allianceId);
+  let total;
+  if (state && state.present_members) {
+    const presentIds = JSON.parse(state.present_members);
+    total = presentIds.length || 1;
+  } else {
+    const members = query(
+      `SELECT COUNT(*) as cnt FROM students s
+       WHERE s.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
+      [allianceId]
+    );
+    total = members[0] ? members[0].cnt : 1;
+  }
   const votes = query(
     `SELECT vote_value, COUNT(*) as cnt FROM olympus_votes
      WHERE alliance_id = ? AND round_number = ? AND vote_type = ?
@@ -16295,12 +16304,20 @@ app.get('/api/olympus/godtest-fork-status', authenticateToken, (req, res) => {
 
 // ── helper: getMajority for god test fork votes ───────────────────────────────
 function getMajority_godtest(allianceId, round, forkIdx) {
-  const members = query(
-    `SELECT COUNT(*) as cnt FROM students
-     WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-    [allianceId]
-  );
-  const total = members[0] ? members[0].cnt : 1;
+  // Uses present_members from race state if set, else all non-ghost members.
+  const state = getOlympusState(allianceId);
+  let total;
+  if (state && state.present_members) {
+    const presentIds = JSON.parse(state.present_members);
+    total = presentIds.length || 1;
+  } else {
+    const members = query(
+      `SELECT COUNT(*) as cnt FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [allianceId]
+    );
+    total = members[0] ? members[0].cnt : 1;
+  }
   const votes = query(
     `SELECT vote_value, COUNT(*) as cnt FROM olympus_godtest_votes
      WHERE alliance_id=? AND round_number=? AND fork_idx=?
@@ -16359,20 +16376,93 @@ app.get('/api/olympus/teacher/monitor', authenticateToken, (req, res) => {
     const periods = ['1st','2nd','3rd','4th', TEST_PERIOD];
     const result = {};
     for (const p of periods) {
-      result[p] = query(
+      const alliances = query(
         `SELECT a.alliance_id, a.alliance_name AS name, a.total_points,
                 COALESCE(o.current_round,0) as current_round,
                 COALESCE(o.current_phase,'not_started') as current_phase,
                 o.phoenix_feather_used, o.hades_visits, o.ghost_runner_mode,
-                o.secret_words, o.interrupt_active
+                o.secret_words, o.interrupt_active, o.present_members
          FROM alliances a
          LEFT JOIN olympus_race_state o ON o.alliance_id=a.alliance_id
          WHERE a.class_period=?
          ORDER BY COALESCE(o.current_round,0) DESC, a.total_points DESC`,
         [p]
       );
+      // Attach member list to each alliance for attendance UI
+      result[p] = alliances.map(a => {
+        const members = query(
+          `SELECT student_id, name, is_ghost FROM students
+           WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)
+           ORDER BY name`,
+          [a.alliance_id]
+        );
+        const presentIds = a.present_members ? JSON.parse(a.present_members) : null;
+        return {
+          ...a,
+          members,
+          present_members: presentIds
+        };
+      });
     }
     res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/teacher/set-present ────────────────────────────────────
+// Sets which students are present for an alliance's session.
+// present_student_ids: array of student_id integers who are present today.
+// Passing an empty array or null resets to "use all members" (full headcount).
+app.post('/api/olympus/teacher/set-present', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const { alliance_id, present_student_ids } = req.body;
+    if (!alliance_id) return res.status(400).json({ error: 'alliance_id required' });
+
+    // Validate all provided IDs actually belong to this alliance
+    if (present_student_ids && present_student_ids.length > 0) {
+      const members = query(
+        `SELECT student_id FROM students
+         WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+        [alliance_id]
+      );
+      const validIds = new Set(members.map(m => m.student_id));
+      const invalid = present_student_ids.filter(id => !validIds.has(id));
+      if (invalid.length) {
+        return res.status(400).json({ error: `Invalid student IDs for this alliance: ${invalid.join(', ')}` });
+      }
+    }
+
+    const presentJson = (present_student_ids && present_student_ids.length > 0)
+      ? JSON.stringify(present_student_ids)
+      : null;
+
+    // Update if race state exists, otherwise store for when race starts
+    const state = getOlympusState(alliance_id);
+    if (state) {
+      run(
+        `UPDATE olympus_race_state SET present_members=? WHERE alliance_id=?`,
+        [presentJson, alliance_id]
+      );
+    } else {
+      // Race not started yet — store a pending present_members via a pre-insert
+      // Teacher will call start-race after setting attendance, which inserts the row.
+      // We use a separate lightweight table approach: store in a temp column after start.
+      // For now: inform teacher that race must be started first, or start it implicitly.
+      return res.status(400).json({
+        error: 'Race not started for this alliance yet. Start the race first, then set attendance.'
+      });
+    }
+
+    res.json({
+      updated: true,
+      alliance_id,
+      present_count: present_student_ids ? present_student_ids.length : null,
+      note: present_student_ids && present_student_ids.length
+        ? `Majority will be calculated from ${present_student_ids.length} present member(s).`
+        : 'Attendance reset — using full member count.'
+    });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

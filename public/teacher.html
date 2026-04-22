@@ -8596,30 +8596,114 @@
                 el.innerHTML = html;
                 return;
             }
-            html += '<table style="width:100%;border-collapse:collapse;">';
+
+            // ── Race Status Table ──────────────────────────────────────────
+            html += '<table style="width:100%;border-collapse:collapse;margin-bottom:28px;">';
             html += '<thead><tr style="color:rgba(0,191,255,0.7);font-size:12px;border-bottom:1px solid rgba(0,191,255,0.2);">' +
                 '<th style="text-align:left;padding:8px;">Alliance</th>' +
                 '<th style="padding:8px;">Points</th>' +
                 '<th style="padding:8px;">Round</th>' +
                 '<th style="padding:8px;">Phase</th>' +
+                '<th style="padding:8px;">Present</th>' +
                 '<th style="padding:8px;">Phoenix</th>' +
                 '<th style="padding:8px;">Hades</th>' +
-                '<th style="padding:8px;">Ghost Runner</th>' +
                 '</tr></thead><tbody>';
             alliances.forEach(function(a) {
                 const ph = phaseLabel[a.current_phase] || a.current_phase;
+                const totalMembers = (a.members || []).length;
+                const presentCount = a.present_members ? a.present_members.length : totalMembers;
+                const presentLabel = a.present_members
+                    ? '<span style="color:#ffd700;">' + presentCount + '/' + totalMembers + '</span>'
+                    : '<span style="color:rgba(150,220,255,0.5);">' + totalMembers + '</span>';
                 html += '<tr style="border-bottom:1px solid rgba(0,191,255,0.08);font-size:13px;">' +
                     '<td style="padding:8px;color:#e2e8f0;font-weight:600;">' + escapeAttr(a.name) + '</td>' +
                     '<td style="padding:8px;text-align:center;color:#ffd700;">' + a.total_points + '</td>' +
                     '<td style="padding:8px;text-align:center;color:rgba(200,220,255,0.8);">' + (a.current_round || '&mdash;') + '</td>' +
                     '<td style="padding:8px;text-align:center;color:rgba(150,220,255,0.7);">' + ph + '</td>' +
-                    '<td style="padding:8px;text-align:center;">' + (a.phoenix_feather_used ? '&#10003; Used' : 'Ready') + '</td>' +
+                    '<td style="padding:8px;text-align:center;">' + presentLabel + '</td>' +
+                    '<td style="padding:8px;text-align:center;">' + (a.phoenix_feather_used ? '&#10003;' : 'Ready') + '</td>' +
                     '<td style="padding:8px;text-align:center;">' + (a.hades_visits || 0) + '</td>' +
-                    '<td style="padding:8px;text-align:center;">' + (a.ghost_runner_mode ? 'Yes' : '&mdash;') + '</td>' +
                     '</tr>';
             });
             html += '</tbody></table>';
+
+            // ── Attendance Section ─────────────────────────────────────────
+            html += '<div style="border-top:1px solid rgba(0,191,255,0.15);padding-top:20px;">';
+            html += '<div style="font-family:Cinzel,serif;font-size:13px;color:rgba(0,191,255,0.8);letter-spacing:1px;margin-bottom:14px;">ATTENDANCE — SET PRESENT MEMBERS</div>';
+            html += '<div style="font-size:12px;color:rgba(150,220,255,0.5);margin-bottom:16px;">Check students who are present today. Absent students are excluded from majority calculations. Start the race before setting attendance.</div>';
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">';
+
+            alliances.forEach(function(a) {
+                if (!a.members || !a.members.length) return;
+                const presentIds = new Set(a.present_members || a.members.map(function(m){ return m.student_id; }));
+                const raceStarted = a.current_phase && a.current_phase !== 'not_started';
+
+                html += '<div style="background:rgba(0,20,40,0.6);border:1px solid rgba(0,191,255,0.2);border-radius:8px;padding:14px;">';
+                html += '<div style="font-weight:700;color:#e2e8f0;margin-bottom:10px;font-size:13px;">' + escapeAttr(a.name) + '</div>';
+
+                a.members.forEach(function(m) {
+                    const checked = presentIds.has(m.student_id) ? 'checked' : '';
+                    const inputId = 'present_' + a.alliance_id + '_' + m.student_id;
+                    html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;font-size:13px;color:rgba(200,220,255,0.85);">' +
+                        '<input type="checkbox" id="' + inputId + '" ' +
+                            'data-alliance="' + a.alliance_id + '" ' +
+                            'data-student="' + m.student_id + '" ' +
+                            checked +
+                            (raceStarted ? '' : ' disabled title="Start race first"') +
+                            ' style="width:16px;height:16px;accent-color:#00bfff;cursor:pointer;">' +
+                        escapeAttr(m.name) +
+                        '</label>';
+                });
+
+                html += '<button onclick="setAttendance(' + a.alliance_id + ',\'' + safeP + '\')" ' +
+                    (raceStarted ? '' : 'disabled title="Start race first" ') +
+                    'style="margin-top:10px;width:100%;padding:7px;background:rgba(0,191,255,0.15);border:1px solid rgba(0,191,255,0.35);border-radius:6px;color:#00cfff;cursor:pointer;font-size:12px;font-weight:600;' +
+                    (raceStarted ? '' : 'opacity:0.4;cursor:not-allowed;') + '">' +
+                    '&#10003; Save Attendance</button>';
+                html += '</div>';
+            });
+
+            html += '</div></div>'; // close grid + attendance section
             el.innerHTML = html;
+        }
+
+        async function setAttendance(allianceId, period) {
+            // Collect checked student IDs for this alliance
+            const checkboxes = document.querySelectorAll('input[data-alliance="' + allianceId + '"]');
+            const presentIds = [];
+            checkboxes.forEach(function(cb) {
+                if (cb.checked) presentIds.push(parseInt(cb.dataset.student));
+            });
+            if (!presentIds.length) {
+                if (!confirm('No students checked for this alliance. This will reset attendance to full headcount. Continue?')) return;
+            }
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/olympus/teacher/set-present', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ alliance_id: allianceId, present_student_ids: presentIds })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+                // Briefly show success without full reload to avoid losing checkbox state
+                const btn = document.querySelector('button[onclick="setAttendance(' + allianceId + ',\'' + period + '\')"]');
+                if (btn) {
+                    const original = btn.textContent;
+                    btn.textContent = '✓ Saved (' + presentIds.length + ' present)';
+                    btn.style.background = 'rgba(0,200,100,0.2)';
+                    btn.style.borderColor = 'rgba(0,200,100,0.5)';
+                    btn.style.color = '#6ee7a0';
+                    setTimeout(function() {
+                        btn.textContent = original;
+                        btn.style.background = '';
+                        btn.style.borderColor = '';
+                        btn.style.color = '';
+                    }, 2500);
+                }
+                // Refresh the period data so the status table reflects new present count
+                loadRevengePeriod(period);
+            } catch(err) { alert('Error saving attendance: ' + err.message); }
         }
 
         async function revengeStartRace(period) {

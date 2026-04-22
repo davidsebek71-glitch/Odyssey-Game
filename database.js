@@ -2174,6 +2174,18 @@ function seedReferenceData() {
     console.log('✅ olympus_race_state ready');
   } catch(e) { console.log('Migration note: olympus_race_state -', e.message); }
 
+  // Migration: add present_members column if not yet present
+  try {
+    db.exec("SELECT present_members FROM olympus_race_state LIMIT 0");
+  } catch(e) {
+    try {
+      db.run("ALTER TABLE olympus_race_state ADD COLUMN present_members TEXT DEFAULT NULL");
+      console.log('✅ Migration: added present_members to olympus_race_state');
+    } catch(alterErr) {
+      console.log('Migration note: present_members -', alterErr.message);
+    }
+  }
+
   try {
     db.run(`CREATE TABLE IF NOT EXISTS olympus_path_locks (
       lock_id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2256,51 +2268,6 @@ function seedReferenceData() {
     )`);
     console.log('✅ olympus_gate_attempts ready');
   } catch(e) { console.log('Migration note: olympus_gate_attempts -', e.message); }
-
-  try {
-    db.run(`CREATE TABLE IF NOT EXISTS olympus_godtest_answers (
-      answer_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-      alliance_id  INTEGER NOT NULL,
-      student_id   INTEGER NOT NULL,
-      round_number INTEGER NOT NULL,
-      question_idx INTEGER NOT NULL,
-      answer_value TEXT NOT NULL,
-      is_correct   INTEGER NOT NULL DEFAULT 0,
-      answered_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(alliance_id, student_id, round_number, question_idx)
-    )`);
-    console.log('✅ olympus_godtest_answers ready');
-  } catch(e) { console.log('Migration note: olympus_godtest_answers -', e.message); }
-
-  try {
-    db.run(`CREATE TABLE IF NOT EXISTS olympus_godtest_votes (
-      vote_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-      alliance_id  INTEGER NOT NULL,
-      student_id   INTEGER NOT NULL,
-      round_number INTEGER NOT NULL,
-      fork_idx     INTEGER NOT NULL,
-      vote_value   INTEGER NOT NULL,
-      voted_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(alliance_id, student_id, round_number, fork_idx)
-    )`);
-    console.log('✅ olympus_godtest_votes ready');
-  } catch(e) { console.log('Migration note: olympus_godtest_votes -', e.message); }
-
-  try {
-    db.run(`CREATE TABLE IF NOT EXISTS olympus_godtest_locks (
-      lock_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-      period        TEXT NOT NULL,
-      version       TEXT NOT NULL DEFAULT 'A',
-      round_number  INTEGER NOT NULL,
-      fork_idx      INTEGER NOT NULL,
-      path_value    INTEGER NOT NULL,
-      alliance_id   INTEGER NOT NULL,
-      alliance_name TEXT NOT NULL,
-      locked_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(period, version, round_number, fork_idx, path_value)
-    )`);
-    console.log('✅ olympus_godtest_locks ready');
-  } catch(e) { console.log('Migration note: olympus_godtest_locks -', e.message); }
 
   // ── END REVENGE OF THE GODS migrations ──────────────────────────────────
 
