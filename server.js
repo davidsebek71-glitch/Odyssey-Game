@@ -16361,7 +16361,7 @@ app.get('/api/olympus/teacher/diagnostic', authenticateToken, (req, res) => {
         [al.alliance_id]
       );
       const ghosts = members.filter(m => m.is_ghost);
-      return { ...al, members, ghost_count: ghosts.length };
+      return Object.assign({}, al, { members: members, ghost_count: ghosts.length });
     });
     res.json({ period, alliances: result });
   } catch(e) {
@@ -16397,11 +16397,10 @@ app.get('/api/olympus/teacher/monitor', authenticateToken, (req, res) => {
           [a.alliance_id]
         );
         const presentIds = a.present_members ? JSON.parse(a.present_members) : null;
-        return {
-          ...a,
-          members,
+        return Object.assign({}, a, {
+          members: members,
           present_members: presentIds
-        };
+        });
       });
     }
     res.json(result);
