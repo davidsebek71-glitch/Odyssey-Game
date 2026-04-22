@@ -16262,6 +16262,38 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
   }
 });
 
+// ── GET /api/olympus/teacher/debug-votes ─────────────────────────────────────
+app.get('/api/olympus/teacher/debug-votes', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const { period } = req.query;
+    if (!period) return res.status(400).json({ error: 'period required' });
+    const alliances = query(`SELECT alliance_id, alliance_name FROM alliances WHERE class_period=?`, [period]);
+    const result = alliances.map(a => {
+      const votes = query(
+        `SELECT student_id, round_number, vote_type, vote_value FROM olympus_votes WHERE alliance_id=?`,
+        [a.alliance_id]
+      );
+      const members = query(
+        `SELECT student_id, name, is_ghost FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+        [a.alliance_id]
+      );
+      const majority = getMajority(a.alliance_id, 0, 'medea');
+      return {
+        alliance_id: a.alliance_id,
+        name: a.alliance_name,
+        real_member_count: members.length,
+        members,
+        votes,
+        getMajority_result: majority
+      };
+    });
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ============================================================
 // END REVENGE OF THE GODS
 // ============================================================
