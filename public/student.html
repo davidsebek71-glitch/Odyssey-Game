@@ -14880,7 +14880,7 @@
                     if (!badge) {
                         slot.classList.add('empty');
                         slot.innerHTML = '<div class="badge-icon" style="font-size:10px;opacity:0.2;">?</div>';
-                    } else if (badge.age_available === 'heroic') {
+                    } else if (badge.age_available === 'heroic' && !badge.earned) {
                         slot.classList.add('locked');
                         slot.innerHTML = `<div class="badge-icon">🔒</div>`;
                         slot.title = badge.badge_name + '\n' + badge.description;

@@ -1507,6 +1507,17 @@ function runMigrations() {
   } catch (err) {
     console.log('Badge migration V99 note:', err.message);
   }
+
+  // V100: Update hero journey badges with correct names, icons, and unlock types
+  try {
+    db.run(`UPDATE badges_ref SET badge_name='Hero of the Argo', description='Reach the top hero rank on the Jason Voyage Log.', icon='⚓', unlock_type='heroic_journey_rank', unlock_value='jason' WHERE badge_id='hero_jason'`);
+    db.run(`UPDATE badges_ref SET badge_name='Champion of the Labors', description='Reach the top hero rank on the Hercules 12 Labors.', icon='💪', unlock_type='heroic_journey_rank', unlock_value='hercules' WHERE badge_id='hero_hercules'`);
+    db.run(`UPDATE badges_ref SET badge_name='Conqueror of the Labyrinth', description='Reach the top hero rank on the Theseus Labyrinth voyage.', icon='🌀', unlock_type='heroic_journey_rank', unlock_value='theseus' WHERE badge_id='hero_theseus'`);
+    db.run(`UPDATE badges_ref SET badge_name='Master of Medusa', description='Reach the top hero rank on the Perseus Monster voyage.', icon='🐍', unlock_type='heroic_journey_rank', unlock_value='perseus' WHERE badge_id='hero_perseus'`);
+    console.log('✅ Badge migration V100: hero journey badges updated');
+  } catch (err) {
+    console.log('Badge migration V100 note:', err.message);
+  }
 }
 
 function seedReferenceData() {
@@ -2919,10 +2930,10 @@ function seedBadges() {
     ['battle_streak', 'Streak Master', 'Win 5 battles in a row without losing.', 'battle', 5, 6, '🔥', 'battle_streak', '5', 'archaic', 0],
 
     // Row 6: Heroes & Legends
-    ['hero_theseus', 'Theseus', 'Locked — Heroic Age content.', 'heroes', 6, 1, '🏛️', 'heroic_content', 'theseus', 'heroic', 0],
-    ['hero_perseus', 'Perseus', 'Locked — Heroic Age content.', 'heroes', 6, 2, '🐍', 'heroic_content', 'perseus', 'heroic', 0],
-    ['hero_jason', 'Jason', 'Locked — Heroic Age content.', 'heroes', 6, 3, '✨', 'heroic_content', 'jason', 'heroic', 0],
-    ['hero_hercules', 'Hercules', 'Locked — Heroic Age content.', 'heroes', 6, 4, '🦁', 'heroic_content', 'hercules', 'heroic', 0],
+    ['hero_theseus', 'Conqueror of the Labyrinth', 'Reach the top hero rank on the Theseus Labyrinth voyage.', 'heroes', 6, 1, '🌀', 'heroic_journey_rank', 'theseus', 'heroic', 0],
+    ['hero_perseus', 'Master of Medusa', 'Reach the top hero rank on the Perseus Monster voyage.', 'heroes', 6, 2, '🐍', 'heroic_journey_rank', 'perseus', 'heroic', 0],
+    ['hero_jason', 'Hero of the Argo', 'Reach the top hero rank on the Jason Voyage Log.', 'heroes', 6, 3, '⚓', 'heroic_journey_rank', 'jason', 'heroic', 0],
+    ['hero_hercules', 'Champion of the Labors', 'Reach the top hero rank on the Hercules 12 Labors.', 'heroes', 6, 4, '💪', 'heroic_journey_rank', 'hercules', 'heroic', 0],
     ['special_pioneer', 'Pioneer', 'Be the first student in your class period to reach the Classical Age.', 'heroes', 6, 5, '🚩', 'first_to_classical', '1', 'archaic', 0],
     ['special_legend', 'Legend', 'Earn all other badges in the Hall of Honor.', 'heroes', 6, 6, '👑', 'all_badges', 'all', 'any', 0],
 

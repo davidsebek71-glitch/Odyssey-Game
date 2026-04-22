@@ -13888,8 +13888,39 @@ function scanForBadges(studentId) {
           break;
         }
 
+        case 'heroic_journey_rank': {
+          // Award when student reaches top rank tier on a heroic journey
+          // Top tiers: Jason=HOA, Hercules=HOO, Theseus=HOA, Perseus=HOP
+          const HEROIC_TOP_TIERS = {
+            jason:    'HOA',
+            hercules: 'HOO',
+            theseus:  'HOA',
+            perseus:  'HOP'
+          };
+          const HEROIC_RANK_COLS = {
+            jason:    'voyage_rank_tier',
+            hercules: 'hercules_rank_tier',
+            theseus:  'theseus_rank_tier',
+            perseus:  'perseus_rank_tier'
+          };
+          try {
+            const journey = (badge.unlock_value || '').toLowerCase();
+            const topTier = HEROIC_TOP_TIERS[journey];
+            const rankCol = HEROIC_RANK_COLS[journey];
+            if (topTier && rankCol) {
+              const studentRow = query(`SELECT ${rankCol} FROM students WHERE student_id = ?`, [studentId])[0];
+              if (studentRow && (studentRow[rankCol] || '').toUpperCase() === topTier) {
+                qualified = true;
+              }
+            }
+          } catch (heroicErr) {
+            console.log('heroic_journey_rank check error:', heroicErr.message);
+          }
+          break;
+        }
+
         case 'heroic_content': {
-          // Not yet available
+          // Legacy stub — badges now use heroic_journey_rank
           break;
         }
       }
@@ -14722,6 +14753,14 @@ app.post('/api/voyage-log/submit', (req, res) => {
         ]
       );
       console.log(`⚓ Voyage rewards: +${rewards.drachma} drachma → student_id ${students[0].student_id}`);
+
+      // Award hero journey badge if top tier reached
+      if (tier === 'HOA' && students.length > 0) {
+        try {
+          run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by) VALUES (?, 'hero_jason', 0, 0, 'system')`, [students[0].student_id]);
+          console.log('⚓ Badge awarded: hero_jason → student ' + students[0].student_id);
+        } catch(badgeErr) { console.log('Badge award note:', badgeErr.message); }
+      }
     }
 
     saveDatabase();
@@ -16730,6 +16769,13 @@ app.post('/api/hercules-log/submit', (req, res) => {
         );
         saveDatabase();
         console.log(`🦁 Hercules rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+        // Award Champion of the Labors badge if top tier (HOO)
+        if (tier === 'HOO') {
+          try {
+            run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by) VALUES (?, 'hero_hercules', 0, 0, 'system')`, [studentRow[0].student_id]);
+            console.log('💪 Badge awarded: hero_hercules → student ' + studentRow[0].student_id);
+          } catch(badgeErr) { console.log('Badge award note:', badgeErr.message); }
+        }
       }
     } catch (bridgeErr) {
       console.error('🦁 Hercules reward bridge error (non-fatal):', bridgeErr.message);
@@ -17275,6 +17321,13 @@ app.post('/api/theseus-log/submit', (req, res) => {
         );
         saveDatabase();
         console.log(`🗡️ Theseus rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+        // Award Conqueror of the Labyrinth badge if top tier (HOA)
+        if (tier === 'HOA') {
+          try {
+            run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by) VALUES (?, 'hero_theseus', 0, 0, 'system')`, [studentRow[0].student_id]);
+            console.log('🌀 Badge awarded: hero_theseus → student ' + studentRow[0].student_id);
+          } catch(badgeErr) { console.log('Badge award note:', badgeErr.message); }
+        }
       }
     } catch (bridgeErr) {
       console.error('🗡️ Theseus reward bridge error (non-fatal):', bridgeErr.message);
@@ -17647,6 +17700,13 @@ app.post('/api/perseus-log/submit', (req, res) => {
         );
         saveDatabase();
         console.log(`🪽 Perseus rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+        // Award Master of Medusa badge if top tier (HOP)
+        if (tier === 'HOP') {
+          try {
+            run(`INSERT OR IGNORE INTO student_badges (student_id, badge_id, ring_level, claimed, awarded_by) VALUES (?, 'hero_perseus', 0, 0, 'system')`, [studentRow[0].student_id]);
+            console.log('🐍 Badge awarded: hero_perseus → student ' + studentRow[0].student_id);
+          } catch(badgeErr) { console.log('Badge award note:', badgeErr.message); }
+        }
       }
     } catch (bridgeErr) {
       console.error('🪽 Perseus reward bridge error (non-fatal):', bridgeErr.message);
