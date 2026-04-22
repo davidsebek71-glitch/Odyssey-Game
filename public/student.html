@@ -5085,11 +5085,10 @@
                 const mythSelect = document.getElementById('submit-myth');
                 mythGroup.style.display = 'block';
                 mythSelect.setAttribute('required', 'required');
-                const heroColors = { 'Jason': '#40c0a0', 'Hercules': '#c03030', 'Labyrinth': '#4080d0', 'Monster': '#d0a020' };
-                const heroLabels = { 'Jason': 'Jason', 'Hercules': 'Hercules', 'Labyrinth': 'Labyrinth (Theseus)', 'Monster': 'Monster (Perseus)' };
+                const heroColors = { 'Jason': '#40c0a0', 'Hercules': '#c03030', 'Theseus': '#4080d0', 'Perseus': '#d0a020' };
                 mythSelect.innerHTML = '<option value="">— Select a hero —</option>';
-                ['Jason', 'Hercules', 'Labyrinth', 'Monster'].forEach(h => {
-                    mythSelect.innerHTML += `<option value="${h}" style="color:${heroColors[h]};background:#1a0b2e;">${heroLabels[h]}</option>`;
+                ['Jason', 'Hercules', 'Theseus', 'Perseus'].forEach(h => {
+                    mythSelect.innerHTML += `<option value="${h}" style="color:${heroColors[h]};background:#1a0b2e;">${h}</option>`;
                 });
             } else {
                 onCategoryChange(); // Initialize form visibility for Archaic/Classical
@@ -5110,10 +5109,12 @@
             'Hercules': [
                 { value: 'creative', label: '13th Labor' }
             ],
-            'Labyrinth': [
-                { value: 'creative', label: 'Monster/Labyrinth' }
+            'Theseus': [
+                { value: 'creative', label: 'Labyrinth' }
             ],
-            'Monster': []
+            'Perseus': [
+                { value: 'creative', label: 'Monster' }
+            ]
         };
 
         function onMythChange() {
