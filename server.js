@@ -15517,6 +15517,51 @@ const ROUND_1_PATHS = [
   { idx:5, label:'Make an Alliance',    god:null,        attack:0,   hook:'You were out of town. Advance without combat.',     safe:true  }
 ];
 
+const ROUND_2_PATHS = [
+  { idx:0, label:'Build Spears and Swords', god:'Hades',   attack:550, hook:'The dead rise to reclaim the weapons you forged',      safe:false },
+  { idx:1, label:'Hide in Cover of Night',  god:'Hades',   attack:570, hook:'Darkness becomes a tomb — Hades traps you in shadow',  safe:false },
+  { idx:2, label:'Dig a Tunnel',            god:'Demeter', attack:510, hook:'The earth shifts and swallows your passage whole',      safe:false },
+  { idx:3, label:'Seek a Cyclops',          god:'Cyclops', attack:600, hook:'One eye. One club. Zero mercy.',                        safe:false },
+  { idx:4, label:'Hide Among the Injured',  god:'Ares',    attack:520, hook:'Ares sees through your disguise and strikes harder',    safe:false },
+  { idx:5, label:'Capture Fire',            god:null,      attack:0,   hook:'You steal Prometheus\'s flame. Advance without combat.',safe:true  }
+];
+
+const ROUND_3_PATHS = [
+  { idx:0, label:'Build a Catapult',       god:'Hephaestus', attack:700, hook:'Your own siege engine turns against you',                   safe:false },
+  { idx:1, label:'Steal Medea\'s Potion',  god:'Zeus',       attack:690, hook:'Zeus strikes you down for betraying his protected guest',    safe:false },
+  { idx:2, label:'Take Hephaestus\'s Forge',god:'Poseidon',  attack:680, hook:'The sea god floods the forge — and you with it',            safe:false },
+  { idx:3, label:'Follow Orpheus',         god:'Hades',      attack:710, hook:'You look back. Everything is lost.',                         safe:false },
+  { idx:4, label:'Find Medusa\'s Head',    god:'Ares',       attack:710, hook:'Ares intercepts you. The head turns you to stone.',          safe:false },
+  { idx:5, label:'Make a Sacrifice',       god:null,         attack:0,   hook:'The gods accept your offering. Advance without combat.',     safe:true  }
+];
+
+const ROUND_4_PATHS = [
+  { idx:0, label:'Bring Back the Minotaur',god:'Colchis Army', attack:800, hook:'The Colchis army arrives to defend their monster',         safe:false },
+  { idx:1, label:'Visit the Oracle',       god:'Apollo',       attack:810, hook:'Apollo punishes you for misusing the prophecy',             safe:false },
+  { idx:2, label:'Return Fire to the Gods',god:'Fire',         attack:880, hook:'The flames answer to no one — least of all you',           safe:false },
+  { idx:3, label:'Trap the Gods',          god:'Nymphs',       attack:830, hook:'The nymphs free the gods, who punish you personally',       safe:false },
+  { idx:4, label:'Create a Disguise',      god:'Apollo',       attack:810, hook:'Apollo sees through every disguise — it\'s literally his power', safe:false },
+  { idx:5, label:'Ally With the Titans',   god:null,           attack:0,   hook:'Ancient enemies become unexpected allies. Advance without combat.', safe:true }
+];
+
+const ROUND_5_PATHS = [
+  { idx:0, label:'Night of the Living Dead', god:'Multiple', attack:1000, hook:'Every fallen hero you ever faced rises at once',               safe:false },
+  { idx:1, label:'Travel to End of Rainbow', god:'Iris',     attack:1100, hook:'Iris dissolves your path into color — you fall endlessly',     safe:false },
+  { idx:2, label:'Phaethon For a Day',        god:'Zeus',     attack:1200, hook:'You lose control of the sun chariot. Zeus finishes the job.',  safe:false },
+  { idx:3, label:'Make a Wish',               god:'Hecate',   attack:1400, hook:'Hecate grants your wish — then inverts it',                    safe:false },
+  { idx:4, label:'Capture Echo',              god:'Nemesis',  attack:1400, hook:'Nemesis reflects your every blow back at double strength',     safe:false },
+  { idx:5, label:'It Was All Just a Dream',   god:'Hypnos',   attack:1600, hook:'You wake up — at the bottom of the mountain. Start over.',    safe:false }
+];
+
+// Lookup by round number — used by paths endpoint and commit-path
+const ROUND_PATHS = {
+  1: ROUND_1_PATHS,
+  2: ROUND_2_PATHS,
+  3: ROUND_3_PATHS,
+  4: ROUND_4_PATHS,
+  5: ROUND_5_PATHS
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function getAllianceForStudent(studentId) {
@@ -15690,8 +15735,7 @@ app.get('/api/olympus/paths/:round', authenticateToken, (req, res) => {
     );
     const lockMap = {};
     locks.forEach(l => { lockMap[l.path_index] = { alliance_id: l.alliance_id, alliance_name: l.alliance_name }; });
-    // Session 1: only Round 1 paths defined; stub other rounds
-    const pathDefs = round === 1 ? ROUND_1_PATHS : [];
+    const pathDefs = ROUND_PATHS[round] || [];
     const paths = pathDefs.map(p => ({
       ...p,
       locked: !!lockMap[p.idx],
@@ -15750,7 +15794,8 @@ app.post('/api/olympus/commit-path', authenticateToken, (req, res) => {
     const majority = getMajority(alliance.alliance_id, state.current_round, 'path');
     if (!majority) return res.status(400).json({ error: 'No majority yet' });
     const pathIdx = parseInt(majority.winner);
-    const pathDef = ROUND_1_PATHS[pathIdx];
+    const roundPaths = ROUND_PATHS[state.current_round] || [];
+    const pathDef = roundPaths[pathIdx];
     if (!pathDef) return res.status(400).json({ error: 'Invalid path' });
     // Attempt to claim the lock (UNIQUE constraint prevents double-claim)
     try {
@@ -15799,7 +15844,8 @@ app.post('/api/olympus/combat-resolve', authenticateToken, (req, res) => {
       [alliance.alliance_id, state.current_round]
     );
     if (!lock.length) return res.status(400).json({ error: 'No committed path found' });
-    const path = ROUND_1_PATHS[lock[0].path_index];
+    const roundPaths = ROUND_PATHS[state.current_round] || ROUND_1_PATHS;
+    const path = roundPaths[lock[0].path_index];
     const pointsBefore = alliance.total_points;
     let deducted = 0;
     let phoenixTriggered = 0;
@@ -16206,6 +16252,8 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_combat_log WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_medea_choices WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_hints WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_gate_attempts WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
     }
     res.json({ reset: true, period, alliances_cleared: ids.length });
