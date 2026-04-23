@@ -15836,24 +15836,81 @@ app.post('/api/olympus/commit-path', authenticateToken, (req, res) => {
   }
 });
 
-// ── POST /api/olympus/combat-resolve ─────────────────────────────────────────
-app.post('/api/olympus/combat-resolve', authenticateToken, (req, res) => {
+// ── POST /api/olympus/combat-ready ───────────────────────────────────────────
+// Marks a student as ready to roll. When all present members are ready,
+// combat is resolved once and the result stored on olympus_race_state.
+// Returns { waiting: true, ready_count, needed } while waiting,
+// or { resolved: true, ...combatResult } when all are ready.
+app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
   try {
     const alliance = getAllianceForStudent(req.user.id);
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
+
+    // If combat is already resolved (phase moved on), return stored result
+    if (state && state.current_phase !== 'combat') {
+      if (state.combat_result) {
+        return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
+      }
+      return res.json({ resolved: true, already_advanced: true });
+    }
+
     if (!state || state.current_phase !== 'combat') {
       return res.status(400).json({ error: 'Not in combat phase' });
     }
-    // Find committed path for this alliance/round
+
+    // Record this student as ready
+    const readyFlags = state.combat_ready_flags ? JSON.parse(state.combat_ready_flags) : [];
+    if (!readyFlags.includes(req.user.id)) {
+      readyFlags.push(req.user.id);
+      run(
+        `UPDATE olympus_race_state SET combat_ready_flags=? WHERE alliance_id=?`,
+        [JSON.stringify(readyFlags), alliance.alliance_id]
+      );
+    }
+
+    // Determine how many present members we need
+    const presentIds = state.present_members ? JSON.parse(state.present_members) : null;
+    let needed;
+    if (presentIds) {
+      needed = presentIds.length;
+    } else {
+      const memberRows = query(
+        `SELECT COUNT(*) as cnt FROM students
+         WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+        [alliance.alliance_id]
+      );
+      needed = memberRows[0] ? memberRows[0].cnt : 1;
+    }
+
+    const readyCount = readyFlags.length;
+
+    // Not everyone ready yet — return waiting state
+    if (readyCount < needed) {
+      return res.json({ waiting: true, ready_count: readyCount, needed });
+    }
+
+    // ── All present members ready — resolve combat now ────────────────────────
+    // Re-fetch state to guard against race condition where another request
+    // already resolved combat between our ready-flag write and this check.
+    const freshState = getOlympusState(alliance.alliance_id);
+    if (freshState.current_phase !== 'combat') {
+      if (freshState.combat_result) {
+        return res.json(Object.assign({ resolved: true }, JSON.parse(freshState.combat_result)));
+      }
+      return res.json({ resolved: true, already_advanced: true });
+    }
+
+    // Find the committed path for this round
     const lock = query(
       `SELECT path_index FROM olympus_path_locks
        WHERE alliance_id=? AND round_number=?`,
-      [alliance.alliance_id, state.current_round]
+      [alliance.alliance_id, freshState.current_round]
     );
     if (!lock.length) return res.status(400).json({ error: 'No committed path found' });
-    const roundPaths = ROUND_PATHS[state.current_round] || ROUND_1_PATHS;
+
+    const roundPaths = ROUND_PATHS[freshState.current_round] || ROUND_1_PATHS;
     const path = roundPaths[lock[0].path_index];
     const pointsBefore = alliance.total_points;
     let deducted = 0;
@@ -15865,12 +15922,12 @@ app.post('/api/olympus/combat-resolve', authenticateToken, (req, res) => {
       deducted = Math.min(path.attack, pointsBefore);
       let newTotal = pointsBefore - deducted;
       if (newTotal === 0) {
-        if (!state.phoenix_feather_used) {
-          // Phoenix saves — revive at 1
+        if (!freshState.phoenix_feather_used) {
           newTotal = 1;
           deducted = pointsBefore - 1;
           phoenixTriggered = 1;
-          run(`UPDATE olympus_race_state SET phoenix_feather_used=1 WHERE alliance_id=?`, [alliance.alliance_id]);
+          run(`UPDATE olympus_race_state SET phoenix_feather_used=1 WHERE alliance_id=?`,
+            [alliance.alliance_id]);
         } else {
           hadesTriggered = 1;
           nextPhase = 'hades_waiting';
@@ -15881,38 +15938,112 @@ app.post('/api/olympus/combat-resolve', authenticateToken, (req, res) => {
           );
         }
       }
-      // Update alliance points
-      run(`UPDATE alliances SET total_points=? WHERE alliance_id=?`, [newTotal, alliance.alliance_id]);
+      run(`UPDATE alliances SET total_points=? WHERE alliance_id=?`,
+        [newTotal, alliance.alliance_id]);
     }
 
     // Log combat
     const finalTotal = !path.safe
-      ? (query(`SELECT total_points FROM alliances WHERE alliance_id=?`, [alliance.alliance_id])[0] || {}).total_points
+      ? (query(`SELECT total_points FROM alliances WHERE alliance_id=?`,
+          [alliance.alliance_id])[0] || {}).total_points
       : pointsBefore;
+
     run(
       `INSERT INTO olympus_combat_log
-       (alliance_id, round_number, god_name, attack_value, points_before, points_deducted, points_after, phoenix_triggered, hades_triggered)
+       (alliance_id, round_number, god_name, attack_value, points_before,
+        points_deducted, points_after, phoenix_triggered, hades_triggered)
        VALUES (?,?,?,?,?,?,?,?,?)`,
-      [alliance.alliance_id, state.current_round, path.god || 'None', path.attack, pointsBefore, deducted, finalTotal, phoenixTriggered, hadesTriggered]
+      [alliance.alliance_id, freshState.current_round, path.god || 'None',
+       path.attack, pointsBefore, deducted, finalTotal,
+       phoenixTriggered, hadesTriggered]
     );
 
+    // Build result object — stored on state so late-arriving members can fetch it
+    const combatResult = {
+      path,
+      safe_path:        path.safe || false,
+      points_before:    pointsBefore,
+      points_deducted:  deducted,
+      points_after:     finalTotal,
+      phoenix_triggered: phoenixTriggered,
+      hades_triggered:   hadesTriggered,
+      next_phase:        nextPhase
+    };
+
+    // Advance phase and store result, clear ready flags
     if (!hadesTriggered) {
-      run(`UPDATE olympus_race_state SET current_phase='puzzle' WHERE alliance_id=?`, [alliance.alliance_id]);
+      run(
+        `UPDATE olympus_race_state
+         SET current_phase='puzzle', combat_result=?, combat_ready_flags=NULL
+         WHERE alliance_id=?`,
+        [JSON.stringify(combatResult), alliance.alliance_id]
+      );
+    } else {
+      run(
+        `UPDATE olympus_race_state
+         SET combat_result=?, combat_ready_flags=NULL
+         WHERE alliance_id=?`,
+        [JSON.stringify(combatResult), alliance.alliance_id]
+      );
     }
 
-    res.json({
-      path,
-      points_before: pointsBefore,
-      points_deducted: deducted,
-      points_after: finalTotal,
-      phoenix_triggered: phoenixTriggered,
-      hades_triggered: hadesTriggered,
-      next_phase: nextPhase
-    });
+    res.json(Object.assign({ resolved: true }, combatResult));
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ── GET /api/olympus/combat-result ───────────────────────────────────────────
+// Polling endpoint for students waiting for combat to resolve.
+// Returns { pending: true } if combat not yet resolved,
+// or { resolved: true, ...combatResult } when done.
+app.get('/api/olympus/combat-result', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+
+    if (state.current_phase === 'combat' && !state.combat_result) {
+      // Still waiting — include ready count for display
+      const readyFlags = state.combat_ready_flags ? JSON.parse(state.combat_ready_flags) : [];
+      const presentIds = state.present_members ? JSON.parse(state.present_members) : null;
+      let needed;
+      if (presentIds) {
+        needed = presentIds.length;
+      } else {
+        const memberRows = query(
+          `SELECT COUNT(*) as cnt FROM students
+           WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+          [alliance.alliance_id]
+        );
+        needed = memberRows[0] ? memberRows[0].cnt : 1;
+      }
+      return res.json({ pending: true, ready_count: readyFlags.length, needed });
+    }
+
+    if (state.combat_result) {
+      return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
+    }
+
+    // Phase has moved on without a stored result (shouldn't happen, but handle gracefully)
+    return res.json({ resolved: true, already_advanced: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/combat-resolve (retired) ────────────────────────────────
+// Replaced by combat-ready + combat-result. Kept to surface a clear error
+// if any stale client calls this endpoint.
+app.post('/api/olympus/combat-resolve', authenticateToken, (req, res) => {
+  res.status(410).json({
+    error: 'combat-resolve is retired. Use POST /api/olympus/combat-ready instead.'
+  });
+});
+
+
 
 // ── Puzzle Room constants ─────────────────────────────────────────────────────
 const PUZZLE_DATA = {
@@ -16513,6 +16644,8 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_gate_attempts WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_godtest_answers WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_godtest_votes WHERE alliance_id=?`, [id]);
+      // Clear per-session columns on race state
+      run(`UPDATE olympus_race_state SET combat_ready_flags=NULL, combat_result=NULL WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
       run(`DELETE FROM olympus_godtest_locks WHERE period=?`, [period]);
     }

@@ -298,7 +298,7 @@
       <div class="gold-divider"></div>
       <div class="combat-story-lines" id="combat-story-lines"></div>
       <div class="combat-roll-line" id="combat-roll-line"></div>
-      <button class="btn-fight" id="fight-btn" onclick="resolveCombat()">Roll to Defend →</button>
+      <button class="btn-fight" id="fight-btn" onclick="markReady()">I'm Ready to Roll →</button>
     </div>
   </div>
   <!-- Phase 2: Resolution -->
@@ -1076,7 +1076,8 @@ function revealStoryLines(lines, rollText, onComplete) {
   } else {
     // Safe path — show button immediately styled green
     setTimeout(() => {
-      fightBtn.textContent = 'Move On →';
+      fightBtn.textContent = 'Move On — No Combat →';
+      fightBtn.onclick = function() { markReady(); };
       fightBtn.style.background = 'linear-gradient(135deg,#1a4a1a,#0a2a0a)';
       fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
       fightBtn.style.color = '#8ae08a';
@@ -1120,7 +1121,7 @@ async function showCombat(round) {
 
   const fightBtn = document.getElementById('fight-btn');
   fightBtn.disabled = false;
-  fightBtn.textContent = 'Roll to Defend →';
+  fightBtn.textContent = 'I\'m Ready to Roll →';
   fightBtn.style.background = '';
   fightBtn.style.borderColor = '';
   fightBtn.style.color = '';
@@ -1145,68 +1146,106 @@ async function showCombat(round) {
   }
 }
 
-async function resolveCombat() {
+async function markReady() {
   const btn = document.getElementById('fight-btn');
   btn.disabled = true;
-  btn.textContent = 'Rolling…';
+  btn.textContent = 'Waiting for alliance…';
 
   try {
-    const res = await fetch('/api/olympus/combat-resolve', { method:'POST', headers:H });
+    const res  = await fetch('/api/olympus/combat-ready', { method:'POST', headers:H });
     const data = await res.json();
 
     if (!res.ok) {
       btn.disabled = false;
-      btn.textContent = 'Roll to Defend →';
-      alert(data.error || 'Combat failed.');
+      btn.textContent = 'I\'m Ready to Roll →';
+      alert(data.error || 'Error. Please try again.');
       return;
     }
 
-    await loadState();
+    if (data.resolved) {
+      displayCombatResult(data);
+      return;
+    }
 
-    // Dramatic transition — flash screen then show result
-    const storyPhase = document.getElementById('combat-story-phase');
+    // Waiting for teammates — update button with live count and start polling
+    btn.textContent = 'Ready (' + data.ready_count + '/' + data.needed + ')';
+    startCombatResultPoll();
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'I\'m Ready to Roll →';
+    alert('Network error. Please try again.');
+  }
+}
+
+function startCombatResultPoll() {
+  stopPolling();
+  pollTimer = setInterval(async function() {
+    try {
+      const res  = await fetch('/api/olympus/combat-result', { headers:H });
+      const data = await res.json();
+      if (!res.ok) { stopPolling(); return; }
+
+      if (data.resolved) {
+        stopPolling();
+        displayCombatResult(data);
+        return;
+      }
+
+      // Update ready count on button while waiting
+      if (data.pending) {
+        const btn = document.getElementById('fight-btn');
+        if (btn) btn.textContent = 'Ready (' + data.ready_count + '/' + data.needed + ')';
+      }
+    } catch(e) { /* network blip — keep polling */ }
+  }, 2000);
+}
+
+function displayCombatResult(data) {
+  stopPolling();
+  if (data.already_advanced) {
+    // Edge case: result not stored but phase moved — load state and route forward
+    loadState().then(function() {
+      if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+    });
+    return;
+  }
+
+  loadState().then(function() {
+    const storyPhase  = document.getElementById('combat-story-phase');
     const resultPhase = document.getElementById('combat-result-phase');
 
     storyPhase.style.transition = 'opacity 0.4s ease';
-    storyPhase.style.opacity = '0';
+    storyPhase.style.opacity    = '0';
 
-    setTimeout(() => {
-      storyPhase.style.display = 'none';
+    setTimeout(function() {
+      storyPhase.style.display  = 'none';
       resultPhase.style.display = 'flex';
       resultPhase.style.opacity = '0';
       resultPhase.style.transition = 'opacity 0.6s ease';
 
-      const pathDefs = PATH_DATA[raceState?.current_round || 1] || PATH_DATA[1];
       const godName = committedPath ? (committedPath.god || 'The Gods') : 'The Gods';
-      document.getElementById('combat-result-god').textContent = godName;
-      document.getElementById('combat-result-god').style.color = data.safe_path ? '#8ae08a' : '#e07070';
+      document.getElementById('combat-result-god').textContent  = godName;
+      document.getElementById('combat-result-god').style.color  = data.safe_path ? '#8ae08a' : '#e07070';
 
       const resultBox = document.getElementById('combat-result');
-
       if (data.safe_path) {
         resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>';
       } else if (data.hades_triggered) {
-        resultBox.innerHTML = `
-          <div class="combat-deducted" style="color:#c0a0f0; font-size:1.6rem;">Hades has claimed you.</div>
-          <div class="combat-remaining" style="color:#c0a0f0; font-style:italic;">Your alliance enters the shadow realm. Fight on.</div>
-        `;
+        resultBox.innerHTML =
+          '<div class="combat-deducted" style="color:#c0a0f0; font-size:1.6rem;">Hades has claimed you.</div>' +
+          '<div class="combat-remaining" style="color:#c0a0f0; font-style:italic;">Your alliance enters the shadow realm. Fight on.</div>';
       } else {
-        const deducted = data.points_deducted || 0;
-        const remaining = data.points_after || 0;
-        resultBox.innerHTML = `
-          <div class="combat-deducted">−${deducted} points</div>
-          <div class="combat-remaining">${remaining} points remaining</div>
-        `;
+        var deducted  = data.points_deducted || 0;
+        var remaining = data.points_after    || 0;
+        resultBox.innerHTML =
+          '<div class="combat-deducted">−' + deducted + ' points</div>' +
+          '<div class="combat-remaining">' + remaining + ' points remaining</div>';
       }
 
-      setTimeout(() => { resultPhase.style.opacity = '1'; }, 50);
+      setTimeout(function() { resultPhase.style.opacity = '1'; }, 50);
     }, 450);
-
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = 'Roll to Defend →';
-    alert('Error: ' + e.message);
-  }
+  });
 }
 
 function proceedToPuzzle() {

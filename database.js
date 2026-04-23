@@ -2186,6 +2186,30 @@ function seedReferenceData() {
     }
   }
 
+  // Migration: add combat_ready_flags column (JSON array of student_ids who clicked ready)
+  try {
+    db.exec("SELECT combat_ready_flags FROM olympus_race_state LIMIT 0");
+  } catch(e) {
+    try {
+      db.run("ALTER TABLE olympus_race_state ADD COLUMN combat_ready_flags TEXT DEFAULT NULL");
+      console.log('✅ Migration: added combat_ready_flags to olympus_race_state');
+    } catch(alterErr) {
+      console.log('Migration note: combat_ready_flags -', alterErr.message);
+    }
+  }
+
+  // Migration: add combat_result column (JSON blob of resolved combat outcome)
+  try {
+    db.exec("SELECT combat_result FROM olympus_race_state LIMIT 0");
+  } catch(e) {
+    try {
+      db.run("ALTER TABLE olympus_race_state ADD COLUMN combat_result TEXT DEFAULT NULL");
+      console.log('✅ Migration: added combat_result to olympus_race_state');
+    } catch(alterErr) {
+      console.log('Migration note: combat_result -', alterErr.message);
+    }
+  }
+
   try {
     db.run(`CREATE TABLE IF NOT EXISTS olympus_path_locks (
       lock_id        INTEGER PRIMARY KEY AUTOINCREMENT,
