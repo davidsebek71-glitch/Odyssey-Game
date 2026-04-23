@@ -430,7 +430,7 @@ function routeToPhase(phase, round) {
       break;
 
     case 'god_test':
-      showWaiting('God Test', 'The God Test is coming in Session 3.', phase);
+      window.location.href = '/god_test.html';
       break;
 
     case 'summit':
@@ -1217,48 +1217,52 @@ function startCombatResultPoll() {
 
 function displayCombatResult(data) {
   stopPolling();
+
   if (data.already_advanced) {
+    // No result stored — load state and route forward
     loadState().then(function() {
       if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
     });
     return;
   }
 
-  loadState().then(function() {
-    const storyPhase  = document.getElementById('combat-story-phase');
-    const resultPhase = document.getElementById('combat-result-phase');
+  // Show result directly from API data — do NOT call loadState() here.
+  // loadState() updates raceState to 'puzzle' which would trigger the poll
+  // loop to redirect before the player can read the outcome.
+  // Player manually clicks "Enter the Puzzle Chamber" to proceed.
+  var storyPhase  = document.getElementById('combat-story-phase');
+  var resultPhase = document.getElementById('combat-result-phase');
 
-    storyPhase.style.transition = 'opacity 0.4s ease';
-    storyPhase.style.opacity    = '0';
+  storyPhase.style.transition = 'opacity 0.4s ease';
+  storyPhase.style.opacity    = '0';
 
-    setTimeout(function() {
-      storyPhase.style.display  = 'none';
-      resultPhase.style.display = 'flex';
-      resultPhase.style.opacity = '0';
-      resultPhase.style.transition = 'opacity 0.6s ease';
+  setTimeout(function() {
+    storyPhase.style.display  = 'none';
+    resultPhase.style.display = 'flex';
+    resultPhase.style.opacity = '0';
+    resultPhase.style.transition = 'opacity 0.6s ease';
 
-      var godName = committedPath ? (committedPath.god || 'The Gods') : 'The Gods';
-      document.getElementById('combat-result-god').textContent  = godName;
-      document.getElementById('combat-result-god').style.color  = data.safe_path ? '#8ae08a' : '#e07070';
+    var godName = committedPath ? (committedPath.god || 'The Gods') : 'The Gods';
+    document.getElementById('combat-result-god').textContent = godName;
+    document.getElementById('combat-result-god').style.color = data.safe_path ? '#8ae08a' : '#e07070';
 
-      var resultBox = document.getElementById('combat-result');
-      if (data.safe_path) {
-        resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>';
-      } else if (data.hades_triggered) {
-        resultBox.innerHTML =
-          '<div class="combat-deducted" style="color:#c0a0f0; font-size:1.6rem;">Hades has claimed you.</div>' +
-          '<div class="combat-remaining" style="color:#c0a0f0; font-style:italic;">Your alliance enters the shadow realm. Fight on.</div>';
-      } else {
-        var deducted  = data.points_deducted || 0;
-        var remaining = data.points_after    || 0;
-        resultBox.innerHTML =
-          '<div class="combat-deducted">−' + deducted + ' points</div>' +
-          '<div class="combat-remaining">' + remaining + ' points remaining</div>';
-      }
+    var resultBox = document.getElementById('combat-result');
+    if (data.safe_path) {
+      resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>';
+    } else if (data.hades_triggered) {
+      resultBox.innerHTML =
+        '<div class="combat-deducted" style="color:#c0a0f0;font-size:1.6rem;">Hades has claimed you.</div>' +
+        '<div class="combat-remaining" style="color:#c0a0f0;font-style:italic;">Your alliance enters the shadow realm. Fight on.</div>';
+    } else {
+      var deducted  = data.points_deducted || 0;
+      var remaining = data.points_after    || 0;
+      resultBox.innerHTML =
+        '<div class="combat-deducted">−' + deducted + ' points</div>' +
+        '<div class="combat-remaining">' + remaining + ' points remaining</div>';
+    }
 
-      setTimeout(function() { resultPhase.style.opacity = '1'; }, 50);
-    }, 450);
-  });
+    setTimeout(function() { resultPhase.style.opacity = '1'; }, 50);
+  }, 450);
 }
 
 function proceedToPuzzle() {
