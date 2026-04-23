@@ -16687,7 +16687,67 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
   }
 });
 
-// ── GET /api/olympus/teacher/debug-votes ─────────────────────────────────────
+// ── POST /api/olympus/hades-escape ───────────────────────────────────────────
+// Student endpoint — called when the alliance clicks "Continue as Ghost Runner"
+// on the Hades waiting screen. Sets ghost_runner_mode=1, points to 1,
+// and advances to path_choice for the current round.
+// Safe to call multiple times (idempotent — checks phase first).
+app.post('/api/olympus/hades-escape', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+
+    // Already escaped — route forward
+    if (state.current_phase !== 'hades_waiting') {
+      return res.json({ escaped: true, already_advanced: true, current_phase: state.current_phase });
+    }
+
+    // Set ghost runner mode, floor points at 1, advance to path_choice
+    run(`UPDATE alliances SET total_points = MAX(total_points, 1) WHERE alliance_id=?`,
+      [alliance.alliance_id]);
+    run(
+      `UPDATE olympus_race_state
+       SET ghost_runner_mode=1, current_phase='path_choice'
+       WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+
+    res.json({ escaped: true, ghost_runner: true, next_phase: 'path_choice' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/teacher/release-from-hades ─────────────────────────────
+// Teacher endpoint — manually releases a specific alliance from hades_waiting.
+// Useful when both students are absent or stuck and teacher wants to unblock them.
+app.post('/api/olympus/teacher/release-from-hades', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const { alliance_id } = req.body;
+    if (!alliance_id) return res.status(400).json({ error: 'alliance_id required' });
+    const state = getOlympusState(alliance_id);
+    if (!state) return res.status(400).json({ error: 'No race state for this alliance' });
+    if (state.current_phase !== 'hades_waiting') {
+      return res.json({ released: false, note: 'Alliance is not in hades_waiting', current_phase: state.current_phase });
+    }
+    run(`UPDATE alliances SET total_points = MAX(total_points, 1) WHERE alliance_id=?`, [alliance_id]);
+    run(
+      `UPDATE olympus_race_state
+       SET ghost_runner_mode=1, current_phase='path_choice'
+       WHERE alliance_id=?`,
+      [alliance_id]
+    );
+    res.json({ released: true, alliance_id, ghost_runner: true, next_phase: 'path_choice' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 app.get('/api/olympus/teacher/debug-votes', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
   try {

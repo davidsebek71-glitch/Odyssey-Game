@@ -331,6 +331,33 @@
   </div>
 </div>
 
+<!-- ══ SCREEN: HADES WAITING ════════════════════════════════════════════ -->
+<div class="screen" id="screen-hades">
+  <div class="waiting-card" style="border-color:rgba(160,100,220,0.5);background:linear-gradient(160deg,#0a0612,#1a0520);">
+    <div class="waiting-icon" style="font-size:3rem;">💀</div>
+    <div class="waiting-title" style="color:#c0a0f0;font-size:1.4rem;">You Have Entered the Realm of Hades</div>
+    <div class="waiting-sub" style="color:rgba(192,160,240,0.7);margin-top:12px;line-height:1.7;font-style:italic;">
+      Your alliance has fallen. The Phoenix Feather is spent.<br>
+      Hades grants you passage — but at a cost.<br><br>
+      You will continue as a <strong style="color:#c0a0f0;">Ghost Runner</strong>.<br>
+      Your points are fixed. You cannot win the race.<br>
+      But you can still finish it.
+    </div>
+    <div style="margin-top:8px;padding:12px 20px;background:rgba(160,100,220,0.1);border:1px solid rgba(160,100,220,0.25);border-radius:6px;font-family:'Cinzel',serif;font-size:0.75rem;color:rgba(192,160,240,0.6);letter-spacing:0.08em;">
+      GHOST RUNNER MODE — 1 point · All phases still active · Catapult materials guaranteed
+    </div>
+    <button
+      id="hades-escape-btn"
+      onclick="hadesEscape()"
+      style="margin-top:28px;padding:14px 32px;background:linear-gradient(135deg,#3a1f70,#6b3fa0);border:1px solid rgba(160,100,220,0.5);border-radius:8px;color:#e8dcc8;font-family:'Cinzel',serif;font-size:0.85rem;font-weight:700;letter-spacing:0.1em;cursor:pointer;text-transform:uppercase;transition:all 0.2s;">
+      Rise from the Underworld →
+    </button>
+    <div style="margin-top:16px;font-size:0.75rem;color:rgba(192,160,240,0.4);font-style:italic;">
+      Both alliance members must be present to continue.
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════
 // OLYMPUS RACE — MAIN UI
@@ -433,8 +460,8 @@ function routeToPhase(phase, round) {
       window.location.href = '/god_test.html';
       break;
 
-    case 'summit':
-      showWaiting('The Summit', 'The Summit is coming in Session 4.', phase);
+    case 'hades_waiting':
+      showHadesWaiting();
       break;
 
     default:
@@ -1267,6 +1294,41 @@ function displayCombatResult(data) {
 
 function proceedToPuzzle() {
   window.location.href = '/puzzle_room.html';
+}
+
+// ═══════════════════════════════════════════════════
+// HADES WAITING
+// ═══════════════════════════════════════════════════
+function showHadesWaiting() {
+  stopPolling();
+  showScreen('hades');
+  var btn = document.getElementById('hades-escape-btn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Rise from the Underworld →'; }
+}
+
+async function hadesEscape() {
+  var btn = document.getElementById('hades-escape-btn');
+  btn.disabled = true;
+  btn.textContent = 'Escaping the underworld…';
+
+  try {
+    var res  = await fetch('/api/olympus/hades-escape', { method:'POST', headers:H });
+    var data = await res.json();
+
+    if (data.escaped) {
+      await loadState();
+      if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+      return;
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Rise from the Underworld →';
+    alert(data.error || 'Could not escape. Try again.');
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Rise from the Underworld →';
+    alert('Network error. Please try again.');
+  }
 }
 
 // ═══════════════════════════════════════════════════

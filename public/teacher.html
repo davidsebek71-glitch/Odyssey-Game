@@ -8615,11 +8615,15 @@
                 const presentLabel = a.present_members
                     ? '<span style="color:#ffd700;">' + presentCount + '/' + totalMembers + '</span>'
                     : '<span style="color:rgba(150,220,255,0.5);">' + totalMembers + '</span>';
-                html += '<tr style="border-bottom:1px solid rgba(0,191,255,0.08);font-size:13px;">' +
+                const isHades = a.current_phase === 'hades_waiting';
+                const hadesBtn = isHades
+                    ? ' <button onclick="releaseFromHades(' + a.alliance_id + ',\'' + safeP + '\')" style="margin-left:6px;padding:2px 8px;background:rgba(160,100,220,0.3);border:1px solid rgba(160,100,220,0.6);border-radius:4px;color:#c0a0f0;font-size:11px;cursor:pointer;font-weight:700;">Release</button>'
+                    : '';
+                html += '<tr style="border-bottom:1px solid rgba(0,191,255,0.08);font-size:13px;' + (isHades ? 'background:rgba(100,40,140,0.15);' : '') + '">' +
                     '<td style="padding:8px;color:#e2e8f0;font-weight:600;">' + escapeAttr(a.name) + '</td>' +
                     '<td style="padding:8px;text-align:center;color:#ffd700;">' + a.total_points + '</td>' +
                     '<td style="padding:8px;text-align:center;color:rgba(200,220,255,0.8);">' + (a.current_round || '&mdash;') + '</td>' +
-                    '<td style="padding:8px;text-align:center;color:rgba(150,220,255,0.7);">' + ph + '</td>' +
+                    '<td style="padding:8px;text-align:center;color:' + (isHades ? '#c0a0f0' : 'rgba(150,220,255,0.7)') + ';">' + ph + hadesBtn + '</td>' +
                     '<td style="padding:8px;text-align:center;">' + presentLabel + '</td>' +
                     '<td style="padding:8px;text-align:center;">' + (a.phoenix_feather_used ? '&#10003;' : 'Ready') + '</td>' +
                     '<td style="padding:8px;text-align:center;">' + (a.hades_visits || 0) + '</td>' +
@@ -8704,6 +8708,26 @@
                 // Refresh the period data so the status table reflects new present count
                 loadRevengePeriod(period);
             } catch(err) { alert('Error saving attendance: ' + err.message); }
+        }
+
+        async function releaseFromHades(allianceId, period) {
+            if (!confirm('Release this alliance from Hades?\n\nThis will set Ghost Runner mode ON and advance them to path_choice at 1 point.')) return;
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(API_URL + '/olympus/teacher/release-from-hades', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ alliance_id: allianceId })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+                if (data.released) {
+                    alert('Alliance released. Ghost Runner mode active.');
+                } else {
+                    alert(data.note || 'Alliance was not in Hades waiting.');
+                }
+                loadRevengePeriod(period);
+            } catch(err) { alert('Error: ' + err.message); }
         }
 
         async function revengeStartRace(period) {
