@@ -15773,6 +15773,10 @@ app.post('/api/olympus/vote-path', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'Race not started' });
+    // If phase already moved past path_choice, tell client to route forward
+    if (state.current_phase !== 'path_choice') {
+      return res.json({ already_advanced: true, current_phase: state.current_phase });
+    }
     run(
       `INSERT INTO olympus_votes (alliance_id, student_id, round_number, vote_type, vote_value)
        VALUES (?,?,?,'path',?)
@@ -15800,6 +15804,10 @@ app.post('/api/olympus/commit-path', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'Race not started' });
+    // If already past path_choice, route forward gracefully
+    if (state.current_phase !== 'path_choice') {
+      return res.json({ already_advanced: true, current_phase: state.current_phase });
+    }
     const majority = getMajority(alliance.alliance_id, state.current_round, 'path');
     if (!majority) return res.status(400).json({ error: 'No majority yet' });
     const pathIdx = parseInt(majority.winner);
@@ -16096,7 +16104,11 @@ app.post('/api/olympus/gate-check', authenticateToken, (req, res) => {
     const alliance = getAllianceForStudent(req.user.id);
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
-    if (!state || state.current_phase !== 'puzzle') return res.status(400).json({ error: 'Not in puzzle phase' });
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    // If phase moved past puzzle, gate is already solved — let client advance
+    if (state.current_phase !== 'puzzle') {
+      return res.json({ result: 'already_solved', current_phase: state.current_phase });
+    }
 
     const round = state.current_round;
     const puzzle = PUZZLE_DATA[round];
@@ -16141,7 +16153,11 @@ app.post('/api/olympus/hint-purchase', authenticateToken, (req, res) => {
     const alliance = getAllianceForStudent(req.user.id);
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
-    if (!state || state.current_phase !== 'puzzle') return res.status(400).json({ error: 'Not in puzzle phase' });
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    // If phase moved past puzzle, hints are irrelevant — let client advance
+    if (state.current_phase !== 'puzzle') {
+      return res.json({ already_advanced: true, current_phase: state.current_phase });
+    }
 
     const round = state.current_round;
     const { hint_type } = req.body; // 'gate' or 'cipher'
@@ -16237,7 +16253,18 @@ app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
     const alliance = getAllianceForStudent(req.user.id);
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
-    if (!state || state.current_phase !== 'puzzle') return res.status(400).json({ error: 'Not in puzzle phase' });
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    // If phase already moved past puzzle, cipher was solved — let client advance
+    if (state.current_phase !== 'puzzle') {
+      const round = state.current_round > 0 ? state.current_round - 1 : 1;
+      const puzzle = PUZZLE_DATA[round] || PUZZLE_DATA[1];
+      return res.json({
+        accepted: true,
+        already_solved: true,
+        secret_word: puzzle ? puzzle.secretWord : '',
+        current_phase: state.current_phase
+      });
+    }
 
     const round = state.current_round;
     const puzzle = PUZZLE_DATA[round];
@@ -16274,7 +16301,11 @@ app.post('/api/olympus/godtest-submit', authenticateToken, (req, res) => {
     const alliance = getAllianceForStudent(req.user.id);
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
-    if (!state || state.current_phase !== 'god_test') return res.status(400).json({ error: 'Not in god_test phase' });
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    // If already past god_test, return success so client routes forward
+    if (state.current_phase !== 'god_test') {
+      return res.json({ passed: true, already_advanced: true, current_phase: state.current_phase });
+    }
     const results = JSON.parse(state.god_test_results || '{}');
     const godOrder = ['Hermes','Hephaestus','Athena','Zeus','Hera'];
     const godName = godOrder[state.current_round - 1] || 'Unknown';
@@ -16307,8 +16338,9 @@ app.post('/api/olympus/godtest-answer', authenticateToken, (req, res) => {
     const alliance = getAllianceForStudent(req.user.id);
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
+    // Non-blocking: if phase moved on, silently succeed — answer is moot
     if (!state || state.current_phase !== 'god_test') {
-      return res.status(400).json({ error: 'Not in god_test phase' });
+      return res.json({ recorded: true, already_advanced: true });
     }
     // Normalise both sides: lowercase, trim, collapse whitespace
     const normalise = s => s.toLowerCase().trim().replace(/\s+/g, ' ');
@@ -16342,7 +16374,7 @@ app.post('/api/olympus/godtest-vote-fork', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
     if (!state || state.current_phase !== 'god_test') {
-      return res.status(400).json({ error: 'Not in god_test phase' });
+      return res.json({ already_advanced: true });
     }
     run(
       `INSERT INTO olympus_godtest_votes
@@ -16378,7 +16410,7 @@ app.post('/api/olympus/godtest-commit-fork', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
     if (!state || state.current_phase !== 'god_test') {
-      return res.status(400).json({ error: 'Not in god_test phase' });
+      return res.json({ already_advanced: true });
     }
     const majority = getMajority_godtest(alliance.alliance_id, state.current_round, fork_idx);
     if (!majority) return res.status(400).json({ error: 'No majority yet' });

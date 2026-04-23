@@ -979,9 +979,15 @@ async function init() {
     if (stateData.state) {
       currentRound = stateData.state.current_round || 1;
       if (stateData.state.current_phase !== 'puzzle') {
-        // Not in puzzle phase — redirect back
-        window.location.href = '/student.html';
+        // Not in puzzle phase — redirect back to race
+        window.location.href = '/revenge_of_the_gods.html';
         return;
+      }
+      // If secret_words already has content, a teammate solved the gate —
+      // auto-unlock the cipher so Player 2 doesn't have to re-answer it
+      const secretWords = JSON.parse(stateData.state.secret_words || '[]');
+      if (secretWords.length > 0) {
+        gateAnswered = true;
       }
     }
   } catch(e) {
@@ -998,10 +1004,10 @@ async function init() {
     gateAttempts = hintData.attempts || 0;
 
     // Restore purchased hints
-    if (hintData.hints?.gate?.purchased) {
+    if (hintData.hints && hintData.hints.gate && hintData.hints.gate.purchased) {
       showHint('gate', hintData.hints.gate.text);
     }
-    if (hintData.hints?.cipher?.purchased) {
+    if (hintData.hints && hintData.hints.cipher && hintData.hints.cipher.purchased) {
       showHint('cipher', hintData.hints.cipher.text);
     }
   } catch(e) {
@@ -1009,6 +1015,11 @@ async function init() {
   }
 
   renderPage();
+
+  // If gate was already solved by a teammate, unlock cipher after render
+  if (gateAnswered) {
+    unlockCipher();
+  }
 }
 
 function renderPage() {
@@ -1065,6 +1076,15 @@ async function submitGate() {
       body: JSON.stringify({ answer })
     });
     const data = await res.json();
+
+    // Teammate already solved the whole puzzle — route forward
+    if (data.result === 'already_solved') {
+      unlockCipher();
+      showFeedback('gateFeedback', 'correct', '✓ Your alliance already solved this. The cipher awaits.');
+      btn.disabled = false;
+      btn.textContent = 'Open the Gate';
+      return;
+    }
 
     gateAttempts = data.attempts || gateAttempts + 1;
     showGateFeedback(data.result, data.hintAvailable);
@@ -1148,8 +1168,14 @@ async function submitCipher() {
 
     if (data.accepted) {
       input.classList.add('input-correct');
-      showFeedback('cipherFeedback', 'correct', '✓ Correct! The secret word has been recorded.');
-      setTimeout(() => showSuccess(data.secret_word), 800);
+      if (data.already_solved) {
+        // Teammate already submitted — show graceful message and advance
+        showFeedback('cipherFeedback', 'correct', '✓ Your alliance already cracked this cipher. Proceeding…');
+        setTimeout(() => showSuccess(data.secret_word), 800);
+      } else {
+        showFeedback('cipherFeedback', 'correct', '✓ Correct! The secret word has been recorded.');
+        setTimeout(() => showSuccess(data.secret_word), 800);
+      }
     } else if (data.result === 'close') {
       input.classList.add('input-close');
       showFeedback('cipherFeedback', 'close', '"Almost... check your spelling. The answer is just one or two letters away."');

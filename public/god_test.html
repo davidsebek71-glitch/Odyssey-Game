@@ -1066,8 +1066,12 @@ async function submitStub() {
   try {
     const res  = await fetch('/api/olympus/godtest-submit', { method:'POST', headers:H });
     const data = await res.json();
-    if (data.passed) window.location.href = '/revenge_of_the_gods.html';
-    else alert(data.error || 'Error submitting test');
+    // passed OR already_advanced both mean we move forward
+    if (data.passed || data.already_advanced) {
+      window.location.href = '/revenge_of_the_gods.html';
+    } else {
+      alert(data.error || 'Error submitting test');
+    }
   } catch(e) { alert('Network error. Please try again.'); }
 }
 
@@ -1429,14 +1433,12 @@ async function tryCommitFork() {
 
     if (data.committed) {
       stopPolling();
-      // Mark the chosen option as committed
       document.querySelectorAll('.fork-option').forEach(o => {
         if (parseInt(o.dataset.value) === data.path_value) o.classList.add('committed');
       });
       document.getElementById('fork-waiting').style.display = 'none';
       document.getElementById('fork-tally').innerHTML =
-        `<span>✓ Path locked by your alliance.</span>`;
-      // Brief pause then continue
+        '<span>✓ Path locked by your alliance.</span>';
       setTimeout(() => {
         courseStep++;
         showCourseStep();
@@ -1444,14 +1446,22 @@ async function tryCommitFork() {
       return true;
     }
 
+    // Phase moved past god_test — teammate already finished the whole test
+    if (data.already_advanced) {
+      stopPolling();
+      courseStep++;
+      showCourseStep();
+      return true;
+    }
+
     if (data.error === 'Path already claimed') {
-      // Teammate committed first — reload and re-show fork with updated locks
+      // Another alliance claimed this specific path — reload fork with updated locks
       stopPolling();
       await showFork(currentForkIdx);
       return false;
     }
 
-    // Still waiting for majority — update tally display
+    // Still waiting for majority
     return false;
   } catch(e) { return false; }
 }
@@ -1476,7 +1486,7 @@ async function advanceToNextRound() {
   try {
     const res  = await fetch('/api/olympus/godtest-submit', { method:'POST', headers:H });
     const data = await res.json();
-    if (data.passed) {
+    if (data.passed || data.already_advanced) {
       window.location.href = '/revenge_of_the_gods.html';
     } else {
       btn.disabled = false;
