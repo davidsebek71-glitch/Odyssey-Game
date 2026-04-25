@@ -151,6 +151,61 @@ initDatabase().then(() => {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Olympus God Test tables ───────────────────────────────────────────────
+  // Three tables that support the Hermes gauntlet and future god tests.
+  // All three are safe to re-run — CREATE TABLE IF NOT EXISTS is idempotent.
+  try {
+    // Records each student's answer to every comprehension question in a god test.
+    // Non-blocking: students always advance regardless of correctness.
+    // ON CONFLICT behaviour (upsert) requires the UNIQUE constraint below.
+    run(`CREATE TABLE IF NOT EXISTS olympus_godtest_answers (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id  INTEGER NOT NULL,
+      student_id   INTEGER NOT NULL,
+      round_number INTEGER NOT NULL,
+      question_idx INTEGER NOT NULL,
+      answer_value TEXT    NOT NULL,
+      is_correct   INTEGER NOT NULL DEFAULT 0,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alliance_id, student_id, round_number, question_idx)
+    )`);
+
+    // Records each student's vote for a god test fork (crossroads moment).
+    // One row per student per fork per round; upsert allows vote changes before commit.
+    run(`CREATE TABLE IF NOT EXISTS olympus_godtest_votes (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id  INTEGER NOT NULL,
+      student_id   INTEGER NOT NULL,
+      round_number INTEGER NOT NULL,
+      fork_idx     INTEGER NOT NULL,
+      vote_value   INTEGER NOT NULL,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alliance_id, student_id, round_number, fork_idx)
+    )`);
+
+    // Locks a committed fork choice per period/version/round/fork.
+    // The UNIQUE constraint on (period, version, round_number, fork_idx, path_value)
+    // is the race-condition guard: only one alliance per path value per fork.
+    run(`CREATE TABLE IF NOT EXISTS olympus_godtest_locks (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      period        TEXT    NOT NULL,
+      version       TEXT    NOT NULL DEFAULT 'A',
+      round_number  INTEGER NOT NULL,
+      fork_idx      INTEGER NOT NULL,
+      path_value    INTEGER NOT NULL,
+      alliance_id   INTEGER NOT NULL,
+      alliance_name TEXT    NOT NULL,
+      created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (period, version, round_number, fork_idx, path_value)
+    )`);
+
+    saveDatabase();
+    console.log('⚡ Olympus god test tables ensured');
+  } catch (e) {
+    console.log('⚡ Olympus god test tables already exist or migration skipped:', e.message);
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Voyage Log: add student_id column to existing voyage_log_progress ──
   // Brings Jason's login parity with Theseus/Perseus/Hercules (cascading dropdown).
   // Safe ALTER — skips if column already exists. Old rows keep NULL student_id
