@@ -16188,9 +16188,14 @@ app.post('/api/olympus/gate-check', authenticateToken, (req, res) => {
     const correct = puzzle.correctGateAnswer;
     const dist = levenshtein(answer, correct);
 
+    // "close" tolerance scales with answer length.
+    // ≤4 chars: exact only (single substitution = different word, not a typo).
+    // 5–6 chars: 1 edit allowed.  7+ chars: 2 edits allowed.
+    const closeTol = correct.length <= 4 ? 0 : correct.length <= 6 ? 1 : 2;
+
     if (dist === 0) {
       return res.json({ result: 'correct' });
-    } else if (dist <= 2 && answer.length >= correct.length - 2) {
+    } else if (closeTol > 0 && dist <= closeTol && answer.length >= correct.length - 1) {
       return res.json({ result: 'close', attempts });
     } else {
       // After 3 wrong attempts, flag that hint is available for purchase
@@ -16329,6 +16334,10 @@ app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
     const correct = puzzle.correctCipherAnswer;
     const dist = levenshtein(answer, correct);
 
+    // Same proportional tolerance as gate-check:
+    // ≤4 chars → exact only; 5–6 chars → 1 edit; 7+ chars → 2 edits.
+    const closeTol = correct.length <= 4 ? 0 : correct.length <= 6 ? 1 : 2;
+
     if (dist === 0) {
       // Correct — store secret word and advance phase
       const words = JSON.parse(state.secret_words || '[]');
@@ -16339,7 +16348,7 @@ app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
       );
       saveDatabase();
       return res.json({ accepted: true, secret_word: puzzle.secretWord, words });
-    } else if (dist <= 2 && answer.length >= correct.length - 2) {
+    } else if (closeTol > 0 && dist <= closeTol && answer.length >= correct.length - 1) {
       return res.json({ accepted: false, result: 'close' });
     } else {
       return res.json({ accepted: false, result: 'wrong' });
@@ -16372,6 +16381,7 @@ app.post('/api/olympus/godtest-submit', authenticateToken, (req, res) => {
        WHERE alliance_id=?`,
       [JSON.stringify(results), nextRound, nextPhase, alliance.alliance_id]
     );
+    saveDatabase();
     res.json({ passed: true, god: godName, next_round: nextRound, next_phase: nextPhase });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -16769,7 +16779,7 @@ app.post('/api/olympus/hades-escape', authenticateToken, (req, res) => {
        WHERE alliance_id=?`,
       [alliance.alliance_id]
     );
-
+    saveDatabase();
     res.json({ escaped: true, ghost_runner: true, next_phase: 'path_choice' });
   } catch(e) {
     res.status(500).json({ error: e.message });

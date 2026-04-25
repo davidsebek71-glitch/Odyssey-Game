@@ -311,7 +311,11 @@
         <div class="combat-remaining" id="combat-remaining"></div>
       </div>
       <div id="combat-continue-wrap" style="margin-top:24px;">
-        <button class="btn-commit" onclick="proceedToPuzzle()">Enter the Puzzle Chamber →</button>
+        <button id="combat-puzzle-btn" class="btn-commit" onclick="proceedToPuzzle()">Enter the Puzzle Chamber →</button>
+        <button id="combat-hades-btn"  class="btn-commit" onclick="proceedToHades()"
+                style="display:none;background:linear-gradient(135deg,#3a1f70,#6b3fa0);border-color:rgba(160,100,220,0.5);">
+          Descend to the Underworld →
+        </button>
       </div>
     </div>
   </div>
@@ -1288,12 +1292,29 @@ function displayCombatResult(data) {
         '<div class="combat-remaining">' + remaining + ' points remaining</div>';
     }
 
+    // Show the correct continue button — Hades path skips the puzzle chamber entirely
+    var puzzleBtn = document.getElementById('combat-puzzle-btn');
+    var hadesBtn  = document.getElementById('combat-hades-btn');
+    if (data.hades_triggered) {
+      puzzleBtn.style.display = 'none';
+      hadesBtn.style.display  = '';
+    } else {
+      puzzleBtn.style.display = '';
+      hadesBtn.style.display  = 'none';
+    }
+
     setTimeout(function() { resultPhase.style.opacity = '1'; }, 50);
   }, 450);
 }
 
 function proceedToPuzzle() {
   window.location.href = '/puzzle_room.html';
+}
+
+function proceedToHades() {
+  // Hades result is already stored on the server — just route directly to
+  // the Hades waiting screen without touching puzzle_room.html.
+  showHadesWaiting();
 }
 
 // ═══════════════════════════════════════════════════
