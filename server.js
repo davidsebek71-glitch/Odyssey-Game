@@ -199,6 +199,24 @@ initDatabase().then(() => {
       UNIQUE (period, version, round_number, fork_idx, path_value)
     )`);
 
+    run(`CREATE TABLE IF NOT EXISTS olympus_combat_wave_session (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id      INTEGER NOT NULL,
+      period           TEXT    NOT NULL,
+      round_number     INTEGER NOT NULL,
+      wave1_absorbed   INTEGER DEFAULT 0,
+      wave2_absorbed   INTEGER DEFAULT 0,
+      wave3_absorbed   INTEGER DEFAULT 0,
+      wave1_q_idx      INTEGER DEFAULT -1,
+      wave2_q_idx      INTEGER DEFAULT -1,
+      wave3_q_idx      INTEGER DEFAULT -1,
+      purchased_buffs  TEXT    DEFAULT '[]',
+      total_taken      INTEGER DEFAULT 0,
+      completed        INTEGER DEFAULT 0,
+      created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alliance_id, round_number)
+    )`);
+
     saveDatabase();
     console.log('⚡ Olympus god test tables ensured');
   } catch (e) {
@@ -15617,6 +15635,399 @@ const ROUND_PATHS = {
   5: ROUND_5_PATHS
 };
 
+// ── COMBAT_SCENARIOS ─────────────────────────────────────────────────────────
+// Keyed by 'round_pathIndex'. Safe paths have no entry.
+// Each scenario has 6 questions — server picks 2 per wave (no repeats).
+// questions[]: { q, correct, wrong: [3 strings] }
+
+const COMBAT_SCENARIOS = {
+
+  // ════════════════════════════════════════════════════════════
+  // ROUND 1
+  // ════════════════════════════════════════════════════════════
+
+  '1_0': {
+    god: 'Artemis', enemy: 'Enchanted Forest Animals',
+    power: 'Zoolinguism', attack: 365,
+    narrative: 'Artemis is controlling an army of forest animals. You are overwhelmed by bunnies, birdies and furry little man-eating creatures.',
+    questions: [
+      { q: 'What did Pan give Artemis as a gift?', correct: 'Hunting dogs', wrong: ['A silver bow', 'Golden sandals', 'A magical net'] },
+      { q: 'What is Artemis famous for using in battle?', correct: 'Her silver bow', wrong: ['A golden spear', 'A magical shield', 'A flaming sword'] },
+      { q: 'What animal is Artemis most closely associated with as a hunter?', correct: 'The stag', wrong: ['The eagle', 'The lion', 'The serpent'] },
+      { q: 'Who is Artemis\'s twin brother?', correct: 'Apollo', wrong: ['Ares', 'Hermes', 'Hephaestus'] },
+      { q: 'What did Artemis do to Actaeon for accidentally seeing her bathe?', correct: 'Turned him into a stag', wrong: ['Struck him with lightning', 'Turned him to stone', 'Cast him into the sea'] },
+      { q: 'Artemis is the goddess of the hunt, the moon, and what else?', correct: 'The wilderness', wrong: ['Love and beauty', 'War and strategy', 'Harvest and crops'] }
+    ]
+  },
+
+  '1_1': {
+    god: 'Athena', enemy: 'Magic Blanket Trap',
+    power: 'Weaving Spell', attack: 295,
+    narrative: 'You trip over a magic trap. A blanket controlled by the Weaving spell covers you. Escape before Athena shows up to turn you into Stink Beetles.',
+    questions: [
+      { q: 'Who is Athena\'s mother?', correct: 'The Titaness Metis', wrong: ['The Titaness Leto', 'The goddess Hera', 'The goddess Aphrodite'] },
+      { q: 'Why did Zeus swallow Athena\'s mother?', correct: 'Animals had prophesized that she would have a son that would overthrow Zeus', wrong: ['She was plotting to help Hera overthrow Zeus', 'She disguised herself as an apple and Zeus ate her by mistake', 'She turned into a bird and Zeus became a snake and captured her'] },
+      { q: 'Why is Athena jealous of Arachne?', correct: 'Arachne was a great weaver', wrong: ['Arachne was beautiful', 'Arachne married Hades', 'Arachne loved spiders'] },
+      { q: 'What is the outcome of the contest between Athena and Arachne?', correct: 'Arachne dies and Athena brings her back to life as a spider', wrong: ['Athena shrivels up and disappears', 'Arachne becomes the greatest warrior of all time', 'Arachne invents a new type of weaving'] },
+      { q: 'What city did Athena win patronage over by gifting an olive tree?', correct: 'Athens', wrong: ['Sparta', 'Corinth', 'Thebes'] },
+      { q: 'Which hero did Athena help defeat Medusa?', correct: 'Perseus', wrong: ['Heracles', 'Theseus', 'Jason'] }
+    ]
+  },
+
+  '1_2': {
+    god: 'Apollo', enemy: 'Enchanted Seagulls',
+    power: 'Audiokinesis', attack: 325,
+    narrative: 'The seagulls are controlled by Apollo using Audiokinesis. The birds hover over your ship screaming like an alarm. Find their snooze button.',
+    questions: [
+      { q: 'What does Apollo immediately do after receiving his bow?', correct: 'Hunts down the Python', wrong: ['Challenges Zeus to a duel', 'Teaches mortals to play the lyre', 'Races Hermes across the sky'] },
+      { q: 'What did Hermes trade Apollo for his golden staff?', correct: 'Pipes', wrong: ['A lyre', 'Horses', 'Cows'] },
+      { q: 'Apollo is the god of music, the sun, and what else?', correct: 'Prophecy', wrong: ['War', 'Love', 'The sea'] },
+      { q: 'Where was Apollo\'s famous oracle located?', correct: 'Delphi', wrong: ['Athens', 'Olympia', 'Sparta'] },
+      { q: 'What instrument is Apollo most famously associated with?', correct: 'The lyre', wrong: ['The flute', 'The drum', 'The trumpet'] },
+      { q: 'What did Daphne turn into to escape Apollo\'s pursuit?', correct: 'A laurel tree', wrong: ['A rose bush', 'A river', 'A swan'] }
+    ]
+  },
+
+  '1_3': {
+    god: 'Zeus', enemy: 'Divine Sandstorm',
+    power: 'Aerokinesis', attack: 400,
+    narrative: 'Zeus laughs as he uses Aerokinesis to whip up a vicious sandstorm. Will you die buried in the dunes?',
+    questions: [
+      { q: 'Why was Hera frustrated with Zeus?', correct: 'He was a bad husband and had many girlfriends', wrong: ['He did not take the trash out', 'He snored at night', 'He was mean to their children'] },
+      { q: 'Who are two of Zeus and Hera\'s children?', correct: 'Hephaestus and Ares', wrong: ['Dionysus and Aphrodite', 'Athena and Artemis', 'Apollo and Artemis'] },
+      { q: 'Why does Hera promise to not rebel against Zeus again?', correct: 'Zeus promised to set her free', wrong: ['Zeus said he would break up with his girlfriends', 'Zeus decided to be a better king', 'Zeus promised to give her more power'] },
+      { q: 'What did Zeus give Cronus to make him throw up Zeus\'s brothers and sisters?', correct: 'Mustard and salt with nectar', wrong: ['Sea salt and vinegar', 'Pepto Bismol', 'Wine'] },
+      { q: 'How did Rhea trick Cronus into thinking he was swallowing Zeus?', correct: 'Wrapped a stone in a blanket', wrong: ['Hid a hotdog in Zeus\'s cradle', 'Wrapped a baby doll in a blanket', 'Disguised a log as an infant'] },
+      { q: 'How was the newly won empire split between the three sons of Cronus?', correct: 'They played dice', wrong: ['Zeus was youngest so he chose first', 'They threw darts at a map', 'They guessed a number between one and ten'] }
+    ]
+  },
+
+  '1_4': {
+    god: 'Aphrodite', enemy: 'Heart Storm',
+    power: 'Amokinesis', attack: 405,
+    narrative: 'Pretty flowers and hearts surround the gods. Aphrodite is using Amokinesis. Can you defend yourself against the power of love?',
+    questions: [
+      { q: 'Who are the four children of Aphrodite and Ares?', correct: 'Deimos, Phobos, Eros, Harmonia', wrong: ['Thor, Loki, Bambi and Moana', 'John, Paul, Ringo and George', 'Atlas, Prometheus, Epimetheus and Menoetius'] },
+      { q: 'Deimos is the personification of what?', correct: 'Terror', wrong: ['Sadness', 'Jealousy', 'Love'] },
+      { q: 'Aphrodite thinks of nothing but what?', correct: 'Love', wrong: ['War', 'Sport', 'Work'] },
+      { q: 'What two things mixed together to form Aphrodite?', correct: 'Uranus\'s blood and sea water', wrong: ['Athena\'s wisdom and an olive tree', 'Hera\'s anger and clouds', 'Zeus\'s blood and sea water'] },
+      { q: 'Who forced Hephaestus to try and woo Aphrodite?', correct: 'Hera', wrong: ['Artemis', 'Athena', 'Poseidon'] },
+      { q: 'Aphrodite is the goddess of what?', correct: 'Love and beauty', wrong: ['War and battle', 'Wisdom and craft', 'Harvest and grain'] }
+    ]
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ROUND 2
+  // ════════════════════════════════════════════════════════════
+
+  '2_0': {
+    god: 'Hades', enemy: 'Earth Metal Golems',
+    power: 'Ferrokinesis', attack: 550,
+    narrative: 'The ground splits open. Hades rises from the depths laughing, using Ferrokinesis to turn the metal in the earth against you.',
+    questions: [
+      { q: 'Why did you have to leave a coin under the tongue of the deceased?', correct: 'To pay Charon to carry the dead across the River Styx', wrong: ['To buy a bone for the three-headed dog Cerberus', 'To pay Hades for keeping the dead', 'To bribe the judges of the dead'] },
+      { q: 'What is Cerberus?', correct: 'A three-headed dog with an appetite for live meat', wrong: ['A tall mountain in the Underworld', 'Hades\'s first wife', 'The fruit Persephone ate'] },
+      { q: 'How is Tantalus\'s punishment tied to Sisyphus\'s?', correct: 'Tantalus is stuck for as long as Sisyphus has to roll his stone', wrong: ['Tantalus has to drink away the river blocking Sisyphus', 'Sisyphus is pushing the rock away from Tantalus', 'They are not tied together'] },
+      { q: 'Who stole Persephone from Demeter?', correct: 'Hades', wrong: ['Apollo', 'Zeus', 'Poseidon'] },
+      { q: 'What is the name of the river souls must cross to enter the Underworld?', correct: 'The River Styx', wrong: ['The River Lethe', 'The River Thames', 'The River Olympus'] },
+      { q: 'What was the name of the helmet Hades wore that granted invisibility?', correct: 'The Helm of Darkness', wrong: ['The Crown of Shadows', 'The Veil of Night', 'The Cloak of Hades'] }
+    ]
+  },
+
+  '2_1': {
+    god: 'Hades', enemy: 'Shadow Hands',
+    power: 'Umbrakinesis', attack: 570,
+    narrative: 'A coldness wraps itself around your neck. The shadow of Hades smiles as he starts to pull you into the earth.',
+    questions: [
+      { q: 'What fruit did Persephone eat in the Underworld, trapping her there for part of the year?', correct: 'Pomegranate seeds', wrong: ['Apple seeds', 'Grape seeds', 'Fig seeds'] },
+      { q: 'What is Elysium?', correct: 'A paradise in the Underworld for heroic souls', wrong: ['A prison for Titans in Tartarus', 'The river of forgetfulness', 'The throne room of Hades'] },
+      { q: 'Who is Thanatos?', correct: 'The god of death', wrong: ['The god of sleep', 'The god of darkness', 'The god of rivers'] },
+      { q: 'What is Tartarus?', correct: 'The deepest abyss, a prison for the worst sinners and Titans', wrong: ['The throne room of Hades', 'The paradise for heroes', 'The river of the dead'] },
+      { q: 'What river in the Underworld causes total forgetfulness?', correct: 'The River Lethe', wrong: ['The River Styx', 'The River Acheron', 'The River Phlegethon'] },
+      { q: 'What is Cerberus?', correct: 'A three-headed dog with an appetite for live meat', wrong: ['A winged serpent guarding the gates', 'A giant spider in Tartarus', 'Hades\'s shadow creature'] }
+    ]
+  },
+
+  '2_2': {
+    god: 'Demeter', enemy: 'Plant Roots',
+    power: 'Chlorokinesis', attack: 510,
+    narrative: 'Demeter\'s laughter echoes through your collapsing hideout. Plant roots burrow into your cavern and wrap themselves around you.',
+    questions: [
+      { q: 'Demeter is the goddess of what?', correct: 'Cornfields and crops', wrong: ['Dying', 'The fireplace', 'Trees and forests'] },
+      { q: 'What effect does Persephone\'s absence have on the crops?', correct: 'Nothing grew', wrong: ['They were all eaten by a lizard', 'They grew legs and walked away', 'They grew taller than ever'] },
+      { q: 'Who stole Persephone from Demeter?', correct: 'Hades', wrong: ['Apollo', 'Zeus', 'Poseidon'] },
+      { q: 'How many months of the year does Persephone spend in the Underworld?', correct: 'Six months', wrong: ['Three months', 'Nine months', 'Twelve months'] },
+      { q: 'What is Demeter\'s greatest gift to humanity?', correct: 'The knowledge of agriculture', wrong: ['Fire', 'Language', 'Music'] },
+      { q: 'What is Demeter called in Roman mythology?', correct: 'Ceres', wrong: ['Venus', 'Juno', 'Diana'] }
+    ]
+  },
+
+  '2_3': {
+    god: 'Cyclops', enemy: 'Prophetic Cyclops',
+    power: 'Prophecy', attack: 600,
+    narrative: 'A giant hand grabs you. You are lifted into the air. The Cyclops laughs: "I knew you were coming before you even came up with the plan!"',
+    questions: [
+      { q: 'What is the name of the famous Cyclops that Odysseus encounters?', correct: 'Polyphemus', wrong: ['Brontes', 'Arges', 'Steropes'] },
+      { q: 'Who is Polyphemus\'s father?', correct: 'Poseidon', wrong: ['Zeus', 'Hades', 'Hephaestus'] },
+      { q: 'How did Odysseus blind the Cyclops?', correct: 'With a sharpened stake heated in fire', wrong: ['With Medusa\'s gaze reflected in a shield', 'With a magical sword', 'With a burning torch thrown at his eye'] },
+      { q: 'What clever name did Odysseus give himself when speaking to the Cyclops?', correct: 'Nobody', wrong: ['Wanderer', 'Hero', 'Stranger'] },
+      { q: 'The original Cyclopes were children of which primordial gods?', correct: 'Uranus and Gaia', wrong: ['Cronus and Rhea', 'Zeus and Hera', 'Poseidon and Amphitrite'] },
+      { q: 'What did the Cyclopes forge as a gift for Zeus?', correct: 'Thunderbolts', wrong: ['A golden chariot', 'The trident', 'A winged helmet'] }
+    ]
+  },
+
+  '2_4': {
+    god: 'Ares', enemy: 'Enchanted Soldiers',
+    power: 'Ares\'s Blessing', attack: 520,
+    narrative: 'Soldiers come out of the woods, glowing red, their swords out. They are enchanted with Ares\'s Blessing. The God of War gets no happiness from the injured.',
+    questions: [
+      { q: 'Who are two of Zeus and Hera\'s children?', correct: 'Hephaestus and Ares', wrong: ['Dionysus and Aphrodite', 'Athena and Artemis', 'Apollo and Hermes'] },
+      { q: 'Who are the four children of Aphrodite and Ares?', correct: 'Deimos, Phobos, Eros, Harmonia', wrong: ['Thor, Loki, Bambi and Moana', 'Chaos, Gaia, Tartarus and Eros', 'Hermes, Apollo, Artemis and Athena'] },
+      { q: 'Deimos is the personification of what emotion?', correct: 'Terror', wrong: ['Sadness', 'Jealousy', 'Love'] },
+      { q: 'Ares is the god of what?', correct: 'War and battle', wrong: ['Strategy and wisdom', 'The hunt', 'Strength and heroes'] },
+      { q: 'Which goddess most often opposed Ares in battle?', correct: 'Athena', wrong: ['Artemis', 'Hera', 'Aphrodite'] },
+      { q: 'What animal is most associated with Ares?', correct: 'The boar', wrong: ['The eagle', 'The owl', 'The serpent'] }
+    ]
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ROUND 3
+  // ════════════════════════════════════════════════════════════
+
+  '3_0': {
+    god: 'Hephaestus', enemy: 'Attack Robot',
+    power: 'Technokinesis', attack: 700,
+    narrative: 'The catapult flies apart and its pieces spin over your head like a tornado, forming a four-wheeled attack robot. Hephaestus rides on top.',
+    questions: [
+      { q: 'What did Hera do to Hephaestus when he was born?', correct: 'Tossed him down Mt. Olympus, where he fell for a night and a day', wrong: ['Tossed him into the Underworld with Hades', 'Tossed him into the sea where Poseidon found him', 'Had Hermes fly him to the other side of the world'] },
+      { q: 'Who is Thetis?', correct: 'A naiad that cares for Hephaestus', wrong: ['Hera\'s sister', 'A fairy that marries Hephaestus', 'A druid that finds Hephaestus in the forest'] },
+      { q: 'How did Hephaestus\'s handiwork become known to the gods?', correct: 'He made a necklace for Thetis, which was noticed by Hera', wrong: ['Apollo found a lyre Hephaestus made on the beach', 'He made Poseidon a new trident', 'He fixed Zeus\'s broken throne'] },
+      { q: 'What natural phenomenon is a result of Hephaestus\'s work?', correct: 'Volcanoes', wrong: ['Droughts', 'Asteroids', 'Tsunamis'] },
+      { q: 'Who forced Hephaestus to try and woo Aphrodite?', correct: 'Hera', wrong: ['Artemis', 'Athena', 'Poseidon'] },
+      { q: 'Hephaestus is the god of what?', correct: 'Fire and the forge', wrong: ['War and battle', 'The sea', 'The harvest'] }
+    ]
+  },
+
+  '3_1': {
+    god: 'Zeus', enemy: 'Lightning Lab',
+    power: 'Electrokinesis', attack: 690,
+    narrative: 'Zeus sits quietly in a darkened corner. "I am inevitable." He snaps his fingers and thousands of volts of electricity light up the lab.',
+    questions: [
+      { q: 'What did Zeus give Cronus to make him throw up Zeus\'s brothers and sisters?', correct: 'Mustard and salt with nectar', wrong: ['Sea salt and vinegar', 'Pepto Bismol', 'Wine'] },
+      { q: 'How did Rhea trick Cronus into thinking he was swallowing Zeus?', correct: 'Wrapped a stone in a blanket', wrong: ['Wrapped a baby doll in a blanket', 'Hid a log in a cradle', 'Used a sleeping potion on Cronus'] },
+      { q: 'How was the empire split between the three sons of Cronus?', correct: 'They played dice', wrong: ['Zeus was youngest so he chose first', 'They threw darts at a map', 'They arm-wrestled for territories'] },
+      { q: 'Zeus is the god of what?', correct: 'The sky, thunder, and king of the gods', wrong: ['The sea', 'The Underworld', 'War and battle'] },
+      { q: 'What is Zeus\'s primary weapon?', correct: 'The thunderbolt', wrong: ['A trident', 'A golden sword', 'A divine spear'] },
+      { q: 'What devious idea did Hermes give Zeus?', correct: 'Disguise himself and mingle with mortals', wrong: ['Hide Apollo\'s cows', 'Create a box and hide the world\'s problems in it', 'Severely punish mortals who disobey'] }
+    ]
+  },
+
+  '3_2': {
+    god: 'Poseidon', enemy: 'Ice Tornado',
+    power: 'Cryokinesis', attack: 680,
+    narrative: 'A fountain of water rises from the cracks. Poseidon smiles. "Time to put you on ice." He spins Cryokinesis into an ice tornado.',
+    questions: [
+      { q: 'Poseidon is the god of the sea, earthquakes, and what else?', correct: 'Horses', wrong: ['The sky', 'The dead', 'Fire'] },
+      { q: 'What is Poseidon\'s signature weapon?', correct: 'The trident', wrong: ['The thunderbolt', 'A golden sword', 'A divine bow'] },
+      { q: 'Why did Poseidon want control of the sea?', correct: 'It was the best place for adventures and to keep secrets', wrong: ['He loved seafood', 'He wanted to live in a sand castle', 'His wife loved the beach'] },
+      { q: 'Who did Poseidon compete against for the patronage of Athens?', correct: 'Athena', wrong: ['Zeus', 'Hera', 'Apollo'] },
+      { q: 'Who is Poseidon\'s son that Odysseus blinds, causing Poseidon\'s revenge?', correct: 'Polyphemus', wrong: ['Triton', 'Proteus', 'Glaucus'] },
+      { q: 'How was the empire split between the three sons of Cronus?', correct: 'They played dice', wrong: ['Oldest chose first', 'They threw darts at a map', 'Zeus decided for everyone'] }
+    ]
+  },
+
+  '3_3': {
+    god: 'Hades', enemy: 'Shadow of Hate',
+    power: 'Odikinesis', attack: 710,
+    narrative: 'Persephone smiles from her throne. Hades has entered. You feel hate, anger and jealousy consume you. Fight back before Hades traps you in your own darkness.',
+    questions: [
+      { q: 'What condition did Hades give Orpheus for retrieving Eurydice from the Underworld?', correct: 'He must not look back until they reach the surface', wrong: ['He must sing the entire way up', 'He must solve a riddle at the gates', 'He must leave his lyre behind'] },
+      { q: 'What happened when Orpheus looked back?', correct: 'Eurydice was pulled back into the Underworld', wrong: ['He turned to stone', 'He forgot all his music', 'Hades appeared and blocked the path'] },
+      { q: 'What is Cerberus?', correct: 'A three-headed dog with an appetite for live meat', wrong: ['A tall mountain in the Underworld', 'The river of death', 'The fruit Persephone ate'] },
+      { q: 'Why did you have to leave a coin under the tongue of the deceased?', correct: 'To pay Charon to carry the dead across the River Styx', wrong: ['To buy a bone for Cerberus', 'To pay Hades for keeping the dead', 'To bribe the judges of souls'] },
+      { q: 'What calmed the clashing Symplegades rocks to allow the Argo to pass?', correct: 'Phineus told the Argonauts to send a dove through first', wrong: ['Orpheus played music to freeze the rocks', 'Heracles held them apart', 'Poseidon calmed the waters'] },
+      { q: 'Who stole Persephone from Demeter?', correct: 'Hades', wrong: ['Apollo', 'Zeus', 'Ares'] }
+    ]
+  },
+
+  '3_4': {
+    god: 'Ares', enemy: 'Hundred Swords',
+    power: 'Telumkinesis', attack: 710,
+    narrative: 'Ares has taken your teacher\'s place. "If you want my powers, then you need to defend yourself against me." A hundred swords rise into the air.',
+    questions: [
+      { q: 'Who was Perseus\'s mother?', correct: 'Danaë', wrong: ['Andromeda', 'Leto', 'Alcmene'] },
+      { q: 'Who gave Perseus the magical gifts to defeat Medusa?', correct: 'Athena and Hermes', wrong: ['Zeus and Hera', 'The Graeae and Hades', 'Apollo and Artemis'] },
+      { q: 'What was unique about Medusa among the Gorgons?', correct: 'She was mortal', wrong: ['She was immortal', 'She had wings of gold', 'She had snake-like legs'] },
+      { q: 'How did Perseus avoid being turned to stone by Medusa?', correct: 'He used a mirror to view her reflection', wrong: ['He wore a blindfold', 'He closed his eyes during the battle', 'He attacked her from behind'] },
+      { q: 'What creature sprang from Medusa\'s blood?', correct: 'Pegasus', wrong: ['Cerberus', 'Chimera', 'Hydra'] },
+      { q: 'Who did Perseus rescue from a sea monster?', correct: 'Andromeda', wrong: ['Medea', 'Ariadne', 'Helen'] }
+    ]
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ROUND 4
+  // ════════════════════════════════════════════════════════════
+
+  '4_0': {
+    god: 'Colchis Army', enemy: 'Skeleton Warriors',
+    power: 'Osteokinesis', attack: 800,
+    narrative: 'You end up on an island of fire-breathing bulls and an army of skeletons ready to take you down. Can you use Osteokinesis on them first?',
+    questions: [
+      { q: 'What was Jason\'s primary quest?', correct: 'To retrieve the Golden Fleece', wrong: ['To defeat the Minotaur', 'To slay Medusa', 'To capture Cerberus'] },
+      { q: 'Who trained Jason in his youth?', correct: 'Chiron the centaur', wrong: ['King Pelias', 'Heracles', 'Orpheus'] },
+      { q: 'What was the name of the ship Jason sailed on?', correct: 'The Argo', wrong: ['The Odyssey', 'The Titan', 'The Pegasus'] },
+      { q: 'Which of the following was NOT an Argonaut?', correct: 'Perseus', wrong: ['Heracles', 'Orpheus', 'Atalanta'] },
+      { q: 'What magical feat did Jason perform involving dragon\'s teeth and bulls?', correct: 'He tamed fire-breathing bulls and sowed dragon\'s teeth to raise a skeleton army', wrong: ['He grew a forest of spears from the earth', 'He used the teeth to summon the gods', 'He turned the bulls to gold'] },
+      { q: 'How did Medea delay her father\'s pursuit during their escape?', correct: 'She sacrificed her brother and scattered his remains', wrong: ['She summoned a storm', 'She burned his ships', 'She used magic to put him to sleep'] }
+    ]
+  },
+
+  '4_1': {
+    god: 'Apollo', enemy: 'Shape-Shifting God',
+    power: 'Biokinesis', attack: 810,
+    narrative: 'One of your teammates begins to laugh and transforms — it\'s Apollo. "Biokinesis is a wonderful power, don\'t you think? Lets see what happens when I turn you into a cockroach."',
+    questions: [
+      { q: 'What does Apollo immediately do after receiving his bow?', correct: 'Hunts down the Python', wrong: ['Challenges Zeus to a contest', 'Teaches mortals to play music', 'Races Hermes across the sky'] },
+      { q: 'Apollo is the god of music, prophecy, and what else?', correct: 'The sun', wrong: ['War', 'Love', 'The sea'] },
+      { q: 'What did Daphne turn into to escape Apollo\'s pursuit?', correct: 'A laurel tree', wrong: ['A rose bush', 'A white dove', 'A river'] },
+      { q: 'Where is Apollo\'s famous oracle located?', correct: 'Delphi', wrong: ['Athens', 'Olympia', 'Mount Ida'] },
+      { q: 'What phrase was written at the entrance of Apollo\'s temple?', correct: '"Know thyself"', wrong: ['"Honor the gods"', '"Seek the truth"', '"Fear no death"'] },
+      { q: 'What did Hermes trade Apollo for his golden staff?', correct: 'Pipes', wrong: ['A lyre', 'Horses', 'Cattle'] }
+    ]
+  },
+
+  '4_2': {
+    god: 'River Nymphs', enemy: 'Divine Flood',
+    power: 'Hydrokinesis', attack: 830,
+    narrative: 'The whispers of your plan travel across the water. Nymphs hear everything. Looking to gain favor with the gods, they create a flood.',
+    questions: [
+      { q: 'Why did Poseidon want control of the sea?', correct: 'It was the best place for adventures and to keep secrets', wrong: ['He loved seafood', 'He wanted to live in a sand castle', 'His wife loved the beach'] },
+      { q: 'Poseidon is the god of the sea, earthquakes, and what else?', correct: 'Horses', wrong: ['The sky and thunder', 'The Underworld', 'Fire and the forge'] },
+      { q: 'What is Poseidon\'s weapon?', correct: 'The trident', wrong: ['The thunderbolt', 'A golden sword', 'A divine spear'] },
+      { q: 'Who did Poseidon compete against for the patronage of Athens?', correct: 'Athena', wrong: ['Zeus', 'Hera', 'Hermes'] },
+      { q: 'Who is Poseidon\'s son that Odysseus blinds?', correct: 'Polyphemus', wrong: ['Triton', 'Proteus', 'Orion'] },
+      { q: 'What calmed the clashing Symplegades rocks to allow the Argo to pass?', correct: 'Phineus told the Argonauts to send a dove through first', wrong: ['Orpheus played music to freeze the rocks', 'Heracles held them apart', 'Poseidon calmed the sea himself'] }
+    ]
+  },
+
+  '4_3': {
+    god: 'Fire', enemy: 'Living Wildfire',
+    power: 'Pyrokinesis', attack: 880,
+    narrative: 'The fire likes its freedom. It hops from bush to bush, surrounding you with flames. Can you control Pyrokinesis before the fire consumes you?',
+    questions: [
+      { q: 'Who stole fire from the gods to give to humanity?', correct: 'Prometheus', wrong: ['Hermes', 'Hephaestus', 'Hades'] },
+      { q: 'What was Prometheus\'s punishment for stealing fire?', correct: 'Chained to a rock while an eagle ate his liver every day', wrong: ['Cast into Tartarus forever', 'Turned to stone on a mountaintop', 'Drowned in the depths of the sea'] },
+      { q: 'What natural phenomenon results from Hephaestus\'s forge work?', correct: 'Volcanoes', wrong: ['Droughts', 'Asteroids', 'Tsunamis'] },
+      { q: 'What is the name of Prometheus\'s brother who accepted Pandora?', correct: 'Epimetheus', wrong: ['Atlas', 'Cronus', 'Hyperion'] },
+      { q: 'What did Epimetheus do that left humans without natural gifts?', correct: 'He gave all the gifts to the animals, leaving nothing for humans', wrong: ['He hid them underground', 'He gave them all to the gods', 'He buried them in the sea'] },
+      { q: 'What did Hephaestus forge as Zeus\'s greatest weapon?', correct: 'Thunderbolts', wrong: ['A golden chariot', 'Poseidon\'s trident', 'Hermes\'s winged sandals'] }
+    ]
+  },
+
+  '4_4': {
+    god: 'Apollo', enemy: 'Sealed Temple',
+    power: 'Clauditiskinesis', attack: 810,
+    narrative: 'Apollo is using Clauditiskinesis to hold you in his temple. The door slams shut. The smoky torchlight leaves many dark corners. You are trapped.',
+    questions: [
+      { q: 'The Oracle at Delphi was known by what title?', correct: 'The Pythia', wrong: ['The Sibyl', 'The Seer', 'The Prophetess'] },
+      { q: 'Apollo is the god of music, the sun, and what else?', correct: 'Prophecy', wrong: ['War', 'Love', 'The sea'] },
+      { q: 'What temple housed the most famous Oracle in ancient Greece?', correct: 'The Temple of Apollo at Delphi', wrong: ['The Parthenon', 'The Temple of Zeus at Olympia', 'The Temple of Hera'] },
+      { q: 'What phrase was inscribed at the entrance of Apollo\'s temple?', correct: '"Know thyself"', wrong: ['"Honor the gods"', '"Seek the truth"', '"Fear no death"'] },
+      { q: 'What does Apollo immediately do after receiving his bow?', correct: 'Hunts down the Python', wrong: ['Teaches mortals to play the lyre', 'Challenges Ares to battle', 'Creates the first oracle'] },
+      { q: 'What did Pan give Artemis, Apollo\'s twin?', correct: 'Hunting dogs', wrong: ['A silver bow', 'Golden sandals', 'A magical shield'] }
+    ]
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ROUND 5 — NO SAFE PATH
+  // ════════════════════════════════════════════════════════════
+
+  '5_0': {
+    god: 'Hades', enemy: 'Zombie Army',
+    power: 'Necromancy', attack: 1000,
+    narrative: 'All the graves around Greece burst open. The dead are alive again and their only goal is to find you. Fleeing across the countryside, the gods\' laughter echoes across the sky.',
+    questions: [
+      { q: 'How is Tantalus\'s punishment tied to Sisyphus\'s punishment?', correct: 'Tantalus is stuck for as long as Sisyphus has to roll his stone', wrong: ['Tantalus has to drink away the river blocking Sisyphus', 'They share the same boulder', 'They are not connected — trick question'] },
+      { q: 'What is Tartarus?', correct: 'The deepest abyss, a prison for the worst sinners and Titans', wrong: ['The throne room of Hades', 'The paradise for heroic souls', 'The river of the dead'] },
+      { q: 'Who is the ferryman who carries souls of the dead?', correct: 'Charon', wrong: ['Hermes', 'Thanatos', 'Cerberus'] },
+      { q: 'What are the Elysian Fields?', correct: 'A paradise in the Underworld for heroic souls', wrong: ['A battlefield of the dead', 'A dark prison below Tartarus', 'A garden on Mount Olympus'] },
+      { q: 'What river in the Underworld causes total forgetfulness?', correct: 'The River Lethe', wrong: ['The River Styx', 'The River Acheron', 'The River Phlegethon'] },
+      { q: 'What condition did Hades give Orpheus for retrieving Eurydice?', correct: 'He must not look back until they reach the surface', wrong: ['He must sing the entire way', 'He must leave his lyre behind', 'He must solve a riddle at the gate'] }
+    ]
+  },
+
+  '5_1': {
+    god: 'Iris', enemy: 'Rainbow Trap',
+    power: 'Photokinesis', attack: 1100,
+    narrative: 'Invisible and hiding in the light is the goddess of rainbows: Iris. She alerts the gods to your location. You have seconds to escape if you can defeat Photokinesis.',
+    questions: [
+      { q: 'Iris is the goddess of the rainbow and what else?', correct: 'Messenger of the gods', wrong: ['The moon', 'The stars', 'The dawn'] },
+      { q: 'Who does Iris primarily serve as a messenger for?', correct: 'Hera', wrong: ['Zeus', 'Athena', 'Apollo'] },
+      { q: 'What is the name of the goddess who personifies the dawn?', correct: 'Eos', wrong: ['Selene', 'Nyx', 'Iris'] },
+      { q: 'What did Helios drive across the sky each day?', correct: 'The chariot of the sun', wrong: ['A golden boat', 'A winged horse', 'A silver moon chariot'] },
+      { q: 'Who is Nyx?', correct: 'The goddess of night', wrong: ['The goddess of dusk', 'The goddess of the dawn', 'The goddess of stars'] },
+      { q: 'What was Phaethon\'s fatal mistake?', correct: 'He lost control of the sun chariot and scorched the earth', wrong: ['He stole Zeus\'s thunderbolt', 'He challenged Apollo to a race', 'He tried to enter Mount Olympus by force'] }
+    ]
+  },
+
+  '5_2': {
+    god: 'Zeus', enemy: 'Divine Storm',
+    power: 'Atmokinesis', attack: 1200,
+    narrative: 'The skies turn gray, lightning cracks, and the winds battle your chariot. Just like Phaethon\'s ride, the gods are ready. Defend against the full might of Atmokinesis.',
+    questions: [
+      { q: 'Who was Phaethon?', correct: 'The mortal son of Helios who tried to drive the sun chariot', wrong: ['A Titan who stole fire from the gods', 'A hero who slew the Hydra', 'A demigod son of Zeus'] },
+      { q: 'Why did Zeus strike Phaethon down with a thunderbolt?', correct: 'He was scorching the earth while driving the sun chariot', wrong: ['He stole the thunderbolt from Olympus', 'He challenged Zeus to a wrestling contest', 'He tried to enter the gates of Olympus'] },
+      { q: 'Zeus is the god of the sky, thunder, and king of what?', correct: 'The gods', wrong: ['The sea', 'The Underworld', 'The harvest'] },
+      { q: 'What is Zeus\'s primary weapon?', correct: 'The thunderbolt', wrong: ['A divine trident', 'A golden spear', 'An enchanted sword'] },
+      { q: 'Why was Hera frustrated with Zeus?', correct: 'He was a bad husband and had many girlfriends', wrong: ['He was never home', 'He was mean to their children', 'He forgot important dates'] },
+      { q: 'Who are two children of Zeus and Hera?', correct: 'Hephaestus and Ares', wrong: ['Athena and Apollo', 'Artemis and Hermes', 'Dionysus and Aphrodite'] }
+    ]
+  },
+
+  '5_3': {
+    god: 'Hecate', enemy: 'Dark Magic',
+    power: 'Mystokinesis', attack: 1400,
+    narrative: 'Out of the mist, Hecate steps into your birthday circle. "Magic is the domain of the gods, not mortals. Your luck just ran out." Defend against Mystokinesis.',
+    questions: [
+      { q: 'Hecate is the goddess of magic, witchcraft, and what else?', correct: 'Crossroads', wrong: ['Love', 'The harvest', 'The hunt'] },
+      { q: 'What does Hecate carry as her most recognized symbol?', correct: 'Torches', wrong: ['A trident', 'A silver bow', 'A thunderbolt'] },
+      { q: 'At what type of location is Hecate most often honored?', correct: 'Crossroads', wrong: ['Mountaintops', 'The open sea', 'Deep caves'] },
+      { q: 'Which goddess aided Medea in her magical powers?', correct: 'Hecate', wrong: ['Circe', 'Athena', 'Aphrodite'] },
+      { q: 'What is the name of the sorceress who turned Odysseus\'s men into pigs?', correct: 'Circe', wrong: ['Medea', 'Hecate', 'Calypso'] },
+      { q: 'How did Medea assist Jason in obtaining the Golden Fleece?', correct: 'She used her magic to help him complete tasks set by King Aeetes', wrong: ['She distracted the guards at the gates', 'She sang the dragon guarding the fleece to sleep', 'She provided a potion to put King Aeetes to sleep'] }
+    ]
+  },
+
+  '5_4': {
+    god: 'Nemesis', enemy: 'Reflected Power',
+    power: 'Tychokinesis', attack: 1400,
+    narrative: 'Standing before you is Nemesis. "Not so fast, my friends." A wave of bad luck washes over you. Attack quick before Tychokinesis ends your journey.',
+    questions: [
+      { q: 'What was Echo\'s curse from Hera?', correct: 'She could only repeat the last words spoken to her', wrong: ['She could not speak at all', 'She could only speak in riddles', 'She was turned completely invisible'] },
+      { q: 'Who did Echo fall in love with?', correct: 'Narcissus', wrong: ['Apollo', 'Hermes', 'Perseus'] },
+      { q: 'What did Narcissus do that led to his downfall?', correct: 'He fell in love with his own reflection in a pool', wrong: ['He insulted the gods at a banquet', 'He stole something from the Underworld', 'He challenged Ares to single combat'] },
+      { q: 'Nemesis is the goddess of what?', correct: 'Retribution and divine balance', wrong: ['Victory in battle', 'Love and desire', 'The hunt'] },
+      { q: 'What flower did Narcissus become after his death?', correct: 'The narcissus flower', wrong: ['A rose', 'A lily', 'A sunflower'] },
+      { q: 'Who stole Persephone, causing Demeter\'s grief and the first winter?', correct: 'Hades', wrong: ['Apollo', 'Zeus', 'Ares'] }
+    ]
+  },
+
+  '5_5': {
+    god: 'Hypnos', enemy: 'Dream Prison',
+    power: 'Hypokinesis', attack: 1600,
+    narrative: 'Hypnos, the god of dreams, is controlling your sleeping world. Defend yourself against the 1600 point attack or remain trapped in your dreams forever.',
+    questions: [
+      { q: 'Hypnos is the god of what?', correct: 'Sleep', wrong: ['Dreams', 'Death', 'Night'] },
+      { q: 'Who is Hypnos\'s twin brother?', correct: 'Thanatos, the god of death', wrong: ['Morpheus', 'Charon', 'Hermes'] },
+      { q: 'Who is Morpheus?', correct: 'The god of dreams', wrong: ['The god of sleep', 'The god of death', 'The god of darkness'] },
+      { q: 'Who is the primordial goddess of night, and mother of Hypnos?', correct: 'Nyx', wrong: ['Gaia', 'Hera', 'Hecate'] },
+      { q: 'How is Tantalus\'s punishment tied to Sisyphus\'s punishment?', correct: 'Tantalus is stuck for as long as Sisyphus has to roll his stone', wrong: ['They share the same torment', 'Sisyphus pushes the rock away from Tantalus', 'They are not tied together'] },
+      { q: 'What river in the Underworld causes total forgetfulness?', correct: 'The River Lethe', wrong: ['The River Styx', 'The River Acheron', 'The River Phlegethon'] }
+    ]
+  }
+
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function getAllianceForStudent(studentId) {
@@ -16314,13 +16725,19 @@ app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'Race not started' });
-    // If phase already moved past puzzle, cipher was solved — let client advance
+    // Phase moved past puzzle — a teammate already solved the cipher.
+    // Still validate THIS student's answer so every student must type the
+    // correct word themselves before advancing (no free-riding on teammates).
     if (state.current_phase !== 'puzzle') {
       const round = state.current_round > 0 ? state.current_round - 1 : 1;
       const puzzle = PUZZLE_DATA[round] || PUZZLE_DATA[1];
+      const submitted = (req.body.answer || '').trim().toLowerCase();
+      const correct   = puzzle ? puzzle.correctCipherAnswer : '';
+      const selfCorrect = submitted === correct;
       return res.json({
-        accepted: true,
+        accepted: selfCorrect,
         already_solved: true,
+        self_correct: selfCorrect,
         secret_word: puzzle ? puzzle.secretWord : '',
         current_phase: state.current_phase
       });
@@ -16532,20 +16949,10 @@ app.get('/api/olympus/godtest-fork-status', authenticateToken, (req, res) => {
 
 // ── helper: getMajority for god test fork votes ───────────────────────────────
 function getMajority_godtest(allianceId, round, forkIdx) {
-  // Uses present_members from race state if set, else all non-ghost members.
-  const state = getOlympusState(allianceId);
-  let total;
-  if (state && state.present_members) {
-    const presentIds = JSON.parse(state.present_members);
-    total = presentIds.length || 1;
-  } else {
-    const members = query(
-      `SELECT COUNT(*) as cnt FROM students
-       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [allianceId]
-    );
-    total = members[0] ? members[0].cnt : 1;
-  }
+  // Fork commitment requires only 1 vote — the first alliance member to vote
+  // commits the path. Latecomers arrive at the fork, see own_lock is already
+  // set, and auto-advance without needing to vote themselves.
+  // This prevents deadlock when players fall out of sync mid-gauntlet.
   const votes = query(
     `SELECT vote_value, COUNT(*) as cnt FROM olympus_godtest_votes
      WHERE alliance_id=? AND round_number=? AND fork_idx=?
@@ -16553,16 +16960,7 @@ function getMajority_godtest(allianceId, round, forkIdx) {
     [allianceId, round, forkIdx]
   );
   if (!votes.length) return null;
-  const needed = Math.floor(total / 2) + 1;
-  if (votes[0].cnt >= needed) {
-    return { winner: votes[0].vote_value, count: votes[0].cnt, total };
-  }
-  // Tie-break: all members voted, pick plurality
-  const totalVotes = votes.reduce((s, v) => s + v.cnt, 0);
-  if (totalVotes >= total) {
-    return { winner: votes[0].vote_value, count: votes[0].cnt, total, tiebreak: true };
-  }
-  return null;
+  return { winner: votes[0].vote_value, count: votes[0].cnt, total: votes[0].cnt };
 }
 
 // ── GET /api/olympus/teacher/diagnostic ──────────────────────────────────────
@@ -16842,6 +17240,575 @@ app.get('/api/olympus/teacher/debug-votes', authenticateToken, (req, res) => {
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── POST /api/olympus/drachma-shop-purchase ───────────────────────────────────
+// Called during the 45-second pre-combat shop. Deducts Drachma from the
+// purchasing student and records the buff on the alliance's wave session.
+// Buffs are alliance-scoped: any member benefits regardless of who paid.
+app.post('/api/olympus/drachma-shop-purchase', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { buff_key } = req.body;
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'combat') return res.status(400).json({ error: 'Not in combat phase' });
+
+    // Buff costs scale with round number
+    const round = state.current_round;
+    const BUFF_COSTS = {
+      oracle_vision:      Math.round(50  * (1 + (round - 1) * 0.15)),
+      hephaestus_armor:   Math.round(80  * (1 + (round - 1) * 0.15)),
+      hermes_speed:       Math.round(60  * (1 + (round - 1) * 0.15)),
+      apollo_mercy:       [120, 150, 180, 220, 280][round - 1] || 120
+    };
+
+    const cost = BUFF_COSTS[buff_key];
+    if (!cost) return res.status(400).json({ error: 'Unknown buff: ' + buff_key });
+
+    // Check student's Drachma
+    const studentRows = query(`SELECT drachma FROM students WHERE student_id=?`, [req.user.id]);
+    if (!studentRows[0]) return res.status(400).json({ error: 'Student not found' });
+    const currentDrachma = studentRows[0].drachma || 0;
+    if (currentDrachma < cost) return res.status(400).json({ error: 'Not enough Drachma', have: currentDrachma, need: cost });
+
+    // Ensure wave session row exists
+    run(
+      `INSERT OR IGNORE INTO olympus_combat_wave_session (alliance_id, period, round_number)
+       VALUES (?, ?, ?)`,
+      [alliance.alliance_id, alliance.class_period, round]
+    );
+
+    // Check if buff already purchased for this round (idempotent)
+    const sessionRows = query(
+      `SELECT purchased_buffs FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    const buffs = sessionRows[0] ? JSON.parse(sessionRows[0].purchased_buffs) : [];
+    if (buffs.includes(buff_key)) {
+      return res.json({ already_purchased: true, buff_key, purchased_buffs: buffs });
+    }
+
+    // Deduct Drachma from purchasing student
+    run(`UPDATE students SET drachma = drachma - ? WHERE student_id=?`, [cost, req.user.id]);
+
+    // Record buff on wave session
+    buffs.push(buff_key);
+    run(
+      `UPDATE olympus_combat_wave_session SET purchased_buffs=? WHERE alliance_id=? AND round_number=?`,
+      [JSON.stringify(buffs), alliance.alliance_id, round]
+    );
+    saveDatabase();
+
+    const updatedStudent = query(`SELECT drachma FROM students WHERE student_id=?`, [req.user.id]);
+    res.json({
+      purchased: true,
+      buff_key,
+      cost,
+      remaining_drachma: updatedStudent[0].drachma,
+      purchased_buffs: buffs
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── POST /api/olympus/wave-start ──────────────────────────────────────────────
+// Called by each student when they arrive at a wave screen.
+// Server selects the question for this wave (consistent for entire alliance).
+// Returns question text, shuffled options, wave metadata, and active buffs.
+app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { wave_number } = req.body; // 1, 2, or 3
+    if (![1, 2, 3].includes(Number(wave_number))) return res.status(400).json({ error: 'wave_number must be 1, 2, or 3' });
+    const wn = Number(wave_number);
+
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'combat') return res.status(400).json({ error: 'Not in combat phase' });
+
+    const round = state.current_round;
+
+    // Get the path this alliance committed to
+    const lockRows = query(
+      `SELECT path_index FROM olympus_path_locks
+       WHERE alliance_id=? AND round_number=? LIMIT 1`,
+      [alliance.alliance_id, round]
+    );
+    if (!lockRows[0]) return res.status(400).json({ error: 'No committed path found' });
+    const pathIdx = lockRows[0].path_index;
+
+    const scenarioKey = `${round}_${pathIdx}`;
+    const scenario = COMBAT_SCENARIOS[scenarioKey];
+    if (!scenario) return res.status(400).json({ error: 'No scenario for key: ' + scenarioKey });
+
+    // Calculate wave damage values
+    const totalAttack = scenario.attack;
+    const w1 = Math.floor(totalAttack / 3);
+    const w2 = Math.floor(totalAttack / 3);
+    const w3 = totalAttack - w1 - w2;
+    const waveDamage = [w1, w2, w3][wn - 1];
+
+    // Ensure wave session row exists; assign question indices on first wave
+    run(
+      `INSERT OR IGNORE INTO olympus_combat_wave_session (alliance_id, period, round_number)
+       VALUES (?, ?, ?)`,
+      [alliance.alliance_id, alliance.class_period, round]
+    );
+    const sessionRows = query(
+      `SELECT wave1_q_idx, wave2_q_idx, wave3_q_idx, wave${wn}_absorbed, purchased_buffs
+       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    let session = sessionRows[0] || { wave1_q_idx: -1, wave2_q_idx: -1, wave3_q_idx: -1, purchased_buffs: '[]' };
+    const buffs = JSON.parse(session.purchased_buffs);
+
+    // Assign question indices deterministically (no repeats across waves)
+    let q1i = session.wave1_q_idx;
+    let q2i = session.wave2_q_idx;
+    let q3i = session.wave3_q_idx;
+
+    if (q1i === -1) {
+      // Pick 3 distinct random question indices from 0..5
+      const pool = [0, 1, 2, 3, 4, 5];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      q1i = pool[0]; q2i = pool[1]; q3i = pool[2];
+      run(
+        `UPDATE olympus_combat_wave_session SET wave1_q_idx=?, wave2_q_idx=?, wave3_q_idx=?
+         WHERE alliance_id=? AND round_number=?`,
+        [q1i, q2i, q3i, alliance.alliance_id, round]
+      );
+      saveDatabase();
+    }
+
+    const qIdxForWave = [q1i, q2i, q3i][wn - 1];
+    const qObj = scenario.questions[qIdxForWave];
+
+    // Shuffle answer options (server-side, correct answer position randomized)
+    const options = [qObj.correct, ...qObj.wrong].sort(() => Math.random() - 0.5);
+
+    // Determine timer based on alliance Lore stat
+    const memberStats = query(
+      `SELECT lore FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const loreScores = memberStats.map(m => m.lore || 0);
+    const maxLore = Math.max(...loreScores);
+    const avgLore = loreScores.reduce((a, b) => a + b, 0) / (loreScores.length || 1);
+    const effectiveLore = maxLore + Math.floor(avgLore / 2);
+    let baseTimer = effectiveLore >= 15 ? 30 : effectiveLore >= 8 ? 20 : 15;
+    if (buffs.includes('hermes_speed')) baseTimer += 12;
+
+    // Oracle's Vision: reveal question 8s early (Eternal archetype gets this free)
+    const studentRow = query(`SELECT archetype FROM students WHERE student_id=?`, [req.user.id]);
+    const archetype = studentRow[0] ? studentRow[0].archetype : null;
+    const hasOracleVision = buffs.includes('oracle_vision') || archetype === 'eternal';
+
+    res.json({
+      wave_number: wn,
+      question: qObj.q,
+      options,                    // shuffled, correct not identified
+      wave_damage: waveDamage,
+      total_attack: totalAttack,
+      timer_seconds: baseTimer,
+      oracle_preview_seconds: hasOracleVision ? 8 : 0,
+      scenario_god: scenario.god,
+      scenario_power: scenario.power,
+      already_absorbed: !!session[`wave${wn}_absorbed`],
+      purchased_buffs: buffs
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── POST /api/olympus/wave-answer ─────────────────────────────────────────────
+// Student submits their answer for the current wave.
+// Idempotent — safe if two alliance members answer simultaneously.
+// Returns correct/wrong, whether the wave is now absorbed, and points at risk.
+app.post('/api/olympus/wave-answer', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { wave_number, answer } = req.body;
+    const wn = Number(wave_number);
+    if (![1, 2, 3].includes(wn)) return res.status(400).json({ error: 'wave_number must be 1, 2, or 3' });
+    if (!answer) return res.status(400).json({ error: 'answer required' });
+
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'No race state' });
+
+    const round = state.current_round;
+    const lockRows = query(
+      `SELECT path_index FROM olympus_path_locks WHERE alliance_id=? AND round_number=? LIMIT 1`,
+      [alliance.alliance_id, round]
+    );
+    if (!lockRows[0]) return res.status(400).json({ error: 'No committed path' });
+    const pathIdx = lockRows[0].path_index;
+
+    const scenario = COMBAT_SCENARIOS[`${round}_${pathIdx}`];
+    if (!scenario) return res.status(400).json({ error: 'No scenario' });
+
+    // Get wave session
+    const sessionRows = query(
+      `SELECT wave1_q_idx, wave2_q_idx, wave3_q_idx, wave${wn}_absorbed, purchased_buffs
+       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    if (!sessionRows[0]) return res.status(400).json({ error: 'Wave session not initialized — call wave-start first' });
+    const session = sessionRows[0];
+    const buffs = JSON.parse(session.purchased_buffs);
+
+    const qIdxForWave = [session.wave1_q_idx, session.wave2_q_idx, session.wave3_q_idx][wn - 1];
+    const qObj = scenario.questions[qIdxForWave];
+    const isCorrect = answer.trim().toLowerCase() === qObj.correct.trim().toLowerCase();
+
+    // Calculate wave damage
+    const totalAttack = scenario.attack;
+    const w1 = Math.floor(totalAttack / 3);
+    const w2 = Math.floor(totalAttack / 3);
+    const w3 = totalAttack - w1 - w2;
+    const waveDamage = [w1, w2, w3][wn - 1];
+
+    // Archetype: The Tested gets a retry on Wave 2
+    const studentRow = query(`SELECT archetype FROM students WHERE student_id=?`, [req.user.id]);
+    const archetype = studentRow[0] ? studentRow[0].archetype : null;
+
+    // If wave already absorbed by a teammate — still need personal correct to advance
+    if (session[`wave${wn}_absorbed`]) {
+      return res.json({
+        result: isCorrect ? 'correct' : 'wrong',
+        self_correct: isCorrect,
+        wave_already_absorbed: true,
+        correct_answer: isCorrect ? null : qObj.correct,
+        wave_damage: 0,
+        wave_number: wn
+      });
+    }
+
+    if (isCorrect) {
+      // Mark wave absorbed for entire alliance (INSERT OR IGNORE = idempotent)
+      run(
+        `UPDATE olympus_combat_wave_session SET wave${wn}_absorbed=1 WHERE alliance_id=? AND round_number=?`,
+        [alliance.alliance_id, round]
+      );
+      saveDatabase();
+      return res.json({
+        result: 'correct',
+        self_correct: true,
+        wave_absorbed: true,
+        points_absorbed: waveDamage,
+        wave_number: wn,
+        correct_answer: null
+      });
+    }
+
+    // Wrong answer — calculate damage reduction from buffs/archetype
+    let damageReduction = 0.85; // default: wrong = 85% damage
+    if (buffs.includes('hephaestus_armor')) damageReduction = 0.70;
+
+    // Craft stat check
+    const craftRows = query(
+      `SELECT craft FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const craftScores = craftRows.map(m => m.craft || 0);
+    const maxCraft = Math.max(...craftScores);
+    const avgCraft = craftScores.reduce((a, b) => a + b, 0) / (craftScores.length || 1);
+    const effectiveCraft = maxCraft + Math.floor(avgCraft / 2);
+
+    if (archetype === 'builder') {
+      damageReduction = effectiveCraft >= 15 ? 0.70 : 0.75;
+    } else if (effectiveCraft >= 15) {
+      damageReduction = buffs.includes('hephaestus_armor') ? 0.65 : 0.70;
+    }
+
+    const partialDamage = Math.round(waveDamage * damageReduction);
+
+    // Tested archetype: Wave 2 retry — flag it but don't absorb
+    const testedRetryAvailable = archetype === 'tested' && wn === 2;
+
+    return res.json({
+      result: 'wrong',
+      self_correct: false,
+      wave_absorbed: false,
+      partial_damage: partialDamage,
+      wave_damage: waveDamage,
+      wave_number: wn,
+      tested_retry_available: testedRetryAvailable,
+      correct_answer: null  // never reveal until wave_complete
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── GET /api/olympus/wave-status ──────────────────────────────────────────────
+// Polled every 2 seconds by waiting students.
+// Returns wave absorption state and (for Mirror archetype) anonymized selections.
+app.get('/api/olympus/wave-status', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'No race state' });
+
+    const round = state.current_round;
+    const sessionRows = query(
+      `SELECT wave1_absorbed, wave2_absorbed, wave3_absorbed, completed, purchased_buffs
+       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    if (!sessionRows[0]) {
+      return res.json({ session_exists: false, current_phase: state.current_phase });
+    }
+    const s = sessionRows[0];
+    res.json({
+      session_exists: true,
+      current_phase: state.current_phase,
+      wave1_absorbed: !!s.wave1_absorbed,
+      wave2_absorbed: !!s.wave2_absorbed,
+      wave3_absorbed: !!s.wave3_absorbed,
+      all_waves_complete: !!s.completed,
+      purchased_buffs: JSON.parse(s.purchased_buffs)
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── POST /api/olympus/combat-wave-complete ────────────────────────────────────
+// Called after Wave 3 resolves (by first student whose wave-answer completes it,
+// or after timer expires client-side). Calculates total damage, deducts points,
+// advances phase to 'puzzle' (or 'hades' if points hit 0).
+// Idempotent — safe to call multiple times.
+app.post('/api/olympus/combat-wave-complete', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { waves_result } = req.body;
+    // waves_result: { wave1: { absorbed, damage_taken }, wave2: {...}, wave3: {...} }
+
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+
+    // If already advanced past combat, return stored result
+    if (state && state.current_phase !== 'combat') {
+      if (state.combat_result) return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
+      return res.json({ resolved: true, already_advanced: true });
+    }
+    if (!state || state.current_phase !== 'combat') {
+      return res.status(400).json({ error: 'Not in combat phase' });
+    }
+
+    const round = state.current_round;
+    const lockRows = query(
+      `SELECT path_index FROM olympus_path_locks WHERE alliance_id=? AND round_number=? LIMIT 1`,
+      [alliance.alliance_id, round]
+    );
+    if (!lockRows[0]) return res.status(400).json({ error: 'No committed path' });
+    const pathIdx = lockRows[0].path_index;
+    const scenario = COMBAT_SCENARIOS[`${round}_${pathIdx}`];
+    if (!scenario) return res.status(400).json({ error: 'No scenario' });
+
+    // Re-fetch session to get server-authoritative absorption flags
+    const sessionRows = query(
+      `SELECT wave1_absorbed, wave2_absorbed, wave3_absorbed, purchased_buffs, completed
+       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, round]
+    );
+    if (!sessionRows[0]) return res.status(400).json({ error: 'Wave session not found' });
+    const session = sessionRows[0];
+
+    // Idempotency: if already completed, return stored combat result
+    if (session.completed) {
+      if (state.combat_result) return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
+    }
+
+    const buffs = JSON.parse(session.purchased_buffs);
+
+    // Calculate damage from server-authoritative absorption flags
+    const totalAttack = scenario.attack;
+    const w1 = Math.floor(totalAttack / 3);
+    const w2 = Math.floor(totalAttack / 3);
+    const w3 = totalAttack - w1 - w2;
+    const waveDamages = [w1, w2, w3];
+    const waveAbsorbed = [!!session.wave1_absorbed, !!session.wave2_absorbed, !!session.wave3_absorbed];
+
+    // Apollo's Mercy: if 2/3 absorbed, force-absorb wave 3
+    if (buffs.includes('apollo_mercy')) {
+      const absorbedCount = waveAbsorbed.filter(Boolean).length;
+      if (absorbedCount >= 2) waveAbsorbed[2] = true;
+    }
+
+    // Craft reduction for unabsorbed waves
+    const craftRows = query(
+      `SELECT craft FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const craftScores = craftRows.map(m => m.craft || 0);
+    const maxCraft = Math.max(...craftScores, 0);
+    const avgCraft = craftScores.reduce((a, b) => a + b, 0) / (craftScores.length || 1);
+    const effectiveCraft = maxCraft + Math.floor(avgCraft / 2);
+
+    // Check builder archetype in alliance
+    const builderRows = query(
+      `SELECT archetype FROM students WHERE alliance_id=? AND archetype='builder' AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const hasBuilder = builderRows.length > 0;
+
+    let damageReduction = 1.0; // absorbed waves = 0 damage
+    let partialReduction;
+    if (hasBuilder) {
+      partialReduction = effectiveCraft >= 15 ? 0.70 : 0.75;
+    } else if (effectiveCraft >= 15) {
+      partialReduction = buffs.includes('hephaestus_armor') ? 0.65 : 0.70;
+    } else {
+      partialReduction = buffs.includes('hephaestus_armor') ? 0.70 : 0.85;
+    }
+
+    let totalDamage = 0;
+    const waveBreakdown = waveDamages.map((dmg, i) => {
+      if (waveAbsorbed[i]) return { wave: i + 1, damage: dmg, absorbed: true, taken: 0 };
+      const taken = Math.round(dmg * partialReduction);
+      totalDamage += taken;
+      return { wave: i + 1, damage: dmg, absorbed: false, taken };
+    });
+
+    // The Fallen archetype: perfect 3/3 absorb = steal 15pts from god (bonus points)
+    const fallenRows = query(
+      `SELECT archetype FROM students WHERE alliance_id=? AND archetype='fallen' AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const hasFallen = fallenRows.length > 0;
+    const perfectBlock = waveAbsorbed.every(Boolean);
+    const bonusPoints = (hasFallen && perfectBlock) ? 15 : 0;
+
+    // Deduct from alliance points
+    const allianceRow = query(`SELECT total_points FROM alliances WHERE alliance_id=?`, [alliance.alliance_id]);
+    const pointsBefore = allianceRow[0] ? allianceRow[0].total_points : 0;
+    const netDamage = Math.max(0, totalDamage - bonusPoints);
+    let pointsAfter = pointsBefore - netDamage;
+
+    let hadesTriggered = false;
+    let phoenixUsed = false;
+
+    if (pointsAfter <= 0) {
+      if (!state.phoenix_feather_used) {
+        pointsAfter = 1;
+        phoenixUsed = true;
+        run(`UPDATE olympus_race_state SET phoenix_feather_used=1 WHERE alliance_id=?`, [alliance.alliance_id]);
+      } else {
+        pointsAfter = 0;
+        hadesTriggered = true;
+      }
+    }
+
+    run(`UPDATE alliances SET total_points=? WHERE alliance_id=?`, [pointsAfter, alliance.alliance_id]);
+
+    // Mark wave session complete
+    run(
+      `UPDATE olympus_combat_wave_session SET completed=1, total_taken=? WHERE alliance_id=? AND round_number=?`,
+      [totalDamage, alliance.alliance_id, round]
+    );
+
+    // Build combat result
+    const combatResult = {
+      resolved: true,
+      god: scenario.god,
+      power: scenario.power,
+      total_attack: totalAttack,
+      wave_breakdown: waveBreakdown,
+      total_absorbed: waveBreakdown.filter(w => w.absorbed).reduce((a, w) => a + w.damage, 0),
+      total_taken: totalDamage,
+      bonus_points: bonusPoints,
+      net_damage: netDamage,
+      points_before: pointsBefore,
+      points_after: pointsAfter,
+      perfect_block: perfectBlock,
+      phoenix_feather_used: phoenixUsed,
+      hades_triggered: hadesTriggered
+    };
+
+    if (hadesTriggered) {
+      run(
+        `UPDATE olympus_race_state SET combat_result=?, current_phase='hades_waiting',
+         hades_visits=hades_visits+1 WHERE alliance_id=?`,
+        [JSON.stringify(combatResult), alliance.alliance_id]
+      );
+    } else {
+      // Reveal box URL as clickable link in puzzle phase
+      const BOX_URLS = {
+        1: 'https://t.ly/LtCM',
+        2: 'https://t.ly/GzUj',
+        3: 'https://t.ly/7PAl',
+        4: 'https://t.ly/SIsm',
+        5: 'https://bit.ly/3QnnCyI'
+      };
+      combatResult.box_url = BOX_URLS[round] || null;
+      run(
+        `UPDATE olympus_race_state SET combat_result=?, current_phase='puzzle' WHERE alliance_id=?`,
+        [JSON.stringify(combatResult), alliance.alliance_id]
+      );
+    }
+
+    saveDatabase();
+    res.json(combatResult);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── POST /api/olympus/round-unlock ────────────────────────────────────────────
+// Students enter the secret word from the physical box to unlock the next round.
+// Validates against hardcoded correct word for the completed round.
+app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { secret_word } = req.body;
+    if (!secret_word) return res.status(400).json({ error: 'secret_word required' });
+
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'No race state' });
+
+    // Secret words per round (case-insensitive)
+    const ROUND_SECRET_WORDS = {
+      1: 'box',
+      2: 'chariot',
+      3: 'pegasus',
+      4: 'labyrinth',
+      5: null  // Round 5 has no box gate — it leads to the final puzzle
+    };
+
+    const completedRound = state.current_round;
+    const expectedWord = ROUND_SECRET_WORDS[completedRound];
+
+    if (!expectedWord) {
+      return res.status(400).json({ error: 'No secret word gate for this round' });
+    }
+
+    if (secret_word.trim().toLowerCase() !== expectedWord.toLowerCase()) {
+      return res.json({ unlocked: false, message: 'That is not the correct word. Check your box again.' });
+    }
+
+    // Advance to next round
+    const nextRound = completedRound + 1;
+    run(
+      `UPDATE olympus_race_state SET current_round=?, current_phase='path_choice',
+       combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
+      [nextRound, alliance.alliance_id]
+    );
+
+    // Clear votes for the new round
+    run(
+      `DELETE FROM olympus_votes WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, completedRound]
+    );
+
+    saveDatabase();
+    res.json({ unlocked: true, next_round: nextRound, message: 'The gates open. Round ' + nextRound + ' begins.' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ============================================================

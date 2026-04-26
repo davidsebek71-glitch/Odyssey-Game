@@ -1168,14 +1168,22 @@ async function submitCipher() {
 
     if (data.accepted) {
       input.classList.add('input-correct');
-      if (data.already_solved) {
-        // Teammate already submitted — show graceful message and advance
-        showFeedback('cipherFeedback', 'correct', '✓ Your alliance already cracked this cipher. Proceeding…');
+      if (data.already_solved && data.self_correct) {
+        // Teammate solved it AND this student also typed the correct word
+        showFeedback('cipherFeedback', 'correct', '✓ Correct! Your alliance already recorded this word — proceeding.');
         setTimeout(() => showSuccess(data.secret_word), 800);
-      } else {
+      } else if (!data.already_solved) {
+        // This student is the first to solve it
         showFeedback('cipherFeedback', 'correct', '✓ Correct! The secret word has been recorded.');
         setTimeout(() => showSuccess(data.secret_word), 800);
       }
+    } else if (data.already_solved && !data.self_correct) {
+      // Teammate solved it but this student typed the wrong word — must try again
+      input.classList.add('input-wrong');
+      cipherAttempts++;
+      showFeedback('cipherFeedback', 'wrong',
+        '✗ Your alliance cracked this cipher — now you must type the correct word yourself to continue.');
+      setTimeout(() => input.classList.remove('input-wrong'), 1500);
     } else if (data.result === 'close') {
       input.classList.add('input-close');
       showFeedback('cipherFeedback', 'close', '"Almost... check your spelling. The answer is just one or two letters away."');
