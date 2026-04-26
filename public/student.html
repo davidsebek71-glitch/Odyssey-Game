@@ -14318,6 +14318,11 @@
                             button.style.background = 'transparent';
                             button.style.border     = 'none';
                             button.style.boxShadow  = 'none';
+                            // Ensure button is visible — checkOlympusRaceState may not have fired yet
+                            if (button.style.display === 'none' || button.style.display === '') {
+                                button.style.display = 'inline-flex';
+                                button.style.opacity = '0.45'; // dim until race state confirms
+                            }
                         };
                     })(btn, cfg.label);
                     purpleLoader.src = purpleSrc;
