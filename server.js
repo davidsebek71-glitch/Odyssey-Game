@@ -17391,15 +17391,20 @@ app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
     // Shuffle answer options (server-side, correct answer position randomized)
     const options = [qObj.correct, ...qObj.wrong].sort(() => Math.random() - 0.5);
 
-    // Determine timer based on alliance Lore stat
+    // Determine timer based on alliance Lore + Cunning stats
     const memberStats = query(
-      `SELECT lore FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      `SELECT lore, cunning, archetype FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
       [alliance.alliance_id]
     );
-    const loreScores = memberStats.map(m => m.lore || 0);
-    const maxLore = Math.max(...loreScores);
-    const avgLore = loreScores.reduce((a, b) => a + b, 0) / (loreScores.length || 1);
+    const loreScores    = memberStats.map(m => m.lore    || 0);
+    const cunningScores = memberStats.map(m => m.cunning  || 0);
+    const maxLore       = Math.max(...loreScores);
+    const avgLore       = loreScores.reduce((a, b) => a + b, 0) / (loreScores.length || 1);
     const effectiveLore = maxLore + Math.floor(avgLore / 2);
+    const maxCunning    = Math.max(...cunningScores);
+    const avgCunning    = cunningScores.reduce((a, b) => a + b, 0) / (cunningScores.length || 1);
+    const effectiveCunning = maxCunning + Math.floor(avgCunning / 2);
+
     let baseTimer = effectiveLore >= 15 ? 30 : effectiveLore >= 8 ? 20 : 15;
     if (buffs.includes('hermes_speed')) baseTimer += 12;
 
@@ -17408,10 +17413,21 @@ app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
     const archetype = studentRow[0] ? studentRow[0].archetype : null;
     const hasOracleVision = buffs.includes('oracle_vision') || archetype === 'eternal';
 
+    // Cunning >=10: eliminate 1 wrong answer. Seeker archetype: eliminate 2.
+    const hasSeeker = memberStats.some(m => m.archetype === 'seeker');
+    let eliminateCount = 0;
+    if (hasSeeker)                   eliminateCount = 2;
+    else if (effectiveCunning >= 10) eliminateCount = 1;
+    const wrongIndices = options.reduce((acc, opt, i) => {
+      if (opt !== qObj.correct) acc.push(i);
+      return acc;
+    }, []);
+    const eliminatedIndices = wrongIndices.sort(() => Math.random() - 0.5).slice(0, eliminateCount);
+
     res.json({
       wave_number: wn,
       question: qObj.q,
-      options,                    // shuffled, correct not identified
+      options,
       wave_damage: waveDamage,
       total_attack: totalAttack,
       timer_seconds: baseTimer,
@@ -17419,7 +17435,9 @@ app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
       scenario_god: scenario.god,
       scenario_power: scenario.power,
       already_absorbed: !!session[`wave${wn}_absorbed`],
-      purchased_buffs: buffs
+      purchased_buffs: buffs,
+      eliminated_indices: eliminatedIndices,
+      effective_cunning: effectiveCunning
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

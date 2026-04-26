@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Myth Knowledge Shield — Battle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:          #06090f;
+      --pale-gold:   #f0d060;
+      --bright-gold: #f0b832;
+      --stone:       #a09070;
+      --blood-red:   #c03030;
+      --wave-red:    #e07070;
+      --shield-blue: #6090e0;
+      --safe-green:  #8ae08a;
+      --hades-purple:#c0a0f0;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--pale-gold);
+      font-family: 'Cinzel', serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Screens ────────────────────────────────────────────── */
+    .screen { display: none; min-height: 100vh; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    /* ── Loading ─────────────────────────────────────────────── */
+    #screen-loading { text-align: center; gap: 20px; }
+    .loading-god { font-family: 'Cinzel Decorative', serif; font-size: 2rem; color: var(--wave-red); letter-spacing: 0.1em; }
+    .loading-sub  { font-size: 0.8rem; color: var(--stone); letter-spacing: 0.25em; text-transform: uppercase; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+    /* ── Shop ────────────────────────────────────────────────── */
+    #screen-shop { padding: 30px 20px; gap: 0; }
+    .shop-header  { text-align: center; margin-bottom: 24px; }
+    .shop-title   { font-family: 'Cinzel Decorative', serif; font-size: 1.6rem; color: var(--pale-gold); }
+    .shop-sub     { font-size: 0.75rem; color: var(--stone); letter-spacing: 0.2em; margin-top: 6px; }
+    .shop-timer-wrap { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0 20px; }
+    .shop-timer-bar  { width: 220px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+    .shop-timer-fill { height: 100%; background: var(--bright-gold); border-radius: 3px; transition: width 1s linear; }
+    .shop-timer-num  { font-family: 'Cinzel Decorative', serif; font-size: 1.1rem; color: var(--bright-gold); min-width: 28px; text-align: center; }
+    .drachma-display { font-size: 0.8rem; color: var(--stone); letter-spacing: 0.1em; margin-bottom: 20px; text-align: center; }
+    .drachma-display span { color: var(--bright-gold); font-size: 1rem; }
+
+    .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 560px; width: 100%; margin: 0 auto 24px; }
+    .shop-card {
+      background: rgba(20,16,40,0.85);
+      border: 1px solid rgba(184,134,11,0.25);
+      border-radius: 8px;
+      padding: 16px 14px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .shop-card:hover:not(.purchased):not(.cant-afford) { border-color: rgba(184,134,11,0.7); background: rgba(30,22,60,0.9); }
+    .shop-card.purchased { border-color: rgba(138,224,138,0.4); opacity: 0.6; cursor: default; }
+    .shop-card.cant-afford { opacity: 0.4; cursor: not-allowed; }
+    .shop-card-icon  { font-size: 1.8rem; margin-bottom: 6px; }
+    .shop-card-name  { font-family: 'Cinzel', serif; font-size: 0.85rem; font-weight: 700; color: var(--pale-gold); margin-bottom: 4px; }
+    .shop-card-desc  { font-family: 'IM Fell English', serif; font-size: 0.78rem; color: var(--stone); line-height: 1.4; margin-bottom: 8px; }
+    .shop-card-cost  { font-size: 0.75rem; color: var(--bright-gold); letter-spacing: 0.1em; }
+    .shop-card-badge { position: absolute; top: 8px; right: 8px; font-size: 0.65rem; color: var(--safe-green); letter-spacing: 0.1em; }
+
+    .shop-skip { font-family: 'Cinzel', serif; font-size: 0.8rem; color: var(--stone); cursor: pointer; letter-spacing: 0.15em; border: 1px solid rgba(160,144,112,0.3); padding: 8px 24px; border-radius: 4px; background: none; transition: color 0.2s, border-color 0.2s; }
+    .shop-skip:hover { color: var(--pale-gold); border-color: rgba(240,208,96,0.4); }
+
+    /* ── Oracle Preview ──────────────────────────────────────── */
+    #screen-oracle { text-align: center; gap: 20px; }
+    .oracle-label { font-size: 0.7rem; color: var(--hades-purple); letter-spacing: 0.25em; text-transform: uppercase; }
+    .oracle-question { font-family: 'IM Fell English', serif; font-size: 1.3rem; color: var(--pale-gold); max-width: 560px; line-height: 1.5; font-style: italic; }
+    .oracle-timer { font-family: 'Cinzel Decorative', serif; font-size: 2rem; color: var(--hades-purple); }
+
+    /* ── Wave ────────────────────────────────────────────────── */
+    #screen-wave { padding: 20px; gap: 0; }
+    .wave-header { text-align: center; margin-bottom: 16px; width: 100%; max-width: 640px; }
+    .wave-god    { font-family: 'Cinzel Decorative', serif; font-size: 1.1rem; color: var(--wave-red); letter-spacing: 0.08em; }
+    .wave-power  { font-size: 0.68rem; color: var(--stone); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 2px; }
+    .wave-counter-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0; }
+    .wave-pip { width: 28px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); }
+    .wave-pip.done    { background: var(--safe-green); }
+    .wave-pip.active  { background: var(--bright-gold); }
+    .wave-pip.pending { background: rgba(255,255,255,0.1); }
+    .wave-label { font-size: 0.72rem; color: var(--stone); letter-spacing: 0.2em; }
+    .wave-stakes { font-size: 0.78rem; color: rgba(224,112,112,0.8); letter-spacing: 0.1em; margin-bottom: 16px; }
+
+    /* Timer */
+    .timer-wrap { position: relative; width: 100%; max-width: 640px; margin-bottom: 14px; }
+    .timer-bar-bg   { width: 100%; height: 8px; background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden; }
+    .timer-bar-fill { height: 100%; border-radius: 4px; transition: width 0.9s linear, background 0.3s; background: var(--bright-gold); }
+    .timer-bar-fill.warning { background: #e08040; }
+    .timer-bar-fill.danger  { background: var(--blood-red); }
+    .timer-num { position: absolute; right: 0; top: -20px; font-family: 'Cinzel Decorative', serif; font-size: 0.9rem; color: var(--bright-gold); }
+    .timer-num.danger { color: var(--blood-red); }
+
+    /* Question */
+    .wave-question { font-family: 'IM Fell English', serif; font-size: 1.25rem; color: var(--pale-gold); text-align: center; max-width: 600px; width: 100%; line-height: 1.55; margin-bottom: 20px; }
+
+    /* Answer buttons */
+    .answer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 600px; width: 100%; margin-bottom: 16px; }
+    .answer-btn {
+      font-family: 'Cinzel', serif;
+      font-size: 0.88rem;
+      color: var(--pale-gold);
+      background: rgba(20,16,40,0.85);
+      border: 1px solid rgba(184,134,11,0.3);
+      border-radius: 6px;
+      padding: 14px 12px;
+      cursor: pointer;
+      text-align: center;
+      line-height: 1.4;
+      transition: background 0.15s, border-color 0.15s, opacity 0.2s;
+      min-height: 58px;
+    }
+    .answer-btn:hover:not(:disabled):not(.eliminated) { background: rgba(40,32,80,0.95); border-color: rgba(240,180,50,0.6); }
+    .answer-btn:active:not(:disabled):not(.eliminated) { background: rgba(50,40,90,1); }
+    .answer-btn.selected   { border-color: var(--bright-gold); background: rgba(50,40,10,0.9); color: var(--bright-gold); }
+    .answer-btn.correct    { border-color: var(--safe-green);  background: rgba(10,40,10,0.9); color: var(--safe-green); }
+    .answer-btn.wrong-pick { border-color: var(--blood-red);   background: rgba(40,10,10,0.9); color: var(--wave-red); }
+    .answer-btn.eliminated { opacity: 0.22; cursor: not-allowed; text-decoration: line-through; }
+    .answer-btn:disabled   { cursor: not-allowed; }
+
+    /* Ally strip */
+    .ally-strip { font-size: 0.68rem; color: var(--stone); letter-spacing: 0.1em; text-align: center; max-width: 600px; width: 100%; min-height: 18px; }
+    .ally-absorbed  { color: var(--safe-green); }
+    .ally-pending   { color: var(--stone); }
+
+    /* Retry banner */
+    .retry-banner { background: rgba(90,60,10,0.7); border: 1px solid rgba(240,180,50,0.4); border-radius: 6px; padding: 10px 16px; font-size: 0.8rem; color: var(--bright-gold); text-align: center; max-width: 600px; width: 100%; margin-bottom: 10px; display: none; }
+
+    /* ── Wave result flash ───────────────────────────────────── */
+    #screen-wave-result { text-align: center; gap: 16px; }
+    .wres-icon   { font-size: 3.5rem; }
+    .wres-title  { font-family: 'Cinzel Decorative', serif; font-size: 1.6rem; }
+    .wres-title.correct { color: var(--safe-green); }
+    .wres-title.wrong   { color: var(--wave-red); }
+    .wres-detail { font-family: 'IM Fell English', serif; font-size: 1rem; color: var(--stone); }
+    .wres-sub    { font-size: 0.72rem; color: var(--stone); letter-spacing: 0.15em; }
+
+    /* ── Final calculating ───────────────────────────────────── */
+    #screen-complete { text-align: center; gap: 20px; }
+    .complete-title { font-family: 'Cinzel Decorative', serif; font-size: 1.5rem; color: var(--pale-gold); }
+    .complete-sub   { font-size: 0.75rem; color: var(--stone); letter-spacing: 0.2em; animation: pulse 1.5s ease-in-out infinite; }
+    .complete-waves { display: flex; gap: 16px; justify-content: center; margin: 10px 0; }
+    .complete-wave-pip { font-size: 1.4rem; }
+
+    /* ── Error ───────────────────────────────────────────────── */
+    #screen-error { text-align: center; gap: 16px; }
+    .error-title { font-family: 'Cinzel Decorative', serif; font-size: 1.4rem; color: var(--wave-red); }
+    .error-msg   { font-size: 0.85rem; color: var(--stone); max-width: 420px; line-height: 1.5; }
+    .error-btn   { font-family: 'Cinzel', serif; font-size: 0.85rem; color: var(--pale-gold); background: none; border: 1px solid rgba(184,134,11,0.4); border-radius: 4px; padding: 10px 28px; cursor: pointer; }
+
+    /* ── Gold divider ────────────────────────────────────────── */
+    .gold-divider { width: 60px; height: 1px; background: linear-gradient(90deg,transparent,rgba(184,134,11,0.5),transparent); margin: 0 auto 14px; }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOADING ══════════════════════════════════════════════════ -->
+<div class="screen active" id="screen-loading">
+  <div class="loading-god" id="load-god-name">The Gods Await</div>
+  <div class="gold-divider"></div>
+  <div class="loading-sub">Preparing the battle arena…</div>
+</div>
+
+<!-- ══ DRACHMA SHOP ═════════════════════════════════════════════ -->
+<div class="screen" id="screen-shop">
+  <div class="shop-header">
+    <div class="shop-title">⚔️ Before the Battle</div>
+    <div class="shop-sub">Spend your Drachma — buffs help your entire alliance</div>
+  </div>
+  <div class="shop-timer-wrap">
+    <div class="shop-timer-bar"><div class="shop-timer-fill" id="shop-timer-fill"></div></div>
+    <div class="shop-timer-num" id="shop-timer-num">45</div>
+  </div>
+  <div class="drachma-display">Your Drachma: <span id="shop-drachma">—</span></div>
+  <div class="shop-grid" id="shop-grid">
+    <!-- populated by JS -->
+  </div>
+  <button class="shop-skip" onclick="endShop()">Skip Shop →</button>
+</div>
+
+<!-- ══ ORACLE PREVIEW ════════════════════════════════════════════ -->
+<div class="screen" id="screen-oracle">
+  <div class="oracle-label">🔮 Oracle's Vision — Wave <span id="oracle-wave-num">1</span></div>
+  <div class="gold-divider"></div>
+  <div class="oracle-question" id="oracle-question-text"></div>
+  <div class="oracle-timer" id="oracle-countdown">8</div>
+  <div style="font-size:0.7rem;color:var(--stone);letter-spacing:0.15em;">Memorize this question before the timer starts</div>
+</div>
+
+<!-- ══ WAVE SCREEN ═══════════════════════════════════════════════ -->
+<div class="screen" id="screen-wave">
+  <div class="wave-header">
+    <div class="wave-god"  id="wave-god-name"></div>
+    <div class="wave-power" id="wave-power-name"></div>
+  </div>
+  <div class="wave-counter-row">
+    <div class="wave-pip" id="pip-1"></div>
+    <div class="wave-pip" id="pip-2"></div>
+    <div class="wave-pip" id="pip-3"></div>
+    <div class="wave-label" id="wave-label-text">Wave 1 of 3</div>
+  </div>
+  <div class="wave-stakes" id="wave-stakes"></div>
+
+  <div class="timer-wrap">
+    <div class="timer-num" id="timer-num">—</div>
+    <div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-bar-fill"></div></div>
+  </div>
+
+  <div class="wave-question" id="wave-question"></div>
+
+  <div class="retry-banner" id="retry-banner">
+    ⚡ The Tested — You may answer Wave 2 once more. Choose wisely.
+  </div>
+
+  <div class="answer-grid" id="answer-grid">
+    <!-- populated by JS -->
+  </div>
+
+  <div class="ally-strip" id="ally-strip"></div>
+</div>
+
+<!-- ══ WAVE RESULT FLASH ═════════════════════════════════════════ -->
+<div class="screen" id="screen-wave-result">
+  <div class="wres-icon" id="wres-icon"></div>
+  <div class="wres-title" id="wres-title"></div>
+  <div class="wres-detail" id="wres-detail"></div>
+  <div class="wres-sub" id="wres-sub"></div>
+</div>
+
+<!-- ══ COMPLETE / CALCULATING ════════════════════════════════════ -->
+<div class="screen" id="screen-complete">
+  <div class="complete-waves" id="complete-waves"></div>
+  <div class="complete-title">The Battle Is Over</div>
+  <div class="gold-divider"></div>
+  <div class="complete-sub" id="complete-sub">Calculating your fate…</div>
+</div>
+
+<!-- ══ ERROR ═════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-error">
+  <div class="error-title">Something Went Wrong</div>
+  <div class="error-msg" id="error-msg">An unexpected error occurred.</div>
+  <button class="error-btn" onclick="window.location.href='/revenge_of_the_gods.html'">← Return to the Battle</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// COMBAT WAVE — Myth Knowledge Shield
+// Flow: Shop (45s) → [Oracle preview] → Wave 1 → Wave 2 → Wave 3 → Complete
+// ═══════════════════════════════════════════════════════════════
+
+const TOKEN = localStorage.getItem('token');
+const H     = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN };
+
+// ── State ────────────────────────────────────────────────────────
+let allianceData    = null;
+let raceState       = null;
+let studentData     = null;
+let currentWave     = 1;            // 1, 2, 3
+let waveData        = [null, null, null]; // response from wave-start per wave
+let waveResults     = [null, null, null]; // 'absorbed' | 'correct' | 'wrong' | 'timeout'
+let purchasedBuffs  = [];
+let personalDrachma = 0;
+let shopTimerId     = null;
+let shopSecondsLeft = 45;
+let timerInterval   = null;
+let pollInterval    = null;
+let timerSeconds    = 0;
+let timerMax        = 0;
+let hasAnswered     = false;
+let selectedOption  = null;
+let testedRetryUsed = false;
+let allyAbsorbed    = [false, false, false];
+
+// ── Helpers ──────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function showError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+  showScreen('error');
+}
+
+async function apiFetch(url, method, body) {
+  const opts = { method: method || 'GET', headers: H };
+  if (body) opts.body = JSON.stringify(body);
+  const res  = await fetch(url, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'API error ' + res.status);
+  return data;
+}
+
+// ── Boot ─────────────────────────────────────────────────────────
+async function init() {
+  if (!TOKEN) { showError('Not logged in. Please log in as a student.'); return; }
+  try {
+    const state = await apiFetch('/api/olympus/state');
+    allianceData = state.alliance;
+    raceState    = state.state;
+
+    if (!raceState || raceState.current_phase !== 'combat') {
+      // Combat already resolved — go back to show the result
+      window.location.href = '/revenge_of_the_gods.html?result=1';
+      return;
+    }
+
+    // Load student's own data (for archetype + Drachma)
+    const meRes  = await fetch('/api/student/me', { headers: H });
+    if (meRes.ok) {
+      studentData     = await meRes.json();
+      personalDrachma = studentData.drachma || 0;
+    }
+
+    // Update loading screen with god name (fetch from wave-status if session exists)
+    await startShop();
+
+  } catch(e) {
+    showError('Could not load battle state: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SHOP PHASE
+// ═══════════════════════════════════════════════════════════════
+
+const BUFF_DEFS = [
+  {
+    key:  'oracle_vision',
+    icon: '🔮',
+    name: 'Oracle\'s Vision',
+    desc: 'See each question 8 seconds before the timer starts. All waves.',
+    baseCost: 50
+  },
+  {
+    key:  'hephaestus_armor',
+    icon: '🛡️',
+    name: 'Hephaestus\'s Armor',
+    desc: 'Wrong answer = only 70% damage taken instead of 85%.',
+    baseCost: 80
+  },
+  {
+    key:  'hermes_speed',
+    icon: '🪽',
+    name: 'Hermes\'s Speed',
+    desc: '+12 seconds on your personal timer for all three waves.',
+    baseCost: 60
+  },
+  {
+    key:  'apollo_mercy',
+    icon: '☀️',
+    name: 'Apollo\'s Mercy',
+    desc: 'Answer 2 of 3 waves correctly — the 3rd wave is auto-absorbed.',
+    baseCost: 120 // will be overridden by round scaling
+  }
+];
+
+// Apollo's Mercy costs scale with round
+const APOLLO_MERCY_COSTS = [120, 150, 180, 220, 280];
+
+async function startShop() {
+  // Check if archetype gets oracle free (Eternal)
+  const archetype = studentData ? studentData.archetype : null;
+  const hasFreeOracle = archetype === 'eternal';
+
+  // Build buff cards
+  const round = raceState ? raceState.current_round : 1;
+  const grid  = document.getElementById('shop-grid');
+  grid.innerHTML = '';
+
+  // Load existing purchases from wave-status
+  try {
+    const status = await apiFetch('/api/olympus/wave-status');
+    purchasedBuffs  = status.purchased_buffs || [];
+  } catch(e) { purchasedBuffs = []; }
+
+  document.getElementById('shop-drachma').textContent = personalDrachma + ' ⚙';
+
+  BUFF_DEFS.forEach(def => {
+    let cost = def.baseCost;
+    if (def.key === 'apollo_mercy') cost = APOLLO_MERCY_COSTS[Math.min(round - 1, 4)];
+    // Scale non-apollo costs with round
+    if (def.key !== 'apollo_mercy') cost = Math.round(cost * (1 + (round - 1) * 0.15));
+
+    const alreadyOwned = purchasedBuffs.includes(def.key);
+    const isFree = hasFreeOracle && def.key === 'oracle_vision';
+    const cantAfford = !alreadyOwned && !isFree && personalDrachma < cost;
+
+    const card = document.createElement('div');
+    card.className = 'shop-card' +
+      (alreadyOwned || isFree ? ' purchased' : '') +
+      (cantAfford ? ' cant-afford' : '');
+    card.innerHTML =
+      '<div class="shop-card-icon">' + def.icon + '</div>' +
+      '<div class="shop-card-name">' + def.name + '</div>' +
+      '<div class="shop-card-desc">' + def.desc + '</div>' +
+      '<div class="shop-card-cost">' +
+        (alreadyOwned || isFree ? '✓ Active' : cost + ' Drachma') +
+      '</div>' +
+      (alreadyOwned || isFree ? '<div class="shop-card-badge">ACTIVE</div>' : '');
+
+    if (!alreadyOwned && !isFree && !cantAfford) {
+      card.onclick = () => buyBuff(def.key, cost, card);
+    }
+    grid.appendChild(card);
+  });
+
+  // If Eternal, mark oracle as purchased for the session
+  if (hasFreeOracle && !purchasedBuffs.includes('oracle_vision')) {
+    purchasedBuffs.push('oracle_vision');
+  }
+
+  showScreen('shop');
+  startShopTimer();
+}
+
+function startShopTimer() {
+  shopSecondsLeft = 45;
+  updateShopTimerUI();
+  shopTimerId = setInterval(() => {
+    shopSecondsLeft--;
+    updateShopTimerUI();
+    if (shopSecondsLeft <= 0) { clearInterval(shopTimerId); endShop(); }
+  }, 1000);
+}
+
+function updateShopTimerUI() {
+  const pct = (shopSecondsLeft / 45) * 100;
+  document.getElementById('shop-timer-fill').style.width = pct + '%';
+  document.getElementById('shop-timer-num').textContent  = shopSecondsLeft;
+}
+
+async function buyBuff(key, cost, card) {
+  card.style.opacity = '0.5';
+  card.style.pointerEvents = 'none';
+  try {
+    const data = await apiFetch('/api/olympus/drachma-shop-purchase', 'POST', { buff_key: key });
+    if (data.purchased || data.already_purchased) {
+      purchasedBuffs      = data.purchased_buffs || purchasedBuffs;
+      personalDrachma     = data.remaining_drachma !== undefined ? data.remaining_drachma : personalDrachma;
+      document.getElementById('shop-drachma').textContent = personalDrachma + ' ⚙';
+      card.className = 'shop-card purchased';
+      card.querySelector('.shop-card-cost').textContent = '✓ Active';
+      card.innerHTML += '<div class="shop-card-badge">ACTIVE</div>';
+    }
+  } catch(e) {
+    card.style.opacity = '';
+    card.style.pointerEvents = '';
+    alert(e.message || 'Purchase failed.');
+  }
+}
+
+function endShop() {
+  if (shopTimerId) { clearInterval(shopTimerId); shopTimerId = null; }
+  startWave(1);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WAVE PHASE
+// ═══════════════════════════════════════════════════════════════
+
+async function startWave(waveNum) {
+  currentWave  = waveNum;
+  hasAnswered  = false;
+  selectedOption = null;
+
+  try {
+    const data = await apiFetch('/api/olympus/wave-start', 'POST', { wave_number: waveNum });
+    waveData[waveNum - 1] = data;
+
+    // If wave already absorbed by a teammate before we even started
+    if (data.already_absorbed) {
+      allyAbsorbed[waveNum - 1] = true;
+      showWaveResult('absorbed_by_ally', waveNum, data.wave_damage);
+      return;
+    }
+
+    // Oracle preview if applicable
+    if (data.oracle_preview_seconds > 0) {
+      await showOraclePreview(data, waveNum);
+    }
+
+    renderWave(data, waveNum);
+
+  } catch(e) {
+    showError('Could not load wave ' + waveNum + ': ' + e.message);
+  }
+}
+
+// Oracle 8-second preview
+function showOraclePreview(data, waveNum) {
+  return new Promise(resolve => {
+    document.getElementById('oracle-wave-num').textContent  = waveNum;
+    document.getElementById('oracle-question-text').textContent = data.question;
+    let secs = data.oracle_preview_seconds || 8;
+    document.getElementById('oracle-countdown').textContent = secs;
+    showScreen('oracle');
+    const iv = setInterval(() => {
+      secs--;
+      document.getElementById('oracle-countdown').textContent = secs;
+      if (secs <= 0) { clearInterval(iv); resolve(); }
+    }, 1000);
+  });
+}
+
+function renderWave(data, waveNum) {
+  // God/power header
+  document.getElementById('wave-god-name').textContent  = data.scenario_god  || 'The Gods';
+  document.getElementById('wave-power-name').textContent = data.scenario_power ? 'Power: ' + data.scenario_power : '';
+
+  // Wave pips
+  for (let i = 1; i <= 3; i++) {
+    const pip = document.getElementById('pip-' + i);
+    pip.className = 'wave-pip ' + (i < waveNum ? 'done' : i === waveNum ? 'active' : 'pending');
+  }
+  document.getElementById('wave-label-text').textContent = 'Wave ' + waveNum + ' of 3';
+  document.getElementById('wave-stakes').textContent =
+    '⚔️ ' + data.wave_damage + ' pts at stake this wave  ·  ' + data.total_attack + ' total attack';
+
+  // Question
+  document.getElementById('wave-question').textContent = data.question;
+
+  // Answer buttons
+  const grid = document.getElementById('answer-grid');
+  grid.innerHTML = '';
+  data.options.forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn' + (data.eliminated_indices && data.eliminated_indices.includes(idx) ? ' eliminated' : '');
+    btn.textContent = opt;
+    btn.disabled = data.eliminated_indices && data.eliminated_indices.includes(idx);
+    btn.onclick = () => submitAnswer(opt, btn, data);
+    grid.appendChild(btn);
+  });
+
+  // Retry banner for Tested archetype (wave 2)
+  const retryBanner = document.getElementById('retry-banner');
+  retryBanner.style.display = 'none';
+
+  // Ally strip
+  updateAllyStrip(waveNum);
+
+  showScreen('wave');
+  startTimer(data.timer_seconds, waveNum, data);
+
+  // Start polling for ally absorption
+  startWavePolling(waveNum);
+}
+
+// ── Timer ─────────────────────────────────────────────────────
+function startTimer(seconds, waveNum, waveApiData) {
+  if (timerInterval) clearInterval(timerInterval);
+  timerSeconds = seconds;
+  timerMax     = seconds;
+  updateTimerUI();
+
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    updateTimerUI();
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      onTimerExpired(waveNum, waveApiData);
+    }
+  }, 1000);
+}
+
+function updateTimerUI() {
+  const pct  = (timerSeconds / timerMax) * 100;
+  const fill = document.getElementById('timer-bar-fill');
+  const num  = document.getElementById('timer-num');
+  fill.style.width = pct + '%';
+  num.textContent  = timerSeconds;
+  fill.className   = 'timer-bar-fill' + (pct < 30 ? ' danger' : pct < 60 ? ' warning' : '');
+  num.className    = 'timer-num' + (pct < 30 ? ' danger' : '');
+}
+
+function onTimerExpired(waveNum, waveApiData) {
+  if (hasAnswered) return; // already answered — let result flow handle it
+  hasAnswered = true;
+  disableAnswerButtons();
+
+  // Grace period: wait 4 seconds to see if an ally absorbed it
+  updateAllyStrip(waveNum, true);
+  setTimeout(() => {
+    if (allyAbsorbed[waveNum - 1]) {
+      showWaveResult('absorbed_by_ally', waveNum, waveApiData.wave_damage);
+    } else {
+      // Timed out and no ally absorbed — Tested wave 2 retry?
+      if (!testedRetryUsed && studentData && studentData.archetype === 'tested' && waveNum === 2) {
+        offerTestedRetry(waveApiData, waveNum);
+      } else {
+        waveResults[waveNum - 1] = 'timeout';
+        showWaveResult('timeout', waveNum, waveApiData.wave_damage);
+      }
+    }
+  }, 4000);
+}
+
+function disableAnswerButtons() {
+  document.querySelectorAll('.answer-btn').forEach(b => { b.disabled = true; });
+}
+
+// ── Answer submission ─────────────────────────────────────────
+async function submitAnswer(option, btn, waveApiData) {
+  if (hasAnswered) return;
+  hasAnswered = true;
+  selectedOption = option;
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  disableAnswerButtons();
+  btn.classList.add('selected');
+
+  try {
+    const data = await apiFetch('/api/olympus/wave-answer', 'POST', {
+      wave_number: currentWave,
+      answer: option
+    });
+
+    if (data.result === 'correct') {
+      btn.classList.remove('selected');
+      btn.classList.add('correct');
+      allyAbsorbed[currentWave - 1] = true;
+      setTimeout(() => showWaveResult('correct', currentWave, waveApiData.wave_damage), 600);
+
+    } else {
+      // Wrong
+      btn.classList.remove('selected');
+      btn.classList.add('wrong-pick');
+
+      // Tested archetype: wave 2 retry
+      if (data.tested_retry_available && !testedRetryUsed) {
+        testedRetryUsed = true;
+        hasAnswered = false;
+        btn.disabled = true;
+        showTestedRetry(waveApiData, currentWave);
+        return;
+      }
+
+      // Already absorbed by a teammate
+      if (data.wave_already_absorbed) {
+        allyAbsorbed[currentWave - 1] = true;
+        setTimeout(() => showWaveResult('absorbed_by_ally', currentWave, waveApiData.wave_damage), 600);
+        return;
+      }
+
+      // Standard wrong
+      waveResults[currentWave - 1] = 'wrong';
+      setTimeout(() => showWaveResult('wrong', currentWave, waveApiData.wave_damage, data.partial_damage), 800);
+    }
+
+  } catch(e) {
+    // Network error — treat as timeout
+    hasAnswered = false;
+    btn.disabled = false;
+    btn.classList.remove('selected');
+    alert('Network error. Please try again.');
+  }
+}
+
+// ── Tested archetype retry ────────────────────────────────────
+function showTestedRetry(waveApiData, waveNum) {
+  const grid   = document.getElementById('answer-grid');
+  const banner = document.getElementById('retry-banner');
+  banner.style.display = 'block';
+
+  // Re-enable all non-eliminated, non-already-wrong buttons
+  const btns = grid.querySelectorAll('.answer-btn');
+  btns.forEach(b => {
+    if (!b.classList.contains('eliminated') && !b.classList.contains('wrong-pick')) {
+      b.disabled = false;
+    }
+  });
+
+  // Restart timer at half duration
+  const retrySeconds = Math.ceil((waveApiData.timer_seconds || 20) / 2);
+  startTimer(retrySeconds, waveNum, waveApiData);
+}
+
+function offerTestedRetry(waveApiData, waveNum) {
+  testedRetryUsed = true;
+  hasAnswered = false;
+  showTestedRetry(waveApiData, waveNum);
+}
+
+// ── Polling for ally absorption ───────────────────────────────
+function startWavePolling(waveNum) {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    try {
+      const status = await apiFetch('/api/olympus/wave-status');
+      const absorbed = [status.wave1_absorbed, status.wave2_absorbed, status.wave3_absorbed];
+      allyAbsorbed = absorbed;
+
+      // If this wave got absorbed by a teammate before we answered
+      if (absorbed[waveNum - 1] && !hasAnswered) {
+        clearInterval(pollInterval);
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        hasAnswered = true;
+        disableAnswerButtons();
+        showWaveResult('absorbed_by_ally', waveNum, waveData[waveNum - 1] ? waveData[waveNum - 1].wave_damage : 0);
+      }
+
+      updateAllyStrip(waveNum);
+    } catch(e) { /* network blip — keep polling */ }
+  }, 2000);
+}
+
+function stopPolling() {
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+}
+
+function updateAllyStrip(waveNum, timedOut) {
+  const strip = document.getElementById('ally-strip');
+  if (!allianceData) { strip.textContent = ''; return; }
+  if (allyAbsorbed[waveNum - 1]) {
+    strip.innerHTML = '<span class="ally-absorbed">🛡️ Alliance shield active — this wave is absorbed</span>';
+  } else if (timedOut) {
+    strip.innerHTML = '<span class="ally-pending">⏳ Waiting for alliance… (4 seconds)</span>';
+  } else {
+    strip.innerHTML = '<span class="ally-pending">⚔️ Your alliance is fighting — answer to absorb this wave</span>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WAVE RESULT FLASH
+// ═══════════════════════════════════════════════════════════════
+
+function showWaveResult(result, waveNum, waveDamage, partialDamage) {
+  stopPolling();
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+
+  const icon  = document.getElementById('wres-icon');
+  const title = document.getElementById('wres-title');
+  const detail= document.getElementById('wres-detail');
+  const sub   = document.getElementById('wres-sub');
+
+  if (result === 'correct' || result === 'absorbed_by_ally') {
+    waveResults[waveNum - 1] = 'absorbed';
+    icon.textContent  = result === 'correct' ? '🛡️' : '⚔️';
+    title.textContent = result === 'correct' ? 'Wave Absorbed!' : 'Ally Absorbed It!';
+    title.className   = 'wres-title correct';
+    detail.textContent = waveDamage + ' points of damage blocked.';
+    sub.textContent   = result === 'correct' ? 'Your knowledge holds.' : 'Your alliance fights as one.';
+  } else if (result === 'timeout') {
+    waveResults[waveNum - 1] = 'timeout';
+    const dmg = partialDamage !== undefined ? partialDamage : Math.round(waveDamage * 0.85);
+    icon.textContent  = '⏳';
+    title.textContent = 'Time Ran Out';
+    title.className   = 'wres-title wrong';
+    detail.textContent = dmg + ' pts damage taken.';
+    sub.textContent   = 'The gods strike before you can answer.';
+  } else {
+    waveResults[waveNum - 1] = 'wrong';
+    const dmg = partialDamage !== undefined ? partialDamage : Math.round(waveDamage * 0.85);
+    icon.textContent  = '⚔️';
+    title.textContent = 'Wrong Answer';
+    title.className   = 'wres-title wrong';
+    detail.textContent = dmg + ' pts damage taken.';
+    sub.textContent   = 'The gods find a crack in your knowledge.';
+  }
+
+  showScreen('wave-result');
+
+  // Auto-advance after 2.2 seconds
+  setTimeout(() => {
+    if (waveNum < 3) {
+      startWave(waveNum + 1);
+    } else {
+      finishCombat();
+    }
+  }, 2200);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FINISH — CALL combat-wave-complete
+// ═══════════════════════════════════════════════════════════════
+
+async function finishCombat() {
+  stopPolling();
+
+  // Show complete screen with wave summary
+  const wrap = document.getElementById('complete-waves');
+  wrap.innerHTML = waveResults.map((r, i) => {
+    const icon = r === 'absorbed' ? '🛡️' : r === 'wrong' || r === 'timeout' ? '⚔️' : '—';
+    return '<div class="complete-wave-pip">' + icon + '</div>';
+  }).join('');
+  document.getElementById('complete-sub').textContent = 'Calculating your fate…';
+  showScreen('complete');
+
+  // Build waves_result summary for the server
+  const waves_result = waveResults.map((r, i) => ({
+    wave: i + 1,
+    absorbed: r === 'absorbed',
+    result: r
+  }));
+
+  try {
+    await apiFetch('/api/olympus/combat-wave-complete', 'POST', { waves_result });
+    // Success — redirect to result screen
+    document.getElementById('complete-sub').textContent = 'The gods have judged you.';
+    setTimeout(() => {
+      window.location.href = '/revenge_of_the_gods.html?result=1';
+    }, 1200);
+  } catch(e) {
+    // Even if this fails, redirect — server may have already resolved
+    setTimeout(() => {
+      window.location.href = '/revenge_of_the_gods.html?result=1';
+    }, 1500);
+  }
+}
+
+// ── Boot ─────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
