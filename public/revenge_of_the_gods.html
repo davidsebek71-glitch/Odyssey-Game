@@ -103,7 +103,7 @@
   }
   .path-card:hover:not(.locked):not(.selected) { border-color:var(--bright-gold); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.5); }
   .path-card.selected { border-color:#4a8a4a; background:rgba(26,74,26,0.25); }
-  .path-card.locked { opacity:0.45; cursor:not-allowed; }
+  .path-card.locked { opacity:0.72; cursor:not-allowed; border-color:rgba(200,80,80,0.35); border-style:dashed; }
   .path-card.safe { border-color:rgba(74,138,74,0.4); }
   .path-card.committed-by-us { border-color:#4a8a4a; background:rgba(26,74,26,0.2); pointer-events:none; }
 
@@ -117,7 +117,11 @@
   .path-card.selected .path-attack.danger { color:#e07070; }
   .path-card.selected .path-attack.safe-label { color:#8ae08a; }
   .path-card.selected .path-hook { display:block; font-style:italic; font-size:0.82rem; color:rgba(240,208,96,0.6); margin-top:8px; line-height:1.5; text-align:center; }
-  .path-claimed { position:absolute; top:8px; right:10px; font-family:'Cinzel',serif; font-size:0.65rem; color:#e07070; letter-spacing:0.1em; }
+  .path-claimed {
+    display:block; margin-top:8px;
+    font-family:'Cinzel',serif; font-size:0.78rem; font-weight:700;
+    color:#e07070; letter-spacing:0.06em; text-align:center;
+  }
   .path-vote-count { font-family:'Cinzel',serif; font-size:0.7rem; color:rgba(192,160,240,0.7); margin-top:8px; }
 
   .paths-actions { text-align:center; padding:16px 20px 32px; }
@@ -185,8 +189,27 @@
   .combat-result-box { background:rgba(5,0,0,0.85); border:1px solid rgba(224,112,112,0.3); border-radius:6px; padding:28px; margin:20px 0; animation:fadeIn 0.8s ease; }
   .combat-deducted { font-family:'Cinzel Decorative',serif; font-size:2.4rem; color:#ff6060; margin-bottom:10px; text-shadow:0 0 20px rgba(255,80,80,0.5); }
   .combat-remaining { font-family:'Cinzel',serif; font-size:1.1rem; color:var(--pale-gold); }
+  .combat-remaining.danger  { color:#ff8080; }
+  .combat-remaining.warning { color:#e0c060; }
+  .combat-remaining.safe    { color:#8ae08a; }
+  .combat-before  { font-family:'Cinzel',serif; font-size:0.85rem; color:rgba(240,208,96,0.55); margin-bottom:8px; }
   .combat-safe-msg { font-family:'Cinzel',serif; font-size:1.2rem; color:#8ae08a; }
   .combat-hades { color:#c0a0f0; font-style:italic; }
+  /* Points bar shown during story phase — alliance pts vs attack */
+  .combat-points-bar {
+    display:flex; justify-content:center; gap:32px; align-items:center;
+    margin:16px 0 0;
+    padding:10px 20px;
+    background:rgba(0,0,0,0.5);
+    border:1px solid rgba(184,134,11,0.2);
+    border-radius:4px;
+    font-family:'Cinzel',serif;
+  }
+  .combat-pts-label { font-size:0.68rem; color:var(--stone); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:3px; }
+  .combat-pts-value { font-size:1.3rem; font-weight:700; }
+  .combat-pts-value.alliance { color:var(--bright-gold); }
+  .combat-pts-value.attack   { color:#e07070; }
+  .combat-pts-divider { color:rgba(184,134,11,0.3); font-size:1.4rem; }
   .btn-fight {
     font-family:'Cinzel',serif; font-size:1rem; letter-spacing:0.15em;
     padding:15px 52px;
@@ -298,6 +321,17 @@
       <div class="gold-divider"></div>
       <div class="combat-story-lines" id="combat-story-lines"></div>
       <div class="combat-roll-line" id="combat-roll-line"></div>
+      <div class="combat-points-bar" id="combat-points-bar" style="display:none;">
+        <div>
+          <div class="combat-pts-label">Your Alliance</div>
+          <div class="combat-pts-value alliance" id="bar-alliance-pts">—</div>
+        </div>
+        <div class="combat-pts-divider">vs</div>
+        <div>
+          <div class="combat-pts-label">God's Attack</div>
+          <div class="combat-pts-value attack" id="bar-attack-pts">—</div>
+        </div>
+      </div>
       <button class="btn-fight" id="fight-btn" onclick="markReady()">I'm Ready to Roll →</button>
     </div>
   </div>
@@ -620,8 +654,8 @@ function renderPaths(paths, round) {
     card.className = 'path-card' + (path.locked ? ' locked' : '');
 
     card.innerHTML = `
-      ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
       <div class="path-name">${path.label}</div>
+      ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
       <div class="path-vote-count" id="path-votes-${path.idx}"></div>
     `;
 
@@ -1172,6 +1206,16 @@ async function showCombat(round) {
   fightBtn.style.color = '';
   fightBtn.classList.remove('reveal');
 
+  // Populate the points bar — shows alliance pts vs god's attack value
+  const bar = document.getElementById('combat-points-bar');
+  if (fullPath && !fullPath.safe && allianceData) {
+    document.getElementById('bar-alliance-pts').textContent = allianceData.total_points.toLocaleString();
+    document.getElementById('bar-attack-pts').textContent = fullPath.attack.toLocaleString();
+    bar.style.display = '';
+  } else {
+    bar.style.display = 'none';
+  }
+
   if (fullPath && fullPath.safe) {
     document.getElementById('combat-god-name').textContent = 'You Were Out of Town';
     document.getElementById('combat-god-name').style.color = '#8ae08a';
@@ -1279,17 +1323,25 @@ function displayCombatResult(data) {
 
     var resultBox = document.getElementById('combat-result');
     if (data.safe_path) {
-      resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>';
+      resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>' +
+        '<div class="combat-remaining safe" style="margin-top:12px;">' + (data.points_after || 0).toLocaleString() + ' points — keep climbing</div>';
     } else if (data.hades_triggered) {
       resultBox.innerHTML =
         '<div class="combat-deducted" style="color:#c0a0f0;font-size:1.6rem;">Hades has claimed you.</div>' +
-        '<div class="combat-remaining" style="color:#c0a0f0;font-style:italic;">Your alliance enters the shadow realm. Fight on.</div>';
+        '<div class="combat-remaining" style="color:#c0a0f0;font-style:italic;margin-top:8px;">Your alliance enters the shadow realm. Fight on.</div>';
     } else {
-      var deducted  = data.points_deducted || 0;
+      var before    = (data.points_before  || 0).toLocaleString();
+      var deducted  = (data.points_deducted || 0).toLocaleString();
       var remaining = data.points_after    || 0;
+      // Color-code remaining: green ≥ 1500, yellow 500–1499, red < 500
+      var remClass  = remaining >= 1500 ? 'safe' : remaining >= 500 ? 'warning' : 'danger';
+      var remLabel  = remaining < 200
+        ? remaining + ' points — one more hit and Hades claims you'
+        : remaining.toLocaleString() + ' points remaining';
       resultBox.innerHTML =
-        '<div class="combat-deducted">−' + deducted + ' points</div>' +
-        '<div class="combat-remaining">' + remaining + ' points remaining</div>';
+        '<div class="combat-before">Started with ' + before + ' pts</div>' +
+        '<div class="combat-deducted">−' + deducted + '</div>' +
+        '<div class="combat-remaining ' + remClass + '">' + remLabel + '</div>';
     }
 
     // Show the correct continue button — Hades path skips the puzzle chamber entirely
