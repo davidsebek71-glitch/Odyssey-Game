@@ -308,17 +308,13 @@ async function init() {
     raceState    = state.state;
 
     if (!raceState || raceState.current_phase !== 'combat') {
-      // Combat already resolved — go back to show the result
       window.location.href = '/revenge_of_the_gods.html?result=1';
       return;
     }
 
-    // Load student's own data (for archetype + Drachma)
-    const meRes  = await fetch('/api/student/me', { headers: H });
-    if (meRes.ok) {
-      studentData     = await meRes.json();
-      personalDrachma = studentData.drachma || 0;
-    }
+    // Archetype + Drachma now returned directly by /api/olympus/state
+    personalDrachma = state.drachma || 0;
+    studentData     = { archetype: state.archetype || null, drachma: personalDrachma };
 
     // Update loading screen with god name (fetch from wave-status if session exists)
     await startShop();
