@@ -16037,7 +16037,7 @@ const COMBAT_SCENARIOS = {
 // Returns { effectiveLore, effectiveCunning, effectiveCraft, archetypes[] }
 function getHeroicStatsForAlliance(allianceId) {
   const members = query(
-    `SELECT student_id, archetype FROM students
+    `SELECT student_id, selected_avatar FROM students
      WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
     [allianceId]
   );
@@ -16048,7 +16048,8 @@ function getHeroicStatsForAlliance(allianceId) {
   const archetypes    = [];
 
   for (const m of members) {
-    if (m.archetype) archetypes.push(m.archetype);
+    const av = m.selected_avatar ? m.selected_avatar.split('_')[0] : null;
+    if (av) archetypes.push(av);
 
     // Compute lore/craft/honor from grade records (same logic as heroic-stats endpoint)
     const records = query(`
@@ -16148,9 +16149,9 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
     let archetype = null, drachma = 0;
     try {
       const studentRow = query(
-        `SELECT archetype, drachma FROM students WHERE student_id=?`, [req.user.id]
+        `SELECT selected_avatar, drachma FROM students WHERE student_id=?`, [req.user.id]
       );
-      if (studentRow[0]) { archetype = studentRow[0].archetype || null; drachma = studentRow[0].drachma || 0; }
+      if (studentRow[0]) { const av = studentRow[0].selected_avatar; archetype = av ? av.split('_')[0] : null; drachma = studentRow[0].drachma || 0; }
     } catch(e) { /* column may not exist in older schema — safe to ignore */ }
     res.json({ alliance, state, archetype, drachma });
   } catch(e) {
@@ -17468,8 +17469,8 @@ app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
     if (buffs.includes('hermes_speed')) baseTimer += 12;
 
     // Oracle's Vision: reveal question 8s early (Eternal archetype gets this free)
-    const studentRow = query(`SELECT archetype FROM students WHERE student_id=?`, [req.user.id]);
-    const archetype = studentRow[0] ? studentRow[0].archetype : null;
+    const studentRow = query(`SELECT selected_avatar FROM students WHERE student_id=?`, [req.user.id]);
+    const archetype = studentRow[0] && studentRow[0].selected_avatar ? studentRow[0].selected_avatar.split('_')[0] : null;
     const hasOracleVision = buffs.includes('oracle_vision') || archetype === 'eternal';
 
     // Cunning >=10: eliminate 1 wrong answer. Seeker archetype: eliminate 2.
@@ -17551,8 +17552,8 @@ app.post('/api/olympus/wave-answer', authenticateToken, (req, res) => {
     const waveDamage = [w1, w2, w3][wn - 1];
 
     // Archetype: The Tested gets a retry on Wave 2
-    const studentRow = query(`SELECT archetype FROM students WHERE student_id=?`, [req.user.id]);
-    const archetype = studentRow[0] ? studentRow[0].archetype : null;
+    const studentRow = query(`SELECT selected_avatar FROM students WHERE student_id=?`, [req.user.id]);
+    const archetype = studentRow[0] && studentRow[0].selected_avatar ? studentRow[0].selected_avatar.split('_')[0] : null;
 
     // If wave already absorbed by a teammate — still need personal correct to advance
     if (session[`wave${wn}_absorbed`]) {
