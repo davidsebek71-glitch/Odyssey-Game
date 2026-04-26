@@ -332,7 +332,7 @@
           <div class="combat-pts-value attack" id="bar-attack-pts">—</div>
         </div>
       </div>
-      <button class="btn-fight" id="fight-btn" onclick="markReady()">I'm Ready to Roll →</button>
+      <button class="btn-fight" id="fight-btn" onclick="prepareBattle()">Prepare for Battle →</button>
     </div>
   </div>
   <!-- Phase 2: Resolution -->
@@ -343,6 +343,40 @@
       <div class="combat-result-box show" id="combat-result">
         <div class="combat-deducted" id="combat-deducted"></div>
         <div class="combat-remaining" id="combat-remaining"></div>
+      </div>
+      <!-- Wave breakdown (populated by displayCombatResult) -->
+      <div id="wave-breakdown-wrap" style="display:none;margin:16px 0;"></div>
+      <!-- Box URL revealed after surviving combat -->
+      <div id="box-url-wrap" style="display:none;margin:20px 0;padding:18px 24px;
+           background:rgba(184,134,11,0.12);border:1px solid rgba(184,134,11,0.35);
+           border-radius:6px;text-align:center;">
+        <div style="font-family:'Cinzel',serif;font-size:0.72rem;color:rgba(240,208,96,0.6);
+             letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">
+          Your Path Forward
+        </div>
+        <a id="box-url-link" href="#" target="_blank" style="font-family:'Cinzel Decorative',serif;
+           font-size:1.05rem;color:var(--bright-gold);text-decoration:none;
+           border-bottom:1px solid rgba(184,134,11,0.5);padding-bottom:2px;">
+          Open the Locked Box →
+        </a>
+        <div style="font-family:'Cinzel',serif;font-size:0.75rem;color:var(--stone);
+             margin-top:10px;">Solve the box. Bring back the secret word to unlock the next round.</div>
+      </div>
+      <!-- Round unlock input -->
+      <div id="round-unlock-wrap" style="display:none;margin:16px 0;">
+        <div style="font-family:'Cinzel',serif;font-size:0.8rem;color:var(--pale-gold);
+             margin-bottom:10px;letter-spacing:0.1em;">Enter the secret word from the box:</div>
+        <div style="display:flex;gap:10px;justify-content:center;align-items:center;">
+          <input id="secret-word-input" type="text" placeholder="SECRET WORD"
+            style="background:rgba(6,9,15,0.8);border:1px solid rgba(184,134,11,0.4);
+            border-radius:4px;padding:10px 16px;color:var(--pale-gold);font-family:'Cinzel',serif;
+            font-size:0.95rem;letter-spacing:0.15em;text-transform:uppercase;width:200px;
+            outline:none;text-align:center;" />
+          <button onclick="submitSecretWord()" class="btn-commit"
+            style="padding:10px 20px;font-size:0.85rem;">Unlock →</button>
+        </div>
+        <div id="unlock-msg" style="font-family:'Cinzel',serif;font-size:0.8rem;
+             color:#e07070;margin-top:8px;min-height:20px;"></div>
       </div>
       <div id="combat-continue-wrap" style="margin-top:24px;">
         <button id="combat-puzzle-btn" class="btn-commit" onclick="proceedToPuzzle()">Enter the Puzzle Chamber →</button>
@@ -486,12 +520,41 @@ function routeToPhase(phase, round) {
       break;
 
     case 'combat':
-      showCombat(round);
+      // If returning from combat_wave.html with a stored result, show it
+      if (raceState && raceState.combat_result) {
+        try {
+          const stored = JSON.parse(raceState.combat_result);
+          // Show the combat story screen first so displayCombatResult has elements to populate
+          showCombat(round).then(function() {
+            displayCombatResult(stored);
+          });
+        } catch(e) {
+          showCombat(round);
+        }
+      } else {
+        showCombat(round);
+      }
       break;
 
     case 'puzzle':
-      // Redirect directly to puzzle room
-      window.location.href = '/puzzle_room.html';
+      // If arriving here with ?result=1 (from combat_wave.html redirect),
+      // show the stored combat result before proceeding to puzzle room.
+      if (new URLSearchParams(window.location.search).get('result') === '1' && raceState && raceState.combat_result) {
+        try {
+          const stored = JSON.parse(raceState.combat_result);
+          showScreen('combat');
+          document.getElementById('combat-story-phase').style.display = 'none';
+          document.getElementById('combat-result-phase').style.display = 'flex';
+          // Populate god name from stored result then call displayCombatResult
+          displayCombatResult(stored);
+          // Clear the URL param so a refresh goes straight to puzzle
+          history.replaceState(null, '', window.location.pathname);
+        } catch(e) {
+          window.location.href = '/puzzle_room.html';
+        }
+      } else {
+        window.location.href = '/puzzle_room.html';
+      }
       break;
 
     case 'god_test':
@@ -1156,7 +1219,7 @@ function revealStoryLines(lines, rollText, onComplete) {
     // Safe path — show button immediately styled green
     setTimeout(() => {
       fightBtn.textContent = 'Move On — No Combat →';
-      fightBtn.onclick = function() { markReady(); };
+      fightBtn.onclick = function() { prepareBattle(); };
       fightBtn.style.background = 'linear-gradient(135deg,#1a4a1a,#0a2a0a)';
       fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
       fightBtn.style.color = '#8ae08a';
@@ -1200,7 +1263,7 @@ async function showCombat(round) {
 
   const fightBtn = document.getElementById('fight-btn');
   fightBtn.disabled = false;
-  fightBtn.textContent = 'I\'m Ready to Roll →';
+  fightBtn.textContent = 'Prepare for Battle →';
   fightBtn.style.background = '';
   fightBtn.style.borderColor = '';
   fightBtn.style.color = '';
@@ -1235,76 +1298,32 @@ async function showCombat(round) {
   }
 }
 
-async function markReady() {
+// ── prepareBattle — replaces markReady ───────────────────────────────────────
+// Navigates to combat_wave.html which handles the 3-wave myth knowledge combat.
+// The wave system reads all state from the server — no params needed.
+function prepareBattle() {
   const btn = document.getElementById('fight-btn');
   btn.disabled = true;
-  btn.textContent = 'Waiting for alliance…';
-
-  try {
-    const res  = await fetch('/api/olympus/combat-ready', { method:'POST', headers:H });
-    const data = await res.json();
-
-    if (!res.ok) {
-      btn.disabled = false;
-      btn.textContent = 'I\'m Ready to Roll →';
-      alert(data.error || 'Error. Please try again.');
-      return;
-    }
-
-    if (data.resolved) {
-      displayCombatResult(data);
-      return;
-    }
-
-    // Waiting for teammates — update button with live count and start polling
-    btn.textContent = 'Ready (' + data.ready_count + '/' + data.needed + ')';
-    startCombatResultPoll();
-
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = 'I\'m Ready to Roll →';
-    alert('Network error. Please try again.');
-  }
+  btn.textContent = 'Entering the Battle…';
+  // Small delay for dramatic effect before navigation
+  setTimeout(() => {
+    window.location.href = '/combat_wave.html';
+  }, 600);
 }
 
-function startCombatResultPoll() {
-  stopPolling();
-  pollTimer = setInterval(async function() {
-    try {
-      const res  = await fetch('/api/olympus/combat-result', { headers:H });
-      const data = await res.json();
-      if (!res.ok) { stopPolling(); return; }
-
-      if (data.resolved) {
-        stopPolling();
-        displayCombatResult(data);
-        return;
-      }
-
-      // Update ready count on button while waiting
-      if (data.pending) {
-        const btn = document.getElementById('fight-btn');
-        if (btn) btn.textContent = 'Ready (' + data.ready_count + '/' + data.needed + ')';
-      }
-    } catch(e) { /* network blip — keep polling */ }
-  }, 2000);
-}
-
+// ── displayCombatResult ───────────────────────────────────────────────────────
+// Called when returning from combat_wave.html with a result stored on the server.
+// Handles the new wave_breakdown format from /api/olympus/combat-wave-complete.
 function displayCombatResult(data) {
   stopPolling();
 
   if (data.already_advanced) {
-    // No result stored — load state and route forward
     loadState().then(function() {
       if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
     });
     return;
   }
 
-  // Show result directly from API data — do NOT call loadState() here.
-  // loadState() updates raceState to 'puzzle' which would trigger the poll
-  // loop to redirect before the player can read the outcome.
-  // Player manually clicks "Enter the Puzzle Chamber" to proceed.
   var storyPhase  = document.getElementById('combat-story-phase');
   var resultPhase = document.getElementById('combat-result-phase');
 
@@ -1317,46 +1336,133 @@ function displayCombatResult(data) {
     resultPhase.style.opacity = '0';
     resultPhase.style.transition = 'opacity 0.6s ease';
 
-    var godName = committedPath ? (committedPath.god || 'The Gods') : 'The Gods';
+    var godName = data.god || (committedPath ? (committedPath.god || 'The Gods') : 'The Gods');
     document.getElementById('combat-result-god').textContent = godName;
     document.getElementById('combat-result-god').style.color = data.safe_path ? '#8ae08a' : '#e07070';
 
     var resultBox = document.getElementById('combat-result');
+
     if (data.safe_path) {
       resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>' +
-        '<div class="combat-remaining safe" style="margin-top:12px;">' + (data.points_after || 0).toLocaleString() + ' points — keep climbing</div>';
+        '<div class="combat-remaining safe" style="margin-top:12px;">' +
+        (data.points_after || 0).toLocaleString() + ' points — keep climbing</div>';
+
     } else if (data.hades_triggered) {
       resultBox.innerHTML =
         '<div class="combat-deducted" style="color:#c0a0f0;font-size:1.6rem;">Hades has claimed you.</div>' +
         '<div class="combat-remaining" style="color:#c0a0f0;font-style:italic;margin-top:8px;">Your alliance enters the shadow realm. Fight on.</div>';
+
     } else {
+      // Wave-breakdown result (new format from combat-wave-complete)
       var before    = (data.points_before  || 0).toLocaleString();
-      var deducted  = (data.points_deducted || 0).toLocaleString();
-      var remaining = data.points_after    || 0;
-      // Color-code remaining: green ≥ 1500, yellow 500–1499, red < 500
+      var netDmg    = data.net_damage !== undefined ? data.net_damage : (data.points_deducted || 0);
+      var remaining = data.points_after || 0;
       var remClass  = remaining >= 1500 ? 'safe' : remaining >= 500 ? 'warning' : 'danger';
       var remLabel  = remaining < 200
         ? remaining + ' points — one more hit and Hades claims you'
         : remaining.toLocaleString() + ' points remaining';
+
+      var bonusLine = (data.bonus_points && data.bonus_points > 0)
+        ? '<div style="font-family:\'Cinzel\',serif;font-size:0.85rem;color:#8ae08a;margin-top:6px;">✦ The Fallen\'s gift: +' + data.bonus_points + ' stolen from the gods</div>'
+        : '';
+      var phoenixLine = data.phoenix_feather_used
+        ? '<div style="font-family:\'Cinzel\',serif;font-size:0.82rem;color:#f0a040;margin-top:6px;">🪶 The Phoenix Feather saved your alliance from oblivion</div>'
+        : '';
+      var perfectLine = data.perfect_block
+        ? '<div style="font-family:\'Cinzel Decorative\',serif;font-size:0.9rem;color:#f0d060;margin-bottom:8px;">⚡ Perfect Defense — All Waves Absorbed</div>'
+        : '';
+
       resultBox.innerHTML =
+        perfectLine +
         '<div class="combat-before">Started with ' + before + ' pts</div>' +
-        '<div class="combat-deducted">−' + deducted + '</div>' +
-        '<div class="combat-remaining ' + remClass + '">' + remLabel + '</div>';
+        '<div class="combat-deducted">−' + netDmg.toLocaleString() + '</div>' +
+        '<div class="combat-remaining ' + remClass + '">' + remLabel + '</div>' +
+        bonusLine + phoenixLine;
     }
 
-    // Show the correct continue button — Hades path skips the puzzle chamber entirely
+    // Wave breakdown detail
+    var breakdownWrap = document.getElementById('wave-breakdown-wrap');
+    if (data.wave_breakdown && data.wave_breakdown.length) {
+      var bHtml = '<div style="font-family:\'Cinzel\',serif;font-size:0.7rem;color:var(--stone);' +
+        'letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;">Wave Results</div>';
+      data.wave_breakdown.forEach(function(w) {
+        var icon    = w.absorbed ? '🛡️' : '⚔️';
+        var wColor  = w.absorbed ? '#8ae08a' : '#e07070';
+        var wLabel  = w.absorbed
+          ? 'Wave ' + w.wave + ': Absorbed (' + w.damage + ' pts blocked)'
+          : 'Wave ' + w.wave + ': ' + w.taken + ' pts damage taken';
+        bHtml += '<div style="font-family:\'Cinzel\',serif;font-size:0.82rem;color:' + wColor +
+          ';margin:4px 0;">' + icon + ' ' + wLabel + '</div>';
+      });
+      breakdownWrap.innerHTML = bHtml;
+      breakdownWrap.style.display = 'block';
+    } else {
+      breakdownWrap.style.display = 'none';
+    }
+
+    // Box URL — shown after surviving combat (not for Hades)
+    var boxWrap   = document.getElementById('box-url-wrap');
+    var unlockWrap = document.getElementById('round-unlock-wrap');
     var puzzleBtn = document.getElementById('combat-puzzle-btn');
     var hadesBtn  = document.getElementById('combat-hades-btn');
+
     if (data.hades_triggered) {
-      puzzleBtn.style.display = 'none';
-      hadesBtn.style.display  = '';
+      puzzleBtn.style.display  = 'none';
+      hadesBtn.style.display   = '';
+      boxWrap.style.display    = 'none';
+      unlockWrap.style.display = 'none';
     } else {
       puzzleBtn.style.display = '';
       hadesBtn.style.display  = 'none';
+      // Show box URL if present (comes from combat-wave-complete)
+      if (data.box_url) {
+        document.getElementById('box-url-link').href = data.box_url;
+        boxWrap.style.display    = '';
+        unlockWrap.style.display = '';
+      } else {
+        boxWrap.style.display    = 'none';
+        unlockWrap.style.display = 'none';
+      }
     }
 
     setTimeout(function() { resultPhase.style.opacity = '1'; }, 50);
   }, 450);
+}
+
+// ── submitSecretWord — validates box secret word to unlock next round ─────────
+async function submitSecretWord() {
+  var input = document.getElementById('secret-word-input');
+  var msg   = document.getElementById('unlock-msg');
+  var word  = (input.value || '').trim();
+  if (!word) { msg.textContent = 'Enter the word from the box.'; return; }
+
+  msg.style.color = 'var(--stone)';
+  msg.textContent = 'Checking…';
+
+  try {
+    var res  = await fetch('/api/olympus/round-unlock', {
+      method: 'POST', headers: H,
+      body: JSON.stringify({ secret_word: word })
+    });
+    var data = await res.json();
+
+    if (data.unlocked) {
+      msg.style.color = '#8ae08a';
+      msg.textContent = data.message || 'The gates open.';
+      input.disabled  = true;
+      // Brief pause then route to new round
+      setTimeout(async function() {
+        await loadState();
+        if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+      }, 1800);
+    } else {
+      msg.style.color = '#e07070';
+      msg.textContent = data.message || 'Incorrect word. Try again.';
+    }
+  } catch(e) {
+    msg.style.color = '#e07070';
+    msg.textContent = 'Network error. Try again.';
+  }
 }
 
 function proceedToPuzzle() {
@@ -1364,8 +1470,6 @@ function proceedToPuzzle() {
 }
 
 function proceedToHades() {
-  // Hades result is already stored on the server — just route directly to
-  // the Hades waiting screen without touching puzzle_room.html.
   showHadesWaiting();
 }
 
