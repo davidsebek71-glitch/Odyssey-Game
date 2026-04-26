@@ -537,28 +537,26 @@ function routeToPhase(phase, round) {
       break;
 
     case 'puzzle':
-      // If arriving here with ?result=1 (from combat_wave.html redirect),
-      // show the stored combat result before proceeding to puzzle room.
-      if (new URLSearchParams(window.location.search).get('result') === '1' && raceState && raceState.combat_result) {
+      // Always show the stored combat result — box URL system replaces puzzle_room.
+      if (raceState && raceState.combat_result) {
         try {
           const stored = JSON.parse(raceState.combat_result);
           showScreen('combat');
           document.getElementById('combat-story-phase').style.display = 'none';
           document.getElementById('combat-result-phase').style.display = 'flex';
-          // Populate god name from stored result then call displayCombatResult
           displayCombatResult(stored);
-          // Clear the URL param so a refresh goes straight to puzzle
           history.replaceState(null, '', window.location.pathname);
         } catch(e) {
-          window.location.href = '/puzzle_room.html';
+          showWaiting('Visit the Locked Box', 'Check your result screen to find the box URL.', phase);
         }
       } else {
-        window.location.href = '/puzzle_room.html';
+        showWaiting('Visit the Locked Box', 'Your alliance must complete the combat wave first.', phase);
       }
       break;
 
     case 'god_test':
-      window.location.href = '/god_test.html';
+      // Hermes gauntlet removed from game flow — show waiting and let teacher reset if needed.
+      showWaiting('Waiting for next round…', 'Ask your teacher to advance if you are stuck here.', phase);
       break;
 
     case 'hades_waiting':
@@ -1412,14 +1410,16 @@ function displayCombatResult(data) {
       boxWrap.style.display    = 'none';
       unlockWrap.style.display = 'none';
     } else {
-      puzzleBtn.style.display = '';
       hadesBtn.style.display  = 'none';
-      // Show box URL if present (comes from combat-wave-complete)
+      // Box URL system replaces puzzle chamber — hide old button when box_url present
       if (data.box_url) {
         document.getElementById('box-url-link').href = data.box_url;
         boxWrap.style.display    = '';
         unlockWrap.style.display = '';
+        puzzleBtn.style.display  = 'none';  // box URL flow replaces this
       } else {
+        // No box URL — keep puzzle button as fallback for old-flow states
+        puzzleBtn.style.display  = '';
         boxWrap.style.display    = 'none';
         unlockWrap.style.display = 'none';
       }
@@ -1466,6 +1466,8 @@ async function submitSecretWord() {
 }
 
 function proceedToPuzzle() {
+  // Puzzle chamber replaced by box URL system — this button is hidden when box_url present.
+  // Kept as fallback stub only.
   window.location.href = '/puzzle_room.html';
 }
 
