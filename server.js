@@ -16030,6 +16030,66 @@ const COMBAT_SCENARIOS = {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+// ── getHeroicStatsForAlliance ─────────────────────────────────────────────────
+// Computes effective lore/cunning/craft/honor for an alliance using the same
+// formula as /api/student/heroic-stats. Stats are computed from grade records,
+// NOT stored as columns on the students table.
+// Returns { effectiveLore, effectiveCunning, effectiveCraft, archetypes[] }
+function getHeroicStatsForAlliance(allianceId) {
+  const members = query(
+    `SELECT student_id, archetype FROM students
+     WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+    [allianceId]
+  );
+
+  const loreScores    = [];
+  const cunningScores = [];
+  const craftScores   = [];
+  const archetypes    = [];
+
+  for (const m of members) {
+    if (m.archetype) archetypes.push(m.archetype);
+
+    // Compute lore/craft/honor from grade records (same logic as heroic-stats endpoint)
+    const records = query(`
+      SELECT gr.points_earned, ar.assignment_type, ar.section
+      FROM grade_records gr
+      JOIN assignments_ref ar ON gr.assignment_id = ar.assignment_id
+      WHERE gr.student_id = ? AND gr.points_earned > 0
+    `, [m.student_id]);
+
+    let lore = 0, craft = 0;
+    for (const r of records) {
+      const t = r.assignment_type;
+      const s = r.section || '';
+      const isClassical = s === 'classical' || s === 'classical_creative' || s === 'bonus';
+      if (!isClassical) continue;
+      if (t === 'quiz') lore += r.points_earned;
+      else if (t === 'mural' || t === 'word_cloud' || t === 'creative') craft += r.points_earned;
+    }
+
+    // Cunning from arena wins
+    const battleStats = query(
+      'SELECT wins FROM arena_battle_stats WHERE student_id=?', [m.student_id]
+    )[0];
+    const cunning = ((battleStats && battleStats.wins) || 0) * 3;
+
+    loreScores.push(lore);
+    cunningScores.push(cunning);
+    craftScores.push(craft);
+  }
+
+  const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+  const max = arr => arr.length ? Math.max(...arr) : 0;
+
+  return {
+    effectiveLore:    max(loreScores)    + Math.floor(avg(loreScores)    / 2),
+    effectiveCunning: max(cunningScores) + Math.floor(avg(cunningScores) / 2),
+    effectiveCraft:   max(craftScores)   + Math.floor(avg(craftScores)   / 2),
+    archetypes
+  };
+}
+
 function getAllianceForStudent(studentId) {
   const rows = query(
     `SELECT a.alliance_id, a.alliance_name AS name, a.total_points, a.class_period
@@ -17399,19 +17459,10 @@ app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
     // Shuffle answer options (server-side, correct answer position randomized)
     const options = [qObj.correct, ...qObj.wrong].sort(() => Math.random() - 0.5);
 
-    // Determine timer based on alliance Lore + Cunning stats
-    const memberStats = query(
-      `SELECT lore, cunning, archetype FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [alliance.alliance_id]
-    );
-    const loreScores    = memberStats.map(m => m.lore    || 0);
-    const cunningScores = memberStats.map(m => m.cunning  || 0);
-    const maxLore       = Math.max(...loreScores);
-    const avgLore       = loreScores.reduce((a, b) => a + b, 0) / (loreScores.length || 1);
-    const effectiveLore = maxLore + Math.floor(avgLore / 2);
-    const maxCunning    = Math.max(...cunningScores);
-    const avgCunning    = cunningScores.reduce((a, b) => a + b, 0) / (cunningScores.length || 1);
-    const effectiveCunning = maxCunning + Math.floor(avgCunning / 2);
+    // Compute alliance stats using grade records (lore/cunning are NOT stored columns)
+    const allianceStats    = getHeroicStatsForAlliance(alliance.alliance_id);
+    const effectiveLore    = allianceStats.effectiveLore;
+    const effectiveCunning = allianceStats.effectiveCunning;
 
     let baseTimer = effectiveLore >= 15 ? 30 : effectiveLore >= 8 ? 20 : 15;
     if (buffs.includes('hermes_speed')) baseTimer += 12;
@@ -17422,7 +17473,7 @@ app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
     const hasOracleVision = buffs.includes('oracle_vision') || archetype === 'eternal';
 
     // Cunning >=10: eliminate 1 wrong answer. Seeker archetype: eliminate 2.
-    const hasSeeker = memberStats.some(m => m.archetype === 'seeker');
+    const hasSeeker = allianceStats.archetypes.includes('seeker');
     let eliminateCount = 0;
     if (hasSeeker)                   eliminateCount = 2;
     else if (effectiveCunning >= 10) eliminateCount = 1;
@@ -17536,15 +17587,9 @@ app.post('/api/olympus/wave-answer', authenticateToken, (req, res) => {
     let damageReduction = 0.85; // default: wrong = 85% damage
     if (buffs.includes('hephaestus_armor')) damageReduction = 0.70;
 
-    // Craft stat check
-    const craftRows = query(
-      `SELECT craft FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [alliance.alliance_id]
-    );
-    const craftScores = craftRows.map(m => m.craft || 0);
-    const maxCraft = Math.max(...craftScores);
-    const avgCraft = craftScores.reduce((a, b) => a + b, 0) / (craftScores.length || 1);
-    const effectiveCraft = maxCraft + Math.floor(avgCraft / 2);
+    // Craft stat — computed from grade records, not a stored column
+    const allianceStatsForCraft = getHeroicStatsForAlliance(alliance.alliance_id);
+    const effectiveCraft = allianceStatsForCraft.effectiveCraft;
 
     if (archetype === 'builder') {
       damageReduction = effectiveCraft >= 15 ? 0.70 : 0.75;
@@ -17667,22 +17712,10 @@ app.post('/api/olympus/combat-wave-complete', authenticateToken, (req, res) => {
       if (absorbedCount >= 2) waveAbsorbed[2] = true;
     }
 
-    // Craft reduction for unabsorbed waves
-    const craftRows = query(
-      `SELECT craft FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [alliance.alliance_id]
-    );
-    const craftScores = craftRows.map(m => m.craft || 0);
-    const maxCraft = Math.max(...craftScores, 0);
-    const avgCraft = craftScores.reduce((a, b) => a + b, 0) / (craftScores.length || 1);
-    const effectiveCraft = maxCraft + Math.floor(avgCraft / 2);
-
-    // Check builder archetype in alliance
-    const builderRows = query(
-      `SELECT archetype FROM students WHERE alliance_id=? AND archetype='builder' AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [alliance.alliance_id]
-    );
-    const hasBuilder = builderRows.length > 0;
+    // Craft reduction — computed from grade records via helper (not a stored column)
+    const completionStats = getHeroicStatsForAlliance(alliance.alliance_id);
+    const effectiveCraft  = completionStats.effectiveCraft;
+    const hasBuilder      = completionStats.archetypes.includes('builder');
 
     let damageReduction = 1.0; // absorbed waves = 0 damage
     let partialReduction;
@@ -17703,11 +17736,7 @@ app.post('/api/olympus/combat-wave-complete', authenticateToken, (req, res) => {
     });
 
     // The Fallen archetype: perfect 3/3 absorb = steal 15pts from god (bonus points)
-    const fallenRows = query(
-      `SELECT archetype FROM students WHERE alliance_id=? AND archetype='fallen' AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [alliance.alliance_id]
-    );
-    const hasFallen = fallenRows.length > 0;
+    const hasFallen = completionStats.archetypes.includes('fallen');
     const perfectBlock = waveAbsorbed.every(Boolean);
     const bonusPoints = (hasFallen && perfectBlock) ? 15 : 0;
 
