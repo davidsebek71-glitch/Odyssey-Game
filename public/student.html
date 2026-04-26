@@ -14795,7 +14795,8 @@
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (!res.ok) {
-                    alert('Could not load race state. Try again.');
+                    console.error('Olympus state error:', res.status, await res.text().catch(()=>''));
+                    alert('Could not load race state (error ' + res.status + '). Try again in a moment.');
                     return;
                 }
                 const data = await res.json();

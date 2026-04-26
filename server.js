@@ -16085,11 +16085,14 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
     // Include student's own archetype + drachma so combat_wave.html needs no extra fetch
-    const studentRow = query(
-      `SELECT archetype, drachma FROM students WHERE student_id=?`, [req.user.id]
-    );
-    const student = studentRow[0] || {};
-    res.json({ alliance, state, archetype: student.archetype || null, drachma: student.drachma || 0 });
+    let archetype = null, drachma = 0;
+    try {
+      const studentRow = query(
+        `SELECT archetype, drachma FROM students WHERE student_id=?`, [req.user.id]
+      );
+      if (studentRow[0]) { archetype = studentRow[0].archetype || null; drachma = studentRow[0].drachma || 0; }
+    } catch(e) { /* column may not exist in older schema — safe to ignore */ }
+    res.json({ alliance, state, archetype, drachma });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
