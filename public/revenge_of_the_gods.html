@@ -1217,7 +1217,7 @@ function revealStoryLines(lines, rollText, onComplete) {
     // Safe path — show button immediately styled green
     setTimeout(() => {
       fightBtn.textContent = 'Move On — No Combat →';
-      fightBtn.onclick = function() { prepareBattle(); };
+      fightBtn.onclick = function() { safeCombatAdvance(); };
       fightBtn.style.background = 'linear-gradient(135deg,#1a4a1a,#0a2a0a)';
       fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
       fightBtn.style.color = '#8ae08a';
@@ -1293,6 +1293,30 @@ async function showCombat(round) {
     document.getElementById('combat-god-name').style.color = '#e07070';
     document.getElementById('combat-power-name').textContent = '';
     revealStoryLines(['The divine assault begins.', 'Defend your alliance.'], 'Roll to defend yourself.', null);
+  }
+}
+
+// ── safeCombatAdvance — safe path skips combat entirely ──────────────────────
+// Calls the server to mark combat resolved with zero damage, then shows
+// the box URL inline on the combat result screen. Never goes to combat_wave.html.
+async function safeCombatAdvance() {
+  const btn = document.getElementById('fight-btn');
+  btn.disabled = true;
+  btn.textContent = 'Advancing…';
+  try {
+    var res  = await fetch('/api/olympus/safe-path-advance', { method: 'POST', headers: H });
+    var data = await res.json();
+    if (!res.ok) {
+      btn.disabled = false;
+      btn.textContent = 'Move On — No Combat →';
+      alert((data.error || 'Could not advance') + ' (status ' + res.status + ')');
+      return;
+    }
+    displayCombatResult(data);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Move On — No Combat →';
+    alert('Network error. Please try again.');
   }
 }
 
@@ -1425,7 +1449,11 @@ function displayCombatResult(data) {
       }
     }
 
-    setTimeout(function() { resultPhase.style.opacity = '1'; }, 50);
+    setTimeout(function() {
+      resultPhase.style.opacity = '1';
+      // Poll for phase changes — Player 2 will auto-advance when Player 1 unlocks next round
+      startPolling();
+    }, 50);
   }, 450);
 }
 

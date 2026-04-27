@@ -17868,6 +17868,64 @@ app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
 });
 
 // ============================================================
+// ── POST /api/olympus/safe-path-advance ──────────────────────────────────────
+// Called when alliance chose a safe path — skips combat entirely.
+// Marks combat resolved with zero damage, advances to puzzle phase, returns box URL.
+app.post('/api/olympus/safe-path-advance', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'No race state' });
+
+    // Idempotent — if already advanced past combat, return stored result
+    if (state.current_phase !== 'combat') {
+      if (state.combat_result) return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
+      return res.json({ resolved: true, already_advanced: true, safe_path: true });
+    }
+
+    // Verify this alliance actually chose a safe path
+    const round = state.current_round;
+    const lockRows = query(
+      `SELECT path_index FROM olympus_path_locks WHERE alliance_id=? AND round_number=? LIMIT 1`,
+      [alliance.alliance_id, round]
+    );
+    if (!lockRows[0]) return res.status(400).json({ error: 'No committed path found' });
+    const pathIdx = lockRows[0].path_index;
+    const paths = ROUND_PATHS[round] || [];
+    const path = paths.find(p => p.idx === pathIdx);
+    if (!path || !path.safe) return res.status(400).json({ error: 'Committed path is not a safe path' });
+
+    const BOX_URLS = {
+      1: 'https://t.ly/LtCM',
+      2: 'https://t.ly/GzUj',
+      3: 'https://t.ly/7PAl',
+      4: 'https://t.ly/SIsm',
+      5: 'https://bit.ly/3QnnCyI'
+    };
+
+    const combatResult = {
+      resolved:      true,
+      safe_path:     true,
+      god:           null,
+      total_attack:  0,
+      net_damage:    0,
+      points_before: alliance.total_points,
+      points_after:  alliance.total_points,
+      hades_triggered: false,
+      box_url:       BOX_URLS[round] || null
+    };
+
+    run(
+      `UPDATE olympus_race_state SET combat_result=?, current_phase='puzzle' WHERE alliance_id=?`,
+      [JSON.stringify(combatResult), alliance.alliance_id]
+    );
+    saveDatabase();
+    res.json(combatResult);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // END REVENGE OF THE GODS
 // ============================================================
 
