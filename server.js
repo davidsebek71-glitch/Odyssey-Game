@@ -17842,7 +17842,7 @@ app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
       2: 'chariot',
       3: 'pegasus',
       4: 'labyrinth',
-      5: null
+      5: '6849'  // final 4-digit code from the meta-puzzle — version 1
     };
 
     const completedRound = state.current_round;
@@ -17877,22 +17877,34 @@ app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
 
     // All members have entered the word — advance the round
     if (submittedCount >= totalMembers) {
-      const nextRound = completedRound + 1;
-      run(
-        `UPDATE olympus_race_state SET current_round=?, current_phase='path_choice',
-         combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
-        [nextRound, alliance.alliance_id]
-      );
-      run(`DELETE FROM olympus_votes WHERE alliance_id=? AND round_number=?`,
-        [alliance.alliance_id, completedRound]);
+      const isLastRound = (completedRound === 5);
+      if (isLastRound) {
+        // Final round complete — mark game done, do not increment round
+        run(
+          `UPDATE olympus_race_state SET current_phase='complete' WHERE alliance_id=?`,
+          [alliance.alliance_id]
+        );
+      } else {
+        const nextRound = completedRound + 1;
+        run(
+          `UPDATE olympus_race_state SET current_round=?, current_phase='path_choice',
+           combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
+          [nextRound, alliance.alliance_id]
+        );
+        run(`DELETE FROM olympus_votes WHERE alliance_id=? AND round_number=?`,
+          [alliance.alliance_id, completedRound]);
+      }
       saveDatabase();
       return res.json({
         self_correct:    true,
         all_submitted:   true,
+        game_complete:   isLastRound,
         submitted_count: submittedCount,
         needed:          totalMembers,
-        next_round:      nextRound,
-        message:         'The gates open. Round ' + nextRound + ' begins.'
+        next_round:      isLastRound ? null : completedRound + 1,
+        message:         isLastRound
+          ? 'The God Destroyer is yours. May the Battle Begin.'
+          : 'The gates open. Round ' + (completedRound + 1) + ' begins.'
       });
     }
 

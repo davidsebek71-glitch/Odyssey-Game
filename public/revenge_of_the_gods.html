@@ -364,7 +364,7 @@
       </div>
       <!-- Round unlock input -->
       <div id="round-unlock-wrap" style="display:none;margin:16px 0;">
-        <div style="font-family:'Cinzel',serif;font-size:0.8rem;color:var(--pale-gold);
+        <div id="unlock-label" style="font-family:'Cinzel',serif;font-size:0.8rem;color:var(--pale-gold);
              margin-bottom:10px;letter-spacing:0.1em;">Enter the secret word from the box:</div>
         <div style="display:flex;gap:10px;justify-content:center;align-items:center;">
           <input id="secret-word-input" type="text" placeholder="SECRET WORD"
@@ -399,6 +399,30 @@
     <div style="margin-top:24px;">
       <span style="font-family:'Cinzel',serif; font-size:0.75rem; color:rgba(192,160,240,0.5);">Checking for updates</span>
       <span class="poll-dot"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: VICTORY ════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-victory">
+  <div style="text-align:center;padding:40px 24px;max-width:640px;">
+    <div style="font-size:3rem;margin-bottom:16px;">⚡</div>
+    <div style="font-family:'Cinzel Decorative',serif;font-size:1.1rem;color:var(--stone);
+         letter-spacing:0.3em;text-transform:uppercase;margin-bottom:8px;">The Gods Have Fallen</div>
+    <div class="gold-divider" style="margin:16px auto;"></div>
+    <div id="victory-alliance-name" style="font-family:'Cinzel Decorative',serif;
+         font-size:1.5rem;color:var(--pale-gold);margin-bottom:12px;"></div>
+    <div style="font-family:'IM Fell English',serif;font-size:1.05rem;color:var(--stone);
+         margin-bottom:28px;font-style:italic;line-height:1.6;">
+      has cracked the final code.<br>The God Destroyer awaits.
+    </div>
+    <div style="font-family:'Cinzel Decorative',serif;font-size:1.8rem;color:var(--bright-gold);
+         letter-spacing:0.08em;margin-bottom:32px;">May the Battle Begin.</div>
+    <div style="font-family:'Cinzel',serif;font-size:0.7rem;color:var(--stone);
+         letter-spacing:0.25em;text-transform:uppercase;
+         border:1px solid rgba(184,134,11,0.2);padding:12px 24px;border-radius:4px;
+         display:inline-block;">
+      See your teacher to claim your catapult materials
     </div>
   </div>
 </div>
@@ -552,6 +576,10 @@ function routeToPhase(phase, round) {
       } else {
         showWaiting('Visit the Locked Box', 'Your alliance must complete the combat wave first.', phase);
       }
+      break;
+
+    case 'complete':
+      showVictory();
       break;
 
     case 'god_test':
@@ -1211,6 +1239,7 @@ function revealStoryLines(lines, rollText, onComplete) {
     setTimeout(() => rollEl.classList.add('reveal'), totalDelay);
     setTimeout(() => {
       fightBtn.classList.add('reveal');
+      startPolling(); // detect phase changes for players who don't click (e.g. safe path advance)
       if (onComplete) onComplete();
     }, totalDelay + 600);
   } else {
@@ -1222,6 +1251,7 @@ function revealStoryLines(lines, rollText, onComplete) {
       fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
       fightBtn.style.color = '#8ae08a';
       fightBtn.classList.add('reveal');
+      startPolling(); // detect when Player 1 advances so Player 2 auto-routes
       if (onComplete) onComplete();
     }, totalDelay);
   }
@@ -1295,6 +1325,14 @@ async function showCombat(round) {
     document.getElementById('combat-power-name').textContent = '';
     revealStoryLines(['The divine assault begins.', 'Defend your alliance.'], 'Roll to defend yourself.', null);
   }
+}
+
+// ── showVictory — final completion placeholder ────────────────────────────────
+function showVictory() {
+  stopPolling();
+  var name = allianceData ? (allianceData.name || allianceData.alliance_name || 'Your Alliance') : 'Your Alliance';
+  document.getElementById('victory-alliance-name').textContent = name;
+  showScreen('victory');
 }
 
 // ── safeCombatAdvance — safe path skips combat entirely ──────────────────────
@@ -1439,9 +1477,17 @@ function displayCombatResult(data) {
       // Box URL system replaces puzzle chamber — hide old button when box_url present
       if (data.box_url) {
         document.getElementById('box-url-link').href = data.box_url;
+        // Round 5: final puzzle — update labels accordingly
+        var isFinalRound = raceState && raceState.current_round === 5;
+        document.getElementById('box-url-link').textContent =
+          isFinalRound ? 'Open the Final Puzzle →' : 'Open the Locked Box →';
+        document.getElementById('unlock-label').textContent =
+          isFinalRound ? 'Enter the final 4-digit code:' : 'Enter the secret word from the box:';
+        document.getElementById('secret-word-input').placeholder =
+          isFinalRound ? 'FINAL CODE' : 'SECRET WORD';
         boxWrap.style.display    = '';
         unlockWrap.style.display = '';
-        puzzleBtn.style.display  = 'none';  // box URL flow replaces this
+        puzzleBtn.style.display  = 'none';
       } else {
         // No box URL — keep puzzle button as fallback for old-flow states
         puzzleBtn.style.display  = '';
@@ -1450,9 +1496,12 @@ function displayCombatResult(data) {
       }
     }
 
-    setTimeout(function() {
+    setTimeout(async function() {
       resultPhase.style.opacity = '1';
-      // Poll for phase changes — Player 2 will auto-advance when Player 1 unlocks next round
+      // Refresh raceState so lastPhase = 'puzzle' when polling starts.
+      // Without this, polling sees a stale 'combat' phase, detects a change
+      // immediately, and calls displayCombatResult a second time — blanking the screen.
+      await loadState();
       startPolling();
     }, 50);
   }, 450);
@@ -1487,10 +1536,15 @@ async function submitSecretWord() {
       msg.style.color = '#8ae08a';
       msg.textContent = data.message || 'The gates open.';
       input.disabled = true;
-      setTimeout(async function() {
-        await loadState();
-        if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
-      }, 1400);
+      if (data.game_complete) {
+        // Final code accepted — show victory screen
+        setTimeout(showVictory, 1400);
+      } else {
+        setTimeout(async function() {
+          await loadState();
+          if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+        }, 1400);
+      }
       return;
     }
 
