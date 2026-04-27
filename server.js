@@ -217,6 +217,15 @@ initDatabase().then(() => {
       UNIQUE (alliance_id, round_number)
     )`);
 
+    run(`CREATE TABLE IF NOT EXISTS olympus_round_unlock_votes (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id  INTEGER NOT NULL,
+      round_number INTEGER NOT NULL,
+      student_id   INTEGER NOT NULL,
+      submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alliance_id, round_number, student_id)
+    )`);
+
     saveDatabase();
     console.log('⚡ Olympus god test tables ensured');
   } catch (e) {
@@ -17815,8 +17824,8 @@ app.post('/api/olympus/combat-wave-complete', authenticateToken, (req, res) => {
 });
 
 // ── POST /api/olympus/round-unlock ────────────────────────────────────────────
-// Students enter the secret word from the physical box to unlock the next round.
-// Validates against hardcoded correct word for the completed round.
+// Every student must personally enter the secret word from the physical box.
+// The round only advances when ALL non-ghost members have submitted the correct word.
 app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
   try {
@@ -17828,42 +17837,76 @@ app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'No race state' });
 
-    // Secret words per round (case-insensitive)
     const ROUND_SECRET_WORDS = {
       1: 'box',
       2: 'chariot',
       3: 'pegasus',
       4: 'labyrinth',
-      5: null  // Round 5 has no box gate — it leads to the final puzzle
+      5: null
     };
 
     const completedRound = state.current_round;
     const expectedWord = ROUND_SECRET_WORDS[completedRound];
-
-    if (!expectedWord) {
-      return res.status(400).json({ error: 'No secret word gate for this round' });
-    }
+    if (!expectedWord) return res.status(400).json({ error: 'No secret word gate for this round' });
 
     if (secret_word.trim().toLowerCase() !== expectedWord.toLowerCase()) {
       return res.json({ unlocked: false, message: 'That is not the correct word. Check your box again.' });
     }
 
-    // Advance to next round
-    const nextRound = completedRound + 1;
+    // Record this student's personal submission (idempotent)
     run(
-      `UPDATE olympus_race_state SET current_round=?, current_phase='path_choice',
-       combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
-      [nextRound, alliance.alliance_id]
+      `INSERT OR IGNORE INTO olympus_round_unlock_votes (alliance_id, round_number, student_id)
+       VALUES (?, ?, ?)`,
+      [alliance.alliance_id, completedRound, req.user.id]
     );
 
-    // Clear votes for the new round
-    run(
-      `DELETE FROM olympus_votes WHERE alliance_id=? AND round_number=?`,
+    // Count how many real members have submitted vs how many are needed
+    const memberRows = query(
+      `SELECT COUNT(*) AS cnt FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const totalMembers = memberRows[0] ? memberRows[0].cnt : 1;
+
+    const voteRows = query(
+      `SELECT COUNT(*) AS cnt FROM olympus_round_unlock_votes
+       WHERE alliance_id=? AND round_number=?`,
       [alliance.alliance_id, completedRound]
     );
+    const submittedCount = voteRows[0] ? voteRows[0].cnt : 1;
 
+    // All members have entered the word — advance the round
+    if (submittedCount >= totalMembers) {
+      const nextRound = completedRound + 1;
+      run(
+        `UPDATE olympus_race_state SET current_round=?, current_phase='path_choice',
+         combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
+        [nextRound, alliance.alliance_id]
+      );
+      run(`DELETE FROM olympus_votes WHERE alliance_id=? AND round_number=?`,
+        [alliance.alliance_id, completedRound]);
+      saveDatabase();
+      return res.json({
+        self_correct:    true,
+        all_submitted:   true,
+        submitted_count: submittedCount,
+        needed:          totalMembers,
+        next_round:      nextRound,
+        message:         'The gates open. Round ' + nextRound + ' begins.'
+      });
+    }
+
+    // This student submitted correctly but teammates haven't yet
+    const remaining = totalMembers - submittedCount;
     saveDatabase();
-    res.json({ unlocked: true, next_round: nextRound, message: 'The gates open. Round ' + nextRound + ' begins.' });
+    return res.json({
+      self_correct:    true,
+      all_submitted:   false,
+      submitted_count: submittedCount,
+      needed:          totalMembers,
+      message:         'Word accepted. Waiting for ' + remaining + ' more teammate' + (remaining === 1 ? '' : 's') + ' to enter the code.'
+    });
+
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

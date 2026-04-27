@@ -1262,6 +1262,7 @@ async function showCombat(round) {
   const fightBtn = document.getElementById('fight-btn');
   fightBtn.disabled = false;
   fightBtn.textContent = 'Prepare for Battle →';
+  fightBtn.onclick = function() { prepareBattle(); };  // always reset — safe path may have overridden this
   fightBtn.style.background = '';
   fightBtn.style.borderColor = '';
   fightBtn.style.color = '';
@@ -1474,19 +1475,47 @@ async function submitSecretWord() {
     });
     var data = await res.json();
 
-    if (data.unlocked) {
+    if (!data.self_correct && !data.unlocked) {
+      // Wrong word
+      msg.style.color = '#e07070';
+      msg.textContent = data.message || 'Incorrect word. Try again.';
+      return;
+    }
+
+    if (data.self_correct && data.all_submitted) {
+      // Everyone has submitted — advance
       msg.style.color = '#8ae08a';
       msg.textContent = data.message || 'The gates open.';
-      input.disabled  = true;
-      // Brief pause then route to new round
+      input.disabled = true;
       setTimeout(async function() {
         await loadState();
         if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
-      }, 1800);
-    } else {
-      msg.style.color = '#e07070';
-      msg.textContent = data.message || 'Incorrect word. Try again.';
+      }, 1400);
+      return;
     }
+
+    if (data.self_correct && !data.all_submitted) {
+      // This player submitted correctly — waiting for teammates
+      msg.style.color = '#8ae08a';
+      msg.textContent = data.message || 'Word accepted. Waiting for teammates…';
+      input.disabled = true;
+      document.querySelector('#round-unlock-wrap .btn-commit').disabled = true;
+      // Poll for the phase to advance when everyone has submitted
+      startPolling();
+      return;
+    }
+
+    // Legacy fallback (unlocked: true from old format)
+    if (data.unlocked) {
+      msg.style.color = '#8ae08a';
+      msg.textContent = data.message || 'The gates open.';
+      input.disabled = true;
+      setTimeout(async function() {
+        await loadState();
+        if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+      }, 1400);
+    }
+
   } catch(e) {
     msg.style.color = '#e07070';
     msg.textContent = 'Network error. Try again.';
