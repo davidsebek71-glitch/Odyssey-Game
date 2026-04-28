@@ -133,27 +133,79 @@
   /* ── PATH CHOICE SCREEN ── */
   #screen-paths {
     background: radial-gradient(ellipse at 50% 0%, rgba(27,58,92,0.5) 0%, var(--deep) 60%);
+    position: relative;
+    flex-direction: column;
+    justify-content: space-between;
   }
-  .paths-header { text-align:center; padding:32px 20px 20px; }
-  .paths-round-label { font-family:'Cinzel',serif; font-size:0.75rem; letter-spacing:0.3em; color:var(--stone); text-transform:uppercase; margin-bottom:6px; }
-  .paths-title { font-family:'Cinzel Decorative',serif; font-size:1.8rem; color:var(--bright-gold); margin-bottom:8px; }
-  .paths-subtitle { font-family:'IM Fell English',serif; font-style:italic; color:rgba(240,208,96,0.6); font-size:0.95rem; }
-  .paths-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; padding:20px; max-width:900px; margin:0 auto; }
+  /* Round 1 full-screen background image */
+  #screen-paths.round1-bg {
+    background: url('/images/Revenge of the Gods/Backgrounds/round1_bg.png') center center / cover no-repeat;
+  }
+  #screen-paths.round1-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  #screen-paths.round1-bg > * { position: relative; z-index: 1; }
 
+  .paths-header { text-align:center; padding:20px 20px 10px; }
+  .paths-round-label { font-family:'Cinzel',serif; font-size:0.75rem; letter-spacing:0.3em; color:var(--stone); text-transform:uppercase; margin-bottom:6px; }
+  .paths-title { font-family:'Cinzel Decorative',serif; font-size:1.8rem; color:var(--bright-gold); margin-bottom:8px; text-shadow:0 2px 8px rgba(0,0,0,0.8); }
+  .paths-subtitle { font-family:'IM Fell English',serif; font-style:italic; color:rgba(240,208,96,0.75); font-size:0.95rem; text-shadow:0 1px 4px rgba(0,0,0,0.9); }
+
+  /* Default grid (rounds 2–5) */
+  .paths-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; padding:16px 20px; max-width:900px; margin:0 auto; width:100%; }
+
+  /* Round 1 scattered layout — JS positions each card absolutely */
+  .paths-grid.r1-scatter { display:block; position:relative; flex:1; width:100%; max-width:none; padding:0; }
+  .paths-grid.r1-scatter .path-card { position:absolute; width:190px; }
+
+  /* Path card colors — base (rounds 2–5) */
   .path-card {
     background:linear-gradient(135deg, rgba(26,18,16,0.95), rgba(15,10,8,0.98));
     border:1px solid rgba(184,134,11,0.2);
     border-radius:6px;
-    padding:20px;
+    padding:16px;
     cursor:pointer;
     transition:all 0.2s;
     position:relative;
   }
+  /* Round 1 colored cards */
+  .path-card.color-blue    { background:rgba(60,100,180,0.82);  border-color:rgba(120,160,230,0.7); }
+  .path-card.color-salmon  { background:rgba(180,90,80,0.82);   border-color:rgba(220,140,130,0.7); }
+  .path-card.color-lavender{ background:rgba(140,90,180,0.82);  border-color:rgba(190,150,220,0.7); }
+  .path-card.color-tan     { background:rgba(170,140,80,0.82);  border-color:rgba(220,190,120,0.7); }
+  .path-card.color-sage    { background:rgba(70,130,90,0.82);   border-color:rgba(120,180,130,0.7); }
+  .path-card.color-stone   { background:rgba(120,115,105,0.82); border-color:rgba(180,175,165,0.7); }
+  /* All colored cards: white text for contrast */
+  .path-card[class*='color-'] .path-name { color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.7); }
+  .path-card[class*='color-']:hover:not(.locked):not(.selected) { filter:brightness(1.15); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.6); }
   .path-card:hover:not(.locked):not(.selected) { border-color:var(--bright-gold); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.5); }
-  .path-card.selected { border-color:#4a8a4a; background:rgba(26,74,26,0.25); }
-  .path-card.locked { opacity:0.72; cursor:not-allowed; border-color:rgba(200,80,80,0.35); border-style:dashed; }
+  .path-card.selected { border-color:#8ae08a !important; box-shadow:0 0 0 2px #4a8a4a; }
+  .path-card.locked { opacity:0.72; cursor:not-allowed; border-color:rgba(200,80,80,0.35) !important; border-style:dashed; }
   .path-card.safe { border-color:rgba(74,138,74,0.4); }
-  .path-card.committed-by-us { border-color:#4a8a4a; background:rgba(26,74,26,0.2); pointer-events:none; }
+  .path-card.committed-by-us { border-color:#4a8a4a !important; pointer-events:none; }
+
+  /* Round 1 bottom bar */
+  .r1-surviving-bar {
+    display:none;
+    width:100%;
+    text-align:center;
+    padding:10px;
+    background:rgba(0,0,0,0.75);
+    font-family:'Cinzel',serif;
+    font-size:0.8rem;
+    letter-spacing:0.2em;
+    color:var(--pale-gold);
+    text-transform:uppercase;
+    border-top:1px solid rgba(184,134,11,0.3);
+    position:relative;
+    z-index:2;
+  }
+  #screen-paths.round1-bg .r1-surviving-bar { display:block; }
 
   .path-name { font-family:'Cinzel',serif; font-size:1.2rem; color:var(--pale-gold); text-align:center; padding:8px 0; font-weight:600; letter-spacing:0.05em; }
   .path-god { display:none; }
@@ -355,6 +407,7 @@
     <button class="btn-commit" id="commit-path-btn" onclick="commitPath()" disabled>Commit to This Path</button>
     <div class="paths-vote-note" id="paths-vote-note"></div>
   </div>
+  <div class="r1-surviving-bar">Only Surviving Teams Beyond This Point</div>
 </div>
 
 <!-- ══ SCREEN: COMBAT ════════════════════════════════════════════ -->
@@ -1206,6 +1259,40 @@ const ROUND_LABELS = {
   5:'Round 5 — The Summit'
 };
 
+// Round 1 path color assignments (by label — order never encodes difficulty)
+const R1_PATH_COLORS = {
+  'Climb the Mountain':              'color-stone',
+  'Hide in the Forest':              'color-sage',
+  'Sail Across the Sea':             'color-blue',
+  'Walk Through the Desert':         'color-tan',
+  'Attack Head On':                  'color-salmon',
+  'Make an Alliance with Another Country': 'color-lavender'
+};
+
+// Scatter positions for Round 1 — 6 slots across the canvas
+// Anchored left/right to keep Poseidon visible in center
+// Format: { left|right, x (% from that edge), y (% from top) }
+const R1_POSITIONS = [
+  { side:'left',  x:2,  y:8  },   // top-left
+  { side:'right', x:2,  y:8  },   // top-right
+  { side:'left',  x:2,  y:38 },   // mid-left
+  { side:'right', x:2,  y:38 },   // mid-right
+  { side:'left',  x:2,  y:66 },   // bottom-left
+  { side:'right', x:2,  y:66 },   // bottom-right
+];
+
+// Seeded shuffle — same result for all alliance members with the same alliance_id
+function _seededShuffle(arr, seed) {
+  const a = arr.slice();
+  let s = seed;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const j = Math.abs(s) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 async function showPathChoice(round) {
   showScreen('paths');
   selectedPathIndex = null;
@@ -1213,6 +1300,14 @@ async function showPathChoice(round) {
   document.getElementById('paths-vote-note').textContent = '';
   document.getElementById('paths-error').classList.remove('show');
   document.getElementById('paths-round-label').textContent = ROUND_LABELS[round] || `Round ${round}`;
+
+  // Apply / remove Round 1 background class
+  const pathsScreen = document.getElementById('screen-paths');
+  if (round === 1) {
+    pathsScreen.classList.add('round1-bg');
+  } else {
+    pathsScreen.classList.remove('round1-bg');
+  }
 
   try {
     const res = await fetch(`/api/olympus/paths/${round}`, { headers:H });
@@ -1227,22 +1322,53 @@ function renderPaths(paths, round) {
   const grid = document.getElementById('paths-grid');
   grid.innerHTML = '';
 
-  paths.forEach(path => {
-    const card = document.createElement('div');
-    card.className = 'path-card' + (path.locked ? ' locked' : '');
+  if (round === 1) {
+    // ── Round 1: scattered colored cards on Poseidon background ──
+    grid.className = 'paths-grid r1-scatter';
 
-    card.innerHTML = `
-      <div class="path-name">${path.label}</div>
-      ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
-      <div class="path-vote-count" id="path-votes-${path.idx}"></div>
-    `;
+    // Seed shuffle using alliance_id (consistent across all members)
+    const seed = allianceData ? (allianceData.alliance_id || 42) : 42;
+    const shuffledPaths     = _seededShuffle(paths, seed);
+    const shuffledPositions = _seededShuffle(R1_POSITIONS, seed + 7);
 
-    if (!path.locked) {
-      card.onclick = () => selectPath(path.idx, card);
-    }
+    // Need canvas dimensions — use percent-based positioning relative to grid
+    shuffledPaths.forEach((path, i) => {
+      const pos       = shuffledPositions[i] || shuffledPositions[0];
+      const colorClass = R1_PATH_COLORS[path.label] || 'color-stone';
+      const card      = document.createElement('div');
+      card.className  = 'path-card ' + colorClass + (path.locked ? ' locked' : '');
 
-    grid.appendChild(card);
-  });
+      // Position absolutely — percent-based so it works at any screen size
+      card.style.top    = pos.y + '%';
+      if (pos.side === 'left')  { card.style.left  = pos.x + '%'; }
+      else                      { card.style.right = pos.x + '%'; }
+
+      card.innerHTML = `
+        <div class="path-name">${path.label}</div>
+        ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
+        <div class="path-vote-count" id="path-votes-${path.idx}"></div>
+      `;
+
+      if (!path.locked) { card.onclick = () => selectPath(path.idx, card); }
+      grid.appendChild(card);
+    });
+
+  } else {
+    // ── Rounds 2–5: standard grid layout ──
+    grid.className = 'paths-grid';
+
+    paths.forEach(path => {
+      const card      = document.createElement('div');
+      card.className  = 'path-card' + (path.locked ? ' locked' : '');
+      card.innerHTML  = `
+        <div class="path-name">${path.label}</div>
+        ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
+        <div class="path-vote-count" id="path-votes-${path.idx}"></div>
+      `;
+      if (!path.locked) { card.onclick = () => selectPath(path.idx, card); }
+      grid.appendChild(card);
+    });
+  }
 }
 
 function selectPath(idx, cardEl) {
