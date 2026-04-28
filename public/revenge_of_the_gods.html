@@ -692,14 +692,15 @@ const FRAMES = {
 // in-browser via canvas, returns { canvas, frameW, frameH }.
 // numFrames defaults to 9 (all avatar and character sheets).
 const _sheetCache = {};
-function loadSpriteSheet(src, numFrames) {
+function loadSpriteSheet(src, numFrames, bgColor) {
   numFrames = numFrames || 9;
-  if (_sheetCache[src]) return Promise.resolve(_sheetCache[src]);
+  bgColor = bgColor || 'magenta';
+  var _ckey = src + '|' + numFrames + '|' + (bgColor||'magenta');
+  if (_sheetCache[_ckey]) return Promise.resolve(_sheetCache[_ckey]);
   return new Promise(resolve => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      // Offscreen canvas — strip magenta
       const oc  = document.createElement('canvas');
       oc.width  = img.naturalWidth;
       oc.height = img.naturalHeight;
@@ -709,16 +710,19 @@ function loadSpriteSheet(src, numFrames) {
       const d  = id.data;
       for (let i = 0; i < d.length; i += 4) {
         const r = d[i], g = d[i+1], b = d[i+2];
-        if (r > 150 && b > 150 && g < 80 && (r - g) > 100) d[i+3] = 0;
+        // Strip magenta (avatar sheets)
+        if (r > 150 && b > 150 && g < 80 && (r - g) > 100) { d[i+3] = 0; continue; }
+        // Strip black background (medea, door sprites)
+        if (bgColor === 'black' && r < 35 && g < 35 && b < 35)   { d[i+3] = 0; }
       }
       ctx.putImageData(id, 0, 0);
       const sheet = {
-        canvas:   oc,
-        frameW:   Math.floor(oc.width / numFrames),
-        frameH:   oc.height,
+        canvas: oc,
+        frameW: Math.floor(oc.width / numFrames),
+        frameH: oc.height,
         numFrames: numFrames
       };
-      _sheetCache[src] = sheet;
+      _sheetCache[_ckey] = sheet;
       resolve(sheet);
     };
     img.onerror = () => {
@@ -737,7 +741,7 @@ function loadSpriteSheet(src, numFrames) {
         ctx.fillText('?', f * 60 + 30, 60);
       }
       const sheet = { canvas: ph, frameW: 60, frameH: 100, numFrames };
-      _sheetCache[src] = sheet;
+      _sheetCache[_ckey] = sheet;
       resolve(sheet);
     };
     img.src = src;
@@ -745,7 +749,7 @@ function loadSpriteSheet(src, numFrames) {
 }
 
 // Legacy wrapper so existing code that calls loadImg() still works
-function loadImg(src) { return loadSpriteSheet(src, 9); }
+function loadImg(src, n, bg) { return loadSpriteSheet(src, n||9, bg||'magenta'); }
 
 // ── SpriteAnimator ────────────────────────────────────────────
 // Accepts a sheet object: { canvas, frameW, frameH } from loadSpriteSheet.
@@ -803,17 +807,29 @@ class SpriteAnimator {
 // ── Medea Cutscene State ──────────────────────────────────────
 let _cutsceneActive  = false;
 let _cutsceneRAF     = null;
-let _cutsceneMembers = [];   // { name, archetype, gender, animator, x, y, targetX, walking }
+let _cutsceneMembers = [];
 let _medeaAnimator   = null;
 let _medeaBg         = null;
 let _medeaPoof       = null;
-let _poofAnimator    = null;
+let _doorSheet       = null;
 let _poofActive      = false;
 let _poofFrame       = 0;
 let _poofTimer       = 0;
+let _doorActive      = false;
+let _doorFrame       = 0;
+let _doorTimer       = 0;
+let _doorDone        = false;
 let _lastTs          = 0;
 const CANVAS_W       = 900;
 const CANVAS_H       = 506;
+
+// Gate position on canvas — gate is centered horizontally in medea_chamber.png
+// Background 1536×1024 → canvas 900×506 (scale 0.586x, 0.494y)
+const GATE_W  = 148;
+const GATE_H  = 152;
+const GATE_CX = 450;
+const GATE_Y  = 12;
+const GATE_X  = GATE_CX - GATE_W / 2;
 
 function _getCanvas()  { return document.getElementById('medea-canvas'); }
 function _getCtx()     { return _getCanvas().getContext('2d'); }
@@ -840,30 +856,32 @@ async function showMedeaVote() {
   // Fallback if no avatars loaded
   if (!members.length) members = [{ name: 'Hero', archetype: 'tested', gender: 'male', is_self: true }];
 
-  // Load all assets in parallel — loadSpriteSheet strips magenta automatically
-  const DISPLAY_H   = 180; // rendered height of each sprite on canvas
-  const MEDEA_H     = 200;
+  // +20% size vs original
+  const DISPLAY_H   = 216; // avatar height on canvas
+  const MEDEA_H     = 240; // Medea height on canvas
 
-  const [bgSheet, medeaSheet, poofSheet, ...avatarSheets] = await Promise.all([
-    loadSpriteSheet(BG_BASE    + 'medea_chamber.png',  1),
-    loadSpriteSheet(CHAR_BASE  + 'medea.png',           9),
-    loadSpriteSheet(CHAR_BASE  + 'medea_poof.png',      6),
+  // Load all assets — medea/door use black bg, avatars use magenta bg
+  const [bgSheet, medeaSheet, poofSheet, doorSheet, ...avatarSheets] = await Promise.all([
+    loadSpriteSheet(BG_BASE   + 'medea_chamber.png',  1, 'magenta'),
+    loadSpriteSheet(CHAR_BASE + 'medea.png',           5, 'black'),   // 5 frames confirmed
+    loadSpriteSheet(CHAR_BASE + 'medea_poof.png',      6, 'black'),
+    loadSpriteSheet(BG_BASE   + 'door_open.png',       4, 'black'),   // 4 frames confirmed
     ...members.map(m => loadSpriteSheet(SPRITE_BASE + m.archetype + '_' + m.gender + '.png', 9))
   ]);
 
-  // Background — draw full image (1-frame sheet = whole image)
   _medeaBg   = bgSheet.canvas;
   _medeaPoof = poofSheet;
+  _doorSheet = doorSheet;
 
-  // Medea animator
+  // Medea — 5-frame idle, positioned left of center
   _medeaAnimator = new SpriteAnimator(medeaSheet, MEDEA_H);
   _medeaAnimator.setAnim(FRAMES.FRONT_IDLE, 4);
 
-  // Avatar animators — start off-screen right, walk left to resting positions
-  const spriteW     = avatarSheets[0] ? Math.round(avatarSheets[0].frameW * (DISPLAY_H / avatarSheets[0].frameH)) : 80;
-  const groundY     = CANVAS_H - DISPLAY_H - 30;
-  const spacing     = spriteW + 20;
-  const groupStartX = CANVAS_W * 0.52;
+  // Avatar animators — start off-screen right, walk to right side of canvas
+  const spriteW     = avatarSheets[0] ? Math.round(avatarSheets[0].frameW * (DISPLAY_H / avatarSheets[0].frameH)) : 90;
+  const groundY     = CANVAS_H - DISPLAY_H - 24;
+  const spacing     = spriteW + 18;
+  const groupStartX = CANVAS_W * 0.54; // right of Medea
 
   _cutsceneMembers = members.map((m, i) => {
     const anim = new SpriteAnimator(avatarSheets[i] || avatarSheets[0], DISPLAY_H);
@@ -876,7 +894,8 @@ async function showMedeaVote() {
       y:         groundY,
       targetX:   groupStartX + i * spacing,
       walking:   true,
-      arrived:   false
+      arrived:   false,
+      exiting:   false
     };
   });
 
@@ -884,6 +903,9 @@ async function showMedeaVote() {
   _cutsceneActive = true;
   _lastTs = performance.now();
   _poofActive = false;
+  _doorActive = false;
+  _doorFrame  = 0;
+  _doorDone   = false;
 
   // Kick off the sequence
   _startCutsceneLoop();
@@ -926,55 +948,86 @@ function _renderFrame(dt) {
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }
 
-  // Medea — positioned left side
-  const MEDEA_H_DISP = 200;
+  // Medea — center-left, y aligned to floor
+  const MEDEA_H_DISP = 240;
   if (_medeaAnimator) {
     _medeaAnimator.tick(dt);
-    const mx = 30;
+    const mw = _medeaAnimator.displayW;
+    const mx = Math.round(CANVAS_W * 0.22 - mw / 2); // center-left
     const my = CANVAS_H - MEDEA_H_DISP - 20;
     _medeaAnimator.draw(ctx, mx, my);
   }
 
-  // Poof animation (replaces Medea on refuse)
+  // Poof (refuse outcome — replaces Medea)
   if (_poofActive && _medeaPoof) {
     _poofTimer += dt;
     if (_poofTimer >= 90) { _poofTimer -= 90; _poofFrame++; }
     if (_poofFrame < (_medeaPoof.numFrames || 6)) {
-      const pw = Math.round(_medeaPoof.frameW * (MEDEA_H_DISP / _medeaPoof.frameH));
-      const px = 30;
-      const py = CANVAS_H - MEDEA_H_DISP - 20;
+      const DISP = 240;
+      const pw   = Math.round(_medeaPoof.frameW * (DISP / _medeaPoof.frameH));
+      const mw2  = pw;
+      const px   = Math.round(CANVAS_W * 0.22 - mw2 / 2);
+      const py   = CANVAS_H - DISP - 20;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(_medeaPoof.canvas,
         _poofFrame * _medeaPoof.frameW, 0, _medeaPoof.frameW, _medeaPoof.frameH,
-        px, py, pw, MEDEA_H_DISP);
+        px, py, pw, DISP);
     }
   }
 
-  // Avatar sprites — walk in then idle
+  // Door opening animation — overlaid on gate position in background
+  if (_doorActive && _doorSheet) {
+    _doorTimer += dt;
+    // 180ms per frame → ~0.72s total for 4 frames
+    if (_doorTimer >= 180) { _doorTimer -= 180; if (_doorFrame < _doorSheet.numFrames - 1) _doorFrame++; else _doorDone = true; }
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(_doorSheet.canvas,
+      _doorFrame * _doorSheet.frameW, 0, _doorSheet.frameW, _doorSheet.frameH,
+      GATE_X, GATE_Y, GATE_W, GATE_H);
+  }
+
+  // Avatars — walk in, idle, or exit through gate
   _cutsceneMembers.forEach(m => {
     const sw = m.animator.displayW;
     const sh = m.animator.displayH;
-    if (m.walking && m.x > m.targetX) {
-      m.x -= 3;
-      if (m.x <= m.targetX) {
-        m.x       = m.targetX;
-        m.walking = false;
-        m.arrived = true;
-        m.animator.setAnim(FRAMES.FRONT_IDLE, 4, false);
-      }
-    }
-    m.animator.tick(dt);
-    m.animator.draw(ctx, m.x, m.y);
 
-    // Name tag below sprite
-    if (m.arrived) {
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(m.x, m.y + sh + 2, sw, 18);
-      ctx.fillStyle = '#f0d060';
-      ctx.font = '10px Cinzel, serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(m.name, m.x + sw / 2, m.y + sh + 14);
-      ctx.textAlign = 'left';
+    if (m.exiting) {
+      // Walk toward gate center and shrink as they approach (depth illusion)
+      const distToGate = Math.abs(m.x - (GATE_CX - sw / 2));
+      m.x -= 4;
+      // Shrink slightly as they walk into the distance
+      const shrink = Math.max(0.4, Math.min(1, distToGate / 200));
+      m.animator.tick(dt);
+      // Draw shrinking
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      const dw = Math.round(sw * shrink);
+      const dh = Math.round(sh * shrink);
+      const dy = m.y + (sh - dh); // keep feet on ground
+      const fi = m.animator.frames[m.animator.frame];
+      ctx.drawImage(m.animator.canvas, fi * m.animator.fw, 0, m.animator.fw, m.animator.fh,
+                    m.x, dy, dw, dh);
+      ctx.restore();
+    } else {
+      if (m.walking && m.x > m.targetX) {
+        m.x -= 3;
+        if (m.x <= m.targetX) {
+          m.x = m.targetX; m.walking = false; m.arrived = true;
+          m.animator.setAnim(FRAMES.FRONT_IDLE, 4, false);
+        }
+      }
+      m.animator.tick(dt);
+      m.animator.draw(ctx, m.x, m.y);
+      // Name tag
+      if (m.arrived && !m.exiting) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(m.x, m.y + sh + 2, sw, 18);
+        ctx.fillStyle = '#f0d060';
+        ctx.font = '10px Cinzel, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(m.name, m.x + sw / 2, m.y + sh + 14);
+        ctx.textAlign = 'left';
+      }
     }
   });
 }
@@ -1047,6 +1100,8 @@ function _waitUntil(condition, maxMs) {
 
 function _stopCutscene() {
   _cutsceneActive = false;
+  _doorActive = false;
+  _poofActive = false;
   if (_cutsceneRAF) { cancelAnimationFrame(_cutsceneRAF); _cutsceneRAF = null; }
 }
 
@@ -1062,13 +1117,32 @@ async function castMedeaVote(choice) {
     _hideBubble();
     await _delay(500);
     _playPoof();
-    await _delay(1200);
+    await _delay(1500);
   } else {
     _hideBubble();
     _showBubble('"Wise choice," she says, and smiles. "Follow me."');
-    // Avatars turn to face Medea (back-facing)
-    _cutsceneMembers.forEach(m => { m.animator.setAnim(FRAMES.BACK, 4); });
-    await _delay(1800);
+    await _delay(1600);
+    _hideBubble();
+    // Play gate opening animation
+    _doorActive = true; _doorFrame = 0; _doorTimer = 0; _doorDone = false;
+    // Wait for gate to fully open (4 frames × 180ms = 720ms + buffer)
+    await _delay(900);
+    // Medea turns toward gate (back-facing) and walks left
+    if (_medeaAnimator) _medeaAnimator.setAnim(FRAMES.BACK, 6);
+    // Avatars turn back-facing and begin exiting toward gate
+    _cutsceneMembers.forEach(m => {
+      m.animator.setAnim(FRAMES.BACK, 6, false);
+      m.exiting  = false;
+      m.arrived  = false;
+    });
+    await _delay(400);
+    // All walk toward gate
+    _cutsceneMembers.forEach(m => {
+      m.exiting  = true;
+      m.targetX  = GATE_CX - m.animator.displayW / 2;
+    });
+    // Wait for characters to reach gate (travel ~300px at 4px/frame ~60fps = ~1.25s)
+    await _delay(1400);
   }
 
   try {
