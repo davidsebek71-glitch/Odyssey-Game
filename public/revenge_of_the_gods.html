@@ -675,49 +675,93 @@ function skipCinematic() {
 // MEDEA CUTSCENE SYSTEM
 // ═══════════════════════════════════════════════════════════════
 
-const SPRITE_BASE  = '/images/Revenge of the Gods/sprites/avatars/';
-const CHAR_BASE    = '/images/Revenge of the Gods/sprites/characters/';
-const BG_BASE      = '/images/Revenge of the Gods/backgrounds/';
+// ── Correct asset paths (case-sensitive on Linux/Railway) ────
+const SPRITE_BASE  = '/images/Revenge of the Gods/Sprites/Avatar/';
+const CHAR_BASE    = '/images/Revenge of the Gods/Sprites/Characters/';
+const BG_BASE      = '/images/Revenge of the Gods/Backgrounds/';
 
-// Sprite sheet layout (matches processed 9-frame sheet at 52×96px)
-const FRAME_W = 52, FRAME_H = 96;
+// Animation frame indices within each 9-frame sprite sheet
 const FRAMES = {
-  FRONT_IDLE: [0, 1, 2],   // front-facing idle
-  BACK:       [3, 4],       // back-facing
-  WALK_LEFT:  [5, 6, 7, 8], // left walk (flip for right)
+  FRONT_IDLE: [0, 1, 2],
+  BACK:       [3, 4],
+  WALK_LEFT:  [5, 6, 7, 8],
 };
 
-// Loaded image cache
-const _imgCache = {};
-function loadImg(src) {
-  if (_imgCache[src]) return Promise.resolve(_imgCache[src]);
+// ── loadSpriteSheet ────────────────────────────────────────────
+// Loads a raw sprite sheet (magenta background), strips magenta
+// in-browser via canvas, returns { canvas, frameW, frameH }.
+// numFrames defaults to 9 (all avatar and character sheets).
+const _sheetCache = {};
+function loadSpriteSheet(src, numFrames) {
+  numFrames = numFrames || 9;
+  if (_sheetCache[src]) return Promise.resolve(_sheetCache[src]);
   return new Promise(resolve => {
     const img = new Image();
-    img.onload  = () => { _imgCache[src] = img; resolve(img); };
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Offscreen canvas — strip magenta
+      const oc  = document.createElement('canvas');
+      oc.width  = img.naturalWidth;
+      oc.height = img.naturalHeight;
+      const ctx = oc.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const id = ctx.getImageData(0, 0, oc.width, oc.height);
+      const d  = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        if (r > 150 && b > 150 && g < 80 && (r - g) > 100) d[i+3] = 0;
+      }
+      ctx.putImageData(id, 0, 0);
+      const sheet = {
+        canvas:   oc,
+        frameW:   Math.floor(oc.width / numFrames),
+        frameH:   oc.height,
+        numFrames: numFrames
+      };
+      _sheetCache[src] = sheet;
+      resolve(sheet);
+    };
     img.onerror = () => {
-      // Return a placeholder so the scene still plays
-      const ph = document.createElement('canvas');
-      ph.width = FRAME_W; ph.height = FRAME_H;
+      // Placeholder — full-width canvas so ALL frame indices render
+      const ph  = document.createElement('canvas');
+      ph.width  = 60 * numFrames;
+      ph.height = 100;
       const ctx = ph.getContext('2d');
       ctx.fillStyle = '#3a2060';
-      ctx.fillRect(0, 0, FRAME_W, FRAME_H);
-      _imgCache[src] = ph; resolve(ph);
+      ctx.fillRect(0, 0, ph.width, ph.height);
+      // Draw a "?" in the center of each frame slot
+      ctx.fillStyle = 'rgba(192,160,240,0.6)';
+      ctx.font = '28px serif';
+      ctx.textAlign = 'center';
+      for (let f = 0; f < numFrames; f++) {
+        ctx.fillText('?', f * 60 + 30, 60);
+      }
+      const sheet = { canvas: ph, frameW: 60, frameH: 100, numFrames };
+      _sheetCache[src] = sheet;
+      resolve(sheet);
     };
     img.src = src;
   });
 }
 
+// Legacy wrapper so existing code that calls loadImg() still works
+function loadImg(src) { return loadSpriteSheet(src, 9); }
+
 // ── SpriteAnimator ────────────────────────────────────────────
+// Accepts a sheet object: { canvas, frameW, frameH } from loadSpriteSheet.
+// displayH controls rendered height — width is computed proportionally.
 class SpriteAnimator {
-  constructor(img, frameW, frameH) {
-    this.img    = img;
-    this.fw     = frameW;
-    this.fh     = frameH;
-    this.frame  = 0;
-    this.timer  = 0;
-    this.fps    = 6; // frames per second for animation
-    this.frames = FRAMES.FRONT_IDLE;
-    this.flipX  = false;
+  constructor(sheet, displayH) {
+    this.canvas  = sheet.canvas;
+    this.fw      = sheet.frameW;
+    this.fh      = sheet.frameH;
+    this.displayH = displayH || 180;
+    this.displayW = Math.round(this.fw * (this.displayH / this.fh));
+    this.frame   = 0;
+    this.timer   = 0;
+    this.fps     = 6;
+    this.frames  = FRAMES.FRONT_IDLE;
+    this.flipX   = false;
   }
 
   setAnim(frameSet, fps, flipX) {
@@ -726,7 +770,7 @@ class SpriteAnimator {
       this.frame  = 0;
       this.timer  = 0;
     }
-    if (fps  !== undefined) this.fps   = fps;
+    if (fps   !== undefined) this.fps   = fps;
     if (flipX !== undefined) this.flipX = flipX;
   }
 
@@ -739,17 +783,18 @@ class SpriteAnimator {
     }
   }
 
-  draw(ctx, x, y, scale) {
-    const dw = this.fw * scale;
-    const dh = this.fh * scale;
+  draw(ctx, x, y) {
+    const dw = this.displayW;
+    const dh = this.displayH;
     const fi = this.frames[this.frame];
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
     if (this.flipX) {
       ctx.translate(x + dw, y);
       ctx.scale(-1, 1);
-      ctx.drawImage(this.img, fi * this.fw, 0, this.fw, this.fh, 0, 0, dw, dh);
+      ctx.drawImage(this.canvas, fi * this.fw, 0, this.fw, this.fh, 0, 0, dw, dh);
     } else {
-      ctx.drawImage(this.img, fi * this.fw, 0, this.fw, this.fh, x, y, dw, dh);
+      ctx.drawImage(this.canvas, fi * this.fw, 0, this.fw, this.fh, x, y, dw, dh);
     }
     ctx.restore();
   }
@@ -767,7 +812,6 @@ let _poofActive      = false;
 let _poofFrame       = 0;
 let _poofTimer       = 0;
 let _lastTs          = 0;
-const SCALE          = 3;    // render sprites at 3× for SNES feel
 const CANVAS_W       = 900;
 const CANVAS_H       = 506;
 
@@ -796,38 +840,41 @@ async function showMedeaVote() {
   // Fallback if no avatars loaded
   if (!members.length) members = [{ name: 'Hero', archetype: 'tested', gender: 'male', is_self: true }];
 
-  // Load all assets in parallel
-  const [bgImg, medeaImg, poofImg, ...avatarImgs] = await Promise.all([
-    loadImg(BG_BASE + 'medea_chamber.png'),
-    loadImg(CHAR_BASE + 'medea.png'),
-    loadImg(CHAR_BASE + 'medea_poof.png'),
-    ...members.map(m => loadImg(SPRITE_BASE + m.archetype + '_' + m.gender + '.png'))
+  // Load all assets in parallel — loadSpriteSheet strips magenta automatically
+  const DISPLAY_H   = 180; // rendered height of each sprite on canvas
+  const MEDEA_H     = 200;
+
+  const [bgSheet, medeaSheet, poofSheet, ...avatarSheets] = await Promise.all([
+    loadSpriteSheet(BG_BASE    + 'medea_chamber.png',  1),
+    loadSpriteSheet(CHAR_BASE  + 'medea.png',           9),
+    loadSpriteSheet(CHAR_BASE  + 'medea_poof.png',      6),
+    ...members.map(m => loadSpriteSheet(SPRITE_BASE + m.archetype + '_' + m.gender + '.png', 9))
   ]);
 
-  _medeaBg   = bgImg;
-  _medeaPoof = poofImg;
+  // Background — draw full image (1-frame sheet = whole image)
+  _medeaBg   = bgSheet.canvas;
+  _medeaPoof = poofSheet;
 
-  // Build Medea animator (same 9-frame layout)
-  _medeaAnimator = new SpriteAnimator(medeaImg, FRAME_W, FRAME_H);
+  // Medea animator
+  _medeaAnimator = new SpriteAnimator(medeaSheet, MEDEA_H);
   _medeaAnimator.setAnim(FRAMES.FRONT_IDLE, 4);
 
-  // Build avatar animators — start off-screen right, walking left
-  const spriteW   = FRAME_W * SCALE;
-  const groundY   = CANVAS_H - FRAME_H * SCALE - 40;
-  const spacing   = spriteW + 16;
-  // Final resting positions — cluster right-center of screen
-  const groupStartX = CANVAS_W * 0.55;
+  // Avatar animators — start off-screen right, walk left to resting positions
+  const spriteW     = avatarSheets[0] ? Math.round(avatarSheets[0].frameW * (DISPLAY_H / avatarSheets[0].frameH)) : 80;
+  const groundY     = CANVAS_H - DISPLAY_H - 30;
+  const spacing     = spriteW + 20;
+  const groupStartX = CANVAS_W * 0.52;
 
   _cutsceneMembers = members.map((m, i) => {
-    const anim = new SpriteAnimator(avatarImgs[i], FRAME_W, FRAME_H);
+    const anim = new SpriteAnimator(avatarSheets[i] || avatarSheets[0], DISPLAY_H);
     anim.setAnim(FRAMES.WALK_LEFT, 8);
     return {
       name:      m.name,
       archetype: m.archetype,
       animator:  anim,
-      x:         CANVAS_W + spriteW + i * 30, // start off right edge
+      x:         CANVAS_W + spriteW + i * 40,
       y:         groundY,
-      targetX:   groupStartX + i * (spacing + 8),
+      targetX:   groupStartX + i * spacing,
       walking:   true,
       arrived:   false
     };
@@ -880,55 +927,53 @@ function _renderFrame(dt) {
   }
 
   // Medea — positioned left side
+  const MEDEA_H_DISP = 200;
   if (_medeaAnimator) {
     _medeaAnimator.tick(dt);
-    const mx = CANVAS_W * 0.12;
-    const my = CANVAS_H - FRAME_H * SCALE - 40;
-    _medeaAnimator.draw(ctx, mx, my, SCALE);
+    const mx = 30;
+    const my = CANVAS_H - MEDEA_H_DISP - 20;
+    _medeaAnimator.draw(ctx, mx, my);
   }
 
   // Poof animation (replaces Medea on refuse)
   if (_poofActive && _medeaPoof) {
     _poofTimer += dt;
-    const poofInterval = 90; // ms per frame
-    if (_poofTimer >= poofInterval) {
-      _poofTimer -= poofInterval;
-      _poofFrame++;
-    }
-    const totalPoofFrames = Math.floor(_medeaPoof.width / FRAME_W) || 4;
-    if (_poofFrame < totalPoofFrames) {
-      const px = CANVAS_W * 0.12;
-      const py = CANVAS_H - FRAME_H * SCALE - 40;
-      ctx.drawImage(_medeaPoof, _poofFrame * FRAME_W, 0, FRAME_W, FRAME_H,
-                    px, py, FRAME_W * SCALE, FRAME_H * SCALE);
+    if (_poofTimer >= 90) { _poofTimer -= 90; _poofFrame++; }
+    if (_poofFrame < (_medeaPoof.numFrames || 6)) {
+      const pw = Math.round(_medeaPoof.frameW * (MEDEA_H_DISP / _medeaPoof.frameH));
+      const px = 30;
+      const py = CANVAS_H - MEDEA_H_DISP - 20;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(_medeaPoof.canvas,
+        _poofFrame * _medeaPoof.frameW, 0, _medeaPoof.frameW, _medeaPoof.frameH,
+        px, py, pw, MEDEA_H_DISP);
     }
   }
 
-  // Avatar sprites — walk in, then idle
+  // Avatar sprites — walk in then idle
   _cutsceneMembers.forEach(m => {
+    const sw = m.animator.displayW;
+    const sh = m.animator.displayH;
     if (m.walking && m.x > m.targetX) {
-      m.x -= 2.5;
+      m.x -= 3;
       if (m.x <= m.targetX) {
-        m.x = m.targetX;
+        m.x       = m.targetX;
         m.walking = false;
         m.arrived = true;
         m.animator.setAnim(FRAMES.FRONT_IDLE, 4, false);
       }
-    } else if (!m.walking) {
-      m.animator.tick(dt);
-    } else {
-      m.animator.tick(dt);
     }
-    m.animator.draw(ctx, m.x, m.y, SCALE);
+    m.animator.tick(dt);
+    m.animator.draw(ctx, m.x, m.y);
 
     // Name tag below sprite
     if (m.arrived) {
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(m.x, m.y + FRAME_H * SCALE + 2, FRAME_W * SCALE, 18);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(m.x, m.y + sh + 2, sw, 18);
       ctx.fillStyle = '#f0d060';
       ctx.font = '10px Cinzel, serif';
       ctx.textAlign = 'center';
-      ctx.fillText(m.name, m.x + (FRAME_W * SCALE) / 2, m.y + FRAME_H * SCALE + 14);
+      ctx.fillText(m.name, m.x + sw / 2, m.y + sh + 14);
       ctx.textAlign = 'left';
     }
   });
@@ -1022,7 +1067,7 @@ async function castMedeaVote(choice) {
     _hideBubble();
     _showBubble('"Wise choice," she says, and smiles. "Follow me."');
     // Avatars turn to face Medea (back-facing)
-    _cutsceneMembers.forEach(m => m.animator.setAnim(FRAMES.BACK, 4));
+    _cutsceneMembers.forEach(m => { m.animator.setAnim(FRAMES.BACK, 4); });
     await _delay(1800);
   }
 
