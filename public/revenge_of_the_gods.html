@@ -151,10 +151,36 @@
   }
   #screen-paths.round1-bg > * { position: relative; z-index: 1; }
 
-  .paths-header { text-align:center; padding:20px 20px 10px; }
-  .paths-round-label { font-family:'Cinzel',serif; font-size:0.75rem; letter-spacing:0.3em; color:var(--stone); text-transform:uppercase; margin-bottom:6px; }
-  .paths-title { font-family:'Cinzel Decorative',serif; font-size:1.8rem; color:var(--bright-gold); margin-bottom:8px; text-shadow:0 2px 8px rgba(0,0,0,0.8); }
-  .paths-subtitle { font-family:'IM Fell English',serif; font-style:italic; color:rgba(240,208,96,0.75); font-size:0.95rem; text-shadow:0 1px 4px rgba(0,0,0,0.9); }
+  .paths-header { text-align:center; padding:16px 20px 10px; }
+  .paths-round-label {
+    font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.3em;
+    color:rgba(240,208,96,0.85); text-transform:uppercase; margin-bottom:4px;
+    text-shadow:0 1px 6px rgba(0,0,0,1);
+  }
+  .paths-title {
+    font-family:'Cinzel Decorative',serif; font-size:1.9rem; color:var(--bright-gold);
+    margin-bottom:6px;
+    text-shadow: 0 0 30px rgba(0,0,0,1), 0 0 20px rgba(0,0,0,1),
+                 0 2px 4px rgba(0,0,0,1), 2px 2px 0 rgba(0,0,0,0.8);
+    /* Dark halo behind letters */
+    -webkit-text-stroke: 0.5px rgba(0,0,0,0.6);
+  }
+  .paths-subtitle {
+    font-family:'IM Fell English',serif; font-style:italic;
+    color:#fff; font-size:0.92rem;
+    text-shadow: 0 0 12px rgba(0,0,0,1), 0 1px 3px rgba(0,0,0,1);
+  }
+  /* Dark pill behind header content when on bg image */
+  #screen-paths.round1-bg .paths-header {
+    background: rgba(0,0,0,0.58);
+    border-radius: 0 0 8px 8px;
+    border-bottom: 1px solid rgba(184,134,11,0.3);
+    backdrop-filter: blur(2px);
+    padding: 14px 40px 12px;
+    display: inline-block;
+    margin: 0 auto;
+    width: auto;
+  }
 
   /* Default grid (rounds 2–5) */
   .paths-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; padding:16px 20px; max-width:900px; margin:0 auto; width:100%; }
@@ -180,8 +206,13 @@
   .path-card.color-tan     { background:rgba(170,140,80,0.82);  border-color:rgba(220,190,120,0.7); }
   .path-card.color-sage    { background:rgba(70,130,90,0.82);   border-color:rgba(120,180,130,0.7); }
   .path-card.color-stone   { background:rgba(120,115,105,0.82); border-color:rgba(180,175,165,0.7); }
-  /* All colored cards: white text for contrast */
-  .path-card[class*='color-'] .path-name { color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.7); }
+  /* All colored cards: bold white text for contrast */
+  .path-card[class*='color-'] .path-name {
+    color: #fff;
+    font-size: 1.05rem;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7);
+    font-weight: 700;
+  }
   .path-card[class*='color-']:hover:not(.locked):not(.selected) { filter:brightness(1.15); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.6); }
   .path-card:hover:not(.locked):not(.selected) { border-color:var(--bright-gold); transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.5); }
   .path-card.selected { border-color:#8ae08a !important; box-shadow:0 0 0 2px #4a8a4a; }
@@ -191,21 +222,23 @@
 
   /* Round 1 bottom bar */
   .r1-surviving-bar {
-    display:none;
-    width:100%;
-    text-align:center;
-    padding:10px;
-    background:rgba(0,0,0,0.75);
-    font-family:'Cinzel',serif;
-    font-size:0.8rem;
-    letter-spacing:0.2em;
-    color:var(--pale-gold);
-    text-transform:uppercase;
-    border-top:1px solid rgba(184,134,11,0.3);
-    position:relative;
-    z-index:2;
+    display: none;
+    width: 100%;
+    text-align: center;
+    padding: 13px 20px;
+    background: linear-gradient(90deg, transparent, rgba(0,0,0,0.88) 15%, rgba(0,0,0,0.88) 85%, transparent);
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.28em;
+    color: var(--bright-gold);
+    text-transform: uppercase;
+    border-top: 1px solid rgba(184,134,11,0.5);
+    border-bottom: 1px solid rgba(184,134,11,0.2);
+    text-shadow: 0 0 20px rgba(240,184,50,0.6), 0 1px 3px rgba(0,0,0,1);
+    position: relative;
+    z-index: 2;
   }
-  #screen-paths.round1-bg .r1-surviving-bar { display:block; }
+  #screen-paths.round1-bg .r1-surviving-bar { display: block; }
 
   .path-name { font-family:'Cinzel',serif; font-size:1.2rem; color:var(--pale-gold); text-align:center; padding:8px 0; font-weight:600; letter-spacing:0.05em; }
   .path-god { display:none; }
@@ -1259,15 +1292,19 @@ const ROUND_LABELS = {
   5:'Round 5 — The Summit'
 };
 
-// Round 1 path color assignments (by label — order never encodes difficulty)
-const R1_PATH_COLORS = {
-  'Climb the Mountain':              'color-stone',
-  'Hide in the Forest':              'color-sage',
-  'Sail Across the Sea':             'color-blue',
-  'Walk Through the Desert':         'color-tan',
-  'Attack Head On':                  'color-salmon',
-  'Make an Alliance with Another Country': 'color-lavender'
-};
+// Round 1 path color — keyword match (label text varies by server version)
+function _r1PathColor(label) {
+  const l = label.toLowerCase();
+  if (l.includes('mountain') || l.includes('climb'))   return 'color-stone';
+  if (l.includes('forest')  || l.includes('hide'))     return 'color-sage';
+  if (l.includes('sea')     || l.includes('sail'))     return 'color-blue';
+  if (l.includes('desert')  || l.includes('walk'))     return 'color-tan';
+  if (l.includes('attack')  || l.includes('head on'))  return 'color-salmon';
+  if (l.includes('alliance')|| l.includes('country'))  return 'color-lavender';
+  // Fallback — cycle through colors so no two adjacent cards match
+  const fallbacks = ['color-blue','color-sage','color-tan','color-salmon','color-lavender','color-stone'];
+  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+}
 
 // Scatter positions for Round 1 — 6 slots across the canvas
 // Anchored left/right to keep Poseidon visible in center
@@ -1334,7 +1371,7 @@ function renderPaths(paths, round) {
     // Need canvas dimensions — use percent-based positioning relative to grid
     shuffledPaths.forEach((path, i) => {
       const pos       = shuffledPositions[i] || shuffledPositions[0];
-      const colorClass = R1_PATH_COLORS[path.label] || 'color-stone';
+      const colorClass = _r1PathColor(path.label);
       const card      = document.createElement('div');
       card.className  = 'path-card ' + colorClass + (path.locked ? ' locked' : '');
 
