@@ -226,6 +226,16 @@ initDatabase().then(() => {
       UNIQUE (alliance_id, round_number, student_id)
     )`);
 
+    // Add medea_help_count to olympus_race_state if not present (PRAGMA-safe migration)
+    try {
+      const cols = query("PRAGMA table_info(olympus_race_state)");
+      const colNames = cols.map(c => c.name);
+      if (!colNames.includes('medea_help_count')) {
+        run("ALTER TABLE olympus_race_state ADD COLUMN medea_help_count INTEGER DEFAULT 0");
+        console.log('⚡ Added medea_help_count to olympus_race_state');
+      }
+    } catch(e) { console.log('medea_help_count migration skipped:', e.message); }
+
     saveDatabase();
     console.log('⚡ Olympus god test tables ensured');
   } catch (e) {
@@ -17973,11 +17983,40 @@ app.post('/api/olympus/safe-path-advance', authenticateToken, (req, res) => {
     };
 
     run(
-      `UPDATE olympus_race_state SET combat_result=?, current_phase='puzzle' WHERE alliance_id=?`,
+      `UPDATE olympus_race_state SET combat_result=?, current_phase='puzzle',
+       medea_help_count = medea_help_count + 1 WHERE alliance_id=?`,
       [JSON.stringify(combatResult), alliance.alliance_id]
     );
     saveDatabase();
     res.json(combatResult);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── GET /api/olympus/alliance-avatars ─────────────────────────────────────────
+// Returns all non-ghost members of the student's alliance with their
+// selected_avatar — used by the Medea cutscene to render player sprites.
+app.get('/api/olympus/alliance-avatars', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.json({ members: [] });
+    const members = query(
+      `SELECT student_id, name, selected_avatar FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)
+       ORDER BY student_id ASC`,
+      [alliance.alliance_id]
+    );
+    res.json({
+      members: members.map(m => ({
+        student_id: m.student_id,
+        name:       m.name,
+        avatar:     m.selected_avatar || null,
+        // Derive archetype and gender for sprite sheet path
+        archetype:  m.selected_avatar ? m.selected_avatar.split('_')[0] : 'tested',
+        gender:     m.selected_avatar && m.selected_avatar.split('_')[1] ? m.selected_avatar.split('_')[1] : 'male',
+        is_self:    m.student_id === req.user.id
+      }))
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

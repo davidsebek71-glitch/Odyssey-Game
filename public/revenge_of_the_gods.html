@@ -50,37 +50,85 @@
 
   /* ── MEDEA SCREEN ── */
   #screen-medea {
-    background: radial-gradient(ellipse at 50% 30%, rgba(44,26,74,0.6) 0%, var(--deep) 70%);
+    background: #000;
     align-items:center;
     justify-content:center;
+    padding:0;
+    position:relative;
   }
-  .medea-card {
-    max-width:620px;
+  #medea-canvas-wrap {
+    position:relative;
     width:100%;
-    padding:40px 32px;
-    text-align:center;
+    max-width:900px;
+    margin:0 auto;
   }
-  .medea-title { font-family:'Cinzel Decorative',serif; font-size:2.2rem; color:var(--bright-gold); margin-bottom:10px; }
-  .medea-subtitle { font-family:'Cinzel',serif; font-size:0.8rem; letter-spacing:0.2em; color:rgba(192,160,240,0.7); margin-bottom:24px; }
-  .medea-text { font-family:'Cinzel',serif; font-style:normal; color:#e8d5a0; line-height:2; font-size:1.15rem; margin-bottom:36px; }
-  .vote-options { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+  #medea-canvas {
+    width:100%;
+    display:block;
+    image-rendering:pixelated;
+    image-rendering:-moz-crisp-edges;
+  }
+  /* Speech bubble */
+  #medea-bubble {
+    position:absolute;
+    top:8%;
+    left:50%;
+    transform:translateX(-50%);
+    background:rgba(10,6,26,0.92);
+    border:2px solid rgba(192,160,240,0.6);
+    border-radius:10px;
+    padding:14px 20px;
+    max-width:480px;
+    width:90%;
+    text-align:center;
+    display:none;
+    z-index:10;
+  }
+  #medea-bubble::after {
+    content:'';
+    position:absolute;
+    bottom:-14px;
+    left:28%;
+    border:7px solid transparent;
+    border-top-color:rgba(192,160,240,0.6);
+  }
+  #medea-bubble-text {
+    font-family:'IM Fell English',serif;
+    font-style:italic;
+    font-size:0.92rem;
+    color:#e8d0f8;
+    line-height:1.6;
+  }
+  /* Vote overlay */
+  #medea-vote-overlay {
+    position:absolute;
+    bottom:0;
+    left:0;
+    right:0;
+    background:linear-gradient(0deg, rgba(6,0,20,0.97) 60%, transparent);
+    padding:20px 20px 24px;
+    text-align:center;
+    display:none;
+    z-index:10;
+  }
+  .vote-options { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
   .vote-btn {
     font-family:'Cinzel',serif;
-    font-size:0.9rem;
+    font-size:0.88rem;
     letter-spacing:0.1em;
-    padding:14px 36px;
+    padding:13px 32px;
     border-radius:4px;
     cursor:pointer;
     border:1px solid;
     transition:all 0.2s;
-    min-width:160px;
+    min-width:150px;
   }
-  .vote-btn-accept { background:rgba(26,74,26,0.4); border-color:rgba(74,138,74,0.6); color:#8ae08a; }
-  .vote-btn-accept:hover { background:rgba(26,74,26,0.7); }
-  .vote-btn-refuse { background:rgba(106,26,26,0.4); border-color:rgba(138,42,42,0.6); color:#e07070; }
-  .vote-btn-refuse:hover { background:rgba(106,26,26,0.7); }
-  .vote-status { margin-top:20px; font-family:'Cinzel',serif; font-size:0.8rem; color:rgba(192,160,240,0.7); min-height:24px; }
-  .vote-committed { color:#8ae08a; font-size:0.85rem; }
+  .vote-btn-accept { background:rgba(26,74,26,0.5); border-color:rgba(74,138,74,0.7); color:#8ae08a; }
+  .vote-btn-accept:hover { background:rgba(26,74,26,0.85); }
+  .vote-btn-refuse { background:rgba(106,26,26,0.5); border-color:rgba(138,42,42,0.7); color:#e07070; }
+  .vote-btn-refuse:hover { background:rgba(106,26,26,0.85); }
+  .vote-status { margin-top:12px; font-family:'Cinzel',serif; font-size:0.78rem; color:rgba(192,160,240,0.8); min-height:20px; }
+  .vote-committed { color:#8ae08a; font-size:0.82rem; }
 
   /* ── PATH CHOICE SCREEN ── */
   #screen-paths {
@@ -275,22 +323,20 @@
 
 <!-- ══ SCREEN: MEDEA VOTE ════════════════════════════════════════ -->
 <div class="screen" id="screen-medea">
-  <div class="medea-card">
-    <div class="medea-title">The Choice of Medea</div>
-    <div class="medea-subtitle">Before the Race Begins</div>
-    <div class="gold-divider"></div>
-    <div class="medea-text" id="medea-text">
-      Medea stands before you, her eyes dark with knowledge the gods would rather keep hidden.
-      She has power that could help your alliance survive what is coming.
-      But accepting her help means becoming indebted to someone the gods already despise.
-      <br><br>
-      Do you accept her aid — or face Olympus alone?
+  <div id="medea-canvas-wrap">
+    <canvas id="medea-canvas" width="900" height="506"></canvas>
+    <!-- Speech bubble -->
+    <div id="medea-bubble">
+      <div id="medea-bubble-text"></div>
     </div>
-    <div class="vote-options">
-      <button class="vote-btn vote-btn-accept" onclick="castMedeaVote('accept')">Accept Her Help</button>
-      <button class="vote-btn vote-btn-refuse" onclick="castMedeaVote('refuse')">Refuse — Go Alone</button>
+    <!-- Vote overlay -->
+    <div id="medea-vote-overlay">
+      <div class="vote-options">
+        <button class="vote-btn vote-btn-accept" id="medea-accept-btn" onclick="castMedeaVote('accept')">Accept Her Help</button>
+        <button class="vote-btn vote-btn-refuse" id="medea-refuse-btn" onclick="castMedeaVote('refuse')">Refuse — Go Alone</button>
+      </div>
+      <div class="vote-status" id="medea-vote-status"></div>
     </div>
-    <div class="vote-status" id="medea-vote-status"></div>
   </div>
 </div>
 
@@ -625,75 +671,417 @@ function skipCinematic() {
 // ═══════════════════════════════════════════════════
 // MEDEA VOTE
 // ═══════════════════════════════════════════════════
-function showMedeaVote() {
-  showScreen('medea');
-  // If phase is past medea, skip forward
+// ═══════════════════════════════════════════════════════════════
+// MEDEA CUTSCENE SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+const SPRITE_BASE  = '/images/Revenge of the Gods/sprites/avatars/';
+const CHAR_BASE    = '/images/Revenge of the Gods/sprites/characters/';
+const BG_BASE      = '/images/Revenge of the Gods/backgrounds/';
+
+// Sprite sheet layout (matches processed 9-frame sheet at 52×96px)
+const FRAME_W = 52, FRAME_H = 96;
+const FRAMES = {
+  FRONT_IDLE: [0, 1, 2],   // front-facing idle
+  BACK:       [3, 4],       // back-facing
+  WALK_LEFT:  [5, 6, 7, 8], // left walk (flip for right)
+};
+
+// Loaded image cache
+const _imgCache = {};
+function loadImg(src) {
+  if (_imgCache[src]) return Promise.resolve(_imgCache[src]);
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload  = () => { _imgCache[src] = img; resolve(img); };
+    img.onerror = () => {
+      // Return a placeholder so the scene still plays
+      const ph = document.createElement('canvas');
+      ph.width = FRAME_W; ph.height = FRAME_H;
+      const ctx = ph.getContext('2d');
+      ctx.fillStyle = '#3a2060';
+      ctx.fillRect(0, 0, FRAME_W, FRAME_H);
+      _imgCache[src] = ph; resolve(ph);
+    };
+    img.src = src;
+  });
+}
+
+// ── SpriteAnimator ────────────────────────────────────────────
+class SpriteAnimator {
+  constructor(img, frameW, frameH) {
+    this.img    = img;
+    this.fw     = frameW;
+    this.fh     = frameH;
+    this.frame  = 0;
+    this.timer  = 0;
+    this.fps    = 6; // frames per second for animation
+    this.frames = FRAMES.FRONT_IDLE;
+    this.flipX  = false;
+  }
+
+  setAnim(frameSet, fps, flipX) {
+    if (this.frames !== frameSet) {
+      this.frames = frameSet;
+      this.frame  = 0;
+      this.timer  = 0;
+    }
+    if (fps  !== undefined) this.fps   = fps;
+    if (flipX !== undefined) this.flipX = flipX;
+  }
+
+  tick(dt) {
+    this.timer += dt;
+    const interval = 1000 / this.fps;
+    if (this.timer >= interval) {
+      this.timer -= interval;
+      this.frame = (this.frame + 1) % this.frames.length;
+    }
+  }
+
+  draw(ctx, x, y, scale) {
+    const dw = this.fw * scale;
+    const dh = this.fh * scale;
+    const fi = this.frames[this.frame];
+    ctx.save();
+    if (this.flipX) {
+      ctx.translate(x + dw, y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(this.img, fi * this.fw, 0, this.fw, this.fh, 0, 0, dw, dh);
+    } else {
+      ctx.drawImage(this.img, fi * this.fw, 0, this.fw, this.fh, x, y, dw, dh);
+    }
+    ctx.restore();
+  }
+}
+
+// ── Medea Cutscene State ──────────────────────────────────────
+let _cutsceneActive  = false;
+let _cutsceneRAF     = null;
+let _cutsceneMembers = [];   // { name, archetype, gender, animator, x, y, targetX, walking }
+let _medeaAnimator   = null;
+let _medeaBg         = null;
+let _medeaPoof       = null;
+let _poofAnimator    = null;
+let _poofActive      = false;
+let _poofFrame       = 0;
+let _poofTimer       = 0;
+let _lastTs          = 0;
+const SCALE          = 3;    // render sprites at 3× for SNES feel
+const CANVAS_W       = 900;
+const CANVAS_H       = 506;
+
+function _getCanvas()  { return document.getElementById('medea-canvas'); }
+function _getCtx()     { return _getCanvas().getContext('2d'); }
+
+// ── Entry Point ───────────────────────────────────────────────
+async function showMedeaVote() {
+  // If phase already past medea, skip cutscene entirely
   if (raceState && raceState.current_phase === 'path_choice') {
     showPathChoice(raceState.current_round);
     return;
   }
+
+  showScreen('medea');
+  document.getElementById('medea-bubble').style.display       = 'none';
+  document.getElementById('medea-vote-overlay').style.display = 'none';
+
+  // Load alliance avatars
+  let members = [];
+  try {
+    const r = await fetch('/api/olympus/alliance-avatars', { headers: H });
+    if (r.ok) { const d = await r.json(); members = d.members || []; }
+  } catch(e) {}
+
+  // Fallback if no avatars loaded
+  if (!members.length) members = [{ name: 'Hero', archetype: 'tested', gender: 'male', is_self: true }];
+
+  // Load all assets in parallel
+  const [bgImg, medeaImg, poofImg, ...avatarImgs] = await Promise.all([
+    loadImg(BG_BASE + 'medea_chamber.png'),
+    loadImg(CHAR_BASE + 'medea.png'),
+    loadImg(CHAR_BASE + 'medea_poof.png'),
+    ...members.map(m => loadImg(SPRITE_BASE + m.archetype + '_' + m.gender + '.png'))
+  ]);
+
+  _medeaBg   = bgImg;
+  _medeaPoof = poofImg;
+
+  // Build Medea animator (same 9-frame layout)
+  _medeaAnimator = new SpriteAnimator(medeaImg, FRAME_W, FRAME_H);
+  _medeaAnimator.setAnim(FRAMES.FRONT_IDLE, 4);
+
+  // Build avatar animators — start off-screen right, walking left
+  const spriteW   = FRAME_W * SCALE;
+  const groundY   = CANVAS_H - FRAME_H * SCALE - 40;
+  const spacing   = spriteW + 16;
+  // Final resting positions — cluster right-center of screen
+  const groupStartX = CANVAS_W * 0.55;
+
+  _cutsceneMembers = members.map((m, i) => {
+    const anim = new SpriteAnimator(avatarImgs[i], FRAME_W, FRAME_H);
+    anim.setAnim(FRAMES.WALK_LEFT, 8);
+    return {
+      name:      m.name,
+      archetype: m.archetype,
+      animator:  anim,
+      x:         CANVAS_W + spriteW + i * 30, // start off right edge
+      y:         groundY,
+      targetX:   groupStartX + i * (spacing + 8),
+      walking:   true,
+      arrived:   false
+    };
+  });
+
+  // Start render loop
+  _cutsceneActive = true;
+  _lastTs = performance.now();
+  _poofActive = false;
+
+  // Kick off the sequence
+  _startCutsceneLoop();
+  _runCutsceneSequence();
 }
 
+// ── Render Loop ───────────────────────────────────────────────
+function _startCutsceneLoop() {
+  if (_cutsceneRAF) cancelAnimationFrame(_cutsceneRAF);
+  function loop(ts) {
+    if (!_cutsceneActive) return;
+    const dt = ts - _lastTs;
+    _lastTs = ts;
+    _renderFrame(dt);
+    _cutsceneRAF = requestAnimationFrame(loop);
+  }
+  _cutsceneRAF = requestAnimationFrame(loop);
+}
+
+function _renderFrame(dt) {
+  const ctx = _getCtx();
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.imageSmoothingEnabled = false;
+
+  // Background
+  if (_medeaBg) {
+    ctx.drawImage(_medeaBg, 0, 0, CANVAS_W, CANVAS_H);
+  } else {
+    // Fallback stone chamber gradient
+    const grd = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+    grd.addColorStop(0, '#1a0e2e');
+    grd.addColorStop(1, '#0a0618');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    // Torchlight glow
+    const torch = ctx.createRadialGradient(160, 200, 0, 160, 200, 180);
+    torch.addColorStop(0, 'rgba(255,140,20,0.18)');
+    torch.addColorStop(1, 'transparent');
+    ctx.fillStyle = torch;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  }
+
+  // Medea — positioned left side
+  if (_medeaAnimator) {
+    _medeaAnimator.tick(dt);
+    const mx = CANVAS_W * 0.12;
+    const my = CANVAS_H - FRAME_H * SCALE - 40;
+    _medeaAnimator.draw(ctx, mx, my, SCALE);
+  }
+
+  // Poof animation (replaces Medea on refuse)
+  if (_poofActive && _medeaPoof) {
+    _poofTimer += dt;
+    const poofInterval = 90; // ms per frame
+    if (_poofTimer >= poofInterval) {
+      _poofTimer -= poofInterval;
+      _poofFrame++;
+    }
+    const totalPoofFrames = Math.floor(_medeaPoof.width / FRAME_W) || 4;
+    if (_poofFrame < totalPoofFrames) {
+      const px = CANVAS_W * 0.12;
+      const py = CANVAS_H - FRAME_H * SCALE - 40;
+      ctx.drawImage(_medeaPoof, _poofFrame * FRAME_W, 0, FRAME_W, FRAME_H,
+                    px, py, FRAME_W * SCALE, FRAME_H * SCALE);
+    }
+  }
+
+  // Avatar sprites — walk in, then idle
+  _cutsceneMembers.forEach(m => {
+    if (m.walking && m.x > m.targetX) {
+      m.x -= 2.5;
+      if (m.x <= m.targetX) {
+        m.x = m.targetX;
+        m.walking = false;
+        m.arrived = true;
+        m.animator.setAnim(FRAMES.FRONT_IDLE, 4, false);
+      }
+    } else if (!m.walking) {
+      m.animator.tick(dt);
+    } else {
+      m.animator.tick(dt);
+    }
+    m.animator.draw(ctx, m.x, m.y, SCALE);
+
+    // Name tag below sprite
+    if (m.arrived) {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(m.x, m.y + FRAME_H * SCALE + 2, FRAME_W * SCALE, 18);
+      ctx.fillStyle = '#f0d060';
+      ctx.font = '10px Cinzel, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(m.name, m.x + (FRAME_W * SCALE) / 2, m.y + FRAME_H * SCALE + 14);
+      ctx.textAlign = 'left';
+    }
+  });
+}
+
+// ── Cutscene Sequence Controller ──────────────────────────────
+async function _runCutsceneSequence() {
+  // Wait for all avatars to arrive
+  await _waitUntil(() => _cutsceneMembers.every(m => m.arrived), 6000);
+
+  // Show Medea speech bubble
+  await _delay(400);
+  _showBubble(
+    '"You stand at the foot of Olympus. The gods have already seen you." ' +
+    'Medea stirs her cauldron without looking up. ' +
+    '"I can give your alliance an edge — a potion, a spell, a whisper in the right ear." ' +
+    'She finally meets your eyes. "But my help comes with a price. Zeus will remember."'
+  );
+
+  // Wait 5 seconds then reveal vote buttons
+  await _delay(5000);
+  _showVoteOverlay();
+}
+
+function _showBubble(text) {
+  const bubble = document.getElementById('medea-bubble');
+  const bt     = document.getElementById('medea-bubble-text');
+  bt.textContent = text;
+  bubble.style.display = 'block';
+  bubble.style.opacity  = '0';
+  bubble.style.transition = 'opacity 0.6s ease';
+  requestAnimationFrame(() => { bubble.style.opacity = '1'; });
+}
+
+function _hideBubble() {
+  const bubble = document.getElementById('medea-bubble');
+  bubble.style.opacity = '0';
+  setTimeout(() => { bubble.style.display = 'none'; }, 600);
+}
+
+function _showVoteOverlay() {
+  const ov = document.getElementById('medea-vote-overlay');
+  ov.style.display = 'block';
+  ov.style.opacity  = '0';
+  ov.style.transition = 'opacity 0.6s ease';
+  requestAnimationFrame(() => { ov.style.opacity = '1'; });
+}
+
+function _playPoof() {
+  if (_medeaAnimator) _medeaAnimator = null; // hide Medea
+  _poofActive = true;
+  _poofFrame  = 0;
+  _poofTimer  = 0;
+}
+
+function _delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function _waitUntil(condition, maxMs) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    const iv = setInterval(() => {
+      if (condition() || Date.now() - start > maxMs) {
+        clearInterval(iv);
+        resolve();
+      }
+    }, 100);
+  });
+}
+
+function _stopCutscene() {
+  _cutsceneActive = false;
+  if (_cutsceneRAF) { cancelAnimationFrame(_cutsceneRAF); _cutsceneRAF = null; }
+}
+
+// ── Vote Logic (unchanged server endpoints) ───────────────────
 async function castMedeaVote(choice) {
-  document.querySelector('.vote-options').style.pointerEvents = 'none';
+  // Disable buttons immediately
+  document.getElementById('medea-accept-btn').disabled = true;
+  document.getElementById('medea-refuse-btn').disabled = true;
   document.getElementById('medea-vote-status').textContent = 'Casting vote…';
 
+  // Animate outcome
+  if (choice === 'refuse') {
+    _hideBubble();
+    await _delay(500);
+    _playPoof();
+    await _delay(1200);
+  } else {
+    _hideBubble();
+    _showBubble('"Wise choice," she says, and smiles. "Follow me."');
+    // Avatars turn to face Medea (back-facing)
+    _cutsceneMembers.forEach(m => m.animator.setAnim(FRAMES.BACK, 4));
+    await _delay(1800);
+  }
+
   try {
-    // Step 1: Cast vote
-    const res = await fetch('/api/olympus/medea-vote', {
+    // Cast vote on server
+    const res  = await fetch('/api/olympus/medea-vote', {
       method:'POST', headers:H, body:JSON.stringify({ choice })
     });
     const data = await res.json();
 
     if (!res.ok) {
       document.getElementById('medea-vote-status').textContent = data.error || 'Error voting.';
-      document.querySelector('.vote-options').style.pointerEvents = '';
+      document.getElementById('medea-accept-btn').disabled = false;
+      document.getElementById('medea-refuse-btn').disabled = false;
       return;
     }
 
-    // Step 2: Try commit immediately (works for solo or unanimous fast voters)
-    const commitRes = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
+    // Try commit
+    const commitRes  = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
     const commitData = await commitRes.json();
 
     if (commitData.committed) {
-      document.getElementById('medea-vote-status').innerHTML = '<span class="vote-committed">✓ Decided — entering the race…</span>';
+      document.getElementById('medea-vote-status').innerHTML =
+        '<span class="vote-committed">✓ Decided — entering the race…</span>';
+      _stopCutscene();
       await loadState();
-      setTimeout(() => showPathChoice(1), 1200);
+      setTimeout(() => showPathChoice(1), 1000);
       return;
     }
 
-    // If already resolved by a teammate, load current state and route forward
     if (commitData.error === 'Medea moment already resolved') {
-      document.getElementById('medea-vote-status').innerHTML = '<span class="vote-committed">✓ Alliance decided — catching up…</span>';
+      document.getElementById('medea-vote-status').innerHTML =
+        '<span class="vote-committed">✓ Alliance decided — catching up…</span>';
+      _stopCutscene();
       await loadState();
       if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
       return;
     }
 
-    // Step 3: Majority not reached — stay on Medea screen, poll for commit
-    // IMPORTANT: do NOT change phase or call showWaiting — server needs phase='opening' to commit
+    // Majority not reached — show waiting, poll
     const tally = data.tally || [];
-    const voteCount = tally.reduce(function(s, v) { return s + (v.cnt || 0); }, 0);
+    const voteCount = tally.reduce((s, v) => s + (v.cnt || 0), 0);
     document.getElementById('medea-vote-status').innerHTML =
-      '<span style="color:rgba(192,160,240,0.9); font-family:Cinzel,serif; font-size:0.85rem;">' +
-      'Your vote is in (' + voteCount + ' voted). Waiting for teammates…' +
-      '<span class="poll-dot"></span></span>';
+      '<span style="color:rgba(192,160,240,0.9);font-family:Cinzel,serif;font-size:0.82rem;">' +
+      'Your vote is in (' + voteCount + ' voted). Waiting for teammates…</span>';
 
-    // Poll: try commit every 3s — server will succeed once majority is reached.
-    // Also check actual race state in case a teammate already committed while
-    // our request was in flight — prevents getting permanently stuck.
     stopPolling();
     pollTimer = setInterval(async function() {
       try {
-        const tryCommit = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
-        const tryData = await tryCommit.json();
+        const tryCommit  = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
+        const tryData    = await tryCommit.json();
         if (tryData.committed) {
           stopPolling();
+          _stopCutscene();
           await loadState();
           showPathChoice(raceState ? raceState.current_round || 1 : 1);
         } else if (tryData.error === 'Medea moment already resolved') {
-          // Teammate committed first — load state and route forward
           stopPolling();
+          _stopCutscene();
           await loadState();
           if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
         }
@@ -702,7 +1090,8 @@ async function castMedeaVote(choice) {
 
   } catch(e) {
     document.getElementById('medea-vote-status').textContent = 'Error: ' + e.message;
-    document.querySelector('.vote-options').style.pointerEvents = '';
+    document.getElementById('medea-accept-btn').disabled = false;
+    document.getElementById('medea-refuse-btn').disabled = false;
   }
 }
 
