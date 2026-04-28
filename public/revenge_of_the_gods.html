@@ -240,6 +240,127 @@
   }
   #screen-paths.round1-bg .r1-surviving-bar { display: block; }
 
+  /* ── Rounds 2-5 background images ── */
+  #screen-paths.round2-bg { background: url('/images/Revenge of the Gods/Backgrounds/round2_bg.png') center center / cover no-repeat; }
+  #screen-paths.round3-bg { background: url('/images/Revenge of the Gods/Backgrounds/round3_bg.png') center center / cover no-repeat; }
+  #screen-paths.round4-bg { background: url('/images/Revenge of the Gods/Backgrounds/round4_bg.png') center center / cover no-repeat; }
+  #screen-paths.round5-bg { background: url('/images/Revenge of the Gods/Backgrounds/round5_bg.png') center center / cover no-repeat; }
+  #screen-paths.round2-bg::before,
+  #screen-paths.round3-bg::before,
+  #screen-paths.round4-bg::before,
+  #screen-paths.round5-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.18) 50%, rgba(0,0,0,0.58) 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  #screen-paths.round2-bg > *,
+  #screen-paths.round3-bg > *,
+  #screen-paths.round4-bg > *,
+  #screen-paths.round5-bg > * { position: relative; z-index: 1; }
+  #screen-paths.round2-bg .paths-header,
+  #screen-paths.round3-bg .paths-header,
+  #screen-paths.round4-bg .paths-header,
+  #screen-paths.round5-bg .paths-header {
+    background: rgba(0,0,0,0.58);
+    border-radius: 0 0 8px 8px;
+    border-bottom: 1px solid rgba(184,134,11,0.3);
+    backdrop-filter: blur(2px);
+    padding: 14px 40px 12px;
+    display: inline-block;
+    margin: 0 auto;
+    width: auto;
+  }
+  #screen-paths.round2-bg .r1-surviving-bar,
+  #screen-paths.round3-bg .r1-surviving-bar,
+  #screen-paths.round4-bg .r1-surviving-bar,
+  #screen-paths.round5-bg .r1-surviving-bar { display: block; }
+  /* Round 5 — no surviving bar (no safe path) */
+  #screen-paths.round5-bg .r1-surviving-bar { display: none; }
+
+  /* ── Extra path card colors for rounds 2-5 ── */
+  .path-card.color-red    { background: rgba(180,30,30,0.85);  border-color: rgba(220,80,80,0.8); }
+  .path-card.color-amber  { background: rgba(180,110,20,0.85); border-color: rgba(220,160,60,0.8); }
+  .path-card.color-teal   { background: rgba(20,140,140,0.85); border-color: rgba(60,200,200,0.8); }
+  .path-card.color-purple { background: rgba(120,40,180,0.85); border-color: rgba(180,100,240,0.8); }
+  .path-card.color-dark   { background: rgba(20,16,30,0.92);   border-color: rgba(100,80,140,0.6); }
+
+  /* ── Title Screen ── */
+  #screen-title {
+    background: url('/images/Revenge of the Gods/Backgrounds/title_screen.png') center center / cover no-repeat;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+  }
+  #screen-title::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+  #title-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 40px 30px;
+  }
+  #title-eyebrow {
+    font-family: 'Cinzel', serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.4em;
+    color: rgba(240,208,96,0.8);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    text-shadow: 0 0 20px rgba(0,0,0,1), 0 1px 3px rgba(0,0,0,1);
+  }
+  #title-main {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 3.2rem;
+    color: var(--bright-gold);
+    margin-bottom: 16px;
+    text-shadow: 0 0 40px rgba(0,0,0,1), 0 0 20px rgba(0,0,0,1),
+                 0 3px 6px rgba(0,0,0,1), 3px 3px 0 rgba(0,0,0,0.6);
+    -webkit-text-stroke: 0.5px rgba(0,0,0,0.5);
+    line-height: 1.15;
+  }
+  #title-sub {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: #fff;
+    line-height: 1.7;
+    margin-bottom: 36px;
+    text-shadow: 0 0 16px rgba(0,0,0,1), 0 1px 4px rgba(0,0,0,1);
+  }
+  #title-enter-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    color: var(--pale-gold);
+    background: rgba(0,0,0,0.65);
+    border: 1px solid rgba(184,134,11,0.6);
+    border-radius: 4px;
+    padding: 16px 48px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    backdrop-filter: blur(3px);
+  }
+  #title-enter-btn:hover { background: rgba(184,134,11,0.25); border-color: var(--bright-gold); color: var(--bright-gold); }
+  #title-enter-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  #title-ready-status {
+    font-family: 'Cinzel', serif;
+    font-size: 0.78rem;
+    color: rgba(240,208,96,0.85);
+    margin-top: 14px;
+    min-height: 20px;
+    text-shadow: 0 0 10px rgba(0,0,0,1), 0 1px 3px rgba(0,0,0,1);
+    letter-spacing: 0.1em;
+  }
+
   .path-name { font-family:'Cinzel',serif; font-size:1.2rem; color:var(--pale-gold); text-align:center; padding:8px 0; font-weight:600; letter-spacing:0.05em; }
   .path-god { display:none; }
   .path-attack { display:none; }
@@ -398,7 +519,20 @@
 <a class="back-btn" href="/student.html">← Dashboard</a>
 <div class="phase-indicator" id="phase-indicator">—</div>
 
-<!-- ══ SCREEN: CINEMATIC ══════════════════════════════════════════ -->
+<!-- ══ SCREEN: TITLE ══════════════════════════════════════════════════ -->
+<div class="screen" id="screen-title">
+  <div id="title-content">
+    <div id="title-eyebrow">The Olympus Race</div>
+    <div id="title-main">Revenge of the Gods</div>
+    <div id="title-sub">Your alliance stands at the foot of Olympus.<br>The gods have already seen you.</div>
+    <div id="title-ready-wrap">
+      <button id="title-enter-btn" onclick="titleReady()">⚔️ Enter the Arena</button>
+      <div id="title-ready-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN: CINEMATIC ══════════════════════════════════════════════════ -->
 <div class="screen active" id="screen-cinematic">
   <div id="cinematic-content">
     <div class="cinematic-line zeus" id="cl-1">"You were warned."</div>
@@ -659,6 +793,10 @@ function routeToPhase(phase, round) {
 
   switch(phase) {
     case 'opening':
+      // Show title screen — ready-check before Medea
+      showTitleScreen();
+      break;
+
     case 'medea':
       // Show cinematic first if we haven't seen it this session
       if (!sessionStorage.getItem('cinematic_done')) {
@@ -764,6 +902,75 @@ function skipCinematic() {
 // ═══════════════════════════════════════════════════
 // MEDEA VOTE
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// TITLE SCREEN — Ready check before Medea
+// ═══════════════════════════════════════════════════════════════
+
+function showTitleScreen() {
+  stopPolling();
+  showScreen('title');
+  document.getElementById('title-enter-btn').disabled    = false;
+  document.getElementById('title-ready-status').textContent = '';
+}
+
+async function titleReady() {
+  const btn    = document.getElementById('title-enter-btn');
+  const status = document.getElementById('title-ready-status');
+  btn.disabled = true;
+  btn.textContent = '⚔️ Ready…';
+  status.textContent = 'Signaling your alliance…';
+
+  try {
+    const res  = await fetch('/api/olympus/title-ready', { method:'POST', headers:H });
+    const data = await res.json();
+
+    if (data.advanced) {
+      status.textContent = 'The arena opens…';
+      await loadState();
+      if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+      return;
+    }
+
+    // Not all ready yet — show count and poll
+    status.textContent = 'Ready (' + data.ready_count + ' / ' + data.needed + '). Waiting for teammates…';
+    stopPolling();
+    pollTimer = setInterval(async function() {
+      try {
+        const s = await apiFetchTitle();
+        if (s && s.current_phase !== 'opening') {
+          stopPolling();
+          routeToPhase(s.current_phase, s.current_round);
+        } else if (s) {
+          // Re-call title-ready to refresh count
+          const r2   = await fetch('/api/olympus/title-ready', { method:'POST', headers:H });
+          const d2   = await r2.json();
+          if (d2.advanced) {
+            stopPolling();
+            await loadState();
+            if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+          } else {
+            status.textContent = 'Ready (' + d2.ready_count + ' / ' + d2.needed + '). Waiting for teammates…';
+          }
+        }
+      } catch(e) {}
+    }, 3000);
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '⚔️ Enter the Arena';
+    status.textContent = 'Network error. Try again.';
+  }
+}
+
+async function apiFetchTitle() {
+  try {
+    const res  = await fetch('/api/olympus/state', { headers:H });
+    const data = await res.json();
+    if (data.state) { raceState = data.state; return data.state; }
+  } catch(e) {}
+  return null;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MEDEA CUTSCENE SYSTEM
 // ═══════════════════════════════════════════════════════════════
@@ -1300,30 +1507,73 @@ const ROUND_LABELS = {
 };
 
 // Round 1 path color — keyword match (label text varies by server version)
-function _r1PathColor(label) {
+// ── Path color — keyword-based for all rounds ──
+function _pathColor(label, round) {
   const l = label.toLowerCase();
-  if (l.includes('mountain') || l.includes('climb'))   return 'color-stone';
-  if (l.includes('forest')  || l.includes('hide'))     return 'color-sage';
-  if (l.includes('sea')     || l.includes('sail'))     return 'color-blue';
-  if (l.includes('desert')  || l.includes('walk'))     return 'color-tan';
-  if (l.includes('attack')  || l.includes('head on'))  return 'color-salmon';
-  if (l.includes('alliance')|| l.includes('country'))  return 'color-lavender';
-  // Fallback — cycle through colors so no two adjacent cards match
-  const fallbacks = ['color-blue','color-sage','color-tan','color-salmon','color-lavender','color-stone'];
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+  if (round === 1) {
+    if (l.includes('mountain') || l.includes('climb'))    return 'color-stone';
+    if (l.includes('forest')   || l.includes('hide in'))  return 'color-sage';
+    if (l.includes('sea')      || l.includes('sail'))     return 'color-blue';
+    if (l.includes('desert')   || l.includes('walk'))     return 'color-tan';
+    if (l.includes('attack')   || l.includes('head on'))  return 'color-salmon';
+    if (l.includes('alliance') || l.includes('country'))  return 'color-lavender';
+  }
+  if (round === 2) {
+    if (l.includes('capture fire'))                        return 'color-red';
+    if (l.includes('spear') || l.includes('sword'))        return 'color-stone';
+    if (l.includes('tunnel') || l.includes('dig'))         return 'color-tan';
+    if (l.includes('cyclops') || l.includes('seek'))       return 'color-blue';
+    if (l.includes('injured') || l.includes('hide among')) return 'color-salmon';
+    if (l.includes('night')  || l.includes('cover'))       return 'color-dark';
+  }
+  if (round === 3) {
+    if (l.includes('catapult'))                            return 'color-amber';
+    if (l.includes('medea') || l.includes('potion'))       return 'color-lavender';
+    if (l.includes('forge') || l.includes('hephaestus'))   return 'color-red';
+    if (l.includes('orpheus') || l.includes('underworld')) return 'color-dark';
+    if (l.includes('medusa'))                              return 'color-sage';
+    if (l.includes('sacrifice'))                           return 'color-salmon';
+  }
+  if (round === 4) {
+    if (l.includes('minotaur'))                            return 'color-amber';
+    if (l.includes('oracle'))                              return 'color-lavender';
+    if (l.includes('return fire') || l.includes('fire'))   return 'color-red';
+    if (l.includes('trap'))                                return 'color-blue';
+    if (l.includes('disguise') || l.includes('create'))    return 'color-stone';
+    if (l.includes('titan') || l.includes('ally'))         return 'color-tan';
+  }
+  if (round === 5) {
+    if (l.includes('living dead') || l.includes('night'))  return 'color-lavender';
+    if (l.includes('rainbow'))                             return 'color-purple';
+    if (l.includes('phaethon'))                            return 'color-amber';
+    if (l.includes('wish'))                                return 'color-blue';
+    if (l.includes('echo'))                                return 'color-teal';
+    if (l.includes('dream'))                               return 'color-stone';
+  }
+  const fb = ['color-blue','color-sage','color-tan','color-salmon','color-lavender','color-stone'];
+  return fb[Math.abs(label.charCodeAt(0) || 0) % fb.length];
 }
+// Legacy alias used below
+function _r1PathColor(label) { return _pathColor(label, 1); }
 
-// Scatter positions for Round 1 — 6 slots across the canvas
-// Anchored left/right to keep Poseidon visible in center
-// Format: { left|right, x (% from that edge), y (% from top) }
+// ── Scatter positions — same 3L/3R layout for all rounds ──
+// Left/right anchored so central figures remain unobscured
 const R1_POSITIONS = [
-  { side:'left',  x:2,  y:8  },   // top-left
-  { side:'right', x:2,  y:8  },   // top-right
-  { side:'left',  x:2,  y:38 },   // mid-left
-  { side:'right', x:2,  y:38 },   // mid-right
-  { side:'left',  x:2,  y:66 },   // bottom-left
-  { side:'right', x:2,  y:66 },   // bottom-right
+  { side:'left',  x:2, y:6  },
+  { side:'right', x:2, y:6  },
+  { side:'left',  x:2, y:38 },
+  { side:'right', x:2, y:38 },
+  { side:'left',  x:2, y:68 },
+  { side:'right', x:2, y:68 },
 ];
+const ROUND_POSITIONS = {
+  1: R1_POSITIONS,
+  2: R1_POSITIONS,  // same left/right pattern works for Spartan center
+  3: R1_POSITIONS,  // same for Titan center
+  4: R1_POSITIONS,  // same for Cerberus — dark flanks
+  5: R1_POSITIONS,  // same for Minotaur — all dark
+};
+const BG_ROUNDS = [1,2,3,4,5];
 
 // Seeded shuffle — same result for all alliance members with the same alliance_id
 function _seededShuffle(arr, seed) {
@@ -1345,12 +1595,11 @@ async function showPathChoice(round) {
   document.getElementById('paths-error').classList.remove('show');
   document.getElementById('paths-round-label').textContent = ROUND_LABELS[round] || `Round ${round}`;
 
-  // Apply / remove Round 1 background class
+  // Apply correct background class for this round
   const pathsScreen = document.getElementById('screen-paths');
-  if (round === 1) {
-    pathsScreen.classList.add('round1-bg');
-  } else {
-    pathsScreen.classList.remove('round1-bg');
+  pathsScreen.className = 'screen'; // reset
+  if (BG_ROUNDS.includes(round)) {
+    pathsScreen.classList.add('round' + round + '-bg');
   }
 
   try {
@@ -1366,24 +1615,22 @@ function renderPaths(paths, round) {
   const grid = document.getElementById('paths-grid');
   grid.innerHTML = '';
 
-  if (round === 1) {
-    // ── Round 1: scattered colored cards on Poseidon background ──
+  if (BG_ROUNDS.includes(round)) {
+    // ── All rounds with backgrounds: scattered colored cards ──
     grid.className = 'paths-grid r1-scatter';
 
-    // Seed shuffle using alliance_id (consistent across all members)
-    const seed = allianceData ? (allianceData.alliance_id || 42) : 42;
-    const shuffledPaths     = _seededShuffle(paths, seed);
-    const shuffledPositions = _seededShuffle(R1_POSITIONS, seed + 7);
+    const seed      = allianceData ? (allianceData.alliance_id || 42) : 42;
+    const positions = ROUND_POSITIONS[round] || R1_POSITIONS;
+    const shuffledPaths     = _seededShuffle(paths, seed + round);
+    const shuffledPositions = _seededShuffle(positions, seed + round + 7);
 
-    // Need canvas dimensions — use percent-based positioning relative to grid
     shuffledPaths.forEach((path, i) => {
-      const pos       = shuffledPositions[i] || shuffledPositions[0];
-      const colorClass = _r1PathColor(path.label);
-      const card      = document.createElement('div');
-      card.className  = 'path-card ' + colorClass + (path.locked ? ' locked' : '');
+      const pos        = shuffledPositions[i] || shuffledPositions[0];
+      const colorClass = _pathColor(path.label, round);
+      const card       = document.createElement('div');
+      card.className   = 'path-card ' + colorClass + (path.locked ? ' locked' : '');
 
-      // Position absolutely — percent-based so it works at any screen size
-      card.style.top    = pos.y + '%';
+      card.style.top = pos.y + '%';
       if (pos.side === 'left')  { card.style.left  = pos.x + '%'; }
       else                      { card.style.right = pos.x + '%'; }
 
@@ -1392,19 +1639,17 @@ function renderPaths(paths, round) {
         ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
         <div class="path-vote-count" id="path-votes-${path.idx}"></div>
       `;
-
       if (!path.locked) { card.onclick = () => selectPath(path.idx, card); }
       grid.appendChild(card);
     });
 
   } else {
-    // ── Rounds 2–5: standard grid layout ──
+    // ── Fallback: standard grid (no background image) ──
     grid.className = 'paths-grid';
-
     paths.forEach(path => {
-      const card      = document.createElement('div');
-      card.className  = 'path-card' + (path.locked ? ' locked' : '');
-      card.innerHTML  = `
+      const card     = document.createElement('div');
+      card.className = 'path-card' + (path.locked ? ' locked' : '');
+      card.innerHTML = `
         <div class="path-name">${path.label}</div>
         ${path.locked ? `<div class="path-claimed">🔒 ${path.locked_by && path.locked_by.alliance_name ? path.locked_by.alliance_name : 'Claimed'}</div>` : ''}
         <div class="path-vote-count" id="path-votes-${path.idx}"></div>

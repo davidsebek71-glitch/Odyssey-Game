@@ -234,6 +234,10 @@ initDatabase().then(() => {
         run("ALTER TABLE olympus_race_state ADD COLUMN medea_help_count INTEGER DEFAULT 0");
         console.log('⚡ Added medea_help_count to olympus_race_state');
       }
+      if (!colNames.includes('title_ready_flags')) {
+        run("ALTER TABLE olympus_race_state ADD COLUMN title_ready_flags TEXT DEFAULT '[]'");
+        console.log('⚡ Added title_ready_flags to olympus_race_state');
+      }
     } catch(e) { console.log('medea_help_count migration skipped:', e.message); }
 
     saveDatabase();
@@ -17989,6 +17993,52 @@ app.post('/api/olympus/safe-path-advance', authenticateToken, (req, res) => {
     );
     saveDatabase();
     res.json(combatResult);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── POST /api/olympus/title-ready ────────────────────────────────────────────
+// Each student clicks "Enter the Arena" on the title screen.
+// When ALL non-ghost alliance members are ready, advances phase to 'medea'.
+app.post('/api/olympus/title-ready', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'No race state' });
+
+    // Already past opening — idempotent
+    if (state.current_phase !== 'opening') {
+      return res.json({ advanced: true, phase: state.current_phase });
+    }
+
+    // Record this student as ready
+    let flags = [];
+    try { flags = JSON.parse(state.title_ready_flags || '[]'); } catch(e) {}
+    if (!flags.includes(req.user.id)) {
+      flags.push(req.user.id);
+      run(`UPDATE olympus_race_state SET title_ready_flags=? WHERE alliance_id=?`,
+        [JSON.stringify(flags), alliance.alliance_id]);
+    }
+
+    // Count real (non-ghost) members
+    const memberRows = query(
+      `SELECT COUNT(*) AS cnt FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const total   = memberRows[0] ? memberRows[0].cnt : 1;
+    const readyCt = flags.length;
+
+    if (readyCt >= total) {
+      // All ready — advance to medea
+      run(`UPDATE olympus_race_state SET current_phase='medea', title_ready_flags='[]' WHERE alliance_id=?`,
+        [alliance.alliance_id]);
+      saveDatabase();
+      return res.json({ advanced: true, ready_count: readyCt, needed: total });
+    }
+
+    saveDatabase();
+    return res.json({ advanced: false, ready_count: readyCt, needed: total });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
