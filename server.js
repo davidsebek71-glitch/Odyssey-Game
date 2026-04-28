@@ -17997,8 +17997,10 @@ app.post('/api/olympus/safe-path-advance', authenticateToken, (req, res) => {
 });
 
 // ── POST /api/olympus/title-ready ────────────────────────────────────────────
-// Each student clicks "Enter the Arena" on the title screen.
-// When ALL non-ghost alliance members are ready, advances phase to 'medea'.
+// First alliance member to click "Enter the Arena" advances phase to 'medea'.
+// All other members auto-route via polling (3s interval).
+// No DB column needed — avoids migration timing issues on Railway.
+const _titleReadySet = new Set(); // in-memory: alliance_ids that have clicked
 app.post('/api/olympus/title-ready', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
   try {
@@ -18007,38 +18009,17 @@ app.post('/api/olympus/title-ready', authenticateToken, (req, res) => {
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'No race state' });
 
-    // Already past opening — idempotent
+    // Already past opening — return success so client routes forward
     if (state.current_phase !== 'opening') {
       return res.json({ advanced: true, phase: state.current_phase });
     }
 
-    // Record this student as ready
-    let flags = [];
-    try { flags = JSON.parse(state.title_ready_flags || '[]'); } catch(e) {}
-    if (!flags.includes(req.user.id)) {
-      flags.push(req.user.id);
-      run(`UPDATE olympus_race_state SET title_ready_flags=? WHERE alliance_id=?`,
-        [JSON.stringify(flags), alliance.alliance_id]);
-    }
-
-    // Count real (non-ghost) members
-    const memberRows = query(
-      `SELECT COUNT(*) AS cnt FROM students WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [alliance.alliance_id]
-    );
-    const total   = memberRows[0] ? memberRows[0].cnt : 1;
-    const readyCt = flags.length;
-
-    if (readyCt >= total) {
-      // All ready — advance to medea
-      run(`UPDATE olympus_race_state SET current_phase='medea', title_ready_flags='[]' WHERE alliance_id=?`,
-        [alliance.alliance_id]);
-      saveDatabase();
-      return res.json({ advanced: true, ready_count: readyCt, needed: total });
-    }
-
+    // Advance immediately on first click — polling handles other players
+    run(`UPDATE olympus_race_state SET current_phase='medea' WHERE alliance_id=?`,
+      [alliance.alliance_id]);
+    _titleReadySet.add(alliance.alliance_id);
     saveDatabase();
-    return res.json({ advanced: false, ready_count: readyCt, needed: total });
+    return res.json({ advanced: true, ready_count: 1, needed: 1 });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
