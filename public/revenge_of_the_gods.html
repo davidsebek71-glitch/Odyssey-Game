@@ -713,7 +713,8 @@ function loadSpriteSheet(src, numFrames, bgColor) {
         // Strip magenta (avatar sheets)
         if (r > 150 && b > 150 && g < 80 && (r - g) > 100) { d[i+3] = 0; continue; }
         // Strip black background (medea, door sprites)
-        if (bgColor === 'black' && r < 35 && g < 35 && b < 35)   { d[i+3] = 0; }
+        // Use tight threshold + near-neutral check to preserve dark sprite detail
+        if (bgColor === 'black' && r < 22 && g < 22 && b < 22) { d[i+3] = 0; }
       }
       ctx.putImageData(id, 0, 0);
       const sheet = {
@@ -755,17 +756,18 @@ function loadImg(src, n, bg) { return loadSpriteSheet(src, n||9, bg||'magenta');
 // Accepts a sheet object: { canvas, frameW, frameH } from loadSpriteSheet.
 // displayH controls rendered height — width is computed proportionally.
 class SpriteAnimator {
-  constructor(sheet, displayH) {
-    this.canvas  = sheet.canvas;
-    this.fw      = sheet.frameW;
-    this.fh      = sheet.frameH;
+  constructor(sheet, displayH, smooth) {
+    this.canvas   = sheet.canvas;
+    this.fw       = sheet.frameW;
+    this.fh       = sheet.frameH;
     this.displayH = displayH || 180;
     this.displayW = Math.round(this.fw * (this.displayH / this.fh));
-    this.frame   = 0;
-    this.timer   = 0;
-    this.fps     = 6;
-    this.frames  = FRAMES.FRONT_IDLE;
-    this.flipX   = false;
+    this.frame    = 0;
+    this.timer    = 0;
+    this.fps      = 6;
+    this.frames   = FRAMES.FRONT_IDLE;
+    this.flipX    = false;
+    this.smooth   = smooth || false; // true for illustrations, false for pixel art
   }
 
   setAnim(frameSet, fps, flipX) {
@@ -792,7 +794,8 @@ class SpriteAnimator {
     const dh = this.displayH;
     const fi = this.frames[this.frame];
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = this.smooth;
+    if (this.smooth) ctx.imageSmoothingQuality = 'high';
     if (this.flipX) {
       ctx.translate(x + dw, y);
       ctx.scale(-1, 1);
@@ -861,20 +864,18 @@ async function showMedeaVote() {
   const MEDEA_H     = 240; // Medea height on canvas
 
   // Load all assets — medea/door use black bg, avatars use magenta bg
-  const [bgSheet, medeaSheet, poofSheet, doorSheet, ...avatarSheets] = await Promise.all([
+  const [bgSheet, medeaSheet, poofSheet, ...avatarSheets] = await Promise.all([
     loadSpriteSheet(BG_BASE   + 'medea_chamber.png',  1, 'magenta'),
     loadSpriteSheet(CHAR_BASE + 'medea.png',           5, 'black'),   // 5 frames confirmed
     loadSpriteSheet(CHAR_BASE + 'medea_poof.png',      6, 'black'),
-    loadSpriteSheet(BG_BASE   + 'door_open.png',       4, 'black'),   // 4 frames confirmed
     ...members.map(m => loadSpriteSheet(SPRITE_BASE + m.archetype + '_' + m.gender + '.png', 9))
   ]);
 
   _medeaBg   = bgSheet.canvas;
   _medeaPoof = poofSheet;
-  _doorSheet = doorSheet;
 
-  // Medea — 5-frame idle, positioned left of center
-  _medeaAnimator = new SpriteAnimator(medeaSheet, MEDEA_H);
+  // Medea — 5-frame idle, smooth=true (illustration, not pixel art)
+  _medeaAnimator = new SpriteAnimator(medeaSheet, MEDEA_H, true);
   _medeaAnimator.setAnim(FRAMES.FRONT_IDLE, 4);
 
   // Avatar animators — start off-screen right, walk to right side of canvas
@@ -975,16 +976,7 @@ function _renderFrame(dt) {
     }
   }
 
-  // Door opening animation — overlaid on gate position in background
-  if (_doorActive && _doorSheet) {
-    _doorTimer += dt;
-    // 180ms per frame → ~0.72s total for 4 frames
-    if (_doorTimer >= 180) { _doorTimer -= 180; if (_doorFrame < _doorSheet.numFrames - 1) _doorFrame++; else _doorDone = true; }
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(_doorSheet.canvas,
-      _doorFrame * _doorSheet.frameW, 0, _doorSheet.frameW, _doorSheet.frameH,
-      GATE_X, GATE_Y, GATE_W, GATE_H);
-  }
+
 
   // Avatars — walk in, idle, or exit through gate
   _cutsceneMembers.forEach(m => {
@@ -992,22 +984,18 @@ function _renderFrame(dt) {
     const sh = m.animator.displayH;
 
     if (m.exiting) {
-      // Walk toward gate center and shrink as they approach (depth illusion)
-      const distToGate = Math.abs(m.x - (GATE_CX - sw / 2));
-      m.x -= 4;
-      // Shrink slightly as they walk into the distance
-      const shrink = Math.max(0.4, Math.min(1, distToGate / 200));
+      // Walk off-screen left — fade out as they exit
+      m.x -= 3.5;
       m.animator.tick(dt);
-      // Draw shrinking
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      const dw = Math.round(sw * shrink);
-      const dh = Math.round(sh * shrink);
-      const dy = m.y + (sh - dh); // keep feet on ground
-      const fi = m.animator.frames[m.animator.frame];
-      ctx.drawImage(m.animator.canvas, fi * m.animator.fw, 0, m.animator.fw, m.animator.fh,
-                    m.x, dy, dw, dh);
-      ctx.restore();
+      // Only draw if still on screen
+      if (m.x + sw > 0) {
+        const alpha = Math.min(1, m.x / 80); // fade as they near left edge
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.imageSmoothingEnabled = false;
+        m.animator.draw(ctx, m.x, m.y);
+        ctx.restore();
+      }
     } else {
       if (m.walking && m.x > m.targetX) {
         m.x -= 3;
@@ -1120,29 +1108,22 @@ async function castMedeaVote(choice) {
     await _delay(1500);
   } else {
     _hideBubble();
-    _showBubble('"Wise choice," she says, and smiles. "Follow me."');
-    await _delay(1600);
+    _showBubble('"Wise choice," she says. "Follow me."');
+    await _delay(1800);
     _hideBubble();
-    // Play gate opening animation
-    _doorActive = true; _doorFrame = 0; _doorTimer = 0; _doorDone = false;
-    // Wait for gate to fully open (4 frames × 180ms = 720ms + buffer)
-    await _delay(900);
-    // Medea turns toward gate (back-facing) and walks left
-    if (_medeaAnimator) _medeaAnimator.setAnim(FRAMES.BACK, 6);
-    // Avatars turn back-facing and begin exiting toward gate
+    await _delay(300);
+    // Medea turns back-facing and leads the way
+    if (_medeaAnimator) _medeaAnimator.setAnim(FRAMES.BACK, 5);
+    await _delay(500);
+    // Avatars turn back-facing then exit left
     _cutsceneMembers.forEach(m => {
-      m.animator.setAnim(FRAMES.BACK, 6, false);
-      m.exiting  = false;
-      m.arrived  = false;
+      m.animator.setAnim(FRAMES.BACK, 5, false);
+      m.arrived = false;
     });
-    await _delay(400);
-    // All walk toward gate
-    _cutsceneMembers.forEach(m => {
-      m.exiting  = true;
-      m.targetX  = GATE_CX - m.animator.displayW / 2;
-    });
-    // Wait for characters to reach gate (travel ~300px at 4px/frame ~60fps = ~1.25s)
-    await _delay(1400);
+    await _delay(600);
+    _cutsceneMembers.forEach(m => { m.exiting = true; });
+    // Wait for all to walk off-screen (~300px at 3.5px/frame @60fps ≈ 1.4s)
+    await _delay(1600);
   }
 
   try {
