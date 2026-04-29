@@ -930,7 +930,12 @@ async function titleReady() {
     if (data.advanced) {
       status.textContent = 'The arena opens…';
       await loadState();
-      if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+      // Phase intentionally stays 'opening' on server — go straight to cinematic
+      if (!sessionStorage.getItem('cinematic_done')) {
+        startCinematic();
+      } else {
+        showMedeaVote();
+      }
       return;
     }
 
