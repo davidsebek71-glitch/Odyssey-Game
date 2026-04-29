@@ -16176,6 +16176,19 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
       );
       if (studentRow[0]) { const av = studentRow[0].selected_avatar; archetype = av ? av.split('_')[0] : null; drachma = studentRow[0].drachma || 0; }
     } catch(e) { /* column may not exist in older schema — safe to ignore */ }
+    // Flag: has this student already submitted the secret word for the current round?
+    let myUnlockSubmitted = false;
+    if (state && state.current_round) {
+      try {
+        const unlockVote = query(
+          `SELECT 1 FROM olympus_round_unlock_votes
+           WHERE alliance_id=? AND round_number=? AND student_id=? LIMIT 1`,
+          [alliance.alliance_id, state.current_round, req.user.id]
+        );
+        myUnlockSubmitted = unlockVote.length > 0;
+      } catch(e) { /* table may not exist on older schema */ }
+    }
+    if (state) state.my_unlock_submitted = myUnlockSubmitted;
     res.json({ alliance, state, archetype, drachma });
   } catch(e) {
     res.status(500).json({ error: e.message });

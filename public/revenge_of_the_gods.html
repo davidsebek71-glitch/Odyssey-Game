@@ -2176,6 +2176,13 @@ async function showCombat(round) {
   document.getElementById('combat-story-phase').style.display = 'flex';
   document.getElementById('combat-result-phase').style.display = 'none';
 
+  // Populate placeholder immediately so screen isn't blank during async fetches
+  document.getElementById('combat-god-name').textContent = '⚔ Entering the battlefield…';
+  document.getElementById('combat-god-name').style.color = 'rgba(240,208,96,0.45)';
+  document.getElementById('combat-power-name').textContent = '';
+  document.getElementById('combat-story-lines').innerHTML = '';
+  document.getElementById('fight-btn').classList.remove('reveal');
+
   await loadState();
 
   // Find our path
@@ -2402,6 +2409,16 @@ function displayCombatResult(data) {
         boxWrap.style.display    = '';
         unlockWrap.style.display = '';
         puzzleBtn.style.display  = 'none';
+
+        // If this student already submitted the correct word, show waiting state immediately
+        if (raceState && raceState.my_unlock_submitted) {
+          var si = document.getElementById('secret-word-input');
+          var sb = document.querySelector('#round-unlock-wrap .btn-commit');
+          var um = document.getElementById('unlock-msg');
+          if (si) si.disabled = true;
+          if (sb) sb.disabled = true;
+          if (um) { um.style.color = 'rgba(138,224,138,0.8)'; um.textContent = 'Word accepted. Waiting for your teammates…'; }
+        }
       } else {
         // No box URL — keep puzzle button as fallback for old-flow states
         puzzleBtn.style.display  = '';
