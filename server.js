@@ -16259,7 +16259,7 @@ app.post('/api/olympus/medea-commit', authenticateToken, (req, res) => {
     if (!majority) return res.status(400).json({ error: 'No majority yet' });
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'Race not started' });
-    if (state.current_phase !== 'opening' && state.current_phase !== 'medea_moment') {
+    if (state.current_phase !== 'opening' && state.current_phase !== 'medea_moment' && state.current_phase !== 'medea') {
       return res.status(400).json({ error: 'Medea moment already resolved' });
     }
     // Record each voter's choice in olympus_medea_choices
@@ -18014,11 +18014,9 @@ app.post('/api/olympus/title-ready', authenticateToken, (req, res) => {
       return res.json({ advanced: true, phase: state.current_phase });
     }
 
-    // Advance immediately on first click — polling handles other players
-    run(`UPDATE olympus_race_state SET current_phase='medea' WHERE alliance_id=?`,
-      [alliance.alliance_id]);
-    _titleReadySet.add(alliance.alliance_id);
-    saveDatabase();
+    // Do NOT change phase — medea-commit owns the opening→path_choice transition.
+    // Just signal the client to start the Medea cutscene.
+    // Phase stays 'opening' so medea-commit still works.
     return res.json({ advanced: true, ready_count: 1, needed: 1 });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
