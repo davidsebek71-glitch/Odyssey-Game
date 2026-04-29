@@ -1605,9 +1605,9 @@ async function showPathChoice(round) {
   document.getElementById('paths-error').classList.remove('show');
   document.getElementById('paths-round-label').textContent = ROUND_LABELS[round] || `Round ${round}`;
 
-  // Apply correct background class for this round
+  // Apply correct background class for this round (swap only — never touch 'active')
   const pathsScreen = document.getElementById('screen-paths');
-  pathsScreen.className = 'screen'; // reset
+  [1,2,3,4,5].forEach(r => pathsScreen.classList.remove('round' + r + '-bg'));
   if (BG_ROUNDS.includes(round)) {
     pathsScreen.classList.add('round' + round + '-bg');
   }
