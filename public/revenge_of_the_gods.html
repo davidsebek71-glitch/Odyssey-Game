@@ -1717,7 +1717,7 @@ async function commitPath() {
       committedPath = voteData.path;
       await loadState();
       document.getElementById('paths-vote-note').innerHTML = '<span style="color:#8ae08a;">✓ Path locked! Preparing for battle…</span>';
-      setTimeout(() => showCombat(raceState.current_round), 1200);
+      setTimeout(() => routeToPhase(raceState.current_phase, raceState.current_round), 1200);
       return;
     }
 
