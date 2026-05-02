@@ -17277,11 +17277,12 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_gate_attempts WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_godtest_answers WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_godtest_votes WHERE alliance_id=?`, [id]);
-      // Clear per-session columns on race state
-      run(`UPDATE olympus_race_state SET combat_ready_flags=NULL, combat_result=NULL WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_round_unlock_votes WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_combat_wave_session WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
       run(`DELETE FROM olympus_godtest_locks WHERE period=?`, [period]);
     }
+    saveDatabase();
     res.json({ reset: true, period, alliances_cleared: ids.length });
   } catch(e) {
     res.status(500).json({ error: e.message });
