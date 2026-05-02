@@ -251,6 +251,10 @@ initDatabase().then(() => {
         run("ALTER TABLE olympus_race_state ADD COLUMN title_ready_flags TEXT DEFAULT '[]'");
         console.log('⚡ Added title_ready_flags to olympus_race_state');
       }
+      if (!colNames.includes('agora_visited')) {
+        run("ALTER TABLE olympus_race_state ADD COLUMN agora_visited INTEGER DEFAULT 0");
+        console.log('⚡ Added agora_visited to olympus_race_state');
+      }
     } catch(e) { console.log('medea_help_count migration skipped:', e.message); }
 
     saveDatabase();
@@ -17475,10 +17479,14 @@ app.post('/api/olympus/spells/craft', authenticateToken, (req, res) => {
     const alliance = getAllianceForStudent(req.user.id);
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
 
-    // Agora is only open during the opening phase
+    // Agora is open during 'opening' phase AND during 'path_choice' round 1.
+    // The Agora now appears after Medea commits (when phase becomes path_choice round 1),
+    // so both phases must be permitted here.
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'Race not started' });
-    if (state.current_phase !== 'opening') {
+    const agoraOpen = state.current_phase === 'opening' ||
+                      (state.current_phase === 'path_choice' && state.current_round === 1);
+    if (!agoraOpen) {
       return res.status(400).json({ error: 'The Agora is closed. Spells can only be crafted before Round 1.' });
     }
 
@@ -17633,6 +17641,31 @@ app.post('/api/olympus/spells/activate', authenticateToken, (req, res) => {
       icon:       spell.icon,
       round:      state.current_round
     });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/agora-visited ──────────────────────────────────────────
+// Called when a student clicks "Enter the Olympus Race" from the Agora modal.
+// Sets agora_visited=1 on the alliance's race state so the Agora does not
+// reappear on subsequent page loads. Cleared automatically when the race resets
+// (reset deletes the entire olympus_race_state row).
+app.post('/api/olympus/agora-visited', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+
+    run(
+      `UPDATE olympus_race_state SET agora_visited=1 WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+    saveDatabase();
+    res.json({ agora_visited: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

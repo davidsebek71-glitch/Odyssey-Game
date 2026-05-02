@@ -811,9 +811,9 @@ function routeToPhase(phase, round) {
 
     case 'path_choice':
       // Before showing round 1 paths, redirect to student.html so the Agora can appear.
-      // The Agora sets a localStorage flag when the student clicks Enter — on the
-      // second entry this branch is skipped and showPathChoice runs normally.
-      if (round === 1 && !localStorage.getItem('agora_done')) {
+      // Uses server-side agora_visited from raceState (set via POST /api/olympus/agora-visited)
+      // so it resets correctly with the race and is consistent across all browsers.
+      if (round === 1 && raceState && !raceState.agora_visited) {
         window.location.href = '/student.html';
         return;
       }

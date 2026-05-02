@@ -15077,10 +15077,10 @@
                 }
 
                 // Agora intercept: fires on path_choice round 1 — AFTER Medea commits.
-                // A localStorage flag prevents re-showing the Agora on subsequent page loads
-                // during round 1 (e.g. if the student navigates away and comes back).
+                // Uses server-side agora_visited flag (stored in olympus_race_state) so
+                // it resets correctly with the race and works across all browsers/devices.
                 if (phase === 'path_choice' && state.current_round === 1
-                        && !localStorage.getItem('agora_done')) {
+                        && !state.agora_visited) {
                     const invRes = await fetch('/api/olympus/spells/available', {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
@@ -15247,10 +15247,21 @@
             }
         }
 
-        function enterRaceFromAgora() {
-            // Mark Agora as visited so subsequent clicks during round 1 go straight to the race.
-            // Cleared by the teacher reset flow on the next run.
-            localStorage.setItem('agora_done', 'true');
+        async function enterRaceFromAgora() {
+            // Mark Agora as visited on the server so all browsers/devices for this
+            // alliance skip the Agora on subsequent clicks. Server-side flag resets
+            // automatically when the race resets (race state row is deleted).
+            try {
+                const token = localStorage.getItem('token');
+                await fetch('/api/olympus/agora-visited', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+                });
+            } catch(e) {
+                // Non-blocking — if this fails the student can still enter the race.
+                // They may see the Agora again on next load, but can enter without crafting.
+                console.warn('agora-visited mark failed:', e.message);
+            }
             document.getElementById('agora-modal').style.display = 'none';
             window.location.href = '/revenge_of_the_gods.html';
         }
