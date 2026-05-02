@@ -242,10 +242,10 @@
   #screen-paths.round1-bg .r1-surviving-bar { display: block; }
 
   /* ── Rounds 2-5 background images ── */
-  #screen-paths.round2-bg { background: url('/images/Revenge of the Gods/Backgrounds/round2_bg.png') center center / cover no-repeat; }
-  #screen-paths.round3-bg { background: url('/images/Revenge of the Gods/Backgrounds/round3_bg.png') center center / cover no-repeat; }
-  #screen-paths.round4-bg { background: url('/images/Revenge of the Gods/Backgrounds/round4_bg.png') center center / cover no-repeat; }
-  #screen-paths.round5-bg { background: url('/images/Revenge of the Gods/Backgrounds/round5_bg.png') center center / cover no-repeat; }
+  #screen-paths.round2-bg { background: url('/images/Revenge of the Gods/Backgrounds/round2_bg.png') center 30% / cover no-repeat; }
+  #screen-paths.round3-bg { background: url('/images/Revenge of the Gods/Backgrounds/round3_bg.png') center 25% / cover no-repeat; }
+  #screen-paths.round4-bg { background: url('/images/Revenge of the Gods/Backgrounds/round4_bg.png') center 35% / cover no-repeat; }
+  #screen-paths.round5-bg { background: url('/images/Revenge of the Gods/Backgrounds/round5_bg.png') center 30% / cover no-repeat; }
   #screen-paths.round2-bg::before,
   #screen-paths.round3-bg::before,
   #screen-paths.round4-bg::before,
@@ -529,7 +529,7 @@
     <div id="title-main">Revenge of the Gods</div>
     <div id="title-sub">Your alliance stands at the foot of Olympus.<br>The gods have already seen you.</div>
     <div id="title-ready-wrap">
-      <button id="title-enter-btn" onclick="titleReady()">⚔️ Enter the Arena</button>
+      <button id="title-enter-btn" onclick="titleReady()">🏔️ Climb Olympus</button>
       <div id="title-ready-status"></div>
     </div>
   </div>
@@ -954,7 +954,7 @@ async function titleReady() {
 
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = '⚔️ Enter the Arena';
+    btn.textContent = '🏔️ Climb Olympus';
     status.textContent = 'Network error — try again.';
   }
 }
@@ -2139,15 +2139,20 @@ function revealStoryLines(lines, rollText, onComplete) {
   rollEl.classList.remove('reveal');
   fightBtn.classList.remove('reveal');
 
+  // Build cumulative delays — dramatic (all-caps) lines get an extra 600ms pause before them
+  let cumulativeDelay = 400;
   lines.forEach((line, i) => {
     const el = document.createElement('div');
-    el.className = 'combat-story-line' + (i === lines.length - 1 && line === line.toUpperCase() ? ' dramatic' : '');
+    const isDramatic = i === lines.length - 1 && line === line.toUpperCase();
+    el.className = 'combat-story-line' + (isDramatic ? ' dramatic' : '');
     el.textContent = line;
     container.appendChild(el);
-    setTimeout(() => el.classList.add('reveal'), 400 + i * 700);
+    if (isDramatic) cumulativeDelay += 600; // extra breath before the big line
+    setTimeout(() => el.classList.add('reveal'), cumulativeDelay);
+    cumulativeDelay += 1100;
   });
 
-  const totalDelay = 400 + lines.length * 700 + 300;
+  const totalDelay = cumulativeDelay + 300;
   if (rollText) {
     rollEl.textContent = rollText;
     setTimeout(() => rollEl.classList.add('reveal'), totalDelay);
