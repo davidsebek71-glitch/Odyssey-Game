@@ -759,7 +759,7 @@ function setPhaseIndicator(text) {
 // ── Fetch current state ──────────────────────────────────
 async function loadState() {
   try {
-    const res = await fetch('/api/olympus/state', { headers: H });
+    const res = await fetch('/api/olympus/state', { headers: H, cache: 'no-store' });
     const data = await res.json();
     allianceData = data.alliance;
     raceState = data.state;
@@ -961,7 +961,7 @@ async function titleReady() {
 
 async function apiFetchTitle() {
   try {
-    const res  = await fetch('/api/olympus/state', { headers:H });
+    const res  = await fetch('/api/olympus/state', { headers:H, cache: 'no-store' });
     const data = await res.json();
     if (data.state) { raceState = data.state; return data.state; }
   } catch(e) {}
