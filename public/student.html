@@ -4064,11 +4064,22 @@
 
       <style>
         .agora-header {
-          background: linear-gradient(180deg, #1a0d2e 0%, #0d1a2e 100%);
+          background: url('/images/Revenge of the Gods/Backgrounds/agora_modal.png') center top / cover no-repeat;
           border-bottom: 1px solid rgba(184,134,11,0.4);
           padding: 24px 28px 20px;
           text-align: center;
           position: sticky; top: 0; z-index: 10;
+        }
+        .agora-header::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.72) 100%);
+          z-index: 0;
+        }
+        .agora-header > * {
+          position: relative;
+          z-index: 1;
         }
         .agora-title {
           font-family: 'Cinzel Decorative', 'Cinzel', serif;
