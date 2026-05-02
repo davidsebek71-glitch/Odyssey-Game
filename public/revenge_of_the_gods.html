@@ -2160,8 +2160,15 @@ function revealStoryLines(lines, rollText, onComplete) {
 
 async function showCombat(round) {
   showScreen('combat');
-  document.getElementById('combat-story-phase').style.display = 'flex';
-  document.getElementById('combat-result-phase').style.display = 'none';
+  // Reset any opacity/transition left over from a previous round's displayCombatResult fade
+  const _sp = document.getElementById('combat-story-phase');
+  const _rp = document.getElementById('combat-result-phase');
+  _sp.style.opacity    = '';
+  _sp.style.transition = '';
+  _sp.style.display    = 'flex';
+  _rp.style.opacity    = '';
+  _rp.style.transition = '';
+  _rp.style.display    = 'none';
 
   // Populate placeholder immediately so screen isn't blank during async fetches
   document.getElementById('combat-god-name').textContent = '⚔ Entering the battlefield…';
