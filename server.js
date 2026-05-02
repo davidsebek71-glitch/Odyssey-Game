@@ -16361,6 +16361,39 @@ app.post('/api/olympus/vote-path', authenticateToken, (req, res) => {
       [alliance.alliance_id, state.current_round]
     );
     const majority = getMajority(alliance.alliance_id, state.current_round, 'path');
+
+    // ── Auto-commit when majority reached ────────────────────────────────────
+    // Merging the commit into vote-path eliminates the race window where both
+    // students' separate commit-path calls could both fail getMajority and deadlock.
+    if (majority) {
+      const pathIdx = parseInt(majority.winner);
+      const roundPaths = ROUND_PATHS[state.current_round] || [];
+      const pathDef = roundPaths[pathIdx];
+      if (pathDef) {
+        // Re-check phase under the same synchronous execution to guard race
+        const freshState = getOlympusState(alliance.alliance_id);
+        if (freshState && freshState.current_phase === 'path_choice') {
+          try {
+            run(
+              `INSERT INTO olympus_path_locks (period, version, round_number, path_index, alliance_id, alliance_name)
+               VALUES (?,?,?,?,?,?)`,
+              [state.period, state.version, state.current_round, pathIdx, alliance.alliance_id, alliance.name]
+            );
+            run(
+              `UPDATE olympus_race_state SET current_phase='combat' WHERE alliance_id=?`,
+              [alliance.alliance_id]
+            );
+            saveDatabase();
+          } catch(lockErr) {
+            // Another request already committed — phase is already 'combat', which is fine
+          }
+        }
+        // Return the committed path so the client can skip the commit-path call
+        const latestState = getOlympusState(alliance.alliance_id);
+        return res.json({ tally, majority, committed: true, path: pathDef, current_phase: latestState ? latestState.current_phase : 'combat' });
+      }
+    }
+
     res.json({ tally, majority });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -17244,8 +17277,6 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_gate_attempts WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_godtest_answers WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_godtest_votes WHERE alliance_id=?`, [id]);
-      run(`DELETE FROM olympus_combat_wave_session WHERE alliance_id=?`, [id]);
-      run(`DELETE FROM olympus_round_unlock_votes WHERE alliance_id=?`, [id]);
       // Clear per-session columns on race state
       run(`UPDATE olympus_race_state SET combat_ready_flags=NULL, combat_result=NULL WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);

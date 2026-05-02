@@ -1711,38 +1711,20 @@ async function commitPath() {
       return;
     }
 
-    // Try commit
-    const commitRes = await fetch('/api/olympus/commit-path', { method:'POST', headers:H });
-    const commitData = await commitRes.json();
-
-    // If phase already moved (teammate committed first), route forward
-    if (commitData.already_advanced) {
-      await loadState();
-      if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
-      return;
-    }
-
-    if (commitRes.status === 409) {
-      // Path already claimed by another alliance
-      showPathsError('That path was just claimed by another alliance! Choose a different one.');
-      btn.disabled = false;
-      btn.textContent = 'Commit to This Path';
-      selectedPathIndex = null;
-      await showPathChoice(raceState.current_round);
-      return;
-    }
-
-    if (commitData.committed || commitData.path) {
-      if (commitData.path) committedPath = commitData.path;
+    // vote-path now auto-commits when majority is reached, eliminating the
+    // separate commit-path race condition that caused both players to deadlock.
+    if (voteData.committed && voteData.path) {
+      committedPath = voteData.path;
       await loadState();
       document.getElementById('paths-vote-note').innerHTML = '<span style="color:#8ae08a;">✓ Path locked! Preparing for battle…</span>';
       setTimeout(() => showCombat(raceState.current_round), 1200);
-    } else {
-      // Needs more votes
-      document.getElementById('paths-vote-note').textContent = 'Your vote is in. Waiting for teammates…';
-      showWaiting('Waiting for Alliance', 'Your path vote is in. Waiting for teammates.', 'path_waiting');
-      startPolling();
+      return;
     }
+
+    // No majority yet — wait for teammate's vote to trigger the commit
+    document.getElementById('paths-vote-note').textContent = 'Your vote is in. Waiting for teammates…';
+    showWaiting('Waiting for Alliance', 'Your path vote is in. Waiting for teammates.', 'path_waiting');
+    startPolling();
   } catch(e) {
     showPathsError('Error: ' + e.message);
     btn.disabled = false;
