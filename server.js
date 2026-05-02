@@ -226,6 +226,19 @@ initDatabase().then(() => {
       UNIQUE (alliance_id, round_number, student_id)
     )`);
 
+    // Agora spell inventory — one row per crafted spell per alliance.
+    // Max 4 rows per alliance. used=1 means the spell was activated in combat.
+    // round_used is set when activated so teachers can audit usage.
+    run(`CREATE TABLE IF NOT EXISTS olympus_inventory (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id INTEGER NOT NULL,
+      spell_id    INTEGER NOT NULL,
+      used        INTEGER NOT NULL DEFAULT 0,
+      round_used  INTEGER DEFAULT NULL,
+      crafted_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alliance_id, spell_id)
+    )`);
+
     // Add medea_help_count to olympus_race_state if not present (PRAGMA-safe migration)
     try {
       const cols = query("PRAGMA table_info(olympus_race_state)");
@@ -15658,7 +15671,123 @@ const ROUND_PATHS = {
   5: ROUND_5_PATHS
 };
 
-// ── COMBAT_SCENARIOS ─────────────────────────────────────────────────────────
+// ── SPELL_RECIPES ─────────────────────────────────────────────────────────────
+// Agora spell crafting system. All costs are four-player baselines.
+// Costs are scaled at runtime by real member count (ghosts excluded):
+//   4 players → 100%  |  3 players → 75%  |  2 players → 50%  |  1 player → 25%
+// Honor is computed as floor((effectiveLore + effectiveCraft + effectiveCunning) / 3).
+// effect keys are interpreted by the combat loop in revenge_of_the_gods.html.
+const SPELL_RECIPES = {
+  1: {
+    name:        "Hephaestus's Plate",
+    tier:        1,
+    icon:        '🛡️',
+    effect:      'damage_cap_40pct',
+    description: 'Cap damage taken at 40% of the difference even if the god wins badly. The forge absorbs the worst of it.',
+    recipe:      { craft: 180, honor: 150 }
+  },
+  2: {
+    name:        "Apollo's Foresight",
+    tier:        1,
+    icon:        '☀️',
+    effect:      'trivia_foresight',
+    description: 'Correct trivia answer gives +50 instead of +25. A wrong answer has no penalty.',
+    recipe:      { lore: 200, honor: 150 }
+  },
+  3: {
+    name:        "Athena's Barrier",
+    tier:        1,
+    icon:        '🦉',
+    effect:      'roll_boost_50',
+    description: 'Add +50 flat to your alliance roll before the comparison.',
+    recipe:      { lore: 180, craft: 180 }
+  },
+  4: {
+    name:        "Hermes's Footing",
+    tier:        1,
+    icon:        '👟',
+    effect:      'reroll_once',
+    description: 'Reroll your alliance roll once if you lose the first comparison. Take the better of the two results.',
+    recipe:      { cunning: 25, craft: 160 }
+  },
+  5: {
+    name:        "Poseidon's Wall",
+    tier:        2,
+    icon:        '🌊',
+    effect:      'god_reduce_20pct',
+    description: "Reduce the god's roll maximum by 20% before combat. The wall cuts their attack before it reaches you.",
+    recipe:      { craft: 220, honor: 200, lore: 180 }
+  },
+  6: {
+    name:        "Artemis's Ricochet",
+    tier:        2,
+    icon:        '🏹',
+    effect:      'steal_15pct',
+    description: 'If the god wins, 15% of damage taken is stolen back as bonus points added to your alliance total.',
+    recipe:      { cunning: 35, lore: 200, honor: 180 }
+  },
+  7: {
+    name:        "Prometheus's Torch",
+    tier:        2,
+    icon:        '🔥',
+    effect:      'trivia_torch',
+    description: 'Correct trivia answer gives +40 to your roll. A wrong answer still gives +15. Knowledge always helps.',
+    recipe:      { lore: 240, craft: 200, cunning: 30 }
+  },
+  8: {
+    name:        "Demeter's Renewal",
+    tier:        2,
+    icon:        '🌾',
+    effect:      'recover_100',
+    description: 'Recover 100 points previously lost during this game. If less than 100 was lost, recover all of it.',
+    recipe:      { craft: 220, honor: 220, cunning: 35 }
+  },
+  9: {
+    name:        "Zeus's Mercy",
+    tier:        3,
+    icon:        '⚡',
+    effect:      'dual_god25_roll40',
+    description: "Reduce the god's roll maximum by 25% AND add +40 to your alliance roll. Hits both sides simultaneously.",
+    recipe:      { lore: 260, craft: 240, honor: 240, cunning: 40 }
+  },
+  10: {
+    name:        "Hecate's Veil",
+    tier:        3,
+    icon:        '🌙',
+    effect:      'curse_invert',
+    description: "The god's actual roll is subtracted from their maximum. Their strength becomes their weakness. The higher they roll, the less they deal.",
+    recipe:      { lore: 300, craft: 300, honor: 280, cunning: 50 }
+  }
+};
+
+// Scaling multipliers by real member count (ghosts do not count)
+const SPELL_SCALE = { 1: 0.25, 2: 0.50, 3: 0.75, 4: 1.00 };
+
+// Returns scaled recipe thresholds for a given real member count.
+// Values are rounded down to the nearest integer for clean display.
+function scaleRecipe(recipe, memberCount) {
+  const mult = SPELL_SCALE[Math.min(Math.max(memberCount, 1), 4)];
+  const scaled = {};
+  for (const [stat, cost] of Object.entries(recipe)) {
+    scaled[stat] = Math.floor(cost * mult);
+  }
+  return scaled;
+}
+
+// Returns the effective Honor value for an alliance: floor of the average
+// of the three computed stats. Honor has no raw source of its own — it
+// reflects balanced mastery across all three disciplines.
+function computeEffectiveHonor(lore, craft, cunning) {
+  return Math.floor((lore + craft + cunning) / 3);
+}
+
+// Returns whether an alliance's stats meet the scaled recipe requirements.
+function canAffordSpell(stats, scaledRecipe) {
+  for (const [stat, threshold] of Object.entries(scaledRecipe)) {
+    if ((stats[stat] || 0) < threshold) return false;
+  }
+  return true;
+}
 // Keyed by 'round_pathIndex'. Safe paths have no entry.
 // Each scenario has 6 questions — server picks 2 per wave (no repeats).
 // questions[]: { q, correct, wrong: [3 strings] }
@@ -17256,6 +17385,259 @@ app.post('/api/olympus/teacher/start-race', authenticateToken, (req, res) => {
   }
 });
 
+// ── GET /api/olympus/spells/available ────────────────────────────────────────
+// Returns all 10 spells with costs scaled to this alliance's real member count,
+// the alliance's current stat values, which spells they can afford, and their
+// existing inventory (up to 4 crafted spells).
+app.get('/api/olympus/spells/available', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+
+    // Real member count — ghosts never contribute to spell crafting
+    const memberRows = query(
+      `SELECT COUNT(*) AS cnt FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const memberCount = memberRows[0] ? memberRows[0].cnt : 1;
+
+    // Compute alliance stats
+    const heroicStats    = getHeroicStatsForAlliance(alliance.alliance_id);
+    const effectiveLore    = heroicStats.effectiveLore;
+    const effectiveCraft   = heroicStats.effectiveCraft;
+    const effectiveCunning = heroicStats.effectiveCunning;
+    const effectiveHonor   = computeEffectiveHonor(effectiveLore, effectiveCraft, effectiveCunning);
+
+    const allianceStats = {
+      lore:    effectiveLore,
+      craft:   effectiveCraft,
+      cunning: effectiveCunning,
+      honor:   effectiveHonor
+    };
+
+    // Current inventory
+    const inventoryRows = query(
+      `SELECT spell_id, used, round_used FROM olympus_inventory WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+    const inventoryMap = {};
+    inventoryRows.forEach(r => { inventoryMap[r.spell_id] = { used: !!r.used, round_used: r.round_used }; });
+
+    // Build spell list with scaled costs and affordability flags
+    const spells = Object.entries(SPELL_RECIPES).map(([idStr, spell]) => {
+      const id = parseInt(idStr);
+      const scaledRecipe = scaleRecipe(spell.recipe, memberCount);
+      const affordable   = canAffordSpell(allianceStats, scaledRecipe);
+      const crafted      = !!inventoryMap[id];
+      return {
+        id,
+        name:        spell.name,
+        tier:        spell.tier,
+        icon:        spell.icon,
+        effect:      spell.effect,
+        description: spell.description,
+        recipe:      scaledRecipe,
+        affordable,
+        crafted,
+        used:        crafted ? inventoryMap[id].used      : false,
+        round_used:  crafted ? inventoryMap[id].round_used : null
+      };
+    });
+
+    res.json({
+      spells,
+      stats:        allianceStats,
+      member_count: memberCount,
+      crafted_count: inventoryRows.length,
+      max_spells:   4,
+      total_points: alliance.total_points
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/spells/craft ────────────────────────────────────────────
+// Validates the alliance can afford the chosen spell, that they haven't already
+// crafted it, and that they haven't reached the 4-spell cap. Writes to inventory.
+// Can only be called during the 'opening' phase (before Round 1 begins).
+app.post('/api/olympus/spells/craft', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { spell_id } = req.body;
+    if (!spell_id) return res.status(400).json({ error: 'spell_id required' });
+
+    const id = parseInt(spell_id);
+    if (!SPELL_RECIPES[id]) return res.status(400).json({ error: 'Invalid spell_id' });
+
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+
+    // Agora is only open during the opening phase
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    if (state.current_phase !== 'opening') {
+      return res.status(400).json({ error: 'The Agora is closed. Spells can only be crafted before Round 1.' });
+    }
+
+    // Inventory cap check
+    const existingRows = query(
+      `SELECT COUNT(*) AS cnt FROM olympus_inventory WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+    const craftedCount = existingRows[0] ? existingRows[0].cnt : 0;
+    if (craftedCount >= 4) {
+      return res.status(400).json({ error: 'Your alliance has already crafted 4 spells. The Agora is full.' });
+    }
+
+    // Duplicate check
+    const alreadyCrafted = query(
+      `SELECT 1 FROM olympus_inventory WHERE alliance_id=? AND spell_id=?`,
+      [alliance.alliance_id, id]
+    );
+    if (alreadyCrafted.length > 0) {
+      return res.status(400).json({ error: 'Your alliance has already crafted this spell.' });
+    }
+
+    // Stat check
+    const memberRows = query(
+      `SELECT COUNT(*) AS cnt FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const memberCount = memberRows[0] ? memberRows[0].cnt : 1;
+
+    const heroicStats    = getHeroicStatsForAlliance(alliance.alliance_id);
+    const effectiveLore    = heroicStats.effectiveLore;
+    const effectiveCraft   = heroicStats.effectiveCraft;
+    const effectiveCunning = heroicStats.effectiveCunning;
+    const effectiveHonor   = computeEffectiveHonor(effectiveLore, effectiveCraft, effectiveCunning);
+
+    const allianceStats = {
+      lore:    effectiveLore,
+      craft:   effectiveCraft,
+      cunning: effectiveCunning,
+      honor:   effectiveHonor
+    };
+
+    const scaledRecipe = scaleRecipe(SPELL_RECIPES[id].recipe, memberCount);
+    if (!canAffordSpell(allianceStats, scaledRecipe)) {
+      // Build a specific message identifying which stats fall short
+      const shortfalls = Object.entries(scaledRecipe)
+        .filter(([stat, threshold]) => (allianceStats[stat] || 0) < threshold)
+        .map(([stat, threshold]) => `${stat} needs ${threshold}, you have ${allianceStats[stat] || 0}`)
+        .join('; ');
+      return res.status(400).json({ error: `Not enough stats to craft this spell. ${shortfalls}.` });
+    }
+
+    run(
+      `INSERT INTO olympus_inventory (alliance_id, spell_id) VALUES (?, ?)`,
+      [alliance.alliance_id, id]
+    );
+    saveDatabase();
+
+    res.json({
+      crafted:      true,
+      spell_id:     id,
+      spell_name:   SPELL_RECIPES[id].name,
+      crafted_count: craftedCount + 1,
+      max_spells:   4
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/spells/inventory ─────────────────────────────────────────
+// Returns the alliance's crafted spells with full spell data.
+// Used by revenge_of_the_gods.html to show available spells before combat.
+app.get('/api/olympus/spells/inventory', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+
+    const rows = query(
+      `SELECT spell_id, used, round_used, crafted_at FROM olympus_inventory
+       WHERE alliance_id=? ORDER BY spell_id ASC`,
+      [alliance.alliance_id]
+    );
+
+    const inventory = rows.map(r => ({
+      spell_id:   r.spell_id,
+      name:       SPELL_RECIPES[r.spell_id] ? SPELL_RECIPES[r.spell_id].name        : 'Unknown',
+      icon:       SPELL_RECIPES[r.spell_id] ? SPELL_RECIPES[r.spell_id].icon        : '❓',
+      effect:     SPELL_RECIPES[r.spell_id] ? SPELL_RECIPES[r.spell_id].effect      : null,
+      description:SPELL_RECIPES[r.spell_id] ? SPELL_RECIPES[r.spell_id].description : null,
+      tier:       SPELL_RECIPES[r.spell_id] ? SPELL_RECIPES[r.spell_id].tier        : null,
+      used:       !!r.used,
+      round_used: r.round_used,
+      crafted_at: r.crafted_at
+    }));
+
+    res.json({ inventory, total_points: alliance.total_points });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/spells/activate ─────────────────────────────────────────
+// Called when an alliance activates a spell before a combat round.
+// Marks the spell as used and returns the effect key for the combat loop to apply.
+// Idempotent: if already activated this round, returns the stored result.
+app.post('/api/olympus/spells/activate', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { spell_id } = req.body;
+    if (!spell_id) return res.status(400).json({ error: 'spell_id required' });
+
+    const id = parseInt(spell_id);
+    if (!SPELL_RECIPES[id]) return res.status(400).json({ error: 'Invalid spell_id' });
+
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    if (state.current_phase !== 'combat') {
+      return res.status(400).json({ error: 'Spells can only be activated during combat.' });
+    }
+
+    const spellRow = query(
+      `SELECT used, round_used FROM olympus_inventory
+       WHERE alliance_id=? AND spell_id=?`,
+      [alliance.alliance_id, id]
+    );
+    if (!spellRow[0]) return res.status(400).json({ error: 'Your alliance has not crafted this spell.' });
+    if (spellRow[0].used) {
+      return res.status(400).json({
+        error: 'This spell has already been used.',
+        round_used: spellRow[0].round_used
+      });
+    }
+
+    run(
+      `UPDATE olympus_inventory SET used=1, round_used=? WHERE alliance_id=? AND spell_id=?`,
+      [state.current_round, alliance.alliance_id, id]
+    );
+    saveDatabase();
+
+    const spell = SPELL_RECIPES[id];
+    res.json({
+      activated:  true,
+      spell_id:   id,
+      spell_name: spell.name,
+      effect:     spell.effect,
+      icon:       spell.icon,
+      round:      state.current_round
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── POST /api/olympus/teacher/reset-race ─────────────────────────────────────
 app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
   if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
@@ -17279,6 +17661,7 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_godtest_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_round_unlock_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_combat_wave_session WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_inventory WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
       run(`DELETE FROM olympus_godtest_locks WHERE period=?`, [period]);
     }
