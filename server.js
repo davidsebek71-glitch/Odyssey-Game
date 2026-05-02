@@ -15684,7 +15684,7 @@ const SPELL_RECIPES = {
     icon:        '🛡️',
     effect:      'damage_cap_40pct',
     description: 'Cap damage taken at 40% of the difference even if the god wins badly. The forge absorbs the worst of it.',
-    recipe:      { craft: 180, honor: 150 }
+    recipe:      { craft: 110, honor: 80 }
   },
   2: {
     name:        "Apollo's Foresight",
@@ -15692,7 +15692,7 @@ const SPELL_RECIPES = {
     icon:        '☀️',
     effect:      'trivia_foresight',
     description: 'Correct trivia answer gives +50 instead of +25. A wrong answer has no penalty.',
-    recipe:      { lore: 200, honor: 150 }
+    recipe:      { lore: 100, honor: 80 }
   },
   3: {
     name:        "Athena's Barrier",
@@ -15700,7 +15700,7 @@ const SPELL_RECIPES = {
     icon:        '🦉',
     effect:      'roll_boost_50',
     description: 'Add +50 flat to your alliance roll before the comparison.',
-    recipe:      { lore: 180, craft: 180 }
+    recipe:      { lore: 100, craft: 110 }
   },
   4: {
     name:        "Hermes's Footing",
@@ -15708,7 +15708,7 @@ const SPELL_RECIPES = {
     icon:        '👟',
     effect:      'reroll_once',
     description: 'Reroll your alliance roll once if you lose the first comparison. Take the better of the two results.',
-    recipe:      { cunning: 25, craft: 160 }
+    recipe:      { cunning: 12, craft: 95 }
   },
   5: {
     name:        "Poseidon's Wall",
@@ -15716,7 +15716,7 @@ const SPELL_RECIPES = {
     icon:        '🌊',
     effect:      'god_reduce_20pct',
     description: "Reduce the god's roll maximum by 20% before combat. The wall cuts their attack before it reaches you.",
-    recipe:      { craft: 220, honor: 200, lore: 180 }
+    recipe:      { craft: 140, honor: 115, lore: 120 }
   },
   6: {
     name:        "Artemis's Ricochet",
@@ -15724,7 +15724,7 @@ const SPELL_RECIPES = {
     icon:        '🏹',
     effect:      'steal_15pct',
     description: 'If the god wins, 15% of damage taken is stolen back as bonus points added to your alliance total.',
-    recipe:      { cunning: 35, lore: 200, honor: 180 }
+    recipe:      { cunning: 20, lore: 130, honor: 110 }
   },
   7: {
     name:        "Prometheus's Torch",
@@ -15732,7 +15732,7 @@ const SPELL_RECIPES = {
     icon:        '🔥',
     effect:      'trivia_torch',
     description: 'Correct trivia answer gives +40 to your roll. A wrong answer still gives +15. Knowledge always helps.',
-    recipe:      { lore: 240, craft: 200, cunning: 30 }
+    recipe:      { lore: 150, craft: 130, cunning: 18 }
   },
   8: {
     name:        "Demeter's Renewal",
@@ -15740,7 +15740,7 @@ const SPELL_RECIPES = {
     icon:        '🌾',
     effect:      'recover_100',
     description: 'Recover 100 points previously lost during this game. If less than 100 was lost, recover all of it.',
-    recipe:      { craft: 220, honor: 220, cunning: 35 }
+    recipe:      { craft: 145, honor: 140, cunning: 22 }
   },
   9: {
     name:        "Zeus's Mercy",
@@ -15748,7 +15748,7 @@ const SPELL_RECIPES = {
     icon:        '⚡',
     effect:      'dual_god25_roll40',
     description: "Reduce the god's roll maximum by 25% AND add +40 to your alliance roll. Hits both sides simultaneously.",
-    recipe:      { lore: 260, craft: 240, honor: 240, cunning: 40 }
+    recipe:      { lore: 175, craft: 160, honor: 150, cunning: 28 }
   },
   10: {
     name:        "Hecate's Veil",
@@ -15756,7 +15756,7 @@ const SPELL_RECIPES = {
     icon:        '🌙',
     effect:      'curse_invert',
     description: "The god's actual roll is subtracted from their maximum. Their strength becomes their weakness. The higher they roll, the less they deal.",
-    recipe:      { lore: 300, craft: 300, honor: 280, cunning: 50 }
+    recipe:      { lore: 210, craft: 210, honor: 195, cunning: 38 }
   }
 };
 

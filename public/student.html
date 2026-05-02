@@ -15065,18 +15065,16 @@
                     return;
                 }
 
-                // Agora intercept: only during 'opening' phase.
-                // Check whether the alliance has already visited the Agora (any spells crafted,
-                // or inventory fetch returns crafted_count ≥ 0 meaning they at least opened it).
-                // We show the Agora if phase is 'opening' and crafted_count < 4.
-                // Once they click "Enter the Race" from the Agora, we navigate directly.
-                if (phase === 'opening') {
+                // Agora intercept: fires on path_choice round 1 — AFTER Medea commits.
+                // A localStorage flag prevents re-showing the Agora on subsequent page loads
+                // during round 1 (e.g. if the student navigates away and comes back).
+                if (phase === 'path_choice' && state.current_round === 1
+                        && !localStorage.getItem('agora_done')) {
                     const invRes = await fetch('/api/olympus/spells/available', {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     if (invRes.ok) {
                         const invData = await invRes.json();
-                        // Always show Agora during opening — they can craft or skip
                         openAgoraModal(invData);
                         return;
                     }
@@ -15239,6 +15237,9 @@
         }
 
         function enterRaceFromAgora() {
+            // Mark Agora as visited so subsequent clicks during round 1 go straight to the race.
+            // Cleared by the teacher reset flow on the next run.
+            localStorage.setItem('agora_done', 'true');
             document.getElementById('agora-modal').style.display = 'none';
             window.location.href = '/revenge_of_the_gods.html';
         }

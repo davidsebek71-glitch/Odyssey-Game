@@ -810,6 +810,13 @@ function routeToPhase(phase, round) {
       break;
 
     case 'path_choice':
+      // Before showing round 1 paths, redirect to student.html so the Agora can appear.
+      // The Agora sets a localStorage flag when the student clicks Enter — on the
+      // second entry this branch is skipped and showPathChoice runs normally.
+      if (round === 1 && !localStorage.getItem('agora_done')) {
+        window.location.href = '/student.html';
+        return;
+      }
       showPathChoice(round);
       break;
 
