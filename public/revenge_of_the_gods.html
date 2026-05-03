@@ -952,6 +952,13 @@ async function init() {
     return;
   }
 
+  // If the race is in the opening phase, this is a fresh start (or a reset).
+  // Clear the sessionStorage flag so the cinematic crawl always plays
+  // at the beginning of every race, regardless of previous tab history.
+  if (raceState.current_phase === 'opening') {
+    sessionStorage.removeItem('cinematic_done');
+  }
+
   routeToPhase(raceState.current_phase, raceState.current_round);
 }
 
