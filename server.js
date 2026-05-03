@@ -18123,14 +18123,15 @@ app.get('/api/olympus/spells/available', authenticateToken, (req, res) => {
     const inventoryMap = {};
     inventoryRows.forEach(r => { inventoryMap[r.spell_id] = { used: !!r.used, round_used: r.round_used }; });
 
-    // Alliance drachma total (for Oracle's Insight check)
+    // Alliance drachma total: select individual rows and sum in JS
+    // (sql.js aggregate aliases can be unreliable on some schema versions)
     const drachmaRows = query(
-      `SELECT SUM(drachma) AS total FROM students
+      `SELECT COALESCE(drachma, 0) AS drachma FROM students
        WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
       [alliance.alliance_id]
     );
-    const totalDrachma = drachmaRows[0] ? (drachmaRows[0].total || 0) : 0;
-    const oracleCrafted = !!inventoryMap[11];
+    const totalDrachma = drachmaRows.reduce((s, r) => s + (r.drachma || 0), 0);
+    const oracleCrafted = !!(inventoryMap[11] || inventoryMap['11']);
 
     // Build spell list with scaled costs and affordability flags
     const spells = Object.entries(SPELL_RECIPES).map(([idStr, spell]) => {
@@ -18157,7 +18158,7 @@ app.get('/api/olympus/spells/available', authenticateToken, (req, res) => {
       spells,
       stats:        allianceStats,
       member_count: memberCount,
-      crafted_count: inventoryRows.filter(r => r.spell_id !== 11).length,
+      crafted_count: inventoryRows.filter(r => r.spell_id != 11).length,
       max_spells:   4,
       total_points: alliance.total_points,
       total_drachma: totalDrachma,
