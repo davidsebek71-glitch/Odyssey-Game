@@ -3001,6 +3001,17 @@ async function showTriviaPhase() {
     retries++;
   }
 
+  // If question still not available after retries, show placeholder so timer
+  // can run and leader can advance — don't leave them permanently stuck.
+  if (!cs || !cs.trivia_question_text) {
+    var qEl2 = document.getElementById('trivia-question-text');
+    if (qEl2) qEl2.textContent = 'Question unavailable — timer will auto-submit.';
+    // Synthesize a minimal cs so the rest of the function can continue
+    if (!cs) cs = { alliance_won: !!(combatRollData && combatRollData.alliance_won),
+                    raw_damage: combatRollData ? (combatRollData.raw_damage || 0) : 0,
+                    damage_after_spell: null, trivia_question_text: null, trivia_options: [] };
+  }
+
   var won = cs ? !!cs.alliance_won : (combatRollData ? !!combatRollData.alliance_won : false);
 
   // Context label
@@ -3130,8 +3141,10 @@ async function submitTriviaAnswer(answer, clickedBtn, allOpts) {
 
     // Show continue button (leader only)
     var contBtn = document.getElementById('btn-continue-combat');
+    contBtn.disabled = false;
+    contBtn.textContent = 'Accept the Outcome →';
     if (raceState && raceState.is_leader) {
-      contBtn.style.display = '';
+      contBtn.style.display = 'block';
     }
     // Followers will auto-advance via polling when trivia_answered detected
 
@@ -3648,12 +3661,30 @@ function startPolling() {
     }
 
     // ── Follower combat sub-phase sync ──────────────────────────────────────
-    // Only active when in combat phase AND this player is a follower
+    // Only active when in combat phase AND this player is a follower.
+    // Falls back to combat_result when combat_state is null (table not yet
+    // created on Railway persistent volume).
     const isFollower = !(raceState && raceState.is_leader);
-    if (phase === 'combat' && isFollower && raceState.combat_state) {
+    if (phase === 'combat' && isFollower) {
       const cs = raceState.combat_state;
 
-      if (cs.resolved && !shownResult) {
+      // Fallback: if combat_state is null but combat_result shows resolved,
+      // go straight to the result screen.
+      if (!cs && raceState.combat_result && !shownResult) {
+        try {
+          const stored = JSON.parse(raceState.combat_result);
+          if (stored.resolved) {
+            shownResult = true;
+            showCombatResult(stored);
+          } else if (stored.rolls_generated && !shownRoll) {
+            shownRoll = true;
+            combatRollData = stored;
+            showRollAnimation(stored);
+          }
+        } catch(e) {}
+      }
+
+      if (cs && cs.resolved && !shownResult) {
         shownResult = true;
         // Parse full combat_result from state
         var stored = raceState.combat_result ? JSON.parse(raceState.combat_result) : cs;

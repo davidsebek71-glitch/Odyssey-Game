@@ -16486,6 +16486,24 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
       // Attach combat_state when in combat phase so followers can track sub-phases
       if (state.current_phase === 'combat') {
         try {
+          // Ensure table exists on Railway persistent volume before querying
+          try {
+            run(`CREATE TABLE IF NOT EXISTS olympus_combat_state (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              alliance_id INTEGER NOT NULL, round_number INTEGER NOT NULL,
+              alliance_roll_max INTEGER NOT NULL DEFAULT 0, god_roll_max INTEGER NOT NULL DEFAULT 0,
+              alliance_roll INTEGER NOT NULL DEFAULT 0, god_roll INTEGER NOT NULL DEFAULT 0,
+              alliance_reroll INTEGER DEFAULT NULL, raw_damage INTEGER NOT NULL DEFAULT 0,
+              alliance_won INTEGER NOT NULL DEFAULT 0, spell_applied INTEGER DEFAULT NULL,
+              damage_after_spell INTEGER DEFAULT NULL, trivia_question_id INTEGER DEFAULT NULL,
+              trivia_answered INTEGER DEFAULT 0, trivia_correct INTEGER DEFAULT NULL,
+              damage_after_trivia INTEGER DEFAULT NULL, bonus_points INTEGER DEFAULT 0,
+              final_damage INTEGER DEFAULT NULL, resolved INTEGER DEFAULT 0,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE (alliance_id, round_number)
+            )`);
+          } catch(tblErr) { /* already exists */ }
+
           const cs = query(
             `SELECT * FROM olympus_combat_state WHERE alliance_id=? AND round_number=?`,
             [alliance.alliance_id, state.current_round]
