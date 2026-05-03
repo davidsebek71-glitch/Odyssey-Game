@@ -2867,7 +2867,7 @@ async function showSpellPhase() {
 
   if (spells.length === 0) {
     // No spells — auto skip after brief display
-    grid.innerHTML = '<div style="font-family:'Cinzel',serif;font-size:0.8rem;color:var(--stone);' +
+    grid.innerHTML = '<div style="font-family:Cinzel,serif;font-size:0.8rem;color:var(--stone);' +
       'text-align:center;padding:20px 0;">No spells in your arsenal.</div>';
     setTimeout(function() { skipSpell(); }, 1200);
     return;
@@ -3185,18 +3185,18 @@ function showCombatResult(data) {
 
     var finalDmg = data.final_damage !== undefined ? data.final_damage : (data.points_deducted || 0);
     var bonusLine = data.bonus_points > 0
-      ? '<div style="font-family:'Cinzel',serif;font-size:0.82rem;color:#8ae08a;margin-top:6px;">✦ +'
+      ? '<div style="font-family:Cinzel,serif;font-size:0.82rem;color:#8ae08a;margin-top:6px;">✦ +'
         + data.bonus_points.toLocaleString() + ' bonus points earned</div>'
       : '';
     var penaltyLine = data.penalty_points > 0
-      ? '<div style="font-family:'Cinzel',serif;font-size:0.82rem;color:#e07070;margin-top:6px;">−'
+      ? '<div style="font-family:Cinzel,serif;font-size:0.82rem;color:#e07070;margin-top:6px;">−'
         + data.penalty_points.toLocaleString() + ' pts trivia penalty</div>'
       : '';
     var phoenixLine = data.phoenix_triggered
-      ? '<div style="font-family:'Cinzel',serif;font-size:0.82rem;color:#f0a040;margin-top:6px;">🪶 The Phoenix Feather saved your alliance from oblivion</div>'
+      ? '<div style="font-family:Cinzel,serif;font-size:0.82rem;color:#f0a040;margin-top:6px;">🪶 The Phoenix Feather saved your alliance from oblivion</div>'
       : '';
     var wonLine = data.alliance_won && finalDmg === 0
-      ? '<div style="font-family:'Cinzel Decorative',serif;font-size:0.9rem;color:#f0d060;margin-bottom:8px;">⚡ The Gods Could Not Touch You</div>'
+      ? '<div style="font-family:Cinzel Decorative,serif;font-size:0.9rem;color:#f0d060;margin-bottom:8px;">⚡ The Gods Could Not Touch You</div>'
       : '';
 
     resultBox.innerHTML =
