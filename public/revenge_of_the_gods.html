@@ -649,6 +649,8 @@
     color: #e8d5a0; cursor: pointer; transition: all 0.2s;
   }
   .agora-r-enter:hover { background: linear-gradient(135deg,#254f7a,#162b45); box-shadow: 0 4px 18px rgba(184,134,11,0.28); }
+  .agora-r-enter:disabled { opacity: 0.5; cursor: not-allowed; background: rgba(40,55,80,0.4); border-color: rgba(120,140,170,0.3); color: rgba(200,185,150,0.55); }
+  .agora-r-enter:disabled:hover { background: rgba(40,55,80,0.4); box-shadow: none; }
   .agora-r-note {
     font-family: 'Cinzel', serif; font-size: 0.7rem;
     color: rgba(184,134,11,0.55); margin-top: 7px; letter-spacing: 0.09em;
@@ -891,7 +893,7 @@
     <div style="text-align:center;font-family:'Cinzel',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>
   </div>
   <div class="agora-r-footer">
-    <button class="agora-r-enter" onclick="enterRaceFromAgora()">⚡ Enter the Olympus Race</button>
+    <button class="agora-r-enter" id="agora-r-enter-btn" onclick="enterRaceFromAgora()">⚡ Enter the Olympus Race</button>
     <div class="agora-r-note" id="agora-r-note">Craft up to 4 spells before you begin. Unused slots carry no spell.</div>
   </div>
 </div>
@@ -2747,23 +2749,54 @@ function showWaiting(title, sub, phase) {
 
 async function showAgora() {
   showScreen('agora');
-  // Start polling while on the Agora so that if the game phase changes
-  // (e.g. in edge cases), this player will be routed forward automatically.
+  // Start polling so agora_visited (and agora_all_ready) changes are detected.
   startPolling();
+  // Gate the Enter button immediately — it stays disabled until all real members
+  // have called agora-ready and agora_all_ready becomes true.
+  updateAgoraEnterButton(0, 1, false);
   document.getElementById('agora-r-body').innerHTML =
     '<div style="text-align:center;font-family:\'Cinzel\',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>';
+  // Load spell cards (failure still lets the player register as ready below)
   try {
     const res = await fetch('/api/olympus/spells/available', { headers: H });
     if (!res.ok) {
       document.getElementById('agora-r-body').innerHTML =
         '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Could not load spells. You may enter the race without crafting.</div>';
-      return;
+    } else {
+      const data = await res.json();
+      renderAgoraScreen(data);
     }
-    const data = await res.json();
-    renderAgoraScreen(data);
   } catch(e) {
     document.getElementById('agora-r-body').innerHTML =
       '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Network error loading spells.</div>';
+  }
+  // Register this player as present on the Agora. INSERT OR IGNORE on the server
+  // makes repeat calls (page refresh) safe. Update the Enter button immediately
+  // with the fresh ready_count so this player doesn't have to wait for the next poll.
+  try {
+    const readyRes = await fetch('/api/olympus/agora-ready', { method: 'POST', headers: H });
+    if (readyRes.ok) {
+      const rd = await readyRes.json();
+      updateAgoraEnterButton(rd.ready_count, rd.member_count, rd.all_ready);
+    }
+  } catch(e) {
+    console.warn('agora-ready failed:', e.message);
+    // Fail open: don't soft-lock a solo player if the network blips
+    updateAgoraEnterButton(1, 1, true);
+  }
+}
+
+// Enables or disables the "Enter the Race" button based on how many alliance
+// members are present on the Agora screen. Called on load and by polling.
+function updateAgoraEnterButton(readyCount, memberCount, allReady) {
+  const btn = document.getElementById('agora-r-enter-btn');
+  if (!btn) return;
+  if (allReady) {
+    btn.disabled = false;
+    btn.textContent = '⚡ Enter the Olympus Race';
+  } else {
+    btn.disabled = true;
+    btn.textContent = `⏳ Waiting for teammates… (${readyCount}/${memberCount} ready)`;
   }
 }
 
@@ -2902,6 +2935,17 @@ function startPolling() {
         lastPhase = phase;
         lastRound = round;
         routeToPhase(phase, round);
+      }
+      // While the Agora screen is active, keep the Enter button in sync with
+      // agora_all_ready. This enables the button for everyone the moment the
+      // last member arrives, without waiting for a phase/round change.
+      const agoraEl = document.getElementById('screen-agora');
+      if (agoraEl && agoraEl.classList.contains('active')) {
+        updateAgoraEnterButton(
+          raceState.agora_ready_count  || 0,
+          raceState.agora_member_count || 1,
+          raceState.agora_all_ready    || false
+        );
       }
     }
   }, 3000);

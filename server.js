@@ -16335,10 +16335,28 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
     }
     if (state) state.my_unlock_submitted = myUnlockSubmitted;
 
-    // agora_visited is an alliance-level flag on olympus_race_state.
-    // It is set when any player clicks "Enter the Race" from the Agora.
-    // All players' polling detects it and routes everyone to path choice together.
-    // No per-student tracking needed — building market mechanic.
+    // agora_all_ready: true when every real (non-ghost) member has loaded the
+    // Agora screen (called POST /api/olympus/agora-ready). The client uses this
+    // to gate the "Enter the Race" button — it only enables when all members are
+    // present, so no player can skip another's Agora experience.
+    if (state) {
+      try {
+        const readyRows = query(
+          `SELECT COUNT(*) as cnt FROM olympus_agora_students WHERE alliance_id=?`,
+          [alliance.alliance_id]
+        );
+        const memberRows = query(
+          `SELECT COUNT(*) as cnt FROM students
+           WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+          [alliance.alliance_id]
+        );
+        const readyCount = (readyRows[0] && readyRows[0].cnt) || 0;
+        const memberCount = (memberRows[0] && memberRows[0].cnt) || 1;
+        state.agora_ready_count  = readyCount;
+        state.agora_member_count = memberCount;
+        state.agora_all_ready    = readyCount >= memberCount;
+      } catch(e) { state.agora_all_ready = true; /* fail open if table missing */ }
+    }
 
     res.json({ alliance, state, archetype, drachma });
   } catch(e) {
@@ -17659,6 +17677,40 @@ app.post('/api/olympus/spells/activate', authenticateToken, (req, res) => {
       icon:       spell.icon,
       round:      state.current_round
     });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/agora-ready ────────────────────────────────────────────
+// Called when a student's Agora screen finishes loading. Registers them as
+// present. INSERT OR IGNORE makes re-loading safe (no duplicate rows).
+// Returns { ready_count, member_count, all_ready } so the client can update
+// the Enter button immediately without waiting for the next 3 s poll tick.
+app.post('/api/olympus/agora-ready', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+
+    run(
+      `INSERT OR IGNORE INTO olympus_agora_students (alliance_id, student_id) VALUES (?, ?)`,
+      [alliance.alliance_id, req.user.id]
+    );
+    saveDatabase();
+
+    const readyRows = query(
+      `SELECT COUNT(*) as cnt FROM olympus_agora_students WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+    const memberRows = query(
+      `SELECT COUNT(*) as cnt FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const ready_count  = (readyRows[0] && readyRows[0].cnt)  || 0;
+    const member_count = (memberRows[0] && memberRows[0].cnt) || 1;
+    res.json({ ready_count, member_count, all_ready: ready_count >= member_count });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
