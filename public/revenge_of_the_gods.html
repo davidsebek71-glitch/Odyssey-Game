@@ -649,8 +649,6 @@
     color: #e8d5a0; cursor: pointer; transition: all 0.2s;
   }
   .agora-r-enter:hover { background: linear-gradient(135deg,#254f7a,#162b45); box-shadow: 0 4px 18px rgba(184,134,11,0.28); }
-  .agora-r-enter:disabled { opacity: 0.5; cursor: not-allowed; background: rgba(40,55,80,0.4); border-color: rgba(120,140,170,0.3); color: rgba(200,185,150,0.55); }
-  .agora-r-enter:disabled:hover { background: rgba(40,55,80,0.4); box-shadow: none; }
   .agora-r-note {
     font-family: 'Cinzel', serif; font-size: 0.7rem;
     color: rgba(184,134,11,0.55); margin-top: 7px; letter-spacing: 0.09em;
@@ -659,6 +657,176 @@
     font-family: 'Cinzel', serif; font-size: 0.72rem;
     color: rgba(220,190,140,0.5); text-align: center; margin-bottom: 14px;
   }
+
+  /* ── Dice-roll combat phases ──────────────────────────────────────────── */
+  .combat-phase { display: none; flex-direction: column; align-items: center;
+    justify-content: center; width: 100%; min-height: 100%; padding: 24px 20px; }
+  .combat-phase.active { display: flex; }
+
+  /* Rolling phase — two counters side by side */
+  #combat-phase-rolling {
+    background: linear-gradient(160deg, #06090f 0%, #0d1525 100%);
+    min-height: 100vh;
+  }
+  .roll-arena {
+    display: flex; align-items: center; justify-content: center;
+    gap: 32px; width: 100%; max-width: 600px; margin-bottom: 28px;
+  }
+  .roll-side { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+  .roll-label {
+    font-family: 'Cinzel', serif; font-size: 0.72rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--stone);
+  }
+  .roll-number {
+    font-family: 'Cinzel Decorative', serif; font-size: 4.2rem; font-weight: 700;
+    line-height: 1; min-width: 160px; text-align: center;
+    text-shadow: 0 0 24px currentColor; transition: color 0.4s;
+  }
+  .roll-number.alliance { color: var(--bright-gold); }
+  .roll-number.god      { color: #e07070; }
+  .roll-max-label {
+    font-family: 'Cinzel', serif; font-size: 0.65rem; color: rgba(160,144,112,0.5);
+    letter-spacing: 0.12em;
+  }
+  .roll-vs {
+    font-family: 'Cinzel Decorative', serif; font-size: 1.6rem;
+    color: rgba(240,208,96,0.35); flex-shrink: 0;
+  }
+  .roll-result-banner {
+    font-family: 'Cinzel Decorative', serif; font-size: 1.3rem; font-weight: 700;
+    letter-spacing: 0.1em; text-align: center; padding: 14px 32px;
+    border-radius: 6px; min-width: 280px; opacity: 0; transition: opacity 0.5s;
+  }
+  .roll-result-banner.win {
+    color: #8ae08a; background: rgba(138,224,138,0.08);
+    border: 1px solid rgba(138,224,138,0.3);
+  }
+  .roll-result-banner.loss {
+    color: #e07070; background: rgba(224,112,112,0.08);
+    border: 1px solid rgba(224,112,112,0.3);
+  }
+  .roll-result-banner.visible { opacity: 1; }
+
+  /* Spell phase */
+  #combat-phase-spell { gap: 0; }
+  .spell-phase-header {
+    font-family: 'Cinzel', serif; font-size: 0.78rem; letter-spacing: 0.15em;
+    color: var(--stone); text-transform: uppercase; margin-bottom: 6px;
+  }
+  .spell-damage-display {
+    font-family: 'Cinzel Decorative', serif; font-size: 1.5rem; color: #e07070;
+    margin-bottom: 20px;
+  }
+  .spell-damage-display.no-damage { color: #8ae08a; font-size: 1.1rem; }
+  .spell-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    max-width: 520px; width: 100%; margin-bottom: 20px;
+  }
+  .spell-card {
+    background: rgba(12,17,28,0.9); border: 1px solid rgba(184,134,11,0.25);
+    border-radius: 8px; padding: 14px 16px; cursor: pointer;
+    transition: all 0.2s; text-align: left; position: relative;
+  }
+  .spell-card:hover:not(:disabled):not(.unavailable) {
+    border-color: rgba(184,134,11,0.6); background: rgba(20,28,44,0.95);
+  }
+  .spell-card:disabled, .spell-card.unavailable { opacity: 0.45; cursor: not-allowed; }
+  .spell-card-icon  { font-size: 1.6rem; margin-bottom: 6px; }
+  .spell-card-name  { font-family: 'Cinzel', serif; font-size: 0.82rem; font-weight: 700;
+    color: var(--pale-gold); margin-bottom: 4px; }
+  .spell-card-desc  { font-family: 'IM Fell English', serif; font-size: 0.75rem;
+    color: var(--stone); line-height: 1.4; margin-bottom: 10px; }
+  .spell-card-apply {
+    font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.1em; padding: 7px 16px; border-radius: 4px;
+    background: linear-gradient(135deg, var(--olympus-blue), #0d1f33);
+    border: 1px solid rgba(184,134,11,0.4); color: #e8d5a0; cursor: pointer;
+    transition: all 0.2s; width: 100%;
+  }
+  .spell-card-apply:hover { background: linear-gradient(135deg,#254f7a,#162b45); }
+  .btn-accept-fate {
+    font-family: 'Cinzel', serif; font-size: 0.78rem; letter-spacing: 0.15em;
+    color: var(--stone); background: none; border: 1px solid rgba(160,144,112,0.3);
+    padding: 10px 28px; border-radius: 4px; cursor: pointer; margin-top: 8px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .btn-accept-fate:hover { color: var(--pale-gold); border-color: rgba(240,208,96,0.4); }
+  .follower-msg {
+    font-family: 'Cinzel', serif; font-size: 0.78rem; color: rgba(160,144,112,0.6);
+    letter-spacing: 0.1em; margin-top: 16px; text-align: center;
+  }
+
+  /* Trivia phase */
+  #combat-phase-trivia { gap: 0; max-width: 680px; margin: 0 auto; width: 100%; }
+  .trivia-context {
+    font-family: 'Cinzel', serif; font-size: 0.75rem; letter-spacing: 0.2em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .trivia-context.heroic { color: #f0b832; }
+  .trivia-context.defend { color: #e07070; }
+  .trivia-stake {
+    font-family: 'Cinzel', serif; font-size: 0.82rem; color: var(--stone);
+    margin-bottom: 16px;
+  }
+  .trivia-question-card {
+    background: rgba(12,17,28,0.9); border: 1px solid rgba(184,134,11,0.2);
+    border-radius: 8px; padding: 22px 24px; width: 100%; margin-bottom: 18px;
+    font-family: 'IM Fell English', serif; font-size: 1.05rem; color: var(--pale-gold);
+    line-height: 1.6; text-align: center;
+  }
+  .trivia-timer-wrap {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 18px; width: 100%;
+  }
+  .trivia-timer-bar {
+    flex: 1; height: 5px; background: rgba(255,255,255,0.08);
+    border-radius: 3px; overflow: hidden;
+  }
+  .trivia-timer-fill {
+    height: 100%; background: var(--bright-gold); border-radius: 3px;
+    transition: width 1s linear;
+  }
+  .trivia-timer-num {
+    font-family: 'Cinzel Decorative', serif; font-size: 1rem;
+    color: var(--bright-gold); min-width: 28px; text-align: center;
+  }
+  .trivia-answer-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%;
+    margin-bottom: 16px;
+  }
+  .trivia-answer-btn {
+    font-family: 'Cinzel', serif; font-size: 0.82rem; padding: 13px 16px;
+    background: rgba(12,17,28,0.85); border: 1px solid rgba(184,134,11,0.25);
+    border-radius: 6px; color: var(--pale-gold); cursor: pointer;
+    transition: all 0.2s; text-align: left; line-height: 1.4;
+  }
+  .trivia-answer-btn:hover:not(:disabled) {
+    border-color: rgba(184,134,11,0.6); background: rgba(20,28,44,0.95);
+  }
+  .trivia-answer-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+  .trivia-answer-btn.correct { border-color: #8ae08a; background: rgba(138,224,138,0.12);
+    color: #8ae08a; }
+  .trivia-answer-btn.wrong-pick { border-color: #e07070; background: rgba(224,112,112,0.1);
+    color: #e07070; }
+  .trivia-feedback {
+    font-family: 'Cinzel', serif; font-size: 0.88rem; text-align: center;
+    min-height: 28px; margin-bottom: 12px;
+  }
+  .btn-continue-combat {
+    font-family: 'Cinzel', serif; font-size: 0.88rem; font-weight: 700;
+    letter-spacing: 0.12em; padding: 13px 36px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--olympus-blue), #0d1f33);
+    border: 1px solid rgba(184,134,11,0.5); color: #e8d5a0; cursor: pointer;
+    transition: all 0.2s; display: none;
+  }
+  .btn-continue-combat:hover { background: linear-gradient(135deg,#254f7a,#162b45); }
+
+  /* Result phase — roll breakdown header above existing result box */
+  .roll-breakdown {
+    font-family: 'Cinzel', serif; font-size: 0.75rem; color: var(--stone);
+    letter-spacing: 0.12em; margin-bottom: 12px; text-align: center; line-height: 1.8;
+  }
+  .roll-breakdown .win-line  { color: #8ae08a; }
+  .roll-breakdown .loss-line { color: #e07070; }
 </style>
 </head>
 <body>
@@ -733,8 +901,9 @@
 
 <!-- ══ SCREEN: COMBAT ════════════════════════════════════════════ -->
 <div class="screen" id="screen-combat">
-  <!-- Phase 1: Story -->
-  <div id="combat-story-phase" class="combat-phase">
+
+  <!-- ── Phase 1: Story + "Roll the Dice" button ─────────────────────────── -->
+  <div id="combat-phase-story" class="combat-phase active">
     <div class="combat-story-card">
       <div class="combat-god-title" id="combat-god-name">Artemis</div>
       <div class="combat-power-label" id="combat-power-name"></div>
@@ -748,25 +917,87 @@
         </div>
         <div class="combat-pts-divider">vs</div>
         <div>
-          <div class="combat-pts-label">God's Attack</div>
+          <div class="combat-pts-label">God's Max Attack</div>
           <div class="combat-pts-value attack" id="bar-attack-pts">—</div>
         </div>
       </div>
-      <button class="btn-fight" id="fight-btn" onclick="prepareBattle()">Prepare for Battle →</button>
+      <!-- Leader sees active button; follower sees disabled waiting message -->
+      <button class="btn-fight" id="fight-btn" onclick="startCombatReady()">Roll the Dice →</button>
+      <div id="combat-ready-status" style="display:none;font-family:'Cinzel',serif;
+           font-size:0.75rem;color:var(--stone);margin-top:12px;letter-spacing:0.1em;"></div>
     </div>
   </div>
-  <!-- Phase 2: Resolution -->
-  <div id="combat-result-phase" class="combat-phase" style="display:none;">
+
+  <!-- ── Phase 2: Dice roll animation ────────────────────────────────────── -->
+  <div id="combat-phase-rolling" class="combat-phase">
+    <div class="combat-story-card" style="text-align:center;width:100%;max-width:560px;">
+      <div class="combat-god-title" id="roll-god-title" style="margin-bottom:6px;"></div>
+      <div style="font-family:'Cinzel',serif;font-size:0.72rem;color:var(--stone);
+           letter-spacing:0.2em;margin-bottom:24px;">THE DICE FALL</div>
+      <div class="roll-arena">
+        <div class="roll-side">
+          <div class="roll-label">Your Alliance</div>
+          <div class="roll-number alliance" id="roll-alliance-num">0</div>
+          <div class="roll-max-label" id="roll-alliance-max"></div>
+        </div>
+        <div class="roll-vs">VS</div>
+        <div class="roll-side">
+          <div class="roll-label" id="roll-god-label">The God</div>
+          <div class="roll-number god" id="roll-god-num">0</div>
+          <div class="roll-max-label" id="roll-god-max"></div>
+        </div>
+      </div>
+      <div class="roll-result-banner" id="roll-result-banner"></div>
+    </div>
+  </div>
+
+  <!-- ── Phase 3: Spell choice ────────────────────────────────────────────── -->
+  <div id="combat-phase-spell" class="combat-phase">
+    <div class="combat-story-card" style="width:100%;max-width:560px;">
+      <div class="spell-phase-header">⚗️ Arsenal of the Gods</div>
+      <div class="spell-damage-display" id="spell-damage-display"></div>
+      <div class="spell-grid" id="spell-choice-grid"></div>
+      <button class="btn-accept-fate" id="btn-accept-fate" onclick="skipSpell()">Accept Fate — No Spell</button>
+      <div class="follower-msg" id="spell-follower-msg" style="display:none;">
+        ⚔️ Your Combat Leader is choosing a spell…
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Phase 4: Trivia question ─────────────────────────────────────────── -->
+  <div id="combat-phase-trivia" class="combat-phase">
+    <div class="trivia-context" id="trivia-context-label"></div>
+    <div class="trivia-stake" id="trivia-stake-label"></div>
+    <div class="trivia-question-card" id="trivia-question-text"></div>
+    <div class="trivia-timer-wrap">
+      <div class="trivia-timer-bar">
+        <div class="trivia-timer-fill" id="trivia-timer-fill" style="width:100%;"></div>
+      </div>
+      <div class="trivia-timer-num" id="trivia-timer-num">30</div>
+    </div>
+    <div class="trivia-answer-grid" id="trivia-answer-grid"></div>
+    <div class="trivia-feedback" id="trivia-feedback"></div>
+    <button class="btn-continue-combat" id="btn-continue-combat" onclick="finalizeCombat()">
+      Accept the Outcome →
+    </button>
+    <div class="follower-msg" id="trivia-follower-msg" style="display:none;">
+      ⚔️ Your Combat Leader is answering…
+    </div>
+  </div>
+
+  <!-- ── Phase 5: Result ──────────────────────────────────────────────────── -->
+  <div id="combat-phase-result" class="combat-phase">
     <div class="combat-story-card">
       <div class="combat-god-title" id="combat-result-god"></div>
       <div class="gold-divider"></div>
+      <!-- Roll breakdown header (new) -->
+      <div class="roll-breakdown" id="roll-breakdown"></div>
+      <!-- Main result box (kept from original) -->
       <div class="combat-result-box show" id="combat-result">
         <div class="combat-deducted" id="combat-deducted"></div>
         <div class="combat-remaining" id="combat-remaining"></div>
       </div>
-      <!-- Wave breakdown (populated by displayCombatResult) -->
-      <div id="wave-breakdown-wrap" style="display:none;margin:16px 0;"></div>
-      <!-- Box URL revealed after surviving combat -->
+      <!-- Box URL revealed after surviving combat — UNCHANGED -->
       <div id="box-url-wrap" style="display:none;margin:20px 0;padding:18px 24px;
            background:rgba(184,134,11,0.12);border:1px solid rgba(184,134,11,0.35);
            border-radius:6px;text-align:center;">
@@ -782,7 +1013,7 @@
         <div style="font-family:'Cinzel',serif;font-size:0.75rem;color:var(--stone);
              margin-top:10px;">Solve the box. Bring back the secret word to unlock the next round.</div>
       </div>
-      <!-- Round unlock input -->
+      <!-- Round unlock input — UNCHANGED -->
       <div id="round-unlock-wrap" style="display:none;margin:16px 0;">
         <div id="unlock-label" style="font-family:'Cinzel',serif;font-size:0.8rem;color:var(--pale-gold);
              margin-bottom:10px;letter-spacing:0.1em;">Enter the secret word from the box:</div>
@@ -800,13 +1031,14 @@
       </div>
       <div id="combat-continue-wrap" style="margin-top:24px;">
         <button id="combat-puzzle-btn" class="btn-commit" onclick="proceedToPuzzle()">Enter the Puzzle Chamber →</button>
-        <button id="combat-hades-btn"  class="btn-commit" onclick="proceedToHades()"
+        <button id="combat-hades-btn" class="btn-commit" onclick="proceedToHades()"
                 style="display:none;background:linear-gradient(135deg,#3a1f70,#6b3fa0);border-color:rgba(160,100,220,0.5);">
           Descend to the Underworld →
         </button>
       </div>
     </div>
   </div>
+
 </div>
 
 <!-- ══ SCREEN: WAITING ═══════════════════════════════════════════ -->
@@ -893,7 +1125,7 @@
     <div style="text-align:center;font-family:'Cinzel',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>
   </div>
   <div class="agora-r-footer">
-    <button class="agora-r-enter" id="agora-r-enter-btn" onclick="enterRaceFromAgora()">⚡ Enter the Olympus Race</button>
+    <button class="agora-r-enter" onclick="enterRaceFromAgora()">⚡ Enter the Olympus Race</button>
     <div class="agora-r-note" id="agora-r-note">Craft up to 4 spells before you begin. Unused slots carry no spell.</div>
   </div>
 </div>
@@ -2320,8 +2552,9 @@ function revealStoryLines(lines, rollText, onComplete) {
   } else {
     // Safe path — show button immediately styled green
     setTimeout(() => {
-      fightBtn.textContent = 'Move On — No Combat →';
+      fightBtn.textContent = '✦ Safe Path — Advance →';
       fightBtn.onclick = function() { safeCombatAdvance(); };
+      fightBtn.disabled = !(raceState && raceState.is_leader);
       fightBtn.style.background = 'linear-gradient(135deg,#1a4a1a,#0a2a0a)';
       fightBtn.style.borderColor = 'rgba(74,138,74,0.4)';
       fightBtn.style.color = '#8ae08a';
@@ -2334,15 +2567,13 @@ function revealStoryLines(lines, rollText, onComplete) {
 
 async function showCombat(round) {
   showScreen('combat');
-  // Reset any opacity/transition left over from a previous round's displayCombatResult fade
-  const _sp = document.getElementById('combat-story-phase');
-  const _rp = document.getElementById('combat-result-phase');
-  _sp.style.opacity    = '';
-  _sp.style.transition = '';
-  _sp.style.display    = 'flex';
-  _rp.style.opacity    = '';
-  _rp.style.transition = '';
-  _rp.style.display    = 'none';
+  // Reset sub-phase state for the new round
+  combatSubPhase   = 'story';
+  combatRollData   = null;
+  triviaAnswered   = false;
+  if (triviaTimerHandle) { clearInterval(triviaTimerHandle); triviaTimerHandle = null; }
+
+  showCombatPhase('story');
 
   // Populate placeholder immediately so screen isn't blank during async fetches
   document.getElementById('combat-god-name').textContent = '⚔ Entering the battlefield…';
@@ -2350,6 +2581,8 @@ async function showCombat(round) {
   document.getElementById('combat-power-name').textContent = '';
   document.getElementById('combat-story-lines').innerHTML = '';
   document.getElementById('fight-btn').classList.remove('reveal');
+  var statusEl = document.getElementById('combat-ready-status');
+  if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
 
   await loadState();
 
@@ -2380,12 +2613,21 @@ async function showCombat(round) {
 
   const fightBtn = document.getElementById('fight-btn');
   fightBtn.disabled = false;
-  fightBtn.textContent = 'Prepare for Battle →';
-  fightBtn.onclick = function() { prepareBattle(); };  // always reset — safe path may have overridden this
-  fightBtn.style.background = '';
+  fightBtn.style.background  = '';
   fightBtn.style.borderColor = '';
-  fightBtn.style.color = '';
+  fightBtn.style.color       = '';
   fightBtn.classList.remove('reveal');
+  fightBtn.onclick = function() { startCombatReady(); };
+
+  // Leader/follower button state (is_leader set by server on state)
+  const isLeader = raceState && raceState.is_leader;
+  if (isLeader) {
+    fightBtn.textContent = 'Roll the Dice →';
+    fightBtn.disabled    = false;
+  } else {
+    fightBtn.textContent = '⚔️ Waiting for your leader to roll…';
+    fightBtn.disabled    = true;
+  }
 
   // Populate the points bar — shows alliance pts vs god's attack value
   const bar = document.getElementById('combat-points-bar');
@@ -2451,21 +2693,436 @@ async function safeCombatAdvance() {
 // ── prepareBattle — replaces markReady ───────────────────────────────────────
 // Navigates to combat_wave.html which handles the 3-wave myth knowledge combat.
 // The wave system reads all state from the server — no params needed.
-function prepareBattle() {
-  const btn = document.getElementById('fight-btn');
-  btn.disabled = true;
-  btn.textContent = 'Entering the Battle…';
-  // Small delay for dramatic effect before navigation
-  setTimeout(() => {
-    window.location.href = '/combat_wave.html';
-  }, 600);
+// ── Combat phase manager ─────────────────────────────────────────────────────
+// Shows one combat sub-phase div and hides the others within screen-combat.
+function showCombatPhase(name) {
+  var phases = ['story','rolling','spell','trivia','result'];
+  phases.forEach(function(p) {
+    var el = document.getElementById('combat-phase-' + p);
+    if (el) { el.classList.remove('active'); el.style.display = 'none'; }
+  });
+  var target = document.getElementById('combat-phase-' + name);
+  if (target) { target.classList.add('active'); target.style.display = 'flex'; }
 }
 
-// ── displayCombatResult ───────────────────────────────────────────────────────
-// Called when returning from combat_wave.html with a result stored on the server.
-// Handles the new wave_breakdown format from /api/olympus/combat-wave-complete.
-function displayCombatResult(data) {
+// ── Combat sub-phase tracking (guard flags for followers) ─────────────────────
+var combatSubPhase     = 'story';   // story | rolling | spell | trivia | result
+var combatRollData     = null;      // { alliance_roll, god_roll, ... }
+var triviaTimerHandle  = null;
+var triviaAnswered     = false;
+
+// ── startCombatReady ──────────────────────────────────────────────────────────
+// Leader-triggered. Marks this player as ready. When all present members are
+// ready the server generates rolls and returns them. Followers wait via polling.
+async function startCombatReady() {
+  var isLeader = raceState && raceState.is_leader;
+  if (!isLeader) return; // Followers can't trigger this
+
+  var btn = document.getElementById('fight-btn');
+  btn.disabled = true;
+  btn.textContent = 'Waiting for teammates…';
+
+  var statusEl = document.getElementById('combat-ready-status');
+  if (statusEl) statusEl.style.display = 'block';
+
+  try {
+    var res  = await fetch('/api/olympus/combat-ready', { method: 'POST', headers: H });
+    var data = await res.json();
+
+    if (data.waiting) {
+      if (statusEl) statusEl.textContent = data.ready_count + ' / ' + data.needed + ' ready — waiting for teammates…';
+      // Poll until all ready
+      var readyPoll = setInterval(async function() {
+        try {
+          var r2  = await fetch('/api/olympus/combat-ready', { method: 'POST', headers: H });
+          var d2  = await r2.json();
+          if (d2.resolved) {
+            clearInterval(readyPoll);
+            handleRollsGenerated(d2);
+          } else if (d2.waiting && statusEl) {
+            statusEl.textContent = d2.ready_count + ' / ' + d2.needed + ' ready — waiting for teammates…';
+          }
+        } catch(e) { /* network blip */ }
+      }, 2000);
+    } else if (data.resolved) {
+      handleRollsGenerated(data);
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Roll the Dice →';
+    if (statusEl) { statusEl.textContent = 'Error: ' + e.message; }
+  }
+}
+
+// Called once rolls exist (both leader and follower paths lead here)
+function handleRollsGenerated(data) {
+  if (data.safe_path) {
+    showCombatResult(data);
+    return;
+  }
+  combatRollData = data;
+  combatSubPhase = 'rolling';
+  showRollAnimation(data);
+}
+
+// ── showRollAnimation ─────────────────────────────────────────────────────────
+// Fates-style spinning number animation for both rolls simultaneously.
+function showRollAnimation(data) {
+  showScreen('combat');
+  showCombatPhase('rolling');
+  combatSubPhase = 'rolling';
+
+  var godName = (data.path && data.path.god) ? data.path.god : 'The God';
+  document.getElementById('roll-god-title').textContent = godName;
+  document.getElementById('roll-god-label').textContent = godName;
+  document.getElementById('roll-alliance-max').textContent = 'max ' + (data.alliance_roll_max || 0).toLocaleString();
+  document.getElementById('roll-god-max').textContent = 'max ' + (data.god_roll_max || 0).toLocaleString();
+
+  var allianceEl = document.getElementById('roll-alliance-num');
+  var godEl      = document.getElementById('roll-god-num');
+  var bannerEl   = document.getElementById('roll-result-banner');
+  bannerEl.className = 'roll-result-banner';
+  bannerEl.textContent = '';
+
+  var targetA   = data.alliance_roll || 0;
+  var targetG   = data.god_roll      || 0;
+  var duration  = 2200; // ms total spin
+  var interval  = 60;   // ms per tick
+  var ticks     = Math.floor(duration / interval);
+  var tick      = 0;
+
+  var spinHandle = setInterval(function() {
+    tick++;
+    // Rapid random during spin, slow and decelerate toward the end
+    var progress = tick / ticks;
+    if (progress < 0.75) {
+      // Full spin — random numbers
+      allianceEl.textContent = Math.floor(Math.random() * (data.alliance_roll_max || 1000)).toLocaleString();
+      godEl.textContent      = Math.floor(Math.random() * (data.god_roll_max     || 500)).toLocaleString();
+    } else {
+      // Decelerate — approach final value
+      var blend = (progress - 0.75) / 0.25; // 0→1
+      var aDisplay = Math.floor(targetA * blend + Math.random() * (data.alliance_roll_max || 1000) * (1 - blend));
+      var gDisplay = Math.floor(targetG * blend + Math.random() * (data.god_roll_max || 500) * (1 - blend));
+      allianceEl.textContent = Math.max(0, aDisplay).toLocaleString();
+      godEl.textContent      = Math.max(0, gDisplay).toLocaleString();
+    }
+
+    if (tick >= ticks) {
+      clearInterval(spinHandle);
+      // Lock on final values
+      allianceEl.textContent = targetA.toLocaleString();
+      godEl.textContent      = targetG.toLocaleString();
+
+      // Show result banner after brief pause
+      setTimeout(function() {
+        if (data.alliance_won) {
+          bannerEl.textContent = '✦ Victory — No Damage Taken';
+          bannerEl.className   = 'roll-result-banner win visible';
+        } else {
+          var dmg = data.raw_damage || 0;
+          bannerEl.textContent = '⚔ The God Strikes — ' + dmg.toLocaleString() + ' pts at risk';
+          bannerEl.className   = 'roll-result-banner loss visible';
+        }
+        // Advance to spell phase after display
+        setTimeout(showSpellPhase, 1800);
+      }, 400);
+    }
+  }, interval);
+}
+
+// ── showSpellPhase ────────────────────────────────────────────────────────────
+// Shows available spells for the leader to choose (or skip).
+// Followers see the same cards but buttons are disabled.
+async function showSpellPhase() {
+  combatSubPhase = 'spell';
+  showCombatPhase('spell');
+
+  var isLeader = raceState && raceState.is_leader;
+  var raw = combatRollData ? (combatRollData.raw_damage || 0) : 0;
+  var won = combatRollData ? !!combatRollData.alliance_won : false;
+
+  // Show current damage / win state
+  var dmgEl = document.getElementById('spell-damage-display');
+  if (won) {
+    dmgEl.textContent = '✦ You won the roll — no damage';
+    dmgEl.className   = 'spell-damage-display no-damage';
+  } else {
+    dmgEl.textContent = 'Damage at risk: ' + raw.toLocaleString() + ' pts';
+    dmgEl.className   = 'spell-damage-display';
+  }
+
+  // Load spell inventory
+  var spells = [];
+  try {
+    var res = await fetch('/api/olympus/spells/inventory', { headers: H });
+    if (res.ok) {
+      var inv = await res.json();
+      spells = (inv.spells || []).filter(function(s) { return !s.used; });
+    }
+  } catch(e) { /* non-fatal */ }
+
+  var grid = document.getElementById('spell-choice-grid');
+  grid.innerHTML = '';
+
+  if (spells.length === 0) {
+    // No spells — auto skip after brief display
+    grid.innerHTML = '<div style="font-family:'Cinzel',serif;font-size:0.8rem;color:var(--stone);' +
+      'text-align:center;padding:20px 0;">No spells in your arsenal.</div>';
+    setTimeout(function() { skipSpell(); }, 1200);
+    return;
+  }
+
+  spells.forEach(function(spell) {
+    var card = document.createElement('div');
+    card.className = 'spell-card';
+    card.innerHTML =
+      '<div class="spell-card-icon">' + (spell.icon || '✨') + '</div>' +
+      '<div class="spell-card-name">' + spell.name + '</div>' +
+      '<div class="spell-card-desc">'  + (spell.description || spell.effect || '') + '</div>';
+
+    if (isLeader) {
+      var applyBtn = document.createElement('button');
+      applyBtn.className   = 'spell-card-apply';
+      applyBtn.textContent = 'Apply Spell';
+      applyBtn.onclick     = function() { applySpell(spell.spell_id); };
+      card.appendChild(applyBtn);
+    }
+    grid.appendChild(card);
+  });
+
+  var fateBtn = document.getElementById('btn-accept-fate');
+  var follMsg = document.getElementById('spell-follower-msg');
+  if (isLeader) {
+    fateBtn.style.display = '';
+    if (follMsg) follMsg.style.display = 'none';
+  } else {
+    fateBtn.style.display = 'none';
+    if (follMsg) follMsg.style.display = 'block';
+  }
+
+  startPolling(); // keep followers in sync
+}
+
+async function applySpell(spellId) {
+  var fateBtn = document.getElementById('btn-accept-fate');
+  var grid    = document.getElementById('spell-choice-grid');
+  // Disable all buttons while posting
+  grid.querySelectorAll('.spell-card-apply').forEach(function(b) { b.disabled = true; });
+  fateBtn.disabled = true;
+
+  try {
+    var res  = await fetch('/api/olympus/combat-spell', {
+      method: 'POST', headers: H, body: JSON.stringify({ spell_id: spellId })
+    });
+    var data = await res.json();
+    // Brief feedback then advance
+    var dmgEl = document.getElementById('spell-damage-display');
+    var spellName = (function(){
+      var cards = grid.querySelectorAll('.spell-card-name');
+      for (var i=0; i<cards.length; i++){
+        var card = cards[i].closest('.spell-card');
+        if (card) {
+          var btn = card.querySelector('.spell-card-apply');
+          if (btn && btn.disabled) { return cards[i].textContent; }
+        }
+      }
+      return 'Spell';
+    })();
+    dmgEl.textContent = spellName + ' applied → damage now ' + (data.damage_after_spell || 0).toLocaleString() + ' pts';
+    dmgEl.className   = 'spell-damage-display no-damage';
+    setTimeout(showTriviaPhase, 1400);
+  } catch(e) {
+    grid.querySelectorAll('.spell-card-apply').forEach(function(b) { b.disabled = false; });
+    fateBtn.disabled = false;
+  }
+}
+
+async function skipSpell() {
+  var fateBtn = document.getElementById('btn-accept-fate');
+  if (fateBtn) fateBtn.disabled = true;
+  try {
+    await fetch('/api/olympus/combat-spell', {
+      method: 'POST', headers: H, body: JSON.stringify({ spell_id: null })
+    });
+  } catch(e) { /* non-fatal, proceed */ }
+  showTriviaPhase();
+}
+
+// ── showTriviaPhase ───────────────────────────────────────────────────────────
+// Shows the trivia question. Leader can answer; followers can read but not click.
+async function showTriviaPhase() {
+  combatSubPhase = 'trivia';
+  triviaAnswered = false;
+  showCombatPhase('trivia');
+
+  var isLeader = raceState && raceState.is_leader;
+  var cs = raceState && raceState.combat_state;
+
+  // Ensure fresh combat_state with trivia question text
+  if (!cs || !cs.trivia_question_text) {
+    var data = await loadState();
+    cs = raceState && raceState.combat_state;
+  }
+
+  var won = cs ? !!cs.alliance_won : (combatRollData ? !!combatRollData.alliance_won : false);
+
+  // Context label
+  var ctxEl   = document.getElementById('trivia-context-label');
+  var stakeEl = document.getElementById('trivia-stake-label');
+  var alliancePoints = allianceData ? (allianceData.total_points || 0) : 0;
+
+  if (won) {
+    ctxEl.textContent   = '⚡ Heroic Action!';
+    ctxEl.className     = 'trivia-context heroic';
+    stakeEl.textContent = 'Answer correctly for +'
+      + Math.floor(alliancePoints * 0.03).toLocaleString() + ' pts bonus. Wrong = −'
+      + Math.floor(alliancePoints * 0.05).toLocaleString() + ' pts.';
+  } else {
+    var baseDmg = cs
+      ? (cs.damage_after_spell !== null ? cs.damage_after_spell : cs.raw_damage)
+      : (combatRollData ? combatRollData.raw_damage : 0);
+    ctxEl.textContent   = '🛡 Defend Your Alliance';
+    ctxEl.className     = 'trivia-context defend';
+    stakeEl.textContent = 'Correct → damage reduced from '
+      + (baseDmg || 0).toLocaleString() + ' to '
+      + Math.floor((baseDmg || 0) * 0.80).toLocaleString()
+      + ' pts. Wrong → ' + Math.floor((baseDmg || 0) * 1.05).toLocaleString() + ' pts.';
+  }
+
+  // Question and options
+  var qEl   = document.getElementById('trivia-question-text');
+  var grid  = document.getElementById('trivia-answer-grid');
+  var feedEl = document.getElementById('trivia-feedback');
+  feedEl.textContent = '';
+  document.getElementById('btn-continue-combat').style.display = 'none';
+
+  if (cs && cs.trivia_question_text) {
+    qEl.textContent = cs.trivia_question_text;
+    grid.innerHTML  = '';
+    var opts = cs.trivia_options || [];
+    opts.forEach(function(opt) {
+      var btn = document.createElement('button');
+      btn.className   = 'trivia-answer-btn';
+      btn.textContent = opt;
+      btn.disabled    = !isLeader;
+      btn.onclick     = function() { submitTriviaAnswer(opt, btn, opts); };
+      grid.appendChild(btn);
+    });
+  } else {
+    qEl.textContent = 'Loading question…';
+    grid.innerHTML  = '';
+  }
+
+  // Follower message
+  var follMsg = document.getElementById('trivia-follower-msg');
+  if (follMsg) follMsg.style.display = isLeader ? 'none' : 'block';
+
+  // 30-second timer (client-side only)
+  if (triviaTimerHandle) clearInterval(triviaTimerHandle);
+  var secsLeft = 30;
+  var fillEl   = document.getElementById('trivia-timer-fill');
+  var numEl    = document.getElementById('trivia-timer-num');
+  if (fillEl) fillEl.style.width = '100%';
+  if (numEl)  numEl.textContent  = '30';
+
+  if (isLeader) {
+    triviaTimerHandle = setInterval(function() {
+      secsLeft--;
+      if (fillEl) fillEl.style.width = Math.max(0, (secsLeft / 30) * 100) + '%';
+      if (numEl)  numEl.textContent  = Math.max(0, secsLeft);
+      if (secsLeft <= 0) {
+        clearInterval(triviaTimerHandle);
+        triviaTimerHandle = null;
+        if (!triviaAnswered) submitTriviaAnswer(null, null, []);
+      }
+    }, 1000);
+  }
+
+  startPolling(); // keep followers in sync
+}
+
+async function submitTriviaAnswer(answer, clickedBtn, allOpts) {
+  if (triviaAnswered) return;
+  triviaAnswered = true;
+  if (triviaTimerHandle) { clearInterval(triviaTimerHandle); triviaTimerHandle = null; }
+
+  // Disable all answer buttons
+  var grid = document.getElementById('trivia-answer-grid');
+  grid.querySelectorAll('.trivia-answer-btn').forEach(function(b) { b.disabled = true; });
+  if (clickedBtn) clickedBtn.classList.add('selected');
+
+  try {
+    var res  = await fetch('/api/olympus/combat-trivia', {
+      method: 'POST', headers: H, body: JSON.stringify({ answer: answer })
+    });
+    var data = await res.json();
+
+    var feedEl = document.getElementById('trivia-feedback');
+
+    if (data.trivia_correct) {
+      if (clickedBtn) clickedBtn.classList.add('correct');
+      if (data.alliance_won) {
+        feedEl.textContent = '✦ Correct! +'  + (data.bonus_points || 0).toLocaleString() + ' bonus pts earned.';
+        feedEl.style.color = '#8ae08a';
+      } else {
+        feedEl.textContent = '✦ Correct! Damage reduced to ' + (data.damage_after_trivia || 0).toLocaleString() + ' pts.';
+        feedEl.style.color = '#8ae08a';
+      }
+    } else {
+      if (clickedBtn) clickedBtn.classList.add('wrong-pick');
+      // Reveal correct answer if provided
+      if (data.correct_answer) {
+        grid.querySelectorAll('.trivia-answer-btn').forEach(function(b) {
+          if (b.textContent.trim() === data.correct_answer.trim()) b.classList.add('correct');
+        });
+      }
+      if (data.alliance_won) {
+        feedEl.textContent = '✗ Wrong. −' + Math.abs(data.bonus_points || 0).toLocaleString() + ' pts penalty.';
+        feedEl.style.color = '#e07070';
+      } else {
+        feedEl.textContent = '✗ Wrong. Damage increased to ' + (data.damage_after_trivia || 0).toLocaleString() + ' pts.';
+        feedEl.style.color = '#e07070';
+      }
+    }
+
+    // Show continue button (leader only)
+    var contBtn = document.getElementById('btn-continue-combat');
+    if (raceState && raceState.is_leader) {
+      contBtn.style.display = '';
+    }
+    // Followers will auto-advance via polling when trivia_answered detected
+
+  } catch(e) {
+    var feedEl = document.getElementById('trivia-feedback');
+    feedEl.textContent = 'Network error — retrying…';
+    feedEl.style.color = '#e07070';
+    // Allow retry
+    triviaAnswered = false;
+    grid.querySelectorAll('.trivia-answer-btn').forEach(function(b) { b.disabled = !(raceState && raceState.is_leader); });
+  }
+}
+
+async function finalizeCombat() {
+  var contBtn = document.getElementById('btn-continue-combat');
+  if (contBtn) { contBtn.disabled = true; contBtn.textContent = 'Calculating…'; }
+
+  try {
+    var res  = await fetch('/api/olympus/combat-finalize', { method: 'POST', headers: H });
+    var data = await res.json();
+    showCombatResult(data);
+  } catch(e) {
+    if (contBtn) { contBtn.disabled = false; contBtn.textContent = 'Accept the Outcome →'; }
+  }
+}
+
+// ── showCombatResult ──────────────────────────────────────────────────────────
+// Shows the result phase with roll breakdown + damage chain + box URL.
+// Replaces the old displayCombatResult(). Called by leader after finalize
+// and by followers via polling (combat_state.resolved = 1).
+function showCombatResult(data) {
   stopPolling();
+  combatSubPhase = 'result';
 
   if (data.already_advanced) {
     loadState().then(function() {
@@ -2474,136 +3131,126 @@ function displayCombatResult(data) {
     return;
   }
 
-  var storyPhase  = document.getElementById('combat-story-phase');
-  var resultPhase = document.getElementById('combat-result-phase');
+  showScreen('combat');
+  showCombatPhase('result');
 
-  storyPhase.style.transition = 'opacity 0.4s ease';
-  storyPhase.style.opacity    = '0';
+  var godName = (data.path && data.path.god)
+    ? data.path.god
+    : (committedPath ? (committedPath.god || 'The Gods') : 'The Gods');
+  document.getElementById('combat-result-god').textContent = godName;
+  document.getElementById('combat-result-god').style.color = data.safe_path ? '#8ae08a' : '#e07070';
 
-  setTimeout(function() {
-    storyPhase.style.display  = 'none';
-    resultPhase.style.display = 'flex';
-    resultPhase.style.opacity = '0';
-    resultPhase.style.transition = 'opacity 0.6s ease';
+  var resultBox = document.getElementById('combat-result');
 
-    var godName = data.god || (committedPath ? (committedPath.god || 'The Gods') : 'The Gods');
-    document.getElementById('combat-result-god').textContent = godName;
-    document.getElementById('combat-result-god').style.color = data.safe_path ? '#8ae08a' : '#e07070';
+  // ── Roll breakdown header ───────────────────────────────────────────────────
+  var bdEl = document.getElementById('roll-breakdown');
+  if (data.safe_path) {
+    bdEl.innerHTML = '';
+  } else if (data.rolls_generated) {
+    var aRoll = (data.alliance_roll || 0).toLocaleString();
+    var gRoll = (data.god_roll      || 0).toLocaleString();
+    var winLine = data.alliance_won
+      ? '<span class="win-line">🎲 You rolled ' + aRoll + ' vs god's ' + gRoll + ' — Victory!</span>'
+      : '<span class="loss-line">🎲 You rolled ' + aRoll + ' vs god's ' + gRoll + ' — ' + (data.raw_damage||0).toLocaleString() + ' pts damage</span>';
+    var spellLine = data.spell_applied
+      ? '<br>⚗️ Spell applied → ' + (data.damage_after_spell||0).toLocaleString() + ' pts'
+      : '';
+    var trivLine = data.trivia_correct !== null && data.trivia_correct !== undefined
+      ? '<br>' + (data.trivia_correct ? '✦ Trivia correct' : '✗ Trivia wrong')
+        + ' → ' + (data.damage_after_trivia||0).toLocaleString() + ' pts'
+      : '';
+    bdEl.innerHTML = winLine + spellLine + trivLine;
+  } else {
+    bdEl.innerHTML = '';
+  }
 
-    var resultBox = document.getElementById('combat-result');
+  // ── Main result box ─────────────────────────────────────────────────────────
+  if (data.safe_path) {
+    resultBox.innerHTML =
+      '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>' +
+      '<div class="combat-remaining safe" style="margin-top:12px;">' +
+      (data.points_after || 0).toLocaleString() + ' points — keep climbing</div>';
 
-    if (data.safe_path) {
-      resultBox.innerHTML = '<div class="combat-safe-msg">✦ You were out of town. No damage taken.</div>' +
-        '<div class="combat-remaining safe" style="margin-top:12px;">' +
-        (data.points_after || 0).toLocaleString() + ' points — keep climbing</div>';
+  } else if (data.hades_triggered) {
+    resultBox.innerHTML =
+      '<div class="combat-deducted" style="color:#c0a0f0;font-size:1.6rem;">Hades has claimed you.</div>' +
+      '<div class="combat-remaining" style="color:#c0a0f0;font-style:italic;margin-top:8px;">Your alliance enters the shadow realm. Fight on.</div>';
 
-    } else if (data.hades_triggered) {
-      resultBox.innerHTML =
-        '<div class="combat-deducted" style="color:#c0a0f0;font-size:1.6rem;">Hades has claimed you.</div>' +
-        '<div class="combat-remaining" style="color:#c0a0f0;font-style:italic;margin-top:8px;">Your alliance enters the shadow realm. Fight on.</div>';
+  } else {
+    var remaining = data.points_after || 0;
+    var remClass  = remaining >= 1500 ? 'safe' : remaining >= 500 ? 'warning' : 'danger';
+    var remLabel  = remaining < 200
+      ? remaining.toLocaleString() + ' points — one more hit and Hades claims you'
+      : remaining.toLocaleString() + ' points remaining';
 
-    } else {
-      // Wave-breakdown result (new format from combat-wave-complete)
-      var before    = (data.points_before  || 0).toLocaleString();
-      var netDmg    = data.net_damage !== undefined ? data.net_damage : (data.points_deducted || 0);
-      var remaining = data.points_after || 0;
-      var remClass  = remaining >= 1500 ? 'safe' : remaining >= 500 ? 'warning' : 'danger';
-      var remLabel  = remaining < 200
-        ? remaining + ' points — one more hit and Hades claims you'
-        : remaining.toLocaleString() + ' points remaining';
+    var finalDmg = data.final_damage !== undefined ? data.final_damage : (data.points_deducted || 0);
+    var bonusLine = data.bonus_points > 0
+      ? '<div style="font-family:'Cinzel',serif;font-size:0.82rem;color:#8ae08a;margin-top:6px;">✦ +'
+        + data.bonus_points.toLocaleString() + ' bonus points earned</div>'
+      : '';
+    var penaltyLine = data.penalty_points > 0
+      ? '<div style="font-family:'Cinzel',serif;font-size:0.82rem;color:#e07070;margin-top:6px;">−'
+        + data.penalty_points.toLocaleString() + ' pts trivia penalty</div>'
+      : '';
+    var phoenixLine = data.phoenix_triggered
+      ? '<div style="font-family:'Cinzel',serif;font-size:0.82rem;color:#f0a040;margin-top:6px;">🪶 The Phoenix Feather saved your alliance from oblivion</div>'
+      : '';
+    var wonLine = data.alliance_won && finalDmg === 0
+      ? '<div style="font-family:'Cinzel Decorative',serif;font-size:0.9rem;color:#f0d060;margin-bottom:8px;">⚡ The Gods Could Not Touch You</div>'
+      : '';
 
-      var bonusLine = (data.bonus_points && data.bonus_points > 0)
-        ? '<div style="font-family:\'Cinzel\',serif;font-size:0.85rem;color:#8ae08a;margin-top:6px;">✦ The Fallen\'s gift: +' + data.bonus_points + ' stolen from the gods</div>'
-        : '';
-      var phoenixLine = data.phoenix_feather_used
-        ? '<div style="font-family:\'Cinzel\',serif;font-size:0.82rem;color:#f0a040;margin-top:6px;">🪶 The Phoenix Feather saved your alliance from oblivion</div>'
-        : '';
-      var perfectLine = data.perfect_block
-        ? '<div style="font-family:\'Cinzel Decorative\',serif;font-size:0.9rem;color:#f0d060;margin-bottom:8px;">⚡ Perfect Defense — All Waves Absorbed</div>'
-        : '';
+    resultBox.innerHTML =
+      wonLine +
+      '<div class="combat-before">Started with ' + (data.points_before||0).toLocaleString() + ' pts</div>' +
+      (finalDmg > 0 ? '<div class="combat-deducted">−' + finalDmg.toLocaleString() + '</div>' : '') +
+      '<div class="combat-remaining ' + remClass + '">' + remLabel + '</div>' +
+      bonusLine + penaltyLine + phoenixLine;
+  }
 
-      resultBox.innerHTML =
-        perfectLine +
-        '<div class="combat-before">Started with ' + before + ' pts</div>' +
-        '<div class="combat-deducted">−' + netDmg.toLocaleString() + '</div>' +
-        '<div class="combat-remaining ' + remClass + '">' + remLabel + '</div>' +
-        bonusLine + phoenixLine;
-    }
+  // ── Box URL + secret word + navigation buttons (unchanged logic) ────────────
+  var boxWrap    = document.getElementById('box-url-wrap');
+  var unlockWrap = document.getElementById('round-unlock-wrap');
+  var puzzleBtn  = document.getElementById('combat-puzzle-btn');
+  var hadesBtn   = document.getElementById('combat-hades-btn');
 
-    // Wave breakdown detail
-    var breakdownWrap = document.getElementById('wave-breakdown-wrap');
-    if (data.wave_breakdown && data.wave_breakdown.length) {
-      var bHtml = '<div style="font-family:\'Cinzel\',serif;font-size:0.7rem;color:var(--stone);' +
-        'letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;">Wave Results</div>';
-      data.wave_breakdown.forEach(function(w) {
-        var icon    = w.absorbed ? '🛡️' : '⚔️';
-        var wColor  = w.absorbed ? '#8ae08a' : '#e07070';
-        var wLabel  = w.absorbed
-          ? 'Wave ' + w.wave + ': Absorbed (' + w.damage + ' pts blocked)'
-          : 'Wave ' + w.wave + ': ' + w.taken + ' pts damage taken';
-        bHtml += '<div style="font-family:\'Cinzel\',serif;font-size:0.82rem;color:' + wColor +
-          ';margin:4px 0;">' + icon + ' ' + wLabel + '</div>';
-      });
-      breakdownWrap.innerHTML = bHtml;
-      breakdownWrap.style.display = 'block';
-    } else {
-      breakdownWrap.style.display = 'none';
-    }
-
-    // Box URL — shown after surviving combat (not for Hades)
-    var boxWrap   = document.getElementById('box-url-wrap');
-    var unlockWrap = document.getElementById('round-unlock-wrap');
-    var puzzleBtn = document.getElementById('combat-puzzle-btn');
-    var hadesBtn  = document.getElementById('combat-hades-btn');
-
-    if (data.hades_triggered) {
+  if (data.hades_triggered) {
+    puzzleBtn.style.display  = 'none';
+    hadesBtn.style.display   = '';
+    boxWrap.style.display    = 'none';
+    unlockWrap.style.display = 'none';
+  } else {
+    hadesBtn.style.display = 'none';
+    if (data.box_url) {
+      document.getElementById('box-url-link').href = data.box_url;
+      var isFinalRound = raceState && raceState.current_round === 5;
+      document.getElementById('box-url-link').textContent =
+        isFinalRound ? 'Open the Final Puzzle →' : 'Open the Locked Box →';
+      document.getElementById('unlock-label').textContent =
+        isFinalRound ? 'Enter the final 4-digit code:' : 'Enter the secret word from the box:';
+      document.getElementById('secret-word-input').placeholder =
+        isFinalRound ? 'FINAL CODE' : 'SECRET WORD';
+      boxWrap.style.display    = '';
+      unlockWrap.style.display = '';
       puzzleBtn.style.display  = 'none';
-      hadesBtn.style.display   = '';
+      if (raceState && raceState.my_unlock_submitted) {
+        var si = document.getElementById('secret-word-input');
+        var sb = document.querySelector('#round-unlock-wrap .btn-commit');
+        var um = document.getElementById('unlock-msg');
+        if (si) si.disabled = true;
+        if (sb) sb.disabled = true;
+        if (um) { um.style.color = 'rgba(138,224,138,0.8)'; um.textContent = 'Word accepted. Waiting for your teammates…'; }
+      }
+    } else {
+      puzzleBtn.style.display  = '';
       boxWrap.style.display    = 'none';
       unlockWrap.style.display = 'none';
-    } else {
-      hadesBtn.style.display  = 'none';
-      // Box URL system replaces puzzle chamber — hide old button when box_url present
-      if (data.box_url) {
-        document.getElementById('box-url-link').href = data.box_url;
-        // Round 5: final puzzle — update labels accordingly
-        var isFinalRound = raceState && raceState.current_round === 5;
-        document.getElementById('box-url-link').textContent =
-          isFinalRound ? 'Open the Final Puzzle →' : 'Open the Locked Box →';
-        document.getElementById('unlock-label').textContent =
-          isFinalRound ? 'Enter the final 4-digit code:' : 'Enter the secret word from the box:';
-        document.getElementById('secret-word-input').placeholder =
-          isFinalRound ? 'FINAL CODE' : 'SECRET WORD';
-        boxWrap.style.display    = '';
-        unlockWrap.style.display = '';
-        puzzleBtn.style.display  = 'none';
-
-        // If this student already submitted the correct word, show waiting state immediately
-        if (raceState && raceState.my_unlock_submitted) {
-          var si = document.getElementById('secret-word-input');
-          var sb = document.querySelector('#round-unlock-wrap .btn-commit');
-          var um = document.getElementById('unlock-msg');
-          if (si) si.disabled = true;
-          if (sb) sb.disabled = true;
-          if (um) { um.style.color = 'rgba(138,224,138,0.8)'; um.textContent = 'Word accepted. Waiting for your teammates…'; }
-        }
-      } else {
-        // No box URL — keep puzzle button as fallback for old-flow states
-        puzzleBtn.style.display  = '';
-        boxWrap.style.display    = 'none';
-        unlockWrap.style.display = 'none';
-      }
     }
+  }
 
-    setTimeout(async function() {
-      resultPhase.style.opacity = '1';
-      // Refresh raceState so lastPhase = 'puzzle' when polling starts.
-      // Without this, polling sees a stale 'combat' phase, detects a change
-      // immediately, and calls displayCombatResult a second time — blanking the screen.
-      await loadState();
-      startPolling();
-    }, 50);
-  }, 450);
+  setTimeout(async function() {
+    await loadState();
+    startPolling();
+  }, 100);
 }
 
 // ── submitSecretWord — validates box secret word to unlock next round ─────────
@@ -2749,54 +3396,23 @@ function showWaiting(title, sub, phase) {
 
 async function showAgora() {
   showScreen('agora');
-  // Start polling so agora_visited (and agora_all_ready) changes are detected.
+  // Start polling while on the Agora so that if the game phase changes
+  // (e.g. in edge cases), this player will be routed forward automatically.
   startPolling();
-  // Gate the Enter button immediately — it stays disabled until all real members
-  // have called agora-ready and agora_all_ready becomes true.
-  updateAgoraEnterButton(0, 1, false);
   document.getElementById('agora-r-body').innerHTML =
     '<div style="text-align:center;font-family:\'Cinzel\',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>';
-  // Load spell cards (failure still lets the player register as ready below)
   try {
     const res = await fetch('/api/olympus/spells/available', { headers: H });
     if (!res.ok) {
       document.getElementById('agora-r-body').innerHTML =
         '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Could not load spells. You may enter the race without crafting.</div>';
-    } else {
-      const data = await res.json();
-      renderAgoraScreen(data);
+      return;
     }
+    const data = await res.json();
+    renderAgoraScreen(data);
   } catch(e) {
     document.getElementById('agora-r-body').innerHTML =
       '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Network error loading spells.</div>';
-  }
-  // Register this player as present on the Agora. INSERT OR IGNORE on the server
-  // makes repeat calls (page refresh) safe. Update the Enter button immediately
-  // with the fresh ready_count so this player doesn't have to wait for the next poll.
-  try {
-    const readyRes = await fetch('/api/olympus/agora-ready', { method: 'POST', headers: H });
-    if (readyRes.ok) {
-      const rd = await readyRes.json();
-      updateAgoraEnterButton(rd.ready_count, rd.member_count, rd.all_ready);
-    }
-  } catch(e) {
-    console.warn('agora-ready failed:', e.message);
-    // Fail open: don't soft-lock a solo player if the network blips
-    updateAgoraEnterButton(1, 1, true);
-  }
-}
-
-// Enables or disables the "Enter the Race" button based on how many alliance
-// members are present on the Agora screen. Called on load and by polling.
-function updateAgoraEnterButton(readyCount, memberCount, allReady) {
-  const btn = document.getElementById('agora-r-enter-btn');
-  if (!btn) return;
-  if (allReady) {
-    btn.disabled = false;
-    btn.textContent = '⚡ Enter the Olympus Race';
-  } else {
-    btn.disabled = true;
-    btn.textContent = `⏳ Waiting for teammates… (${readyCount}/${memberCount} ready)`;
   }
 }
 
@@ -2924,28 +3540,92 @@ async function enterRaceFromAgora() {
 
 function startPolling() {
   stopPolling();
-  var lastPhase = raceState ? raceState.current_phase : null;
-  var lastRound = raceState ? raceState.current_round : null;
+  var lastPhase      = raceState ? raceState.current_phase : null;
+  var lastRound      = raceState ? raceState.current_round : null;
+  // Guard flags prevent duplicate calls on every 3s tick for followers
+  var shownRoll      = false;
+  var shownSpell     = false;
+  var shownTrivia    = false;
+  var shownTriFback  = false;
+  var shownResult    = false;
+
+  // Track which Agora screen state was last synced
+  var lastAgoraReady = null;
+
   pollTimer = setInterval(async function() {
     const data = await loadState();
-    if (data && raceState) {
-      const phase = raceState.current_phase;
-      const round = raceState.current_round;
-      if (phase !== lastPhase || round !== lastRound) {
-        lastPhase = phase;
-        lastRound = round;
-        routeToPhase(phase, round);
-      }
-      // While the Agora screen is active, keep the Enter button in sync with
-      // agora_all_ready. This enables the button for everyone the moment the
-      // last member arrives, without waiting for a phase/round change.
-      const agoraEl = document.getElementById('screen-agora');
-      if (agoraEl && agoraEl.classList.contains('active')) {
-        updateAgoraEnterButton(
-          raceState.agora_ready_count  || 0,
-          raceState.agora_member_count || 1,
-          raceState.agora_all_ready    || false
-        );
+    if (!data || !raceState) return;
+
+    const phase = raceState.current_phase;
+    const round = raceState.current_round;
+
+    // ── Phase / round change ────────────────────────────────────────────────
+    if (phase !== lastPhase || round !== lastRound) {
+      lastPhase = phase;
+      lastRound = round;
+      // Reset combat guard flags on any phase/round change
+      shownRoll = shownSpell = shownTrivia = shownTriFback = shownResult = false;
+      routeToPhase(phase, round);
+      return;
+    }
+
+    // ── Agora gate button sync ──────────────────────────────────────────────
+    const agoraEl = document.getElementById('screen-agora');
+    if (agoraEl && agoraEl.classList.contains('active')) {
+      updateAgoraEnterButton(
+        raceState.agora_ready_count  || 0,
+        raceState.agora_member_count || 1,
+        raceState.agora_all_ready    || false
+      );
+    }
+
+    // ── Follower combat sub-phase sync ──────────────────────────────────────
+    // Only active when in combat phase AND this player is a follower
+    const isFollower = !(raceState && raceState.is_leader);
+    if (phase === 'combat' && isFollower && raceState.combat_state) {
+      const cs = raceState.combat_state;
+
+      if (cs.resolved && !shownResult) {
+        shownResult = true;
+        // Parse full combat_result from state
+        var stored = raceState.combat_result ? JSON.parse(raceState.combat_result) : cs;
+        showCombatResult(stored);
+
+      } else if (cs.trivia_answered && !shownTriFback && !shownResult) {
+        shownTriFback = true;
+        // Follower sees trivia result — show result directly (no continue button for follower)
+        // The finalize will happen via leader; result screen appears on next cs.resolved tick
+        // Ensure trivia phase is visible with feedback
+        if (combatSubPhase === 'spell' || combatSubPhase === 'story') {
+          combatSubPhase = 'trivia';
+          showCombatPhase('trivia');
+        }
+        // Show feedback in the trivia UI
+        var feedEl = document.getElementById('trivia-feedback');
+        if (feedEl && !feedEl.textContent) {
+          feedEl.textContent = cs.trivia_correct
+            ? '✦ Leader answered correctly'
+            : '✗ Leader answered incorrectly';
+          feedEl.style.color = cs.trivia_correct ? '#8ae08a' : '#e07070';
+        }
+
+      } else if (cs.damage_after_spell !== null && !shownTrivia && !shownTriFback && !shownResult) {
+        shownTrivia = true;
+        // Spell phase done — advance follower to trivia
+        if (combatSubPhase !== 'trivia') {
+          combatRollData = cs; // ensure roll data available
+          showTriviaPhase();
+        }
+
+      } else if ((cs.alliance_roll !== null && cs.alliance_roll !== undefined)
+                 && !shownRoll && !shownSpell && !shownTrivia && !shownResult) {
+        shownRoll = true;
+        combatRollData = cs;
+        // Parse path from combat_result if available
+        if (raceState.combat_result) {
+          try { combatRollData = Object.assign({}, cs, JSON.parse(raceState.combat_result)); } catch(e) {}
+        }
+        showRollAnimation(combatRollData);
       }
     }
   }, 3000);

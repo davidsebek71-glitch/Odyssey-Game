@@ -251,7 +251,34 @@ initDatabase().then(() => {
       UNIQUE (alliance_id, student_id)
     )`);
 
-    // Add medea_help_count to olympus_race_state if not present (PRAGMA-safe migration)
+    // Dice-roll combat state — one row per alliance per round.
+    // Tracks roll values, spell choice, trivia, and final resolution.
+    // Replaces olympus_combat_wave_session for new combat system.
+    run(`CREATE TABLE IF NOT EXISTS olympus_combat_state (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id         INTEGER NOT NULL,
+      round_number        INTEGER NOT NULL,
+      alliance_roll_max   INTEGER NOT NULL DEFAULT 0,
+      god_roll_max        INTEGER NOT NULL DEFAULT 0,
+      alliance_roll       INTEGER NOT NULL DEFAULT 0,
+      god_roll            INTEGER NOT NULL DEFAULT 0,
+      alliance_reroll     INTEGER DEFAULT NULL,
+      raw_damage          INTEGER NOT NULL DEFAULT 0,
+      alliance_won        INTEGER NOT NULL DEFAULT 0,
+      spell_applied       INTEGER DEFAULT NULL,
+      damage_after_spell  INTEGER DEFAULT NULL,
+      trivia_question_id  INTEGER DEFAULT NULL,
+      trivia_answered     INTEGER DEFAULT 0,
+      trivia_correct      INTEGER DEFAULT NULL,
+      damage_after_trivia INTEGER DEFAULT NULL,
+      bonus_points        INTEGER DEFAULT 0,
+      final_damage        INTEGER DEFAULT NULL,
+      resolved            INTEGER DEFAULT 0,
+      created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alliance_id, round_number)
+    `);
+
+        // Add medea_help_count to olympus_race_state if not present (PRAGMA-safe migration)
     try {
       const cols = query("PRAGMA table_info(olympus_race_state)");
       const colNames = cols.map(c => c.name);
@@ -266,6 +293,10 @@ initDatabase().then(() => {
       if (!colNames.includes('agora_visited')) {
         run("ALTER TABLE olympus_race_state ADD COLUMN agora_visited INTEGER DEFAULT 0");
         console.log('⚡ Added agora_visited to olympus_race_state');
+      }
+      if (!colNames.includes('leader_student_id')) {
+        run("ALTER TABLE olympus_race_state ADD COLUMN leader_student_id INTEGER DEFAULT NULL");
+        console.log('⚡ Added leader_student_id to olympus_race_state');
       }
     } catch(e) { console.log('medea_help_count migration skipped:', e.message); }
 
@@ -15633,6 +15664,56 @@ app.get('/api/teacher/heroic-chapter-progress', authenticateToken, (req, res) =>
 // REVENGE OF THE GODS — /api/olympus/*
 // ============================================================
 
+// ── Dice-roll combat: god attack scales as % of alliance points per round ─────
+// Round 1: 25%  Round 2: 50%  Round 3: 75%  Round 4: 100%  Round 5: 125%
+const ROUND_FACTORS = { 1: 0.25, 2: 0.50, 3: 0.75, 4: 1.00, 5: 1.25 };
+
+// ── Leader determination ───────────────────────────────────────────────────────
+// Returns the student_id of the alliance member who has contributed the most
+// points (positive transactions). Called when combat-ready resolves; stored as
+// leader_student_id on olympus_race_state. Solo player is always the leader.
+// presentMemberIds: array from state.present_members, or null for all members.
+function getLeaderForAlliance(allianceId, presentMemberIds) {
+  const ids = (presentMemberIds && presentMemberIds.length > 0)
+    ? presentMemberIds : null;
+
+  let rows;
+  if (ids && ids.length > 0) {
+    const placeholders = ids.map(() => '?').join(',');
+    rows = query(
+      `SELECT pt.student_id,
+              COALESCE(SUM(CASE WHEN pt.amount > 0 THEN pt.amount ELSE 0 END), 0) AS contributed
+       FROM point_transactions pt
+       JOIN students s ON s.student_id = pt.student_id
+       WHERE pt.student_id IN (${placeholders})
+         AND pt.alliance_id = ?
+         AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+       GROUP BY pt.student_id
+       ORDER BY contributed DESC
+       LIMIT 1`,
+      [...ids, allianceId]
+    );
+  } else {
+    rows = query(
+      `SELECT pt.student_id,
+              COALESCE(SUM(CASE WHEN pt.amount > 0 THEN pt.amount ELSE 0 END), 0) AS contributed
+       FROM point_transactions pt
+       JOIN students s ON s.student_id = pt.student_id
+       WHERE pt.alliance_id = ?
+         AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+       GROUP BY pt.student_id
+       ORDER BY contributed DESC
+       LIMIT 1`,
+      [allianceId]
+    );
+  }
+  // Fallback: if no transactions exist yet, use first present member
+  if (!rows || !rows[0]) {
+    return (ids && ids.length > 0) ? ids[0] : null;
+  }
+  return rows[0].student_id;
+}
+
 const ROUND_1_PATHS = [
   { idx:0, label:'Climb the Mountain', god:'Artemis',   attack:365, hook:'Army of enchanted forest animals overwhelm you',    safe:false },
   { idx:1, label:'Hide in the Forest',  god:'Athena',    attack:295, hook:'Magic blanket trap — escape before transformation', safe:false },
@@ -16358,6 +16439,50 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
       } catch(e) { state.agora_all_ready = true; /* fail open if table missing */ }
     }
 
+    // ── Leader and combat_state for dice-roll combat ────────────────────────
+    if (state) {
+      // Lazy leader computation: if not set, compute and store now
+      if (!state.leader_student_id) {
+        try {
+          const presentIds = state.present_members ? JSON.parse(state.present_members) : null;
+          const leaderId = getLeaderForAlliance(alliance.alliance_id, presentIds);
+          if (leaderId) {
+            run(`UPDATE olympus_race_state SET leader_student_id=? WHERE alliance_id=?`,
+              [leaderId, alliance.alliance_id]);
+            state.leader_student_id = leaderId;
+          }
+        } catch(e) { /* non-fatal */ }
+      }
+      state.is_leader = (req.user.id === state.leader_student_id);
+
+      // Attach combat_state when in combat phase so followers can track sub-phases
+      if (state.current_phase === 'combat') {
+        try {
+          const cs = query(
+            `SELECT * FROM olympus_combat_state WHERE alliance_id=? AND round_number=?`,
+            [alliance.alliance_id, state.current_round]
+          )[0] || null;
+
+          if (cs && cs.trivia_question_id) {
+            const tq = query(
+              `SELECT question_text, option_a, option_b, option_c, option_d
+               FROM battle_questions WHERE question_id=?`,
+              [cs.trivia_question_id]
+            )[0];
+            if (tq) {
+              // Shuffle options — correct_answer NOT included in client data
+              const opts = [tq.option_a, tq.option_b, tq.option_c, tq.option_d]
+                .filter(Boolean)
+                .sort(() => Math.random() - 0.5);
+              cs.trivia_question_text = tq.question_text;
+              cs.trivia_options       = opts;
+            }
+          }
+          state.combat_state = cs;
+        } catch(e) { state.combat_state = null; }
+      }
+    }
+
     res.json({ alliance, state, archetype, drachma });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -16619,9 +16744,11 @@ app.post('/api/olympus/commit-path', authenticateToken, (req, res) => {
 
 // ── POST /api/olympus/combat-ready ───────────────────────────────────────────
 // Marks a student as ready to roll. When all present members are ready,
-// combat is resolved once and the result stored on olympus_race_state.
+// server generates dice rolls and stores them. Does NOT deduct points —
+// that happens later in combat-finalize after spell and trivia phases.
 // Returns { waiting: true, ready_count, needed } while waiting,
-// or { resolved: true, ...combatResult } when all are ready.
+// or { resolved: true, rolls_generated: true, alliance_roll, god_roll, ... }
+// when all are ready.
 app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
   try {
@@ -16629,7 +16756,7 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
     if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
     const state = getOlympusState(alliance.alliance_id);
 
-    // If combat is already resolved (phase moved on), return stored result
+    // If rolls already generated (or phase moved on), return stored result
     if (state && state.current_phase !== 'combat') {
       if (state.combat_result) {
         return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
@@ -16639,6 +16766,14 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
 
     if (!state || state.current_phase !== 'combat') {
       return res.status(400).json({ error: 'Not in combat phase' });
+    }
+
+    // If rolls already generated this round, return them (idempotency)
+    if (state.combat_result) {
+      const stored = JSON.parse(state.combat_result);
+      if (stored.rolls_generated) {
+        return res.json(Object.assign({ resolved: true }, stored));
+      }
     }
 
     // Record this student as ready
@@ -16672,15 +16807,21 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
       return res.json({ waiting: true, ready_count: readyCount, needed });
     }
 
-    // ── All present members ready — resolve combat now ────────────────────────
-    // Re-fetch state to guard against race condition where another request
-    // already resolved combat between our ready-flag write and this check.
+    // ── All present members ready — generate rolls ────────────────────────────
+    // Re-fetch to guard against race condition.
     const freshState = getOlympusState(alliance.alliance_id);
     if (freshState.current_phase !== 'combat') {
       if (freshState.combat_result) {
         return res.json(Object.assign({ resolved: true }, JSON.parse(freshState.combat_result)));
       }
       return res.json({ resolved: true, already_advanced: true });
+    }
+    // Second idempotency check after re-fetch
+    if (freshState.combat_result) {
+      const stored = JSON.parse(freshState.combat_result);
+      if (stored.rolls_generated) {
+        return res.json(Object.assign({ resolved: true }, stored));
+      }
     }
 
     // Find the committed path for this round
@@ -16693,80 +16834,84 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
 
     const roundPaths = ROUND_PATHS[freshState.current_round] || ROUND_1_PATHS;
     const path = roundPaths[lock[0].path_index];
-    const pointsBefore = alliance.total_points;
-    let deducted = 0;
-    let phoenixTriggered = 0;
-    let hadesTriggered = 0;
-    let nextPhase = 'puzzle';
 
-    if (!path.safe) {
-      deducted = Math.min(path.attack, pointsBefore);
-      let newTotal = pointsBefore - deducted;
-      if (newTotal === 0) {
-        if (!freshState.phoenix_feather_used) {
-          newTotal = 1;
-          deducted = pointsBefore - 1;
-          phoenixTriggered = 1;
-          run(`UPDATE olympus_race_state SET phoenix_feather_used=1 WHERE alliance_id=?`,
-            [alliance.alliance_id]);
-        } else {
-          hadesTriggered = 1;
-          nextPhase = 'hades_waiting';
-          run(
-            `UPDATE olympus_race_state SET hades_visits=hades_visits+1, current_phase='hades_waiting'
-             WHERE alliance_id=?`,
-            [alliance.alliance_id]
-          );
-        }
-      }
-      run(`UPDATE alliances SET total_points=? WHERE alliance_id=?`,
-        [newTotal, alliance.alliance_id]);
-    }
-
-    // Log combat
-    const finalTotal = !path.safe
-      ? (query(`SELECT total_points FROM alliances WHERE alliance_id=?`,
-          [alliance.alliance_id])[0] || {}).total_points
-      : pointsBefore;
-
-    run(
-      `INSERT INTO olympus_combat_log
-       (alliance_id, round_number, god_name, attack_value, points_before,
-        points_deducted, points_after, phoenix_triggered, hades_triggered)
-       VALUES (?,?,?,?,?,?,?,?,?)`,
-      [alliance.alliance_id, freshState.current_round, path.god || 'None',
-       path.attack, pointsBefore, deducted, finalTotal,
-       phoenixTriggered, hadesTriggered]
-    );
-
-    // Build result object — stored on state so late-arriving members can fetch it
-    const combatResult = {
-      path,
-      safe_path:        path.safe || false,
-      points_before:    pointsBefore,
-      points_deducted:  deducted,
-      points_after:     finalTotal,
-      phoenix_triggered: phoenixTriggered,
-      hades_triggered:   hadesTriggered,
-      next_phase:        nextPhase
-    };
-
-    // Advance phase and store result, clear ready flags
-    if (!hadesTriggered) {
+    // Safe path: advance directly to puzzle — no rolls, no trivia, no damage
+    if (path.safe) {
+      const combatResult = {
+        rolls_generated: false,
+        safe_path: true,
+        path,
+        points_before: alliance.total_points,
+        points_deducted: 0,
+        points_after: alliance.total_points
+      };
       run(
         `UPDATE olympus_race_state
          SET current_phase='puzzle', combat_result=?, combat_ready_flags=NULL
          WHERE alliance_id=?`,
         [JSON.stringify(combatResult), alliance.alliance_id]
       );
-    } else {
-      run(
-        `UPDATE olympus_race_state
-         SET combat_result=?, combat_ready_flags=NULL
-         WHERE alliance_id=?`,
-        [JSON.stringify(combatResult), alliance.alliance_id]
-      );
+      saveDatabase();
+      return res.json(Object.assign({ resolved: true }, combatResult));
     }
+
+    // ── Non-safe path: generate dice rolls ────────────────────────────────────
+    const round = freshState.current_round;
+    const alliancePoints = alliance.total_points;
+    const allianceRollMax = alliancePoints;
+    const godRollMax      = Math.floor(alliancePoints * (ROUND_FACTORS[round] || 1.0));
+    const allianceRoll    = Math.floor(Math.random() * (allianceRollMax + 1));
+    const godRoll         = Math.floor(Math.random() * (godRollMax + 1));
+    const allianceWon     = allianceRoll > godRoll;
+    const rawDamage       = allianceWon ? 0 : godRoll - allianceRoll;
+
+    // Select a random trivia question from the shared battle_questions pool
+    const triviaRows = query(
+      `SELECT question_id FROM battle_questions WHERE is_active=1 ORDER BY RANDOM() LIMIT 1`
+    );
+    const triviaQuestionId = (triviaRows && triviaRows[0]) ? triviaRows[0].question_id : null;
+
+    // Compute and store leader if not already set
+    if (!freshState.leader_student_id) {
+      const leaderId = getLeaderForAlliance(alliance.alliance_id, presentIds);
+      if (leaderId) {
+        run(
+          `UPDATE olympus_race_state SET leader_student_id=? WHERE alliance_id=?`,
+          [leaderId, alliance.alliance_id]
+        );
+      }
+    }
+
+    // Store combat state — INSERT OR IGNORE is idempotent if two requests race
+    run(
+      `INSERT OR IGNORE INTO olympus_combat_state
+       (alliance_id, round_number, alliance_roll_max, god_roll_max,
+        alliance_roll, god_roll, raw_damage, alliance_won, trivia_question_id)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [alliance.alliance_id, round, allianceRollMax, godRollMax,
+       allianceRoll, godRoll, rawDamage, allianceWon ? 1 : 0, triviaQuestionId]
+    );
+
+    // Store rolls in combat_result for polling clients (no phase change yet)
+    const combatResult = {
+      rolls_generated:  true,
+      safe_path:        false,
+      path,
+      alliance_roll:    allianceRoll,
+      god_roll:         godRoll,
+      alliance_roll_max: allianceRollMax,
+      god_roll_max:     godRollMax,
+      raw_damage:       rawDamage,
+      alliance_won:     allianceWon,
+      points_before:    alliancePoints
+    };
+    run(
+      `UPDATE olympus_race_state
+       SET combat_result=?, combat_ready_flags=NULL
+       WHERE alliance_id=?`,
+      [JSON.stringify(combatResult), alliance.alliance_id]
+    );
+    saveDatabase();
 
     res.json(Object.assign({ resolved: true }, combatResult));
   } catch(e) {
@@ -16810,6 +16955,421 @@ app.get('/api/olympus/combat-result', authenticateToken, (req, res) => {
 
     // Phase has moved on without a stored result (shouldn't happen, but handle gracefully)
     return res.json({ resolved: true, already_advanced: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/combat-spell ───────────────────────────────────────────
+// Leader applies a spell from the alliance inventory, or skips (null).
+// Called after rolls are generated, before trivia.
+// Deletes the spell from olympus_inventory when used.
+// Idempotent: if spell phase already done, returns stored result.
+app.post('/api/olympus/combat-spell', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { spell_id } = req.body; // number or null
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'combat') {
+      return res.status(400).json({ error: 'Not in combat phase' });
+    }
+
+    // Leader-only action
+    if (req.user.id !== state.leader_student_id) {
+      return res.status(403).json({ error: 'Only the Combat Leader can apply spells.' });
+    }
+
+    const cs = query(
+      `SELECT * FROM olympus_combat_state WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, state.current_round]
+    )[0];
+    if (!cs) return res.status(400).json({ error: 'Combat state not found. Roll first.' });
+
+    // Idempotency: spell phase already done
+    if (cs.damage_after_spell !== null) {
+      return res.json({
+        spell_applied:      cs.spell_applied,
+        damage_after_spell: cs.damage_after_spell,
+        alliance_reroll:    cs.alliance_reroll,
+        already_resolved:   true
+      });
+    }
+
+    let finalDamage  = cs.raw_damage;
+    let spellApplied = null;
+    let rerollValue  = null;
+
+    if (spell_id) {
+      const spellId = parseInt(spell_id);
+      // Validate spell is in this alliance's inventory
+      const invRow = query(
+        `SELECT spell_id FROM olympus_inventory WHERE alliance_id=? AND spell_id=?`,
+        [alliance.alliance_id, spellId]
+      )[0];
+      if (!invRow) return res.status(400).json({ error: 'Spell not in inventory.' });
+
+      const spell = SPELL_RECIPES[spellId];
+      if (!spell) return res.status(400).json({ error: 'Invalid spell_id.' });
+
+      // Hermes reroll: generate now and store before computing damage
+      if (spell.effect === 'reroll_once') {
+        rerollValue = Math.floor(Math.random() * (cs.alliance_roll_max + 1));
+      }
+
+      finalDamage  = applySpellEffect(spell.effect, cs.raw_damage, cs, rerollValue);
+      spellApplied = spellId;
+
+      // Delete from inventory (David: delete when used, not mark-used)
+      run(
+        `DELETE FROM olympus_inventory WHERE alliance_id=? AND spell_id=?`,
+        [alliance.alliance_id, spellId]
+      );
+    }
+
+    run(
+      `UPDATE olympus_combat_state
+       SET spell_applied=?, damage_after_spell=?, alliance_reroll=?
+       WHERE alliance_id=? AND round_number=?`,
+      [spellApplied, finalDamage, rerollValue, alliance.alliance_id, state.current_round]
+    );
+    saveDatabase();
+
+    res.json({
+      spell_applied:      spellApplied,
+      damage_after_spell: finalDamage,
+      alliance_reroll:    rerollValue
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Pure function: applySpellEffect ──────────────────────────────────────────
+// Takes a spell effect key and combat state, returns the modified damage value.
+// No DB calls. Trivia-modifier spells (foresight, torch) and post-finalize
+// spells (steal_15pct, recover_100) return damage unchanged — they are handled
+// in combat-trivia and combat-finalize respectively.
+function applySpellEffect(effect, rawDamage, cs, rerollValue) {
+  const allianceRoll = cs.alliance_roll;
+  const godRoll      = cs.god_roll;
+  const godRollMax   = cs.god_roll_max;
+  const allianceRollMax = cs.alliance_roll_max;
+
+  switch(effect) {
+    case 'damage_cap_40pct':
+      // Cap damage at 40% of god_roll_max regardless of roll difference
+      return Math.min(rawDamage, Math.floor(godRollMax * 0.40));
+
+    case 'roll_boost_50': {
+      // Add +50 to alliance roll and recalculate
+      const boosted = allianceRoll + 50;
+      return boosted >= godRoll ? 0 : godRoll - boosted;
+    }
+
+    case 'reroll_once': {
+      // Take the better of original roll and reroll (rerollValue passed in)
+      const better = Math.max(allianceRoll, rerollValue !== null ? rerollValue : 0);
+      return better >= godRoll ? 0 : godRoll - better;
+    }
+
+    case 'god_reduce_20pct': {
+      // Reduce god's actual roll by 20%
+      const reducedGod = Math.floor(godRoll * 0.80);
+      return allianceRoll >= reducedGod ? 0 : reducedGod - allianceRoll;
+    }
+
+    case 'dual_god25_roll40': {
+      // Reduce god roll by 25% AND boost alliance roll by +40
+      const dualGod      = Math.floor(godRoll * 0.75);
+      const dualAlliance = allianceRoll + 40;
+      return dualAlliance >= dualGod ? 0 : dualGod - dualAlliance;
+    }
+
+    case 'curse_invert': {
+      // god's effective roll = godRollMax - godRoll (high roll = less damage)
+      const inverted = godRollMax - godRoll;
+      return allianceRoll >= inverted ? 0 : inverted - allianceRoll;
+    }
+
+    // Trivia-modifier spells: damage unchanged here, checked in combat-trivia
+    case 'trivia_foresight':
+    case 'trivia_torch':
+    // Post-finalize spells: damage unchanged here, applied in combat-finalize
+    case 'steal_15pct':
+    case 'recover_100':
+    default:
+      return rawDamage;
+  }
+}
+
+// ── POST /api/olympus/combat-trivia ──────────────────────────────────────────
+// Leader submits trivia answer after the spell phase.
+// answer: string (player's pick) or null (timer expired = wrong).
+// Modifies damage based on correct/wrong and alliance win/loss state.
+// Idempotent: if trivia already answered, returns stored result.
+app.post('/api/olympus/combat-trivia', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { answer } = req.body; // string or null
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state || state.current_phase !== 'combat') {
+      return res.status(400).json({ error: 'Not in combat phase' });
+    }
+
+    // Leader-only action
+    if (req.user.id !== state.leader_student_id) {
+      return res.status(403).json({ error: 'Only the Combat Leader can answer trivia.' });
+    }
+
+    const cs = query(
+      `SELECT * FROM olympus_combat_state WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, state.current_round]
+    )[0];
+    if (!cs) return res.status(400).json({ error: 'Combat state not found.' });
+
+    // Idempotency
+    if (cs.trivia_answered) {
+      return res.json({
+        already_answered:   true,
+        trivia_correct:     !!cs.trivia_correct,
+        damage_after_trivia: cs.damage_after_trivia,
+        bonus_points:       cs.bonus_points,
+        alliance_won:       !!cs.alliance_won
+      });
+    }
+
+    // Get the trivia question
+    const qRow = cs.trivia_question_id
+      ? query(`SELECT * FROM battle_questions WHERE question_id=?`, [cs.trivia_question_id])[0]
+      : null;
+
+    const isCorrect = !!(answer !== null && answer !== undefined &&
+      qRow && answer.trim().toLowerCase() === qRow.correct_answer.trim().toLowerCase());
+
+    // Base damage: after spell (or raw if spell skipped)
+    const baseDamage     = cs.damage_after_spell !== null ? cs.damage_after_spell : cs.raw_damage;
+    const alliancePoints = alliance.total_points;
+    const allianceWon    = !!cs.alliance_won;
+
+    // Check for trivia-modifier spells
+    const spellEffect = cs.spell_applied && SPELL_RECIPES[cs.spell_applied]
+      ? SPELL_RECIPES[cs.spell_applied].effect : null;
+    const hasForesight = spellEffect === 'trivia_foresight';
+    const hasTorch     = spellEffect === 'trivia_torch';
+
+    let damageAfterTrivia = baseDamage;
+    let bonusPoints       = 0;
+
+    if (allianceWon) {
+      // Alliance won the roll — trivia is a bonus/penalty opportunity
+      if (isCorrect) {
+        bonusPoints = Math.floor(alliancePoints * 0.03);  // +3% bonus
+      } else {
+        bonusPoints = -Math.floor(alliancePoints * 0.05); // −5% penalty
+      }
+      damageAfterTrivia = 0; // No damage regardless
+    } else {
+      // Alliance lost — trivia modifies damage
+      if (isCorrect) {
+        const reductionPct = hasForesight ? 0.30 : (hasTorch ? 0.25 : 0.20);
+        damageAfterTrivia = Math.floor(baseDamage * (1 - reductionPct));
+      } else {
+        // Wrong answer: Foresight = no penalty, Torch = no penalty, default = +5%
+        if (!hasForesight && !hasTorch) {
+          damageAfterTrivia = Math.floor(baseDamage * 1.05);
+        }
+        // else: damage unchanged
+      }
+    }
+
+    run(
+      `UPDATE olympus_combat_state
+       SET trivia_answered=1, trivia_correct=?, damage_after_trivia=?, bonus_points=?
+       WHERE alliance_id=? AND round_number=?`,
+      [isCorrect ? 1 : 0, damageAfterTrivia, bonusPoints,
+       alliance.alliance_id, state.current_round]
+    );
+    saveDatabase();
+
+    res.json({
+      trivia_correct:      isCorrect,
+      correct_answer:      isCorrect ? null : (qRow ? qRow.correct_answer : null),
+      damage_after_trivia: damageAfterTrivia,
+      bonus_points:        bonusPoints,
+      alliance_won:        allianceWon
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/combat-finalize ─────────────────────────────────────────
+// Leader finalizes combat after trivia. Applies final damage to alliance points,
+// handles Phoenix Feather / Hades, advances phase to puzzle.
+// Idempotent: if phase already advanced, returns stored combat_result.
+app.post('/api/olympus/combat-finalize', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+    const state = getOlympusState(alliance.alliance_id);
+
+    // Idempotency: phase already moved on
+    if (!state || state.current_phase !== 'combat') {
+      if (state && state.combat_result) {
+        return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
+      }
+      return res.json({ resolved: true, already_advanced: true });
+    }
+
+    // Leader-only action
+    if (req.user.id !== state.leader_student_id) {
+      return res.status(403).json({ error: 'Only the Combat Leader can finalize combat.' });
+    }
+
+    const cs = query(
+      `SELECT * FROM olympus_combat_state WHERE alliance_id=? AND round_number=?`,
+      [alliance.alliance_id, state.current_round]
+    )[0];
+    if (!cs) return res.status(400).json({ error: 'Combat state not found.' });
+
+    // Idempotency: already resolved
+    if (cs.resolved) {
+      if (state.combat_result) {
+        return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
+      }
+    }
+
+    // Final damage: trivia result → spell result → raw damage (in priority order)
+    let finalDamage = cs.damage_after_trivia !== null
+      ? cs.damage_after_trivia
+      : (cs.damage_after_spell !== null ? cs.damage_after_spell : cs.raw_damage);
+
+    const pointsBefore = alliance.total_points;
+    let bonusPoints    = cs.bonus_points || 0;
+
+    // Post-finalize spell effects
+    if (cs.spell_applied && SPELL_RECIPES[cs.spell_applied]) {
+      const eff = SPELL_RECIPES[cs.spell_applied].effect;
+      if (eff === 'steal_15pct' && finalDamage > 0) {
+        bonusPoints += Math.floor(finalDamage * 0.15);
+      }
+      if (eff === 'recover_100') {
+        bonusPoints += 100;
+      }
+    }
+
+    // Calculate new total
+    // bonusPoints > 0 = bonus earned. bonusPoints < 0 = trivia penalty on a win.
+    let newTotal;
+    if (bonusPoints >= 0) {
+      newTotal = pointsBefore - finalDamage + bonusPoints;
+    } else {
+      // Win + wrong trivia: no combat damage, just apply the penalty
+      newTotal = pointsBefore + bonusPoints;
+    }
+
+    // Phoenix Feather / Hades logic
+    let phoenixTriggered = 0;
+    let hadesTriggered   = 0;
+    let nextPhase        = 'puzzle';
+
+    if (newTotal <= 0) {
+      if (!state.phoenix_feather_used) {
+        newTotal = 1;
+        phoenixTriggered = 1;
+        run(`UPDATE olympus_race_state SET phoenix_feather_used=1 WHERE alliance_id=?`,
+          [alliance.alliance_id]);
+      } else {
+        newTotal = 0;
+        hadesTriggered = 1;
+        nextPhase = 'hades_waiting';
+        run(
+          `UPDATE olympus_race_state
+           SET hades_visits=hades_visits+1, current_phase='hades_waiting'
+           WHERE alliance_id=?`,
+          [alliance.alliance_id]
+        );
+      }
+    }
+
+    // Deduct points
+    run(`UPDATE alliances SET total_points=? WHERE alliance_id=?`,
+      [newTotal, alliance.alliance_id]);
+
+    // Mark combat state resolved
+    run(
+      `UPDATE olympus_combat_state SET final_damage=?, resolved=1 WHERE alliance_id=? AND round_number=?`,
+      [finalDamage, alliance.alliance_id, state.current_round]
+    );
+
+    // Log combat
+    const lock = query(
+      `SELECT path_index FROM olympus_path_locks WHERE alliance_id=? AND round_number=? LIMIT 1`,
+      [alliance.alliance_id, state.current_round]
+    );
+    const roundPaths = ROUND_PATHS[state.current_round] || ROUND_1_PATHS;
+    const path = lock[0] ? roundPaths[lock[0].path_index] : null;
+
+    run(
+      `INSERT INTO olympus_combat_log
+       (alliance_id, round_number, god_name, attack_value, points_before,
+        points_deducted, points_after, phoenix_triggered, hades_triggered)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [alliance.alliance_id, state.current_round,
+       path ? (path.god || 'None') : 'None',
+       cs.god_roll_max, pointsBefore, finalDamage, newTotal,
+       phoenixTriggered, hadesTriggered]
+    );
+
+    // Build final result for polling clients
+    const combatResult = {
+      rolls_generated:     true,
+      safe_path:           false,
+      path:                path,
+      alliance_roll:       cs.alliance_roll,
+      god_roll:            cs.god_roll,
+      alliance_roll_max:   cs.alliance_roll_max,
+      god_roll_max:        cs.god_roll_max,
+      raw_damage:          cs.raw_damage,
+      alliance_won:        !!cs.alliance_won,
+      spell_applied:       cs.spell_applied,
+      damage_after_spell:  cs.damage_after_spell,
+      trivia_correct:      cs.trivia_correct !== null ? !!cs.trivia_correct : null,
+      damage_after_trivia: cs.damage_after_trivia,
+      final_damage:        finalDamage,
+      bonus_points:        bonusPoints > 0  ? bonusPoints       : 0,
+      penalty_points:      bonusPoints < 0  ? Math.abs(bonusPoints) : 0,
+      points_before:       pointsBefore,
+      points_after:        newTotal,
+      phoenix_triggered:   phoenixTriggered,
+      hades_triggered:     hadesTriggered,
+      next_phase:          nextPhase,
+      resolved:            true
+    };
+
+    if (!hadesTriggered) {
+      run(
+        `UPDATE olympus_race_state
+         SET current_phase='puzzle', combat_result=?, combat_ready_flags=NULL
+         WHERE alliance_id=?`,
+        [JSON.stringify(combatResult), alliance.alliance_id]
+      );
+    } else {
+      run(
+        `UPDATE olympus_race_state
+         SET combat_result=?, combat_ready_flags=NULL
+         WHERE alliance_id=?`,
+        [JSON.stringify(combatResult), alliance.alliance_id]
+      );
+    }
+    saveDatabase();
+
+    res.json(Object.assign({ resolved: true }, combatResult));
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -17764,6 +18324,7 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_godtest_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_round_unlock_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_combat_wave_session WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_combat_state WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_inventory WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_agora_students WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
@@ -17868,507 +18429,36 @@ app.get('/api/olympus/teacher/debug-votes', authenticateToken, (req, res) => {
   }
 });
 
-// ── POST /api/olympus/drachma-shop-purchase ───────────────────────────────────
-// Called during the 45-second pre-combat shop. Deducts Drachma from the
-// purchasing student and records the buff on the alliance's wave session.
-// Buffs are alliance-scoped: any member benefits regardless of who paid.
+// ── POST /api/olympus/drachma-shop-purchase (RETIRED) ────────────────────────
+// The Drachma shop ran before each combat wave. Replaced by the Agora spell
+// system (crafted once before Round 1). This endpoint is retired.
 app.post('/api/olympus/drachma-shop-purchase', authenticateToken, (req, res) => {
-  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const { buff_key } = req.body;
-    const alliance = getAllianceForStudent(req.user.id);
-    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
-    const state = getOlympusState(alliance.alliance_id);
-    if (!state || state.current_phase !== 'combat') return res.status(400).json({ error: 'Not in combat phase' });
-
-    // Buff costs scale with round number
-    const round = state.current_round;
-    const BUFF_COSTS = {
-      oracle_vision:      Math.round(50  * (1 + (round - 1) * 0.15)),
-      hephaestus_armor:   Math.round(80  * (1 + (round - 1) * 0.15)),
-      hermes_speed:       Math.round(60  * (1 + (round - 1) * 0.15)),
-      apollo_mercy:       [120, 150, 180, 220, 280][round - 1] || 120
-    };
-
-    const cost = BUFF_COSTS[buff_key];
-    if (!cost) return res.status(400).json({ error: 'Unknown buff: ' + buff_key });
-
-    // Check student's Drachma
-    const studentRows = query(`SELECT drachma FROM students WHERE student_id=?`, [req.user.id]);
-    if (!studentRows[0]) return res.status(400).json({ error: 'Student not found' });
-    const currentDrachma = studentRows[0].drachma || 0;
-    if (currentDrachma < cost) return res.status(400).json({ error: 'Not enough Drachma', have: currentDrachma, need: cost });
-
-    // Ensure wave session row exists
-    run(
-      `INSERT OR IGNORE INTO olympus_combat_wave_session (alliance_id, period, round_number)
-       VALUES (?, ?, ?)`,
-      [alliance.alliance_id, alliance.class_period, round]
-    );
-
-    // Check if buff already purchased for this round (idempotent)
-    const sessionRows = query(
-      `SELECT purchased_buffs FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
-      [alliance.alliance_id, round]
-    );
-    const buffs = sessionRows[0] ? JSON.parse(sessionRows[0].purchased_buffs) : [];
-    if (buffs.includes(buff_key)) {
-      return res.json({ already_purchased: true, buff_key, purchased_buffs: buffs });
-    }
-
-    // Deduct Drachma from purchasing student
-    run(`UPDATE students SET drachma = drachma - ? WHERE student_id=?`, [cost, req.user.id]);
-
-    // Record buff on wave session
-    buffs.push(buff_key);
-    run(
-      `UPDATE olympus_combat_wave_session SET purchased_buffs=? WHERE alliance_id=? AND round_number=?`,
-      [JSON.stringify(buffs), alliance.alliance_id, round]
-    );
-    saveDatabase();
-
-    const updatedStudent = query(`SELECT drachma FROM students WHERE student_id=?`, [req.user.id]);
-    res.json({
-      purchased: true,
-      buff_key,
-      cost,
-      remaining_drachma: updatedStudent[0].drachma,
-      purchased_buffs: buffs
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  res.status(410).json({ error: 'Retired. The Drachma shop has been replaced by Agora spell crafting.' });
 });
 
-// ── POST /api/olympus/wave-start ──────────────────────────────────────────────
-// Called by each student when they arrive at a wave screen.
-// Server selects the question for this wave (consistent for entire alliance).
-// Returns question text, shuffled options, wave metadata, and active buffs.
+// ── POST /api/olympus/wave-start (RETIRED) ────────────────────────────────────
+// The 3-wave trivia system has been replaced with dice-roll combat.
 app.post('/api/olympus/wave-start', authenticateToken, (req, res) => {
-  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const { wave_number } = req.body; // 1, 2, or 3
-    if (![1, 2, 3].includes(Number(wave_number))) return res.status(400).json({ error: 'wave_number must be 1, 2, or 3' });
-    const wn = Number(wave_number);
-
-    const alliance = getAllianceForStudent(req.user.id);
-    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
-    const state = getOlympusState(alliance.alliance_id);
-    if (!state || state.current_phase !== 'combat') return res.status(400).json({ error: 'Not in combat phase' });
-
-    const round = state.current_round;
-
-    // Get the path this alliance committed to
-    const lockRows = query(
-      `SELECT path_index FROM olympus_path_locks
-       WHERE alliance_id=? AND round_number=? LIMIT 1`,
-      [alliance.alliance_id, round]
-    );
-    if (!lockRows[0]) return res.status(400).json({ error: 'No committed path found' });
-    const pathIdx = lockRows[0].path_index;
-
-    const scenarioKey = `${round}_${pathIdx}`;
-    const scenario = COMBAT_SCENARIOS[scenarioKey];
-    if (!scenario) return res.status(400).json({ error: 'No scenario for key: ' + scenarioKey });
-
-    // Calculate wave damage values
-    const totalAttack = scenario.attack;
-    const w1 = Math.floor(totalAttack / 3);
-    const w2 = Math.floor(totalAttack / 3);
-    const w3 = totalAttack - w1 - w2;
-    const waveDamage = [w1, w2, w3][wn - 1];
-
-    // Ensure wave session row exists; assign question indices on first wave
-    run(
-      `INSERT OR IGNORE INTO olympus_combat_wave_session (alliance_id, period, round_number)
-       VALUES (?, ?, ?)`,
-      [alliance.alliance_id, alliance.class_period, round]
-    );
-    const sessionRows = query(
-      `SELECT wave1_q_idx, wave2_q_idx, wave3_q_idx, wave${wn}_absorbed, purchased_buffs
-       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
-      [alliance.alliance_id, round]
-    );
-    let session = sessionRows[0] || { wave1_q_idx: -1, wave2_q_idx: -1, wave3_q_idx: -1, purchased_buffs: '[]' };
-    const buffs = JSON.parse(session.purchased_buffs);
-
-    // Assign question indices deterministically (no repeats across waves)
-    let q1i = session.wave1_q_idx;
-    let q2i = session.wave2_q_idx;
-    let q3i = session.wave3_q_idx;
-
-    if (q1i === -1) {
-      // Pick 3 distinct random question indices from 0..5
-      const pool = [0, 1, 2, 3, 4, 5];
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-      q1i = pool[0]; q2i = pool[1]; q3i = pool[2];
-      run(
-        `UPDATE olympus_combat_wave_session SET wave1_q_idx=?, wave2_q_idx=?, wave3_q_idx=?
-         WHERE alliance_id=? AND round_number=?`,
-        [q1i, q2i, q3i, alliance.alliance_id, round]
-      );
-      saveDatabase();
-    }
-
-    const qIdxForWave = [q1i, q2i, q3i][wn - 1];
-    const qObj = scenario.questions[qIdxForWave];
-
-    // Shuffle answer options (server-side, correct answer position randomized)
-    const options = [qObj.correct, ...qObj.wrong].sort(() => Math.random() - 0.5);
-
-    // Compute alliance stats using grade records (lore/cunning are NOT stored columns)
-    const allianceStats    = getHeroicStatsForAlliance(alliance.alliance_id);
-    const effectiveLore    = allianceStats.effectiveLore;
-    const effectiveCunning = allianceStats.effectiveCunning;
-
-    let baseTimer = effectiveLore >= 15 ? 30 : effectiveLore >= 8 ? 20 : 15;
-    if (buffs.includes('hermes_speed')) baseTimer += 12;
-
-    // Oracle's Vision: reveal question 8s early (Eternal archetype gets this free)
-    const studentRow = query(`SELECT selected_avatar FROM students WHERE student_id=?`, [req.user.id]);
-    const archetype = studentRow[0] && studentRow[0].selected_avatar ? studentRow[0].selected_avatar.split('_')[0] : null;
-    const hasOracleVision = buffs.includes('oracle_vision') || archetype === 'eternal';
-
-    // Cunning >=10: eliminate 1 wrong answer. Seeker archetype: eliminate 2.
-    const hasSeeker = allianceStats.archetypes.includes('seeker');
-    let eliminateCount = 0;
-    if (hasSeeker)                   eliminateCount = 2;
-    else if (effectiveCunning >= 10) eliminateCount = 1;
-    const wrongIndices = options.reduce((acc, opt, i) => {
-      if (opt !== qObj.correct) acc.push(i);
-      return acc;
-    }, []);
-    const eliminatedIndices = wrongIndices.sort(() => Math.random() - 0.5).slice(0, eliminateCount);
-
-    res.json({
-      wave_number: wn,
-      question: qObj.q,
-      options,
-      wave_damage: waveDamage,
-      total_attack: totalAttack,
-      timer_seconds: baseTimer,
-      oracle_preview_seconds: hasOracleVision ? 8 : 0,
-      scenario_god: scenario.god,
-      scenario_power: scenario.power,
-      already_absorbed: !!session[`wave${wn}_absorbed`],
-      purchased_buffs: buffs,
-      eliminated_indices: eliminatedIndices,
-      effective_cunning: effectiveCunning
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  res.status(410).json({ error: 'Retired. Dice-roll combat system is now active.' });
 });
 
-// ── POST /api/olympus/wave-answer ─────────────────────────────────────────────
-// Student submits their answer for the current wave.
-// Idempotent — safe if two alliance members answer simultaneously.
-// Returns correct/wrong, whether the wave is now absorbed, and points at risk.
+// ── POST /api/olympus/wave-answer (RETIRED) ───────────────────────────────────
+// The 3-wave trivia system has been replaced with dice-roll combat.
 app.post('/api/olympus/wave-answer', authenticateToken, (req, res) => {
-  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const { wave_number, answer } = req.body;
-    const wn = Number(wave_number);
-    if (![1, 2, 3].includes(wn)) return res.status(400).json({ error: 'wave_number must be 1, 2, or 3' });
-    if (!answer) return res.status(400).json({ error: 'answer required' });
-
-    const alliance = getAllianceForStudent(req.user.id);
-    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
-    const state = getOlympusState(alliance.alliance_id);
-    if (!state) return res.status(400).json({ error: 'No race state' });
-
-    const round = state.current_round;
-    const lockRows = query(
-      `SELECT path_index FROM olympus_path_locks WHERE alliance_id=? AND round_number=? LIMIT 1`,
-      [alliance.alliance_id, round]
-    );
-    if (!lockRows[0]) return res.status(400).json({ error: 'No committed path' });
-    const pathIdx = lockRows[0].path_index;
-
-    const scenario = COMBAT_SCENARIOS[`${round}_${pathIdx}`];
-    if (!scenario) return res.status(400).json({ error: 'No scenario' });
-
-    // Get wave session
-    const sessionRows = query(
-      `SELECT wave1_q_idx, wave2_q_idx, wave3_q_idx, wave${wn}_absorbed, purchased_buffs
-       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
-      [alliance.alliance_id, round]
-    );
-    if (!sessionRows[0]) return res.status(400).json({ error: 'Wave session not initialized — call wave-start first' });
-    const session = sessionRows[0];
-    const buffs = JSON.parse(session.purchased_buffs);
-
-    const qIdxForWave = [session.wave1_q_idx, session.wave2_q_idx, session.wave3_q_idx][wn - 1];
-    const qObj = scenario.questions[qIdxForWave];
-    const isCorrect = answer.trim().toLowerCase() === qObj.correct.trim().toLowerCase();
-
-    // Calculate wave damage
-    const totalAttack = scenario.attack;
-    const w1 = Math.floor(totalAttack / 3);
-    const w2 = Math.floor(totalAttack / 3);
-    const w3 = totalAttack - w1 - w2;
-    const waveDamage = [w1, w2, w3][wn - 1];
-
-    // Archetype: The Tested gets a retry on Wave 2
-    const studentRow = query(`SELECT selected_avatar FROM students WHERE student_id=?`, [req.user.id]);
-    const archetype = studentRow[0] && studentRow[0].selected_avatar ? studentRow[0].selected_avatar.split('_')[0] : null;
-
-    // If wave already absorbed by a teammate — still need personal correct to advance
-    if (session[`wave${wn}_absorbed`]) {
-      return res.json({
-        result: isCorrect ? 'correct' : 'wrong',
-        self_correct: isCorrect,
-        wave_already_absorbed: true,
-        correct_answer: isCorrect ? null : qObj.correct,
-        wave_damage: 0,
-        wave_number: wn
-      });
-    }
-
-    if (isCorrect) {
-      // Mark wave absorbed for entire alliance (INSERT OR IGNORE = idempotent)
-      run(
-        `UPDATE olympus_combat_wave_session SET wave${wn}_absorbed=1 WHERE alliance_id=? AND round_number=?`,
-        [alliance.alliance_id, round]
-      );
-      saveDatabase();
-      return res.json({
-        result: 'correct',
-        self_correct: true,
-        wave_absorbed: true,
-        points_absorbed: waveDamage,
-        wave_number: wn,
-        correct_answer: null
-      });
-    }
-
-    // Wrong answer — calculate damage reduction from buffs/archetype
-    let damageReduction = 0.85; // default: wrong = 85% damage
-    if (buffs.includes('hephaestus_armor')) damageReduction = 0.70;
-
-    // Craft stat — computed from grade records, not a stored column
-    const allianceStatsForCraft = getHeroicStatsForAlliance(alliance.alliance_id);
-    const effectiveCraft = allianceStatsForCraft.effectiveCraft;
-
-    if (archetype === 'builder') {
-      damageReduction = effectiveCraft >= 15 ? 0.70 : 0.75;
-    } else if (effectiveCraft >= 15) {
-      damageReduction = buffs.includes('hephaestus_armor') ? 0.65 : 0.70;
-    }
-
-    const partialDamage = Math.round(waveDamage * damageReduction);
-
-    // Tested archetype: Wave 2 retry — flag it but don't absorb
-    const testedRetryAvailable = archetype === 'tested' && wn === 2;
-
-    return res.json({
-      result: 'wrong',
-      self_correct: false,
-      wave_absorbed: false,
-      partial_damage: partialDamage,
-      wave_damage: waveDamage,
-      wave_number: wn,
-      tested_retry_available: testedRetryAvailable,
-      correct_answer: null  // never reveal until wave_complete
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  res.status(410).json({ error: 'Retired. Dice-roll combat system is now active.' });
 });
 
-// ── GET /api/olympus/wave-status ──────────────────────────────────────────────
-// Polled every 2 seconds by waiting students.
-// Returns wave absorption state and (for Mirror archetype) anonymized selections.
+// ── GET /api/olympus/wave-status (RETIRED) ────────────────────────────────────
+// The 3-wave trivia system has been replaced with dice-roll combat.
 app.get('/api/olympus/wave-status', authenticateToken, (req, res) => {
-  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const alliance = getAllianceForStudent(req.user.id);
-    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
-    const state = getOlympusState(alliance.alliance_id);
-    if (!state) return res.status(400).json({ error: 'No race state' });
-
-    const round = state.current_round;
-    const sessionRows = query(
-      `SELECT wave1_absorbed, wave2_absorbed, wave3_absorbed, completed, purchased_buffs
-       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
-      [alliance.alliance_id, round]
-    );
-    if (!sessionRows[0]) {
-      return res.json({ session_exists: false, current_phase: state.current_phase });
-    }
-    const s = sessionRows[0];
-    res.json({
-      session_exists: true,
-      current_phase: state.current_phase,
-      wave1_absorbed: !!s.wave1_absorbed,
-      wave2_absorbed: !!s.wave2_absorbed,
-      wave3_absorbed: !!s.wave3_absorbed,
-      all_waves_complete: !!s.completed,
-      purchased_buffs: JSON.parse(s.purchased_buffs)
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  res.status(410).json({ error: 'Retired. Dice-roll combat system is now active.' });
 });
 
-// ── POST /api/olympus/combat-wave-complete ────────────────────────────────────
-// Called after Wave 3 resolves (by first student whose wave-answer completes it,
-// or after timer expires client-side). Calculates total damage, deducts points,
-// advances phase to 'puzzle' (or 'hades' if points hit 0).
-// Idempotent — safe to call multiple times.
+// ── POST /api/olympus/combat-wave-complete (RETIRED) ─────────────────────────
+// The 3-wave trivia system has been replaced with dice-roll combat.
+// Point deduction now happens in POST /api/olympus/combat-finalize.
 app.post('/api/olympus/combat-wave-complete', authenticateToken, (req, res) => {
-  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const { waves_result } = req.body;
-    // waves_result: { wave1: { absorbed, damage_taken }, wave2: {...}, wave3: {...} }
-
-    const alliance = getAllianceForStudent(req.user.id);
-    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
-    const state = getOlympusState(alliance.alliance_id);
-
-    // If already advanced past combat, return stored result
-    if (state && state.current_phase !== 'combat') {
-      if (state.combat_result) return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
-      return res.json({ resolved: true, already_advanced: true });
-    }
-    if (!state || state.current_phase !== 'combat') {
-      return res.status(400).json({ error: 'Not in combat phase' });
-    }
-
-    const round = state.current_round;
-    const lockRows = query(
-      `SELECT path_index FROM olympus_path_locks WHERE alliance_id=? AND round_number=? LIMIT 1`,
-      [alliance.alliance_id, round]
-    );
-    if (!lockRows[0]) return res.status(400).json({ error: 'No committed path' });
-    const pathIdx = lockRows[0].path_index;
-    const scenario = COMBAT_SCENARIOS[`${round}_${pathIdx}`];
-    if (!scenario) return res.status(400).json({ error: 'No scenario' });
-
-    // Re-fetch session to get server-authoritative absorption flags
-    const sessionRows = query(
-      `SELECT wave1_absorbed, wave2_absorbed, wave3_absorbed, purchased_buffs, completed
-       FROM olympus_combat_wave_session WHERE alliance_id=? AND round_number=?`,
-      [alliance.alliance_id, round]
-    );
-    if (!sessionRows[0]) return res.status(400).json({ error: 'Wave session not found' });
-    const session = sessionRows[0];
-
-    // Idempotency: if already completed, return stored combat result
-    if (session.completed) {
-      if (state.combat_result) return res.json(Object.assign({ resolved: true }, JSON.parse(state.combat_result)));
-    }
-
-    const buffs = JSON.parse(session.purchased_buffs);
-
-    // Calculate damage from server-authoritative absorption flags
-    const totalAttack = scenario.attack;
-    const w1 = Math.floor(totalAttack / 3);
-    const w2 = Math.floor(totalAttack / 3);
-    const w3 = totalAttack - w1 - w2;
-    const waveDamages = [w1, w2, w3];
-    const waveAbsorbed = [!!session.wave1_absorbed, !!session.wave2_absorbed, !!session.wave3_absorbed];
-
-    // Apollo's Mercy: if 2/3 absorbed, force-absorb wave 3
-    if (buffs.includes('apollo_mercy')) {
-      const absorbedCount = waveAbsorbed.filter(Boolean).length;
-      if (absorbedCount >= 2) waveAbsorbed[2] = true;
-    }
-
-    // Craft reduction — computed from grade records via helper (not a stored column)
-    const completionStats = getHeroicStatsForAlliance(alliance.alliance_id);
-    const effectiveCraft  = completionStats.effectiveCraft;
-    const hasBuilder      = completionStats.archetypes.includes('builder');
-
-    let damageReduction = 1.0; // absorbed waves = 0 damage
-    let partialReduction;
-    if (hasBuilder) {
-      partialReduction = effectiveCraft >= 15 ? 0.70 : 0.75;
-    } else if (effectiveCraft >= 15) {
-      partialReduction = buffs.includes('hephaestus_armor') ? 0.65 : 0.70;
-    } else {
-      partialReduction = buffs.includes('hephaestus_armor') ? 0.70 : 0.85;
-    }
-
-    let totalDamage = 0;
-    const waveBreakdown = waveDamages.map((dmg, i) => {
-      if (waveAbsorbed[i]) return { wave: i + 1, damage: dmg, absorbed: true, taken: 0 };
-      const taken = Math.round(dmg * partialReduction);
-      totalDamage += taken;
-      return { wave: i + 1, damage: dmg, absorbed: false, taken };
-    });
-
-    // The Fallen archetype: perfect 3/3 absorb = steal 15pts from god (bonus points)
-    const hasFallen = completionStats.archetypes.includes('fallen');
-    const perfectBlock = waveAbsorbed.every(Boolean);
-    const bonusPoints = (hasFallen && perfectBlock) ? 15 : 0;
-
-    // Deduct from alliance points
-    const allianceRow = query(`SELECT total_points FROM alliances WHERE alliance_id=?`, [alliance.alliance_id]);
-    const pointsBefore = allianceRow[0] ? allianceRow[0].total_points : 0;
-    const netDamage = Math.max(0, totalDamage - bonusPoints);
-    let pointsAfter = pointsBefore - netDamage;
-
-    let hadesTriggered = false;
-    let phoenixUsed = false;
-
-    if (pointsAfter <= 0) {
-      if (!state.phoenix_feather_used) {
-        pointsAfter = 1;
-        phoenixUsed = true;
-        run(`UPDATE olympus_race_state SET phoenix_feather_used=1 WHERE alliance_id=?`, [alliance.alliance_id]);
-      } else {
-        pointsAfter = 0;
-        hadesTriggered = true;
-      }
-    }
-
-    run(`UPDATE alliances SET total_points=? WHERE alliance_id=?`, [pointsAfter, alliance.alliance_id]);
-
-    // Mark wave session complete
-    run(
-      `UPDATE olympus_combat_wave_session SET completed=1, total_taken=? WHERE alliance_id=? AND round_number=?`,
-      [totalDamage, alliance.alliance_id, round]
-    );
-
-    // Build combat result
-    const combatResult = {
-      resolved: true,
-      god: scenario.god,
-      power: scenario.power,
-      total_attack: totalAttack,
-      wave_breakdown: waveBreakdown,
-      total_absorbed: waveBreakdown.filter(w => w.absorbed).reduce((a, w) => a + w.damage, 0),
-      total_taken: totalDamage,
-      bonus_points: bonusPoints,
-      net_damage: netDamage,
-      points_before: pointsBefore,
-      points_after: pointsAfter,
-      perfect_block: perfectBlock,
-      phoenix_feather_used: phoenixUsed,
-      hades_triggered: hadesTriggered
-    };
-
-    if (hadesTriggered) {
-      run(
-        `UPDATE olympus_race_state SET combat_result=?, current_phase='hades_waiting',
-         hades_visits=hades_visits+1 WHERE alliance_id=?`,
-        [JSON.stringify(combatResult), alliance.alliance_id]
-      );
-    } else {
-      // Reveal box URL as clickable link in puzzle phase
-      const BOX_URLS = {
-        1: 'https://t.ly/LtCM',
-        2: 'https://t.ly/GzUj',
-        3: 'https://t.ly/7PAl',
-        4: 'https://t.ly/SIsm',
-        5: 'https://bit.ly/3QnnCyI'
-      };
-      combatResult.box_url = BOX_URLS[round] || null;
-      run(
-        `UPDATE olympus_race_state SET combat_result=?, current_phase='puzzle' WHERE alliance_id=?`,
-        [JSON.stringify(combatResult), alliance.alliance_id]
-      );
-    }
-
-    saveDatabase();
-    res.json(combatResult);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  res.status(410).json({ error: 'Retired. Use /api/olympus/combat-finalize instead.' });
 });
 
 // ── POST /api/olympus/round-unlock ────────────────────────────────────────────
