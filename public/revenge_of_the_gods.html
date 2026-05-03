@@ -3150,8 +3150,8 @@ function showCombatResult(data) {
     var aRoll = (data.alliance_roll || 0).toLocaleString();
     var gRoll = (data.god_roll      || 0).toLocaleString();
     var winLine = data.alliance_won
-      ? '<span class="win-line">🎲 You rolled ' + aRoll + ' vs god's ' + gRoll + ' — Victory!</span>'
-      : '<span class="loss-line">🎲 You rolled ' + aRoll + ' vs god's ' + gRoll + ' — ' + (data.raw_damage||0).toLocaleString() + ' pts damage</span>';
+      ? '<span class="win-line">🎲 You rolled ' + aRoll + ' vs the god&#39;s ' + gRoll + ' — Victory!</span>'
+      : '<span class="loss-line">🎲 You rolled ' + aRoll + ' vs the god&#39;s ' + gRoll + ' — ' + (data.raw_damage||0).toLocaleString() + ' pts damage</span>';
     var spellLine = data.spell_applied
       ? '<br>⚗️ Spell applied → ' + (data.damage_after_spell||0).toLocaleString() + ' pts'
       : '';
