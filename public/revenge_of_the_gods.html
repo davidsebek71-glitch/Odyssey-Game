@@ -2639,6 +2639,19 @@ async function showCombat(round) {
   } else {
     fightBtn.textContent = '⚔️ Waiting for your leader to roll…';
     fightBtn.disabled    = true;
+    // Followers auto-register as ready so the gate completes without them clicking.
+    // The roll itself is still leader-only — this just marks them as present.
+    fetch('/api/olympus/combat-ready', { method: 'POST', headers: H })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var statusEl = document.getElementById('combat-ready-status');
+        if (statusEl && d.waiting) {
+          statusEl.style.display = 'block';
+          statusEl.textContent = 'Registered — waiting for your leader to roll…';
+        }
+      })
+      .catch(function(e) { console.warn('follower combat-ready failed:', e.message); });
+    startPolling(); // ensure followers are polling for roll results
   }
 
   // Populate the points bar — shows alliance pts vs god's attack value
