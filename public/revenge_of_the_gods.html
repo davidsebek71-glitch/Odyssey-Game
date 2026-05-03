@@ -1888,8 +1888,16 @@ async function castMedeaVote(choice) {
     stopPolling();
     pollTimer = setInterval(async function() {
       try {
-        const tryCommit  = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
-        const tryData    = await tryCommit.json();
+        const tryCommit = await fetch('/api/olympus/medea-commit', { method:'POST', headers:H });
+        // 400 means phase already moved on — stop retrying and route to current phase
+        if (!tryCommit.ok) {
+          stopPolling();
+          _stopCutscene();
+          await loadState();
+          if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+          return;
+        }
+        const tryData = await tryCommit.json();
         if (tryData.committed) {
           stopPolling();
           _stopCutscene();
@@ -3396,8 +3404,8 @@ function showWaiting(title, sub, phase) {
 
 async function showAgora() {
   showScreen('agora');
-  // Start polling while on the Agora so that if the game phase changes
-  // (e.g. in edge cases), this player will be routed forward automatically.
+  // Gate the Enter button immediately — disabled until all real members are present.
+  updateAgoraEnterButton(0, 1, false);
   startPolling();
   document.getElementById('agora-r-body').innerHTML =
     '<div style="text-align:center;font-family:\'Cinzel\',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>';
@@ -3406,13 +3414,39 @@ async function showAgora() {
     if (!res.ok) {
       document.getElementById('agora-r-body').innerHTML =
         '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Could not load spells. You may enter the race without crafting.</div>';
-      return;
+    } else {
+      const data = await res.json();
+      renderAgoraScreen(data);
     }
-    const data = await res.json();
-    renderAgoraScreen(data);
   } catch(e) {
     document.getElementById('agora-r-body').innerHTML =
       '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Network error loading spells.</div>';
+  }
+  // Register this player as present on the Agora.
+  try {
+    const readyRes = await fetch('/api/olympus/agora-ready', { method: 'POST', headers: H });
+    if (readyRes.ok) {
+      const rd = await readyRes.json();
+      updateAgoraEnterButton(rd.ready_count, rd.member_count, rd.all_ready);
+    }
+  } catch(e) {
+    console.warn('agora-ready failed:', e.message);
+    // Fail open for solo player
+    updateAgoraEnterButton(1, 1, true);
+  }
+}
+
+// Enables or disables the Enter button based on how many members are present.
+// Called on Agora load and by polling every 3s.
+function updateAgoraEnterButton(readyCount, memberCount, allReady) {
+  const btn = document.getElementById('agora-r-enter-btn');
+  if (!btn) return;
+  if (allReady) {
+    btn.disabled = false;
+    btn.textContent = '⚡ Enter the Olympus Race';
+  } else {
+    btn.disabled = true;
+    btn.textContent = '⏳ Waiting for teammates… (' + readyCount + '/' + memberCount + ' ready)';
   }
 }
 
