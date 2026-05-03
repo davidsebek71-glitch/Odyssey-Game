@@ -1243,9 +1243,9 @@ function routeToPhase(phase, round) {
       if (raceState && raceState.combat_result) {
         try {
           const stored = JSON.parse(raceState.combat_result);
-          // Show the combat story screen first so displayCombatResult has elements to populate
+          // Show the combat story screen first so showCombatResult has elements to populate
           showCombat(round).then(function() {
-            displayCombatResult(stored);
+            showCombatResult(stored);
           });
         } catch(e) {
           showCombat(round);
@@ -2719,7 +2719,7 @@ async function safeCombatAdvance() {
       alert((data.error || 'Could not advance') + ' (status ' + res.status + ')');
       return;
     }
-    displayCombatResult(data);
+    showCombatResult(data);
   } catch(e) {
     btn.disabled = false;
     btn.textContent = 'Move On — No Combat →';
