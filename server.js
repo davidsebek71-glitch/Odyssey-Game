@@ -16441,17 +16441,36 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
 
     // ── Leader and combat_state for dice-roll combat ────────────────────────
     if (state) {
-      // Lazy leader computation: if not set, compute and store now
+      // Lazy leader computation: if not set, compute and store now.
+      // leader_student_id column may not exist on older Railway volumes — ensure
+      // it exists before reading/writing, and fail open if anything goes wrong.
       if (!state.leader_student_id) {
         try {
+          // Ensure column exists (safe on persistent volume)
+          try {
+            run("ALTER TABLE olympus_race_state ADD COLUMN leader_student_id INTEGER DEFAULT NULL");
+          } catch(colErr) { /* column already exists — ignore */ }
+
           const presentIds = state.present_members ? JSON.parse(state.present_members) : null;
-          const leaderId = getLeaderForAlliance(alliance.alliance_id, presentIds);
-          if (leaderId) {
-            run(`UPDATE olympus_race_state SET leader_student_id=? WHERE alliance_id=?`,
-              [leaderId, alliance.alliance_id]);
-            state.leader_student_id = leaderId;
+          let leaderId = getLeaderForAlliance(alliance.alliance_id, presentIds);
+
+          // Hard fallback: if still null, use the first present member
+          if (!leaderId && presentIds && presentIds.length > 0) {
+            leaderId = presentIds[0];
           }
-        } catch(e) { /* non-fatal */ }
+          // Final fallback: use the requesting student as leader
+          if (!leaderId) {
+            leaderId = req.user.id;
+          }
+
+          run(`UPDATE olympus_race_state SET leader_student_id=? WHERE alliance_id=?`,
+            [leaderId, alliance.alliance_id]);
+          state.leader_student_id = leaderId;
+        } catch(e) {
+          // Absolute fallback — grant leadership to requesting student
+          // so the game is never permanently stuck
+          state.leader_student_id = req.user.id;
+        }
       }
       state.is_leader = (req.user.id === state.leader_student_id);
 
