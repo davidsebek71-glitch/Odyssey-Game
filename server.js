@@ -16520,6 +16520,7 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
                 `UPDATE olympus_combat_state SET trivia_question_id=? WHERE alliance_id=? AND round_number=?`,
                 [fallbackRows[0].question_id, alliance.alliance_id, state.current_round]
               );
+              saveDatabase();
               cs.trivia_question_id = fallbackRows[0].question_id;
             }
           }

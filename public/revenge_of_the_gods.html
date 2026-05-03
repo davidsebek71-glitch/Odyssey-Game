@@ -2158,6 +2158,9 @@ function showPathsError(msg) {
   setTimeout(() => el.classList.remove('show'), 5000);
 }
 
+// Matches server-side ROUND_FACTORS — used to compute god_roll_max for display
+const ROUND_FACTORS = { 1: 0.25, 2: 0.50, 3: 0.75, 4: 1.00, 5: 1.25 };
+
 // ═══════════════════════════════════════════════════
 // COMBAT — Full PDF narrative per path
 // ═══════════════════════════════════════════════════
@@ -2660,11 +2663,12 @@ async function showCombat(round) {
       });
   }
 
-  // Populate the points bar — shows alliance pts vs god's attack value
+  // Populate the points bar — shows alliance pts vs god's scaled max attack
   const bar = document.getElementById('combat-points-bar');
   if (fullPath && !fullPath.safe && allianceData) {
+    const godRollMax = Math.floor(allianceData.total_points * (ROUND_FACTORS[round] || 0.25));
     document.getElementById('bar-alliance-pts').textContent = allianceData.total_points.toLocaleString();
-    document.getElementById('bar-attack-pts').textContent = fullPath.attack.toLocaleString();
+    document.getElementById('bar-attack-pts').textContent = godRollMax.toLocaleString();
     bar.style.display = '';
   } else {
     bar.style.display = 'none';
@@ -2676,10 +2680,12 @@ async function showCombat(round) {
     document.getElementById('combat-power-name').textContent = '';
     revealStoryLines(fullPath.story, null, null);
   } else if (fullPath) {
+    const godRollMax = Math.floor(allianceData.total_points * (ROUND_FACTORS[round] || 0.25));
+    const rollText = `Roll the dice! ${fullPath.god || 'The god'}'s max attack this round is ${godRollMax.toLocaleString()} points — can you hold the line?`;
     document.getElementById('combat-god-name').textContent = fullPath.god;
     document.getElementById('combat-god-name').style.color = '#e07070';
     document.getElementById('combat-power-name').textContent = `Power: ${fullPath.power}`;
-    revealStoryLines(fullPath.story, fullPath.roll, null);
+    revealStoryLines(fullPath.story, rollText, null);
   } else {
     // Fallback if we can't identify path
     document.getElementById('combat-god-name').textContent = 'The Gods Attack';
@@ -3290,6 +3296,14 @@ function showCombatResult(data) {
       boxWrap.style.display    = '';
       unlockWrap.style.display = '';
       puzzleBtn.style.display  = 'none';
+      // Always reset unlock UI first so Round N+1 starts fresh (input may be
+      // disabled/dirty from a previous round's submission).
+      var si = document.getElementById('secret-word-input');
+      var sb = document.querySelector('#round-unlock-wrap .btn-commit');
+      var um = document.getElementById('unlock-msg');
+      if (si) { si.disabled = false; si.value = ''; }
+      if (sb) sb.disabled = false;
+      if (um) { um.style.color = ''; um.textContent = ''; }
       if (raceState && raceState.my_unlock_submitted) {
         var si = document.getElementById('secret-word-input');
         var sb = document.querySelector('#round-unlock-wrap .btn-commit');
