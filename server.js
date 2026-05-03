@@ -16509,6 +16509,20 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
             [alliance.alliance_id, state.current_round]
           )[0] || null;
 
+          if (cs && !cs.trivia_question_id) {
+            // trivia_question_id was null when the row was created (e.g. table
+            // didn't exist yet). Assign one now and persist it.
+            const fallbackRows = query(
+              `SELECT question_id FROM battle_questions WHERE is_active=1 ORDER BY RANDOM() LIMIT 1`
+            );
+            if (fallbackRows && fallbackRows[0]) {
+              run(
+                `UPDATE olympus_combat_state SET trivia_question_id=? WHERE alliance_id=? AND round_number=?`,
+                [fallbackRows[0].question_id, alliance.alliance_id, state.current_round]
+              );
+              cs.trivia_question_id = fallbackRows[0].question_id;
+            }
+          }
           if (cs && cs.trivia_question_id) {
             const tq = query(
               `SELECT question_text, option_a, option_b, option_c, option_d

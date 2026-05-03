@@ -2897,10 +2897,13 @@ async function showSpellPhase() {
   grid.innerHTML = '';
 
   if (spells.length === 0) {
-    // No spells — auto skip after brief display
+    // No spells — auto skip after brief display (leader only posts to server)
     grid.innerHTML = '<div style="font-family:Cinzel,serif;font-size:0.8rem;color:var(--stone);' +
       'text-align:center;padding:20px 0;">No spells in your arsenal.</div>';
-    setTimeout(function() { skipSpell(); }, 1200);
+    if (isLeader) {
+      setTimeout(function() { skipSpell(); }, 1200);
+    }
+    // Followers: just wait — polling will advance when damage_after_spell is set
     return;
   }
 
@@ -3684,45 +3687,41 @@ function startPolling() {
         } catch(e) {}
       }
 
-      if (cs && cs.resolved && !shownResult) {
-        shownResult = true;
-        // Parse full combat_result from state
+      // Use combatSubPhase (module-level) as the primary guard.
+      // Local shownRoll etc. reset on every startPolling() call, causing
+      // the roll animation to loop. combatSubPhase persists across restarts.
+      if (cs && cs.resolved && combatSubPhase !== 'result') {
+        combatSubPhase = 'result';
         var stored = raceState.combat_result ? JSON.parse(raceState.combat_result) : cs;
         showCombatResult(stored);
 
-      } else if (cs.trivia_answered && !shownTriFback && !shownResult) {
-        shownTriFback = true;
-        // Follower sees trivia result — show result directly (no continue button for follower)
-        // The finalize will happen via leader; result screen appears on next cs.resolved tick
-        // Ensure trivia phase is visible with feedback
-        if (combatSubPhase === 'spell' || combatSubPhase === 'story') {
-          combatSubPhase = 'trivia';
-          showCombatPhase('trivia');
-        }
-        // Show feedback in the trivia UI
-        var feedEl = document.getElementById('trivia-feedback');
-        if (feedEl && !feedEl.textContent) {
-          feedEl.textContent = cs.trivia_correct
-            ? '✦ Leader answered correctly'
-            : '✗ Leader answered incorrectly';
-          feedEl.style.color = cs.trivia_correct ? '#8ae08a' : '#e07070';
+      } else if (cs && cs.trivia_answered && combatSubPhase !== 'result') {
+        // Trivia answered — show feedback for follower
+        if (combatSubPhase !== 'trivia-done') {
+          combatSubPhase = 'trivia-done';
+          if (combatSubPhase !== 'trivia') showCombatPhase('trivia');
+          var feedEl = document.getElementById('trivia-feedback');
+          if (feedEl && !feedEl.textContent) {
+            feedEl.textContent = cs.trivia_correct
+              ? '✦ Leader answered correctly'
+              : '✗ Leader answered incorrectly';
+            feedEl.style.color = cs.trivia_correct ? '#8ae08a' : '#e07070';
+          }
         }
 
-      } else if (cs.damage_after_spell !== null && !shownTrivia && !shownTriFback && !shownResult) {
-        shownTrivia = true;
+      } else if (cs && cs.damage_after_spell !== null && combatSubPhase === 'spell') {
         // Spell phase done — advance follower to trivia
-        if (combatSubPhase !== 'trivia') {
-          combatRollData = cs; // ensure roll data available
-          showTriviaPhase();
-        }
-
-      } else if ((cs.alliance_roll !== null && cs.alliance_roll !== undefined)
-                 && !shownRoll && !shownSpell && !shownTrivia && !shownResult) {
-        shownRoll = true;
         combatRollData = cs;
-        // Parse path from combat_result if available
         if (raceState.combat_result) {
-          try { combatRollData = Object.assign({}, cs, JSON.parse(raceState.combat_result)); } catch(e) {}
+          try { combatRollData = Object.assign({}, cs, JSON.parse(raceState.combat_result)); } catch(e2) {}
+        }
+        showTriviaPhase();
+
+      } else if (cs && cs.alliance_roll && combatSubPhase === 'story') {
+        // Rolls generated — show animation
+        combatRollData = cs;
+        if (raceState.combat_result) {
+          try { combatRollData = Object.assign({}, cs, JSON.parse(raceState.combat_result)); } catch(e2) {}
         }
         showRollAnimation(combatRollData);
       }
