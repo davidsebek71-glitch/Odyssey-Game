@@ -16474,15 +16474,8 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
     // ── Leader and combat_state for dice-roll combat ────────────────────────
     if (state) {
       // Lazy leader computation: if not set, compute and store now.
-      // leader_student_id column may not exist on older Railway volumes — ensure
-      // it exists before reading/writing, and fail open if anything goes wrong.
       if (!state.leader_student_id) {
         try {
-          // Ensure column exists (safe on persistent volume)
-          try {
-            run("ALTER TABLE olympus_race_state ADD COLUMN leader_student_id INTEGER DEFAULT NULL");
-          } catch(colErr) { /* column already exists — ignore */ }
-
           const presentIds = state.present_members ? JSON.parse(state.present_members) : null;
           let leaderId = getLeaderForAlliance(alliance.alliance_id, presentIds);
 
