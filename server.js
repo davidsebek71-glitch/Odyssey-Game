@@ -18126,8 +18126,11 @@ app.get('/api/olympus/spells/available', authenticateToken, (req, res) => {
     const totalDrachma = drachmaRows.reduce((s, r) => s + (r.drachma || 0), 0);
     const oracleCrafted = !!(inventoryMap[11] || inventoryMap['11']);
 
-    // Build spell list with scaled costs and affordability flags
-    const spells = Object.entries(SPELL_RECIPES).map(([idStr, spell]) => {
+    // Build spell list with scaled costs and affordability flags.
+    // Spell 11 (Oracle's Insight) is a drachma spell with no stat recipe — skip here.
+    const spells = Object.entries(SPELL_RECIPES)
+      .filter(([idStr]) => parseInt(idStr) !== 11)
+      .map(([idStr, spell]) => {
       const id = parseInt(idStr);
       const scaledRecipe = scaleRecipe(spell.recipe, memberCount);
       const affordable   = canAffordSpell(allianceStats, scaledRecipe);
