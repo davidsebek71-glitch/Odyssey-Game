@@ -2730,23 +2730,14 @@ function startCatapultAnimation() {
   var startTime = null;
 
   var FRAMES     = 4;
-  var FIRE_END   = 1800;   // arm fully released
-  var FLIGHT_END = 4200;   // projectile hits
-  var IMPACT_END = 5000;   // flash done
+  var FIRE_END   = 1800;
+  var FLIGHT_END = 4200;
+  var IMPACT_END = 5000;
 
-  // Catapult: left side, bottom-anchored
-  var catH = H * 0.40;
-  var catW = catH;          // each frame is square
-  var catX = W * 0.03;
-  var catY = H * 0.60 - catH;
-
-  // Mountain peak target (center-top of mount_olymps image)
+  // These are set in onLoaded() once we know the real sprite dimensions
+  var catH, catW, catX, catY, launchX, launchY;
   var mtX = W * 0.57;
   var mtY = H * 0.13;
-
-  // Fireball launch: arm tip at frame 3 (upper-right of sprite)
-  var launchX = catX + catW * 0.70;
-  var launchY = catY + catH * 0.07;
 
   function getFrame(t) {
     if (t < 1200) return 0;          // cocked/loaded
@@ -2841,6 +2832,20 @@ function startCatapultAnimation() {
     }
     octx.putImageData(d, 0, 0);
     catStripped = oc;
+
+    // Compute catapult size preserving the real frame aspect ratio
+    var frameW = oc.width / FRAMES;
+    var frameH = oc.height;
+    var aspect = frameW / frameH;        // e.g. ~1.2 if frames are wider than tall
+    catH = H * 0.32;                     // height on screen
+    catW = catH * aspect;                // width scaled to match real proportions
+    catX = W * 0.03;
+    catY = H * 0.82 - catH;             // bottom of catapult at 82% — on the ground
+
+    // Fireball launches from arm tip (upper-right of sprite in fire frame)
+    launchX = catX + catW * 0.70;
+    launchY = catY + catH * 0.08;
+
     requestAnimationFrame(frame);
   }
 
