@@ -1542,9 +1542,11 @@ function _getCtx()     { return _getCanvas().getContext('2d'); }
 
 // ── Entry Point ───────────────────────────────────────────────
 async function showMedeaVote() {
-  // If phase already past medea, skip cutscene entirely
+  // If phase already past medea, skip cutscene entirely.
+  // Route through routeToPhase — NOT showPathChoice directly — so the
+  // Agora gate is checked for Round 1 before showing path choice.
   if (raceState && raceState.current_phase === 'path_choice') {
-    showPathChoice(raceState.current_round);
+    routeToPhase(raceState.current_phase, raceState.current_round);
     return;
   }
 
@@ -1852,7 +1854,9 @@ async function castMedeaVote(choice) {
         '<span class="vote-committed">✓ Decided — entering the race…</span>';
       _stopCutscene();
       await loadState();
-      setTimeout(() => showPathChoice(1), 1000);
+      // Route through routeToPhase so Agora gate is checked for Round 1
+      setTimeout(() => routeToPhase(raceState ? raceState.current_phase : 'path_choice',
+                                    raceState ? raceState.current_round  : 1), 1000);
       return;
     }
 
