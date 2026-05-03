@@ -16541,13 +16541,17 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
           }
           if (cs && cs.trivia_question_id) {
             const tq = query(
-              `SELECT question_text, option_a, option_b, option_c, option_d
-               FROM battle_questions WHERE question_id=?`,
+              `SELECT * FROM battle_questions WHERE question_id=?`,
               [cs.trivia_question_id]
             )[0];
             if (tq) {
+              // battle_questions uses option_a OR answer_a depending on schema version
+              const optA = tq.option_a || tq.answer_a;
+              const optB = tq.option_b || tq.answer_b;
+              const optC = tq.option_c || tq.answer_c;
+              const optD = tq.option_d || tq.answer_d;
               // Shuffle options — correct_answer NOT included in client data
-              const opts = [tq.option_a, tq.option_b, tq.option_c, tq.option_d]
+              const opts = [optA, optB, optC, optD]
                 .filter(Boolean)
                 .sort(() => Math.random() - 0.5);
               cs.trivia_question_text = tq.question_text;
@@ -17226,12 +17230,17 @@ app.post('/api/olympus/combat-trivia', authenticateToken, (req, res) => {
 
     // correct_answer in battle_questions is a letter key ('a','b','c','d').
     // Map it to the full option text so we can compare against what the client sent.
+    // Support both option_a and answer_a column naming conventions.
     const correctOptionText = qRow ? (() => {
       const key = (qRow.correct_answer || '').trim().toLowerCase();
-      return key === 'a' ? qRow.option_a
-           : key === 'b' ? qRow.option_b
-           : key === 'c' ? qRow.option_c
-           : key === 'd' ? qRow.option_d
+      const optA = qRow.option_a || qRow.answer_a;
+      const optB = qRow.option_b || qRow.answer_b;
+      const optC = qRow.option_c || qRow.answer_c;
+      const optD = qRow.option_d || qRow.answer_d;
+      return key === 'a' ? optA
+           : key === 'b' ? optB
+           : key === 'c' ? optC
+           : key === 'd' ? optD
            : null;
     })() : null;
 
