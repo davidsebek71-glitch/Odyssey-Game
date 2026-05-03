@@ -16545,13 +16545,8 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
               [cs.trivia_question_id]
             )[0];
             if (tq) {
-              // battle_questions uses option_a OR answer_a depending on schema version
-              const optA = tq.option_a || tq.answer_a;
-              const optB = tq.option_b || tq.answer_b;
-              const optC = tq.option_c || tq.answer_c;
-              const optD = tq.option_d || tq.answer_d;
-              // Shuffle options — correct_answer NOT included in client data
-              const opts = [optA, optB, optC, optD]
+              // battle_questions schema: correct_answer (full text) + wrong_answer_1/2/3
+              const opts = [tq.correct_answer, tq.wrong_answer_1, tq.wrong_answer_2, tq.wrong_answer_3]
                 .filter(Boolean)
                 .sort(() => Math.random() - 0.5);
               cs.trivia_question_text = tq.question_text;
@@ -17228,24 +17223,11 @@ app.post('/api/olympus/combat-trivia', authenticateToken, (req, res) => {
       ? query(`SELECT * FROM battle_questions WHERE question_id=?`, [cs.trivia_question_id])[0]
       : null;
 
-    // correct_answer in battle_questions is a letter key ('a','b','c','d').
-    // Map it to the full option text so we can compare against what the client sent.
-    // Support both option_a and answer_a column naming conventions.
-    const correctOptionText = qRow ? (() => {
-      const key = (qRow.correct_answer || '').trim().toLowerCase();
-      const optA = qRow.option_a || qRow.answer_a;
-      const optB = qRow.option_b || qRow.answer_b;
-      const optC = qRow.option_c || qRow.answer_c;
-      const optD = qRow.option_d || qRow.answer_d;
-      return key === 'a' ? optA
-           : key === 'b' ? optB
-           : key === 'c' ? optC
-           : key === 'd' ? optD
-           : null;
-    })() : null;
-
+    // battle_questions schema: correct_answer is the full answer text (not a letter key).
+    // Compare submitted answer text directly against it.
     const isCorrect = !!(answer !== null && answer !== undefined &&
-      correctOptionText && answer.trim().toLowerCase() === correctOptionText.trim().toLowerCase());
+      qRow && qRow.correct_answer &&
+      answer.trim().toLowerCase() === qRow.correct_answer.trim().toLowerCase());
 
     // Base damage: after spell (or raw if spell skipped)
     const baseDamage     = cs.damage_after_spell !== null ? cs.damage_after_spell : cs.raw_damage;
@@ -17294,7 +17276,7 @@ app.post('/api/olympus/combat-trivia', authenticateToken, (req, res) => {
 
     res.json({
       trivia_correct:      isCorrect,
-      correct_answer:      isCorrect ? null : (correctOptionText || null),
+      correct_answer:      isCorrect ? null : (qRow ? qRow.correct_answer : null),
       damage_after_trivia: damageAfterTrivia,
       bonus_points:        bonusPoints,
       alliance_won:        allianceWon
