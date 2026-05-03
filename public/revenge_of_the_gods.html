@@ -1256,20 +1256,21 @@ function routeToPhase(phase, round) {
       break;
 
     case 'puzzle':
-      // Always show the stored combat result — box URL system replaces puzzle_room.
+      // Show the combat result screen which contains the box URL link.
+      // Uses showCombatResult (new dice system) — not the old displayCombatResult.
       if (raceState && raceState.combat_result) {
         try {
           const stored = JSON.parse(raceState.combat_result);
           showScreen('combat');
-          document.getElementById('combat-story-phase').style.display = 'none';
-          document.getElementById('combat-result-phase').style.display = 'flex';
-          displayCombatResult(stored);
+          showCombatResult(stored);
           history.replaceState(null, '', window.location.pathname);
         } catch(e) {
           showWaiting('Visit the Locked Box', 'Check your result screen to find the box URL.', phase);
+          startPolling();
         }
       } else {
-        showWaiting('Visit the Locked Box', 'Your alliance must complete the combat wave first.', phase);
+        showWaiting('Visit the Locked Box', 'Waiting for combat to complete…', phase);
+        startPolling();
       }
       break;
 

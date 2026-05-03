@@ -15668,6 +15668,15 @@ app.get('/api/teacher/heroic-chapter-progress', authenticateToken, (req, res) =>
 // Round 1: 25%  Round 2: 50%  Round 3: 75%  Round 4: 100%  Round 5: 125%
 const ROUND_FACTORS = { 1: 0.25, 2: 0.50, 3: 0.75, 4: 1.00, 5: 1.25 };
 
+// ── Puzzle box URLs — one per round (linked to Google Forms puzzle boxes) ─────
+const BOX_URLS = {
+  1: 'https://t.ly/LtCM',
+  2: 'https://t.ly/GzUj',
+  3: 'https://t.ly/7PAl',
+  4: 'https://t.ly/SIsm',
+  5: 'https://bit.ly/3QnnCyI'
+};
+
 // ── Leader determination ───────────────────────────────────────────────────────
 // Returns the student_id of the alliance member who has contributed the most
 // points (positive transactions). Called when combat-ready resolves; stored as
@@ -16862,7 +16871,8 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
         path,
         points_before: alliance.total_points,
         points_deducted: 0,
-        points_after: alliance.total_points
+        points_after: alliance.total_points,
+        box_url: BOX_URLS[round] || null
       };
       run(
         `UPDATE olympus_race_state
@@ -17368,6 +17378,7 @@ app.post('/api/olympus/combat-finalize', authenticateToken, (req, res) => {
       phoenix_triggered:   phoenixTriggered,
       hades_triggered:     hadesTriggered,
       next_phase:          nextPhase,
+      box_url:             BOX_URLS[state.current_round] || null,
       resolved:            true
     };
 
