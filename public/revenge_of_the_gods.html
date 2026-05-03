@@ -2645,13 +2645,18 @@ async function showCombat(round) {
       .then(function(r) { return r.json(); })
       .then(function(d) {
         var statusEl = document.getElementById('combat-ready-status');
-        if (statusEl && d.waiting) {
+        if (statusEl) {
           statusEl.style.display = 'block';
           statusEl.textContent = 'Registered — waiting for your leader to roll…';
         }
+        // Start polling immediately so follower detects when rolls are generated
+        // and advances through sub-phases without any clicks.
+        startPolling();
       })
-      .catch(function(e) { console.warn('follower combat-ready failed:', e.message); });
-    startPolling(); // ensure followers are polling for roll results
+      .catch(function(e) {
+        console.warn('follower combat-ready failed:', e.message);
+        startPolling(); // still poll even if registration failed
+      });
   }
 
   // Populate the points bar — shows alliance pts vs god's attack value
@@ -2984,10 +2989,15 @@ async function showTriviaPhase() {
   var isLeader = raceState && raceState.is_leader;
   var cs = raceState && raceState.combat_state;
 
-  // Ensure fresh combat_state with trivia question text
-  if (!cs || !cs.trivia_question_text) {
-    var data = await loadState();
+  // Ensure fresh combat_state with trivia question text.
+  // Retry up to 3 times with a 1s delay — the state endpoint may not have
+  // populated trivia_question_text yet if called immediately after skipSpell.
+  var retries = 0;
+  while ((!cs || !cs.trivia_question_text) && retries < 3) {
+    await new Promise(function(r) { setTimeout(r, 1000); });
+    await loadState();
     cs = raceState && raceState.combat_state;
+    retries++;
   }
 
   var won = cs ? !!cs.alliance_won : (combatRollData ? !!combatRollData.alliance_won : false);
@@ -2998,21 +3008,27 @@ async function showTriviaPhase() {
   var alliancePoints = allianceData ? (allianceData.total_points || 0) : 0;
 
   if (won) {
-    ctxEl.textContent   = '⚡ Heroic Action!';
-    ctxEl.className     = 'trivia-context heroic';
-    stakeEl.textContent = 'Answer correctly for +'
-      + Math.floor(alliancePoints * 0.03).toLocaleString() + ' pts bonus. Wrong = −'
-      + Math.floor(alliancePoints * 0.05).toLocaleString() + ' pts.';
+    ctxEl.innerHTML  = '⚡ HEROIC ACTION';
+    ctxEl.className  = 'trivia-context heroic';
+    stakeEl.innerHTML =
+      'Your alliance won the battle! Now prove your knowledge.<br>' +
+      '<strong style="color:#f0d060;">Correct answer: +'
+      + Math.floor(alliancePoints * 0.03).toLocaleString() + ' bonus pts</strong>' +
+      ' &nbsp;|&nbsp; Wrong answer: −'
+      + Math.floor(alliancePoints * 0.05).toLocaleString() + ' pts penalty';
   } else {
     var baseDmg = cs
       ? (cs.damage_after_spell !== null ? cs.damage_after_spell : cs.raw_damage)
       : (combatRollData ? combatRollData.raw_damage : 0);
-    ctxEl.textContent   = '🛡 Defend Your Alliance';
-    ctxEl.className     = 'trivia-context defend';
-    stakeEl.textContent = 'Correct → damage reduced from '
-      + (baseDmg || 0).toLocaleString() + ' to '
-      + Math.floor((baseDmg || 0) * 0.80).toLocaleString()
-      + ' pts. Wrong → ' + Math.floor((baseDmg || 0) * 1.05).toLocaleString() + ' pts.';
+    ctxEl.innerHTML  = '🛡 KNOWLEDGE IS YOUR SHIELD';
+    ctxEl.className  = 'trivia-context defend';
+    stakeEl.innerHTML =
+      'The god struck for <strong style="color:#e07070;">'
+      + (baseDmg || 0).toLocaleString() + ' pts</strong> damage.<br>'
+      + 'Answer correctly to reduce it to <strong style="color:#f0d060;">'
+      + Math.floor((baseDmg || 0) * 0.80).toLocaleString() + ' pts</strong>'
+      + ' — or answer wrong and take <strong style="color:#e07070;">'
+      + Math.floor((baseDmg || 0) * 1.05).toLocaleString() + ' pts</strong>.';
   }
 
   // Question and options
