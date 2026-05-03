@@ -2723,195 +2723,98 @@ function startCatapultAnimation() {
   canvas.height = canvas.offsetHeight || window.innerHeight;
   var W = canvas.width, H = canvas.height;
 
-  // Seeded pseudo-random for static stars
-  var seed = 42;
-  function rand() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  var bgImg  = new Image();
+  var catImg = new Image();
+  var loaded = 0;
+  var catStripped = null;
+  var startTime = null;
 
-  // Pre-generate stars
-  var stars = [];
-  for (var i = 0; i < 100; i++) {
-    stars.push({ x: rand() * W, y: rand() * H * 0.75, r: rand() > 0.8 ? 1.5 : 0.8, a: 0.4 + rand() * 0.6 });
-  }
+  var FRAMES     = 4;
+  var FIRE_END   = 1800;   // arm fully released
+  var FLIGHT_END = 4200;   // projectile hits
+  var IMPACT_END = 5000;   // flash done
 
-  var P = Math.max(3, Math.floor(W / 160)); // pixel block size — scales with screen width
-  var pivotX = W * 0.22, pivotY = H * 0.66;
-  var armLen = 18 * P;
+  // Catapult: left side, bottom-anchored
+  var catH = H * 0.40;
+  var catW = catH;          // each frame is square
+  var catX = W * 0.03;
+  var catY = H * 0.60 - catH;
 
-  function getArmTip(angle) {
-    return { x: pivotX + Math.sin(angle) * armLen, y: pivotY - Math.cos(angle) * armLen };
-  }
+  // Mountain peak target (center-top of mount_olymps image)
+  var mtX = W * 0.57;
+  var mtY = H * 0.13;
 
-  var mtX = W * 0.74, mtTop = H * 0.14, mtBase = H * 0.9, mtW = W * 0.38;
+  // Fireball launch: arm tip at frame 3 (upper-right of sprite)
+  var launchX = catX + catW * 0.70;
+  var launchY = catY + catH * 0.07;
 
-  function drawBg() {
-    // Sky gradient
-    var sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0,   '#050212');
-    sky.addColorStop(0.5, '#0c0520');
-    sky.addColorStop(1,   '#1a0a00');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
-    // Stars
-    stars.forEach(function(s) {
-      ctx.globalAlpha = s.a;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(Math.round(s.x), Math.round(s.y), s.r < 1 ? 1 : 2, s.r < 1 ? 1 : 2);
-    });
-    ctx.globalAlpha = 1;
-  }
-
-  function drawMountain() {
-    // Mountain body
-    ctx.fillStyle = '#110830';
-    ctx.beginPath();
-    ctx.moveTo(mtX - mtW * 0.5, mtBase);
-    ctx.lineTo(mtX - mtW * 0.28, mtTop + H * 0.18);
-    ctx.lineTo(mtX - mtW * 0.08, mtTop + H * 0.06);
-    ctx.lineTo(mtX,              mtTop);
-    ctx.lineTo(mtX + mtW * 0.09, mtTop + H * 0.07);
-    ctx.lineTo(mtX + mtW * 0.22, mtTop + H * 0.14);
-    ctx.lineTo(mtX + mtW * 0.5,  mtBase);
-    ctx.closePath();
-    ctx.fill();
-    // Snow/glow cap
-    ctx.fillStyle = 'rgba(180,160,255,0.12)';
-    ctx.beginPath();
-    ctx.moveTo(mtX - mtW * 0.09, mtTop + H * 0.05);
-    ctx.lineTo(mtX,              mtTop);
-    ctx.lineTo(mtX + mtW * 0.09, mtTop + H * 0.06);
-    ctx.lineTo(mtX,              mtTop + H * 0.09);
-    ctx.closePath();
-    ctx.fill();
-    // Temple silhouette at peak
-    var tx = mtX, ty = mtTop - P * 2;
-    ctx.fillStyle = 'rgba(200,180,255,0.25)';
-    for (var c = -3; c <= 3; c += 2) {
-      ctx.fillRect(tx + c * P - Math.floor(P / 2), ty - 9 * P, P, 9 * P);
-    }
-    ctx.beginPath();
-    ctx.moveTo(tx - 5 * P, ty - 9 * P);
-    ctx.lineTo(tx,         ty - 13 * P);
-    ctx.lineTo(tx + 5 * P, ty - 9 * P);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  function drawCatapult(angle) {
-    var px = pivotX, py = pivotY;
-    // Base beam
-    ctx.fillStyle = '#5a3010';
-    ctx.fillRect(px - 14 * P, py + 2 * P, 28 * P, 3 * P);
-    // Wheels
-    [px - 9 * P, px + 9 * P].forEach(function(wx) {
-      ctx.fillStyle = '#2a1208';
-      ctx.beginPath(); ctx.arc(wx, py + 5 * P, 3 * P, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#7a4020'; ctx.lineWidth = P * 0.6;
-      ctx.beginPath(); ctx.arc(wx, py + 5 * P, 3 * P, 0, Math.PI * 2); ctx.stroke();
-      // Spokes
-      ctx.strokeStyle = '#5a3010'; ctx.lineWidth = Math.max(1, P * 0.4);
-      for (var sp = 0; sp < 4; sp++) {
-        var sa = sp * Math.PI / 2;
-        ctx.beginPath();
-        ctx.moveTo(wx, py + 5 * P);
-        ctx.lineTo(wx + Math.cos(sa) * 3 * P, py + 5 * P + Math.sin(sa) * 3 * P);
-        ctx.stroke();
-      }
-    });
-    // Frame uprights
-    ctx.fillStyle = '#7a4820';
-    ctx.fillRect(px - 3 * P, py - 7 * P, 2 * P, 9 * P);
-    ctx.fillRect(px + P,     py - 7 * P, 2 * P, 9 * P);
-    // Arm (rotates)
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(angle);
-    ctx.fillStyle = '#8B5E2C';
-    ctx.fillRect(-Math.ceil(P / 2), -armLen, P, armLen + 6 * P);
-    // Bucket at launch tip
-    ctx.fillStyle = '#3a2010';
-    ctx.fillRect(-2 * P, -armLen - P, 4 * P, 3 * P);
-    // Counterweight
-    ctx.fillStyle = '#666';
-    ctx.fillRect(-2 * P, 5 * P, 4 * P, 4 * P);
-    ctx.restore();
-    // Pivot pin
-    ctx.fillStyle = '#bbb';
-    ctx.beginPath(); ctx.arc(px, py, P, 0, Math.PI * 2); ctx.fill();
+  function getFrame(t) {
+    if (t < 1200) return 0;          // cocked/loaded
+    if (t < 1450) return 1;          // mid-swing
+    if (t < 1650) return 2;          // arm up
+    return 3;                         // released
   }
 
   function drawFireball(x, y) {
-    var r = P * 1.8;
-    var grd = ctx.createRadialGradient(x, y, 0, x, y, r * 3.5);
-    grd.addColorStop(0,   'rgba(255,240,180,1)');
-    grd.addColorStop(0.3, 'rgba(255,140,20,0.8)');
-    grd.addColorStop(1,   'rgba(255,60,0,0)');
-    ctx.fillStyle = grd;
-    ctx.beginPath(); ctx.arc(x, y, r * 3.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff8e0';
+    var r = Math.max(7, H * 0.022);
+    var g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
+    g.addColorStop(0,   'rgba(255,245,190,1)');
+    g.addColorStop(0.35,'rgba(255,140,20,0.85)');
+    g.addColorStop(1,   'rgba(255,50,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r * 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fffce8';
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
 
   function drawImpact(alpha) {
     if (alpha <= 0) return;
-    var r = H * 0.18 * (1 + (1 - alpha));
-    var grd = ctx.createRadialGradient(mtX, mtTop, 0, mtX, mtTop, r);
-    grd.addColorStop(0,   `rgba(255,230,100,${alpha * 0.9})`);
-    grd.addColorStop(0.5, `rgba(255,120,20,${alpha * 0.5})`);
-    grd.addColorStop(1,   'rgba(255,60,0,0)');
-    ctx.fillStyle = grd;
-    ctx.beginPath(); ctx.arc(mtX, mtTop, r, 0, Math.PI * 2); ctx.fill();
-    // Screen wash
-    ctx.fillStyle = `rgba(255,200,50,${alpha * 0.15})`;
+    var r = H * 0.15 * (2 - alpha);
+    var g = ctx.createRadialGradient(mtX, mtY, 0, mtX, mtY, r);
+    g.addColorStop(0,   `rgba(255,235,100,${alpha})`);
+    g.addColorStop(0.5, `rgba(255,110,20,${alpha * 0.55})`);
+    g.addColorStop(1,   'rgba(255,40,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(mtX, mtY, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(255,210,60,${alpha * 0.18})`;
     ctx.fillRect(0, 0, W, H);
   }
-
-  var startTime = null;
-  var LOAD_END   = 1200;  // arm cocked
-  var FIRE_END   = 1800;  // arm swings (600ms)
-  var FLIGHT_END = 4200;  // projectile in air (2400ms)
-  var IMPACT_END = 5000;  // flash (800ms)
-  var LOADED_ANGLE = -Math.PI * 0.7;
-  var FIRED_ANGLE  =  Math.PI * 0.28;
 
   function frame(ts) {
     if (!startTime) startTime = ts;
     var t = ts - startTime;
-    W = canvas.width; H = canvas.height;
     ctx.clearRect(0, 0, W, H);
 
-    drawBg();
-    drawMountain();
-
-    var angle = LOADED_ANGLE;
-    if (t > LOAD_END && t <= FIRE_END) {
-      var fp = (t - LOAD_END) / (FIRE_END - LOAD_END);
-      // Ease-out: fast start, decelerates (pow gives snap feel)
-      angle = LOADED_ANGLE + (FIRED_ANGLE - LOADED_ANGLE) * Math.pow(fp, 0.4);
-    } else if (t > FIRE_END) {
-      angle = FIRED_ANGLE;
+    // Background
+    if (bgImg.complete && bgImg.naturalWidth) {
+      ctx.drawImage(bgImg, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#060220'; ctx.fillRect(0, 0, W, H);
     }
 
-    drawCatapult(angle);
+    // Catapult sprite — cycle frames
+    if (catStripped) {
+      var fn = getFrame(t);
+      var fw = Math.floor(catStripped.width / FRAMES);
+      ctx.drawImage(catStripped, fn * fw, 0, fw, catStripped.height, catX, catY, catW, catH);
+    }
 
+    // Fireball arc
     if (t > FIRE_END && t <= FLIGHT_END) {
-      var fp2 = (t - FIRE_END) / (FLIGHT_END - FIRE_END);
-      var firedTip = getArmTip(FIRED_ANGLE);
-      var sx = firedTip.x, sy = firedTip.y;
-      var ex = mtX, ey = mtTop;
-      var bx = sx + (ex - sx) * fp2;
-      var by = sy + (ey - sy) * fp2 - H * 0.28 * Math.sin(Math.PI * fp2);
+      var fp = (t - FIRE_END) / (FLIGHT_END - FIRE_END);
+      var bx = launchX + (mtX - launchX) * fp;
+      var by = launchY + (mtY - launchY) * fp - H * 0.30 * Math.sin(Math.PI * fp);
       drawFireball(bx, by);
     }
 
+    // Impact flash
     if (t > FLIGHT_END && t <= IMPACT_END) {
-      var ia = 1 - (t - FLIGHT_END) / (IMPACT_END - FLIGHT_END);
-      drawImpact(ia);
+      drawImpact(1 - (t - FLIGHT_END) / (IMPACT_END - FLIGHT_END));
     }
 
     if (t < IMPACT_END) {
       requestAnimationFrame(frame);
     } else {
-      // Fade in victory text overlay
       var overlay = document.getElementById('victory-text-overlay');
       if (overlay) {
         overlay.style.display = 'flex';
@@ -2924,7 +2827,30 @@ function startCatapultAnimation() {
     }
   }
 
-  requestAnimationFrame(frame);
+  function onLoaded() {
+    loaded++;
+    if (loaded < 2) return;
+    // Strip magenta from catapult sprite sheet
+    var oc = document.createElement('canvas');
+    oc.width = catImg.naturalWidth; oc.height = catImg.naturalHeight;
+    var octx = oc.getContext('2d');
+    octx.drawImage(catImg, 0, 0);
+    var d = octx.getImageData(0, 0, oc.width, oc.height);
+    for (var i = 0; i < d.data.length; i += 4) {
+      if (d.data[i] > 150 && d.data[i+2] > 150 && d.data[i+1] < 80) d.data[i+3] = 0;
+    }
+    octx.putImageData(d, 0, 0);
+    catStripped = oc;
+    requestAnimationFrame(frame);
+  }
+
+  bgImg.onload  = onLoaded;
+  catImg.onload = onLoaded;
+  bgImg.onerror = onLoaded;   // if bg fails, still animate with catapult
+  catImg.onerror = onLoaded;  // if catapult fails, still show background
+
+  bgImg.src  = '/images/Revenge of the Gods/UI/mount_olymps.png';
+  catImg.src = '/images/Revenge of the Gods/UI/catapult.png';
 }
 
 // ── safeCombatAdvance — safe path skips combat entirely ──────────────────────
