@@ -18324,7 +18324,25 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_godtest_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_round_unlock_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_combat_wave_session WHERE alliance_id=?`, [id]);
-      run(`DELETE FROM olympus_combat_state WHERE alliance_id=?`, [id]);
+      // olympus_combat_state may not exist on older Railway DB volumes — create it
+      // if missing, then delete. Wrapping in try-catch prevents reset from crashing.
+      try {
+        run(`CREATE TABLE IF NOT EXISTS olympus_combat_state (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          alliance_id INTEGER NOT NULL, round_number INTEGER NOT NULL,
+          alliance_roll_max INTEGER NOT NULL DEFAULT 0, god_roll_max INTEGER NOT NULL DEFAULT 0,
+          alliance_roll INTEGER NOT NULL DEFAULT 0, god_roll INTEGER NOT NULL DEFAULT 0,
+          alliance_reroll INTEGER DEFAULT NULL, raw_damage INTEGER NOT NULL DEFAULT 0,
+          alliance_won INTEGER NOT NULL DEFAULT 0, spell_applied INTEGER DEFAULT NULL,
+          damage_after_spell INTEGER DEFAULT NULL, trivia_question_id INTEGER DEFAULT NULL,
+          trivia_answered INTEGER DEFAULT 0, trivia_correct INTEGER DEFAULT NULL,
+          damage_after_trivia INTEGER DEFAULT NULL, bonus_points INTEGER DEFAULT 0,
+          final_damage INTEGER DEFAULT NULL, resolved INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (alliance_id, round_number)
+        )`);
+        run(`DELETE FROM olympus_combat_state WHERE alliance_id=?`, [id]);
+      } catch(e2) { console.log('olympus_combat_state reset skipped:', e2.message); }
       run(`DELETE FROM olympus_inventory WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_agora_students WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
