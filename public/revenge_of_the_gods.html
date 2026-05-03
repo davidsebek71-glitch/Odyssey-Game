@@ -2895,7 +2895,7 @@ async function showSpellPhase() {
     var res = await fetch('/api/olympus/spells/inventory', { headers: H });
     if (res.ok) {
       var inv = await res.json();
-      spells = (inv.spells || []).filter(function(s) { return !s.used; });
+      spells = (inv.inventory || []).filter(function(s) { return !s.used; });
     }
   } catch(e) { /* non-fatal */ }
 

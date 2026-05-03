@@ -300,6 +300,21 @@ initDatabase().then(() => {
       }
     } catch(e) { console.log('medea_help_count migration skipped:', e.message); }
 
+    // PRAGMA migration: add trivia_question_id to olympus_combat_state if the table
+    // predates that column (CREATE TABLE IF NOT EXISTS does not add new columns).
+    try {
+      const combatCols = query("PRAGMA table_info(olympus_combat_state)");
+      const combatColNames = combatCols.map(c => c.name);
+      if (!combatColNames.includes('trivia_question_id')) {
+        run("ALTER TABLE olympus_combat_state ADD COLUMN trivia_question_id INTEGER DEFAULT NULL");
+        console.log('⚡ Added trivia_question_id to olympus_combat_state');
+      }
+      if (!combatColNames.includes('damage_after_spell')) {
+        run("ALTER TABLE olympus_combat_state ADD COLUMN damage_after_spell INTEGER DEFAULT NULL");
+        console.log('⚡ Added damage_after_spell to olympus_combat_state');
+      }
+    } catch(e) { console.log('olympus_combat_state migration skipped:', e.message); }
+
     saveDatabase();
     console.log('⚡ Olympus god test tables ensured');
   } catch (e) {
@@ -16540,7 +16555,7 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
             }
           }
           state.combat_state = cs;
-        } catch(e) { state.combat_state = null; }
+        } catch(e) { console.error('combat_state build error:', e.message, e.stack); state.combat_state = null; }
       }
     }
 
@@ -17209,8 +17224,19 @@ app.post('/api/olympus/combat-trivia', authenticateToken, (req, res) => {
       ? query(`SELECT * FROM battle_questions WHERE question_id=?`, [cs.trivia_question_id])[0]
       : null;
 
+    // correct_answer in battle_questions is a letter key ('a','b','c','d').
+    // Map it to the full option text so we can compare against what the client sent.
+    const correctOptionText = qRow ? (() => {
+      const key = (qRow.correct_answer || '').trim().toLowerCase();
+      return key === 'a' ? qRow.option_a
+           : key === 'b' ? qRow.option_b
+           : key === 'c' ? qRow.option_c
+           : key === 'd' ? qRow.option_d
+           : null;
+    })() : null;
+
     const isCorrect = !!(answer !== null && answer !== undefined &&
-      qRow && answer.trim().toLowerCase() === qRow.correct_answer.trim().toLowerCase());
+      correctOptionText && answer.trim().toLowerCase() === correctOptionText.trim().toLowerCase());
 
     // Base damage: after spell (or raw if spell skipped)
     const baseDamage     = cs.damage_after_spell !== null ? cs.damage_after_spell : cs.raw_damage;
@@ -17259,7 +17285,7 @@ app.post('/api/olympus/combat-trivia', authenticateToken, (req, res) => {
 
     res.json({
       trivia_correct:      isCorrect,
-      correct_answer:      isCorrect ? null : (qRow ? qRow.correct_answer : null),
+      correct_answer:      isCorrect ? null : (correctOptionText || null),
       damage_after_trivia: damageAfterTrivia,
       bonus_points:        bonusPoints,
       alliance_won:        allianceWon
