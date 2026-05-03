@@ -2837,10 +2837,10 @@ function startCatapultAnimation() {
     var frameW = oc.width / FRAMES;
     var frameH = oc.height;
     var aspect = frameW / frameH;        // e.g. ~1.2 if frames are wider than tall
-    catH = H * 0.32;                     // height on screen
-    catW = catH * aspect;                // width scaled to match real proportions
+    catH = H * 0.64;                     // 2× bigger
+    catW = catH * aspect;
     catX = W * 0.03;
-    catY = H * 0.82 - catH;             // bottom of catapult at 82% — on the ground
+    catY = H * 0.92 - catH;             // bottom at 92% — on the ground
 
     // Fireball launches from arm tip (upper-right of sprite in fire frame)
     launchX = catX + catW * 0.70;
