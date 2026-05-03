@@ -1056,24 +1056,35 @@
 </div>
 
 <!-- ══ SCREEN: VICTORY ════════════════════════════════════════════════════ -->
-<div class="screen" id="screen-victory" style="align-items:center;justify-content:center;">
-  <div class="waiting-card" style="background:linear-gradient(160deg,#0a0800,#1a1200);
-       border-color:rgba(184,134,11,0.35);max-width:580px;padding:50px 40px;">
-    <div style="font-size:3rem;margin-bottom:16px;">⚡</div>
-    <div style="font-family:'Cinzel',serif;font-size:0.72rem;color:var(--stone);
-         letter-spacing:0.3em;text-transform:uppercase;margin-bottom:10px;">The Gods Have Fallen</div>
-    <div class="gold-divider" style="margin:0 auto 20px;"></div>
+<div class="screen" id="screen-victory" style="position:relative;overflow:hidden;background:#000;">
+  <canvas id="victory-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;display:block;"></canvas>
+  <div id="victory-text-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;
+       display:none;flex-direction:column;align-items:center;justify-content:center;
+       pointer-events:none;padding:20px;box-sizing:border-box;">
+    <div style="font-family:'Cinzel',serif;font-size:1rem;color:rgba(220,190,140,0.9);
+         letter-spacing:0.35em;text-transform:uppercase;margin-bottom:14px;text-shadow:0 0 20px rgba(255,200,50,0.6);">
+      The Gods Have Fallen
+    </div>
+    <div style="width:120px;height:1px;background:linear-gradient(90deg,transparent,rgba(184,134,11,0.8),transparent);
+         margin:0 auto 20px;"></div>
     <div id="victory-alliance-name" style="font-family:'Cinzel Decorative',serif;
-         font-size:1.5rem;color:var(--pale-gold);margin-bottom:12px;"></div>
-    <div style="font-family:'IM Fell English',serif;font-size:1rem;color:var(--stone);
-         margin-bottom:28px;font-style:italic;line-height:1.7;">
+         font-size:2.6rem;color:#ffe566;margin-bottom:16px;text-align:center;
+         text-shadow:0 0 30px rgba(255,220,50,0.9),0 0 60px rgba(255,160,0,0.5);
+         letter-spacing:0.04em;line-height:1.2;"></div>
+    <div style="font-family:'IM Fell English',serif;font-size:1.3rem;color:rgba(220,200,160,0.95);
+         margin-bottom:32px;font-style:italic;line-height:1.8;text-align:center;
+         text-shadow:0 0 12px rgba(255,200,100,0.4);">
       has cracked the final code.<br>The God Destroyer awaits.
     </div>
-    <div style="font-family:'Cinzel Decorative',serif;font-size:1.7rem;color:var(--bright-gold);
-         letter-spacing:0.06em;margin-bottom:32px;">May the Battle Begin.</div>
-    <div style="font-family:'Cinzel',serif;font-size:0.68rem;color:var(--stone);
-         letter-spacing:0.25em;text-transform:uppercase;
-         border:1px solid rgba(184,134,11,0.2);padding:10px 20px;border-radius:4px;">
+    <div style="font-family:'Cinzel Decorative',serif;font-size:2.2rem;color:#fff0a0;
+         letter-spacing:0.08em;margin-bottom:36px;
+         text-shadow:0 0 25px rgba(255,230,80,1),0 0 50px rgba(255,160,0,0.7);">
+      May the Battle Begin.
+    </div>
+    <div style="font-family:'Cinzel',serif;font-size:0.78rem;color:rgba(220,190,140,0.8);
+         letter-spacing:0.28em;text-transform:uppercase;
+         border:1px solid rgba(184,134,11,0.4);padding:12px 24px;border-radius:4px;
+         text-shadow:none;background:rgba(0,0,0,0.5);">
       See your teacher to claim your catapult materials
     </div>
   </div>
@@ -2159,7 +2170,7 @@ function showPathsError(msg) {
 }
 
 // Matches server-side ROUND_FACTORS — used to compute god_roll_max for display
-const ROUND_FACTORS = { 1: 0.25, 2: 0.50, 3: 0.75, 4: 1.00, 5: 1.25 };
+const ROUND_FACTORS = { 1: 0.35, 2: 0.60, 3: 0.85, 4: 1.10, 5: 1.35 };
 
 // ═══════════════════════════════════════════════════
 // COMBAT — Full PDF narrative per path
@@ -2695,12 +2706,225 @@ async function showCombat(round) {
   }
 }
 
-// ── showVictory — final completion placeholder ────────────────────────────────
+// ── showVictory — canvas catapult animation ───────────────────────────────────
 function showVictory() {
   stopPolling();
-  var name = allianceData ? (allianceData.name || allianceData.alliance_name || 'Your Alliance') : 'Your Alliance';
-  document.getElementById('victory-alliance-name').textContent = name;
+  var allianceName = allianceData ? (allianceData.name || allianceData.alliance_name || 'Your Alliance') : 'Your Alliance';
+  document.getElementById('victory-alliance-name').textContent = allianceName;
   showScreen('victory');
+  setTimeout(function() { startCatapultAnimation(); }, 80);
+}
+
+function startCatapultAnimation() {
+  var canvas = document.getElementById('victory-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth  || window.innerWidth;
+  canvas.height = canvas.offsetHeight || window.innerHeight;
+  var W = canvas.width, H = canvas.height;
+
+  // Seeded pseudo-random for static stars
+  var seed = 42;
+  function rand() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+
+  // Pre-generate stars
+  var stars = [];
+  for (var i = 0; i < 100; i++) {
+    stars.push({ x: rand() * W, y: rand() * H * 0.75, r: rand() > 0.8 ? 1.5 : 0.8, a: 0.4 + rand() * 0.6 });
+  }
+
+  var P = Math.max(3, Math.floor(W / 160)); // pixel block size — scales with screen width
+  var pivotX = W * 0.22, pivotY = H * 0.66;
+  var armLen = 18 * P;
+
+  function getArmTip(angle) {
+    return { x: pivotX + Math.sin(angle) * armLen, y: pivotY - Math.cos(angle) * armLen };
+  }
+
+  var mtX = W * 0.74, mtTop = H * 0.14, mtBase = H * 0.9, mtW = W * 0.38;
+
+  function drawBg() {
+    // Sky gradient
+    var sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0,   '#050212');
+    sky.addColorStop(0.5, '#0c0520');
+    sky.addColorStop(1,   '#1a0a00');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+    // Stars
+    stars.forEach(function(s) {
+      ctx.globalAlpha = s.a;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(Math.round(s.x), Math.round(s.y), s.r < 1 ? 1 : 2, s.r < 1 ? 1 : 2);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMountain() {
+    // Mountain body
+    ctx.fillStyle = '#110830';
+    ctx.beginPath();
+    ctx.moveTo(mtX - mtW * 0.5, mtBase);
+    ctx.lineTo(mtX - mtW * 0.28, mtTop + H * 0.18);
+    ctx.lineTo(mtX - mtW * 0.08, mtTop + H * 0.06);
+    ctx.lineTo(mtX,              mtTop);
+    ctx.lineTo(mtX + mtW * 0.09, mtTop + H * 0.07);
+    ctx.lineTo(mtX + mtW * 0.22, mtTop + H * 0.14);
+    ctx.lineTo(mtX + mtW * 0.5,  mtBase);
+    ctx.closePath();
+    ctx.fill();
+    // Snow/glow cap
+    ctx.fillStyle = 'rgba(180,160,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(mtX - mtW * 0.09, mtTop + H * 0.05);
+    ctx.lineTo(mtX,              mtTop);
+    ctx.lineTo(mtX + mtW * 0.09, mtTop + H * 0.06);
+    ctx.lineTo(mtX,              mtTop + H * 0.09);
+    ctx.closePath();
+    ctx.fill();
+    // Temple silhouette at peak
+    var tx = mtX, ty = mtTop - P * 2;
+    ctx.fillStyle = 'rgba(200,180,255,0.25)';
+    for (var c = -3; c <= 3; c += 2) {
+      ctx.fillRect(tx + c * P - Math.floor(P / 2), ty - 9 * P, P, 9 * P);
+    }
+    ctx.beginPath();
+    ctx.moveTo(tx - 5 * P, ty - 9 * P);
+    ctx.lineTo(tx,         ty - 13 * P);
+    ctx.lineTo(tx + 5 * P, ty - 9 * P);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawCatapult(angle) {
+    var px = pivotX, py = pivotY;
+    // Base beam
+    ctx.fillStyle = '#5a3010';
+    ctx.fillRect(px - 14 * P, py + 2 * P, 28 * P, 3 * P);
+    // Wheels
+    [px - 9 * P, px + 9 * P].forEach(function(wx) {
+      ctx.fillStyle = '#2a1208';
+      ctx.beginPath(); ctx.arc(wx, py + 5 * P, 3 * P, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#7a4020'; ctx.lineWidth = P * 0.6;
+      ctx.beginPath(); ctx.arc(wx, py + 5 * P, 3 * P, 0, Math.PI * 2); ctx.stroke();
+      // Spokes
+      ctx.strokeStyle = '#5a3010'; ctx.lineWidth = Math.max(1, P * 0.4);
+      for (var sp = 0; sp < 4; sp++) {
+        var sa = sp * Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(wx, py + 5 * P);
+        ctx.lineTo(wx + Math.cos(sa) * 3 * P, py + 5 * P + Math.sin(sa) * 3 * P);
+        ctx.stroke();
+      }
+    });
+    // Frame uprights
+    ctx.fillStyle = '#7a4820';
+    ctx.fillRect(px - 3 * P, py - 7 * P, 2 * P, 9 * P);
+    ctx.fillRect(px + P,     py - 7 * P, 2 * P, 9 * P);
+    // Arm (rotates)
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(angle);
+    ctx.fillStyle = '#8B5E2C';
+    ctx.fillRect(-Math.ceil(P / 2), -armLen, P, armLen + 6 * P);
+    // Bucket at launch tip
+    ctx.fillStyle = '#3a2010';
+    ctx.fillRect(-2 * P, -armLen - P, 4 * P, 3 * P);
+    // Counterweight
+    ctx.fillStyle = '#666';
+    ctx.fillRect(-2 * P, 5 * P, 4 * P, 4 * P);
+    ctx.restore();
+    // Pivot pin
+    ctx.fillStyle = '#bbb';
+    ctx.beginPath(); ctx.arc(px, py, P, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawFireball(x, y) {
+    var r = P * 1.8;
+    var grd = ctx.createRadialGradient(x, y, 0, x, y, r * 3.5);
+    grd.addColorStop(0,   'rgba(255,240,180,1)');
+    grd.addColorStop(0.3, 'rgba(255,140,20,0.8)');
+    grd.addColorStop(1,   'rgba(255,60,0,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(x, y, r * 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff8e0';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawImpact(alpha) {
+    if (alpha <= 0) return;
+    var r = H * 0.18 * (1 + (1 - alpha));
+    var grd = ctx.createRadialGradient(mtX, mtTop, 0, mtX, mtTop, r);
+    grd.addColorStop(0,   `rgba(255,230,100,${alpha * 0.9})`);
+    grd.addColorStop(0.5, `rgba(255,120,20,${alpha * 0.5})`);
+    grd.addColorStop(1,   'rgba(255,60,0,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(mtX, mtTop, r, 0, Math.PI * 2); ctx.fill();
+    // Screen wash
+    ctx.fillStyle = `rgba(255,200,50,${alpha * 0.15})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  var startTime = null;
+  var LOAD_END   = 1200;  // arm cocked
+  var FIRE_END   = 1800;  // arm swings (600ms)
+  var FLIGHT_END = 4200;  // projectile in air (2400ms)
+  var IMPACT_END = 5000;  // flash (800ms)
+  var LOADED_ANGLE = -Math.PI * 0.7;
+  var FIRED_ANGLE  =  Math.PI * 0.28;
+
+  function frame(ts) {
+    if (!startTime) startTime = ts;
+    var t = ts - startTime;
+    W = canvas.width; H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    drawBg();
+    drawMountain();
+
+    var angle = LOADED_ANGLE;
+    if (t > LOAD_END && t <= FIRE_END) {
+      var fp = (t - LOAD_END) / (FIRE_END - LOAD_END);
+      // Ease-out: fast start, decelerates (pow gives snap feel)
+      angle = LOADED_ANGLE + (FIRED_ANGLE - LOADED_ANGLE) * Math.pow(fp, 0.4);
+    } else if (t > FIRE_END) {
+      angle = FIRED_ANGLE;
+    }
+
+    drawCatapult(angle);
+
+    if (t > FIRE_END && t <= FLIGHT_END) {
+      var fp2 = (t - FIRE_END) / (FLIGHT_END - FIRE_END);
+      var firedTip = getArmTip(FIRED_ANGLE);
+      var sx = firedTip.x, sy = firedTip.y;
+      var ex = mtX, ey = mtTop;
+      var bx = sx + (ex - sx) * fp2;
+      var by = sy + (ey - sy) * fp2 - H * 0.28 * Math.sin(Math.PI * fp2);
+      drawFireball(bx, by);
+    }
+
+    if (t > FLIGHT_END && t <= IMPACT_END) {
+      var ia = 1 - (t - FLIGHT_END) / (IMPACT_END - FLIGHT_END);
+      drawImpact(ia);
+    }
+
+    if (t < IMPACT_END) {
+      requestAnimationFrame(frame);
+    } else {
+      // Fade in victory text overlay
+      var overlay = document.getElementById('victory-text-overlay');
+      if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 1.2s ease';
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() { overlay.style.opacity = '1'; });
+        });
+      }
+    }
+  }
+
+  requestAnimationFrame(frame);
 }
 
 // ── safeCombatAdvance — safe path skips combat entirely ──────────────────────
@@ -3062,15 +3286,26 @@ async function showTriviaPhase() {
   if (cs && cs.trivia_question_text) {
     qEl.textContent = cs.trivia_question_text;
     grid.innerHTML  = '';
-    var opts = cs.trivia_options || [];
-    opts.forEach(function(opt) {
-      var btn = document.createElement('button');
-      btn.className   = 'trivia-answer-btn';
-      btn.textContent = opt;
-      btn.disabled    = !isLeader;
-      btn.onclick     = function() { submitTriviaAnswer(opt, btn, opts); };
-      grid.appendChild(btn);
-    });
+
+    // Oracle's Insight: auto-correct — show the question but announce the Oracle's verdict
+    if (cs.spell_effect === 'auto_correct_trivia') {
+      grid.innerHTML = '<div style="font-family:\'Cinzel\',serif;font-size:0.9rem;color:#c0a0f8;' +
+        'text-align:center;padding:16px;letter-spacing:0.05em;">' +
+        '🔮 The Oracle speaks — your answer is correct.</div>';
+      if (isLeader) {
+        setTimeout(function() { submitTriviaAnswer('__oracle__', null, []); }, 1800);
+      }
+    } else {
+      var opts = cs.trivia_options || [];
+      opts.forEach(function(opt) {
+        var btn = document.createElement('button');
+        btn.className   = 'trivia-answer-btn';
+        btn.textContent = opt;
+        btn.disabled    = !isLeader;
+        btn.onclick     = function() { submitTriviaAnswer(opt, btn, opts); };
+        grid.appendChild(btn);
+      });
+    }
   } else {
     qEl.textContent = 'Loading question…';
     grid.innerHTML  = '';
@@ -3593,6 +3828,57 @@ function renderAgoraScreen(data) {
       }).join('')}
     </div>
   `).join('');
+
+  // ── Oracle's Insight — Drachma spell section ──────────────────────────────
+  const totalDrachma = data.total_drachma || 0;
+  const oracleCrafted = data.oracle_crafted || false;
+  const oracleAffordable = totalDrachma >= 1200;
+  const oracleCls = 'agora-r-card' + (oracleCrafted ? ' crafted' : oracleAffordable ? ' affordable' : ' dimmed');
+  const oracleBtn = oracleCrafted
+    ? `<button class="agora-r-btn done" disabled>✓ Purchased</button>`
+    : oracleAffordable
+      ? `<button class="agora-r-btn can" onclick="agoraCraftDrachmaSpell()">🔮 Purchase for 1,200 ✦</button>`
+      : `<button class="agora-r-btn no" disabled>Need 1,200 Drachma (you have ${totalDrachma})</button>`;
+
+  body.innerHTML += `
+    <div class="agora-r-tier" style="color:#c0a0f8;border-color:rgba(160,100,248,0.4);">
+      ✦ Drachma Spell — Requires 1,200 Alliance Drachma
+    </div>
+    <div class="agora-r-grid">
+      <div class="${oracleCls}" id="agora-card-oracle" style="border-color:rgba(160,100,248,0.5);">
+        <span class="agora-r-icon">🔮</span>
+        <div class="agora-r-name">Oracle's Insight</div>
+        <div class="agora-r-desc">The Oracle whispers the answer. Your alliance answers the trivia question correctly — automatically.</div>
+        <div class="agora-r-recipe">
+          <span class="agora-r-ing ${oracleAffordable ? 'met' : 'unmet'}">
+            Alliance Drachma 1,200 (you have: ${totalDrachma})
+          </span>
+        </div>
+        ${oracleBtn}
+      </div>
+    </div>`;
+}
+
+async function agoraCraftDrachmaSpell() {
+  const btn = document.querySelector('#agora-card-oracle .agora-r-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Purchasing…'; }
+  try {
+    const res = await fetch('/api/olympus/spells/craft-drachma', {
+      method: 'POST', headers: H
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (btn) { btn.disabled = false; btn.textContent = '🔮 Purchase for 1,200 ✦'; }
+      alert(data.error || 'Could not purchase Oracle\'s Insight.');
+      return;
+    }
+    // Reload the full Agora with updated state
+    const availRes = await fetch('/api/olympus/spells/available', { headers: H });
+    if (availRes.ok) renderAgoraScreen(await availRes.json());
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '🔮 Purchase for 1,200 ✦'; }
+    alert('Network error. Try again.');
+  }
 }
 
 async function agoraCraftSpell(spellId) {

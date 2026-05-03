@@ -15681,7 +15681,7 @@ app.get('/api/teacher/heroic-chapter-progress', authenticateToken, (req, res) =>
 
 // ── Dice-roll combat: god attack scales as % of alliance points per round ─────
 // Round 1: 25%  Round 2: 50%  Round 3: 75%  Round 4: 100%  Round 5: 125%
-const ROUND_FACTORS = { 1: 0.25, 2: 0.50, 3: 0.75, 4: 1.00, 5: 1.25 };
+const ROUND_FACTORS = { 1: 0.35, 2: 0.60, 3: 0.85, 4: 1.10, 5: 1.35 };
 
 // ── Puzzle box URLs — one per round (linked to Google Forms puzzle boxes) ─────
 const BOX_URLS = {
@@ -15878,6 +15878,14 @@ const SPELL_RECIPES = {
     effect:      'curse_invert',
     description: "The god's actual roll is subtracted from their maximum. Their strength becomes their weakness. The higher they roll, the less they deal.",
     recipe:      { lore: 210, craft: 210, honor: 195, cunning: 38 }
+  },
+  11: {
+    name:        "Oracle's Insight",
+    tier:        'drachma',
+    icon:        '🔮',
+    effect:      'auto_correct_trivia',
+    description: 'The Oracle whispers the answer. Your alliance answers the trivia question correctly — automatically. Costs 1,200 Drachma pooled across your alliance.',
+    drachma_cost: 1200
   }
 };
 
@@ -16554,6 +16562,11 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
             }
           }
           state.combat_state = cs;
+          // Expose the active spell's effect key so the client can react
+          // (e.g. show "Oracle speaks" message for auto_correct_trivia)
+          if (cs && cs.spell_applied && SPELL_RECIPES[cs.spell_applied]) {
+            cs.spell_effect = SPELL_RECIPES[cs.spell_applied].effect;
+          }
         } catch(e) { console.error('combat_state build error:', e.message, e.stack); state.combat_state = null; }
       }
     }
@@ -17225,7 +17238,12 @@ app.post('/api/olympus/combat-trivia', authenticateToken, (req, res) => {
 
     // battle_questions schema: correct_answer is the full answer text (not a letter key).
     // Compare submitted answer text directly against it.
-    const isCorrect = !!(answer !== null && answer !== undefined &&
+    // Oracle's Insight (spell 11 / auto_correct_trivia) always forces correct.
+    const activeSpellEffect = cs.spell_applied && SPELL_RECIPES[cs.spell_applied]
+      ? SPELL_RECIPES[cs.spell_applied].effect : null;
+    const oracleActive = activeSpellEffect === 'auto_correct_trivia';
+
+    const isCorrect = oracleActive || !!(answer !== null && answer !== undefined &&
       qRow && qRow.correct_answer &&
       answer.trim().toLowerCase() === qRow.correct_answer.trim().toLowerCase());
 
@@ -18105,6 +18123,15 @@ app.get('/api/olympus/spells/available', authenticateToken, (req, res) => {
     const inventoryMap = {};
     inventoryRows.forEach(r => { inventoryMap[r.spell_id] = { used: !!r.used, round_used: r.round_used }; });
 
+    // Alliance drachma total (for Oracle's Insight check)
+    const drachmaRows = query(
+      `SELECT SUM(drachma) AS total FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const totalDrachma = drachmaRows[0] ? (drachmaRows[0].total || 0) : 0;
+    const oracleCrafted = !!inventoryMap[11];
+
     // Build spell list with scaled costs and affordability flags
     const spells = Object.entries(SPELL_RECIPES).map(([idStr, spell]) => {
       const id = parseInt(idStr);
@@ -18130,9 +18157,11 @@ app.get('/api/olympus/spells/available', authenticateToken, (req, res) => {
       spells,
       stats:        allianceStats,
       member_count: memberCount,
-      crafted_count: inventoryRows.length,
+      crafted_count: inventoryRows.filter(r => r.spell_id !== 11).length,
       max_spells:   4,
-      total_points: alliance.total_points
+      total_points: alliance.total_points,
+      total_drachma: totalDrachma,
+      oracle_crafted: oracleCrafted
     });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -18228,6 +18257,74 @@ app.post('/api/olympus/spells/craft', authenticateToken, (req, res) => {
       spell_name:   SPELL_RECIPES[id].name,
       crafted_count: craftedCount + 1,
       max_spells:   4
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/spells/craft-drachma ────────────────────────────────────
+// Purchases Oracle's Insight (spell 11) using 1,200 pooled alliance Drachma.
+// Checks SUM of all real members' drachma >= 1200. Deducts proportionally.
+// Only available during the Agora (opening / path_choice round 1). One per game.
+app.post('/api/olympus/spells/craft-drachma', authenticateToken, (req, res) => {
+  if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const alliance = getAllianceForStudent(req.user.id);
+    if (!alliance) return res.status(400).json({ error: 'Not in an alliance' });
+
+    const state = getOlympusState(alliance.alliance_id);
+    if (!state) return res.status(400).json({ error: 'Race not started' });
+    const agoraOpen = state.current_phase === 'opening' ||
+                      (state.current_phase === 'path_choice' && state.current_round === 1);
+    if (!agoraOpen) {
+      return res.status(400).json({ error: 'The Agora is closed. Oracle\'s Insight can only be purchased before Round 1.' });
+    }
+
+    // One per game
+    const existing = query(
+      `SELECT 1 FROM olympus_inventory WHERE alliance_id=? AND spell_id=11`,
+      [alliance.alliance_id]
+    );
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Oracle\'s Insight has already been purchased.' });
+    }
+
+    // Sum all real members' drachma
+    const memberDrachma = query(
+      `SELECT student_id, COALESCE(drachma,0) AS drachma FROM students
+       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+      [alliance.alliance_id]
+    );
+    const totalDrachma = memberDrachma.reduce((s, r) => s + (r.drachma || 0), 0);
+    if (totalDrachma < 1200) {
+      return res.status(400).json({
+        error: `Not enough Drachma. Alliance has ${totalDrachma} — need 1,200.`,
+        total_drachma: totalDrachma
+      });
+    }
+
+    // Deduct 1200 proportionally across members (highest holders first)
+    const sorted = memberDrachma.slice().sort((a, b) => (b.drachma || 0) - (a.drachma || 0));
+    let remaining = 1200;
+    for (const m of sorted) {
+      if (remaining <= 0) break;
+      const deduct = Math.min(m.drachma || 0, remaining);
+      if (deduct > 0) {
+        run('UPDATE students SET drachma = drachma - ? WHERE student_id = ?', [deduct, m.student_id]);
+        remaining -= deduct;
+      }
+    }
+
+    run(`INSERT INTO olympus_inventory (alliance_id, spell_id) VALUES (?, 11)`,
+      [alliance.alliance_id]);
+    saveDatabase();
+
+    res.json({
+      crafted:    true,
+      spell_id:   11,
+      spell_name: "Oracle's Insight",
+      drachma_spent: 1200
     });
   } catch(e) {
     res.status(500).json({ error: e.message });
