@@ -2755,6 +2755,9 @@ function showWaiting(title, sub, phase) {
 
 async function showAgora() {
   showScreen('agora');
+  // Start polling while on the Agora so that if the game phase changes
+  // (e.g. in edge cases), this player will be routed forward automatically.
+  startPolling();
   document.getElementById('agora-r-body').innerHTML =
     '<div style="text-align:center;font-family:\'Cinzel\',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>';
   try {
@@ -2883,9 +2886,15 @@ async function enterRaceFromAgora() {
   } catch(e) {
     console.warn('agora-visited mark failed:', e.message);
   }
-  // Reload state so raceState.my_agora_visited is fresh, then route to path choice.
+  // Reload state so raceState.my_agora_visited is fresh, then route through
+  // routeToPhase (not showPathChoice directly) so the phase indicator updates
+  // and any unexpected phase changes are handled correctly.
   await loadState();
-  showPathChoice(raceState ? raceState.current_round || 1 : 1);
+  if (raceState) {
+    routeToPhase(raceState.current_phase, raceState.current_round);
+  } else {
+    showPathChoice(1);
+  }
 }
 
 function startPolling() {
