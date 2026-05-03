@@ -983,10 +983,11 @@ function routeToPhase(phase, round) {
       break;
 
     case 'path_choice':
-      // Before showing round 1 paths, check if this specific student has visited
-      // the Agora. my_agora_visited is per-student (not per-alliance) so each
-      // player sees the Agora independently. No page redirect — Agora is a screen.
-      if (round === 1 && raceState && !raceState.my_agora_visited) {
+      // Before showing round 1 paths, check if the alliance has visited the Agora.
+      // agora_visited is alliance-level — set when any player clicks "Enter the Race."
+      // All players' polling detects it together, routing everyone to path choice
+      // at the same time. Building market mechanic: one acts, all follow.
+      if (round === 1 && raceState && !raceState.agora_visited) {
         showAgora();
         return;
       }
@@ -1090,10 +1091,12 @@ function skipCinematic() {
 // ═══════════════════════════════════════════════════════════════
 
 function showTitleScreen() {
-  stopPolling();
   showScreen('title');
   document.getElementById('title-enter-btn').disabled    = false;
   document.getElementById('title-ready-status').textContent = '';
+  // Poll so Player 2 auto-advances when Player 1 clicks "Climb Olympus"
+  // and the phase changes to 'medea' on the server.
+  startPolling();
 }
 
 async function titleReady() {
@@ -1109,28 +1112,17 @@ async function titleReady() {
 
     if (data.advanced) {
       status.textContent = 'The arena opens…';
+      // Server has advanced phase to 'medea'. Load fresh state and route through
+      // the normal routeToPhase so the cinematic plays correctly. All other players
+      // are polling and will detect the 'medea' phase change automatically.
       await loadState();
-      // Phase intentionally stays 'opening' on server — go straight to cinematic
-      if (!sessionStorage.getItem('cinematic_done')) {
-        startCinematic();
-      } else {
-        showMedeaVote();
-      }
+      routeToPhase(raceState.current_phase, raceState.current_round);
       return;
     }
 
-    // Unexpected non-advance — poll anyway
+    // Unexpected non-advance — start polling to detect phase change
     status.textContent = 'Entering…';
-    stopPolling();
-    pollTimer = setInterval(async function() {
-      try {
-        const s = await apiFetchTitle();
-        if (s && s.current_phase !== 'opening') {
-          stopPolling();
-          routeToPhase(s.current_phase, s.current_round);
-        }
-      } catch(e) {}
-    }, 2000);
+    startPolling();
 
   } catch(e) {
     btn.disabled = false;
@@ -2747,11 +2739,11 @@ function showWaiting(title, sub, phase) {
 }
 
 // ── Agora ──────────────────────────────────────────────────────────────────
-// The Agora is a full screen (screen-agora) shown to each student individually
-// before Round 1 path choice. Each student dismisses it independently via
-// POST /api/olympus/agora-visited which writes to olympus_agora_students.
-// The state endpoint returns my_agora_visited (per-student) so routeToPhase
-// can check it without any localStorage dependency.
+// The Agora is a full screen (screen-agora) shown to the whole alliance before
+// Round 1 path choice. Any player can craft spells. The first player to click
+// "Enter the Race" sets agora_visited=1 (alliance-level) on the server.
+// All other players are polling — they detect the flag and route to path choice
+// together. Building market mechanic: one acts, all follow.
 
 async function showAgora() {
   showScreen('agora');
@@ -2879,16 +2871,16 @@ async function agoraCraftSpell(spellId) {
 }
 
 async function enterRaceFromAgora() {
-  // Mark this student as having visited the Agora (per-student, not per-alliance).
-  // Non-blocking — failure means they may see the Agora again but can always enter.
+  // Set alliance-level agora_visited=1 on the server.
+  // All players are polling every 3s — they will all detect agora_visited=1
+  // and route to path choice together. Building market mechanic.
   try {
     await fetch('/api/olympus/agora-visited', { method: 'POST', headers: H });
   } catch(e) {
     console.warn('agora-visited mark failed:', e.message);
   }
-  // Reload state so raceState.my_agora_visited is fresh, then route through
-  // routeToPhase (not showPathChoice directly) so the phase indicator updates
-  // and any unexpected phase changes are handled correctly.
+  // Reload fresh state and route through routeToPhase so this player advances
+  // immediately without waiting for the next poll tick.
   await loadState();
   if (raceState) {
     routeToPhase(raceState.current_phase, raceState.current_round);

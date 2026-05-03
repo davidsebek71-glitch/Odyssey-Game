@@ -16335,20 +16335,10 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
     }
     if (state) state.my_unlock_submitted = myUnlockSubmitted;
 
-    // Flag: has this specific student already dismissed the Agora this race?
-    // Checked per-student so one player entering the race never skips another's Agora.
-    let myAgoraVisited = false;
-    if (state) {
-      try {
-        const agoraRow = query(
-          `SELECT 1 FROM olympus_agora_students
-           WHERE alliance_id=? AND student_id=? LIMIT 1`,
-          [alliance.alliance_id, req.user.id]
-        );
-        myAgoraVisited = agoraRow.length > 0;
-      } catch(e) { /* table may not exist on older schema — safe to ignore */ }
-    }
-    if (state) state.my_agora_visited = myAgoraVisited;
+    // agora_visited is an alliance-level flag on olympus_race_state.
+    // It is set when any player clicks "Enter the Race" from the Agora.
+    // All players' polling detects it and routes everyone to path choice together.
+    // No per-student tracking needed — building market mechanic.
 
     res.json({ alliance, state, archetype, drachma });
   } catch(e) {
@@ -17675,11 +17665,10 @@ app.post('/api/olympus/spells/activate', authenticateToken, (req, res) => {
 });
 
 // ── POST /api/olympus/agora-visited ──────────────────────────────────────────
-// Called when a student dismisses the Agora and enters the race.
-// Inserts a row for THIS student into olympus_agora_students so the Agora
-// does not reappear for them. Each student must dismiss independently —
-// one player entering never skips another player's Agora session.
-// Cleared by reset (DELETE FROM olympus_agora_students WHERE alliance_id=?).
+// Called when any player clicks "Enter the Olympus Race" from the Agora.
+// Sets alliance-level agora_visited=1 on olympus_race_state so ALL players'
+// polling detects the change and routes everyone to path choice simultaneously.
+// This matches the building market mechanic: one player acts, everyone follows.
 app.post('/api/olympus/agora-visited', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
   try {
@@ -17690,12 +17679,11 @@ app.post('/api/olympus/agora-visited', authenticateToken, (req, res) => {
     if (!state) return res.status(400).json({ error: 'Race not started' });
 
     run(
-      `INSERT OR IGNORE INTO olympus_agora_students (alliance_id, student_id)
-       VALUES (?, ?)`,
-      [alliance.alliance_id, req.user.id]
+      `UPDATE olympus_race_state SET agora_visited=1 WHERE alliance_id=?`,
+      [alliance.alliance_id]
     );
     saveDatabase();
-    res.json({ my_agora_visited: true });
+    res.json({ agora_visited: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -18491,10 +18479,11 @@ app.post('/api/olympus/safe-path-advance', authenticateToken, (req, res) => {
 });
 
 // ── POST /api/olympus/title-ready ────────────────────────────────────────────
-// First alliance member to click "Enter the Arena" advances phase to 'medea'.
-// All other members auto-route via polling (3s interval).
-// No DB column needed — avoids migration timing issues on Railway.
-const _titleReadySet = new Set(); // in-memory: alliance_ids that have clicked
+// First player to click "Climb Olympus" advances phase to 'medea'.
+// All other players detect the phase change via their 3s polling interval
+// and route to the cinematic automatically — they never need to click.
+// This is the same mechanic as the building market: one player acts,
+// server updates, everyone polls and sees the same result.
 app.post('/api/olympus/title-ready', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
   try {
@@ -18503,15 +18492,20 @@ app.post('/api/olympus/title-ready', authenticateToken, (req, res) => {
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'No race state' });
 
-    // Already past opening — return success so client routes forward
+    // Already past opening — return current phase so client routes correctly
     if (state.current_phase !== 'opening') {
       return res.json({ advanced: true, phase: state.current_phase });
     }
 
-    // Do NOT change phase — medea-commit owns the opening→path_choice transition.
-    // Just signal the client to start the Medea cutscene.
-    // Phase stays 'opening' so medea-commit still works.
-    return res.json({ advanced: true, ready_count: 1, needed: 1 });
+    // First player to click advances phase to 'medea'.
+    // All other players are polling every 3s and will detect this change,
+    // then route to the cinematic automatically without clicking.
+    run(
+      `UPDATE olympus_race_state SET current_phase='medea' WHERE alliance_id=?`,
+      [alliance.alliance_id]
+    );
+    saveDatabase();
+    return res.json({ advanced: true, phase: 'medea' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
