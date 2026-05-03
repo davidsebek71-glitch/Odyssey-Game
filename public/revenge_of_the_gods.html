@@ -515,6 +515,148 @@
   /* ── POLL INDICATOR ── */
   .poll-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#4a8a4a; margin-left:6px; animation:pollPulse 2s ease-in-out infinite; }
   @keyframes pollPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+  /* ── AGORA SCREEN ── */
+  #screen-agora {
+    background: var(--deep);
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .agora-r-header {
+    background: url('/images/Revenge of the Gods/Backgrounds/agora_modal.png') center top / cover no-repeat;
+    position: relative;
+    padding: 28px 28px 22px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .agora-r-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.75) 100%);
+    z-index: 0;
+  }
+  .agora-r-header > * { position: relative; z-index: 1; }
+  .agora-r-title {
+    font-family: 'Cinzel Decorative', 'Cinzel', serif;
+    font-size: clamp(1.3rem, 2.5vw, 1.9rem);
+    color: var(--gold);
+    letter-spacing: 0.12em;
+    margin: 0 0 5px;
+  }
+  .agora-r-subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 0.78rem;
+    color: rgba(220,190,140,0.7);
+    letter-spacing: 0.1em;
+  }
+  .agora-r-stats {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .agora-r-stat {
+    font-family: 'Cinzel', serif;
+    font-size: 0.78rem;
+    padding: 4px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #e8d5a0;
+    background: rgba(255,255,255,0.05);
+  }
+  .agora-r-stat.s-lore    { border-color: rgba(100,160,255,0.45); color: #a0c4ff; }
+  .agora-r-stat.s-craft   { border-color: rgba(255,160,60,0.45);  color: #ffc078; }
+  .agora-r-stat.s-cunning { border-color: rgba(160,255,120,0.45); color: #a8f0a0; }
+  .agora-r-stat.s-honor   { border-color: rgba(255,200,80,0.45);  color: #ffd966; }
+  .agora-r-slots {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    color: rgba(220,190,140,0.7);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  .agora-r-dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    border: 2px solid rgba(184,134,11,0.5);
+    background: transparent;
+    transition: background 0.2s;
+  }
+  .agora-r-dot.filled { background: var(--gold); border-color: var(--gold); }
+  .agora-r-body {
+    padding: 20px 18px 140px;
+    max-width: 1060px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .agora-r-tier {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.28em;
+    color: rgba(184,134,11,0.65);
+    text-transform: uppercase;
+    margin: 24px 0 10px;
+    border-bottom: 1px solid rgba(184,134,11,0.2);
+    padding-bottom: 5px;
+  }
+  .agora-r-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 12px;
+  }
+  .agora-r-card {
+    background: linear-gradient(135deg, rgba(20,12,35,0.97), rgba(10,6,20,0.99));
+    border: 1px solid rgba(184,134,11,0.22);
+    border-radius: 9px;
+    padding: 16px;
+  }
+  .agora-r-card.affordable { border-color: rgba(184,134,11,0.55); box-shadow: 0 0 14px rgba(184,134,11,0.09); }
+  .agora-r-card.crafted    { border-color: rgba(74,200,74,0.5); background: linear-gradient(135deg,rgba(8,25,8,0.97),rgba(5,15,5,0.99)); }
+  .agora-r-card.dimmed     { opacity: 0.52; }
+  .agora-r-icon  { font-size: 1.8rem; margin-bottom: 6px; display: block; }
+  .agora-r-name  { font-family: 'Cinzel', serif; font-size: 0.9rem; color: #e8d5a0; font-weight: 700; margin-bottom: 5px; }
+  .agora-r-desc  { font-family: 'Cinzel', serif; font-size: 0.72rem; color: rgba(200,180,140,0.72); line-height: 1.5; margin-bottom: 10px; }
+  .agora-r-recipe { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+  .agora-r-ing {
+    font-family: 'Cinzel', serif; font-size: 0.7rem;
+    padding: 3px 9px; border-radius: 11px; border: 1px solid;
+  }
+  .agora-r-ing.met   { border-color: rgba(74,200,74,0.5);  color: #7ee87e; background: rgba(74,200,74,0.07); }
+  .agora-r-ing.unmet { border-color: rgba(220,80,80,0.5);  color: #e07070; background: rgba(220,80,80,0.07); }
+  .agora-r-btn {
+    width: 100%; padding: 9px; border: none; border-radius: 5px;
+    font-family: 'Cinzel', serif; font-size: 0.78rem; font-weight: 700;
+    letter-spacing: 0.07em; cursor: pointer; transition: all 0.18s;
+  }
+  .agora-r-btn.can    { background: linear-gradient(135deg,var(--gold),#8B6400); color: #fff8e0; }
+  .agora-r-btn.can:hover { background: linear-gradient(135deg,#d4a012,#a07800); }
+  .agora-r-btn.done   { background: rgba(74,200,74,0.12); border: 1px solid rgba(74,200,74,0.4); color: #7ee87e; cursor: default; }
+  .agora-r-btn.no     { background: rgba(100,100,100,0.12); border: 1px solid rgba(100,100,100,0.28); color: rgba(180,160,130,0.38); cursor: not-allowed; }
+  .agora-r-footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(0deg, rgba(6,9,15,0.99) 65%, transparent);
+    padding: 16px 24px 20px; text-align: center; z-index: 50;
+  }
+  .agora-r-enter {
+    font-family: 'Cinzel', serif; font-size: 0.95rem; font-weight: 700;
+    letter-spacing: 0.12em; padding: 13px 44px;
+    border: 1px solid var(--gold); border-radius: 5px;
+    background: linear-gradient(135deg, var(--olympus-blue), #0d1f33);
+    color: #e8d5a0; cursor: pointer; transition: all 0.2s;
+  }
+  .agora-r-enter:hover { background: linear-gradient(135deg,#254f7a,#162b45); box-shadow: 0 4px 18px rgba(184,134,11,0.28); }
+  .agora-r-note {
+    font-family: 'Cinzel', serif; font-size: 0.7rem;
+    color: rgba(184,134,11,0.55); margin-top: 7px; letter-spacing: 0.09em;
+  }
+  .agora-r-member-note {
+    font-family: 'Cinzel', serif; font-size: 0.72rem;
+    color: rgba(220,190,140,0.5); text-align: center; margin-bottom: 14px;
+  }
 </style>
 </head>
 <body>
@@ -730,6 +872,30 @@
   </div>
 </div>
 
+<!-- ══ SCREEN: AGORA ══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-agora">
+  <div class="agora-r-header">
+    <div class="agora-r-title">⚖️ The Agora</div>
+    <div class="agora-r-subtitle">MARKETPLACE OF THE GODS — CRAFT YOUR DEFENSES BEFORE ROUND 1</div>
+    <div class="agora-r-stats" id="agora-r-stats"></div>
+    <div class="agora-r-slots">
+      <span>Spell Slots:</span>
+      <div class="agora-r-dot" id="agora-r-dot-0"></div>
+      <div class="agora-r-dot" id="agora-r-dot-1"></div>
+      <div class="agora-r-dot" id="agora-r-dot-2"></div>
+      <div class="agora-r-dot" id="agora-r-dot-3"></div>
+      <span id="agora-r-slots-label">0 / 4 crafted</span>
+    </div>
+  </div>
+  <div class="agora-r-body" id="agora-r-body">
+    <div style="text-align:center;font-family:'Cinzel',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>
+  </div>
+  <div class="agora-r-footer">
+    <button class="agora-r-enter" onclick="enterRaceFromAgora()">⚡ Enter the Olympus Race</button>
+    <div class="agora-r-note" id="agora-r-note">Craft up to 4 spells before you begin. Unused slots carry no spell.</div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════
 // OLYMPUS RACE — MAIN UI
@@ -810,11 +976,11 @@ function routeToPhase(phase, round) {
       break;
 
     case 'path_choice':
-      // Before showing round 1 paths, redirect to student.html so the Agora can appear.
-      // Uses server-side agora_visited from raceState (set via POST /api/olympus/agora-visited)
-      // so it resets correctly with the race and is consistent across all browsers.
-      if (round === 1 && raceState && !raceState.agora_visited) {
-        window.location.href = '/student.html';
+      // Before showing round 1 paths, check if this specific student has visited
+      // the Agora. my_agora_visited is per-student (not per-alliance) so each
+      // player sees the Agora independently. No page redirect — Agora is a screen.
+      if (round === 1 && raceState && !raceState.my_agora_visited) {
+        showAgora();
         return;
       }
       showPathChoice(round);
@@ -2571,6 +2737,148 @@ function showWaiting(title, sub, phase) {
   document.getElementById('waiting-title').textContent = title;
   document.getElementById('waiting-sub').textContent = sub;
   document.getElementById('waiting-phase').textContent = phase ? `Phase: ${phase}` : '';
+}
+
+// ── Agora ──────────────────────────────────────────────────────────────────
+// The Agora is a full screen (screen-agora) shown to each student individually
+// before Round 1 path choice. Each student dismisses it independently via
+// POST /api/olympus/agora-visited which writes to olympus_agora_students.
+// The state endpoint returns my_agora_visited (per-student) so routeToPhase
+// can check it without any localStorage dependency.
+
+async function showAgora() {
+  showScreen('agora');
+  document.getElementById('agora-r-body').innerHTML =
+    '<div style="text-align:center;font-family:\'Cinzel\',serif;color:rgba(220,190,140,0.5);padding:50px 0;">Loading the marketplace…</div>';
+  try {
+    const res = await fetch('/api/olympus/spells/available', { headers: H });
+    if (!res.ok) {
+      document.getElementById('agora-r-body').innerHTML =
+        '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Could not load spells. You may enter the race without crafting.</div>';
+      return;
+    }
+    const data = await res.json();
+    renderAgoraScreen(data);
+  } catch(e) {
+    document.getElementById('agora-r-body').innerHTML =
+      '<div style="text-align:center;font-family:\'Cinzel\',serif;color:#e07070;padding:40px;">Network error loading spells.</div>';
+  }
+}
+
+function renderAgoraScreen(data) {
+  const { spells, stats, member_count, crafted_count } = data;
+
+  // Stats bar
+  const statDefs = [
+    { key: 'lore',    label: 'Lore',    cls: 's-lore',    icon: '📚' },
+    { key: 'craft',   label: 'Craft',   cls: 's-craft',   icon: '🔨' },
+    { key: 'cunning', label: 'Cunning', cls: 's-cunning', icon: '🎯' },
+    { key: 'honor',   label: 'Honor',   cls: 's-honor',   icon: '⚖️' }
+  ];
+  document.getElementById('agora-r-stats').innerHTML = statDefs.map(s =>
+    `<div class="agora-r-stat ${s.cls}">${s.icon} ${s.label} <strong>${stats[s.key] || 0}</strong></div>`
+  ).join('');
+
+  // Slot dots
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('agora-r-dot-' + i);
+    if (dot) dot.className = 'agora-r-dot' + (i < crafted_count ? ' filled' : '');
+  }
+  const slotLabel = document.getElementById('agora-r-slots-label');
+  if (slotLabel) slotLabel.textContent = crafted_count + ' / 4 crafted';
+
+  // Footer note
+  const note = document.getElementById('agora-r-note');
+  if (note) {
+    note.textContent = crafted_count >= 4
+      ? 'Your arsenal is complete. Enter when ready.'
+      : crafted_count > 0
+        ? `${crafted_count} spell${crafted_count > 1 ? 's' : ''} crafted — you may craft up to ${4 - crafted_count} more, or enter now.`
+        : 'Craft up to 4 spells before you begin. Unused slots carry no spell.';
+  }
+
+  // Member note
+  const memberNote = member_count < 4
+    ? `<div class="agora-r-member-note">Recipe costs scaled for ${member_count}-player team (${Math.round(member_count / 4 * 100)}% of four-player baseline).</div>`
+    : '';
+
+  // Group by tier
+  const tiers = { 1: [], 2: [], 3: [] };
+  spells.forEach(s => { if (tiers[s.tier]) tiers[s.tier].push(s); });
+  const tierLabels = { 1: 'Tier I — Two Ingredients', 2: 'Tier II — Three Ingredients', 3: 'Tier III — All Four Ingredients' };
+
+  const statColors = { lore: 's-lore', craft: 's-craft', cunning: 's-cunning', honor: 's-honor' };
+  const statLabels = { lore: 'Lore', craft: 'Craft', cunning: 'Cunning', honor: 'Honor' };
+
+  const body = document.getElementById('agora-r-body');
+  body.innerHTML = memberNote + Object.entries(tiers).map(([tier, tierSpells]) => `
+    <div class="agora-r-tier">${tierLabels[tier]}</div>
+    <div class="agora-r-grid">
+      ${tierSpells.map(spell => {
+        const ings = Object.entries(spell.recipe).map(([stat, threshold]) => {
+          const have = stats[stat] || 0;
+          const met  = have >= threshold ? 'met' : 'unmet';
+          return `<span class="agora-r-ing ${met}">${statLabels[stat] || stat} ${threshold} (you: ${have})</span>`;
+        }).join('');
+
+        let cardCls = 'agora-r-card';
+        let btn = '';
+        if (spell.crafted) {
+          cardCls += ' crafted';
+          btn = `<button class="agora-r-btn done" disabled>✓ Crafted</button>`;
+        } else if (!spell.affordable || crafted_count >= 4) {
+          cardCls += ' dimmed';
+          btn = `<button class="agora-r-btn no" disabled>${crafted_count >= 4 ? 'Slots full' : 'Ingredients insufficient'}</button>`;
+        } else {
+          cardCls += ' affordable';
+          btn = `<button class="agora-r-btn can" onclick="agoraCraftSpell(${spell.id})">✦ Craft This Spell</button>`;
+        }
+
+        return `<div class="${cardCls}" id="agora-card-${spell.id}">
+          <span class="agora-r-icon">${spell.icon}</span>
+          <div class="agora-r-name">${spell.name}</div>
+          <div class="agora-r-desc">${spell.description}</div>
+          <div class="agora-r-recipe">${ings}</div>
+          ${btn}
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+}
+
+async function agoraCraftSpell(spellId) {
+  const btn = document.querySelector(`#agora-card-${spellId} .agora-r-btn`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Crafting…'; }
+  try {
+    const res = await fetch('/api/olympus/spells/craft', {
+      method: 'POST', headers: H, body: JSON.stringify({ spell_id: spellId })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (btn) { btn.disabled = false; btn.textContent = '✦ Craft This Spell'; }
+      alert(data.error || 'Could not craft spell.');
+      return;
+    }
+    // Reload and re-render the full Agora with updated crafted_count
+    const availRes = await fetch('/api/olympus/spells/available', { headers: H });
+    if (availRes.ok) renderAgoraScreen(await availRes.json());
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '✦ Craft This Spell'; }
+    alert('Network error. Try again.');
+  }
+}
+
+async function enterRaceFromAgora() {
+  // Mark this student as having visited the Agora (per-student, not per-alliance).
+  // Non-blocking — failure means they may see the Agora again but can always enter.
+  try {
+    await fetch('/api/olympus/agora-visited', { method: 'POST', headers: H });
+  } catch(e) {
+    console.warn('agora-visited mark failed:', e.message);
+  }
+  // Reload state so raceState.my_agora_visited is fresh, then route to path choice.
+  await loadState();
+  showPathChoice(raceState ? raceState.current_round || 1 : 1);
 }
 
 function startPolling() {

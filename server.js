@@ -239,6 +239,18 @@ initDatabase().then(() => {
       UNIQUE (alliance_id, spell_id)
     )`);
 
+    // Per-student Agora visit tracking. One row per student who has dismissed
+    // the Agora and entered the race. Cleared by reset (DELETE by alliance_id).
+    // This replaces the alliance-level agora_visited column approach — each
+    // student dismisses the Agora independently so no player skips another's turn.
+    run(`CREATE TABLE IF NOT EXISTS olympus_agora_students (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id INTEGER NOT NULL,
+      student_id  INTEGER NOT NULL,
+      visited_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alliance_id, student_id)
+    )`);
+
     // Add medea_help_count to olympus_race_state if not present (PRAGMA-safe migration)
     try {
       const cols = query("PRAGMA table_info(olympus_race_state)");
@@ -16322,6 +16334,22 @@ app.get('/api/olympus/state', authenticateToken, (req, res) => {
       } catch(e) { /* table may not exist on older schema */ }
     }
     if (state) state.my_unlock_submitted = myUnlockSubmitted;
+
+    // Flag: has this specific student already dismissed the Agora this race?
+    // Checked per-student so one player entering the race never skips another's Agora.
+    let myAgoraVisited = false;
+    if (state) {
+      try {
+        const agoraRow = query(
+          `SELECT 1 FROM olympus_agora_students
+           WHERE alliance_id=? AND student_id=? LIMIT 1`,
+          [alliance.alliance_id, req.user.id]
+        );
+        myAgoraVisited = agoraRow.length > 0;
+      } catch(e) { /* table may not exist on older schema — safe to ignore */ }
+    }
+    if (state) state.my_agora_visited = myAgoraVisited;
+
     res.json({ alliance, state, archetype, drachma });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -17647,10 +17675,11 @@ app.post('/api/olympus/spells/activate', authenticateToken, (req, res) => {
 });
 
 // ── POST /api/olympus/agora-visited ──────────────────────────────────────────
-// Called when a student clicks "Enter the Olympus Race" from the Agora modal.
-// Sets agora_visited=1 on the alliance's race state so the Agora does not
-// reappear on subsequent page loads. Cleared automatically when the race resets
-// (reset deletes the entire olympus_race_state row).
+// Called when a student dismisses the Agora and enters the race.
+// Inserts a row for THIS student into olympus_agora_students so the Agora
+// does not reappear for them. Each student must dismiss independently —
+// one player entering never skips another player's Agora session.
+// Cleared by reset (DELETE FROM olympus_agora_students WHERE alliance_id=?).
 app.post('/api/olympus/agora-visited', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
   try {
@@ -17661,11 +17690,12 @@ app.post('/api/olympus/agora-visited', authenticateToken, (req, res) => {
     if (!state) return res.status(400).json({ error: 'Race not started' });
 
     run(
-      `UPDATE olympus_race_state SET agora_visited=1 WHERE alliance_id=?`,
-      [alliance.alliance_id]
+      `INSERT OR IGNORE INTO olympus_agora_students (alliance_id, student_id)
+       VALUES (?, ?)`,
+      [alliance.alliance_id, req.user.id]
     );
     saveDatabase();
-    res.json({ agora_visited: true });
+    res.json({ my_agora_visited: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -17695,6 +17725,7 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
       run(`DELETE FROM olympus_round_unlock_votes WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_combat_wave_session WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_inventory WHERE alliance_id=?`, [id]);
+      run(`DELETE FROM olympus_agora_students WHERE alliance_id=?`, [id]);
       run(`DELETE FROM olympus_path_locks WHERE period=?`, [period]);
       run(`DELETE FROM olympus_godtest_locks WHERE period=?`, [period]);
     }
