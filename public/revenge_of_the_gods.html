@@ -2719,8 +2719,8 @@ function startCatapultAnimation() {
   var canvas = document.getElementById('victory-canvas');
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width  = canvas.clientWidth  || window.innerWidth;
+  canvas.height = canvas.clientHeight || window.innerHeight;
   var W = canvas.width, H = canvas.height;
 
   var bgImg  = new Image();
