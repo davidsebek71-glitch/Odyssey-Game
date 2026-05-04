@@ -16671,23 +16671,30 @@ function getOlympusState(allianceId) {
   return rows[0] || null;
 }
 
+// ── getActiveMemberIds — single source of truth for gate "who counts" logic ──
+// Returns array of student IDs who count toward majority/readiness/unlock gates.
+// Priority: explicit present_members from Olympus dashboard set-present UI.
+// Fallback: non-ghost members from students table.
+function getActiveMemberIds(allianceId, raceState = null) {
+  const state = raceState || getOlympusState(allianceId);
+  if (state && state.present_members) {
+    try {
+      const ids = JSON.parse(state.present_members);
+      if (Array.isArray(ids) && ids.length > 0) return ids;
+    } catch(e) { /* fall through to ghost-based count */ }
+  }
+  const rows = query(
+    `SELECT student_id FROM students
+     WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
+    [allianceId]
+  );
+  return rows.map(r => r.student_id);
+}
+
 function getMajority(allianceId, round, voteType) {
   // Returns { winner, count, total } or null if no majority
-  // Uses present_members from race state if set (absent student handling),
-  // otherwise falls back to all non-ghost members.
   const state = getOlympusState(allianceId);
-  let total;
-  if (state && state.present_members) {
-    const presentIds = JSON.parse(state.present_members);
-    total = presentIds.length || 1;
-  } else {
-    const members = query(
-      `SELECT COUNT(*) as cnt FROM students s
-       WHERE s.alliance_id = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)`,
-      [allianceId]
-    );
-    total = members[0] ? members[0].cnt : 1;
-  }
+  const total = getActiveMemberIds(allianceId, state).length || 1;
   const votes = query(
     `SELECT vote_value, COUNT(*) as cnt FROM olympus_votes
      WHERE alliance_id = ? AND round_number = ? AND vote_type = ?
@@ -17151,18 +17158,7 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
     }
 
     // Determine how many present members we need
-    const presentIds = state.present_members ? JSON.parse(state.present_members) : null;
-    let needed;
-    if (presentIds) {
-      needed = presentIds.length;
-    } else {
-      const memberRows = query(
-        `SELECT COUNT(*) as cnt FROM students
-         WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-        [alliance.alliance_id]
-      );
-      needed = memberRows[0] ? memberRows[0].cnt : 1;
-    }
+    const needed = getActiveMemberIds(alliance.alliance_id, state).length || 1;
 
     const readyCount = readyFlags.length;
 
@@ -19060,12 +19056,7 @@ app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
     );
 
     // Count how many real members have submitted vs how many are needed
-    const memberRows = query(
-      `SELECT COUNT(*) AS cnt FROM students
-       WHERE alliance_id=? AND (is_ghost=0 OR is_ghost IS NULL)`,
-      [alliance.alliance_id]
-    );
-    const totalMembers = memberRows[0] ? memberRows[0].cnt : 1;
+    const totalMembers = getActiveMemberIds(alliance.alliance_id).length || 1;
 
     const voteRows = query(
       `SELECT COUNT(*) AS cnt FROM olympus_round_unlock_votes
