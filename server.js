@@ -18,6 +18,20 @@ function isTestPeriod(period) {
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Increased limit for map image uploads
+
+// ── HTML no-cache (Bug 1 fix — May 4, 2026) ──────────────────────────────────
+// Prevents browsers / Railway edge from serving stale HTML after deploys.
+// Must come BEFORE express.static. Assets (audio, images) remain cacheable.
+app.get(['/student.html', '/teacher.html', '/revenge_of_the_gods.html'], (req, res, next) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+  next();
+});
+
 app.use(express.static('public'));
 
 // Initialize database
