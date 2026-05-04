@@ -10103,18 +10103,21 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
     const { period } = req.query;
     if (!period) return res.status(400).json({ error: 'period required' });
 
-    // Defensive column check — selected_avatar may not exist in older DB
+    // Defensive column check — selected_avatar/drachma may not exist in older DB
     let hasSelectedAvatar = false;
+    let hasDrachma = false;
     try {
       const cols = query('PRAGMA table_info(students)').map(c => c.name);
       hasSelectedAvatar = cols.includes('selected_avatar');
+      hasDrachma = cols.includes('drachma');
     } catch(e) {}
 
-    const avatarSelect = hasSelectedAvatar ? ', s.selected_avatar' : '';
+    const avatarSelect  = hasSelectedAvatar ? ', s.selected_avatar' : '';
+    const drachmaSelect = hasDrachma        ? ', s.drachma'         : '';
 
     // Students in period
     const students = query(`
-      SELECT s.student_id, s.name, s.class_period ${avatarSelect},
+      SELECT s.student_id, s.name, s.class_period ${avatarSelect}${drachmaSelect},
              a.alliance_name, a.current_age
       FROM students s
       LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
@@ -10244,6 +10247,7 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
         alliance_name:   s.alliance_name || '—',
         current_age:     s.current_age   || 'Archaic',
         selected_avatar: hasSelectedAvatar ? (s.selected_avatar || null) : null,
+        drachma:         hasDrachma        ? (s.drachma         || 0)    : 0,
         lore:   stats.lore,
         craft:  stats.craft,
         cunning,

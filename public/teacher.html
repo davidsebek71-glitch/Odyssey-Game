@@ -1856,6 +1856,7 @@
                 <button onclick="setHeroicSort('perseus')"   id="ho-sort-perseus"   class="ho-sort-btn">🪽 Perseus</button>
                 <button onclick="setHeroicSort('bestlog')"   id="ho-sort-bestlog"   class="ho-sort-btn">Best Log</button>
                 <button onclick="setHeroicSort('hera')"      id="ho-sort-hera"      class="ho-sort-btn">Hera</button>
+                <button onclick="setHeroicSort('drachma')"   id="ho-sort-drachma"   class="ho-sort-btn">💰 Drachma ↓</button>
             </div>
 
             <!-- Summary pills -->
@@ -8206,6 +8207,7 @@
                 if (heroicSortKey === 'cunning')  return b.cunning - a.cunning;
                 if (heroicSortKey === 'voyage')   return (b.voyage_complete ? 1 : 0) - (a.voyage_complete ? 1 : 0);
                 if (heroicSortKey === 'hera')     return b.hera_level - a.hera_level;
+                if (heroicSortKey === 'drachma')  return (b.drachma || 0) - (a.drachma || 0);
                 if (heroicSortKey === 'jason')    { const d = logRank(b,'jason')    - logRank(a,'jason');    return d !== 0 ? d : a.name.localeCompare(b.name); }
                 if (heroicSortKey === 'hercules') { const d = logRank(b,'hercules') - logRank(a,'hercules'); return d !== 0 ? d : a.name.localeCompare(b.name); }
                 if (heroicSortKey === 'theseus')  { const d = logRank(b,'theseus')  - logRank(a,'theseus');  return d !== 0 ? d : a.name.localeCompare(b.name); }
@@ -8295,6 +8297,7 @@
                     <td class="ho-stat-val" style="color:${sc(s.honor,10,30)}">${s.honor}</td>
                     <td>${heraBadge}</td>
                     <td style="white-space:nowrap;">${logIconsHtml}</td>
+                    <td class="ho-stat-val" style="color:#fcd34d;font-weight:700;">${(s.drachma || 0).toLocaleString()}</td>
                 </tr>`;
             }).join('');
 
@@ -8310,6 +8313,7 @@
                         <th>⚖️ Honor</th>
                         <th>Hera</th>
                         <th>Logs</th>
+                        <th>💰 Drachma</th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
