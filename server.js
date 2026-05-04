@@ -9944,8 +9944,12 @@ app.post('/api/student/select-avatar', authenticateToken, (req, res) => {
     
     // Use base archetype key for drachma lookup (composite key = 'seeker_male_medium')
     const drachma = AVATAR_DRACHMA[baseAvatar];
+    // Additive: students may have already accumulated drachma from voyage logs before
+    // selecting their avatar — do NOT overwrite that. Stamp avatar+timestamp, add drachma.
+    const existingRow = query('SELECT drachma FROM students WHERE student_id = ?', [student_id])[0];
+    const existingDrachma = (existingRow && existingRow.drachma) ? existingRow.drachma : 0;
     run('UPDATE students SET selected_avatar = ?, drachma = ?, avatar_selected_at = CURRENT_TIMESTAMP, current_age = ? WHERE student_id = ?',
-      [avatar, drachma, 'Heroic', student_id]);
+      [avatar, existingDrachma + drachma, 'Heroic', student_id]);
     
     if (student.alliance_id) {
       run(`INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, 0, 'heroic_entry', ?)`,
@@ -10294,9 +10298,13 @@ app.post('/api/teacher/force-heroic', authenticateToken, (req, res) => {
     const avatarChoice = avatar && VALID_AVATARS.includes(avatar) ? avatar : 'seeker';
     const drachma = AVATAR_DRACHMA[avatarChoice];
     
+    // Additive: do not wipe any drachma the student may have already earned.
+    const existingRow = query('SELECT drachma FROM students WHERE student_id = ?', [student_id])[0];
+    const existingDrachma = (existingRow && existingRow.drachma) ? existingRow.drachma : 0;
+    
     // Update student
     run('UPDATE students SET selected_avatar = ?, drachma = ?, avatar_selected_at = CURRENT_TIMESTAMP, current_age = ? WHERE student_id = ?',
-      [avatarChoice, drachma, 'Heroic', student_id]);
+      [avatarChoice, existingDrachma + drachma, 'Heroic', student_id]);
     
     // Also advance the alliance to Heroic so hub.html sees it
     if (student.alliance_id) {
@@ -14840,7 +14848,7 @@ app.post('/api/admin/repair-alliance', authenticateToken, (req, res) => {
 app.post('/api/voyage-log/submit', (req, res) => {
   try {
     const {
-      student_name, class_period, alliance_name,
+      student_name, class_period, student_id, alliance_name,
       crew_code, rank_tier, total_score,
       stop_scores, medea_response
     } = req.body;
@@ -14891,14 +14899,26 @@ app.post('/api/voyage-log/submit', (req, res) => {
     const tier = (rank_tier || 'OAR').toUpperCase();
     const rewards = tierRewards[tier] || tierRewards.OAR;
 
-    const students = query(
-      'SELECT student_id FROM students WHERE name = ? AND class_period = ?',
-      [student_name, class_period]
-    );
+    // Prefer student_id (exact match), fall back to name+period
+    const sid = student_id ? parseInt(student_id) : null;
+    let students;
+    if (sid) {
+      students = query('SELECT student_id FROM students WHERE student_id = ?', [sid]);
+    }
+    if (!students || students.length === 0) {
+      students = query(
+        'SELECT student_id FROM students WHERE name = ? AND class_period = ?',
+        [student_name, class_period]
+      );
+    }
 
     if (students.length > 0) {
-      const currentDrachma = query('SELECT drachma FROM students WHERE student_id = ?', [students[0].student_id]);
-      const existingDrachma = (currentDrachma.length > 0 && currentDrachma[0].drachma) ? currentDrachma[0].drachma : 0;
+      const currentRow = query('SELECT drachma, voyage_rank_tier FROM students WHERE student_id = ?', [students[0].student_id]);
+      const existingDrachma = (currentRow.length > 0 && currentRow[0].drachma) ? currentRow[0].drachma : 0;
+      const oldTier = (currentRow.length > 0 ? (currentRow[0].voyage_rank_tier || '') : '').toUpperCase();
+      const oldReward = (tierRewards[oldTier] || tierRewards.OAR).drachma;
+      // Only credit the difference — re-submitting at same/lower tier awards 0
+      const drachmaToAward = Math.max(0, rewards.drachma - oldReward);
       run(
         `UPDATE students SET
           voyage_log_completed=1, voyage_crew_code=?, voyage_rank_tier=?,
@@ -14910,11 +14930,11 @@ app.post('/api/voyage-log/submit', (req, res) => {
           crew_code || null, tier,
           rewards.lore, rewards.drachma,
           rewards.hera, rewards.guide,
-          existingDrachma + rewards.drachma,
+          existingDrachma + drachmaToAward,
           students[0].student_id
         ]
       );
-      console.log(`⚓ Voyage rewards: +${rewards.drachma} drachma → student_id ${students[0].student_id}`);
+      console.log(`⚓ Voyage rewards: +${drachmaToAward} drachma (tier ${oldTier || 'none'} → ${tier}) → student_id ${students[0].student_id}`);
     }
 
     saveDatabase();
@@ -15036,15 +15056,24 @@ app.post('/api/teacher/voyage-log-override', authenticateToken, (req, res) => {
     );
 
     if (students.length > 0) {
+      const currentRow = query('SELECT drachma, voyage_rank_tier FROM students WHERE student_id = ?', [students[0].student_id]);
+      const existingDrachma = (currentRow.length > 0 && currentRow[0].drachma) ? currentRow[0].drachma : 0;
+      const oldTier = (currentRow.length > 0 ? (currentRow[0].voyage_rank_tier || '') : '').toUpperCase();
+      const oldReward = (tierRewards[oldTier] || tierRewards.OAR).drachma;
+      const drachmaToAward = Math.max(0, rewards.drachma - oldReward);
       run(
         `UPDATE students SET
           voyage_log_completed=1, voyage_crew_code=?, voyage_rank_tier=?,
           voyage_lore_bonus=?, voyage_drachma_bonus=?,
-          voyage_hera_start=?, voyage_guide_unlocked=?
+          voyage_hera_start=?, voyage_guide_unlocked=?,
+          drachma=?
          WHERE student_id=?`,
         [crew_code, tier, rewards.lore, rewards.drachma,
-         rewards.hera, rewards.guide, students[0].student_id]
+         rewards.hera, rewards.guide,
+         existingDrachma + drachmaToAward,
+         students[0].student_id]
       );
+      console.log(`⚓ Voyage teacher-override: +${drachmaToAward} drachma (tier ${oldTier || 'none'} → ${tier}) → student_id ${students[0].student_id}`);
     }
 
     saveDatabase();
@@ -19344,7 +19373,7 @@ app.get('/api/hercules-log/load-progress-by-id/:student_id', (req, res) => {
 app.post('/api/hercules-log/submit', (req, res) => {
   try {
     const {
-      student_name, class_period, alliance_name,
+      student_name, class_period, student_id, alliance_name,
       hero_code, rank_tier, total_score,
       stop_scores, written_answers
     } = req.body;
@@ -19390,24 +19419,28 @@ app.post('/api/hercules-log/submit', (req, res) => {
     try {
       const hercDrachma = { INI: 0, LAB: 15, BSL: 30, CHP: 50, HOO: 75 };
       const tier = (rank_tier || 'INI').toUpperCase();
-      const drachmaReward = hercDrachma[tier] || 0;
+      const newReward = hercDrachma[tier] || 0;
 
       const sid = student_id ? parseInt(student_id) : null;
       let studentRow;
       if (sid) {
-        studentRow = query('SELECT student_id, drachma FROM students WHERE student_id = ?', [sid]);
+        studentRow = query('SELECT student_id, drachma, hercules_rank_tier FROM students WHERE student_id = ?', [sid]);
       }
       if ((!studentRow || studentRow.length === 0) && student_name && class_period) {
-        studentRow = query('SELECT student_id, drachma FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
+        studentRow = query('SELECT student_id, drachma, hercules_rank_tier FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
       }
       if (studentRow && studentRow.length > 0) {
         const currentDrachma = studentRow[0].drachma || 0;
+        const oldTier = (studentRow[0].hercules_rank_tier || '').toUpperCase();
+        const oldReward = hercDrachma[oldTier] || 0;
+        // Only credit the difference — re-submitting at same/lower tier awards 0
+        const drachmaToAward = Math.max(0, newReward - oldReward);
         run(
           'UPDATE students SET drachma = ?, hercules_log_completed = 1, hercules_hero_code = ?, hercules_rank_tier = ? WHERE student_id = ?',
-          [currentDrachma + drachmaReward, hero_code || null, tier, studentRow[0].student_id]
+          [currentDrachma + drachmaToAward, hero_code || null, tier, studentRow[0].student_id]
         );
         saveDatabase();
-        console.log(`🦁 Hercules rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+        console.log(`🦁 Hercules rewards: +${drachmaToAward} drachma (tier ${oldTier || 'none'} → ${tier}) → student_id ${studentRow[0].student_id}`);
       }
     } catch (bridgeErr) {
       console.error('🦁 Hercules reward bridge error (non-fatal):', bridgeErr.message);
@@ -19935,24 +19968,27 @@ app.post('/api/theseus-log/submit', (req, res) => {
     try {
       const thsDrachma = { STR: 0, TRV: 15, CTZ: 30, CHP: 50, HOA: 75 };
       const tier = (rank_tier || 'STR').toUpperCase();
-      const drachmaReward = thsDrachma[tier] || 0;
+      const newReward = thsDrachma[tier] || 0;
 
       const sid = student_id ? parseInt(student_id) : null;
       let studentRow;
       if (sid) {
-        studentRow = query('SELECT student_id, drachma FROM students WHERE student_id = ?', [sid]);
+        studentRow = query('SELECT student_id, drachma, theseus_rank_tier FROM students WHERE student_id = ?', [sid]);
       }
       if ((!studentRow || studentRow.length === 0) && student_name && class_period) {
-        studentRow = query('SELECT student_id, drachma FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
+        studentRow = query('SELECT student_id, drachma, theseus_rank_tier FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
       }
       if (studentRow && studentRow.length > 0) {
         const currentDrachma = studentRow[0].drachma || 0;
+        const oldTier = (studentRow[0].theseus_rank_tier || '').toUpperCase();
+        const oldReward = thsDrachma[oldTier] || 0;
+        const drachmaToAward = Math.max(0, newReward - oldReward);
         run(
           'UPDATE students SET drachma = ?, theseus_log_completed = 1, theseus_hero_code = ?, theseus_rank_tier = ? WHERE student_id = ?',
-          [currentDrachma + drachmaReward, hero_code || null, tier, studentRow[0].student_id]
+          [currentDrachma + drachmaToAward, hero_code || null, tier, studentRow[0].student_id]
         );
         saveDatabase();
-        console.log(`🗡️ Theseus rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+        console.log(`🗡️ Theseus rewards: +${drachmaToAward} drachma (tier ${oldTier || 'none'} → ${tier}) → student_id ${studentRow[0].student_id}`);
       }
     } catch (bridgeErr) {
       console.error('🗡️ Theseus reward bridge error (non-fatal):', bridgeErr.message);
@@ -20307,24 +20343,27 @@ app.post('/api/perseus-log/submit', (req, res) => {
     try {
       const prsDrachma = { CAS: 0, WAN: 15, SEE: 30, SLA: 50, HOP: 75 };
       const tier = (rank_tier || 'CAS').toUpperCase();
-      const drachmaReward = prsDrachma[tier] || 0;
+      const newReward = prsDrachma[tier] || 0;
 
       const sid = student_id ? parseInt(student_id) : null;
       let studentRow;
       if (sid) {
-        studentRow = query('SELECT student_id, drachma FROM students WHERE student_id = ?', [sid]);
+        studentRow = query('SELECT student_id, drachma, perseus_rank_tier FROM students WHERE student_id = ?', [sid]);
       }
       if ((!studentRow || studentRow.length === 0) && student_name && class_period) {
-        studentRow = query('SELECT student_id, drachma FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
+        studentRow = query('SELECT student_id, drachma, perseus_rank_tier FROM students WHERE name = ? AND class_period = ?', [student_name, class_period]);
       }
       if (studentRow && studentRow.length > 0) {
         const currentDrachma = studentRow[0].drachma || 0;
+        const oldTier = (studentRow[0].perseus_rank_tier || '').toUpperCase();
+        const oldReward = prsDrachma[oldTier] || 0;
+        const drachmaToAward = Math.max(0, newReward - oldReward);
         run(
           'UPDATE students SET drachma = ?, perseus_log_completed = 1, perseus_hero_code = ?, perseus_rank_tier = ? WHERE student_id = ?',
-          [currentDrachma + drachmaReward, hero_code || null, tier, studentRow[0].student_id]
+          [currentDrachma + drachmaToAward, hero_code || null, tier, studentRow[0].student_id]
         );
         saveDatabase();
-        console.log(`🪽 Perseus rewards: +${drachmaReward} drachma → student_id ${studentRow[0].student_id}`);
+        console.log(`🪽 Perseus rewards: +${drachmaToAward} drachma (tier ${oldTier || 'none'} → ${tier}) → student_id ${studentRow[0].student_id}`);
       }
     } catch (bridgeErr) {
       console.error('🪽 Perseus reward bridge error (non-fatal):', bridgeErr.message);
