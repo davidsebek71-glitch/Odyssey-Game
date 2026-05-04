@@ -15894,14 +15894,72 @@ app.get('/api/teacher/heroic-chapter-progress', authenticateToken, (req, res) =>
 // Round 1: 25%  Round 2: 50%  Round 3: 75%  Round 4: 100%  Round 5: 125%
 const ROUND_FACTORS = { 1: 0.35, 2: 0.60, 3: 0.85, 4: 1.10, 5: 1.35 };
 
-// ── Puzzle box URLs — one per round (linked to Google Forms puzzle boxes) ─────
-const BOX_URLS = {
-  1: 'https://t.ly/LtCM',
-  2: 'https://t.ly/GzUj',
-  3: 'https://t.ly/7PAl',
-  4: 'https://t.ly/SIsm',
-  5: 'https://bit.ly/3QnnCyI'
+// ── Revenge of the Gods version system ──────────────────────────────────────
+// Two parallel content versions. Periods are mapped to a version via the
+// olympus_period_versions table (teacher-editable). When an alliance starts
+// a race, its race_state row is stamped with the version pulled from that
+// table. All later URL/secret-word lookups go through the helpers below
+// keyed by state.version, so once a game starts it cannot be "version-
+// switched" mid-flight even if the teacher toggles the period.
+const OLYMPUS_VERSIONS = {
+  A: {
+    box_urls: {
+      1: 'https://t.ly/LtCM',
+      2: 'https://t.ly/GzUj',
+      3: 'https://t.ly/7PAl',
+      4: 'https://t.ly/SIsm',
+      5: 'https://bit.ly/3QnnCyI'
+    },
+    // Stored lowercase; validator lowercases student input before compare.
+    secret_words: {
+      1: 'box',
+      2: 'chariot',
+      3: 'pegasus',
+      4: 'labyrinth',
+      5: '6849'        // four-digit final code from V_A meta-puzzle
+    }
+  },
+  B: {
+    box_urls: {
+      1: 'https://forms.gle/eocZZYx8hgnqBTzu5',
+      2: 'https://forms.gle/c68bFweT3ewRoN138',
+      3: 'https://forms.gle/SZRFUrFitKwmNenLA',
+      4: 'https://forms.gle/z6o2RHctCFhptcFfA',
+      5: 'https://forms.gle/yZHnbxHZHFRhYHLw7'
+    },
+    secret_words: {
+      1: 'jason',
+      2: 'echo',
+      3: 'delphi',
+      4: 'weaving',
+      5: 'durl'        // four-letter directional code from V_B compass puzzle
+    }
+  }
 };
+
+// Look up the active version for a class period from the DB. Defaults to 'A'
+// if the period isn't in the table — this keeps things safe even for an
+// unmapped period (e.g. 'Unassigned' or a new period added later).
+function versionForPeriod(period) {
+  try {
+    const rows = query(
+      `SELECT version FROM olympus_period_versions WHERE class_period = ?`,
+      [period]
+    );
+    if (rows && rows[0] && rows[0].version) return rows[0].version;
+  } catch(e) { /* table may not exist yet on a fresh deploy — fall through */ }
+  return 'A';
+}
+
+function getBoxUrl(version, round) {
+  const v = OLYMPUS_VERSIONS[version] || OLYMPUS_VERSIONS.A;
+  return (v.box_urls && v.box_urls[round]) || null;
+}
+
+function getSecretWord(version, round) {
+  const v = OLYMPUS_VERSIONS[version] || OLYMPUS_VERSIONS.A;
+  return (v.secret_words && v.secret_words[round]) || null;
+}
 
 // ── Leader determination ───────────────────────────────────────────────────────
 // Returns the student_id of the alliance member who has contributed the most
@@ -16789,9 +16847,9 @@ app.post('/api/olympus/start', authenticateToken, (req, res) => {
     const existing = getOlympusState(alliance.alliance_id);
     if (existing) return res.json({ state: existing, created: false });
     run(
-      `INSERT INTO olympus_race_state (alliance_id, period, current_round, current_phase)
-       VALUES (?, ?, 0, 'opening')`,
-      [alliance.alliance_id, alliance.class_period]
+      `INSERT INTO olympus_race_state (alliance_id, period, version, current_round, current_phase)
+       VALUES (?, ?, ?, 0, 'opening')`,
+      [alliance.alliance_id, alliance.class_period, versionForPeriod(alliance.class_period)]
     );
     const state = getOlympusState(alliance.alliance_id);
     res.json({ state, created: true });
@@ -17136,7 +17194,7 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
         points_before: alliance.total_points,
         points_deducted: 0,
         points_after: alliance.total_points,
-        box_url: BOX_URLS[round] || null
+        box_url: getBoxUrl(freshState.version, freshState.current_round)
       };
       run(
         `UPDATE olympus_race_state
@@ -17650,7 +17708,7 @@ app.post('/api/olympus/combat-finalize', authenticateToken, (req, res) => {
       phoenix_triggered:   phoenixTriggered,
       hades_triggered:     hadesTriggered,
       next_phase:          nextPhase,
-      box_url:             BOX_URLS[state.current_round] || null,
+      box_url:             getBoxUrl(state.version, state.current_round),
       resolved:            true
     };
 
@@ -18274,14 +18332,83 @@ app.post('/api/olympus/teacher/start-race', authenticateToken, (req, res) => {
       const existing = getOlympusState(a.alliance_id);
       if (!existing) {
         run(
-          `INSERT INTO olympus_race_state (alliance_id, period, current_round, current_phase)
-           VALUES (?,?,0,'opening')`,
-          [a.alliance_id, period]
+          `INSERT INTO olympus_race_state (alliance_id, period, version, current_round, current_phase)
+           VALUES (?,?,?,0,'opening')`,
+          [a.alliance_id, period, versionForPeriod(period)]
         );
         created++;
       }
     }
     res.json({ period, alliances_initialized: created, total_alliances: alliances.length });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/olympus/teacher/period-versions ─────────────────────────────────
+// Returns the current version for every period plus an in-progress count
+// (alliances with current_round > 0 and not 'complete'). Used by the
+// teacher Revenge of the Gods modal to render the version toggle strip.
+app.get('/api/olympus/teacher/period-versions', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const versions = query(
+      `SELECT class_period, version FROM olympus_period_versions`
+    );
+    const out = {};
+    for (const row of versions) {
+      const inProg = query(
+        `SELECT COUNT(*) AS cnt FROM olympus_race_state
+         WHERE period = ? AND current_round > 0 AND current_phase != 'complete'`,
+        [row.class_period]
+      );
+      out[row.class_period] = {
+        version: row.version,
+        in_progress: inProg[0] ? inProg[0].cnt : 0
+      };
+    }
+    res.json(out);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/olympus/teacher/period-versions ────────────────────────────────
+// Sets a period's version. Affects only NEW races started after this call;
+// existing race_state rows keep whatever version was stamped at INSERT time
+// (intentional — never break a game in progress).
+app.post('/api/olympus/teacher/period-versions', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher access required' });
+  try {
+    const { period, version } = req.body || {};
+    if (!period) return res.status(400).json({ error: 'period required' });
+    if (version !== 'A' && version !== 'B') {
+      return res.status(400).json({ error: "version must be 'A' or 'B'" });
+    }
+    // Upsert the mapping (will INSERT if missing, UPDATE if present)
+    run(
+      `INSERT INTO olympus_period_versions (class_period, version, updated_at)
+       VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(class_period) DO UPDATE SET
+         version    = excluded.version,
+         updated_at = CURRENT_TIMESTAMP`,
+      [period, version]
+    );
+    saveDatabase();
+    const inProg = query(
+      `SELECT COUNT(*) AS cnt FROM olympus_race_state
+       WHERE period = ? AND current_round > 0 AND current_phase != 'complete'`,
+      [period]
+    );
+    const inProgressCount = inProg[0] ? inProg[0].cnt : 0;
+    res.json({
+      period,
+      version,
+      in_progress: inProgressCount,
+      warning: inProgressCount > 0
+        ? inProgressCount + ' alliance(s) in progress will keep their original version.'
+        : null
+    });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -18878,16 +19005,8 @@ app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
     const state = getOlympusState(alliance.alliance_id);
     if (!state) return res.status(400).json({ error: 'No race state' });
 
-    const ROUND_SECRET_WORDS = {
-      1: 'box',
-      2: 'chariot',
-      3: 'pegasus',
-      4: 'labyrinth',
-      5: '6849'  // final 4-digit code from the meta-puzzle — version 1
-    };
-
     const completedRound = state.current_round;
-    const expectedWord = ROUND_SECRET_WORDS[completedRound];
+    const expectedWord = getSecretWord(state.version, completedRound);
     if (!expectedWord) return res.status(400).json({ error: 'No secret word gate for this round' });
 
     if (secret_word.trim().toLowerCase() !== expectedWord.toLowerCase()) {
@@ -18993,14 +19112,6 @@ app.post('/api/olympus/safe-path-advance', authenticateToken, (req, res) => {
     const path = paths.find(p => p.idx === pathIdx);
     if (!path || !path.safe) return res.status(400).json({ error: 'Committed path is not a safe path' });
 
-    const BOX_URLS = {
-      1: 'https://t.ly/LtCM',
-      2: 'https://t.ly/GzUj',
-      3: 'https://t.ly/7PAl',
-      4: 'https://t.ly/SIsm',
-      5: 'https://bit.ly/3QnnCyI'
-    };
-
     const combatResult = {
       resolved:      true,
       safe_path:     true,
@@ -19010,7 +19121,7 @@ app.post('/api/olympus/safe-path-advance', authenticateToken, (req, res) => {
       points_before: alliance.total_points,
       points_after:  alliance.total_points,
       hades_triggered: false,
-      box_url:       BOX_URLS[round] || null
+      box_url:       getBoxUrl(state.version, round)
     };
 
     run(

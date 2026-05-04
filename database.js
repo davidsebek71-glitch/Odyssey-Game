@@ -2225,6 +2225,48 @@ function seedReferenceData() {
     console.log('✅ olympus_path_locks ready');
   } catch(e) { console.log('Migration note: olympus_path_locks -', e.message); }
 
+  // ── olympus_period_versions ──────────────────────────────────────────────
+  // Per-period mapping of class_period → version ('A' or 'B'). Teacher can
+  // toggle a period's version via the Revenge of the Gods modal. Toggling
+  // affects only NEW races; in-progress race_state rows keep whatever
+  // version was stamped on them at INSERT time.
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS olympus_period_versions (
+      class_period   TEXT PRIMARY KEY,
+      version        TEXT NOT NULL DEFAULT 'A',
+      updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    // Seed initial mapping. INSERT OR IGNORE preserves any teacher edits
+    // that have already happened across deploys.
+    const olympusVersionSeeds = [
+      ['1st',  'A'],
+      ['2nd',  'A'],
+      ['3rd',  'B'],
+      ['4th',  'B'],
+      ['Test', 'A']
+    ];
+    for (const [p, v] of olympusVersionSeeds) {
+      db.run(
+        `INSERT OR IGNORE INTO olympus_period_versions (class_period, version) VALUES (?, ?)`,
+        [p, v]
+      );
+    }
+    console.log('✅ olympus_period_versions ready');
+  } catch(e) { console.log('Migration note: olympus_period_versions -', e.message); }
+
+  // Defensive: stamp any pre-existing race_state rows for 3rd/4th period as
+  // version 'B' if they have not yet started (current_round = 0). Mid-game
+  // rows stay on whatever version they already have so we never break a
+  // game in progress.
+  try {
+    db.run(`UPDATE olympus_race_state
+            SET version = 'B'
+            WHERE period IN ('3rd', '4th')
+              AND current_round = 0
+              AND version = 'A'`);
+    console.log('✅ olympus_race_state version backfill (3rd/4th → B for un-started rows)');
+  } catch(e) { console.log('Migration note: olympus version backfill -', e.message); }
+
   try {
     db.run(`CREATE TABLE IF NOT EXISTS olympus_votes (
       vote_id        INTEGER PRIMARY KEY AUTOINCREMENT,
