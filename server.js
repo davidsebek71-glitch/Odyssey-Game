@@ -18001,7 +18001,8 @@ app.post('/api/olympus/puzzle-submit', authenticateToken, (req, res) => {
       const words = JSON.parse(state.secret_words || '[]');
       if (!words.includes(puzzle.secretWord)) words.push(puzzle.secretWord);
       run(
-        `UPDATE olympus_race_state SET secret_words=?, current_phase='god_test' WHERE alliance_id=?`,
+        `UPDATE olympus_race_state SET secret_words=?, current_phase='god_test',
+         combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
         [JSON.stringify(words), alliance.alliance_id]
       );
       saveDatabase();
@@ -18035,8 +18036,8 @@ app.post('/api/olympus/godtest-submit', authenticateToken, (req, res) => {
     const nextRound = state.current_round + 1;
     const nextPhase = nextRound > 5 ? 'summit' : 'path_choice';
     run(
-      `UPDATE olympus_race_state SET god_test_results=?, current_round=?, current_phase=?
-       WHERE alliance_id=?`,
+      `UPDATE olympus_race_state SET god_test_results=?, current_round=?, current_phase=?,
+       combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
       [JSON.stringify(results), nextRound, nextPhase, alliance.alliance_id]
     );
     saveDatabase();
@@ -19055,7 +19056,8 @@ app.post('/api/olympus/round-unlock', authenticateToken, (req, res) => {
       if (isLastRound) {
         // Final round complete — mark game done, do not increment round
         run(
-          `UPDATE olympus_race_state SET current_phase='complete' WHERE alliance_id=?`,
+          `UPDATE olympus_race_state SET current_phase='complete',
+           combat_result=NULL, combat_ready_flags=NULL WHERE alliance_id=?`,
           [alliance.alliance_id]
         );
       } else {
