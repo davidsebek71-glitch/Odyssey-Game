@@ -1833,12 +1833,15 @@
             <p style="color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 16px;">Per-student Heroic Age stats, avatar selections, Hera disposition, and Voyage Log status.</p>
 
             <!-- Period tabs -->
-            <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
                 <button class="period-tab active" onclick="loadHeroicOverview('1st')" id="ho-tab-1st">1st Period</button>
                 <button class="period-tab" onclick="loadHeroicOverview('2nd')" id="ho-tab-2nd">2nd Period</button>
                 <button class="period-tab" onclick="loadHeroicOverview('3rd')" id="ho-tab-3rd">3rd Period</button>
                 <button class="period-tab" onclick="loadHeroicOverview('4th')" id="ho-tab-4th">4th Period</button>
                 <button class="period-tab" onclick="loadHeroicOverview('Test')" id="ho-tab-Test">Test</button>
+                <button onclick="runDrachmaRecompute()" id="ho-recompute-btn"
+                    style="margin-left: auto; padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(252,211,77,0.5); background: rgba(252,211,77,0.1); color: #fcd34d; font-weight: 600; cursor: pointer;"
+                    title="Recompute drachma totals for the selected period from avatar + log tiers">🔄 Recompute Drachma</button>
             </div>
 
             <!-- Sort controls -->
@@ -8183,6 +8186,82 @@
             const btn = document.getElementById('ho-sort-' + key);
             if (btn) btn.classList.add('active');
             renderHeroicOverview();
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // Phase 2 — Drachma recompute (preview → confirm → apply)
+        // ════════════════════════════════════════════════════════════════════
+        async function runDrachmaRecompute() {
+            const period = heroicCurrentPeriod;
+            if (!period) { alert('Please select a period first.'); return; }
+
+            const btn = document.getElementById('ho-recompute-btn');
+            const oldLabel = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Computing preview...';
+
+            // Step 1 — Dry-run
+            let report;
+            try {
+                const res = await fetch(`${API_URL}/admin/drachma-recompute?period=${encodeURIComponent(period)}`, { headers });
+                if (!res.ok) {
+                    const e = await res.json().catch(() => ({}));
+                    throw new Error(e.error || 'Server error ' + res.status);
+                }
+                report = await res.json();
+            } catch (err) {
+                alert('Failed to compute preview: ' + err.message);
+                btn.disabled = false; btn.textContent = oldLabel;
+                return;
+            }
+
+            const changes = (report.students || []).filter(s => s.delta !== 0 && s.current_age === 'Heroic');
+            if (changes.length === 0) {
+                alert(`✅ No drachma changes needed for ${period} period.\n\nAll ${report.heroic_count} Heroic-age students are already at expected values.`);
+                btn.disabled = false; btn.textContent = oldLabel;
+                return;
+            }
+
+            // Step 2 — Build preview text
+            let summary = `🔄 RECOMPUTE PREVIEW — ${period} Period\n\n`;
+            summary += `${changes.length} of ${report.heroic_count} Heroic-age students will be changed.\n`;
+            summary += `Total drachma delta: ${report.total_drachma_delta >= 0 ? '+' : ''}${report.total_drachma_delta}\n\n`;
+            summary += `Per student (current → new):\n`;
+            changes.forEach(c => {
+                const sign = c.delta > 0 ? '+' : '';
+                const tiers = `J:${c.tiers.jason || '-'} H:${c.tiers.hercules || '-'} T:${c.tiers.theseus || '-'} P:${c.tiers.perseus || '-'}`;
+                summary += `  ${c.name}: ${c.actual_drachma} → ${c.breakdown.expected_total} (${sign}${c.delta})  [${tiers}]\n`;
+            });
+            summary += `\nType APPLY to confirm and write changes to the database.`;
+
+            const userInput = prompt(summary);
+            btn.disabled = false; btn.textContent = oldLabel;
+            if (userInput !== 'APPLY') {
+                if (userInput !== null) alert('Cancelled — must type APPLY exactly. No changes made.');
+                return;
+            }
+
+            // Step 3 — Apply
+            btn.disabled = true;
+            btn.textContent = 'Applying...';
+            try {
+                const res = await fetch(`${API_URL}/admin/drachma-recompute`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period, confirm: 'APPLY' })
+                });
+                if (!res.ok) {
+                    const e = await res.json().catch(() => ({}));
+                    throw new Error(e.error || 'Server error ' + res.status);
+                }
+                const result = await res.json();
+                alert(`✅ Applied! ${result.students_changed} students updated. Total Δ: ${result.total_drachma_delta >= 0 ? '+' : ''}${result.total_drachma_delta} drachma.`);
+                loadHeroicOverview(period); // refresh modal
+            } catch (err) {
+                alert('Failed to apply: ' + err.message);
+            } finally {
+                btn.disabled = false; btn.textContent = oldLabel;
+            }
         }
 
         const HERO_LOG_TIER_NAMES = {

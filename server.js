@@ -276,7 +276,7 @@ initDatabase().then(() => {
       resolved            INTEGER DEFAULT 0,
       created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE (alliance_id, round_number)
-    `);
+    )`);
 
         // Add medea_help_count to olympus_race_state if not present (PRAGMA-safe migration)
     try {
@@ -10282,6 +10282,184 @@ app.get('/api/teacher/heroic-overview', authenticateToken, (req, res) => {
   } catch (err) {
     console.error('Heroic overview error:', err.message, err.stack);
     res.status(500).json({ error: 'Failed to load heroic overview', detail: err.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// PHASE 2 — Drachma recompute (one-shot per period)
+// Recalculates each Heroic-age student's drachma as:
+//   archetype award + sum of tier rewards from voyage_log/hercules_log/theseus_log/perseus_log
+// GET  /api/admin/drachma-recompute?period=...        → dry-run preview (no writes)
+// POST /api/admin/drachma-recompute  body:{period, confirm:'APPLY'} → apply changes
+// ════════════════════════════════════════════════════════════════════════════
+function recomputeDrachmaForPeriod(period, applyChanges) {
+  const TIER_DRACHMA = {
+    jason:    { OAR: 0, NAV: 25, FM: 50, ARG: 75, HOA: 100 },
+    hercules: { INI: 0, LAB: 15, BSL: 30, CHP: 50, HOO: 75 },
+    theseus:  { STR: 0, TRV: 15, CTZ: 30, CHP: 50, HOA: 75 },
+    perseus:  { CAS: 0, WAN: 15, SEE: 30, SLA: 50, HOP: 75 }
+  };
+  const ARCHETYPE_DRACHMA = {
+    seeker: 300, fallen: 400, devoted: 150, mirror: 250,
+    builder: 200, tested: 100, eternal: 200
+  };
+
+  // Defensive col check (drachma column may not exist in older DBs)
+  let hasDrachma = false, hasSelectedAvatar = false;
+  try {
+    const cols = query('PRAGMA table_info(students)').map(c => c.name);
+    hasDrachma = cols.includes('drachma');
+    hasSelectedAvatar = cols.includes('selected_avatar');
+  } catch(e) {}
+
+  if (!hasDrachma) {
+    return { error: 'students.drachma column not present in this database' };
+  }
+
+  const studentSelect = `s.student_id, s.name, s.class_period, s.drachma${hasSelectedAvatar ? ', s.selected_avatar' : ''}`;
+  const students = query(`
+    SELECT ${studentSelect}, a.alliance_name, a.current_age
+    FROM students s
+    LEFT JOIN alliances a ON s.alliance_id = a.alliance_id
+    WHERE s.class_period = ? AND (s.is_ghost = 0 OR s.is_ghost IS NULL)
+    ORDER BY s.name ASC
+  `, [period]);
+
+  if (students.length === 0) {
+    return { period, mode: applyChanges ? 'applied' : 'dry-run', student_count: 0, heroic_count: 0, students_changed: 0, total_drachma_delta: 0, students: [] };
+  }
+
+  let jasonRows = [], herculesRows = [], theseusRows = [], perseusRows = [];
+  try { jasonRows    = query('SELECT student_name, rank_tier FROM voyage_log_completions    WHERE class_period = ?', [period]); } catch(e) {}
+  try { herculesRows = query('SELECT student_name, rank_tier FROM hercules_log_completions WHERE class_period = ?', [period]); } catch(e) {}
+  try { theseusRows  = query('SELECT student_name, rank_tier FROM theseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
+  try { perseusRows  = query('SELECT student_name, rank_tier FROM perseus_log_completions  WHERE class_period = ?', [period]); } catch(e) {}
+
+  // Multi-strategy name match — same logic as heroic-overview endpoint
+  const nameWords = (str) => new Set(String(str || '').toLowerCase().replace(/@/g, 'a').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1));
+  const sharesWord = (a, b) => { const aw = nameWords(a), bw = nameWords(b); for (const w of aw) { if (bw.has(w)) return true; } return false; };
+  const findMatch = (rows, name) => {
+    const nl = String(name).toLowerCase().trim();
+    return rows.find(r => r.student_name === name) ||
+           rows.find(r => typeof r.student_name === 'string' && r.student_name.toLowerCase().trim() === nl) ||
+           rows.find(r => typeof r.student_name === 'string' && sharesWord(r.student_name, name)) ||
+           null;
+  };
+
+  let appliedCount = 0;
+  let totalDelta = 0;
+
+  const studentReports = students.map(s => {
+    const inHeroic = (s.current_age === 'Heroic');
+    const archetype = (hasSelectedAvatar && s.selected_avatar) ? s.selected_avatar.split('_')[0] : null;
+    const archetypeDrachma = archetype ? (ARCHETYPE_DRACHMA[archetype] || 0) : 0;
+
+    const j = findMatch(jasonRows,    s.name);
+    const h = findMatch(herculesRows, s.name);
+    const t = findMatch(theseusRows,  s.name);
+    const p = findMatch(perseusRows,  s.name);
+
+    const jr = j ? (TIER_DRACHMA.jason   [(j.rank_tier || '').toUpperCase()] || 0) : 0;
+    const hr = h ? (TIER_DRACHMA.hercules[(h.rank_tier || '').toUpperCase()] || 0) : 0;
+    const tr = t ? (TIER_DRACHMA.theseus [(t.rank_tier || '').toUpperCase()] || 0) : 0;
+    const pr = p ? (TIER_DRACHMA.perseus [(p.rank_tier || '').toUpperCase()] || 0) : 0;
+
+    const expectedTotal = archetypeDrachma + jr + hr + tr + pr;
+    const actualDrachma = s.drachma || 0;
+    const delta = expectedTotal - actualDrachma;
+
+    let action;
+    if (!inHeroic) {
+      action = 'skipped_not_heroic';
+    } else if (delta === 0) {
+      action = 'no_change';
+    } else if (applyChanges) {
+      run('UPDATE students SET drachma = ? WHERE student_id = ?', [expectedTotal, s.student_id]);
+      // Audit trail — use point_transactions with 0 alliance points + a descriptive reason
+      try {
+        const allianceRow = query('SELECT alliance_id FROM students WHERE student_id = ?', [s.student_id])[0];
+        const allianceId = allianceRow ? allianceRow.alliance_id : null;
+        if (allianceId) {
+          run(
+            `INSERT INTO point_transactions (alliance_id, student_id, amount, category, reason) VALUES (?, ?, 0, 'drachma_recompute', ?)`,
+            [allianceId, s.student_id, `Drachma recomputed: ${actualDrachma} → ${expectedTotal} (Δ${delta >= 0 ? '+' : ''}${delta}); avatar=${archetype || 'none'}, J=${j ? j.rank_tier : '-'}, H=${h ? h.rank_tier : '-'}, T=${t ? t.rank_tier : '-'}, P=${p ? p.rank_tier : '-'}`]
+          );
+        }
+      } catch(auditErr) {
+        console.error('Drachma recompute audit log failed (non-fatal):', auditErr.message);
+      }
+      appliedCount++;
+      totalDelta += delta;
+      action = delta > 0 ? 'applied_increase' : 'applied_decrease';
+    } else {
+      action = delta > 0 ? 'preview_increase' : 'preview_decrease';
+    }
+
+    return {
+      student_id: s.student_id,
+      name: s.name,
+      current_age: s.current_age || 'Archaic',
+      archetype,
+      tiers: {
+        jason:    j ? j.rank_tier : null,
+        hercules: h ? h.rank_tier : null,
+        theseus:  t ? t.rank_tier : null,
+        perseus:  p ? p.rank_tier : null
+      },
+      breakdown: {
+        avatar: archetypeDrachma,
+        jason: jr, hercules: hr, theseus: tr, perseus: pr,
+        expected_total: expectedTotal
+      },
+      actual_drachma: actualDrachma,
+      delta,
+      action
+    };
+  });
+
+  if (applyChanges && appliedCount > 0) {
+    saveDatabase();
+  }
+
+  const heroicReports = studentReports.filter(s => s.current_age === 'Heroic');
+  return {
+    period,
+    mode: applyChanges ? 'applied' : 'dry-run',
+    student_count:       students.length,
+    heroic_count:        heroicReports.length,
+    students_changed:    applyChanges ? appliedCount : heroicReports.filter(s => s.delta !== 0).length,
+    total_drachma_delta: applyChanges ? totalDelta : heroicReports.reduce((sum, s) => sum + s.delta, 0),
+    students: studentReports
+  };
+}
+
+app.get('/api/admin/drachma-recompute', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    const { period } = req.query;
+    if (!period) return res.status(400).json({ error: 'period required' });
+    const report = recomputeDrachmaForPeriod(period, false);
+    if (report.error) return res.status(500).json(report);
+    res.json(report);
+  } catch (err) {
+    console.error('Drachma recompute (dry-run) error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/drachma-recompute', authenticateToken, (req, res) => {
+  try {
+    if (req.user.type !== 'teacher' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    const { period, confirm } = req.body || {};
+    if (!period) return res.status(400).json({ error: 'period required' });
+    if (confirm !== 'APPLY') return res.status(400).json({ error: 'Must include {confirm: "APPLY"} to apply' });
+    const report = recomputeDrachmaForPeriod(period, true);
+    if (report.error) return res.status(500).json(report);
+    console.log(`💰 Drachma recompute APPLIED for period ${period}: ${report.students_changed} students changed, total Δ ${report.total_drachma_delta}`);
+    res.json(report);
+  } catch (err) {
+    console.error('Drachma recompute (apply) error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
