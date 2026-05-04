@@ -18882,6 +18882,30 @@ app.post('/api/olympus/teacher/reset-race', authenticateToken, (req, res) => {
   }
 });
 
+// ── POST /api/olympus/admin-cleanup-stale (Bug 3 cleanup, May 4 2026) ────────
+// One-shot cleanup for stale combat_result / combat_ready_flags left over from
+// before Fix 3 shipped. Only clears rows in non-combat / non-puzzle phases —
+// those are the only phases where the client reads combat_result, so wiping
+// from any other phase is safe. Idempotent (re-running on a clean DB returns 0).
+app.post('/api/olympus/admin-cleanup-stale', authenticateToken, (req, res) => {
+  if (req.user.type !== 'teacher') return res.status(403).json({ error: 'Teacher only' });
+  try {
+    const before = query(
+      `SELECT COUNT(*) AS cnt FROM olympus_race_state
+       WHERE current_phase NOT IN ('combat','puzzle')
+         AND (combat_result IS NOT NULL OR combat_ready_flags IS NOT NULL)`
+    );
+    run(
+      `UPDATE olympus_race_state SET combat_result=NULL, combat_ready_flags=NULL
+       WHERE current_phase NOT IN ('combat','puzzle')`
+    );
+    saveDatabase();
+    res.json({ cleaned: before[0] ? before[0].cnt : 0 });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── POST /api/olympus/hades-escape ───────────────────────────────────────────
 // Student endpoint — called when the alliance clicks "Continue as Ghost Runner"
 // on the Hades waiting screen. Sets ghost_runner_mode=1, points to 1,
