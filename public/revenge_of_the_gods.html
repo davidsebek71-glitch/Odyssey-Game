@@ -969,12 +969,6 @@
     <div class="trivia-context" id="trivia-context-label"></div>
     <div class="trivia-stake" id="trivia-stake-label"></div>
     <div class="trivia-question-card" id="trivia-question-text"></div>
-    <div class="trivia-timer-wrap">
-      <div class="trivia-timer-bar">
-        <div class="trivia-timer-fill" id="trivia-timer-fill" style="width:100%;"></div>
-      </div>
-      <div class="trivia-timer-num" id="trivia-timer-num">30</div>
-    </div>
     <div class="trivia-answer-grid" id="trivia-answer-grid"></div>
     <div class="trivia-feedback" id="trivia-feedback"></div>
     <button class="btn-continue-combat" id="btn-continue-combat" onclick="finalizeCombat()">
@@ -1251,16 +1245,21 @@ function routeToPhase(phase, round) {
 
     case 'combat':
       // If returning from combat_wave.html with a stored result, show it
+      // Only a FINALIZED result (resolved: true) may be shown directly.
+      // combat-ready also stores combat_result with just the dice rolls; showing
+      // that on a reload displayed "0 points" and skipped the leader's spell /
+      // trivia / finalize steps, leaving the team stuck. Unfinished combat
+      // reopens the combat screen; the server returns the stored rolls, spell
+      // and trivia answer, so the leader resumes where they left off.
+      var storedResult = null;
       if (raceState && raceState.combat_result) {
-        try {
-          const stored = JSON.parse(raceState.combat_result);
-          // Show the combat story screen first so showCombatResult has elements to populate
-          showCombat(round).then(function() {
-            showCombatResult(stored);
-          });
-        } catch(e) {
-          showCombat(round);
-        }
+        try { storedResult = JSON.parse(raceState.combat_result); } catch(e) { storedResult = null; }
+      }
+      if (storedResult && storedResult.resolved === true) {
+        // Show the combat story screen first so showCombatResult has elements to populate
+        showCombat(round).then(function() {
+          showCombatResult(storedResult);
+        });
       } else {
         showCombat(round);
       }
@@ -2131,6 +2130,15 @@ async function commitPath() {
     if (voteData.already_advanced) {
       await loadState();
       if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+      return;
+    }
+
+    if (voteData.path_taken) {
+      // Another alliance holds this path: redraw the cards (it now shows as
+      // locked), then explain. The button stays disabled until a new pick.
+      await showPathChoice(raceState ? raceState.current_round : 1);
+      showPathsError(voteData.error || 'Another alliance took that path. Choose another path.');
+      btn.textContent = 'Commit to This Path';
       return;
     }
 
@@ -3246,26 +3254,9 @@ async function showTriviaPhase() {
   var follMsg = document.getElementById('trivia-follower-msg');
   if (follMsg) follMsg.style.display = isLeader ? 'none' : 'block';
 
-  // 30-second timer (client-side only)
-  if (triviaTimerHandle) clearInterval(triviaTimerHandle);
-  var secsLeft = 30;
-  var fillEl   = document.getElementById('trivia-timer-fill');
-  var numEl    = document.getElementById('trivia-timer-num');
-  if (fillEl) fillEl.style.width = '100%';
-  if (numEl)  numEl.textContent  = '30';
-
-  if (isLeader) {
-    triviaTimerHandle = setInterval(function() {
-      secsLeft--;
-      if (fillEl) fillEl.style.width = Math.max(0, (secsLeft / 30) * 100) + '%';
-      if (numEl)  numEl.textContent  = Math.max(0, secsLeft);
-      if (secsLeft <= 0) {
-        clearInterval(triviaTimerHandle);
-        triviaTimerHandle = null;
-        if (!triviaAnswered) submitTriviaAnswer(null, null, []);
-      }
-    }, 1000);
-  }
+  // No timer: the leader takes as long as the alliance needs to discuss
+  // and answer. (A 30-second countdown used to auto-submit a wrong answer.)
+  if (triviaTimerHandle) { clearInterval(triviaTimerHandle); triviaTimerHandle = null; }
 
   startPolling(); // keep followers in sync
 }

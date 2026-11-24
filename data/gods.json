@@ -1,0 +1,22 @@
+{
+  "_readme": [
+    "God powers. A student earns a god's power by writing an evidence card (a claim about the god + a quotation from the text) that the teacher approves.",
+    "Approved powers belong to the student; their whole alliance can use them in monster battles.",
+    "prompt: what the evidence card asks for. Replace these with the old god chart prompts if you prefer.",
+    "key must stay the same once students have cards (it links their cards to the god)."
+  ],
+  "gods": [
+    { "key": "zeus", "name": "Zeus", "emoji": "⚡", "power": "Thunderbolt", "prompt": "Make a claim about how Zeus uses his power as king of the gods. Quote the text that proves it." },
+    { "key": "hera", "name": "Hera", "emoji": "👑", "power": "Queen's Command", "prompt": "Make a claim about what Hera values or how she treats those who wrong her. Quote the text that proves it." },
+    { "key": "poseidon", "name": "Poseidon", "emoji": "🔱", "power": "Earthshaker", "prompt": "Make a claim about Poseidon's temper or his rule over the sea. Quote the text that proves it." },
+    { "key": "demeter", "name": "Demeter", "emoji": "🌾", "power": "Harvest's Strength", "prompt": "Make a claim about how Demeter's feelings affect the world. Quote the text that proves it." },
+    { "key": "athena", "name": "Athena", "emoji": "🦉", "power": "Aegis of Wisdom", "prompt": "Make a claim about how Athena helps or tests heroes. Quote the text that proves it." },
+    { "key": "apollo", "name": "Apollo", "emoji": "☀️", "power": "Golden Arrow", "prompt": "Make a claim about Apollo's gifts (prophecy, music, light) and how he uses them. Quote the text that proves it." },
+    { "key": "artemis", "name": "Artemis", "emoji": "🏹", "power": "Hunter's Aim", "prompt": "Make a claim about what Artemis protects and how she punishes those who cross her. Quote the text that proves it." },
+    { "key": "ares", "name": "Ares", "emoji": "⚔️", "power": "War Fury", "prompt": "Make a claim about how the other gods see Ares, or how he fights. Quote the text that proves it." },
+    { "key": "aphrodite", "name": "Aphrodite", "emoji": "🌹", "power": "Enchantment", "prompt": "Make a claim about how Aphrodite's power changes what mortals or gods do. Quote the text that proves it." },
+    { "key": "hephaestus", "name": "Hephaestus", "emoji": "🔨", "power": "Forged Armor", "prompt": "Make a claim about how Hephaestus is treated, or what his craft makes possible. Quote the text that proves it." },
+    { "key": "hermes", "name": "Hermes", "emoji": "🪽", "power": "Winged Sandals", "prompt": "Make a claim about Hermes's cleverness or his role as messenger. Quote the text that proves it." },
+    { "key": "hades", "name": "Hades", "emoji": "💀", "power": "Helm of Darkness", "prompt": "Make a claim about how Hades rules the Underworld, or how he is different from the other gods. Quote the text that proves it." }
+  ]
+}

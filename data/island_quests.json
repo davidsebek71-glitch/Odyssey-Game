@@ -1,0 +1,106 @@
+{
+  "_readme": [
+    "Island quest sites. Loaded into the island_quests table every time the server starts.",
+    "Each quest is matched by quest_key: edit a quest here and redeploy to change it. Removing a quest from this file does NOT delete it; set \"active\": false instead so students' existing pins keep their quest.",
+    "unlock_myth: the myth_name of the myth portal whose quiz unlocks this quest (Pandora, Phaethon, Orpheus & Eurydice, Echo & Narcissus, Icarus & Daedalus, Eros & Psyche, Constellations). Leave it out to have the quest open from the start.",
+    "tier: core (required) or optional. pin_type: shrine, creature, landmark, poem, lair, guardian, monster.",
+    "min_words / min_lines: the editor shows a live count and blocks Submit until both are met (0 = no minimum).",
+    "points: alliance points awarded once, when the teacher approves the pin.",
+    "images: picture URLs shown with the directions, e.g. \"/images/classical/myths/Pandora.png\".",
+    "test_only: true = only students in the Test period see it. The quests below are SAMPLES until the real SIDE_QUEST_CATALOG and MONSTER_LAIR_GUARDIAN_QUEST content is added.",
+    "Heroic quest pieces: pin_type guardian (its visitor question is the Guardian's Test), lair (photo + four labeled dangers), monster (four attributes with counters + what the hero gains). A student's published guardian + lair + monster are faced together by visitors in an encounter."
+  ],
+  "quests": [
+    {
+      "quest_key": "sample_pandora_shrine",
+      "title": "SAMPLE: A Shrine for Pandora's Jar",
+      "age": "Classical",
+      "tier": "core",
+      "unlock_myth": "Pandora",
+      "directions": "Build a shrine on your island where Pandora's jar is kept. Describe the shrine, who guards it, and what is still inside the jar. Use at least two details from the myth.",
+      "images": [
+        "/images/classical/myths/Pandora.png"
+      ],
+      "min_words": 80,
+      "min_lines": 0,
+      "points": 25,
+      "pin_type": "shrine",
+      "test_only": true,
+      "sort_order": 10
+    },
+    {
+      "quest_key": "sample_orpheus_poem",
+      "title": "SAMPLE: Orpheus's Song",
+      "age": "Classical",
+      "tier": "optional",
+      "unlock_myth": "Orpheus & Eurydice",
+      "directions": "Write the song Orpheus sang to Hades. Place it where it would echo on your island.",
+      "images": [
+        "/images/classical/myths/Orpheus.png"
+      ],
+      "min_words": 0,
+      "min_lines": 8,
+      "points": 20,
+      "pin_type": "poem",
+      "test_only": true,
+      "sort_order": 20
+    },
+    {
+      "quest_key": "sample_echo_creature",
+      "title": "SAMPLE: Draw a Creature of the Forest",
+      "age": "Classical",
+      "tier": "optional",
+      "unlock_myth": "Echo & Narcissus",
+      "directions": "Draw a creature that lives near Echo's pool. Photograph your drawing and add a short caption explaining how it connects to the myth.",
+      "images": [],
+      "min_words": 30,
+      "min_lines": 0,
+      "points": 15,
+      "pin_type": "creature",
+      "test_only": true,
+      "sort_order": 30
+    },
+    {
+      "quest_key": "sample_heroic_guardian",
+      "title": "SAMPLE: The Guardian",
+      "age": "Heroic",
+      "tier": "core",
+      "directions": "Create the guardian who protects your monster's lair. Describe it, then write the Guardian's Test: a question every hero must answer to pass.",
+      "images": [],
+      "min_words": 40,
+      "min_lines": 0,
+      "points": 20,
+      "pin_type": "guardian",
+      "test_only": true,
+      "sort_order": 40
+    },
+    {
+      "quest_key": "sample_heroic_lair",
+      "title": "SAMPLE: The Lair",
+      "age": "Heroic",
+      "tier": "core",
+      "directions": "Draw a map of your monster's lair. Photograph it, then label four dangers a hero must get past.",
+      "images": [],
+      "min_words": 20,
+      "min_lines": 0,
+      "points": 20,
+      "pin_type": "lair",
+      "test_only": true,
+      "sort_order": 50
+    },
+    {
+      "quest_key": "sample_heroic_monster",
+      "title": "SAMPLE: The Monster",
+      "age": "Heroic",
+      "tier": "core",
+      "directions": "Create a monster that seems impossible to escape. Describe it, give it four attributes that make it so dangerous, and decide how a hero could counter each one (a god's power, or knowing the myth). Then write what the hero gains by defeating it.",
+      "images": [],
+      "min_words": 60,
+      "min_lines": 0,
+      "points": 30,
+      "pin_type": "monster",
+      "test_only": true,
+      "sort_order": 60
+    }
+  ]
+}

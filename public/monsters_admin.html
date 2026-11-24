@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gods & Monsters — Teacher</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.62);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button, select, textarea { font: inherit; }
+  a { color: var(--gold); }
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.2rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 7px 13px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.active { border-color: var(--gold); color: var(--gold); }
+  .btn.approve { background: linear-gradient(135deg, #16a34a, #15803d); border-color: #16a34a; font-weight: 700; }
+  .btn.return { border-color: var(--red); color: var(--red); }
+  .btn.danger { background: linear-gradient(135deg, #b91c1c, #7f1d1d); border-color: #b91c1c; font-weight: 700; }
+  .btn.small { padding: 3px 9px; font-size: 0.85rem; }
+  .btn:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  select, textarea { background: rgba(10,6,22,0.9); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  textarea { width: 100%; }
+  main { max-width: 1150px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.05rem; margin: 0 0 10px; }
+  h3 { color: var(--violet); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 6px; }
+  .muted { color: var(--muted); }
+  .quote { background: rgba(10,6,22,0.6); border-left: 3px solid var(--violet); padding: 8px 12px; border-radius: 0 6px 6px 0; margin: 6px 0; white-space: pre-wrap; line-height: 1.5; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .threat { border: 1px solid rgba(248,113,113,0.4); background: rgba(127,29,29,0.15); border-radius: 8px; padding: 8px 10px; margin: 6px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .threat .t { flex: 1; min-width: 220px; }
+  table { width: 100%; border-collapse: collapse; } th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+  th { color: var(--violet); }
+  .msg { font-size: 0.9rem; }
+  .empty { text-align: center; color: var(--muted); padding: 40px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/teacher.html">← Dashboard</a>
+  <h1>Gods & Monsters</h1>
+  <label class="muted" for="period">Period</label>
+  <select id="period" onchange="refresh()"></select>
+  <button class="btn active" id="tab-cards" onclick="setTab('cards')">Evidence cards</button>
+  <button class="btn" id="tab-monsters" onclick="setTab('monsters')">Monsters</button>
+  <button class="btn" id="tab-enc" onclick="setTab('enc')">Student monster encounters</button>
+</div>
+<main id="main"></main>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+let tab = 'cards';
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'value') e.value = v;
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) throw new Error(d.error || 'Something went wrong.');
+  return d;
+}
+const period = () => document.getElementById('period').value;
+const main = () => document.getElementById('main');
+function setTab(t) { tab = t; ['cards', 'monsters', 'enc'].forEach(x => document.getElementById('tab-' + x).classList.toggle('active', x === t)); refresh(); }
+async function loadPeriods() {
+  const d = await api('GET', '/teacher/island/students');
+  const sel = document.getElementById('period');
+  (d.periods || []).forEach(p => sel.append(el('option', { value: p, text: p })));
+  if (d.periods.includes('Test')) sel.value = 'Test';
+}
+async function refresh() {
+  main().replaceChildren(el('div', { class: 'empty', text: 'Loading…' }));
+  try {
+    if (tab === 'cards') return renderCards((await api('GET', '/teacher/gods/cards?period=' + encodeURIComponent(period()))).cards);
+    if (tab === 'enc') return renderEncounters((await api('GET', '/teacher/encounters?period=' + encodeURIComponent(period()))).encounters);
+    return renderMonsters(await api('GET', '/teacher/monsters/overview?period=' + encodeURIComponent(period())));
+  } catch (e) { main().replaceChildren(el('div', { class: 'empty', text: e.message })); }
+}
+
+// ── Evidence cards ──────────────────────────────────────────────────────────
+function renderCards(cards) {
+  if (!cards.length) return main().replaceChildren(el('div', { class: 'empty', text: 'No evidence cards are waiting. 🎉' }));
+  main().replaceChildren(el('p', { class: 'muted', text: `${cards.length} waiting · approving gives the student that god's power for their whole alliance` }), ...cards.map(c => {
+    const card = el('div', { class: 'card' });
+    const note = el('textarea', { rows: '2', placeholder: 'Note to the student (required to return it)', 'aria-label': `Note for ${c.student_name}` });
+    const msg = el('span', { class: 'msg' });
+    async function review(action) {
+      if (action === 'return' && !note.value.trim()) { msg.textContent = 'Write a note telling the student what to change.'; msg.style.color = 'var(--amber)'; return; }
+      try { await api('POST', `/teacher/gods/cards/${c.power_id}/review`, { action, note: note.value });
+        card.replaceChildren(el('div', { class: 'row' }, el('strong', { text: c.student_name }), `${c.god_emoji} ${c.god_name}`,
+          el('span', { style: `color:${action === 'approve' ? 'var(--green)' : 'var(--red)'}`, text: action === 'approve' ? '✓ Power granted' : '↩ Returned' })));
+      } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+    }
+    card.append(el('div', { class: 'row' }, el('span', { style: 'font-size:1.5rem', text: c.god_emoji }), el('strong', { text: c.student_name }),
+        el('span', { class: 'muted', text: `${c.alliance_name || 'No alliance'} · ${c.god_name}` })),
+      el('div', { class: 'muted', style: 'font-size:0.85rem;margin-top:6px', text: `Prompt: ${c.prompt}` }),
+      el('h3', { text: 'Claim' }), el('div', { class: 'quote', text: c.claim }),
+      el('h3', { text: 'Evidence' }), el('div', { class: 'quote', text: c.evidence_text }),
+      c.source_note ? el('div', { class: 'muted', text: `Source: ${c.source_note}` }) : null,
+      note, el('div', { class: 'row', style: 'margin-top:8px' },
+        el('button', { class: 'btn approve', onclick: () => review('approve') }, '✓ Approve — grant the power'),
+        el('button', { class: 'btn return', onclick: () => review('return') }, '↩ Return with note'), msg));
+    return card;
+  }));
+}
+
+// ── Monsters ────────────────────────────────────────────────────────────────
+function renderMonsters(d) {
+  if (!d.alliances.length) return main().replaceChildren(el('div', { class: 'empty', text: 'No alliances in this period.' }));
+  const monsterName = k => (d.monsters.find(m => m.key === k) || {}).name || k;
+  main().replaceChildren(el('p', { class: 'muted', style: 'margin-top:0', text: 'An awake monster blocks one thing: the harbor (no voyages), a building (its bonus stops), or a region of one member\'s island (stays fogged, can\'t be visited). The alliance battles it from Gods & Monsters.' }),
+    ...d.alliances.map(a => {
+      const msg = el('span', { class: 'msg' });
+      const mSel = el('select', { 'aria-label': 'Monster' }, ...d.monsters.map(m => el('option', { value: m.key, text: `${m.emoji} ${m.name} (${m.age})` })));
+      const bSel = el('select', { 'aria-label': 'What it blocks' }, el('option', { value: 'harbor', text: 'Harbor' }),
+        a.buildings.length ? el('option', { value: 'building', text: 'A building' }) : null, a.members.some(x => x.has_map) ? el('option', { value: 'region', text: 'A region of an island' }) : null);
+      const tSel = el('select', { 'aria-label': 'Which one', style: 'display:none' });
+      bSel.addEventListener('change', () => {
+        tSel.replaceChildren(...(bSel.value === 'building' ? a.buildings.map(b => el('option', { value: b, text: b }))
+          : bSel.value === 'region' ? a.members.filter(x => x.has_map).map(x => el('option', { value: String(x.student_id), text: `${x.name}'s island` })) : []));
+        tSel.style.display = bSel.value === 'harbor' ? 'none' : '';
+      });
+      async function awaken(random) {
+        const body = random ? { alliance_id: a.alliance_id, random: true } : { alliance_id: a.alliance_id, monster_key: mSel.value, blocks: bSel.value,
+          block_target: bSel.value === 'building' ? tSel.value : undefined, owner_student_id: bSel.value === 'region' ? tSel.value : undefined };
+        try { const r = await api('POST', '/teacher/monsters/awaken', body); msg.textContent = r.message; msg.style.color = 'var(--amber)'; setTimeout(refresh, 1200); }
+        catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+      }
+      const fix = async (im, what) => { try { await api('POST', `/teacher/monsters/${im.island_monster_id}/${what}`); refresh(); } catch (e) { alert(e.message); } };
+      const awake = a.monsters.filter(m => m.status === 'awake');
+      return el('div', { class: 'card' },
+        el('h2', { text: a.alliance_name }),
+        el('div', { class: 'muted', text: `${a.total_points} points · battle power ${a.battle_power}${a.underdog ? ' (underdog +25%)' : ''} · ${a.current_age} Age` }),
+        el('div', { style: 'margin-top:6px', text: a.powers.length ? `Powers: ${a.powers.map(p => `${p.emoji} ${p.power}`).join(', ')}` : 'Powers: none yet' }),
+        el('h3', { text: 'Awake monsters' }),
+        awake.length ? el('div', {}, awake.map(m => el('div', { class: 'threat' }, el('span', { style: 'font-size:1.6rem', text: m.emoji }),
+          el('div', { class: 't' }, el('strong', { text: m.name }), ` ${m.block_text}.`, m.last_outcome === 'lost' ? el('div', { class: 'muted', style: 'font-size:0.82rem', text: 'Lost the last battle' + (m.rematch_ok ? ' · rematch allowed' : ' · can try again next class') }) : null),
+          m.last_outcome === 'lost' && !m.rematch_ok ? el('button', { class: 'btn small', onclick: () => fix(m, 'rematch') }, 'Allow rematch now') : null,
+          el('button', { class: 'btn small', onclick: () => { if (confirm(`Put ${m.name} back to sleep? Its block is lifted without a battle.`)) fix(m, 'sleep'); } }, 'Put back to sleep')))) :
+          el('div', { class: 'muted', text: 'None.' }),
+        a.monsters.some(m => m.status === 'defeated') ? el('div', { class: 'muted', style: 'font-size:0.85rem;margin-top:6px', text: `Defeated: ${a.monsters.filter(m => m.status === 'defeated').map(m => m.name).join(', ')}` }) : null,
+        el('h3', { text: 'Awaken a monster' }),
+        el('div', { class: 'row' }, mSel, el('span', { class: 'muted', text: 'blocks' }), bSel, tSel,
+          el('button', { class: 'btn danger', onclick: () => awaken(false) }, 'Awaken'),
+          el('button', { class: 'btn', title: 'A monster for this alliance\'s age, blocking something it can suffer', onclick: () => awaken(true) }, '🎲 Fate: random monster')),
+        msg,
+        a.battles.length ? el('details', { style: 'margin-top:10px' }, el('summary', { class: 'muted', text: `Recent battles (${a.battles.length})` }),
+          el('table', {}, el('thead', {}, el('tr', {}, ['When', 'Monster', 'Power', 'Right', 'Alliance roll', 'Monster roll', 'Result'].map(h => el('th', { text: h })))),
+            el('tbody', {}, a.battles.map(b => { const im = a.monsters.find(m => m.island_monster_id === b.island_monster_id);
+              return el('tr', {}, el('td', { text: (b.finished_at || '').slice(5, 16) }), el('td', { text: im ? im.name : '' }), el('td', { text: `${b.power_god} (${b.matchup})` }),
+                el('td', { text: String(b.questions_correct) }), el('td', { text: `${b.alliance_roll} / ${b.alliance_max}` }), el('td', { text: `${b.monster_roll} / ${b.monster_max}` }),
+                el('td', { style: `color:${b.outcome === 'won' ? 'var(--green)' : 'var(--red)'}`, text: `${b.outcome} (${b.points_change > 0 ? '+' : ''}${b.points_change})` })); })))) : null);
+    }));
+}
+
+// ── Encounters with student-made monsters ──────────────────────────────────
+function renderEncounters(rows) {
+  if (!rows.length) return main().replaceChildren(el('div', { class: 'empty', text: 'No one has faced a student-made monster in this period yet.' }));
+  const OUT = { defeated: '✓ defeated it', escaped: 'the monster escaped', turned_back: 'turned back by the Guardian' };
+  main().replaceChildren(el('div', { class: 'card' }, el('h2', { text: 'Encounters' }),
+    el('p', { class: 'muted', style: 'margin-top:0', text: 'Visitors face a student\'s Guardian, Lair and Monster during a voyage (one token). Countering 3 of the monster\'s 4 attributes defeats it.' }),
+    el('table', {}, el('thead', {}, el('tr', {}, ['Visitor', 'Monster (author)', 'Stage', 'Result', 'Points', ''].map(h => el('th', { text: h })))),
+      el('tbody', {}, rows.map(r => el('tr', {}, el('td', { text: r.visitor_name }), el('td', { text: `${r.monster_title} (${r.owner_name})` }),
+        el('td', { text: r.stage }), el('td', { text: r.outcome ? `${OUT[r.outcome] || r.outcome}${r.outcome !== 'turned_back' ? ` · ${r.countered}/4` : ''}` : 'in progress' }),
+        el('td', { text: String(r.points_awarded || 0) }),
+        el('td', {}, r.stage !== 'done' ? el('button', { class: 'btn small', onclick: async () => {
+          if (!confirm(`End ${r.visitor_name}'s encounter? Their alliance gets the token back.`)) return;
+          try { await api('POST', `/teacher/encounters/${r.encounter_id}/cancel`); refresh(); } catch (e) { alert(e.message); } } }, 'End it') : null)))))));
+}
+
+loadPeriods().then(refresh).catch(e => main().replaceChildren(el('div', { class: 'empty', text: e.message })));
+</script>
+</body>
+</html>

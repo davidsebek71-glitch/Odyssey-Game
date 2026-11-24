@@ -1,0 +1,45 @@
+{
+  "_readme": [
+    "Oracle Trial import format. On the teacher's Oracle & Labyrinth page, choose New trial → Import, paste a file like this one, and save.",
+    "source: evslin or cold_read. week: the unit week number.",
+    "sections: the passage, one entry per section (paragraph or chunk). Students with the 'chunked' accommodation see each section with the questions about it.",
+    "questions: prompt, 2-5 options, correct_index (0 = first option), question_type (main_idea, inference, vocab_in_context, authors_purpose, text_structure), section_index (0 = first section; leave out if the question is about the whole passage), in_short_set (true = used for students with a shortened question set).",
+    "Copyrighted passages (Evslin, Riordan, published poems) should be pasted on the teacher page, not saved in the code repository.",
+    "The passage below is an ORIGINAL sample retelling written for testing."
+  ],
+  "title": "SAMPLE: The Weaver Who Challenged a Goddess",
+  "source": "cold_read",
+  "week": 1,
+  "sections": [
+    "In the hill town of Hypaepa lived a young woman named Arachne, whose father dyed wool a deep sea-purple. Arachne could spin thread finer than spider silk and weave pictures so lifelike that people walked for days just to watch her loom. Nymphs left their rivers to see her work. Some of them whispered that her gift must have come from Athena, goddess of weaving.",
+    "Arachne heard the whispers and laughed. \"No goddess taught me,\" she said. \"My hands are my own. If Athena thinks she weaves better, let her come and prove it.\" The older women of the town went quiet. They knew that the gods heard boasts the way a hawk hears a mouse in the grass.",
+    "Soon an old woman leaning on a stick came to the loom. She warned Arachne kindly: take pride in your skill, but give honor to the gods, and ask forgiveness while you still can. Arachne only scowled. \"Keep your advice for your own daughters,\" she snapped. The old woman straightened, her cloak fell away, and there stood Athena, gray-eyed and tall.",
+    "The contest began at once. Athena wove the gods in their glory and, in the corners, small scenes of mortals punished for their pride. Arachne wove the gods at their worst, tricking and deceiving, and her work was flawless. Athena could find no error in it, and that made her angrier still. She struck the loom, and Arachne was changed into a spider, doomed to spin forever. Even now, the Greeks said, her children hang their delicate webs in every corner, still weaving, still proud."
+  ],
+  "questions": [
+    { "prompt": "Which sentence best states the main idea of the passage?",
+      "options": ["Arachne's pride in her skill leads her to defy a goddess and suffer for it.", "Athena is the best weaver among the gods.", "Spiders were created to catch insects in Greek homes.", "Arachne's father taught her to dye wool purple."],
+      "correct_index": 0, "question_type": "main_idea", "in_short_set": true },
+    { "prompt": "In section 2, the older women \"went quiet\" because they", "section_index": 1,
+      "options": ["disagreed about who wove best", "feared the gods would punish Arachne's boast", "were busy at their own looms", "did not hear what Arachne said"],
+      "correct_index": 1, "question_type": "inference", "in_short_set": true },
+    { "prompt": "In section 1, the word \"lifelike\" most nearly means", "section_index": 0,
+      "options": ["very old", "brightly colored", "looking real", "quickly made"],
+      "correct_index": 2, "question_type": "vocab_in_context", "in_short_set": true },
+    { "prompt": "Why does the author compare the gods hearing a boast to \"a hawk hears a mouse in the grass\"?", "section_index": 1,
+      "options": ["to show that hawks were sacred to Athena", "to show that the gods notice even small acts of pride", "to describe the sounds of the countryside", "to explain why mice are afraid of weavers"],
+      "correct_index": 1, "question_type": "authors_purpose", "in_short_set": true },
+    { "prompt": "How is the passage mainly organized?",
+      "options": ["as a list of facts about weaving", "as events told in the order they happened", "as a comparison of two goddesses", "as a problem followed by several possible solutions"],
+      "correct_index": 1, "question_type": "text_structure", "in_short_set": true },
+    { "prompt": "Why does Athena first appear as an old woman?", "section_index": 2,
+      "options": ["to give Arachne a chance to show humility", "because she is too tired to travel as a goddess", "to buy some purple wool", "to learn Arachne's weaving secrets"],
+      "correct_index": 0, "question_type": "inference" },
+    { "prompt": "In section 4, Athena becomes angrier because", "section_index": 3,
+      "options": ["Arachne's weaving had many mistakes", "she could find no flaw in Arachne's work", "the nymphs left the contest early", "Arachne wove the gods in their glory"],
+      "correct_index": 1, "question_type": "inference" },
+    { "prompt": "What is the purpose of the last sentence of the passage?",
+      "options": ["to explain how the myth connects to something people still see", "to describe how spiders build webs", "to argue that Arachne was the better weaver", "to introduce a new character"],
+      "correct_index": 0, "question_type": "authors_purpose" }
+  ]
+}

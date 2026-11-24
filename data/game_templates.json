@@ -1,0 +1,67 @@
+{
+  "_readme": [
+    "Mini game templates (Stage 7). Starter level = a template where students change only names, pictures, words and positions. Builder level = a template plus adding/removing things and rules.",
+    "Format: see the comment at the top of public/js/minigame.js. Every template must have a winning path (the server checks)."
+  ],
+  "templates": [
+    {
+      "key": "locked_gate", "title": "The Locked Gate",
+      "about": "The reader must find something to get past a barrier. Put the clue to what opens it in your story.",
+      "start": { "x": 1, "y": 6 },
+      "things": [
+        { "id": "key", "name": "Bronze key", "emoji": "🗝️", "type": "item", "x": 2, "y": 1 },
+        { "id": "gate", "name": "Gate", "emoji": "🚪", "type": "obstacle", "x": 8, "y": 4 },
+        { "id": "wall1", "name": "Wall", "emoji": "🧱", "type": "obstacle", "x": 8, "y": 3 },
+        { "id": "wall2", "name": "Wall", "emoji": "🧱", "type": "obstacle", "x": 8, "y": 5 },
+        { "id": "wall3", "name": "Wall", "emoji": "🧱", "type": "obstacle", "x": 8, "y": 2 },
+        { "id": "wall4", "name": "Wall", "emoji": "🧱", "type": "obstacle", "x": 8, "y": 6 },
+        { "id": "wall5", "name": "Wall", "emoji": "🧱", "type": "obstacle", "x": 8, "y": 1 },
+        { "id": "wall6", "name": "Wall", "emoji": "🧱", "type": "obstacle", "x": 8, "y": 7 },
+        { "id": "wall7", "name": "Wall", "emoji": "🧱", "type": "obstacle", "x": 8, "y": 0 },
+        { "id": "exit", "name": "Way out", "emoji": "🌉", "type": "place", "x": 10, "y": 4 }
+      ],
+      "rules": [
+        { "when": { "event": "touches", "thing": "gate" }, "if": { "carrying": "key" }, "then": { "do": "open_path", "thing": "gate" } },
+        { "when": { "event": "touches", "thing": "gate" }, "if": { "carrying": "key", "not": true }, "then": { "do": "message", "text": "The gate is locked. Something in the story tells you how to open it." } },
+        { "when": { "event": "enters", "thing": "exit" }, "then": { "do": "survive" } }
+      ]
+    },
+    {
+      "key": "riddle_keeper", "title": "The Riddle Keeper",
+      "about": "A guardian asks a question from the story. A right answer opens the way; a wrong one ends the game.",
+      "start": { "x": 1, "y": 4 },
+      "things": [
+        { "id": "keeper", "name": "Sphinx", "emoji": "🦁", "type": "character", "x": 5, "y": 4,
+          "question": { "prompt": "What did Pandora find at the bottom of the jar?", "options": ["Hope", "Gold", "Fire"], "correct_index": 0 } },
+        { "id": "rock1", "name": "Boulder", "emoji": "🪨", "type": "obstacle", "x": 5, "y": 3 },
+        { "id": "rock2", "name": "Boulder", "emoji": "🪨", "type": "obstacle", "x": 5, "y": 5 },
+        { "id": "rock3", "name": "Boulder", "emoji": "🪨", "type": "obstacle", "x": 5, "y": 2 },
+        { "id": "rock4", "name": "Boulder", "emoji": "🪨", "type": "obstacle", "x": 5, "y": 6 },
+        { "id": "rock5", "name": "Boulder", "emoji": "🪨", "type": "obstacle", "x": 5, "y": 1 },
+        { "id": "rock6", "name": "Boulder", "emoji": "🪨", "type": "obstacle", "x": 5, "y": 7 },
+        { "id": "rock7", "name": "Boulder", "emoji": "🪨", "type": "obstacle", "x": 5, "y": 0 },
+        { "id": "exit", "name": "Safe path", "emoji": "🌿", "type": "place", "x": 10, "y": 4 }
+      ],
+      "rules": [
+        { "when": { "event": "answers", "thing": "keeper", "answer": "correct" }, "then": { "do": "vanish", "thing": "keeper" } },
+        { "when": { "event": "answers", "thing": "keeper", "answer": "wrong" }, "then": { "do": "perish" } },
+        { "when": { "event": "enters", "thing": "exit" }, "then": { "do": "survive" } }
+      ]
+    },
+    {
+      "key": "two_doors", "title": "Two Doors",
+      "about": "Two ways out, but only one is safe. A character gives a hint from the story.",
+      "start": { "x": 5, "y": 6 },
+      "things": [
+        { "id": "guide", "name": "Old guide", "emoji": "🧙", "type": "character", "x": 3, "y": 6 },
+        { "id": "door_a", "name": "Golden door", "emoji": "⛩️", "type": "place", "x": 2, "y": 1 },
+        { "id": "door_b", "name": "Plain door", "emoji": "🚪", "type": "place", "x": 9, "y": 1 }
+      ],
+      "rules": [
+        { "when": { "event": "talks_to", "thing": "guide" }, "then": { "do": "message", "text": "Remember what the story says about things that shine too brightly." } },
+        { "when": { "event": "enters", "thing": "door_a" }, "then": { "do": "perish" } },
+        { "when": { "event": "enters", "thing": "door_b" }, "then": { "do": "survive" } }
+      ]
+    }
+  ]
+}

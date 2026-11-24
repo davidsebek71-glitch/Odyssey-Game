@@ -681,8 +681,6 @@ async function initDatabase() {
     )
   `);
 
-  // ==================== TRADE SYSTEM TABLES ====================
-
   // Psyche Trials game results (Portal 6: Eros & Psyche)
   db.run(`
     CREATE TABLE IF NOT EXISTS psyche_game_results (
@@ -699,90 +697,6 @@ async function initDatabase() {
       passed INTEGER DEFAULT 0,
       completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Alliance native resource assignments (no shared pool — students buy directly)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS alliance_resources (
-      alliance_id INTEGER PRIMARY KEY,
-      native_resource TEXT NOT NULL,
-      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
-    )
-  `);
-
-  // Student personal resource inventories
-  db.run(`
-    CREATE TABLE IF NOT EXISTS student_resources (
-      student_id INTEGER PRIMARY KEY,
-      olive INTEGER DEFAULT 0,
-      grape INTEGER DEFAULT 0,
-      iron INTEGER DEFAULT 0,
-      grain INTEGER DEFAULT 0,
-      FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Trade records
-  db.run(`
-    CREATE TABLE IF NOT EXISTS trades (
-      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      initiator_id INTEGER NOT NULL,
-      partner_id INTEGER NOT NULL,
-      give_resource TEXT NOT NULL,
-      give_amount INTEGER NOT NULL,
-      receive_resource TEXT NOT NULL,
-      receive_amount INTEGER NOT NULL,
-      status TEXT DEFAULT 'pending',
-      flagged INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      completed_at DATETIME,
-      FOREIGN KEY (initiator_id) REFERENCES students(student_id),
-      FOREIGN KEY (partner_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Resource buy log (student buys native resource directly into personal inventory)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS resource_buys (
-      buy_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      alliance_id INTEGER NOT NULL,
-      resource_type TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      points_spent INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id) REFERENCES students(student_id),
-      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
-    )
-  `);
-
-  // Sell-back records
-  db.run(`
-    CREATE TABLE IF NOT EXISTS resource_sellbacks (
-      sellback_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      alliance_id INTEGER NOT NULL,
-      resource_type TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      market_value REAL NOT NULL,
-      points_earned INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id) REFERENCES students(student_id),
-      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
-    )
-  `);
-
-  // Trade window status per period (with configurable threshold)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS trade_window (
-      period TEXT PRIMARY KEY,
-      is_open INTEGER DEFAULT 0,
-      opened_at DATETIME,
-      closed_at DATETIME,
-      opened_by INTEGER,
-      resource_threshold INTEGER DEFAULT 150
     )
   `);
 
@@ -837,73 +751,394 @@ async function initDatabase() {
     )
   `);
 
-  // Market supply pool (teacher-injected resources for periods missing a producer)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_supply (
-      period TEXT NOT NULL,
-      resource TEXT NOT NULL,
-      amount INTEGER DEFAULT 0,
-      PRIMARY KEY (period, resource)
-    )
-  `);
-
-  // Market auctions (competitive bidding windows for scarce resources)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_auctions (
-      auction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      resource TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      status TEXT DEFAULT 'active',
-      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      ends_at DATETIME NOT NULL,
-      resolved_at DATETIME,
-      winner_bid_id INTEGER
-    )
-  `);
-
-  // Bids on market auctions
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_bids (
-      bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auction_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
-      offer_resource TEXT NOT NULL,
-      offer_amount INTEGER NOT NULL,
-      request_amount INTEGER NOT NULL,
-      ratio REAL NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (auction_id) REFERENCES market_auctions(auction_id),
-      FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Completed market trades (auction winners)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_trades (
-      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auction_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
-      student_gave_resource TEXT NOT NULL,
-      student_gave_amount INTEGER NOT NULL,
-      student_received_resource TEXT NOT NULL,
-      student_received_amount INTEGER NOT NULL,
-      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (auction_id) REFERENCES market_auctions(auction_id),
-      FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )
-  `);
-
   // Run migrations for existing databases
   runMigrations();
   
   // Seed initial data
   seedReferenceData();
+
+  // Islands (Stage 1): quest sites and story pins
+  ensureIslandTables();
+
+  // Stage 3: Oracle Trials, Labyrinth Logic, accommodations
+  ensureStage3Tables();
+
+  // Stage 4: god powers and monster encounters
+  ensureStage4Tables();
   
   // Save database to file
   saveDatabase();
   
   return db;
+}
+
+// ==================== STAGE 4: GOD POWERS + MONSTERS ====================
+// god_powers:       a student's evidence card for a god; approved = power earned
+// island_monsters:  a monster awake against an alliance and what it blocks
+//                   (harbor | building | region). monster_key = built-in monster
+//                   from data/monsters.json; pin_id = a student-made monster.
+// monster_battles:  one battle (power chosen, questions, rolls, outcome)
+// monster_attributes: a student-made monster's four "impossible to escape"
+//                   attributes, each paired with a counter (god power or question)
+// monster_encounters: a visitor's run through a student-made guardian → monster
+function ensureStage4Tables() {
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS god_powers (
+      power_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id    INTEGER NOT NULL,
+      god           TEXT NOT NULL,
+      claim         TEXT DEFAULT '',
+      evidence_text TEXT DEFAULT '',
+      source_note   TEXT DEFAULT '',
+      status        TEXT NOT NULL DEFAULT 'draft',
+      teacher_note  TEXT,
+      submitted_at  DATETIME,
+      reviewed_at   DATETIME,
+      updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (student_id, god)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS island_monsters (
+      island_monster_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id       INTEGER NOT NULL,
+      monster_key       TEXT,
+      pin_id            INTEGER,
+      owner_student_id  INTEGER,
+      x_pct             REAL,
+      y_pct             REAL,
+      blocks            TEXT NOT NULL DEFAULT 'harbor',
+      block_target      TEXT,
+      status            TEXT NOT NULL DEFAULT 'awake',
+      awakened_by       TEXT DEFAULT 'teacher',
+      rematch_ok        INTEGER DEFAULT 0,
+      awakened_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      defeated_at       DATETIME
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS monster_battles (
+      battle_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      island_monster_id  INTEGER NOT NULL,
+      alliance_id        INTEGER NOT NULL,
+      started_by         INTEGER,
+      status             TEXT NOT NULL DEFAULT 'choose_power',
+      power_god          TEXT,
+      power_student_id   INTEGER,
+      matchup            TEXT,
+      question_ids       TEXT DEFAULT '[]',
+      answers            TEXT DEFAULT '{}',
+      questions_correct  INTEGER DEFAULT 0,
+      alliance_max       INTEGER,
+      monster_max        INTEGER,
+      alliance_roll      INTEGER,
+      monster_roll       INTEGER,
+      outcome            TEXT,
+      points_change      INTEGER DEFAULT 0,
+      created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+      finished_at        DATETIME
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS monster_attributes (
+      attribute_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+      pin_id         INTEGER NOT NULL,
+      sort_order     INTEGER DEFAULT 0,
+      description    TEXT DEFAULT '',
+      counter_type   TEXT DEFAULT 'question',
+      counter_value  TEXT DEFAULT ''
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS monster_encounters (
+      encounter_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      visitor_student_id  INTEGER NOT NULL,
+      visitor_alliance_id INTEGER,
+      owner_student_id    INTEGER NOT NULL,
+      guardian_pin_id     INTEGER,
+      monster_pin_id      INTEGER NOT NULL,
+      class_period        TEXT,
+      stage               TEXT NOT NULL DEFAULT 'guardian',
+      guardian_attempts   INTEGER DEFAULT 0,
+      results             TEXT DEFAULT '{}',
+      outcome             TEXT,
+      points_awarded      INTEGER DEFAULT 0,
+      started_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+      finished_at         DATETIME
+    )`);
+    // Stage 5: terrain read from a student's map (64 x 48 cells), checked by the student.
+    // grid = 3072 characters, one per cell, row by row: w water, f forest, m mountain, l land
+    db.run(`CREATE TABLE IF NOT EXISTS island_terrain (
+      student_id      INTEGER PRIMARY KEY,
+      grid            TEXT NOT NULL,
+      color_key       TEXT DEFAULT '{}',
+      reviewed        INTEGER DEFAULT 0,
+      map_uploaded_at DATETIME,
+      updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    // Stage 7: one mini game per story (pin). things / rules / start are data
+    // run by public/js/minigame.js — never code.
+    db.run(`CREATE TABLE IF NOT EXISTS pin_games (
+      pin_id           INTEGER PRIMARY KEY,
+      owner_student_id INTEGER NOT NULL,
+      level            TEXT NOT NULL DEFAULT 'starter',
+      template         TEXT,
+      things           TEXT NOT NULL DEFAULT '[]',
+      rules            TEXT NOT NULL DEFAULT '[]',
+      start            TEXT NOT NULL DEFAULT '{"x":0,"y":0}',
+      clue_text        TEXT DEFAULT '',
+      status           TEXT NOT NULL DEFAULT 'draft',
+      teacher_note     TEXT,
+      playtested_by    INTEGER,
+      submitted_at     DATETIME,
+      reviewed_at      DATETIME,
+      published_at     DATETIME,
+      updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    // Stage 8: AI helper for mini games. Off by default, per period.
+    db.run(`CREATE TABLE IF NOT EXISTS ai_helper_settings (
+      class_period     TEXT PRIMARY KEY,
+      enabled          INTEGER NOT NULL DEFAULT 0,
+      drafts_per_story INTEGER NOT NULL DEFAULT 3
+    )`);
+    // Every request sent to the AI (the teacher can read them all)
+    db.run(`CREATE TABLE IF NOT EXISTS game_ai_drafts (
+      draft_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+      pin_id       INTEGER NOT NULL,
+      student_id   INTEGER NOT NULL,
+      class_period TEXT,
+      description  TEXT NOT NULL,
+      outcome      TEXT NOT NULL,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    // Extra data for special pins: lair dangers, the hero's reward (JSON)
+    const pinCols = (db.exec("PRAGMA table_info(island_pins)")[0] || { values: [] }).values.map(c => c[1]);
+    if (pinCols.length && !pinCols.includes('extra')) db.run("ALTER TABLE island_pins ADD COLUMN extra TEXT DEFAULT '{}'");
+    console.log('✅ Stage 4 tables ready');
+  } catch (e) {
+    console.log('Migration note: stage 4 tables -', e.message);
+  }
+}
+
+// ==================== STAGE 3: ORACLE TRIALS + LABYRINTH LOGIC ====================
+// oracle_trials:   a reading passage (sections = JSON array of paragraphs/chunks)
+// oracle_questions: ERB-style multiple choice, tagged by question_type and the
+//                   passage section it is about; in_short_set marks the
+//                   questions used for students with a shortened set
+// oracle_attempts:  one per student per trial (answers autosave; no timer)
+// logic_puzzles:    logic grid puzzles (categories, structured clues, solution)
+// logic_attempts:   a student's grid (autosaved) and whether they solved it
+// challenge_assignments: which trial / puzzle is open or closed in which period
+// student_accommodations: per-student settings, visible only to the teacher
+//                         and applied silently for that student
+function ensureStage3Tables() {
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS oracle_trials (
+      trial_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+      title        TEXT NOT NULL,
+      source       TEXT NOT NULL DEFAULT 'cold_read',
+      week         INTEGER,
+      sections     TEXT NOT NULL DEFAULT '[]',
+      word_count   INTEGER DEFAULT 0,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS oracle_questions (
+      question_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      trial_id       INTEGER NOT NULL,
+      sort_order     INTEGER DEFAULT 0,
+      prompt         TEXT NOT NULL,
+      options        TEXT NOT NULL DEFAULT '[]',
+      correct_index  INTEGER NOT NULL DEFAULT 0,
+      question_type  TEXT NOT NULL DEFAULT 'main_idea',
+      section_index  INTEGER,
+      in_short_set   INTEGER DEFAULT 0,
+      FOREIGN KEY (trial_id) REFERENCES oracle_trials(trial_id)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS oracle_attempts (
+      attempt_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id      INTEGER NOT NULL,
+      trial_id        INTEGER NOT NULL,
+      class_period    TEXT,
+      answers         TEXT NOT NULL DEFAULT '{}',
+      question_ids    TEXT NOT NULL DEFAULT '[]',
+      accommodations  TEXT DEFAULT '{}',
+      status          TEXT NOT NULL DEFAULT 'in_progress',
+      score           INTEGER,
+      total           INTEGER,
+      percentage      REAL,
+      by_type         TEXT,
+      points_awarded  INTEGER DEFAULT 0,
+      started_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at    DATETIME,
+      UNIQUE (student_id, trial_id)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS logic_puzzles (
+      puzzle_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      title        TEXT NOT NULL,
+      age          TEXT DEFAULT 'Classical',
+      intro        TEXT DEFAULT '',
+      categories   TEXT NOT NULL DEFAULT '[]',
+      clues        TEXT NOT NULL DEFAULT '[]',
+      solution     TEXT,
+      status       TEXT NOT NULL DEFAULT 'draft',
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS logic_attempts (
+      attempt_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id    INTEGER NOT NULL,
+      alliance_id   INTEGER,
+      puzzle_id     INTEGER NOT NULL,
+      grid          TEXT DEFAULT '{}',
+      checks        INTEGER DEFAULT 0,
+      solved        INTEGER DEFAULT 0,
+      points_awarded INTEGER DEFAULT 0,
+      started_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at  DATETIME,
+      UNIQUE (student_id, puzzle_id)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS challenge_assignments (
+      kind          TEXT NOT NULL,
+      item_id       INTEGER NOT NULL,
+      class_period  TEXT NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'open',
+      opened_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      closed_at     DATETIME,
+      PRIMARY KEY (kind, item_id, class_period)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS student_accommodations (
+      student_id  INTEGER PRIMARY KEY,
+      settings    TEXT NOT NULL DEFAULT '{}',
+      updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('✅ Stage 3 tables ready');
+  } catch (e) {
+    console.log('Migration note: stage 3 tables -', e.message);
+  }
+}
+
+// ==================== ISLANDS (Stage 1) ====================
+// island_quests: quest content, loaded from data/island_quests.json at startup.
+// island_pins:   a student's work placed on their own island map. Also used
+//                for named map features (quest_id NULL, pin_type river/mountain/city).
+// Positions are percentages of the map image so they survive any display size.
+function ensureIslandTables() {
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS island_quests (
+        quest_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        quest_key    TEXT NOT NULL UNIQUE,
+        title        TEXT NOT NULL,
+        age          TEXT DEFAULT 'Classical',
+        tier         TEXT DEFAULT 'optional',
+        unlock_myth  TEXT,
+        directions   TEXT,
+        images       TEXT DEFAULT '[]',
+        min_words    INTEGER DEFAULT 0,
+        min_lines    INTEGER DEFAULT 0,
+        points       INTEGER DEFAULT 0,
+        pin_type     TEXT DEFAULT 'landmark',
+        test_only    INTEGER DEFAULT 0,
+        active       INTEGER DEFAULT 1,
+        sort_order   INTEGER DEFAULT 0,
+        updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS island_pins (
+        pin_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        quest_id           INTEGER,
+        owner_student_id   INTEGER NOT NULL,
+        author_student_id  INTEGER NOT NULL,
+        alliance_id        INTEGER,
+        class_period       TEXT,
+        x_pct              REAL,
+        y_pct              REAL,
+        pin_type           TEXT NOT NULL,
+        title              TEXT DEFAULT '',
+        body               TEXT DEFAULT '',
+        image_path         TEXT,
+        video_url          TEXT,
+        status             TEXT NOT NULL DEFAULT 'draft',
+        teacher_note       TEXT,
+        points_awarded     INTEGER DEFAULT 0,
+        created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+        submitted_at       DATETIME,
+        reviewed_at        DATETIME,
+        published_at       DATETIME,
+        FOREIGN KEY (quest_id) REFERENCES island_quests(quest_id),
+        FOREIGN KEY (owner_student_id) REFERENCES students(student_id)
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_island_pins_owner ON island_pins(owner_student_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_island_pins_status ON island_pins(status, class_period)`);
+
+    // ── Stage 2: voyages ────────────────────────────────────────────────────
+    // Voyage tokens granted for a pin (so approving twice never grants twice)
+    const pinCols = (db.exec("PRAGMA table_info(island_pins)")[0] || { values: [] }).values.map(c => c[1]);
+    if (!pinCols.includes('tokens_awarded')) db.run('ALTER TABLE island_pins ADD COLUMN tokens_awarded INTEGER DEFAULT 0');
+
+    // The question a visitor answers about a piece (written by the author,
+    // approved with the piece). options = JSON array of 2-4 strings.
+    db.run(`
+      CREATE TABLE IF NOT EXISTS pin_questions (
+        question_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        pin_id         INTEGER NOT NULL UNIQUE,
+        prompt         TEXT NOT NULL,
+        options        TEXT NOT NULL DEFAULT '[]',
+        correct_index  INTEGER NOT NULL DEFAULT 0,
+        question_type  TEXT DEFAULT 'multiple_choice',
+        updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (pin_id) REFERENCES island_pins(pin_id)
+      )
+    `);
+    // Per-period phase and voyage settings. window_id goes up each time the
+    // teacher opens a new voyage, so the per-voyage visit limit resets.
+    db.run(`
+      CREATE TABLE IF NOT EXISTS voyage_settings (
+        class_period        TEXT PRIMARY KEY,
+        mode                TEXT NOT NULL DEFAULT 'build',
+        window_id           INTEGER NOT NULL DEFAULT 0,
+        tokens_per_publish  INTEGER NOT NULL DEFAULT 2,
+        visit_cap           INTEGER NOT NULL DEFAULT 2,
+        visitor_points      INTEGER NOT NULL DEFAULT 5,
+        author_points       INTEGER NOT NULL DEFAULT 3,
+        min_response_words  INTEGER NOT NULL DEFAULT 15,
+        updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    // Tokens are earned by an alliance and spent by its students
+    db.run(`
+      CREATE TABLE IF NOT EXISTS voyage_tokens (
+        alliance_id  INTEGER PRIMARY KEY,
+        balance      INTEGER NOT NULL DEFAULT 0,
+        updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS island_visits (
+        visit_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        visitor_student_id   INTEGER NOT NULL,
+        visitor_alliance_id  INTEGER,
+        pin_id               INTEGER NOT NULL,
+        class_period         TEXT,
+        window_id            INTEGER NOT NULL DEFAULT 0,
+        answer_index         INTEGER,
+        answer_correct       INTEGER DEFAULT 0,
+        attempts             INTEGER DEFAULT 0,
+        answer_revealed      INTEGER DEFAULT 0,
+        response_text        TEXT,
+        status               TEXT NOT NULL DEFAULT 'open',
+        response_status      TEXT DEFAULT 'pending',
+        points_visitor       INTEGER DEFAULT 0,
+        points_author        INTEGER DEFAULT 0,
+        author_alliance_id   INTEGER,
+        started_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
+        completed_at         DATETIME,
+        reviewed_at          DATETIME,
+        UNIQUE (visitor_student_id, pin_id),
+        FOREIGN KEY (pin_id) REFERENCES island_pins(pin_id)
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_island_visits_visitor ON island_visits(visitor_student_id, status)`);
+    console.log('✅ Island tables ready');
+  } catch (e) {
+    console.log('Migration note: island tables -', e.message);
+  }
 }
 
 // Add missing columns to existing databases
@@ -1569,21 +1804,6 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: Demeter question -', e.message);
   }
-  // Trade system schema migration: add resource_threshold, create resource_buys
-  try {
-    const twCols = db.exec("PRAGMA table_info(trade_window)");
-    const twColNames = twCols[0] ? twCols[0].values.map(c => c[1]) : [];
-    if (!twColNames.includes('resource_threshold')) {
-      db.run("ALTER TABLE trade_window ADD COLUMN resource_threshold INTEGER DEFAULT 500");
-      console.log('✅ Added resource_threshold column to trade_window');
-    }
-  } catch (e) { console.log('Migration note: trade_window threshold -', e.message); }
-
-  // V93 FIX: Lower resource threshold from 500 to 200 for all periods
-  try {
-    db.run("UPDATE trade_window SET resource_threshold = 150 WHERE resource_threshold IN (200, 500)");
-  } catch (e) { console.log('Migration note: threshold update -', e.message); }
-
   // V93 FIX: Clear stale scout_status for students whose alliance has already reached that age
   try {
     db.run(`UPDATE students SET scout_status = NULL 
@@ -1603,18 +1823,6 @@ function seedReferenceData() {
     db.run(`UPDATE students SET scout_status = NULL WHERE scout_status = 'Heroic' AND alliance_id IN (SELECT alliance_id FROM alliances WHERE current_age = 'Heroic')`);
     console.log('✅ Cleared stale scout statuses');
   } catch (e) { console.log('Migration note: scout cleanup -', e.message); }
-  
-  try {
-    db.run(`CREATE TABLE IF NOT EXISTS resource_buys (
-      buy_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      alliance_id INTEGER NOT NULL,
-      resource_type TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      points_spent INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-  } catch (e) { console.log('Migration note: resource_buys -', e.message); }
 
   // Icarus scoring correction: Reading Guide 12→5, Quiz 10→17, Creative→20
   try {
@@ -2343,7 +2551,14 @@ function seedReferenceData() {
   
   // Always run badge seeding — has its own internal guard
   seedBadges();
-  
+
+  // Trade System retired (Nov 2026): hide the Trader badges so they no longer
+  // appear in the Hall of Honor or count toward "Legend" (earn all badges).
+  // Students who already earned one keep it in student_badges.
+  try {
+    db.run("UPDATE badges_ref SET is_active = 0 WHERE badge_id IN ('honor_trader', 'class_trader')");
+  } catch (e) { console.log('Migration note: retire trader badges -', e.message); }
+
   if (buildingsExist && choicesExist && sideQuestsExist) {
     console.log('✅ Database already fully seeded');
     return;
@@ -3959,97 +4174,6 @@ function seedClassicalData() {
   }
 
   console.log('🏛️ Classical Age data check complete');
-
-  // V95 FIX: Ensure market auction tables exist (may be missing on persistent volumes)
-  try {
-    const tableCheck = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='market_bids'");
-    if (!tableCheck[0] || tableCheck[0].values.length === 0) {
-      console.log('🔧 Creating missing market auction tables...');
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS market_auctions (
-          auction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          period TEXT NOT NULL,
-          resource TEXT NOT NULL,
-          amount INTEGER NOT NULL,
-          status TEXT DEFAULT 'active',
-          started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          ends_at DATETIME NOT NULL,
-          resolved_at DATETIME,
-          winner_bid_id INTEGER
-        )
-      `);
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS market_bids (
-          bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          offer_resource TEXT NOT NULL,
-          offer_amount INTEGER NOT NULL,
-          request_amount INTEGER NOT NULL,
-          ratio REAL NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS market_trades (
-          trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          student_gave_resource TEXT NOT NULL,
-          student_gave_amount INTEGER NOT NULL,
-          student_received_resource TEXT NOT NULL,
-          student_received_amount INTEGER NOT NULL,
-          completed_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      saveDatabaseNow();
-      console.log('✅ Market auction tables created');
-    }
-  } catch (e) {
-    console.log('Migration note: market tables -', e.message);
-  }
-
-  // V93 FIX: market_bids and market_trades have wrong schema from Classic Age 5 code.
-  // The old tables use bidder_id/resource_wanted/amount_wanted/resource_offered/amount_offered
-  // but current code expects auction_id/student_id/offer_resource/offer_amount/request_amount.
-  // Drop and recreate — no valuable data exists in these tables.
-  try {
-    const colCheck = db.exec("PRAGMA table_info(market_bids)");
-    const colNames = colCheck[0] ? colCheck[0].values.map(r => r[1]) : [];
-    if (colNames.includes('bidder_id') && !colNames.includes('auction_id')) {
-      console.log('🔧 Rebuilding market_bids and market_trades with correct schema...');
-      db.exec('DROP TABLE IF EXISTS market_bids');
-      db.exec('DROP TABLE IF EXISTS market_trades');
-      db.exec(`
-        CREATE TABLE market_bids (
-          bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          offer_resource TEXT NOT NULL,
-          offer_amount INTEGER NOT NULL,
-          request_amount INTEGER NOT NULL,
-          ratio REAL NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      db.exec(`
-        CREATE TABLE market_trades (
-          trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          student_gave_resource TEXT NOT NULL,
-          student_gave_amount INTEGER NOT NULL,
-          student_received_resource TEXT NOT NULL,
-          student_received_amount INTEGER NOT NULL,
-          completed_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      saveDatabaseNow();
-      console.log('✅ market_bids and market_trades rebuilt with correct schema');
-    }
-  } catch (e) {
-    console.log('Migration note: market schema fix -', e.message);
-  }
 }
 
 // Debounced save to prevent EBUSY errors from rapid writes
@@ -4144,6 +4268,7 @@ function run(sql, params = []) {
 }
 
 module.exports = {
+  DATA_DIR,
   initDatabase,
   getDatabase,
   saveDatabase,

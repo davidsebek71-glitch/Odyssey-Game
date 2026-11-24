@@ -1,0 +1,72 @@
+{
+  "_readme": [
+    "Built-in monsters for Stage 4. Loaded when the server starts; edit here and redeploy.",
+    "age: Archaic, Classical or Heroic. difficulty_factor: the monster's max roll = alliance points x this (defaults: Archaic 0.25, Classical 0.50, Heroic 0.75).",
+    "matchups: god key -> effective (monster's max roll -35%) or resisted (no reduction). Gods not listed are neutral (-15%). Tune in Test Period.",
+    "win_points / lose_points: like Fate battles (lose_points is negative).",
+    "passage + questions: the battle shows the passage and asks 3 of the questions (one try each; each right answer raises the alliance's max roll by 10%).",
+    "The passages below are ORIGINAL short retellings written for this game."
+  ],
+  "monsters": [
+    {
+      "key": "typhon", "name": "Typhon", "emoji": "🌋", "age": "Archaic", "terrain": "mountain", "myth": "Zeus and Typhon",
+      "win_points": 20, "lose_points": -10,
+      "matchups": { "zeus": "effective", "hephaestus": "effective", "hermes": "effective", "ares": "resisted", "aphrodite": "resisted" },
+      "passage": "When the young gods had defeated the Titans, Gaia, the Earth, was angry that her children had been thrown into Tartarus. From the deepest pits she brought out Typhon, the last and largest of her sons. His head brushed the stars, and a hundred serpent heads hissed from his shoulders. Fire poured from his eyes. Many of the Olympians fled in fear, but Zeus stood and fought. After a long battle, he struck Typhon again and again with his thunderbolts and buried him under Mount Etna, where, the Greeks said, he still breathes fire.",
+      "questions": [
+        { "prompt": "Why did Gaia bring Typhon out of the pits?", "options": ["She was angry that her children were thrown into Tartarus", "She wanted Typhon to guard Olympus", "Zeus asked her for help", "Typhon was lost and wanted to go home"], "correct_index": 0 },
+        { "prompt": "What does \"brushed the stars\" tell the reader about Typhon?", "options": ["He was gentle", "He was enormous", "He could fly", "He loved the night sky"], "correct_index": 1 },
+        { "prompt": "How is Zeus different from many of the other Olympians in this passage?", "options": ["He ran away first", "He stood and fought", "He made peace with Gaia", "He hid under Mount Etna"], "correct_index": 1 },
+        { "prompt": "What everyday thing does the last sentence explain?", "options": ["why stars shine", "why volcanoes breathe fire", "why snakes hiss", "why mountains are tall"], "correct_index": 1 }
+      ]
+    },
+    {
+      "key": "cerberus", "name": "Cerberus", "emoji": "🐕", "age": "Classical", "terrain": "land", "myth": "Orpheus & Eurydice",
+      "win_points": 30, "lose_points": -15,
+      "matchups": { "apollo": "effective", "hermes": "effective", "hades": "effective", "ares": "resisted", "poseidon": "resisted" },
+      "passage": "At the gates of the Underworld waits Cerberus, a dog with three heads and a serpent for a tail. He lets the dead walk in, but he lets no one walk out, and no living person may pass him at all. When Orpheus came to bring back Eurydice, he did not fight the hound. He sat on a stone and played his lyre. The music was so sweet and sad that all three heads lowered, one after another, until Cerberus lay down and let him through.",
+      "questions": [
+        { "prompt": "What is Cerberus's job?", "options": ["to carry the dead across the river", "to guard the gates so no one leaves the Underworld", "to judge the souls of the dead", "to hunt in the forest"], "correct_index": 1 },
+        { "prompt": "How does Orpheus get past Cerberus?", "options": ["He fights him with a sword", "He feeds him honey cakes", "He plays music on his lyre", "He sneaks past while the dog sleeps"], "correct_index": 2 },
+        { "prompt": "The phrase \"one after another\" shows that the heads lowered", "options": ["all at the same moment", "in turn, slowly", "angrily", "and then rose again"], "correct_index": 1 },
+        { "prompt": "What does the passage suggest about Orpheus's music?", "options": ["It could calm even a monster", "It was too loud to bear", "Only gods could hear it", "It made Cerberus angry"], "correct_index": 0 }
+      ]
+    },
+    {
+      "key": "minotaur", "name": "The Minotaur", "emoji": "🐂", "age": "Heroic", "terrain": "land", "myth": "Theseus",
+      "win_points": 40, "lose_points": -20,
+      "matchups": { "athena": "effective", "poseidon": "effective", "hephaestus": "effective", "aphrodite": "resisted", "hades": "resisted" },
+      "passage": "Beneath the palace of King Minos, Daedalus built the Labyrinth, a maze so twisting that whoever entered could never find the way out. In its center lived the Minotaur, half man and half bull. Every nine years Athens had to send fourteen young people to be fed to it. Theseus, son of the king of Athens, chose to go with them. Princess Ariadne gave him a ball of thread. He tied one end at the entrance, unwound it as he walked, killed the Minotaur, and followed the thread back to the light.",
+      "questions": [
+        { "prompt": "Why could no one escape the Labyrinth?", "options": ["Its walls were made of fire", "It was a maze too twisting to find the way out", "Guards stood at every door", "It was underwater"], "correct_index": 1 },
+        { "prompt": "What does Theseus's choice to go with the young Athenians show about him?", "options": ["He was brave and willing to protect others", "He wanted to see Crete", "He was forced by Minos", "He was lost"], "correct_index": 0 },
+        { "prompt": "How did the thread help Theseus?", "options": ["He used it to tie up the Minotaur", "It showed him the way back out", "It was a gift to sell", "It kept him warm"], "correct_index": 1 },
+        { "prompt": "How is the passage organized?", "options": ["problem, then how a hero solves it", "a list of facts about bulls", "a comparison of two kings", "a description with no events"], "correct_index": 0 }
+      ]
+    },
+    {
+      "key": "medusa", "name": "Medusa", "emoji": "🐍", "age": "Heroic", "terrain": "land", "myth": "Perseus",
+      "win_points": 40, "lose_points": -20,
+      "matchups": { "athena": "effective", "hermes": "effective", "hades": "effective", "poseidon": "resisted", "aphrodite": "resisted" },
+      "passage": "Medusa had snakes for hair, and anyone who looked into her eyes turned to stone. Her cave was full of statues that had once been warriors. When Perseus was sent to bring back her head, the gods helped him. Hermes lent him winged sandals, and Athena gave him a polished shield. Perseus never looked at Medusa directly. He watched her reflection in the shield, crept close while she slept, and struck.",
+      "questions": [
+        { "prompt": "Why was the cave full of statues?", "options": ["Medusa collected art", "They were warriors turned to stone", "Perseus carved them", "They guarded the entrance"], "correct_index": 1 },
+        { "prompt": "Why did Perseus look at Medusa's reflection?", "options": ["to admire himself", "so he would not meet her eyes and turn to stone", "to signal Athena", "because the cave was too dark"], "correct_index": 1 },
+        { "prompt": "What is the main idea of the passage?", "options": ["Perseus used the gods' gifts and cleverness to defeat Medusa", "Medusa was lonely in her cave", "Hermes owned many sandals", "Shields were used for decoration"], "correct_index": 0 },
+        { "prompt": "In this passage, \"crept\" most nearly means", "options": ["ran loudly", "moved slowly and quietly", "flew", "shouted"], "correct_index": 1 }
+      ]
+    },
+    {
+      "key": "hydra", "name": "The Hydra", "emoji": "🐉", "age": "Heroic", "terrain": "water", "myth": "Heracles",
+      "win_points": 40, "lose_points": -20,
+      "matchups": { "hephaestus": "effective", "athena": "effective", "apollo": "effective", "poseidon": "resisted", "demeter": "resisted" },
+      "passage": "In the swamps of Lerna lived the Hydra, a serpent with many heads. Its breath was poison, and when Heracles cut off one head, two grew back in its place. Fighting alone, he could not win. So his nephew Iolaus brought a torch, and each time Heracles cut off a head, Iolaus burned the stump so nothing could grow back. Together they defeated the monster that neither could have beaten alone.",
+      "questions": [
+        { "prompt": "What made the Hydra so hard to defeat?", "options": ["It could fly", "Two heads grew back for every one cut off", "It hid underground", "It was invisible"], "correct_index": 1 },
+        { "prompt": "What does the passage suggest about teamwork?", "options": ["Heroes should always fight alone", "Working together can solve a problem one person cannot", "Teams make monsters stronger", "Only gods can work as a team"], "correct_index": 1 },
+        { "prompt": "Why did Iolaus burn each stump?", "options": ["to keep warm", "so no new heads could grow back", "to signal for help", "to cook dinner"], "correct_index": 1 },
+        { "prompt": "Where did the Hydra live?", "options": ["in the swamps of Lerna", "on Mount Olympus", "in the Labyrinth", "in a cave by the sea"], "correct_index": 0 }
+      ]
+    }
+  ]
+}

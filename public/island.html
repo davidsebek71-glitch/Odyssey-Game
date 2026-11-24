@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Island Quests — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0a1e; --panel: rgba(30, 18, 56, 0.92); --line: rgba(167, 139, 250, 0.25);
+    --text: #f3eefc; --muted: rgba(243, 238, 252, 0.62); --gold: #f0c75e; --gold-dim: rgba(240, 199, 94, 0.35);
+    --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text);
+         background: linear-gradient(135deg, #0f0a1e 0%, #1a0b2e 50%, #0f0a1e 100%); min-height: 100vh; }
+  button, input, textarea { font: inherit; }
+  a { color: var(--gold); }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+            background: rgba(20, 10, 40, 0.7); position: sticky; top: 0; z-index: 20; }
+  .topbar h1 { font-family: 'Cinzel', serif; font-size: 1.25rem; margin: 0; color: var(--gold); letter-spacing: 0.04em; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px;
+         border-radius: 8px; cursor: pointer; }
+  .btn:hover { border-color: var(--violet); }
+  .btn:focus-visible, .pin:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn.small { padding: 5px 10px; font-size: 0.85rem; }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+
+  /* Map */
+  .map-wrap { position: relative; width: 100%; line-height: 0; border-radius: 10px; overflow: hidden; background: #120a24; }
+  .map-wrap img { width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none; }
+  .map-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .map-wrap.placing { cursor: crosshair; }
+  .map-hint { margin: 10px 0 0; color: var(--muted); font-size: 0.9rem; line-height: 1.4; }
+  .map-hint.active { color: var(--gold); font-weight: 600; }
+  .no-map { padding: 40px 20px; text-align: center; color: var(--muted); line-height: 1.6; }
+  .pin { position: absolute; transform: translate(-50%, -100%); width: 38px; height: 38px; border-radius: 50% 50% 50% 0;
+         rotate: -45deg; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--gold);
+         background: rgba(26, 11, 46, 0.92); box-shadow: 0 3px 10px rgba(0,0,0,0.5); padding: 0; z-index: 3; }
+  .pin span { rotate: 45deg; font-size: 18px; line-height: 1; }
+  .pin.draft { border-style: dashed; border-color: var(--muted); opacity: 0.85; }
+  .pin.submitted { border-color: var(--amber); }
+  .pin.returned { border-color: var(--red); }
+  .pin.published { border-color: var(--gold); background: rgba(60, 35, 5, 0.95); }
+  .pin.current { border-width: 3px; box-shadow: 0 0 0 4px rgba(240,199,94,0.45), 0 3px 10px rgba(0,0,0,0.5); z-index: 4; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.8rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid; margin-right: 5px; vertical-align: -2px; }
+
+  /* Side panel */
+  h2 { font-family: 'Cinzel', serif; font-size: 1.05rem; color: var(--gold); margin: 0 0 10px; letter-spacing: 0.03em; }
+  h3 { font-size: 0.95rem; margin: 18px 0 8px; color: var(--violet); text-transform: uppercase; letter-spacing: 0.06em; }
+  .quest { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: rgba(15, 10, 30, 0.6); }
+  .quest .row { display: flex; align-items: flex-start; gap: 8px; }
+  .quest .title { font-weight: 700; flex: 1; }
+  .quest .meta { font-size: 0.8rem; color: var(--muted); margin: 4px 0 8px; }
+  .quest.locked { opacity: 0.6; }
+  .chip { font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; border: 1px solid; }
+  .chip.locked { color: var(--muted); border-color: var(--line); }
+  .chip.ready { color: var(--violet); border-color: var(--violet); }
+  .chip.draft { color: var(--text); border-color: var(--muted); }
+  .chip.submitted { color: var(--amber); border-color: var(--amber); }
+  .chip.returned { color: var(--red); border-color: var(--red); }
+  .chip.published { color: var(--gold); border-color: var(--gold); }
+  .tier { font-size: 0.7rem; color: var(--gold); border: 1px solid var(--gold-dim); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
+  .feature-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .banner { border-radius: 8px; padding: 10px 12px; margin: 10px 0; font-size: 0.92rem; line-height: 1.45; border: 1px solid; }
+  .banner.info { border-color: var(--violet); background: rgba(167,139,250,0.1); }
+  .banner.warn { border-color: var(--amber); background: rgba(251,191,36,0.1); }
+  .banner.bad  { border-color: var(--red); background: rgba(248,113,113,0.12); }
+  .banner.good { border-color: var(--green); background: rgba(110,231,160,0.1); }
+  .directions { color: var(--muted); line-height: 1.55; font-size: 0.93rem; white-space: pre-wrap; }
+  .ref-images { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .ref-images img { max-width: 120px; max-height: 120px; border-radius: 6px; border: 1px solid var(--line); }
+  label.field { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 0.9rem; }
+  input[type=text], input[type=url], textarea { width: 100%; background: rgba(10, 6, 22, 0.85); color: var(--text);
+         border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  textarea { min-height: 220px; resize: vertical; line-height: 1.5; }
+  input[disabled], textarea[disabled] { opacity: 0.7; }
+  select { background: rgba(10, 6, 22, 0.85); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; max-width: 100%; }
+  select:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .counts { display: flex; gap: 14px; font-size: 0.85rem; margin-top: 6px; color: var(--muted); }
+  .counts .ok { color: var(--green); font-weight: 700; }
+  .counts .short { color: var(--amber); font-weight: 700; }
+  .photo-box { border: 1px dashed var(--line); border-radius: 8px; padding: 10px; text-align: center; }
+  .photo-box img { max-width: 100%; max-height: 320px; border-radius: 6px; display: block; margin: 0 auto 8px; }
+  .save-state { font-size: 0.8rem; color: var(--muted); min-height: 1.2em; }
+  .save-state.bad { color: var(--red); }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+  .why-not { font-size: 0.85rem; color: var(--amber); width: 100%; }
+  .viewer-body { white-space: pre-wrap; line-height: 1.6; margin: 10px 0; }
+  .muted { color: var(--muted); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .err-page { max-width: 600px; margin: 60px auto; text-align: center; }
+  .steps { display: flex; gap: 6px; margin: 8px 0 4px; font-size: 0.8rem; }
+  .steps span { padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .steps span.on { border-color: var(--gold); color: var(--gold); font-weight: 700; }
+  .steps span.done { border-color: var(--green); color: var(--green); }
+  .opt { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px; border-radius: 8px; cursor: pointer;
+         background: rgba(10,6,22,0.85); color: var(--text); border: 1px solid var(--line); }
+  .opt:hover:not([disabled]) { border-color: var(--violet); }
+  .opt.right { border-color: var(--green); background: rgba(110,231,160,0.12); }
+  .opt.wrong { border-color: var(--red); background: rgba(248,113,113,0.1); }
+  .opt[disabled] { cursor: default; }
+  .q-row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  .q-row input[type=text] { flex: 1; }
+  .q-row label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; display: flex; gap: 4px; align-items: center; }
+  .voyage-box { border: 1px solid var(--gold-dim); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.9rem; line-height: 1.5; }
+  .response { border-left: 3px solid var(--violet); padding: 6px 10px; margin: 8px 0; background: rgba(167,139,250,0.06); border-radius: 0 6px 6px 0; }
+  .response .who { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="btn small" onclick="goBack()">← Back</button>
+  <h1 id="page-title">My Island</h1>
+  <a class="btn small" href="/walk.html" id="walk-link" style="text-decoration:none">🚶 Walk</a>
+  <a class="btn small" href="/terrain.html" id="terrain-link" style="text-decoration:none">⛰️ Terrain</a>
+  <a class="btn small" href="/world.html" style="text-decoration:none">🌍 World Map</a>
+  <span id="topbar-status" class="muted" style="font-size:0.85rem;"></span>
+</div>
+
+<div class="layout" id="layout" style="display:none;">
+  <section class="card">
+    <div id="map-area"></div>
+    <p class="map-hint" id="map-hint" aria-live="polite"></p>
+    <div class="legend" id="legend">
+      <span><i style="border-color:var(--muted);border-style:dashed"></i>Draft</span>
+      <span><i style="border-color:var(--amber)"></i>Waiting for approval</span>
+      <span><i style="border-color:var(--red)"></i>Returned</span>
+      <span><i style="border-color:var(--gold)"></i>Published</span>
+    </div>
+  </section>
+  <aside class="card" id="panel" aria-live="polite"></aside>
+</div>
+<div id="fatal" class="err-page" style="display:none;"></div>
+
+<script>
+const token = localStorage.getItem('token');
+const H = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+const params = new URLSearchParams(location.search);
+const VIEW_ID = params.get('student') ? parseInt(params.get('student')) : null;  // visiting someone's island
+const OPEN_PIN = params.get('pin') ? parseInt(params.get('pin')) : null;         // e.g. arriving from walk.html
+const ICONS = { shrine:'🏛️', creature:'🐉', landmark:'🗿', poem:'📜', lair:'🕳️', guardian:'🛡️', monster:'👹', river:'🌊', mountain:'⛰️', city:'🏘️' };
+const STATUS_TEXT = { draft:'Draft', submitted:'Waiting for approval', returned:'Returned — see note', published:'Published' };
+
+let island = null;      // /api/island/me or /api/island/view response
+let mode = 'own';       // 'own' | 'view'
+let current = null;     // pin being edited / viewed
+let saveTimer = null, saving = false, pendingPatch = {};
+let qTimer = null;          // question autosave
+let world = null;           // /api/voyage/world (visitors)
+let visit = null;           // the visit being shown (visitors)
+let myResponses = [];       // approved responses on my pieces (owner)
+let encInfo = null;         // what can be faced on this island (visitors)
+let encounter = null;       // the encounter being shown (visitors)
+let GODS = null;            // god list for the monster editor
+let extraTimer = null, attrTimer = null, activeDanger = 0;
+const photoUrls = {};   // pin_id -> object URL
+
+if (!token) location.href = '/index.html';
+
+// Same counting rule as the server (routes/island.js)
+const countWords = t => (t || '').trim().split(/\s+/).filter(Boolean).length;
+const countLines = t => (t || '').split(/\r?\n/).filter(l => l.trim().length > 0).length;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) { const err = new Error(data.error || 'Something went wrong. Try again.'); err.status = r.status; throw err; }
+  return data;
+}
+function goBack() {
+  if (current && mode === 'own') { flushSave().then(() => { current = null; renderAll(); }); return; }
+  if (current) { current = null; renderAll(); return; }
+  // A teacher (or visitor) who opened this from another page goes back there
+  if (mode === 'view' && document.referrer && new URL(document.referrer).origin === location.origin) { history.back(); return; }
+  location.href = '/student.html';
+}
+function fatal(msg) {
+  document.getElementById('layout').style.display = 'none';
+  const f = document.getElementById('fatal'); f.style.display = 'block'; f.replaceChildren(
+    el('h2', { text: msg }), el('p', {}, el('a', { href: '/student.html', text: 'Back to the dashboard' })));
+}
+
+// ── Load ─────────────────────────────────────────────────────────────────────
+async function load() {
+  try {
+    if (VIEW_ID) {
+      island = await api('GET', '/island/view/' + VIEW_ID);
+      mode = island.viewer_is_owner ? 'own' : 'view';
+      if (mode === 'own') island = await api('GET', '/island/me');
+    } else {
+      island = await api('GET', '/island/me');
+    }
+  } catch (e) {
+    if (e.status === 401 || e.status === 403 && !VIEW_ID) { location.href = '/index.html'; return; }
+    return fatal(e.message);
+  }
+  if (mode === 'view' && island.access === 'visitor') {
+    try { world = await api('GET', '/voyage/world'); } catch (e) { world = null; }
+  }
+  if (mode === 'view' && island.access) {
+    try { encInfo = await api('GET', '/encounters/island/' + island.owner.student_id); } catch (e) { encInfo = null; }
+  }
+  if (mode === 'own') {
+    try { myResponses = (await api('GET', '/voyage/responses/mine')).responses || []; } catch (e) { myResponses = []; }
+    await ensureGods();
+  }
+  document.getElementById('layout').style.display = '';
+  document.getElementById('page-title').textContent = mode === 'view' ? `${island.owner.name}'s Island` : 'My Island';
+  if (mode === 'view') document.getElementById('terrain-link').style.display = 'none';
+  document.getElementById('walk-link').href = '/walk.html' + (mode === 'view' ? '?student=' + island.owner.student_id : '');
+  renderAll();
+  if (OPEN_PIN && pinById(OPEN_PIN)) openPin(OPEN_PIN);
+}
+
+function pins() { return island.pins || []; }
+function pinById(id) { return pins().find(p => p.pin_id === id); }
+// Fields the student edits locally; a server copy must not overwrite unsaved values.
+const LOCAL_FIELDS = ['title', 'body', 'x_pct', 'y_pct', 'question', 'extra', 'attributes'];
+function applyServerPin(sp) {
+  const local = current && current.pin_id === sp.pin_id ? current : null;
+  const keep = local ? Object.fromEntries(LOCAL_FIELDS.map(k => [k, local[k]])) : null;
+  replacePin(sp);
+  if (keep) Object.assign(current, keep);
+}
+function replacePin(p) {
+  const i = island.pins.findIndex(x => x.pin_id === p.pin_id);
+  if (i >= 0) island.pins[i] = p; else island.pins.push(p);
+  if (current && current.pin_id === p.pin_id) current = p;
+  if (island.quests) {
+    const q = island.quests.find(q => q.quest_id === p.quest_id);
+    if (q) { q.pin_id = p.pin_id; q.pin_status = p.status; }
+  }
+}
+const editable = p => mode === 'own' && p && (p.status === 'draft' || p.status === 'returned');
+
+function renderAll() {
+  renderMap();
+  renderPanel();
+  const counts = { published: 0, submitted: 0, returned: 0 };
+  pins().forEach(p => { if (counts[p.status] !== undefined) counts[p.status]++; });
+  document.getElementById('topbar-status').textContent = mode === 'view'
+    ? `${pins().length} published`
+    : `${counts.published} published · ${counts.submitted} waiting · ${counts.returned} returned`;
+}
+
+// ── Map, pins and fog ────────────────────────────────────────────────────────
+let mapImg = null, fogCanvas = null, mapWrap = null;
+function renderMap() {
+  const area = document.getElementById('map-area');
+  if (!island.map_image) {
+    area.replaceChildren(el('div', { class: 'no-map' },
+      el('div', { style: 'font-size:2rem' }, '🗺️'),
+      mode === 'view' ? 'This island has no map yet.'
+        : el('span', {}, 'Upload your island map first: go to the dashboard and open ', el('strong', { text: 'My Map' }), '. Then come back to place your quests.')));
+    setHint(mode === 'view' ? '' : 'You can read your quests now, but you need a map to place them.');
+    return;
+  }
+  if (!mapWrap) {
+    mapWrap = el('div', { class: 'map-wrap' });
+    mapImg = el('img', { alt: mode === 'view' ? 'Island map' : 'Your island map', draggable: 'false' });
+    fogCanvas = el('canvas', { 'aria-hidden': 'true' });
+    mapWrap.append(mapImg, fogCanvas);
+    mapWrap.addEventListener('click', onMapClick);
+    mapImg.addEventListener('load', drawFog);
+    mapImg.src = island.map_image;
+    new ResizeObserver(drawFog).observe(mapWrap);
+    area.replaceChildren(mapWrap);
+  }
+  mapWrap.querySelectorAll('.pin').forEach(p => p.remove());
+  pins().forEach(p => {
+    if (p.x_pct === null || p.y_pct === null) return;
+    const isCur = current && current.pin_id === p.pin_id;
+    const b = el('button', {
+      class: `pin ${p.status}${isCur ? ' current' : ''}`,
+      style: `left:${p.x_pct}%;top:${p.y_pct}%;`,
+      'aria-label': `${p.title || 'Untitled'} — ${STATUS_TEXT[p.status] || p.status}${isCur && editable(p) ? '. Use arrow keys to move it.' : ''}`,
+      title: p.title || 'Untitled',
+      onclick: e => { e.stopPropagation(); openPin(p.pin_id); },
+      onkeydown: e => nudgePin(e, p)
+    }, el('span', { text: ICONS[p.pin_type] || '📍' }));
+    mapWrap.append(b);
+  });
+  mapWrap.classList.toggle('placing', !!(current && editable(current)));
+  drawFog();
+  if (current && editable(current)) {
+    setHint(current.x_pct === null ? 'Tap your map where this belongs.' : 'Tap the map to move it, or select the pin and use the arrow keys.', true);
+  } else if ((island.monsters || []).length) {
+    setHint(`${island.monsters.map(m => m.name).join(' and ')} lurks on this island. That region stays in fog${mode === 'own' ? ' until your alliance defeats it (Gods & Monsters)' : ' and can\'t be visited'}.`, true);
+  } else if (mode === 'own') {
+    setHint('Published work clears the fog around it. Choose a quest to begin.');
+  } else {
+    setHint('Select a pin to read it.');
+  }
+}
+function setHint(t, active) { const h = document.getElementById('map-hint'); h.textContent = t; h.classList.toggle('active', !!active); }
+
+// Fog of war: the island starts covered; each PUBLISHED pin reveals the area around it.
+function drawFog() {
+  if (!fogCanvas || !mapImg || !mapImg.complete) return;
+  const w = mapWrap.clientWidth, h = mapWrap.clientHeight;
+  if (!w || !h) return;
+  const dpr = window.devicePixelRatio || 1;
+  fogCanvas.width = w * dpr; fogCanvas.height = h * dpr;
+  const c = fogCanvas.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.globalCompositeOperation = 'source-over';
+  c.fillStyle = mode === 'view' ? 'rgba(12, 8, 26, 0.88)' : 'rgba(12, 8, 26, 0.5)';
+  c.fillRect(0, 0, w, h);
+  c.globalCompositeOperation = 'destination-out';
+  const r = Math.max(w, h) * 0.14;
+  pins().filter(p => p.status === 'published' && p.x_pct !== null).forEach(p => {
+    const x = p.x_pct / 100 * w, y = p.y_pct / 100 * h;
+    const g = c.createRadialGradient(x, y, r * 0.35, x, y, r);
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+  });
+  // Stage 4: an awake monster keeps its region in thick fog
+  c.globalCompositeOperation = 'source-over';
+  (island.monsters || []).forEach(m => {
+    const x = m.x_pct / 100 * w, y = m.y_pct / 100 * h, mr = m.radius / 100 * w;
+    c.fillStyle = 'rgba(40, 6, 20, 0.78)'; c.beginPath(); c.arc(x, y, mr, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = 'rgba(248,113,113,0.7)'; c.lineWidth = 2; c.setLineDash([6, 5]); c.stroke(); c.setLineDash([]);
+    c.font = `${Math.max(22, mr * 0.45)}px serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(m.emoji || '👹', x, y);
+  });
+}
+
+function onMapClick(e) {
+  if (!current || !editable(current)) return;
+  const rect = mapImg.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * 100, y = (e.clientY - rect.top) / rect.height * 100;
+  if (x < 0 || x > 100 || y < 0 || y > 100) return;
+  setPosition(x, y);
+}
+function nudgePin(e, p) {
+  if (!current || current.pin_id !== p.pin_id || !editable(p)) return;
+  const step = e.shiftKey ? 5 : 1;
+  const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  setPosition(Math.min(100, Math.max(0, p.x_pct + d[0])), Math.min(100, Math.max(0, p.y_pct + d[1])));
+  const again = mapWrap.querySelector('.pin.current'); if (again) again.focus();
+}
+function setPosition(x, y) {
+  current.x_pct = Math.round(x * 100) / 100; current.y_pct = Math.round(y * 100) / 100;
+  replacePin(current);
+  queueSave({ x_pct: current.x_pct, y_pct: current.y_pct }, 400);
+  renderMap(); renderSubmitState();
+}
+
+// ── Side panel ───────────────────────────────────────────────────────────────
+function renderPanel() {
+  const panel = document.getElementById('panel');
+  if (current) return renderPinPanel(panel);
+  if (mode === 'view' && encounter) return renderEncounter(panel);
+  if (mode === 'view') {
+    const list = pins();
+    const kids = [];
+    if (world) kids.push(voyageBox());
+    if (encInfo && encInfo.available) kids.push(encounterCard());
+    kids.push(el('h2', { text: 'Published work' }));
+    if (!list.length) kids.push(el('p', { class: 'muted', text: 'Nothing has been published on this island yet.' }));
+    list.forEach(p => {
+      let action;
+      if (p.locked) {
+        const why = visitBlockReason(p);
+        action = el('div', {}, el('button', { class: 'btn small primary', disabled: !!why, onclick: () => openPin(p.pin_id) }, '⛵ Visit (1 voyage token)'),
+          why ? el('div', { class: 'meta', text: why }) : null);
+      } else if (p.visit_status === 'open') {
+        action = el('button', { class: 'btn small primary', onclick: () => openPin(p.pin_id) }, 'Continue your visit');
+      } else {
+        action = el('button', { class: 'btn small', onclick: () => openPin(p.pin_id) }, 'Read');
+      }
+      kids.push(el('div', { class: 'quest' },
+        el('div', { class: 'row' }, el('span', { text: ICONS[p.pin_type] || '📍' }), el('span', { class: 'title', text: p.title || 'Untitled' }),
+          p.visit_status === 'completed' ? el('span', { class: 'chip published', text: 'Visited' }) : null),
+        p.quest_title ? el('div', { class: 'meta', text: p.quest_title }) : null, action));
+    });
+    panel.replaceChildren(...kids);
+    return;
+  }
+  const quests = island.quests || [];
+  const kids = [el('h2', { text: 'Quests' })];
+  if (!quests.length) kids.push(el('p', { class: 'muted', text: 'No island quests yet. Your teacher will add them.' }));
+  ['core', 'optional'].forEach(tier => {
+    const list = quests.filter(q => q.tier === tier);
+    if (!list.length) return;
+    kids.push(el('h3', { text: tier === 'core' ? 'Core quests (required)' : 'Optional quests' }));
+    list.forEach(q => {
+      const status = !q.unlocked ? 'locked' : (q.pin_status || 'ready');
+      const chipText = !q.unlocked ? 'Locked' : q.pin_status ? STATUS_TEXT[q.pin_status] : 'Ready to start';
+      const btnText = !q.unlocked ? null : !q.pin_id ? 'Start' : (q.pin_status === 'draft' || q.pin_status === 'returned') ? 'Continue' : 'View';
+      kids.push(el('div', { class: `quest${q.unlocked ? '' : ' locked'}` },
+        el('div', { class: 'row' }, el('span', { text: ICONS[q.pin_type] || '📍' }),
+          el('span', { class: 'title' }, q.title), el('span', { class: `chip ${status}`, text: chipText })),
+        el('div', { class: 'meta', text: [q.points ? `${q.points} points` : null,
+          q.min_words ? `${q.min_words}+ words` : null, q.min_lines ? `${q.min_lines}+ lines` : null].filter(Boolean).join(' · ') }),
+        !q.unlocked ? el('div', { class: 'meta', text: q.lock_reason }) :
+          el('button', { class: 'btn small' + (q.pin_id ? '' : ' primary'), onclick: () => startQuest(q) }, btnText)));
+    });
+  });
+  kids.push(el('h3', { text: 'Name a place on your map' }),
+    el('p', { class: 'muted', style: 'font-size:0.88rem;margin-top:0', text: 'Label a river, mountain, or city, with one sentence from the text explaining why it is there.' }),
+    el('div', { class: 'feature-row' }, (island.feature_types || []).map(t =>
+      el('button', { class: 'btn small', onclick: () => newFeature(t) }, `${ICONS[t]} ${t[0].toUpperCase() + t.slice(1)}`))));
+  const feats = pins().filter(p => !p.quest_id);
+  if (feats.length) {
+    kids.push(el('div', { style: 'margin-top:10px' }, feats.map(p => el('div', { class: 'quest' },
+      el('div', { class: 'row' }, el('span', { text: ICONS[p.pin_type] }), el('span', { class: 'title', text: p.title || `Unnamed ${p.pin_type}` }),
+        el('span', { class: `chip ${p.status}`, text: STATUS_TEXT[p.status] })),
+      el('button', { class: 'btn small', onclick: () => openPin(p.pin_id) }, editable(p) ? 'Continue' : 'View')))));
+  }
+  panel.replaceChildren(...kids);
+}
+
+async function startQuest(q) {
+  if (q.pin_id) return openPin(q.pin_id);
+  try {
+    const r = await api('POST', '/island/pins', { quest_id: q.quest_id });
+    replacePin(r.pin); openPin(r.pin.pin_id);
+  } catch (e) { alert(e.message); }
+}
+async function newFeature(type) {
+  try {
+    const r = await api('POST', '/island/pins', { feature_type: type });
+    replacePin(r.pin); openPin(r.pin.pin_id);
+  } catch (e) { alert(e.message); }
+}
+function openPin(id) {
+  const p = pinById(id); if (!p) return;
+  flushSave().then(async () => {
+    current = p; visit = null;
+    if (mode === 'view' && p.visit_id) {
+      try { visit = (await api('GET', '/voyage/visits/' + p.visit_id)).visit; } catch (e) { visit = null; }
+    }
+    renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
+function renderPinPanel(panel) {
+  const p = current;
+  if (mode === 'view' && (p.locked || (visit && visit.pin_id === p.pin_id && visit.status === 'open'))) return renderVisitPanel(panel, p);
+  const q = (island.quests || []).find(x => x.quest_id === p.quest_id) || null;
+  const isFeature = !p.quest_id;
+  const questTitle = q ? q.title : p.quest_title;
+  const kids = [el('button', { class: 'btn small', onclick: goBack }, mode === 'view' ? '← Back to the island' : '← All quests'),
+    el('h2', { style: 'margin-top:12px' }, `${ICONS[p.pin_type] || '📍'} ${questTitle || p.title || 'A ' + p.pin_type + ' on your island'}`)];
+
+  // Status banner — always tells the student what happens next
+  if (mode === 'own') {
+    if (p.status === 'draft') kids.push(el('div', { class: 'banner info', text: 'Draft — saves automatically. Submit it when it\'s ready for your teacher.' }));
+    if (p.status === 'submitted') kids.push(el('div', { class: 'banner warn', text: 'Waiting for teacher approval. You can\'t change it until your teacher reviews it.' }));
+    if (p.status === 'returned') kids.push(el('div', { class: 'banner bad' }, el('strong', { text: 'Returned with a note: ' }), p.teacher_note || '', el('br'), 'Make the changes, then submit again.'));
+    if (p.status === 'published') kids.push(el('div', { class: 'banner good' }, 'Published! Your alliance can read it on your island.',
+      p.teacher_note ? el('div', { style: 'margin-top:6px' }, el('strong', { text: 'Teacher: ' }), p.teacher_note) : null));
+  }
+  if (q && editable(p)) {
+    kids.push(el('div', { class: 'directions', text: q.directions || '' }));
+    if (q.images && q.images.length) kids.push(el('div', { class: 'ref-images' }, q.images.map(src => el('img', { src, alt: 'Reference picture for this quest' }))));
+  }
+
+  if (!editable(p)) {
+    // Read-only view (the work's own title goes under the quest name)
+    if (questTitle) kids.push(el('h3', { text: p.title || 'Untitled' }));
+    kids.push(el('div', { class: 'viewer-body', text: p.body || '' }));
+    if (p.has_photo) { const box = el('div', { class: 'photo-box' }, el('span', { class: 'muted', text: 'Loading photo…' })); kids.push(box); loadPhoto(p, box); }
+    if (p.video_url) kids.push(el('p', {}, el('a', { href: p.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Watch the video')));
+    if (p.pin_type === 'lair' && p.extra && (p.extra.dangers || []).length) {
+      kids.push(el('h3', { text: 'The four dangers' }), el('ol', { style: 'margin:0;padding-left:22px' }, p.extra.dangers.map(d => el('li', { text: d.label }))));
+    }
+    if (p.pin_type === 'monster' && p.attributes && p.attributes.length) {
+      kids.push(el('h3', { text: '"Impossible to escape"' }), el('ol', { style: 'margin:0;padding-left:22px;line-height:1.6' }, p.attributes.map(a => el('li', {},
+        a.description, el('span', { class: 'muted', text: a.counter_type === 'god' ? ` — countered by ${godLabel(a.counter_value)}` : ` — countered by knowing: ${(a.counter_value || {}).prompt || ''}` })))));
+      if (p.extra && p.extra.hero_gains) kids.push(el('h3', { text: 'What the hero gains' }), el('div', { text: p.extra.hero_gains }));
+    }
+    if (p.question && p.question.prompt) {
+      kids.push(el('h3', { text: p.pin_type === 'guardian' ? 'The Guardian\'s Test' : 'Question for visitors' }), el('div', {}, p.question.prompt),
+        el('ol', { style: 'margin:6px 0 0;padding-left:22px' }, p.question.options.map((o, i) =>
+          el('li', { style: i === p.question.correct_index ? 'color:var(--green);font-weight:700' : '' }, o + (i === p.question.correct_index ? ' ✓' : '')))));
+    }
+    if (mode === 'view' && visit && visit.status === 'completed') {
+      kids.push(el('div', { class: 'banner good', text: 'You visited this piece. Your response goes to your teacher first, then to the author.' }));
+    }
+    if (mode === 'own' && p.status === 'published' && p.quest_id) {
+      const rs = myResponses.filter(r => r.pin_id === p.pin_id);
+      kids.push(el('h3', { text: 'Responses from visitors' }));
+      if (!rs.length) kids.push(el('p', { class: 'muted', style: 'font-size:0.88rem', text: 'None yet. When visitors respond and your teacher approves it, you\'ll read it here.' }));
+      rs.forEach(r => kids.push(el('div', { class: 'response' },
+        el('div', { class: 'who', text: `${r.visitor_name}${r.visitor_alliance ? ' · ' + r.visitor_alliance : ''}` }), el('div', { style: 'white-space:pre-wrap', text: r.response_text }))));
+    }
+    if (p.quest_id) kids.push(gameSlot(p));
+    panel.replaceChildren(...kids);
+    return;
+  }
+
+  // Editor
+  const minW = q ? q.min_words : 3, minL = q ? q.min_lines : 0;
+  kids.push(el('label', { class: 'field', for: 'f-title' }, isFeature ? `Name of the ${p.pin_type}` : 'Title'),
+    el('input', { type: 'text', id: 'f-title', maxlength: '80', value: p.title || '',
+      placeholder: isFeature ? 'e.g. The River Styx' : 'Give your work a title',
+      oninput: e => { current.title = e.target.value; queueSave({ title: current.title }); renderSubmitState(); } }));
+  kids.push(el('label', { class: 'field', for: 'f-body' }, isFeature ? 'Why is it here? Use the text.' : 'Your writing'),
+    el('textarea', { id: 'f-body', maxlength: '5000', placeholder: isFeature ? 'One sentence with evidence from the myth.' : 'Write here. Press Enter for a new line.',
+      oninput: e => { current.body = e.target.value; queueSave({ body: current.body }); renderCounts(); renderSubmitState(); } }),
+    el('div', { class: 'counts', id: 'counts' }));
+  if (!isFeature) {
+    kids.push(el('label', { class: 'field' }, 'Photo of hand-made work (optional)'),
+      el('div', { class: 'photo-box', id: 'photo-box' }));
+    kids.push(el('label', { class: 'field', for: 'f-video' }, 'Video link (optional)'),
+      el('input', { type: 'url', id: 'f-video', value: p.video_url || '', placeholder: 'https://…',
+        onchange: e => queueSave({ video_url: e.target.value.trim() || null }, 0) }));
+    if (p.pin_type === 'lair') kids.push(lairEditor());
+    else if (p.pin_type === 'monster') kids.push(monsterEditor());
+    else kids.push(questionEditor(p.pin_type === 'guardian'));
+  }
+  kids.push(el('div', { class: 'actions' },
+    el('button', { class: 'btn primary', id: 'submit-btn', onclick: submitPin }, p.status === 'returned' ? 'Submit again' : 'Submit for approval'),
+    !p.submitted_at && p.status === 'draft' ? el('button', { class: 'btn small', onclick: deleteDraft }, 'Delete draft') : null,
+    el('span', { class: 'save-state', id: 'save-state', text: 'Saved' }),
+    el('div', { class: 'why-not', id: 'why-not' })));
+  if (!isFeature) kids.push(gameSlot(p));
+  panel.replaceChildren(...kids);
+  document.getElementById('f-body').value = p.body || '';
+  if (!isFeature) renderPhotoBox();
+  renderCounts(); renderSubmitState();
+}
+
+// Stage 7: the story's mini game (make/edit for the author, play for readers)
+function gameSlot(p) {
+  const box = el('div', { class: 'game-slot', style: 'margin-top:16px' });
+  api('GET', '/games/pin/' + p.pin_id).then(d => {
+    const g = d.game, kids = [];
+    if (d.can_edit) {
+      const st = !g ? 'Readers walk through a little room and need a clue from your story to survive.'
+        : { draft: 'Draft — not submitted yet.', returned: 'Needs changes: ' + (g.teacher_note || ''), submitted: 'Waiting for your teacher.',
+            approved: 'Approved — waiting for a teammate to play-test it.', published: 'Published — readers can play it.' }[g.status] || '';
+      kids.push(el('h3', { text: '🎮 Mini game' }), el('div', { class: 'muted', style: 'font-size:0.88rem;margin-bottom:8px', text: st }),
+        el('a', { class: 'btn small primary', href: `/game_builder.html?pin=${p.pin_id}` }, g ? 'Edit my mini game' : 'Make a mini game'), ' ',
+        g ? el('a', { class: 'btn small', href: `/game.html?pin=${p.pin_id}` }, '▶ Try it') : null);
+    } else if (g && d.can_play) {
+      kids.push(el('h3', { text: '🎮 Mini game' }),
+        el('div', { class: 'muted', style: 'font-size:0.88rem;margin-bottom:8px', text: d.can_playtest ? 'Your teammate asks you to play-test this game.' : 'Can you survive? The story holds the clue.' }),
+        el('a', { class: 'btn small primary', href: `/game.html?pin=${p.pin_id}` }, d.can_playtest ? '🧪 Play-test the mini game' : '▶ Play the mini game'));
+    }
+    box.replaceChildren(...kids);
+  }).catch(() => {});
+  return box;
+}
+
+function renderCounts() {
+  const box = document.getElementById('counts'); if (!box || !current) return;
+  const q = (island.quests || []).find(x => x.quest_id === current.quest_id);
+  const w = countWords(current.body), l = countLines(current.body);
+  const minW = q ? q.min_words : (current.quest_id ? 0 : 3), minL = q ? q.min_lines : 0;
+  const part = (n, min, unit) => el('span', { class: min ? (n >= min ? 'ok' : 'short') : '' },
+    min ? `${n} / ${min} ${unit}${n >= min ? ' ✓' : ''}` : `${n} ${unit}`);
+  box.replaceChildren(part(w, minW, 'words'), part(l, minL, 'lines'));
+}
+// Mirrors the server's submitProblem() so the button explains itself
+function submitProblem(p) {
+  if (p.x_pct === null || p.y_pct === null) return 'Tap your map to choose where this goes.';
+  if (!island.map_image) return 'Upload your island map first (Dashboard → My Map).';
+  if (!p.title || !p.title.trim()) return 'Give it a title.';
+  const q = (island.quests || []).find(x => x.quest_id === p.quest_id);
+  const w = countWords(p.body), l = countLines(p.body);
+  if (!p.quest_id) return w < 3 ? 'Write a sentence explaining why this place is here (use the text).' : null;
+  if (q && q.min_words && w < q.min_words) return `Write at least ${q.min_words} words (you have ${w}).`;
+  if (q && q.min_lines && l < q.min_lines) return `Write at least ${q.min_lines} lines (you have ${l}).`;
+  if (!w && !p.has_photo) return 'Add your writing or a photo of your work.';
+  if (p.pin_type === 'lair') {
+    if (!p.has_photo) return 'Add a photo of your lair map.';
+    const d = ((p.extra || {}).dangers || []).filter(x => x && x.label && x.label.trim() && x.x_pct !== null && x.x_pct !== undefined);
+    if (d.length < 4) return `Label and place all four dangers on your lair map (${d.length} of 4 done).`;
+    return null;
+  }
+  if (p.pin_type === 'monster') {
+    const at = p.attributes || [];
+    if (at.length < 4 || at.some(a => !a.description || a.description.trim().length < 3)) return 'Describe all four of your monster\'s "impossible to escape" attributes.';
+    for (let i = 0; i < 4; i++) {
+      if (at[i].counter_type === 'god' && !at[i].counter_value) return `Attribute ${i + 1}: choose the god whose power counters it.`;
+      if (at[i].counter_type === 'question') { const pr = questionProblem(at[i].counter_value); if (pr) return `Attribute ${i + 1}: ${pr}`; }
+    }
+    if (countWords((p.extra || {}).hero_gains) < 3) return 'Write what the hero gains by defeating your monster.';
+    return null;
+  }
+  const qp = questionProblem(p.question);
+  if (qp && p.pin_type === 'guardian') return qp.replace('a question for visitors about your piece', 'the Guardian\'s Test').replace('the question visitors will answer', 'the Guardian\'s Test question');
+  return qp;
+}
+// Mirrors questionProblem() in routes/island.js
+function questionProblem(q) {
+  if (!q) return 'Write a question for visitors about your piece.';
+  if (!q.prompt || q.prompt.trim().length < 5) return 'Write the question visitors will answer.';
+  const opts = (q.options || []).map(o => (o || '').trim()).filter(Boolean);
+  if (opts.length < 2) return 'Give your question at least two answer choices.';
+  if (q.correct_index === null || q.correct_index === undefined || !((q.options || [])[q.correct_index] || '').trim()) return 'Mark which answer is correct.';
+  return null;
+}
+function renderSubmitState() {
+  const btn = document.getElementById('submit-btn'), why = document.getElementById('why-not');
+  if (!btn || !current) return;
+  const problem = submitProblem(current);
+  btn.disabled = !!problem; why.textContent = problem || '';
+}
+
+// ── Autosave ─────────────────────────────────────────────────────────────────
+function setSaveState(t, bad) { const s = document.getElementById('save-state'); if (s) { s.textContent = t; s.classList.toggle('bad', !!bad); } }
+function queueSave(patch, delay = 1200) {
+  Object.assign(pendingPatch, patch);
+  setSaveState('Saving…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSave, delay);
+}
+async function doSave() {
+  if (!current || saving || !Object.keys(pendingPatch).length) return;
+  const patch = pendingPatch; pendingPatch = {}; saving = true;
+  const id = current.pin_id;
+  try {
+    const r = await api('PATCH', '/island/pins/' + id, patch);
+    applyServerPin(r.pin);   // keeps anything typed or moved while saving
+    setSaveState(Object.keys(pendingPatch).length ? 'Saving…' : 'Saved');
+  } catch (e) {
+    Object.assign(pendingPatch, patch, pendingPatch);
+    setSaveState(e.status === 400 ? e.message : 'Not saved yet — will retry. Keep this page open.', true);
+    if (e.status !== 400) { clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 4000); }
+  } finally { saving = false; if (Object.keys(pendingPatch).length && !saveTimer) saveTimer = setTimeout(doSave, 800); }
+}
+async function flushSave() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (Object.keys(pendingPatch).length) await doSave();
+  if (qTimer) { clearTimeout(qTimer); qTimer = null; await saveQuestion(); }
+}
+window.addEventListener('beforeunload', e => { if (Object.keys(pendingPatch).length) { doSave(); e.preventDefault(); e.returnValue = ''; } });
+
+// ── Photo ────────────────────────────────────────────────────────────────────
+async function loadPhoto(p, box) {
+  try {
+    if (!photoUrls[p.pin_id + ':' + (p.updated_at || '')]) {
+      const r = await fetch(`/api/island/pins/${p.pin_id}/photo`, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error();
+      photoUrls[p.pin_id + ':' + (p.updated_at || '')] = URL.createObjectURL(await r.blob());
+    }
+    box.replaceChildren(el('img', { src: photoUrls[p.pin_id + ':' + (p.updated_at || '')], alt: `Photo for ${p.title || 'this pin'}` }));
+  } catch (e) { box.replaceChildren(el('span', { class: 'muted', text: 'The photo could not be loaded.' })); }
+}
+function renderPhotoBox() {
+  const box = document.getElementById('photo-box'); if (!box) return;
+  const input = el('input', { type: 'file', accept: 'image/*', id: 'f-photo', class: 'sr-only', onchange: e => uploadPhoto(e.target.files[0]) });
+  const pick = el('button', { class: 'btn small', onclick: () => input.click() }, current.has_photo ? 'Replace photo' : '📷 Add a photo');
+  const parts = [];
+  if (current.has_photo) { const holder = el('div'); parts.push(holder); loadPhoto(current, holder); }
+  parts.push(pick, input);
+  if (current.has_photo) parts.push(' ', el('button', { class: 'btn small', onclick: removePhoto }, 'Remove'));
+  parts.push(el('div', { class: 'muted', id: 'photo-msg', style: 'font-size:0.82rem;margin-top:6px' }));
+  box.replaceChildren(...parts);
+}
+// Shrink in the browser (longest side 1600px, JPEG) so uploads stay small on school Wi-Fi
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file isn\'t a photo we can read. Try a JPG or PNG picture.')); };
+    img.src = url;
+  });
+}
+async function uploadPhoto(file) {
+  if (!file) return;
+  const msg = document.getElementById('photo-msg');
+  msg.textContent = 'Uploading…';
+  try {
+    const data = await shrinkImage(file);
+    await flushSave();
+    const r = await api('POST', `/island/pins/${current.pin_id}/photo`, { image_data: data });
+    applyServerPin(r.pin);
+    renderPhotoBox(); renderSubmitState(); renderMap();
+    if (current.pin_type === 'lair') renderPanel();
+  } catch (e) { msg.textContent = e.message; }
+}
+async function removePhoto() {
+  if (!confirm('Remove this photo?')) return;
+  try { await flushSave(); const r = await api('DELETE', `/island/pins/${current.pin_id}/photo`);
+    applyServerPin(r.pin); renderPhotoBox(); renderSubmitState(); renderMap(); }
+  catch (e) { document.getElementById('photo-msg').textContent = e.message; }
+}
+
+// ── Submit / delete ──────────────────────────────────────────────────────────
+async function submitPin() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    await flushSave();
+    const r = await api('POST', `/island/pins/${current.pin_id}/submit`);
+    replacePin(r.pin); renderAll();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = current.status === 'returned' ? 'Submit again' : 'Submit for approval';
+    document.getElementById('why-not').textContent = e.message;
+  }
+}
+async function deleteDraft() {
+  if (!confirm('Delete this draft? This can\'t be undone.')) return;
+  try {
+    clearTimeout(saveTimer); pendingPatch = {};
+    await api('DELETE', `/island/pins/${current.pin_id}`);
+    island.pins = island.pins.filter(p => p.pin_id !== current.pin_id);
+    (island.quests || []).forEach(q => { if (q.pin_id === current.pin_id) { q.pin_id = null; q.pin_status = null; } });
+    current = null; renderAll();
+  } catch (e) { alert(e.message); }
+}
+
+// ── Question editor (author) ─────────────────────────────────────────────────
+function questionEditor(isGuardian) {
+  if (!current.question) current.question = { prompt: '', options: ['', '', '', ''], correct_index: null };
+  const q = current.question;
+  while (q.options.length < 4) q.options.push('');
+  const name = 'correct-' + current.pin_id;
+  const box = el('div', {},
+    el('label', { class: 'field', for: 'q-prompt' }, isGuardian ? 'The Guardian\'s Test' : 'Question for visitors'),
+    el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px',
+      text: isGuardian ? 'Every hero must answer this to get past your guardian (two tries). Ask about the myth. Fill in at least two choices and mark the right one.'
+        : 'Students from other alliances answer this after reading your piece. Ask about something in your work. Fill in at least two choices and mark the right one.' }),
+    el('input', { type: 'text', id: 'q-prompt', maxlength: '300', value: q.prompt || '', placeholder: 'e.g. What still waits inside the jar?',
+      oninput: e => { q.prompt = e.target.value; queueQuestionSave(); } }),
+    ...q.options.map((o, i) => el('div', { class: 'q-row' },
+      el('input', { type: 'text', maxlength: '150', value: o || '', placeholder: `Choice ${i + 1}${i > 1 ? ' (optional)' : ''}`, 'aria-label': `Choice ${i + 1}`,
+        oninput: e => { q.options[i] = e.target.value; queueQuestionSave(); } }),
+      el('label', {}, el('input', { type: 'radio', name, checked: q.correct_index === i,
+        onchange: () => { q.correct_index = i; queueQuestionSave(0); } }), 'correct'))));
+  return box;
+}
+function queueQuestionSave(delay = 900) {
+  setSaveState('Saving…'); renderSubmitState();
+  clearTimeout(qTimer); qTimer = setTimeout(() => { qTimer = null; saveQuestion(); }, delay);
+}
+async function saveQuestion() {
+  if (!current || !current.question) return;
+  try {
+    const q = current.question;
+    // Send filled choices in order, keeping the "correct" mark on the same choice
+    const filled = q.options.map((o, i) => ({ o: (o || '').trim(), i })).filter(x => x.o);
+    const ci = filled.findIndex(x => x.i === q.correct_index);
+    await api('PUT', `/island/pins/${current.pin_id}/question`, { prompt: q.prompt, options: filled.map(x => x.o), correct_index: ci < 0 ? null : ci });
+    setSaveState(Object.keys(pendingPatch).length ? 'Saving…' : 'Saved');
+  } catch (e) { setSaveState('Question not saved yet — will retry.', true); clearTimeout(qTimer); qTimer = setTimeout(() => { qTimer = null; saveQuestion(); }, 4000); }
+}
+
+// ── Voyages (visitors) ───────────────────────────────────────────────────────
+function voyageBox() {
+  const w = world;
+  if (w.mode !== 'voyage') return el('div', { class: 'voyage-box', text: '🏗️ Build time. Voyages are closed — your teacher will open the next voyage.' });
+  return el('div', { class: 'voyage-box' },
+    el('div', {}, el('strong', { text: `⛵ Voyage open · ` }), `Your alliance has ${w.tokens} voyage token${w.tokens === 1 ? '' : 's'} · You've made ${w.visits_used} of ${w.visit_cap} visits this voyage.`),
+    w.open_visit ? el('div', { style: 'margin-top:4px;color:var(--amber)' }, `You have a visit in progress: "${w.open_visit.pin_title}". `,
+      w.open_visit.owner_student_id !== island.owner.student_id ? el('a', { href: `/island.html?student=${w.open_visit.owner_student_id}` }, 'Go back to it') : null) : null);
+}
+// Why this piece can't be visited right now (null = it can)
+function visitBlockReason(p) {
+  if (!world) return 'Voyages aren\'t open for you.';
+  if (world.mode !== 'voyage') return 'Voyages are closed right now.';
+  if (world.harbor_blocked_by) return `${world.harbor_blocked_by} is guarding your harbor. Defeat it before you can sail.`;
+  if (p.blocked) return 'A monster lurks near this piece. Its alliance must defeat it first.';
+  if (['guardian', 'lair', 'monster'].includes(p.pin_type)) return 'Faced in the encounter above, not visited.';
+  if (!p.has_question) return 'Not ready for visitors yet.';
+  if (world.open_visit && world.open_visit.pin_id !== p.pin_id) return 'Finish the visit you already started first.';
+  if (world.visits_used >= world.visit_cap) return `You've made ${world.visits_used} of ${world.visit_cap} visits this voyage.`;
+  if (world.tokens < 1) return 'Your alliance has no voyage tokens. Publishing approved work earns more.';
+  return null;
+}
+async function startVisit(p) {
+  const btn = document.getElementById('start-visit'); if (btn) { btn.disabled = true; btn.textContent = 'Setting sail…'; }
+  try {
+    const r = await api('POST', '/voyage/visits', { pin_id: p.pin_id });
+    visit = r.visit;
+    const full = Object.assign({}, r.visit.pin, { visit_id: r.visit.visit_id, visit_status: 'open' });
+    island.pins = island.pins.map(x => x.pin_id === p.pin_id ? full : x);
+    current = full;
+    if (world) { if (r.tokens_left !== undefined) world.tokens = r.tokens_left; world.visits_used += r.resumed ? 0 : 1;
+      world.open_visit = { visit_id: visit.visit_id, pin_id: p.pin_id, pin_title: full.title, owner_student_id: island.owner.student_id }; }
+    renderAll();
+  } catch (e) {
+    const m = document.getElementById('visit-msg'); if (m) m.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = '⛵ Spend 1 token and visit'; }
+  }
+}
+function renderVisitPanel(panel, p) {
+  const back = el('button', { class: 'btn small', onclick: goBack }, '← Back to the island');
+  if (p.locked) {
+    const why = visitBlockReason(p);
+    panel.replaceChildren(...[back, world ? voyageBox() : null,
+      el('h2', { style: 'margin-top:12px' }, `${ICONS[p.pin_type] || '📍'} ${p.title || 'Untitled'}`),
+      p.quest_title ? el('div', { class: 'muted', text: p.quest_title }) : el('span'),
+      el('p', { style: 'line-height:1.5', text: `To read this piece, spend one of your alliance's voyage tokens. Then answer ${island.owner.name}'s question and write them a response.` }),
+      el('button', { class: 'btn primary', id: 'start-visit', disabled: !!why, onclick: () => startVisit(p) }, '⛵ Spend 1 token and visit'),
+      el('div', { class: 'why-not', id: 'visit-msg', text: why || '' })].filter(Boolean));
+    return;
+  }
+  const v = visit;
+  // Reading is done once the visit is open; then Answer (2), Respond (3), finished (4)
+  const stepIdx = v.step === 'answer' ? 2 : v.step === 'respond' ? 3 : 4;
+  const kids = [back,
+    el('div', { class: 'steps', 'aria-label': 'Visit steps' }, ['1 Read', '2 Answer', '3 Respond'].map((t, i) =>
+      el('span', { class: i + 1 < stepIdx ? 'done' : i + 1 === stepIdx ? 'on' : '', text: (i + 1 < stepIdx ? '✓ ' : '') + t }))),
+    el('h2', { style: 'margin-top:8px' }, `${ICONS[p.pin_type] || '📍'} ${p.title || 'Untitled'}`),
+    el('div', { class: 'muted', style: 'font-size:0.85rem', text: `by ${v.owner.name}${v.owner.alliance_name ? ' · ' + v.owner.alliance_name : ''}` }),
+    el('div', { class: 'viewer-body', text: v.pin.body || '' })];
+  if (v.pin.has_photo) { const box = el('div', { class: 'photo-box' }, el('span', { class: 'muted', text: 'Loading photo…' })); kids.push(box); loadPhoto(v.pin, box); }
+  if (v.pin.video_url) kids.push(el('p', {}, el('a', { href: v.pin.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Watch the video')));
+
+  // Step 2: the question
+  const q = v.question;
+  const answered = v.answer_correct || v.answer_revealed;
+  kids.push(el('h3', { text: `${v.owner.name}'s question` }), el('div', { style: 'margin-bottom:6px', text: q.prompt }));
+  const fb = el('div', { id: 'answer-msg', style: 'font-size:0.9rem;margin:4px 0', 'aria-live': 'polite' });
+  q.options.forEach((o, i) => {
+    let cls = 'opt';
+    if (answered && i === q.correct_index) cls += ' right';
+    else if (v.answer_index === i && !v.answer_correct) cls += ' wrong';
+    kids.push(el('button', { class: cls, disabled: answered, onclick: () => answerVisit(i) }, o));
+  });
+  if (v.answer_correct) { fb.textContent = '✓ Right!'; fb.style.color = 'var(--green)'; }
+  else if (v.answer_revealed) { fb.textContent = `The answer is "${q.options[q.correct_index]}". You can keep going.`; fb.style.color = 'var(--amber)'; }
+  else if (v.attempts) { fb.textContent = 'Not quite. Read the piece again and try once more.'; fb.style.color = 'var(--amber)'; }
+  kids.push(fb);
+
+  // Step 3: the response
+  if (answered) {
+    const key = 'visit-draft-' + v.visit_id;
+    let saved = ''; try { saved = localStorage.getItem(key) || ''; } catch (e) {}
+    const ta = el('textarea', { id: 'resp', maxlength: '3000', style: 'min-height:140px',
+      placeholder: `Write to ${v.owner.name}: what stood out, what you learned, a connection to the myth…`,
+      oninput: e => { try { localStorage.setItem(key, e.target.value); } catch (er) {} renderRespCount(); } });
+    ta.value = saved;
+    kids.push(el('label', { class: 'field', for: 'resp' }, `Your response to ${v.owner.name}`), ta,
+      el('div', { class: 'counts', id: 'resp-count' }),
+      el('div', { class: 'actions' }, el('button', { class: 'btn primary', id: 'finish-visit', onclick: finishVisit }, 'Finish visit'),
+        el('div', { class: 'why-not', id: 'finish-msg' })));
+  }
+  kids.push(el('p', { style: 'margin-top:18px' }, el('button', { class: 'btn small', onclick: leaveVisit }, 'Leave this visit (your token goes back)')));
+  panel.replaceChildren(...kids);
+  if (answered) renderRespCount();
+}
+function renderRespCount() {
+  const ta = document.getElementById('resp'), box = document.getElementById('resp-count'), btn = document.getElementById('finish-visit');
+  if (!ta || !box) return;
+  const n = countWords(ta.value), min = visit.min_response_words;
+  box.replaceChildren(el('span', { class: n >= min ? 'ok' : 'short' }, `${n} / ${min} words${n >= min ? ' ✓' : ''}`));
+  if (btn) btn.disabled = n < min;
+}
+async function answerVisit(i) {
+  document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+  try { const r = await api('POST', `/voyage/visits/${visit.visit_id}/answer`, { answer_index: i }); visit = r.visit; renderPanel(); }
+  catch (e) { const m = document.getElementById('answer-msg'); if (m) m.textContent = e.message; document.querySelectorAll('.opt').forEach(b => b.disabled = false); }
+}
+async function finishVisit() {
+  const btn = document.getElementById('finish-visit'), msg = document.getElementById('finish-msg');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await api('POST', `/voyage/visits/${visit.visit_id}/complete`, { response_text: document.getElementById('resp').value });
+    try { localStorage.removeItem('visit-draft-' + visit.visit_id); } catch (e) {}
+    visit = r.visit;
+    const p = Object.assign({}, current, { visit_status: 'completed' });
+    island.pins = island.pins.map(x => x.pin_id === p.pin_id ? p : x); current = p;
+    if (world) world.open_visit = null;
+    renderAll();
+    document.getElementById('panel').prepend(el('div', { class: 'banner good', text: `⛵ Visit complete! +${r.visit.points_visitor || 0} points for your alliance.` }));
+  } catch (e) { msg.textContent = e.message; btn.disabled = false; btn.textContent = 'Finish visit'; }
+}
+async function leaveVisit() {
+  if (!confirm('Leave this visit? Your alliance gets its token back, and you can visit again later.')) return;
+  try {
+    const r = await api('POST', `/voyage/visits/${visit.visit_id}/cancel`);
+    const p = pinById(current.pin_id);
+    const teaser = { pin_id: p.pin_id, quest_id: p.quest_id, quest_title: p.quest_title, owner_student_id: p.owner_student_id,
+      x_pct: p.x_pct, y_pct: p.y_pct, pin_type: p.pin_type, title: p.title, status: p.status, locked: true, has_question: true };
+    island.pins = island.pins.map(x => x.pin_id === p.pin_id ? teaser : x);
+    if (world) { world.tokens = r.tokens; world.open_visit = null; world.visits_used = Math.max(0, world.visits_used - 1); }
+    visit = null; current = null; renderAll();
+  } catch (e) { alert(e.message); }
+}
+
+// ── Stage 4B: Lair and Monster editors (author) ──────────────────────────────
+function godLabel(key) { const g = (GODS || []).find(x => x.key === key); return g ? `${g.emoji} ${g.name}'s ${g.power}` : key; }
+async function ensureGods() {
+  if (GODS) return GODS;
+  try { GODS = (await api('GET', '/gods')).gods; } catch (e) { GODS = []; }
+  return GODS;
+}
+function queueExtraSave(patch) {
+  setSaveState('Saving…'); renderSubmitState();
+  clearTimeout(extraTimer);
+  extraTimer = setTimeout(async () => {
+    try { await api('PUT', `/island/pins/${current.pin_id}/extra`, patch()); setSaveState('Saved'); }
+    catch (e) { setSaveState(e.message, true); }
+  }, 700);
+}
+function lairEditor() {
+  const ex = current.extra || (current.extra = {});
+  const dangers = ex.dangers || (ex.dangers = []);
+  while (dangers.length < 4) dangers.push({ label: '', x_pct: null, y_pct: null });
+  const box = el('div', {}, el('label', { class: 'field' }, 'The four dangers'));
+  if (!current.has_photo) {
+    box.append(el('div', { class: 'muted', style: 'font-size:0.88rem', text: 'First add a photo of your lair map (above). Then you\'ll label four dangers on it.' }));
+    return box;
+  }
+  box.append(el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px', text: 'Choose a danger, then tap the photo where it is. Type a label for each.' }));
+  const wrap = el('div', { style: 'position:relative;line-height:0;border-radius:8px;overflow:hidden;cursor:crosshair' });
+  const img = el('img', { alt: 'Your lair map', style: 'width:100%;display:block' });
+  wrap.append(img);
+  loadPhoto(current, el('div')).then(() => { const u = photoUrls[current.pin_id + ':' + (current.updated_at || '')]; if (u) img.src = u; });
+  const draw = () => {
+    wrap.querySelectorAll('.dmark').forEach(m => m.remove());
+    dangers.forEach((d, i) => { if (d.x_pct === null || d.x_pct === undefined) return;
+      wrap.append(el('span', { class: 'dmark', style: `position:absolute;left:${d.x_pct}%;top:${d.y_pct}%;transform:translate(-50%,-50%);background:${i === activeDanger ? '#f0c75e' : '#f87171'};color:#1a0b2e;font-weight:800;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;line-height:1;font-size:14px;box-shadow:0 0 0 3px rgba(0,0,0,0.4)`, text: String(i + 1) })); });
+  };
+  wrap.addEventListener('click', e => {
+    const r = img.getBoundingClientRect();
+    dangers[activeDanger].x_pct = Math.round((e.clientX - r.left) / r.width * 1000) / 10;
+    dangers[activeDanger].y_pct = Math.round((e.clientY - r.top) / r.height * 1000) / 10;
+    if (activeDanger < 3 && dangers[activeDanger + 1].x_pct === null) { activeDanger++; rows(); }
+    draw(); queueExtraSave(() => ({ dangers }));
+  });
+  const list = el('div');
+  function rows() {
+    list.replaceChildren(...dangers.map((d, i) => el('div', { class: 'q-row' },
+      el('label', {}, el('input', { type: 'radio', name: 'danger-active', checked: i === activeDanger, onchange: () => { activeDanger = i; draw(); } }), ` ${i + 1}${d.x_pct !== null && d.x_pct !== undefined ? ' ✓' : ''}`),
+      el('input', { type: 'text', maxlength: '80', value: d.label || '', placeholder: `Danger ${i + 1} (e.g. Pit of spikes)`, 'aria-label': `Danger ${i + 1} label`,
+        oninput: e => { d.label = e.target.value; queueExtraSave(() => ({ dangers })); } }))));
+  }
+  rows(); draw();
+  box.append(wrap, list);
+  return box;
+}
+function monsterEditor() {
+  const ex = current.extra || (current.extra = {});
+  const attrs = current.attributes || (current.attributes = []);
+  while (attrs.length < 4) attrs.push({ description: '', counter_type: 'god', counter_value: '' });
+  const box = el('div', {});
+  const saveAttrs = () => {
+    setSaveState('Saving…'); renderSubmitState();
+    clearTimeout(attrTimer);
+    attrTimer = setTimeout(async () => {
+      const send = attrs.map(a => a.counter_type === 'god' ? a : Object.assign({}, a, { counter_value: (() => {
+        const q = a.counter_value || {}; const filled = (q.options || []).map((o, i) => ({ o: (o || '').trim(), i })).filter(x => x.o);
+        const ci = filled.findIndex(x => x.i === q.correct_index);
+        return { prompt: q.prompt || '', options: filled.map(x => x.o), correct_index: ci < 0 ? null : ci }; })() }));
+      try { await api('PUT', `/island/pins/${current.pin_id}/attributes`, { attributes: send }); setSaveState('Saved'); } catch (e) { setSaveState(e.message, true); }
+    }, 800);
+  };
+  const rowsBox = el('div');
+  function draw() {
+    rowsBox.replaceChildren(...attrs.map((a, i) => {
+      const qv = a.counter_type === 'question' ? (a.counter_value && typeof a.counter_value === 'object' ? a.counter_value : (a.counter_value = { prompt: '', options: ['', '', '', ''], correct_index: null })) : null;
+      if (qv) while (qv.options.length < 4) qv.options.push('');
+      const typeSel = el('select', { 'aria-label': `How attribute ${i + 1} is countered`, onchange: e => { a.counter_type = e.target.value; a.counter_value = e.target.value === 'god' ? '' : { prompt: '', options: ['', '', '', ''], correct_index: null }; draw(); saveAttrs(); } },
+        el('option', { value: 'god', text: 'Countered by a god\'s power' }), el('option', { value: 'question', text: 'Countered by knowing the myth (a question)' }));
+      typeSel.value = a.counter_type;
+      const godSel = el('select', { 'aria-label': `God for attribute ${i + 1}`, onchange: e => { a.counter_value = e.target.value; saveAttrs(); } },
+        el('option', { value: '', text: 'choose a god…' }), ...(GODS || []).map(g => el('option', { value: g.key, text: `${g.emoji} ${g.name} — ${g.power}` })));
+      godSel.value = a.counter_value || '';
+      return el('div', { class: 'qbox', style: 'border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px' },
+        el('input', { type: 'text', maxlength: '300', value: a.description || '', placeholder: `Attribute ${i + 1}: what makes it impossible to escape?`, 'aria-label': `Attribute ${i + 1}`,
+          oninput: e => { a.description = e.target.value; saveAttrs(); } }),
+        el('div', { style: 'margin-top:6px' }, typeSel),
+        a.counter_type === 'god' ? el('div', { style: 'margin-top:6px' }, godSel) : el('div', { style: 'margin-top:6px' },
+          el('input', { type: 'text', maxlength: '300', value: qv.prompt, placeholder: 'The question a hero must answer', oninput: e => { qv.prompt = e.target.value; saveAttrs(); } }),
+          ...qv.options.map((o, oi) => el('div', { class: 'q-row' },
+            el('input', { type: 'text', maxlength: '150', value: o, placeholder: `Choice ${oi + 1}${oi > 1 ? ' (optional)' : ''}`, oninput: e => { qv.options[oi] = e.target.value; saveAttrs(); } }),
+            el('label', {}, el('input', { type: 'radio', name: `mq-${i}`, checked: qv.correct_index === oi, onchange: () => { qv.correct_index = oi; saveAttrs(); } }), 'correct')))));
+    }));
+  }
+  box.append(el('label', { class: 'field' }, 'Four "impossible to escape" attributes'),
+    el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px', text: 'For each one, decide how a hero could counter it: with a god\'s power, or by knowing the myth.' }), rowsBox,
+    el('label', { class: 'field', for: 'hero-gains' }, 'What the hero gains'),
+    el('textarea', { id: 'hero-gains', maxlength: '500', style: 'min-height:70px', placeholder: 'The reward for defeating your monster', value: ex.hero_gains || '',
+      oninput: e => { ex.hero_gains = e.target.value; queueExtraSave(() => ({ hero_gains: ex.hero_gains })); } }));
+  ensureGods().then(draw);
+  return box;
+}
+
+// ── Stage 4B: facing a student-made monster (visitors) ───────────────────────
+function encounterCard() {
+  const i = encInfo;
+  const going = i.encounter && i.encounter.stage !== 'done';
+  return el('div', { class: 'voyage-box', style: 'border-color:rgba(248,113,113,0.5)' },
+    el('div', {}, el('strong', { text: `👹 ${i.monster_title}` }), ` lives on this island${i.has_guardian ? ', behind a guardian' : ''}.`),
+    going ? el('button', { class: 'btn small primary', style: 'margin-top:8px', onclick: () => startEncounter() }, 'Continue the encounter →') :
+    i.start_problem ? el('div', { class: 'meta', style: 'margin-top:4px', text: i.start_problem }) :
+      el('button', { class: 'btn small primary', style: 'margin-top:8px', onclick: () => startEncounter() }, `⚔️ ${i.has_guardian ? 'Face the Guardian' : 'Face the monster'} (1 voyage token)`));
+}
+async function startEncounter() {
+  try {
+    const r = await api('POST', '/encounters', { owner_student_id: island.owner.student_id });
+    encounter = r.encounter;
+    if (world && r.tokens_left !== undefined) world.tokens = r.tokens_left;
+    current = null; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) { alert(e.message); }
+}
+async function encAct(path, body) {
+  document.querySelectorAll('#panel button').forEach(b => b.disabled = true);
+  try { const r = await api('POST', `/encounters/${encounter.encounter_id}/${path}`, body); encounter = r.encounter; encounter._last = r; }
+  catch (e) { alert(e.message); }
+  renderPanel();
+}
+function renderEncounter(panel) {
+  const e = encounter;
+  const back = el('button', { class: 'btn small', onclick: async () => { encounter = null; try { encInfo = await api('GET', '/encounters/island/' + island.owner.student_id); } catch (er) {} renderAll(); } }, '← Back to the island');
+  const stageIdx = { guardian: 1, lair: 2, monster: 3, done: 4 }[e.stage];
+  const kids = [back, el('div', { class: 'steps' }, ['1 Guardian', '2 Lair', '3 Monster'].map((t, i) =>
+    el('span', { class: i + 1 < stageIdx ? 'done' : i + 1 === stageIdx ? 'on' : '', text: (i + 1 < stageIdx ? '✓ ' : '') + t })))];
+  if (e.stage === 'guardian' || e.outcome === 'turned_back') {
+    const g = e.guardian;
+    kids.push(el('h2', { text: `🛡️ ${g.title}` }), el('div', { class: 'viewer-body', text: g.body || '' }), el('h3', { text: 'The Guardian\'s Test' }), el('div', { style: 'margin-bottom:6px', text: g.test.prompt }));
+    if (e.outcome === 'turned_back') {
+      kids.push(el('div', { class: 'banner bad', text: 'The Guardian turns you back. Your voyage token is spent — try another island.' }));
+    } else {
+      g.test.options.forEach((o, i) => kids.push(el('button', { class: 'opt', onclick: () => encAct('guardian', { answer_index: i }) }, o)));
+      if (e.guardian_attempts === 1) kids.push(el('div', { style: 'color:var(--amber);font-size:0.9rem', text: 'Not quite. The Guardian gives you one more try.' }));
+    }
+  } else if (e.stage === 'lair') {
+    const l = e.lair;
+    kids.push(el('h2', { text: `🕳️ ${l.title}` }), el('div', { class: 'viewer-body', text: l.body || '' }));
+    if (l.has_photo) {
+      const wrap = el('div', { style: 'position:relative;line-height:0;border-radius:8px;overflow:hidden;margin:8px 0' });
+      const img = el('img', { alt: 'The lair map', style: 'width:100%;display:block' }); wrap.append(img);
+      fetch(`/api/encounters/${e.encounter_id}/lair-photo`, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.ok ? r.blob() : null).then(b => { if (b) img.src = URL.createObjectURL(b); });
+      l.dangers.forEach((d, i) => { if (d.x_pct !== null && d.x_pct !== undefined) wrap.append(el('span', { style: `position:absolute;left:${d.x_pct}%;top:${d.y_pct}%;transform:translate(-50%,-50%);background:#f87171;color:#1a0b2e;font-weight:800;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;line-height:1;font-size:14px`, text: String(i + 1) })); });
+      kids.push(wrap);
+    }
+    kids.push(el('ol', { style: 'padding-left:22px;line-height:1.6' }, l.dangers.map(d => el('li', { text: d.label }))),
+      el('button', { class: 'btn primary', onclick: () => encAct('lair') }, 'Get past the dangers → face the monster'));
+  } else {
+    const m = e.monster;
+    kids.push(el('h2', { text: `👹 ${m.title}` }), el('div', { class: 'viewer-body', text: m.body || '' }),
+      el('p', { class: 'muted', style: 'font-size:0.88rem', text: 'Counter at least 3 of its 4 attributes to defeat it. No timer.' }));
+    m.attributes.forEach(a => {
+      const box = el('div', { class: 'quest' }, el('div', { style: 'font-weight:700;margin-bottom:6px', text: `${a.index + 1}. ${a.description}` }));
+      if (a.result !== null) box.append(el('div', { style: `color:${a.result ? 'var(--green)' : 'var(--red)'}`, text: a.result ? '✓ Countered' : '✗ Not countered' }));
+      if (a.counter_type === 'god') {
+        if (a.result === null) box.append(a.alliance_has_power
+          ? el('button', { class: 'btn small primary', onclick: () => encAct('counter', { attribute: a.index }) }, `Use ${a.god_emoji} ${a.god_name}'s ${a.god_power}`)
+          : el('div', {}, el('div', { class: 'meta', text: `Only ${a.god_emoji} ${a.god_name}'s power counters this, and your alliance doesn't hold it.` }),
+              el('button', { class: 'btn small', onclick: () => encAct('counter', { attribute: a.index }) }, 'Face it anyway')));
+      } else {
+        box.append(el('div', { style: 'margin:4px 0', text: a.question.prompt }));
+        a.question.options.forEach((o, i) => box.append(el('button', {
+          class: 'opt' + (a.result !== null && i === a.correct_index ? ' right' : a.result === false && i === a.answer_index ? ' wrong' : ''),
+          disabled: a.result !== null, onclick: () => encAct('counter', { attribute: a.index, answer_index: i }) }, o)));
+      }
+      kids.push(box);
+    });
+    if (e.stage === 'done') {
+      kids.push(e.outcome === 'defeated'
+        ? el('div', { class: 'banner good' }, el('strong', { text: `Victory! You countered ${m.countered} of 4. ` }), `+${e.points_awarded} points for your alliance.`, el('br'), el('strong', { text: 'The hero gains: ' }), e.hero_gains)
+        : el('div', { class: 'banner bad', text: `${m.title} escapes — you countered ${m.countered} of 4. Earn more god powers and try another monster.` }));
+    }
+  }
+  panel.replaceChildren(...kids);
+}
+
+load();
+</script>
+</body>
+</html>

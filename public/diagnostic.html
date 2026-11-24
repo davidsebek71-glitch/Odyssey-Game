@@ -37,8 +37,6 @@
         <button onclick="checkEndpoint('/api/student/submissions', 'Submissions')">Submissions</button>
         <button onclick="checkEndpoint('/api/student/my-contributions', 'Contributions')">Contributions</button>
         <button onclick="checkEndpoint('/api/student/achievements', 'Achievements')">Achievements</button>
-        <button onclick="checkEndpoint('/api/trade/my-data', 'Trade My Data')">Trade Data</button>
-        <button onclick="checkEndpoint('/api/trade/market', 'Trade Market')">Trade Market</button>
         <button onclick="clearLog()">🗑️ Clear Log</button>
     </div>
     
@@ -221,9 +219,7 @@
                 ['/api/student/submissions', 'Submissions'],
                 ['/api/student/my-contributions', 'Contributions'],
                 ['/api/student/achievements', 'Achievements'],
-                ['/api/arena/status', 'Arena Status'],
-                ['/api/trade/my-data', 'Trade My Data'],
-                ['/api/trade/market', 'Trade Market']
+                ['/api/arena/status', 'Arena Status']
             ];
             
             let totalBytes = 0;

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Map — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.65); --gold: #f0c75e; --gold-dim: rgba(240,199,94,0.35);
+          --green: #6ee7a0; --amber: #fbbf24; --violet: #a78bfa; --sea1: #0b2a4a; --sea2: #06182c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: #0f0a1e; min-height: 100vh; }
+  a { color: var(--gold); }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+            background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.25rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px;
+         cursor: pointer; text-decoration: none; font: inherit; display: inline-block; }
+  .btn:focus-visible, .island:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .status { max-width: 1100px; margin: 16px auto 0; padding: 0 16px; }
+  .status .box { border: 1px solid var(--gold-dim); background: rgba(30,18,56,0.9); border-radius: 12px; padding: 12px 16px; line-height: 1.6; }
+  .status .open { color: var(--amber); margin-top: 6px; }
+  .sea { max-width: 1100px; margin: 16px auto 40px; padding: 28px 16px; border-radius: 18px;
+         background: radial-gradient(ellipse at 30% 20%, #134a73 0%, var(--sea1) 45%, var(--sea2) 100%);
+         box-shadow: inset 0 0 80px rgba(0,0,0,0.5); display: flex; flex-wrap: wrap; gap: 28px 22px; justify-content: center; }
+  .island { width: 230px; border: none; cursor: pointer; text-align: center; color: var(--text); font: inherit; padding: 22px 16px 18px;
+            background: radial-gradient(ellipse at 50% 40%, #c9a86a 0%, #8a6a35 55%, #4f7a3a 56%, #2f5a2a 100%);
+            border-radius: 46% 54% 50% 50% / 55% 48% 52% 45%; box-shadow: 0 0 0 6px rgba(255,255,255,0.08), 0 10px 26px rgba(0,0,0,0.45);
+            transition: transform 0.15s; }
+  .island:nth-child(3n+2) { border-radius: 55% 45% 48% 52% / 46% 55% 45% 54%; }
+  .island:nth-child(3n) { border-radius: 50% 50% 56% 44% / 52% 44% 56% 48%; }
+  .island:hover { transform: translateY(-3px); }
+  .island .name { font-family: 'Cinzel', serif; font-weight: 700; font-size: 1.05rem; color: #1a0b2e; text-shadow: 0 1px 0 rgba(255,255,255,0.35); }
+  .island .sub { font-size: 0.82rem; color: #2a1a05; margin-top: 4px; font-weight: 600; }
+  .island.mine { box-shadow: 0 0 0 4px var(--gold), 0 10px 26px rgba(0,0,0,0.45); }
+  .island.selected { transform: scale(1.04); box-shadow: 0 0 0 5px var(--violet), 0 12px 30px rgba(0,0,0,0.5); }
+  .detail { max-width: 1100px; margin: -20px auto 40px; padding: 0 16px; }
+  .detail .card { background: rgba(30,18,56,0.95); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .detail h2 { font-family: 'Cinzel', serif; color: var(--gold); margin: 0 0 10px; font-size: 1.1rem; }
+  .member { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .member:first-of-type { border-top: none; }
+  .member .who { font-weight: 700; flex: 1; min-width: 140px; }
+  .muted { color: var(--muted); }
+  .empty { text-align: center; padding: 50px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/student.html" id="back">← Dashboard</a>
+  <h1 id="title">World Map</h1>
+  <a class="btn" href="/island.html" id="my-island">🏝️ My Island</a>
+</div>
+<div class="status" id="status"></div>
+<div class="sea" id="sea" role="list" aria-label="Alliance islands"><div class="empty">Loading…</div></div>
+<div class="detail" id="detail" aria-live="polite"></div>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const params = new URLSearchParams(location.search);
+const teacherPeriod = params.get('period');   // teacher preview: /world.html?period=Test
+let world = null, selected = null;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+
+async function load() {
+  try {
+    const r = await fetch('/api/voyage/world' + (teacherPeriod ? '?period=' + encodeURIComponent(teacherPeriod) : ''), { headers: { Authorization: 'Bearer ' + token } });
+    const d = await r.json();
+    if (r.status === 401) { location.href = '/index.html'; return; }
+    if (!r.ok) throw new Error(d.error || 'Could not load the world map.');
+    world = d;
+  } catch (e) {
+    document.getElementById('sea').replaceChildren(el('div', { class: 'empty', text: e.message }));
+    return;
+  }
+  if (teacherPeriod) {
+    document.getElementById('back').href = '/island_review.html';
+    document.getElementById('my-island').style.display = 'none';
+  }
+  document.getElementById('title').textContent = `World Map · Period ${world.period}`;
+  render();
+}
+
+function render() {
+  const w = world;
+  // Status: phase, tokens, visits — always says what a student can do next
+  const box = el('div', { class: 'box' });
+  if (w.mode === 'voyage') {
+    box.append(el('div', {}, el('strong', { text: '⛵ A voyage is open! ' }),
+      teacherPeriod ? 'Students can visit other alliances\' islands.' : 'Choose another alliance\'s island, then a piece to visit.'));
+    if (!teacherPeriod) {
+      box.append(el('div', { text: `Your alliance has ${w.tokens} voyage token${w.tokens === 1 ? '' : 's'} · You've made ${w.visits_used} of ${w.visit_cap} visits this voyage.` }));
+      if (w.tokens < 1) box.append(el('div', { class: 'muted', text: 'No tokens? Each piece your teacher approves earns your alliance more.' }));
+    }
+  } else {
+    box.append(el('div', {}, el('strong', { text: '🏗️ Build time. ' }),
+      'Work on your island. Each piece your teacher approves earns your alliance voyage tokens for the next voyage.'));
+    if (!teacherPeriod) box.append(el('div', { class: 'muted', text: `Your alliance has ${w.tokens} voyage token${w.tokens === 1 ? '' : 's'} saved.` }));
+  }
+  if (w.harbor_blocked_by && !teacherPeriod) box.append(el('div', { style: 'color:#f87171;margin-top:6px' },
+    `👹 ${w.harbor_blocked_by} is guarding your harbor — no voyages until your alliance defeats it. `, el('a', { href: '/monsters.html' }, 'Face it →')));
+  if (w.open_visit) box.append(el('div', { class: 'open' }, `You have a visit in progress: "${w.open_visit.pin_title}". `,
+    el('a', { href: `/island.html?student=${w.open_visit.owner_student_id}` }, 'Continue it →')));
+  document.getElementById('status').replaceChildren(box);
+
+  const sea = document.getElementById('sea');
+  if (!w.alliances.length) { sea.replaceChildren(el('div', { class: 'empty', text: 'No alliances in this period yet.' })); return; }
+  sea.replaceChildren(...w.alliances.map(a => {
+    const pieces = a.members.reduce((s, m) => s + m.published, 0);
+    const toVisit = a.members.reduce((s, m) => s + m.to_visit, 0);
+    const sub = a.is_mine ? `Your alliance · ${pieces} published` :
+      `${pieces} published${!teacherPeriod && w.mode === 'voyage' ? ` · ${toVisit} to visit` : ''}`;
+    return el('button', { class: `island${a.is_mine ? ' mine' : ''}${selected === a.alliance_id ? ' selected' : ''}`, role: 'listitem',
+      'aria-pressed': selected === a.alliance_id ? 'true' : 'false', onclick: () => { selected = a.alliance_id; render(); } },
+      el('div', { class: 'name', text: a.alliance_name }), el('div', { class: 'sub', text: sub }),
+      el('div', { class: 'sub', text: `${a.members.length} island${a.members.length === 1 ? '' : 's'}` }));
+  }));
+
+  const detail = document.getElementById('detail');
+  const a = w.alliances.find(x => x.alliance_id === selected);
+  if (!a) { detail.replaceChildren(); return; }
+  detail.replaceChildren(el('div', { class: 'card' },
+    el('h2', { text: a.is_mine ? `${a.alliance_name} (your alliance)` : a.alliance_name }),
+    ...a.members.map(m => el('div', { class: 'member' },
+      el('span', { class: 'who', text: m.name }),
+      el('span', { class: 'muted', text: !m.has_map ? 'No map yet' : a.is_mine || teacherPeriod ? `${m.published} published` :
+        `${m.published} published · ${m.to_visit} for you to visit` }),
+      m.has_map ? el('a', { class: 'btn', href: `/island.html?student=${m.student_id}` },
+        a.is_mine ? 'Open island' : w.mode === 'voyage' || teacherPeriod ? 'Sail to this island →' : 'Closed until the voyage') : null))));
+  if (!a.is_mine && w.mode !== 'voyage' && !teacherPeriod) detail.querySelectorAll('a.btn').forEach(x => { x.removeAttribute('href'); x.setAttribute('aria-disabled', 'true'); x.style.opacity = '0.5'; });
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+load();
+</script>
+</body>
+</html>
