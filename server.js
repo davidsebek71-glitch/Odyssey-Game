@@ -16040,6 +16040,9 @@ app.post('/api/olympus/combat-ready', authenticateToken, (req, res) => {
 
     // Compute and store leader if not already set
     if (!freshState.leader_student_id) {
+      // presentIds was previously referenced here without being defined, which
+      // threw (and failed the roll) whenever no state poll had set a leader yet.
+      const presentIds = freshState.present_members ? JSON.parse(freshState.present_members) : null;
       const leaderId = getLeaderForAlliance(alliance.alliance_id, presentIds);
       if (leaderId) {
         run(
@@ -17708,10 +17711,38 @@ app.post('/api/olympus/admin-cleanup-stale', authenticateToken, (req, res) => {
   }
 });
 
+// ── Hades release helper ─────────────────────────────────────────────────────
+// Used by hades-escape (students) and teacher/release-from-hades.
+// The alliance already fought and lost this round, so it continues to this
+// round's puzzle box as a Ghost Runner (1 point) instead of replaying the round.
+// (Sending it back to path_choice left it stuck: its own path lock and the
+// resolved combat_state for this round blocked a second combat.)
+// The stored combat_result is rewritten so the puzzle screen shows the box link
+// and secret-word input instead of the Hades button.
+function releaseAllianceFromHades(allianceId, state) {
+  run(`UPDATE alliances SET total_points = MAX(total_points, 1) WHERE alliance_id=?`, [allianceId]);
+  let result = {};
+  try { result = state.combat_result ? JSON.parse(state.combat_result) : {}; } catch (e) { result = {}; }
+  result.hades_triggered = 0;
+  result.hades_escaped   = 1;
+  result.ghost_runner    = true;
+  result.points_after    = 1;
+  result.next_phase      = 'puzzle';
+  result.resolved        = true;
+  if (!result.box_url) result.box_url = getBoxUrl(state.version, state.current_round);
+  run(
+    `UPDATE olympus_race_state
+     SET ghost_runner_mode=1, current_phase='puzzle', combat_result=?, combat_ready_flags=NULL
+     WHERE alliance_id=?`,
+    [JSON.stringify(result), allianceId]
+  );
+  saveDatabase();
+}
+
 // ── POST /api/olympus/hades-escape ───────────────────────────────────────────
-// Student endpoint — called when the alliance clicks "Continue as Ghost Runner"
+// Student endpoint — called when the alliance clicks "Rise from the Underworld"
 // on the Hades waiting screen. Sets ghost_runner_mode=1, points to 1,
-// and advances to path_choice for the current round.
+// and continues to this round's puzzle box (see releaseAllianceFromHades).
 // Safe to call multiple times (idempotent — checks phase first).
 app.post('/api/olympus/hades-escape', authenticateToken, (req, res) => {
   if (req.user.type !== 'student') return res.status(403).json({ error: 'Forbidden' });
@@ -17726,17 +17757,8 @@ app.post('/api/olympus/hades-escape', authenticateToken, (req, res) => {
       return res.json({ escaped: true, already_advanced: true, current_phase: state.current_phase });
     }
 
-    // Set ghost runner mode, floor points at 1, advance to path_choice
-    run(`UPDATE alliances SET total_points = MAX(total_points, 1) WHERE alliance_id=?`,
-      [alliance.alliance_id]);
-    run(
-      `UPDATE olympus_race_state
-       SET ghost_runner_mode=1, current_phase='path_choice'
-       WHERE alliance_id=?`,
-      [alliance.alliance_id]
-    );
-    saveDatabase();
-    res.json({ escaped: true, ghost_runner: true, next_phase: 'path_choice' });
+    releaseAllianceFromHades(alliance.alliance_id, state);
+    res.json({ escaped: true, ghost_runner: true, next_phase: 'puzzle' });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -17755,14 +17777,8 @@ app.post('/api/olympus/teacher/release-from-hades', authenticateToken, (req, res
     if (state.current_phase !== 'hades_waiting') {
       return res.json({ released: false, note: 'Alliance is not in hades_waiting', current_phase: state.current_phase });
     }
-    run(`UPDATE alliances SET total_points = MAX(total_points, 1) WHERE alliance_id=?`, [alliance_id]);
-    run(
-      `UPDATE olympus_race_state
-       SET ghost_runner_mode=1, current_phase='path_choice'
-       WHERE alliance_id=?`,
-      [alliance_id]
-    );
-    res.json({ released: true, alliance_id, ghost_runner: true, next_phase: 'path_choice' });
+    releaseAllianceFromHades(alliance_id, state);
+    res.json({ released: true, alliance_id, ghost_runner: true, next_phase: 'puzzle' });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
