@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walk the Island — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.65);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button { font: inherit; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.25rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn:focus-visible, canvas:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  main { max-width: 1300px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+  @media (max-width: 950px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1rem; margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  #world { width: 100%; height: auto; display: block; border-radius: 10px; cursor: pointer; touch-action: manipulation; background: #120a24; }
+  .say { min-height: 1.4em; margin-top: 8px; color: var(--amber); line-height: 1.4; }
+  .pad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 44px); gap: 6px; justify-content: center; margin-top: 8px; }
+  .pad button { background: rgba(167,139,250,0.16); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 1.2rem; cursor: pointer; }
+  .found { border: 1px solid var(--gold); background: rgba(240,199,94,0.1); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; font-size: 0.82rem; }
+  .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .empty { text-align: center; color: var(--muted); padding: 40px; grid-column: 1 / -1; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/island.html" id="back">← Island</a>
+  <h1 id="title">Walk the Island</h1>
+  <a class="btn" href="/world.html">🌍 World Map</a>
+</div>
+<main id="main"><div class="empty">Loading…</div></main>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token };
+const OWNER = new URLSearchParams(location.search).get('student');
+const COLS = 64, ROWS = 48;
+const ICONS = { shrine:'🏛️', creature:'🐉', landmark:'🗿', poem:'📜', lair:'🕳️', guardian:'🛡️', monster:'👹', river:'🌊', mountain:'⛰️', city:'🏘️' };
+const NAMES = { w: 'water', f: 'forest', m: 'mountain', l: 'land' };
+// Time per step in ms (mountains slow you down). Nothing is scored on time.
+const STEP_MS = { l: 110, f: 140, m: 360, w: 170 };
+const REVEAL_CELLS = 4;    // forest pins appear when you are this close
+let island, terrain, walker, grid, img, cv, ctx;
+let pos, dock, path = [], anim = null, leftDock = false, showTerrain = false;
+const revealed = new Set();
+let lastPinCell = null;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(url) {
+  const r = await fetch('/api' + url, { headers: H });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) throw new Error(d.error || 'Something went wrong.');
+  return d;
+}
+const idx = (c, r) => r * COLS + c;
+const cellOfPct = (x, y) => ({ c: Math.min(COLS - 1, Math.floor(x / 100 * COLS)), r: Math.min(ROWS - 1, Math.floor(y / 100 * ROWS)) });
+const say = t => { const s = document.getElementById('say'); if (s) s.textContent = t; };
+
+// ── Rules of the ground ─────────────────────────────────────────────────────
+function inMonsterRegion(c, r) {
+  const x = (c + 0.5) / COLS * 100, y = (r + 0.5) / ROWS * 100;
+  return (island.monsters || []).find(m => Math.hypot(x - m.x_pct, y - m.y_pct) <= m.radius) || null;
+}
+// Why you can't step here (null = you can)
+function blockedWhy(c, r) {
+  if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return 'That\'s the edge of the island.';
+  const m = inMonsterRegion(c, r);
+  if (m) return `${m.emoji} ${m.name} blocks the way. Its alliance must defeat it first.`;
+  if (grid[idx(c, r)] === 'w' && !walker.has_ship) return walker.ship_seized ? 'A monster has seized your alliance\'s ship — you can\'t sail.' : 'Water. Your alliance needs a ship to sail.';
+  return null;
+}
+const stepCost = (c, r) => grid[idx(c, r)] === 'm' ? 3 : grid[idx(c, r)] === 'w' ? 1.5 : 1;
+
+// Cheapest route (Dijkstra; diagonals allowed but never cutting a blocked corner)
+function route(from, to) {
+  if (blockedWhy(to.c, to.r)) return null;
+  const dist = new Float64Array(COLS * ROWS).fill(Infinity), prev = new Int32Array(COLS * ROWS).fill(-1), done = new Uint8Array(COLS * ROWS);
+  const start = idx(from.c, from.r), goal = idx(to.c, to.r);
+  dist[start] = 0;
+  const open = [start];
+  while (open.length) {
+    let bi = 0; for (let i = 1; i < open.length; i++) if (dist[open[i]] < dist[open[bi]]) bi = i;
+    const cur = open.splice(bi, 1)[0];
+    if (done[cur]) continue; done[cur] = 1;
+    if (cur === goal) break;
+    const cc = cur % COLS, cr = Math.floor(cur / COLS);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nc = cc + dx, nr = cr + dy;
+      if (blockedWhy(nc, nr)) continue;
+      if (dx && dy && (blockedWhy(cc + dx, cr) || blockedWhy(cc, cr + dy))) continue;
+      const n = idx(nc, nr), d = dist[cur] + stepCost(nc, nr) * (dx && dy ? 1.414 : 1);
+      if (d < dist[n]) { dist[n] = d; prev[n] = cur; open.push(n); }
+    }
+  }
+  if (!isFinite(dist[goal])) return null;
+  const out = []; for (let n = goal; n !== start; n = prev[n]) out.unshift({ c: n % COLS, r: Math.floor(n / COLS) });
+  return out;
+}
+
+// The dock: the land cell next to water closest to the bottom middle (where
+// boats would land); without water, the walkable cell closest to it.
+function findDock() {
+  let best = null, bd = Infinity;
+  // stay 2 cells in from the edge so the dock is fully on the map
+  for (let r = 2; r < ROWS - 2; r++) for (let c = 2; c < COLS - 2; c++) {
+    if (grid[idx(c, r)] === 'w' || inMonsterRegion(c, r)) continue;
+    const coast = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const x = c + dx, y = r + dy; return x >= 0 && y >= 0 && x < COLS && y < ROWS && grid[idx(x, y)] === 'w'; });
+    const d = Math.hypot(c - COLS / 2, (ROWS - 1 - r) * 1.3) - (coast ? 1000 : 0);
+    if (d < bd) { bd = d; best = { c, r }; }
+  }
+  if (!best) for (let r = 0; r < ROWS && !best; r++) for (let c = 0; c < COLS; c++) if (!blockedWhy(c, r)) { best = { c, r }; break; }
+  return best || { c: Math.floor(COLS / 2), r: Math.floor(ROWS / 2) };
+}
+
+// ── Pins ────────────────────────────────────────────────────────────────────
+function pinCells() {
+  return island.pins.filter(p => p.x_pct !== null && p.x_pct !== undefined).map(p => Object.assign({ pin: p }, cellOfPct(p.x_pct, p.y_pct)));
+}
+function isHidden(pc) { return grid[idx(pc.c, pc.r)] === 'f' && !revealed.has(pc.pin.pin_id); }
+function revealNear() {
+  pinCells().forEach(pc => { if (grid[idx(pc.c, pc.r)] === 'f' && Math.hypot(pc.c - pos.c, pc.r - pos.r) <= REVEAL_CELLS && !revealed.has(pc.pin.pin_id)) {
+    revealed.add(pc.pin.pin_id); say(`You found something hidden in the forest: ${pc.pin.title || 'a place'}!`); renderSide(); } });
+}
+function arrive() {
+  revealNear();
+  const here = pinCells().find(pc => Math.abs(pc.c - pos.c) <= 1 && Math.abs(pc.r - pos.r) <= 1 && !isHidden(pc));
+  const key = here ? here.pin.pin_id : null;
+  if (key !== lastPinCell) { lastPinCell = key; renderSide(here ? here.pin : null); }
+  if (Math.hypot(pos.c - dock.c, pos.r - dock.r) > 3) leftDock = true;
+  if (leftDock && pos.c === dock.c && pos.r === dock.r) { leftDock = false; renderSide(null, true); }
+}
+
+// ── Moving ──────────────────────────────────────────────────────────────────
+function walkTo(target) {
+  const p = route(pos, target);
+  if (!p) { say(blockedWhy(target.c, target.r) || 'There\'s no way to get there from here.'); return; }
+  say(''); path = p; if (!anim) stepNext();
+}
+function stepNext() {
+  if (!path.length) { anim = null; return; }
+  const next = path.shift(), from = { c: pos.c, r: pos.r };
+  const ms = STEP_MS[grid[idx(next.c, next.r)]] * (Math.abs(next.c - from.c) + Math.abs(next.r - from.r) === 2 ? 1.4 : 1);
+  const t0 = performance.now();
+  anim = { from, to: next, t0, ms };
+  const tick = now => {
+    const k = Math.min(1, (now - t0) / ms);
+    anim.k = k; draw();
+    if (k < 1) requestAnimationFrame(tick);
+    else { pos = next; anim = null; draw(); arrive(); if (path.length) stepNext(); }
+  };
+  requestAnimationFrame(tick);
+}
+function stepBy(dx, dy) {
+  if (anim) { path = []; return; }
+  const t = { c: pos.c + dx, r: pos.r + dy };
+  const why = blockedWhy(t.c, t.r);
+  if (why) { say(why); return; }
+  say(''); path = [t]; stepNext();
+}
+
+// ── Drawing ─────────────────────────────────────────────────────────────────
+function draw() {
+  const W = cv.width, Hh = cv.height, cw = W / COLS, ch = Hh / ROWS;
+  ctx.drawImage(img, 0, 0, W, Hh);
+  if (showTerrain) {
+    const col = { w: 'rgba(59,130,246,0.35)', f: 'rgba(22,163,74,0.35)', m: 'rgba(168,162,158,0.45)', l: 'rgba(228,199,122,0.25)' };
+    for (let i = 0; i < grid.length; i++) { ctx.fillStyle = col[grid[i]]; ctx.fillRect((i % COLS) * cw, Math.floor(i / COLS) * ch, Math.ceil(cw), Math.ceil(ch)); }
+  }
+  (island.monsters || []).forEach(m => {
+    const x = m.x_pct / 100 * W, y = m.y_pct / 100 * Hh, rr = m.radius / 100 * W;
+    ctx.fillStyle = 'rgba(40,6,20,0.55)'; ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(248,113,113,0.8)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = `${Math.round(rr * 0.5)}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(m.emoji, x, y);
+  });
+  const icon = (t, c, r, size, ring) => {
+    const x = (c + 0.5) * cw, y = (r + 0.5) * ch;
+    ctx.fillStyle = 'rgba(26,11,46,0.9)'; ctx.beginPath(); ctx.arc(x, y, size * 0.62, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = ring; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = `${size}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y + 1);
+  };
+  const s = Math.max(16, cw * 1.6);
+  icon('⚓', dock.c, dock.r, s * 0.9, '#a78bfa');
+  pinCells().forEach(pc => { if (!isHidden(pc)) icon(ICONS[pc.pin.pin_type] || '📍', pc.c, pc.r, s, pc.pin.locked ? '#a78bfa' : '#f0c75e'); });
+  let wc = pos.c, wr = pos.r;
+  if (anim && anim.k !== undefined) { wc = anim.from.c + (anim.to.c - anim.from.c) * anim.k; wr = anim.from.r + (anim.to.r - anim.from.r) * anim.k; }
+  const onWater = grid[idx(Math.round(wc), Math.round(wr))] === 'w';
+  icon(onWater ? '⛵' : '🧭', wc, wr, s * 1.05, '#6ee7a0');
+}
+
+// ── Side panel ──────────────────────────────────────────────────────────────
+function renderSide(pin, atDock) {
+  const side = document.getElementById('side'); if (!side) return;
+  const all = pinCells(), hiddenLeft = all.filter(isHidden).length;
+  const here = grid[idx(pos.c, pos.r)];
+  const owner = island.owner ? island.owner.student_id : null;
+  const islandUrl = '/island.html' + (OWNER ? '?student=' + OWNER : '');
+  const kids = [];
+  if (atDock) kids.push(el('div', { class: 'card found' }, el('h2', { text: '⚓ Back at the dock' }),
+    el('div', { class: 'row' }, el('a', { class: 'btn primary', href: '/world.html' }, 'Sail to the World Map'), el('button', { class: 'btn', onclick: () => renderSide() }, 'Keep exploring'))));
+  if (pin) kids.push(el('div', { class: 'card found' }, el('h2', { text: `${ICONS[pin.pin_type] || '📍'} ${pin.title || 'A place'}` }),
+    pin.quest_title ? el('div', { class: 'muted', style: 'margin-bottom:8px', text: pin.quest_title }) : null,
+    pin.locked ? el('div', { class: 'muted', style: 'margin-bottom:8px', text: 'A voyage token opens it.' }) : null,
+    el('a', { class: 'btn primary', href: `${islandUrl}${OWNER ? '&' : '?'}pin=${pin.pin_id}` }, 'Open it →')));
+  kids.push(el('div', { class: 'card' }, el('h2', { text: 'Exploring' }),
+    el('div', {}, `Standing on ${NAMES[here]}${here === 'm' ? ' (slow going)' : ''}.`),
+    el('div', { class: 'muted', style: 'margin-top:4px', text: walker.has_ship ? `⛵ Your alliance's ${walker.ship} can sail the water.` : walker.ship_seized ? 'A monster has seized your ship. Water blocks you.' : 'No ship: water blocks you.' }),
+    el('div', { style: 'margin-top:6px', text: `${all.length - hiddenLeft} of ${all.length} places found${hiddenLeft ? ' — some hide in the forest' : ''}.` }),
+    el('div', { class: 'say', id: 'say', 'aria-live': 'polite' }),
+    el('div', { class: 'pad', 'aria-label': 'Move' },
+      el('span'), el('button', { 'aria-label': 'Up', onclick: () => stepBy(0, -1) }, '▲'), el('span'),
+      el('button', { 'aria-label': 'Left', onclick: () => stepBy(-1, 0) }, '◀'), el('button', { 'aria-label': 'Back to the dock', title: 'Walk back to the dock', onclick: () => walkTo(dock) }, '⚓'), el('button', { 'aria-label': 'Right', onclick: () => stepBy(1, 0) }, '▶'),
+      el('span'), el('button', { 'aria-label': 'Down', onclick: () => stepBy(0, 1) }, '▼'), el('span'))));
+  kids.push(el('div', { class: 'card' }, el('div', { class: 'muted', style: 'font-size:0.85rem;line-height:1.5', text: 'Tap a spot to walk there, or select the map and use the arrow keys. Mountains are slow. Water needs a ship. Forests hide things until you are close.' }),
+    el('div', { class: 'legend', style: 'margin-top:8px' }, el('label', {}, el('input', { type: 'checkbox', checked: showTerrain, onchange: e => { showTerrain = e.target.checked; draw(); } }), ' show terrain'))));
+  side.replaceChildren(...kids);
+}
+
+// ── Load ────────────────────────────────────────────────────────────────────
+async function load() {
+  const main = document.getElementById('main');
+  let t;
+  try {
+    [island, t] = await Promise.all([api(OWNER ? '/island/view/' + OWNER : '/island/me'), api('/terrain/' + (OWNER || 'me'))]);
+  } catch (e) { main.replaceChildren(el('div', { class: 'empty', text: e.message })); return; }
+  terrain = t.terrain; walker = t.walker;
+  const name = island.owner ? `${island.owner.name}'s Island` : 'My Island';
+  document.getElementById('title').textContent = `Walk · ${name}`;
+  document.getElementById('back').href = '/island.html' + (OWNER ? '?student=' + OWNER : '');
+  if (!island.map_image) { main.replaceChildren(el('div', { class: 'empty', text: 'This island has no map yet.' })); return; }
+  if (!terrain || !terrain.reviewed) {
+    main.replaceChildren(el('div', { class: 'empty' }, OWNER ? 'This island\'s terrain isn\'t ready yet, so it can\'t be walked.'
+      : el('span', {}, 'Before you can walk your island, find and check its terrain. ', el('a', { href: '/terrain.html', style: 'color:var(--gold)' }, 'Go to Terrain →'))));
+    return;
+  }
+  grid = terrain.grid;
+  img = new Image(); await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = island.map_image; });
+  cv = el('canvas', { id: 'world', tabindex: '0', role: 'application', 'aria-label': 'The island. Use the arrow keys to walk.' });
+  const scale = Math.min(2, 1300 / img.naturalWidth);
+  cv.width = Math.round(img.naturalWidth * scale); cv.height = Math.round(img.naturalHeight * scale);
+  ctx = cv.getContext('2d');
+  dock = findDock(); pos = { c: dock.c, r: dock.r };
+  cv.addEventListener('click', e => { const b = cv.getBoundingClientRect(); walkTo({ c: Math.floor((e.clientX - b.left) / b.width * COLS), r: Math.floor((e.clientY - b.top) / b.height * ROWS) }); });
+  cv.addEventListener('keydown', e => {
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (d) { e.preventDefault(); stepBy(d[0], d[1]); }
+  });
+  main.replaceChildren(el('div', { class: 'card' }, cv), el('div', { id: 'side' }));
+  renderSide(); draw(); arrive();
+  say('You land at the dock. Explore!');
+}
+load();
+</script>
+</body>
+</html>

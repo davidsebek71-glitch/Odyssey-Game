@@ -15,11 +15,24 @@
 // own kind of terrain) and, in Stage 6, walking the island.
 // ============================================================================
 const COLS = 64, ROWS = 48;
+const SHIPS = ['Transport Ship', 'Fishing Ship'];   // Stage 6: either lets a walker sail
 const TERRAINS = { w: 'water', f: 'forest', m: 'mountain', l: 'land' };
 const HEX = /^#[0-9a-f]{6}$/i;
 
 module.exports = function registerTerrainRoutes(app, deps) {
-  const { authenticateToken, query, run, island } = deps;
+  const { authenticateToken, query, run, island, monsters } = deps;
+
+  // Stage 6: can this viewer's alliance sail? (a ship a monster has seized doesn't count)
+  function walkerFor(req) {
+    if (isTeacher(req)) return { has_ship: true, ship: 'Teacher view' };
+    const me = query('SELECT alliance_id FROM students WHERE student_id = ?', [req.user.id])[0];
+    const a = me && me.alliance_id && query('SELECT buildings_owned FROM alliances WHERE alliance_id = ?', [me.alliance_id])[0];
+    let owned = []; try { owned = JSON.parse((a && a.buildings_owned) || '[]'); } catch (e) {}
+    const seized = monsters ? monsters.blockedBuildings(me && me.alliance_id) : [];
+    const ship = SHIPS.find(s => owned.includes(s) && !seized.includes(s));
+    const seizedShip = SHIPS.find(s => owned.includes(s) && seized.includes(s));
+    return { has_ship: !!ship, ship: ship || null, ship_seized: !ship && !!seizedShip };
+  }
   const isTeacher = req => req.user && req.user.type === 'teacher';
 
   function terrainFor(studentId) {
@@ -44,7 +57,7 @@ module.exports = function registerTerrainRoutes(app, deps) {
     const id = req.params.studentId === 'me' ? req.user.id : parseInt(req.params.studentId);
     if (req.params.studentId === 'me' && req.user.type !== 'student') return res.status(403).json({ error: 'Students only' });
     if (!isTeacher(req) && req.user.id !== id && !island.islandAccess(req, id)) return res.status(403).json({ error: 'You can\'t see that island.' });
-    res.json({ terrain: terrainFor(id), cols: COLS, rows: ROWS, kinds: TERRAINS });
+    res.json({ terrain: terrainFor(id), cols: COLS, rows: ROWS, kinds: TERRAINS, walker: walkerFor(req) });
   });
 
   // Save the checked grid. reviewed must be true: the student confirms they

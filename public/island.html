@@ -118,6 +118,7 @@
 <div class="topbar">
   <button class="btn small" onclick="goBack()">← Back</button>
   <h1 id="page-title">My Island</h1>
+  <a class="btn small" href="/walk.html" id="walk-link" style="text-decoration:none">🚶 Walk</a>
   <a class="btn small" href="/terrain.html" id="terrain-link" style="text-decoration:none">⛰️ Terrain</a>
   <a class="btn small" href="/world.html" style="text-decoration:none">🌍 World Map</a>
   <span id="topbar-status" class="muted" style="font-size:0.85rem;"></span>
@@ -143,6 +144,7 @@ const token = localStorage.getItem('token');
 const H = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
 const params = new URLSearchParams(location.search);
 const VIEW_ID = params.get('student') ? parseInt(params.get('student')) : null;  // visiting someone's island
+const OPEN_PIN = params.get('pin') ? parseInt(params.get('pin')) : null;         // e.g. arriving from walk.html
 const ICONS = { shrine:'🏛️', creature:'🐉', landmark:'🗿', poem:'📜', lair:'🕳️', guardian:'🛡️', monster:'👹', river:'🌊', mountain:'⛰️', city:'🏘️' };
 const STATUS_TEXT = { draft:'Draft', submitted:'Waiting for approval', returned:'Returned — see note', published:'Published' };
 
@@ -224,7 +226,9 @@ async function load() {
   document.getElementById('layout').style.display = '';
   document.getElementById('page-title').textContent = mode === 'view' ? `${island.owner.name}'s Island` : 'My Island';
   if (mode === 'view') document.getElementById('terrain-link').style.display = 'none';
+  document.getElementById('walk-link').href = '/walk.html' + (mode === 'view' ? '?student=' + island.owner.student_id : '');
   renderAll();
+  if (OPEN_PIN && pinById(OPEN_PIN)) openPin(OPEN_PIN);
 }
 
 function pins() { return island.pins || []; }
