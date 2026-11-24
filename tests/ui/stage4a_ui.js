@@ -12,9 +12,9 @@ const MON = Object.fromEntries(JSON.parse(fs.readFileSync(ENV.REPO + '/data/mons
 
 (async () => {
   const T = await login('teacher', 'teacher@test.local'), C = await login('student', 'stuC@test.local'), D = await login('student', 'stuD@test.local');
-  // clean slate for alliance 2's monsters
-  const ov0 = await call(T, 'GET', '/teacher/monsters/overview?period=Test');
-  for (const m of ov0.alliances.find(a => a.alliance_id === 2).monsters.filter(m => m.status === 'awake')) await call(T, 'POST', `/teacher/monsters/${m.island_monster_id}/sleep`);
+  // Clean slate: the reset clears god powers and monsters; C needs an island map
+  await call(T, 'POST', '/teacher/island/reset-test', { confirm_period: 'Test' });
+  await call(C, 'POST', '/student/upload-map', { map_image: 'data:image/png;base64,' + fs.readFileSync(ENV.REPO + '/public/images/classical/Psyche/palace_bg.png').toString('base64') });
   const br = await chromium.launch();
   async function open(tok, url, who) {
     const ctx = await br.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage(); p.setDefaultTimeout(15000);

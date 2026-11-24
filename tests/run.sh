@@ -79,9 +79,9 @@ for f in "${FILES[@]}"; do
   name="$(basename "$f" .js)"
   echo; echo "━━ $name"
   out="$(cd "$WORK" && timeout 600 node "$f" 2>&1)"; code=$?
-  echo "$out" | grep -E '✗|CRASH|PROBLEMS|failed$' || true
+  echo "$out" | grep -E '✗|CRASH|FAIL|PROBLEMS|failed$' || true
   # A test fails if it crashed, exited non-zero, or printed any ✗ line
-  if [ $code -ne 0 ] || echo "$out" | grep -qE '✗|CRASH'; then FAILED+=("$name"); echo "$out" > "$WORK/$name.log"; fi
+  if [ $code -ne 0 ] || echo "$out" | grep -qE '✗|CRASH|FAIL'; then FAILED+=("$name"); echo "$out" > "$WORK/$name.log"; fi
 done
 
 echo
