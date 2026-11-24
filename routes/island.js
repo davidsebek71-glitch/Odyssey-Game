@@ -161,9 +161,46 @@ module.exports = function registerIslandRoutes(app, deps) {
     if (includePrivate) Object.assign(out, {
       teacher_note: pin.teacher_note, submitted_at: pin.submitted_at, reviewed_at: pin.reviewed_at,
       updated_at: pin.updated_at, points_awarded: pin.points_awarded,
-      question: pin.quest_id ? getQuestion(pin.pin_id) : null
+      question: pin.quest_id ? getQuestion(pin.pin_id) : null,
+      extra: getExtra(pin),
+      attributes: pin.pin_type === 'monster' ? getAttributes(pin.pin_id) : undefined
     });
     return out;
+  }
+
+  // ── Stage 4B: student-made Guardian / Lair / Monster pieces ───────────────
+  // guardian: its visitor question is "the Guardian's Test"
+  // lair:     extra.dangers = four { label, x_pct, y_pct } placed on the lair photo
+  // monster:  four attributes (monster_attributes), each with a counter: a god
+  //           power (counter_value = god key) or a question (counter_value =
+  //           JSON { prompt, options, correct_index }); extra.hero_gains = what
+  //           the hero gains (the reward a visiting alliance earns)
+  function getExtra(pin) { try { return JSON.parse(pin.extra || '{}') || {}; } catch (e) { return {}; } }
+  function getAttributes(pinId) {
+    return query('SELECT * FROM monster_attributes WHERE pin_id = ? ORDER BY sort_order, attribute_id', [pinId]).map(a => {
+      let v = a.counter_value;
+      if (a.counter_type === 'question') { try { v = JSON.parse(a.counter_value); } catch (e) { v = null; } }
+      return { description: a.description, counter_type: a.counter_type, counter_value: v };
+    });
+  }
+  function extraProblem(pin) {
+    const ex = getExtra(pin);
+    if (pin.pin_type === 'lair') {
+      if (!pin.image_path) return 'Add a photo of your lair map.';
+      const d = (ex.dangers || []).filter(x => x && x.label && x.label.trim() && x.x_pct !== null && x.x_pct !== undefined);
+      if (d.length < 4) return `Label and place all four dangers on your lair map (${d.length} of 4 done).`;
+    }
+    if (pin.pin_type === 'monster') {
+      const attrs = getAttributes(pin.pin_id);
+      if (attrs.length < 4 || attrs.some(a => !a.description || a.description.trim().length < 3)) return 'Describe all four of your monster\'s "impossible to escape" attributes.';
+      for (let i = 0; i < 4; i++) {
+        const a = attrs[i];
+        if (a.counter_type === 'god' && !a.counter_value) return `Attribute ${i + 1}: choose the god whose power counters it.`;
+        if (a.counter_type === 'question') { const p = questionProblem(a.counter_value); if (p) return `Attribute ${i + 1}: ${p}`; }
+      }
+      if (countWords(ex.hero_gains) < 3) return 'Write what the hero gains by defeating your monster.';
+    }
+    return null;
   }
   // What a visitor sees before visiting: where it is and what it's called
   function pinTeaser(pin) {
@@ -187,7 +224,11 @@ module.exports = function registerIslandRoutes(app, deps) {
     if (quest.min_words && words < quest.min_words) return `Write at least ${quest.min_words} words (you have ${words}).`;
     if (quest.min_lines && lines < quest.min_lines) return `Write at least ${quest.min_lines} lines (you have ${lines}).`;
     if (!words && !pin.image_path) return 'Add your writing or a photo of your work.';
-    return questionProblem(getQuestion(pin.pin_id));
+    // Lairs and monsters are faced in an encounter, not answered as a visit
+    if (pin.pin_type === 'lair' || pin.pin_type === 'monster') return extraProblem(pin);
+    const qp = questionProblem(getQuestion(pin.pin_id));
+    if (qp && pin.pin_type === 'guardian') return qp.replace('a question for visitors about your piece', 'the Guardian\'s Test').replace('the question visitors will answer', 'the Guardian\'s Test question');
+    return qp;
   }
   function photoFile(pin) {
     if (!pin.image_path) return null;
@@ -415,6 +456,52 @@ module.exports = function registerIslandRoutes(app, deps) {
     } catch (e) { console.error('island question:', e); res.status(500).json({ error: 'Could not save the question. Try again.' }); }
   });
 
+  // Lair dangers / the hero's reward (lair and monster pieces)
+  app.put('/api/island/pins/:id/extra', authenticateToken, (req, res) => {
+    try {
+      const me = studentOnly(req, res); if (!me) return;
+      const pin = getPin(parseInt(req.params.id));
+      if (!pin || pin.owner_student_id !== me.student_id) return res.status(404).json({ error: 'Pin not found' });
+      if (!['lair', 'monster'].includes(pin.pin_type)) return res.status(400).json({ error: 'Only lairs and monsters have these.' });
+      if (!EDITABLE.includes(pin.status)) return res.status(409).json({ error: 'This can\'t be changed right now.' });
+      const b = req.body || {}, ex = getExtra(pin);
+      if (pin.pin_type === 'lair' && Array.isArray(b.dangers)) {
+        ex.dangers = b.dangers.slice(0, 4).map(d => ({ label: cleanText(d && d.label, 80),
+          x_pct: d && d.x_pct !== null && d.x_pct !== undefined ? cleanPct(d.x_pct) : null, y_pct: d && d.y_pct !== null && d.y_pct !== undefined ? cleanPct(d.y_pct) : null }));
+      }
+      if (pin.pin_type === 'monster' && b.hero_gains !== undefined) ex.hero_gains = cleanText(b.hero_gains, 500);
+      run('UPDATE island_pins SET extra = ?, updated_at = CURRENT_TIMESTAMP WHERE pin_id = ?', [JSON.stringify(ex), pin.pin_id]);
+      res.json({ extra: ex, problem: extraProblem(getPin(pin.pin_id)) });
+    } catch (e) { console.error('island extra:', e); res.status(500).json({ error: 'Could not save. Try again.' }); }
+  });
+  // A monster's four attributes and their counters
+  app.put('/api/island/pins/:id/attributes', authenticateToken, (req, res) => {
+    try {
+      const me = studentOnly(req, res); if (!me) return;
+      const pin = getPin(parseInt(req.params.id));
+      if (!pin || pin.owner_student_id !== me.student_id) return res.status(404).json({ error: 'Pin not found' });
+      if (pin.pin_type !== 'monster') return res.status(400).json({ error: 'Only monsters have attributes.' });
+      if (!EDITABLE.includes(pin.status)) return res.status(409).json({ error: 'This can\'t be changed right now.' });
+      const list = (Array.isArray((req.body || {}).attributes) ? req.body.attributes : []).slice(0, 4);
+      run('DELETE FROM monster_attributes WHERE pin_id = ?', [pin.pin_id]);
+      list.forEach((a, i) => {
+        const type = a && a.counter_type === 'god' ? 'god' : 'question';
+        let value = '';
+        if (type === 'god') value = typeof a.counter_value === 'string' && monsters && monsters.god(a.counter_value) ? a.counter_value : '';
+        else {
+          const q = (a && a.counter_value) || {};
+          const options = (Array.isArray(q.options) ? q.options : []).slice(0, 4).map(o => cleanText(o, 150));
+          let ci = parseInt(q.correct_index); if (!Number.isInteger(ci) || ci < 0 || ci >= options.length) ci = -1;
+          value = JSON.stringify({ prompt: cleanText(q.prompt, 300), options, correct_index: ci });
+        }
+        run(`INSERT INTO monster_attributes (pin_id, sort_order, description, counter_type, counter_value) VALUES (?,?,?,?,?)`,
+          [pin.pin_id, i, cleanText(a && a.description, 300), type, value]);
+      });
+      run('UPDATE island_pins SET updated_at = CURRENT_TIMESTAMP WHERE pin_id = ?', [pin.pin_id]);
+      res.json({ attributes: getAttributes(pin.pin_id), problem: extraProblem(getPin(pin.pin_id)) });
+    } catch (e) { console.error('island attributes:', e); res.status(500).json({ error: 'Could not save. Try again.' }); }
+  });
+
   // ── Submit for approval ───────────────────────────────────────────────────
   app.post('/api/island/pins/:id/submit', authenticateToken, (req, res) => {
     try {
@@ -540,6 +627,8 @@ module.exports = function registerIslandRoutes(app, deps) {
       pins.forEach(removePhotoFile);
       run(`DELETE FROM island_visits WHERE class_period = ? OR pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD, TEST_PERIOD]);
       run(`DELETE FROM pin_questions WHERE pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD]);
+      run(`DELETE FROM monster_attributes WHERE pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD]);
+      run(`DELETE FROM monster_encounters WHERE class_period = ?`, [TEST_PERIOD]);
       run('DELETE FROM island_pins WHERE class_period = ?', [TEST_PERIOD]);
       run(`DELETE FROM voyage_tokens WHERE alliance_id IN (SELECT alliance_id FROM alliances WHERE class_period = ?)`, [TEST_PERIOD]);
       run(`UPDATE voyage_settings SET mode = 'build', window_id = 0 WHERE class_period = ?`, [TEST_PERIOD]);
@@ -548,7 +637,7 @@ module.exports = function registerIslandRoutes(app, deps) {
   });
 
   // Called by server.js once the database is ready; the rest is shared with routes/voyage.js
-  return { loadQuestFile, getPin, getQuest, getStudent, getQuestion, pinOut, islandAccess, myVisit, countWords };
+  return { loadQuestFile, getPin, getQuest, getStudent, getQuestion, pinOut, islandAccess, myVisit, countWords, getExtra, getAttributes, photoFile };
 };
 
 module.exports.countWords = countWords;

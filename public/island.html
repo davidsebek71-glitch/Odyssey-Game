@@ -81,6 +81,8 @@
          border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
   textarea { min-height: 220px; resize: vertical; line-height: 1.5; }
   input[disabled], textarea[disabled] { opacity: 0.7; }
+  select { background: rgba(10, 6, 22, 0.85); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; max-width: 100%; }
+  select:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   .counts { display: flex; gap: 14px; font-size: 0.85rem; margin-top: 6px; color: var(--muted); }
   .counts .ok { color: var(--green); font-weight: 700; }
   .counts .short { color: var(--amber); font-weight: 700; }
@@ -151,6 +153,10 @@ let qTimer = null;          // question autosave
 let world = null;           // /api/voyage/world (visitors)
 let visit = null;           // the visit being shown (visitors)
 let myResponses = [];       // approved responses on my pieces (owner)
+let encInfo = null;         // what can be faced on this island (visitors)
+let encounter = null;       // the encounter being shown (visitors)
+let GODS = null;            // god list for the monster editor
+let extraTimer = null, attrTimer = null, activeDanger = 0;
 const photoUrls = {};   // pin_id -> object URL
 
 if (!token) location.href = '/index.html';
@@ -207,8 +213,12 @@ async function load() {
   if (mode === 'view' && island.access === 'visitor') {
     try { world = await api('GET', '/voyage/world'); } catch (e) { world = null; }
   }
+  if (mode === 'view' && island.access) {
+    try { encInfo = await api('GET', '/encounters/island/' + island.owner.student_id); } catch (e) { encInfo = null; }
+  }
   if (mode === 'own') {
     try { myResponses = (await api('GET', '/voyage/responses/mine')).responses || []; } catch (e) { myResponses = []; }
+    await ensureGods();
   }
   document.getElementById('layout').style.display = '';
   document.getElementById('page-title').textContent = mode === 'view' ? `${island.owner.name}'s Island` : 'My Island';
@@ -218,7 +228,7 @@ async function load() {
 function pins() { return island.pins || []; }
 function pinById(id) { return pins().find(p => p.pin_id === id); }
 // Fields the student edits locally; a server copy must not overwrite unsaved values.
-const LOCAL_FIELDS = ['title', 'body', 'x_pct', 'y_pct', 'question'];
+const LOCAL_FIELDS = ['title', 'body', 'x_pct', 'y_pct', 'question', 'extra', 'attributes'];
 function applyServerPin(sp) {
   const local = current && current.pin_id === sp.pin_id ? current : null;
   const keep = local ? Object.fromEntries(LOCAL_FIELDS.map(k => [k, local[k]])) : null;
@@ -354,10 +364,12 @@ function setPosition(x, y) {
 function renderPanel() {
   const panel = document.getElementById('panel');
   if (current) return renderPinPanel(panel);
+  if (mode === 'view' && encounter) return renderEncounter(panel);
   if (mode === 'view') {
     const list = pins();
     const kids = [];
     if (world) kids.push(voyageBox());
+    if (encInfo && encInfo.available) kids.push(encounterCard());
     kids.push(el('h2', { text: 'Published work' }));
     if (!list.length) kids.push(el('p', { class: 'muted', text: 'Nothing has been published on this island yet.' }));
     list.forEach(p => {
@@ -465,8 +477,16 @@ function renderPinPanel(panel) {
     kids.push(el('div', { class: 'viewer-body', text: p.body || '' }));
     if (p.has_photo) { const box = el('div', { class: 'photo-box' }, el('span', { class: 'muted', text: 'Loading photo…' })); kids.push(box); loadPhoto(p, box); }
     if (p.video_url) kids.push(el('p', {}, el('a', { href: p.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Watch the video')));
+    if (p.pin_type === 'lair' && p.extra && (p.extra.dangers || []).length) {
+      kids.push(el('h3', { text: 'The four dangers' }), el('ol', { style: 'margin:0;padding-left:22px' }, p.extra.dangers.map(d => el('li', { text: d.label }))));
+    }
+    if (p.pin_type === 'monster' && p.attributes && p.attributes.length) {
+      kids.push(el('h3', { text: '"Impossible to escape"' }), el('ol', { style: 'margin:0;padding-left:22px;line-height:1.6' }, p.attributes.map(a => el('li', {},
+        a.description, el('span', { class: 'muted', text: a.counter_type === 'god' ? ` — countered by ${godLabel(a.counter_value)}` : ` — countered by knowing: ${(a.counter_value || {}).prompt || ''}` })))));
+      if (p.extra && p.extra.hero_gains) kids.push(el('h3', { text: 'What the hero gains' }), el('div', { text: p.extra.hero_gains }));
+    }
     if (p.question && p.question.prompt) {
-      kids.push(el('h3', { text: 'Question for visitors' }), el('div', {}, p.question.prompt),
+      kids.push(el('h3', { text: p.pin_type === 'guardian' ? 'The Guardian\'s Test' : 'Question for visitors' }), el('div', {}, p.question.prompt),
         el('ol', { style: 'margin:6px 0 0;padding-left:22px' }, p.question.options.map((o, i) =>
           el('li', { style: i === p.question.correct_index ? 'color:var(--green);font-weight:700' : '' }, o + (i === p.question.correct_index ? ' ✓' : '')))));
     }
@@ -500,7 +520,9 @@ function renderPinPanel(panel) {
     kids.push(el('label', { class: 'field', for: 'f-video' }, 'Video link (optional)'),
       el('input', { type: 'url', id: 'f-video', value: p.video_url || '', placeholder: 'https://…',
         onchange: e => queueSave({ video_url: e.target.value.trim() || null }, 0) }));
-    kids.push(questionEditor());
+    if (p.pin_type === 'lair') kids.push(lairEditor());
+    else if (p.pin_type === 'monster') kids.push(monsterEditor());
+    else kids.push(questionEditor(p.pin_type === 'guardian'));
   }
   kids.push(el('div', { class: 'actions' },
     el('button', { class: 'btn primary', id: 'submit-btn', onclick: submitPin }, p.status === 'returned' ? 'Submit again' : 'Submit for approval'),
@@ -533,7 +555,25 @@ function submitProblem(p) {
   if (q && q.min_words && w < q.min_words) return `Write at least ${q.min_words} words (you have ${w}).`;
   if (q && q.min_lines && l < q.min_lines) return `Write at least ${q.min_lines} lines (you have ${l}).`;
   if (!w && !p.has_photo) return 'Add your writing or a photo of your work.';
-  return questionProblem(p.question);
+  if (p.pin_type === 'lair') {
+    if (!p.has_photo) return 'Add a photo of your lair map.';
+    const d = ((p.extra || {}).dangers || []).filter(x => x && x.label && x.label.trim() && x.x_pct !== null && x.x_pct !== undefined);
+    if (d.length < 4) return `Label and place all four dangers on your lair map (${d.length} of 4 done).`;
+    return null;
+  }
+  if (p.pin_type === 'monster') {
+    const at = p.attributes || [];
+    if (at.length < 4 || at.some(a => !a.description || a.description.trim().length < 3)) return 'Describe all four of your monster\'s "impossible to escape" attributes.';
+    for (let i = 0; i < 4; i++) {
+      if (at[i].counter_type === 'god' && !at[i].counter_value) return `Attribute ${i + 1}: choose the god whose power counters it.`;
+      if (at[i].counter_type === 'question') { const pr = questionProblem(at[i].counter_value); if (pr) return `Attribute ${i + 1}: ${pr}`; }
+    }
+    if (countWords((p.extra || {}).hero_gains) < 3) return 'Write what the hero gains by defeating your monster.';
+    return null;
+  }
+  const qp = questionProblem(p.question);
+  if (qp && p.pin_type === 'guardian') return qp.replace('a question for visitors about your piece', 'the Guardian\'s Test').replace('the question visitors will answer', 'the Guardian\'s Test question');
+  return qp;
 }
 // Mirrors questionProblem() in routes/island.js
 function questionProblem(q) {
@@ -628,6 +668,7 @@ async function uploadPhoto(file) {
     const r = await api('POST', `/island/pins/${current.pin_id}/photo`, { image_data: data });
     applyServerPin(r.pin);
     renderPhotoBox(); renderSubmitState(); renderMap();
+    if (current.pin_type === 'lair') renderPanel();
   } catch (e) { msg.textContent = e.message; }
 }
 async function removePhoto() {
@@ -662,15 +703,16 @@ async function deleteDraft() {
 }
 
 // ── Question editor (author) ─────────────────────────────────────────────────
-function questionEditor() {
+function questionEditor(isGuardian) {
   if (!current.question) current.question = { prompt: '', options: ['', '', '', ''], correct_index: null };
   const q = current.question;
   while (q.options.length < 4) q.options.push('');
   const name = 'correct-' + current.pin_id;
   const box = el('div', {},
-    el('label', { class: 'field', for: 'q-prompt' }, 'Question for visitors'),
+    el('label', { class: 'field', for: 'q-prompt' }, isGuardian ? 'The Guardian\'s Test' : 'Question for visitors'),
     el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px',
-      text: 'Students from other alliances answer this after reading your piece. Ask about something in your work. Fill in at least two choices and mark the right one.' }),
+      text: isGuardian ? 'Every hero must answer this to get past your guardian (two tries). Ask about the myth. Fill in at least two choices and mark the right one.'
+        : 'Students from other alliances answer this after reading your piece. Ask about something in your work. Fill in at least two choices and mark the right one.' }),
     el('input', { type: 'text', id: 'q-prompt', maxlength: '300', value: q.prompt || '', placeholder: 'e.g. What still waits inside the jar?',
       oninput: e => { q.prompt = e.target.value; queueQuestionSave(); } }),
     ...q.options.map((o, i) => el('div', { class: 'q-row' },
@@ -711,6 +753,7 @@ function visitBlockReason(p) {
   if (world.mode !== 'voyage') return 'Voyages are closed right now.';
   if (world.harbor_blocked_by) return `${world.harbor_blocked_by} is guarding your harbor. Defeat it before you can sail.`;
   if (p.blocked) return 'A monster lurks near this piece. Its alliance must defeat it first.';
+  if (['guardian', 'lair', 'monster'].includes(p.pin_type)) return 'Faced in the encounter above, not visited.';
   if (!p.has_question) return 'Not ready for visitors yet.';
   if (world.open_visit && world.open_visit.pin_id !== p.pin_id) return 'Finish the visit you already started first.';
   if (world.visits_used >= world.visit_cap) return `You've made ${world.visits_used} of ${world.visit_cap} visits this voyage.`;
@@ -827,6 +870,185 @@ async function leaveVisit() {
     if (world) { world.tokens = r.tokens; world.open_visit = null; world.visits_used = Math.max(0, world.visits_used - 1); }
     visit = null; current = null; renderAll();
   } catch (e) { alert(e.message); }
+}
+
+// ── Stage 4B: Lair and Monster editors (author) ──────────────────────────────
+function godLabel(key) { const g = (GODS || []).find(x => x.key === key); return g ? `${g.emoji} ${g.name}'s ${g.power}` : key; }
+async function ensureGods() {
+  if (GODS) return GODS;
+  try { GODS = (await api('GET', '/gods')).gods; } catch (e) { GODS = []; }
+  return GODS;
+}
+function queueExtraSave(patch) {
+  setSaveState('Saving…'); renderSubmitState();
+  clearTimeout(extraTimer);
+  extraTimer = setTimeout(async () => {
+    try { await api('PUT', `/island/pins/${current.pin_id}/extra`, patch()); setSaveState('Saved'); }
+    catch (e) { setSaveState(e.message, true); }
+  }, 700);
+}
+function lairEditor() {
+  const ex = current.extra || (current.extra = {});
+  const dangers = ex.dangers || (ex.dangers = []);
+  while (dangers.length < 4) dangers.push({ label: '', x_pct: null, y_pct: null });
+  const box = el('div', {}, el('label', { class: 'field' }, 'The four dangers'));
+  if (!current.has_photo) {
+    box.append(el('div', { class: 'muted', style: 'font-size:0.88rem', text: 'First add a photo of your lair map (above). Then you\'ll label four dangers on it.' }));
+    return box;
+  }
+  box.append(el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px', text: 'Choose a danger, then tap the photo where it is. Type a label for each.' }));
+  const wrap = el('div', { style: 'position:relative;line-height:0;border-radius:8px;overflow:hidden;cursor:crosshair' });
+  const img = el('img', { alt: 'Your lair map', style: 'width:100%;display:block' });
+  wrap.append(img);
+  loadPhoto(current, el('div')).then(() => { const u = photoUrls[current.pin_id + ':' + (current.updated_at || '')]; if (u) img.src = u; });
+  const draw = () => {
+    wrap.querySelectorAll('.dmark').forEach(m => m.remove());
+    dangers.forEach((d, i) => { if (d.x_pct === null || d.x_pct === undefined) return;
+      wrap.append(el('span', { class: 'dmark', style: `position:absolute;left:${d.x_pct}%;top:${d.y_pct}%;transform:translate(-50%,-50%);background:${i === activeDanger ? '#f0c75e' : '#f87171'};color:#1a0b2e;font-weight:800;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;line-height:1;font-size:14px;box-shadow:0 0 0 3px rgba(0,0,0,0.4)`, text: String(i + 1) })); });
+  };
+  wrap.addEventListener('click', e => {
+    const r = img.getBoundingClientRect();
+    dangers[activeDanger].x_pct = Math.round((e.clientX - r.left) / r.width * 1000) / 10;
+    dangers[activeDanger].y_pct = Math.round((e.clientY - r.top) / r.height * 1000) / 10;
+    if (activeDanger < 3 && dangers[activeDanger + 1].x_pct === null) { activeDanger++; rows(); }
+    draw(); queueExtraSave(() => ({ dangers }));
+  });
+  const list = el('div');
+  function rows() {
+    list.replaceChildren(...dangers.map((d, i) => el('div', { class: 'q-row' },
+      el('label', {}, el('input', { type: 'radio', name: 'danger-active', checked: i === activeDanger, onchange: () => { activeDanger = i; draw(); } }), ` ${i + 1}${d.x_pct !== null && d.x_pct !== undefined ? ' ✓' : ''}`),
+      el('input', { type: 'text', maxlength: '80', value: d.label || '', placeholder: `Danger ${i + 1} (e.g. Pit of spikes)`, 'aria-label': `Danger ${i + 1} label`,
+        oninput: e => { d.label = e.target.value; queueExtraSave(() => ({ dangers })); } }))));
+  }
+  rows(); draw();
+  box.append(wrap, list);
+  return box;
+}
+function monsterEditor() {
+  const ex = current.extra || (current.extra = {});
+  const attrs = current.attributes || (current.attributes = []);
+  while (attrs.length < 4) attrs.push({ description: '', counter_type: 'god', counter_value: '' });
+  const box = el('div', {});
+  const saveAttrs = () => {
+    setSaveState('Saving…'); renderSubmitState();
+    clearTimeout(attrTimer);
+    attrTimer = setTimeout(async () => {
+      const send = attrs.map(a => a.counter_type === 'god' ? a : Object.assign({}, a, { counter_value: (() => {
+        const q = a.counter_value || {}; const filled = (q.options || []).map((o, i) => ({ o: (o || '').trim(), i })).filter(x => x.o);
+        const ci = filled.findIndex(x => x.i === q.correct_index);
+        return { prompt: q.prompt || '', options: filled.map(x => x.o), correct_index: ci < 0 ? null : ci }; })() }));
+      try { await api('PUT', `/island/pins/${current.pin_id}/attributes`, { attributes: send }); setSaveState('Saved'); } catch (e) { setSaveState(e.message, true); }
+    }, 800);
+  };
+  const rowsBox = el('div');
+  function draw() {
+    rowsBox.replaceChildren(...attrs.map((a, i) => {
+      const qv = a.counter_type === 'question' ? (a.counter_value && typeof a.counter_value === 'object' ? a.counter_value : (a.counter_value = { prompt: '', options: ['', '', '', ''], correct_index: null })) : null;
+      if (qv) while (qv.options.length < 4) qv.options.push('');
+      const typeSel = el('select', { 'aria-label': `How attribute ${i + 1} is countered`, onchange: e => { a.counter_type = e.target.value; a.counter_value = e.target.value === 'god' ? '' : { prompt: '', options: ['', '', '', ''], correct_index: null }; draw(); saveAttrs(); } },
+        el('option', { value: 'god', text: 'Countered by a god\'s power' }), el('option', { value: 'question', text: 'Countered by knowing the myth (a question)' }));
+      typeSel.value = a.counter_type;
+      const godSel = el('select', { 'aria-label': `God for attribute ${i + 1}`, onchange: e => { a.counter_value = e.target.value; saveAttrs(); } },
+        el('option', { value: '', text: 'choose a god…' }), ...(GODS || []).map(g => el('option', { value: g.key, text: `${g.emoji} ${g.name} — ${g.power}` })));
+      godSel.value = a.counter_value || '';
+      return el('div', { class: 'qbox', style: 'border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px' },
+        el('input', { type: 'text', maxlength: '300', value: a.description || '', placeholder: `Attribute ${i + 1}: what makes it impossible to escape?`, 'aria-label': `Attribute ${i + 1}`,
+          oninput: e => { a.description = e.target.value; saveAttrs(); } }),
+        el('div', { style: 'margin-top:6px' }, typeSel),
+        a.counter_type === 'god' ? el('div', { style: 'margin-top:6px' }, godSel) : el('div', { style: 'margin-top:6px' },
+          el('input', { type: 'text', maxlength: '300', value: qv.prompt, placeholder: 'The question a hero must answer', oninput: e => { qv.prompt = e.target.value; saveAttrs(); } }),
+          ...qv.options.map((o, oi) => el('div', { class: 'q-row' },
+            el('input', { type: 'text', maxlength: '150', value: o, placeholder: `Choice ${oi + 1}${oi > 1 ? ' (optional)' : ''}`, oninput: e => { qv.options[oi] = e.target.value; saveAttrs(); } }),
+            el('label', {}, el('input', { type: 'radio', name: `mq-${i}`, checked: qv.correct_index === oi, onchange: () => { qv.correct_index = oi; saveAttrs(); } }), 'correct')))));
+    }));
+  }
+  box.append(el('label', { class: 'field' }, 'Four "impossible to escape" attributes'),
+    el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px', text: 'For each one, decide how a hero could counter it: with a god\'s power, or by knowing the myth.' }), rowsBox,
+    el('label', { class: 'field', for: 'hero-gains' }, 'What the hero gains'),
+    el('textarea', { id: 'hero-gains', maxlength: '500', style: 'min-height:70px', placeholder: 'The reward for defeating your monster', value: ex.hero_gains || '',
+      oninput: e => { ex.hero_gains = e.target.value; queueExtraSave(() => ({ hero_gains: ex.hero_gains })); } }));
+  ensureGods().then(draw);
+  return box;
+}
+
+// ── Stage 4B: facing a student-made monster (visitors) ───────────────────────
+function encounterCard() {
+  const i = encInfo;
+  const going = i.encounter && i.encounter.stage !== 'done';
+  return el('div', { class: 'voyage-box', style: 'border-color:rgba(248,113,113,0.5)' },
+    el('div', {}, el('strong', { text: `👹 ${i.monster_title}` }), ` lives on this island${i.has_guardian ? ', behind a guardian' : ''}.`),
+    going ? el('button', { class: 'btn small primary', style: 'margin-top:8px', onclick: () => startEncounter() }, 'Continue the encounter →') :
+    i.start_problem ? el('div', { class: 'meta', style: 'margin-top:4px', text: i.start_problem }) :
+      el('button', { class: 'btn small primary', style: 'margin-top:8px', onclick: () => startEncounter() }, `⚔️ ${i.has_guardian ? 'Face the Guardian' : 'Face the monster'} (1 voyage token)`));
+}
+async function startEncounter() {
+  try {
+    const r = await api('POST', '/encounters', { owner_student_id: island.owner.student_id });
+    encounter = r.encounter;
+    if (world && r.tokens_left !== undefined) world.tokens = r.tokens_left;
+    current = null; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) { alert(e.message); }
+}
+async function encAct(path, body) {
+  document.querySelectorAll('#panel button').forEach(b => b.disabled = true);
+  try { const r = await api('POST', `/encounters/${encounter.encounter_id}/${path}`, body); encounter = r.encounter; encounter._last = r; }
+  catch (e) { alert(e.message); }
+  renderPanel();
+}
+function renderEncounter(panel) {
+  const e = encounter;
+  const back = el('button', { class: 'btn small', onclick: async () => { encounter = null; try { encInfo = await api('GET', '/encounters/island/' + island.owner.student_id); } catch (er) {} renderAll(); } }, '← Back to the island');
+  const stageIdx = { guardian: 1, lair: 2, monster: 3, done: 4 }[e.stage];
+  const kids = [back, el('div', { class: 'steps' }, ['1 Guardian', '2 Lair', '3 Monster'].map((t, i) =>
+    el('span', { class: i + 1 < stageIdx ? 'done' : i + 1 === stageIdx ? 'on' : '', text: (i + 1 < stageIdx ? '✓ ' : '') + t })))];
+  if (e.stage === 'guardian' || e.outcome === 'turned_back') {
+    const g = e.guardian;
+    kids.push(el('h2', { text: `🛡️ ${g.title}` }), el('div', { class: 'viewer-body', text: g.body || '' }), el('h3', { text: 'The Guardian\'s Test' }), el('div', { style: 'margin-bottom:6px', text: g.test.prompt }));
+    if (e.outcome === 'turned_back') {
+      kids.push(el('div', { class: 'banner bad', text: 'The Guardian turns you back. Your voyage token is spent — try another island.' }));
+    } else {
+      g.test.options.forEach((o, i) => kids.push(el('button', { class: 'opt', onclick: () => encAct('guardian', { answer_index: i }) }, o)));
+      if (e.guardian_attempts === 1) kids.push(el('div', { style: 'color:var(--amber);font-size:0.9rem', text: 'Not quite. The Guardian gives you one more try.' }));
+    }
+  } else if (e.stage === 'lair') {
+    const l = e.lair;
+    kids.push(el('h2', { text: `🕳️ ${l.title}` }), el('div', { class: 'viewer-body', text: l.body || '' }));
+    if (l.has_photo) {
+      const wrap = el('div', { style: 'position:relative;line-height:0;border-radius:8px;overflow:hidden;margin:8px 0' });
+      const img = el('img', { alt: 'The lair map', style: 'width:100%;display:block' }); wrap.append(img);
+      fetch(`/api/encounters/${e.encounter_id}/lair-photo`, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.ok ? r.blob() : null).then(b => { if (b) img.src = URL.createObjectURL(b); });
+      l.dangers.forEach((d, i) => { if (d.x_pct !== null && d.x_pct !== undefined) wrap.append(el('span', { style: `position:absolute;left:${d.x_pct}%;top:${d.y_pct}%;transform:translate(-50%,-50%);background:#f87171;color:#1a0b2e;font-weight:800;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;line-height:1;font-size:14px`, text: String(i + 1) })); });
+      kids.push(wrap);
+    }
+    kids.push(el('ol', { style: 'padding-left:22px;line-height:1.6' }, l.dangers.map(d => el('li', { text: d.label }))),
+      el('button', { class: 'btn primary', onclick: () => encAct('lair') }, 'Get past the dangers → face the monster'));
+  } else {
+    const m = e.monster;
+    kids.push(el('h2', { text: `👹 ${m.title}` }), el('div', { class: 'viewer-body', text: m.body || '' }),
+      el('p', { class: 'muted', style: 'font-size:0.88rem', text: 'Counter at least 3 of its 4 attributes to defeat it. No timer.' }));
+    m.attributes.forEach(a => {
+      const box = el('div', { class: 'quest' }, el('div', { style: 'font-weight:700;margin-bottom:6px', text: `${a.index + 1}. ${a.description}` }));
+      if (a.result !== null) box.append(el('div', { style: `color:${a.result ? 'var(--green)' : 'var(--red)'}`, text: a.result ? '✓ Countered' : '✗ Not countered' }));
+      if (a.counter_type === 'god') {
+        if (a.result === null) box.append(a.alliance_has_power
+          ? el('button', { class: 'btn small primary', onclick: () => encAct('counter', { attribute: a.index }) }, `Use ${a.god_emoji} ${a.god_name}'s ${a.god_power}`)
+          : el('div', {}, el('div', { class: 'meta', text: `Only ${a.god_emoji} ${a.god_name}'s power counters this, and your alliance doesn't hold it.` }),
+              el('button', { class: 'btn small', onclick: () => encAct('counter', { attribute: a.index }) }, 'Face it anyway')));
+      } else {
+        box.append(el('div', { style: 'margin:4px 0', text: a.question.prompt }));
+        a.question.options.forEach((o, i) => box.append(el('button', {
+          class: 'opt' + (a.result !== null && i === a.correct_index ? ' right' : a.result === false && i === a.answer_index ? ' wrong' : ''),
+          disabled: a.result !== null, onclick: () => encAct('counter', { attribute: a.index, answer_index: i }) }, o)));
+      }
+      kids.push(box);
+    });
+    if (e.stage === 'done') {
+      kids.push(e.outcome === 'defeated'
+        ? el('div', { class: 'banner good' }, el('strong', { text: `Victory! You countered ${m.countered} of 4. ` }), `+${e.points_awarded} points for your alliance.`, el('br'), el('strong', { text: 'The hero gains: ' }), e.hero_gains)
+        : el('div', { class: 'banner bad', text: `${m.title} escapes — you countered ${m.countered} of 4. Earn more god powers and try another monster.` }));
+    }
+  }
+  panel.replaceChildren(...kids);
 }
 
 load();

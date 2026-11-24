@@ -496,6 +496,8 @@ const monsterRoutes = require('./routes/monsters')(app, { authenticateToken, que
 const islandRoutes = registerIslandRoutes(app, { authenticateToken, query, run, saveDatabase, DATA_DIR, monsters: monsterRoutes });
 // Voyages (Stage 2) — world map, build/voyage phases, tokens, visits. See routes/voyage.js.
 require('./routes/voyage')(app, { authenticateToken, query, run, island: islandRoutes, monsters: monsterRoutes });
+// Encounters (Stage 4B) — visitors face a student-made Guardian, Lair and Monster. See routes/encounters.js.
+require('./routes/encounters')(app, { authenticateToken, query, run, island: islandRoutes, monsters: monsterRoutes });
 // Stage 3 — Oracle Trials, accommodations and the reading dashboard (routes/oracle.js),
 // Labyrinth Logic puzzles (routes/labyrinth.js, solver in lib/logic.js)
 require('./routes/oracle')(app, { authenticateToken, query, run });

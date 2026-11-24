@@ -47,6 +47,7 @@
   <select id="period" onchange="refresh()"></select>
   <button class="btn active" id="tab-cards" onclick="setTab('cards')">Evidence cards</button>
   <button class="btn" id="tab-monsters" onclick="setTab('monsters')">Monsters</button>
+  <button class="btn" id="tab-enc" onclick="setTab('enc')">Student monster encounters</button>
 </div>
 <main id="main"></main>
 
@@ -75,7 +76,7 @@ async function api(method, url, body) {
 }
 const period = () => document.getElementById('period').value;
 const main = () => document.getElementById('main');
-function setTab(t) { tab = t; ['cards', 'monsters'].forEach(x => document.getElementById('tab-' + x).classList.toggle('active', x === t)); refresh(); }
+function setTab(t) { tab = t; ['cards', 'monsters', 'enc'].forEach(x => document.getElementById('tab-' + x).classList.toggle('active', x === t)); refresh(); }
 async function loadPeriods() {
   const d = await api('GET', '/teacher/island/students');
   const sel = document.getElementById('period');
@@ -86,6 +87,7 @@ async function refresh() {
   main().replaceChildren(el('div', { class: 'empty', text: 'Loading…' }));
   try {
     if (tab === 'cards') return renderCards((await api('GET', '/teacher/gods/cards?period=' + encodeURIComponent(period()))).cards);
+    if (tab === 'enc') return renderEncounters((await api('GET', '/teacher/encounters?period=' + encodeURIComponent(period()))).encounters);
     return renderMonsters(await api('GET', '/teacher/monsters/overview?period=' + encodeURIComponent(period())));
   } catch (e) { main().replaceChildren(el('div', { class: 'empty', text: e.message })); }
 }
@@ -164,6 +166,21 @@ function renderMonsters(d) {
                 el('td', { text: String(b.questions_correct) }), el('td', { text: `${b.alliance_roll} / ${b.alliance_max}` }), el('td', { text: `${b.monster_roll} / ${b.monster_max}` }),
                 el('td', { style: `color:${b.outcome === 'won' ? 'var(--green)' : 'var(--red)'}`, text: `${b.outcome} (${b.points_change > 0 ? '+' : ''}${b.points_change})` })); })))) : null);
     }));
+}
+
+// ── Encounters with student-made monsters ──────────────────────────────────
+function renderEncounters(rows) {
+  if (!rows.length) return main().replaceChildren(el('div', { class: 'empty', text: 'No one has faced a student-made monster in this period yet.' }));
+  const OUT = { defeated: '✓ defeated it', escaped: 'the monster escaped', turned_back: 'turned back by the Guardian' };
+  main().replaceChildren(el('div', { class: 'card' }, el('h2', { text: 'Encounters' }),
+    el('p', { class: 'muted', style: 'margin-top:0', text: 'Visitors face a student\'s Guardian, Lair and Monster during a voyage (one token). Countering 3 of the monster\'s 4 attributes defeats it.' }),
+    el('table', {}, el('thead', {}, el('tr', {}, ['Visitor', 'Monster (author)', 'Stage', 'Result', 'Points', ''].map(h => el('th', { text: h })))),
+      el('tbody', {}, rows.map(r => el('tr', {}, el('td', { text: r.visitor_name }), el('td', { text: `${r.monster_title} (${r.owner_name})` }),
+        el('td', { text: r.stage }), el('td', { text: r.outcome ? `${OUT[r.outcome] || r.outcome}${r.outcome !== 'turned_back' ? ` · ${r.countered}/4` : ''}` : 'in progress' }),
+        el('td', { text: String(r.points_awarded || 0) }),
+        el('td', {}, r.stage !== 'done' ? el('button', { class: 'btn small', onclick: async () => {
+          if (!confirm(`End ${r.visitor_name}'s encounter? Their alliance gets the token back.`)) return;
+          try { await api('POST', `/teacher/encounters/${r.encounter_id}/cancel`); refresh(); } catch (e) { alert(e.message); } } }, 'End it') : null)))))));
 }
 
 loadPeriods().then(refresh).catch(e => main().replaceChildren(el('div', { class: 'empty', text: e.message })));

@@ -117,6 +117,7 @@ module.exports = function registerVoyageRoutes(app, deps) {
       if (!owner || owner.class_period !== me.class_period) return res.status(404).json({ error: 'That piece can\'t be visited.' });
       if (owner.student_id === me.student_id) return res.status(400).json({ error: 'That\'s your own work.' });
       if (me.alliance_id && owner.alliance_id === me.alliance_id) return res.status(400).json({ error: 'Your alliance can already read this one. Visit another alliance\'s island.' });
+      if (['guardian', 'lair', 'monster'].includes(pin.pin_type)) return res.status(409).json({ error: 'Guardians, lairs and monsters are faced in an encounter, not visited. Use "Face the Guardian" on this island.' });
       if (!getQuestion(pin.pin_id)) return res.status(409).json({ error: 'This piece has no question yet, so it can\'t be visited.' });
       const s = voyage.getSettings(me.class_period);
       if (s.mode !== 'voyage') return res.status(409).json({ error: 'Voyages are closed right now. Your teacher will open the next voyage.' });
