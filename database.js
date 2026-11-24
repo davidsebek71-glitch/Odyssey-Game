@@ -759,11 +759,112 @@ async function initDatabase() {
 
   // Islands (Stage 1): quest sites and story pins
   ensureIslandTables();
+
+  // Stage 3: Oracle Trials, Labyrinth Logic, accommodations
+  ensureStage3Tables();
   
   // Save database to file
   saveDatabase();
   
   return db;
+}
+
+// ==================== STAGE 3: ORACLE TRIALS + LABYRINTH LOGIC ====================
+// oracle_trials:   a reading passage (sections = JSON array of paragraphs/chunks)
+// oracle_questions: ERB-style multiple choice, tagged by question_type and the
+//                   passage section it is about; in_short_set marks the
+//                   questions used for students with a shortened set
+// oracle_attempts:  one per student per trial (answers autosave; no timer)
+// logic_puzzles:    logic grid puzzles (categories, structured clues, solution)
+// logic_attempts:   a student's grid (autosaved) and whether they solved it
+// challenge_assignments: which trial / puzzle is open or closed in which period
+// student_accommodations: per-student settings, visible only to the teacher
+//                         and applied silently for that student
+function ensureStage3Tables() {
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS oracle_trials (
+      trial_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+      title        TEXT NOT NULL,
+      source       TEXT NOT NULL DEFAULT 'cold_read',
+      week         INTEGER,
+      sections     TEXT NOT NULL DEFAULT '[]',
+      word_count   INTEGER DEFAULT 0,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS oracle_questions (
+      question_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      trial_id       INTEGER NOT NULL,
+      sort_order     INTEGER DEFAULT 0,
+      prompt         TEXT NOT NULL,
+      options        TEXT NOT NULL DEFAULT '[]',
+      correct_index  INTEGER NOT NULL DEFAULT 0,
+      question_type  TEXT NOT NULL DEFAULT 'main_idea',
+      section_index  INTEGER,
+      in_short_set   INTEGER DEFAULT 0,
+      FOREIGN KEY (trial_id) REFERENCES oracle_trials(trial_id)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS oracle_attempts (
+      attempt_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id      INTEGER NOT NULL,
+      trial_id        INTEGER NOT NULL,
+      class_period    TEXT,
+      answers         TEXT NOT NULL DEFAULT '{}',
+      question_ids    TEXT NOT NULL DEFAULT '[]',
+      accommodations  TEXT DEFAULT '{}',
+      status          TEXT NOT NULL DEFAULT 'in_progress',
+      score           INTEGER,
+      total           INTEGER,
+      percentage      REAL,
+      by_type         TEXT,
+      points_awarded  INTEGER DEFAULT 0,
+      started_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at    DATETIME,
+      UNIQUE (student_id, trial_id)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS logic_puzzles (
+      puzzle_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      title        TEXT NOT NULL,
+      age          TEXT DEFAULT 'Classical',
+      intro        TEXT DEFAULT '',
+      categories   TEXT NOT NULL DEFAULT '[]',
+      clues        TEXT NOT NULL DEFAULT '[]',
+      solution     TEXT,
+      status       TEXT NOT NULL DEFAULT 'draft',
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS logic_attempts (
+      attempt_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id    INTEGER NOT NULL,
+      alliance_id   INTEGER,
+      puzzle_id     INTEGER NOT NULL,
+      grid          TEXT DEFAULT '{}',
+      checks        INTEGER DEFAULT 0,
+      solved        INTEGER DEFAULT 0,
+      points_awarded INTEGER DEFAULT 0,
+      started_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at  DATETIME,
+      UNIQUE (student_id, puzzle_id)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS challenge_assignments (
+      kind          TEXT NOT NULL,
+      item_id       INTEGER NOT NULL,
+      class_period  TEXT NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'open',
+      opened_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      closed_at     DATETIME,
+      PRIMARY KEY (kind, item_id, class_period)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS student_accommodations (
+      student_id  INTEGER PRIMARY KEY,
+      settings    TEXT NOT NULL DEFAULT '{}',
+      updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    console.log('✅ Stage 3 tables ready');
+  } catch (e) {
+    console.log('Migration note: stage 3 tables -', e.message);
+  }
 }
 
 // ==================== ISLANDS (Stage 1) ====================

@@ -492,6 +492,10 @@ app.use('/api', requireDbReady);
 const islandRoutes = registerIslandRoutes(app, { authenticateToken, query, run, saveDatabase, DATA_DIR });
 // Voyages (Stage 2) — world map, build/voyage phases, tokens, visits. See routes/voyage.js.
 require('./routes/voyage')(app, { authenticateToken, query, run, island: islandRoutes });
+// Stage 3 — Oracle Trials, accommodations and the reading dashboard (routes/oracle.js),
+// Labyrinth Logic puzzles (routes/labyrinth.js, solver in lib/logic.js)
+require('./routes/oracle')(app, { authenticateToken, query, run });
+require('./routes/labyrinth')(app, { authenticateToken, query, run });
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
