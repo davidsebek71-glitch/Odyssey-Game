@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle Trials — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.65);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; --base: 1rem; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; font-size: var(--base); }
+  body.large { --base: 1.25rem; }
+  button { font: inherit; }
+  a { color: var(--gold); }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85);
+            position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.25rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn.small { padding: 4px 10px; font-size: 0.85em; }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  main { max-width: 1250px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.1em; margin: 0 0 10px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .row:first-of-type { border-top: none; }
+  .row .name { flex: 1; font-weight: 600; min-width: 180px; }
+  .muted { color: var(--muted); }
+  .chip { font-size: 0.75em; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+  .chip.open { color: var(--green); border-color: var(--green); } .chip.closed { color: var(--muted); border-color: var(--line); }
+  .chip.done { color: var(--gold); border-color: var(--gold); } .chip.going { color: var(--amber); border-color: var(--amber); }
+  .take { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .take { grid-template-columns: 1fr; } }
+  .passage { position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow: auto; }
+  @media (max-width: 900px) { .passage { position: static; max-height: none; } }
+  .section { font-family: 'Source Serif 4', Georgia, serif; line-height: 1.75; font-size: 1.08em; margin: 0 0 14px; }
+  .section .num { font-family: 'Inter', sans-serif; font-size: 0.75em; color: var(--violet); font-weight: 700; margin-right: 6px; }
+  .q { margin-bottom: 18px; }
+  .q .prompt { font-weight: 600; line-height: 1.5; margin-bottom: 6px; }
+  .opt { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px; border-radius: 8px; cursor: pointer; line-height: 1.4;
+         background: rgba(10,6,22,0.85); color: var(--text); border: 1px solid var(--line); }
+  .opt:hover:not([disabled]) { border-color: var(--violet); }
+  .opt.chosen { border-color: var(--gold); background: rgba(240,199,94,0.12); }
+  .opt.right { border-color: var(--green); background: rgba(110,231,160,0.12); }
+  .opt.wrong { border-color: var(--red); background: rgba(248,113,113,0.1); }
+  .opt[disabled] { cursor: default; }
+  .letter { font-weight: 700; color: var(--violet); margin-right: 8px; }
+  .chunk { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 16px; background: rgba(15,10,30,0.5); }
+  .chunk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .chunk-grid { grid-template-columns: 1fr; } }
+  .speak { background: none; border: 1px solid var(--line); color: var(--violet); border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 0.8em; margin-left: 6px; }
+  .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; position: sticky; bottom: 0; background: rgba(20,10,40,0.95);
+         border-top: 1px solid var(--line); padding: 12px 16px; z-index: 5; }
+  .bar .status { flex: 1; color: var(--muted); }
+  .result-big { font-family: 'Cinzel', serif; font-size: 2em; color: var(--gold); }
+  table { border-collapse: collapse; width: 100%; } td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .mark { font-weight: 700; margin-left: 6px; } .mark.ok { color: var(--green); } .mark.no { color: var(--red); }
+  .empty { text-align: center; color: var(--muted); padding: 30px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/student.html" id="back">← Dashboard</a>
+  <h1 id="title">Oracle Trials & Labyrinth Logic</h1>
+  <span class="muted" id="top-status"></span>
+</div>
+<main id="main"><div class="empty">Loading…</div></main>
+<div class="bar" id="bar" style="display:none"></div>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const TRIAL_ID = new URLSearchParams(location.search).get('trial');
+const TYPE_LABELS = { main_idea: 'Main idea', inference: 'Inference', vocab_in_context: 'Vocabulary in context', authors_purpose: 'Author\'s purpose', text_structure: 'Text structure' };
+let data = null, saveTimer = null, pending = {};
+let displayNum = {};   // question_id -> number shown (follows the on-screen order)
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) { const e = new Error(d.error || 'Something went wrong. Try again.'); e.data = d; e.status = r.status; throw e; }
+  return d;
+}
+// Read-aloud (accommodation): the browser's built-in voice
+function speakBtn(text) {
+  if (!('speechSynthesis' in window)) return null;
+  return el('button', { class: 'speak', 'aria-label': 'Read aloud', title: 'Read aloud', onclick: () => {
+    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.92; speechSynthesis.speak(u); } }, '🔊 Read');
+}
+
+// ── Hub: trials and puzzles for my class ────────────────────────────────────
+async function hub() {
+  const main = document.getElementById('main');
+  try {
+    const [t, p] = await Promise.all([api('GET', '/oracle/trials'), api('GET', '/logic/puzzles')]);
+    const trialRows = t.trials.map(x => {
+      const status = x.my_status === 'submitted' ? el('span', { class: 'chip done', text: `Turned in · ${x.percentage}%` })
+        : x.my_status === 'in_progress' ? el('span', { class: 'chip going', text: 'In progress' }) : el('span', { class: `chip ${x.period_status}`, text: x.period_status === 'open' ? 'Open' : 'Closed' });
+      const can = x.my_status || x.period_status === 'open';
+      return el('div', { class: 'row' }, el('span', { class: 'name', text: `${x.week ? 'Week ' + x.week + ' · ' : ''}${x.title}` }),
+        el('span', { class: 'muted', text: `${x.word_count} words` }), status,
+        can ? el('a', { class: 'btn' + (x.my_status === 'submitted' ? '' : ' primary'), href: `/oracle.html?trial=${x.trial_id}` },
+          x.my_status === 'submitted' ? 'See results' : x.my_status ? 'Continue' : 'Begin') : null);
+    });
+    const puzzleRows = p.puzzles.map(x => el('div', { class: 'row' }, el('span', { class: 'name', text: x.title }),
+      el('span', { class: 'muted', text: `Grid ${x.size}` }),
+      x.solved ? el('span', { class: 'chip done', text: 'Solved' }) : el('span', { class: `chip ${x.period_status}`, text: x.period_status === 'open' ? 'Open' : 'Closed' }),
+      el('a', { class: 'btn' + (x.solved ? '' : ' primary'), href: `/labyrinth.html?puzzle=${x.puzzle_id}` }, x.solved ? 'View' : x.checks ? 'Continue' : 'Enter')));
+    main.replaceChildren(
+      el('div', { class: 'card' }, el('h2', { text: '🏛️ Oracle Trials' }),
+        el('p', { class: 'muted', style: 'margin-top:0', text: 'Read the passage and answer the questions. There is no timer — take as long as you need.' }),
+        ...(trialRows.length ? trialRows : [el('div', { class: 'muted', text: 'No trials yet. Your teacher will open one.' })])),
+      el('div', { class: 'card' }, el('h2', { text: '🌀 Labyrinth Logic' }),
+        el('p', { class: 'muted', style: 'margin-top:0', text: 'Use the clues to work out who goes with what.' }),
+        ...(puzzleRows.length ? puzzleRows : [el('div', { class: 'muted', text: 'No puzzles yet.' })])));
+  } catch (e) { main.replaceChildren(el('div', { class: 'empty', text: e.message })); }
+}
+
+// ── Taking a trial ──────────────────────────────────────────────────────────
+async function openTrial() {
+  try { data = await api('GET', '/oracle/trials/' + TRIAL_ID); }
+  catch (e) { document.getElementById('main').replaceChildren(el('div', { class: 'empty' }, e.message, el('br'), el('a', { href: '/oracle.html', text: 'Back to trials' }))); return; }
+  document.getElementById('back').href = '/oracle.html';
+  document.getElementById('back').textContent = '← All trials';
+  document.getElementById('title').textContent = data.trial.title;
+  document.body.classList.toggle('large', !!data.accommodations.large_text);
+  renderTrial();
+}
+const answered = () => data.questions.filter(q => data.answers[q.question_id] !== undefined).length;
+function questionEl(q) {
+  const locked = data.status === 'submitted';
+  const mine = data.answers[q.question_id];
+  return el('div', { class: 'q', id: 'q' + q.question_id },
+    el('div', { class: 'prompt' }, `${displayNum[q.question_id] || q.number}. ${q.prompt}`, data.accommodations.read_aloud ? speakBtn(`${q.prompt}. ${q.options.map((o, i) => 'ABCDE'[i] + ': ' + o).join('. ')}`) : null,
+      q.correct === true ? el('span', { class: 'mark ok', text: '✓' }) : q.correct === false ? el('span', { class: 'mark no', text: '✗' }) : null),
+    ...q.options.map((o, i) => {
+      let cls = 'opt';
+      if (q.correct_index !== undefined && i === q.correct_index) cls += ' right';
+      else if (q.correct_index !== undefined && mine === i) cls += ' wrong';
+      else if (mine === i) cls += ' chosen';
+      return el('button', { class: cls, disabled: locked, 'aria-pressed': mine === i ? 'true' : 'false', onclick: () => choose(q, i) },
+        el('span', { class: 'letter', text: 'ABCDE'[i] }), o);
+    }));
+}
+function sectionEl(text, i) {
+  return el('p', { class: 'section' }, el('span', { class: 'num', text: `¶${i + 1}` }), text, data.accommodations.read_aloud ? speakBtn(text) : null);
+}
+function renderTrial() {
+  const main = document.getElementById('main');
+  const kids = [];
+  if (data.result) kids.push(resultCard());
+  else if (data.period_status !== 'open') kids.push(el('div', { class: 'card', text: 'This trial was closed before you turned it in. Tell your teacher.' }));
+  else kids.push(el('p', { class: 'muted', style: 'margin-top:0', text: 'No timer — take as long as you need. Your answers save as you go.' }));
+
+  if (data.accommodations.chunked) {
+    // Each section with the questions about it, then whole-passage questions.
+    // Number the questions in the order they appear on screen.
+    const order = [...data.trial.sections.flatMap((_, i) => data.questions.filter(q => q.section_index === i)),
+      ...data.questions.filter(q => q.section_index === null || q.section_index === undefined)];
+    displayNum = Object.fromEntries(order.map((q, n) => [q.question_id, n + 1]));
+    data.trial.sections.forEach((s, i) => {
+      const qs = data.questions.filter(q => q.section_index === i);
+      kids.push(el('div', { class: 'chunk' }, el('div', { class: 'chunk-grid' }, el('div', {}, sectionEl(s, i)), el('div', {}, ...qs.map(questionEl)))));
+    });
+    const whole = data.questions.filter(q => q.section_index === null || q.section_index === undefined);
+    if (whole.length) kids.push(el('div', { class: 'chunk' }, el('h2', { text: 'About the whole passage' }), ...whole.map(questionEl)));
+  } else {
+    displayNum = {};
+    kids.push(el('div', { class: 'take' },
+      el('div', { class: 'card passage', 'aria-label': 'Passage' }, ...data.trial.sections.map(sectionEl)),
+      el('div', { class: 'card' }, ...data.questions.map(questionEl))));
+  }
+  main.replaceChildren(...kids);
+  renderBar();
+}
+function renderBar() {
+  const bar = document.getElementById('bar');
+  if (data.status === 'submitted' || data.period_status !== 'open') { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const n = answered(), total = data.questions.length;
+  bar.replaceChildren(el('span', { class: 'status', id: 'bar-status' }, `${n} of ${total} answered`, el('span', { id: 'save-state', style: 'margin-left:10px' })),
+    el('button', { class: 'btn primary', onclick: turnIn }, 'Turn it in'));
+}
+function choose(q, i) {
+  data.answers[q.question_id] = i; pending[q.question_id] = i;
+  const box = document.getElementById('q' + q.question_id);
+  box.replaceWith(questionEl(q));
+  document.getElementById('bar-status').firstChild.textContent = `${answered()} of ${data.questions.length} answered`;
+  setSave('Saving…');
+  clearTimeout(saveTimer); saveTimer = setTimeout(save, 600);
+}
+function setSave(t, bad) { const s = document.getElementById('save-state'); if (s) { s.textContent = t; s.style.color = bad ? 'var(--red)' : ''; } }
+async function save() {
+  if (!Object.keys(pending).length) return;
+  const send = pending; pending = {};
+  try { await api('PUT', `/oracle/trials/${TRIAL_ID}/answers`, { answers: send }); setSave(Object.keys(pending).length ? 'Saving…' : '· Saved'); }
+  catch (e) { pending = Object.assign(send, pending); setSave(e.status === 409 ? e.message : '· Not saved yet — retrying', true); if (e.status !== 409) { clearTimeout(saveTimer); saveTimer = setTimeout(save, 3000); } }
+}
+async function turnIn() {
+  clearTimeout(saveTimer); await save();
+  const left = data.questions.length - answered();
+  if (left && !confirm(`${left} question${left === 1 ? ' is' : 's are'} not answered. Turn it in anyway?`)) return;
+  try {
+    const r = await api('POST', `/oracle/trials/${TRIAL_ID}/submit`, { confirm_unanswered: true });
+    data = r; renderTrial(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) { alert(e.message); }
+}
+function resultCard() {
+  const r = data.result;
+  return el('div', { class: 'card' }, el('h2', { text: 'Your result' }),
+    el('div', { class: 'result-big', text: `${r.score} / ${r.total} · ${r.percentage}%` }),
+    data.points_this_time ? el('div', { style: 'color:var(--green);margin:6px 0', text: `+${data.points_this_time} points for your alliance${data.points_this_time > 5 ? ' — including a bonus for beating your own average!' : ''}` }) : null,
+    el('table', { style: 'margin-top:8px' }, el('tbody', {}, Object.entries(r.by_type).map(([k, v]) =>
+      el('tr', {}, el('td', { text: TYPE_LABELS[k] || k }), el('td', { text: `${v.correct} of ${v.total}` }))))),
+    el('p', { class: 'muted', style: 'margin-bottom:0', text: r.review_open ? 'Review: the right answers are marked below in green.'
+      : 'You can see which answers were right after your teacher closes this trial.' }));
+}
+
+if (TRIAL_ID) openTrial(); else hub();
+</script>
+</body>
+</html>

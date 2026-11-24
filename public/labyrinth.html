@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labyrinth Logic — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.28); --text: #f3eefc; --muted: rgba(243,238,252,0.65);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; --base: 1rem; --cell: 46px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; font-size: var(--base); }
+  body.large { --base: 1.25rem; --cell: 58px; }
+  button { font: inherit; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.25rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn:focus-visible, .cell:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; }
+  main { max-width: 1150px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  @media (max-width: 950px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.05em; margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+  .grid-wrap { overflow-x: auto; padding-bottom: 6px; }
+  table.grid { border-collapse: collapse; margin: 0 auto; }
+  table.grid th { font-weight: 600; font-size: 0.82em; color: var(--text); padding: 4px; }
+  table.grid th.col { height: 120px; vertical-align: bottom; width: var(--cell); }
+  table.grid th.col span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; display: inline-block; }
+  table.grid th.row { text-align: right; white-space: nowrap; padding-right: 8px; }
+  table.grid th.cat { color: var(--violet); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.06em; }
+  td.c { padding: 0; border: 1px solid var(--line); }
+  td.block-r { border-right: 3px solid var(--violet); }
+  tr.block-b td.c { border-bottom: 3px solid var(--violet); }
+  .cell { width: var(--cell); height: var(--cell); background: rgba(10,6,22,0.8); border: none; color: var(--text); cursor: pointer; font-size: 1.2em; display: flex; align-items: center; justify-content: center; }
+  .cell:hover { background: rgba(167,139,250,0.18); }
+  .cell.no { color: var(--red); } .cell.yes { color: var(--green); background: rgba(110,231,160,0.15); }
+  td.blank { border: none; }
+  .clue { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); line-height: 1.45; }
+  .clue:first-of-type { border-top: none; }
+  .clue.used span.t { text-decoration: line-through; color: var(--muted); }
+  .speak { background: none; border: 1px solid var(--line); color: var(--violet); border-radius: 6px; padding: 1px 7px; cursor: pointer; font-size: 0.8em; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .msg { min-height: 1.4em; margin-top: 10px; line-height: 1.4; }
+  .banner { border: 1px solid var(--green); background: rgba(110,231,160,0.1); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+  .help { font-size: 0.85em; color: var(--muted); line-height: 1.5; }
+  .empty { text-align: center; color: var(--muted); padding: 30px; grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/oracle.html">← Back</a>
+  <h1 id="title">Labyrinth Logic</h1>
+  <span class="muted" id="save-state" aria-live="polite"></span>
+</div>
+<main id="main"><div class="empty">Loading…</div></main>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const PUZZLE_ID = new URLSearchParams(location.search).get('puzzle');
+let P = null, grid = {}, solved = false, saveTimer = null, usedClues = new Set(), openStatus = 'open';
+const MARK = ['', '✗', '●'], WORD = ['blank', 'no', 'yes'];
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) { const e = new Error(d.error || 'Something went wrong. Try again.'); e.status = r.status; throw e; }
+  return d;
+}
+
+// Sub-grids: rows category a × columns category b. Two categories: 0×1.
+// Three categories (classic layout): 0×1 and 0×2 side by side, then 2×1 below.
+function grids() { return P.categories.length === 2 ? [[0, 1]] : [[0, 1], [0, 2], [2, 1]]; }
+const gid = (a, b) => `${a}-${b}`;
+const get = (a, b, r, c) => ((grid[gid(a, b)] || {})[`${r},${c}`]) || 0;
+function set(a, b, r, c, v) { const g = grid[gid(a, b)] || (grid[gid(a, b)] = {}); if (v) g[`${r},${c}`] = v; else delete g[`${r},${c}`]; }
+
+function cycle(a, b, r, c) {
+  if (solved) return;
+  const v = (get(a, b, r, c) + 1) % 3;
+  set(a, b, r, c, v);
+  if (v === 2) {   // a ● means everything else in that row and column of this grid is ✗
+    const n = P.categories[0].items.length;
+    for (let k = 0; k < n; k++) { if (k !== c && !get(a, b, r, k)) set(a, b, r, k, 1); if (k !== r && !get(a, b, k, c)) set(a, b, k, c, 1); }
+  }
+  renderGrid(`${a}-${b}-${r}-${c}`);
+  queueSave();
+}
+
+function renderGrid(focusKey) {
+  const cats = P.categories, n = cats[0].items.length, three = cats.length === 3;
+  const t = el('table', { class: 'grid', role: 'grid', 'aria-label': 'Logic grid' });
+  // header: column categories and items
+  const colCats = three ? [1, 2] : [1];
+  t.append(el('tr', {}, el('th'), el('th'), ...colCats.map(cc => el('th', { class: 'cat', colspan: String(n), text: cats[cc].name }))));
+  t.append(el('tr', {}, el('th'), el('th'), ...colCats.flatMap(cc => cats[cc].items.map(it => el('th', { class: 'col' }, el('span', { text: it }))))));
+  let vr = 0;   // visual row index for keyboard moves
+  const rowBlocks = three ? [[0, [[0, 1], [0, 2]]], [2, [[2, 1]]]] : [[0, [[0, 1]]]];
+  rowBlocks.forEach(([rc, gs], bi) => {
+    cats[rc].items.forEach((it, r) => {
+      const tr = el('tr', { class: r === n - 1 && bi === 0 && three ? 'block-b' : '' },
+        r === 0 ? el('th', { class: 'cat', rowspan: String(n), text: cats[rc].name, style: 'writing-mode:vertical-rl;transform:rotate(180deg)' }) : null,
+        el('th', { class: 'row', text: it }));
+      let vc = 0;
+      gs.forEach(([a, b], gi) => {
+        cats[b].items.forEach((bit, c) => {
+          const v = get(a, b, r, c);
+          const key = `${a}-${b}-${r}-${c}`;
+          tr.append(el('td', { class: 'c' + (gi === 0 && gs.length === 2 && c === n - 1 ? ' block-r' : '') },
+            el('button', { class: 'cell' + (v === 1 ? ' no' : v === 2 ? ' yes' : ''), 'data-key': key, 'data-vr': String(vr), 'data-vc': String(vc),
+              'aria-label': `${it} and ${bit}: ${WORD[v]}`, onclick: () => cycle(a, b, r, c), onkeydown: e => move(e) }, MARK[v])));
+          vc++;
+        });
+      });
+      if (three && rc === 2) for (let k = 0; k < n; k++) tr.append(el('td', { class: 'blank' }));
+      t.append(tr); vr++;
+    });
+  });
+  document.getElementById('grid').replaceChildren(t);
+  if (focusKey) { const f = document.querySelector(`.cell[data-key="${focusKey}"]`); if (f) f.focus(); }
+}
+function move(e) {
+  const d = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  const r = +e.target.dataset.vr + d[0], c = +e.target.dataset.vc + d[1];
+  const t = document.querySelector(`.cell[data-vr="${r}"][data-vc="${c}"]`);
+  if (t) t.focus();
+}
+
+// The answer: for each item of category 0, the ● in each 0×c grid
+function answer() {
+  const n = P.categories[0].items.length, k = P.categories.length;
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const row = [i];
+    for (let c = 1; c < k; c++) {
+      const yes = []; for (let j = 0; j < n; j++) if (get(0, c, i, j) === 2) yes.push(j);
+      if (yes.length !== 1) return null;
+      row.push(yes[0]);
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+async function checkAnswer() {
+  const msg = document.getElementById('msg');
+  const a = answer();
+  if (!a) { msg.textContent = `Put exactly one ● in each ${P.categories[0].name.toLowerCase()}'s row of ${P.categories.length === 3 ? 'both top grids' : 'the grid'}.`; msg.style.color = 'var(--amber)'; return; }
+  try {
+    const r = await api('POST', `/logic/puzzles/${PUZZLE_ID}/check`, { answer: a });
+    msg.textContent = r.message + (r.points_awarded ? ` +${r.points_awarded} points for your alliance!` : '');
+    msg.style.color = r.correct ? 'var(--green)' : 'var(--amber)';
+    if (r.correct) { solved = true; render(); document.getElementById('msg').textContent = msg.textContent; }
+  } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+}
+function queueSave() { document.getElementById('save-state').textContent = 'Saving…'; clearTimeout(saveTimer); saveTimer = setTimeout(saveGrid, 800); }
+async function saveGrid() {
+  try { await api('PUT', `/logic/puzzles/${PUZZLE_ID}/grid`, { grid }); document.getElementById('save-state').textContent = 'Saved'; }
+  catch (e) { document.getElementById('save-state').textContent = 'Not saved yet — retrying'; clearTimeout(saveTimer); saveTimer = setTimeout(saveGrid, 3000); }
+}
+function speakBtn(text) {
+  if (!('speechSynthesis' in window)) return null;
+  return el('button', { class: 'speak', 'aria-label': 'Read aloud', onclick: () => { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(text)); } }, '🔊');
+}
+
+function render() {
+  const p = P;
+  const clues = el('div', { class: 'card' }, el('h2', { text: 'Clues' }),
+    ...p.clues.map((c, i) => el('label', { class: 'clue' + (usedClues.has(i) ? ' used' : '') },
+      el('input', { type: 'checkbox', checked: usedClues.has(i), 'aria-label': `Mark clue ${i + 1} as used`, onchange: e => { e.target.checked ? usedClues.add(i) : usedClues.delete(i); e.target.closest('.clue').classList.toggle('used', e.target.checked); } }),
+      el('span', { class: 't', text: `${i + 1}. ${c}` }), P.read_aloud ? speakBtn(c) : null)),
+    el('p', { class: 'help', text: 'Tick a clue once you\'ve used it.' }));
+  const board = el('div', { class: 'card' },
+    solved ? el('div', { class: 'banner', text: '🌀 Solved! The labyrinth opens.' }) : null,
+    p.intro ? el('p', { style: 'margin-top:0;line-height:1.5', text: p.intro }) : null,
+    el('p', { class: 'help', text: 'Tap a square to mark it: once for ✗ (no), twice for ● (yes), three times to clear. A ● crosses out the rest of its row and column. Keyboard: arrow keys to move, Enter or Space to mark.' }),
+    el('div', { class: 'grid-wrap', id: 'grid' }),
+    openStatus === 'open' && !solved ? el('div', { class: 'actions' },
+      el('button', { class: 'btn primary', onclick: checkAnswer }, 'Check my answer'),
+      el('button', { class: 'btn', onclick: () => { if (confirm('Clear the whole grid?')) { grid = {}; renderGrid(); queueSave(); } } }, 'Clear grid')) :
+      (!solved ? el('p', { class: 'muted', text: 'This puzzle is closed.' }) : null),
+    el('div', { class: 'msg', id: 'msg', 'aria-live': 'polite' }),
+    el('p', { class: 'help', text: `No timer. Solving it earns your alliance ${p.points} points the first time.` }));
+  document.getElementById('main').replaceChildren(board, clues);
+  renderGrid();
+}
+
+async function load() {
+  if (!PUZZLE_ID) { location.href = '/oracle.html'; return; }
+  try {
+    const d = await api('GET', '/logic/puzzles/' + PUZZLE_ID);
+    P = d.puzzle; P.read_aloud = d.accommodations.read_aloud; grid = d.grid || {}; solved = d.solved; openStatus = d.period_status;
+    document.body.classList.toggle('large', !!d.accommodations.large_text);
+    document.getElementById('title').textContent = P.title;
+    render();
+  } catch (e) { document.getElementById('main').replaceChildren(el('div', { class: 'empty', text: e.message })); }
+}
+load();
+</script>
+</body>
+</html>

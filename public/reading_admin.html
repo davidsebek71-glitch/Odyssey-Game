@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle & Labyrinth — Teacher</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.62);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button, select, input, textarea { font: inherit; }
+  a { color: var(--gold); }
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.2rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 7px 13px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.active { border-color: var(--gold); color: var(--gold); }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn.small { padding: 3px 9px; font-size: 0.85rem; }
+  .btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  select, input[type=text], input[type=number], textarea { background: rgba(10,6,22,0.9); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  textarea { width: 100%; line-height: 1.5; }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.05rem; margin: 0 0 10px; }
+  h3 { color: var(--violet); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 8px; }
+  .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: 0.92rem; vertical-align: top; }
+  th { color: var(--violet); font-weight: 600; }
+  td.n, th.n { text-align: center; }
+  .chip { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+  .chip.open { color: var(--green); border-color: var(--green); } .chip.closed { color: var(--muted); border-color: var(--line); }
+  .chip.draft { color: var(--amber); border-color: var(--amber); } .chip.published { color: var(--gold); border-color: var(--gold); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .msg { font-size: 0.9rem; }
+  .qbox { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: rgba(15,10,30,0.5); }
+  .qbox .opts { display: grid; gap: 6px; margin: 8px 0; }
+  .qbox .opt-row { display: flex; gap: 8px; align-items: center; }
+  .qbox .opt-row input[type=text] { flex: 1; }
+  .qmeta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 0.88rem; }
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 10px; }
+  .form-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+  .cats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .clue-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+  .verdict { border-radius: 8px; padding: 10px 12px; margin: 10px 0; border: 1px solid; }
+  .verdict.ok { border-color: var(--green); color: var(--green); background: rgba(110,231,160,0.08); }
+  .verdict.no { border-color: var(--amber); color: var(--amber); background: rgba(251,191,36,0.08); }
+  .pct { font-weight: 700; } .hi { color: var(--green); } .mid { color: var(--amber); } .lo { color: var(--red); }
+  .empty { text-align: center; color: var(--muted); padding: 40px; }
+  .scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/teacher.html">← Dashboard</a>
+  <h1>Oracle & Labyrinth</h1>
+  <label class="muted" for="period">Period</label>
+  <select id="period" onchange="refresh()"></select>
+  <button class="btn active" id="tab-trials" onclick="setTab('trials')">Oracle Trials</button>
+  <button class="btn" id="tab-puzzles" onclick="setTab('puzzles')">Labyrinth Logic</button>
+  <button class="btn" id="tab-acc" onclick="setTab('acc')">Accommodations</button>
+  <button class="btn" id="tab-dash" onclick="setTab('dash')">Reading dashboard</button>
+</div>
+<main id="main"></main>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const TYPES = { main_idea: 'Main idea', inference: 'Inference', vocab_in_context: 'Vocab in context', authors_purpose: 'Author\'s purpose', text_structure: 'Text structure' };
+const ACC = { short_set: 'Shortened question set', chunked: 'Chunked passage', large_text: 'Enlarged text', read_aloud: 'Read-aloud', extended_time: 'Extended / unlimited time' };
+let tab = 'trials';
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'value') e.value = v;
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) throw new Error(d.error || 'Something went wrong.');
+  return d;
+}
+const period = () => document.getElementById('period').value;
+const main = () => document.getElementById('main');
+function setTab(t) {
+  tab = t; ['trials', 'puzzles', 'acc', 'dash'].forEach(x => document.getElementById('tab-' + x).classList.toggle('active', x === t)); refresh();
+}
+function pctClass(p) { return p === null || p === undefined ? '' : p >= 80 ? 'hi' : p >= 60 ? 'mid' : 'lo'; }
+function pct(c, t) { return t ? Math.round(c / t * 100) : null; }
+
+async function loadPeriods() {
+  const d = await api('GET', '/teacher/island/students');
+  const sel = document.getElementById('period');
+  (d.periods || []).forEach(p => sel.append(el('option', { value: p, text: p })));
+  if (d.periods.includes('Test')) sel.value = 'Test';
+}
+async function refresh() {
+  main().replaceChildren(el('div', { class: 'empty', text: 'Loading…' }));
+  try {
+    if (tab === 'trials') return renderTrials(await api('GET', '/teacher/oracle/trials'));
+    if (tab === 'puzzles') return renderPuzzles(await api('GET', '/teacher/logic/puzzles'));
+    if (tab === 'acc') return renderAcc(await api('GET', '/teacher/accommodations?period=' + encodeURIComponent(period())));
+    if (tab === 'dash') return renderDash(await api('GET', '/teacher/reading/dashboard?period=' + encodeURIComponent(period())));
+  } catch (e) { main().replaceChildren(el('div', { class: 'empty', text: e.message })); }
+}
+
+// Assign / open / close in the selected period (shared by trials and puzzles)
+function periodControls(kind, id, assignments, disabledReason) {
+  const a = (assignments || []).find(x => x.class_period === period());
+  const go = async status => {
+    try { await api('POST', `/teacher/${kind === 'oracle' ? 'oracle/trials' : 'logic/puzzles'}/${id}/assign`, { class_period: period(), status }); refresh(); }
+    catch (e) { alert(e.message); }
+  };
+  if (disabledReason) return el('span', { class: 'muted', style: 'font-size:0.85rem', text: disabledReason });
+  if (!a) return el('button', { class: 'btn small primary', onclick: () => go('open') }, `Open for ${period()}`);
+  return el('span', {}, el('span', { class: `chip ${a.status}`, text: a.status === 'open' ? 'Open' : 'Closed' }), ' ',
+    a.status === 'open' ? el('button', { class: 'btn small', onclick: () => go('closed') }, 'Close') : el('button', { class: 'btn small', onclick: () => go('open') }, 'Reopen'),
+    ' ', el('button', { class: 'btn small', onclick: () => go('remove') }, 'Unassign'));
+}
+
+// ── ORACLE TRIALS ───────────────────────────────────────────────────────────
+function renderTrials(d) {
+  const rows = d.trials.map(t => el('tr', {},
+    el('td', { class: 'n', text: t.week ?? '—' }), el('td', {}, el('strong', { text: t.title }), el('div', { class: 'muted', style: 'font-size:0.8rem', text: t.source === 'evslin' ? 'Evslin' : 'Cold read' })),
+    el('td', { class: 'n', text: String(t.word_count) }), el('td', { class: 'n', text: `${t.questions}${t.short_set ? ` (${t.short_set} short)` : ''}` }),
+    el('td', { class: 'n', text: `${t.submitted} / ${t.attempts}` }),
+    el('td', {}, periodControls('oracle', t.trial_id, t.assignments)),
+    el('td', {}, el('button', { class: 'btn small', onclick: () => editTrial(t.trial_id, t.attempts > 0) }, t.attempts ? 'View' : 'Edit'),
+      ' ', el('button', { class: 'btn small', onclick: () => copyTrial(t.trial_id) }, 'Copy'))));
+  main().replaceChildren(el('div', { class: 'card' },
+    el('div', { class: 'actions', style: 'margin:0 0 10px' }, el('h2', { style: 'margin:0;flex:1', text: 'Oracle Trials' }),
+      el('button', { class: 'btn primary', onclick: () => trialEditor(null) }, '+ New trial'),
+      el('button', { class: 'btn', onclick: importTrial }, 'Import (paste JSON)')),
+    d.trials.length ? el('div', { class: 'scroll' }, el('table', {}, el('thead', {}, el('tr', {}, ['Week', 'Trial', 'Words', 'Questions', 'Turned in / started', `In ${period()}`, ''].map((h, i) => el('th', { class: [0, 2, 3, 4].includes(i) ? 'n' : '', text: h })))), el('tbody', {}, rows)))
+      : el('p', { class: 'muted', text: 'No trials yet. Create one, or import the sample in data/oracle_trial_format.json.' })));
+}
+async function editTrial(id, readOnly) { const d = await api('GET', '/teacher/oracle/trials/' + id); trialEditor(d.trial, d.questions, readOnly); }
+async function copyTrial(id) {
+  const d = await api('GET', '/teacher/oracle/trials/' + id);
+  trialEditor(Object.assign({}, d.trial, { trial_id: null, title: d.trial.title + ' (copy)' }), d.questions, false);
+}
+function importTrial() {
+  const ta = el('textarea', { rows: '16', placeholder: 'Paste the trial JSON here (see data/oracle_trial_format.json for the format)…' });
+  const msg = el('div', { class: 'msg' });
+  main().replaceChildren(el('div', { class: 'card' }, el('h2', { text: 'Import a trial' }),
+    el('p', { class: 'muted', text: 'Paste a trial in the import format. It opens in the editor so you can check it before saving.' }), ta,
+    el('div', { class: 'actions' }, el('button', { class: 'btn primary', onclick: () => {
+      try { const j = JSON.parse(ta.value); trialEditor({ trial_id: null, title: j.title, source: j.source, week: j.week, sections: j.sections || (j.passage || '').split(/\n\s*\n/) }, j.questions || [], false); }
+      catch (e) { msg.textContent = 'That isn\'t valid JSON: ' + e.message; msg.style.color = 'var(--red)'; } } }, 'Open in editor'),
+      el('button', { class: 'btn', onclick: refresh }, 'Cancel'), msg)));
+}
+function trialEditor(trial, questions = [], readOnly = false) {
+  const t = trial || { title: '', source: 'cold_read', week: '', sections: [] };
+  const qs = (questions.length ? questions : [{}]).map(q => ({ prompt: q.prompt || '', options: (q.options || ['', '', '', '']).concat(['', '', '', '']).slice(0, Math.max(4, (q.options || []).length)),
+    correct_index: q.correct_index ?? null, question_type: q.question_type || 'main_idea', section_index: q.section_index ?? null, in_short_set: !!q.in_short_set }));
+  const title = el('input', { type: 'text', value: t.title, style: 'min-width:320px', disabled: readOnly });
+  const source = el('select', { disabled: readOnly }, el('option', { value: 'cold_read', text: 'Cold read' }), el('option', { value: 'evslin', text: 'Evslin' })); source.value = t.source;
+  const week = el('input', { type: 'number', min: '0', value: t.week ?? '', style: 'width:90px', disabled: readOnly });
+  const passage = el('textarea', { rows: '12', disabled: readOnly, placeholder: 'Paste the passage. Leave a blank line between sections (paragraphs or chunks).' });
+  passage.value = (t.sections || []).join('\n\n');
+  const secCount = el('span', { class: 'muted', style: 'font-size:0.85rem' });
+  const sections = () => passage.value.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+  const qList = el('div');
+  const msg = el('div', { class: 'msg' });
+  function drawQs() {
+    const n = sections().length;
+    secCount.textContent = `${n} section${n === 1 ? '' : 's'} · ${passage.value.trim().split(/\s+/).filter(Boolean).length} words`;
+    qList.replaceChildren(...qs.map((q, qi) => {
+      const name = 'c' + qi + Math.random().toString(36).slice(2, 6);
+      return el('div', { class: 'qbox' },
+        el('div', { class: 'qmeta' }, el('strong', { text: `Question ${qi + 1}` }),
+          el('label', {}, 'Type ', (() => { const s = el('select', { disabled: readOnly, onchange: e => q.question_type = e.target.value }, ...Object.entries(TYPES).map(([k, v]) => el('option', { value: k, text: v }))); s.value = q.question_type; return s; })()),
+          el('label', {}, 'About ', (() => { const s = el('select', { disabled: readOnly, onchange: e => q.section_index = e.target.value === '' ? null : +e.target.value },
+            el('option', { value: '', text: 'the whole passage' }), ...sections().map((_, i) => el('option', { value: String(i), text: `section ¶${i + 1}` }))); s.value = q.section_index === null ? '' : String(q.section_index); return s; })()),
+          el('label', {}, el('input', { type: 'checkbox', checked: q.in_short_set, disabled: readOnly, onchange: e => q.in_short_set = e.target.checked }), ' in shortened set'),
+          !readOnly && qs.length > 1 ? el('button', { class: 'btn small danger', onclick: () => { qs.splice(qi, 1); drawQs(); } }, 'Remove') : null),
+        el('textarea', { rows: '2', disabled: readOnly, placeholder: 'Question', style: 'margin-top:8px', oninput: e => q.prompt = e.target.value, value: q.prompt }),
+        el('div', { class: 'opts' }, ...q.options.map((o, oi) => el('div', { class: 'opt-row' },
+          el('label', { class: 'muted', style: 'font-size:0.8rem' }, el('input', { type: 'radio', name, checked: q.correct_index === oi, disabled: readOnly, onchange: () => q.correct_index = oi }), ' correct'),
+          el('input', { type: 'text', disabled: readOnly, value: o, placeholder: `Choice ${'ABCDE'[oi]}${oi > 1 ? ' (optional)' : ''}`, oninput: e => q.options[oi] = e.target.value })))));
+    }));
+  }
+  passage.addEventListener('input', () => { clearTimeout(passage._t); passage._t = setTimeout(drawQs, 500); });
+  async function save() {
+    // keep the "correct" mark on the same choice after dropping empty choices
+    const body = { title: title.value, source: source.value, week: week.value, sections: sections(), questions: qs.map(q => {
+      const filled = q.options.map((o, i) => ({ o: o.trim(), i })).filter(x => x.o);
+      return { prompt: q.prompt, options: filled.map(x => x.o), correct_index: filled.findIndex(x => x.i === q.correct_index), question_type: q.question_type, section_index: q.section_index, in_short_set: q.in_short_set };
+    }) };
+    try {
+      const r = t.trial_id ? await api('PUT', '/teacher/oracle/trials/' + t.trial_id, body) : await api('POST', '/teacher/oracle/trials', body);
+      msg.textContent = `Saved · ${r.questions} questions · ${r.word_count} words`; msg.style.color = 'var(--green)';
+      setTimeout(refresh, 700);
+    } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+  }
+  main().replaceChildren(el('div', { class: 'card' },
+    el('h2', { text: readOnly ? 'Trial (students have taken it — use Copy to make a changed version)' : t.trial_id ? 'Edit trial' : 'New trial' }),
+    el('div', { class: 'form-row' }, el('label', {}, 'Title', title), el('label', {}, 'Source', source), el('label', {}, 'Week', week)),
+    el('h3', { text: 'Passage' }), passage, secCount,
+    el('h3', { text: 'Questions' }), qList,
+    readOnly ? null : el('button', { class: 'btn', onclick: () => { qs.push({ prompt: '', options: ['', '', '', ''], correct_index: null, question_type: 'main_idea', section_index: null, in_short_set: false }); drawQs(); } }, '+ Add question'),
+    el('div', { class: 'actions' }, readOnly ? null : el('button', { class: 'btn primary', onclick: save }, 'Save trial'), el('button', { class: 'btn', onclick: refresh }, readOnly ? 'Back' : 'Cancel'), msg)));
+  drawQs();
+}
+
+// ── LABYRINTH LOGIC ─────────────────────────────────────────────────────────
+function renderPuzzles(d) {
+  main().replaceChildren(el('div', { class: 'card' },
+    el('div', { class: 'actions', style: 'margin:0 0 10px' }, el('h2', { style: 'margin:0;flex:1', text: 'Labyrinth Logic puzzles' }),
+      el('button', { class: 'btn primary', onclick: () => puzzleBuilder(null) }, '+ New puzzle')),
+    d.puzzles.length ? el('table', {}, el('thead', {}, el('tr', {}, ['Puzzle', 'Size', 'Status', 'Solved / tried', `In ${period()}`, ''].map(h => el('th', { text: h })))),
+      el('tbody', {}, d.puzzles.map(p => el('tr', {}, el('td', { text: p.title }), el('td', { text: p.size }),
+        el('td', {}, el('span', { class: `chip ${p.status}`, text: p.status === 'published' ? 'Published' : 'Draft' })),
+        el('td', { class: 'n', text: `${p.solved} / ${p.attempts}` }),
+        el('td', {}, periodControls('logic', p.puzzle_id, p.assignments, p.status !== 'published' ? 'Publish it first' : null)),
+        el('td', {}, el('button', { class: 'btn small', onclick: async () => puzzleBuilder((await api('GET', '/teacher/logic/puzzles/' + p.puzzle_id)).puzzle, p.attempts > 0) }, p.attempts ? 'View' : 'Edit'))))))
+      : el('p', { class: 'muted', text: 'No puzzles yet.' })));
+}
+function puzzleBuilder(p, readOnly = false) {
+  const st = p ? JSON.parse(JSON.stringify({ title: p.title, intro: p.intro || '', categories: p.categories, clues: p.clues, id: p.puzzle_id, status: p.status }))
+    : { title: '', intro: '', categories: [{ name: '', items: ['', '', ''] }, { name: '', items: ['', '', ''] }], clues: [], id: null, status: 'draft' };
+  const verdict = el('div', { class: 'verdict no', 'aria-live': 'polite', text: 'Add categories and clues…' });
+  const catsBox = el('div', { class: 'cats' }), cluesBox = el('div');
+  const msg = el('div', { class: 'msg' });
+  let checkTimer = null, lastOk = false;
+  const refs = () => st.categories.flatMap((c, ci) => c.items.map((it, ii) => ({ c: ci, i: ii, label: `${it || '(blank)'} — ${c.name || 'Category ' + (ci + 1)}` })));
+  function refSelect(val, onch) {
+    const s = el('select', { disabled: readOnly, onchange: e => { const [c, i] = e.target.value.split(',').map(Number); onch({ c, i }); queueCheck(); } },
+      el('option', { value: '', text: 'choose…' }), ...refs().map(r => el('option', { value: `${r.c},${r.i}`, text: r.label })));
+    s.value = val ? `${val.c},${val.i}` : ''; return s;
+  }
+  function drawCats() {
+    const n = st.categories[0].items.length;
+    catsBox.replaceChildren(...st.categories.map((c, ci) => el('div', { class: 'qbox' },
+      el('input', { type: 'text', value: c.name, disabled: readOnly, placeholder: `Category ${ci + 1} name (e.g. Hero)`, style: 'width:100%;font-weight:700', oninput: e => { c.name = e.target.value; drawClues(); queueCheck(); } }),
+      ...c.items.map((it, ii) => el('input', { type: 'text', value: it, disabled: readOnly, placeholder: `Item ${ii + 1}`, style: 'width:100%;margin-top:6px', oninput: e => { c.items[ii] = e.target.value; drawClues(); queueCheck(); } })))));
+  }
+  function drawClues() {
+    cluesBox.replaceChildren(...st.clues.map((cl, k) => el('div', { class: 'clue-row' },
+      el('strong', { text: `${k + 1}.` }), refSelect(cl.a, v => cl.a = v),
+      (() => { const s = el('select', { disabled: readOnly, onchange: e => { cl.type = e.target.value; if (cl.type === 'either' && !cl.b2) cl.b2 = null; drawClues(); queueCheck(); } },
+        el('option', { value: 'is', text: 'goes with' }), el('option', { value: 'is_not', text: 'does NOT go with' }), el('option', { value: 'either', text: 'goes with either' })); s.value = cl.type; return s; })(),
+      refSelect(cl.b, v => cl.b = v),
+      cl.type === 'either' ? el('span', {}, ' or ', refSelect(cl.b2, v => cl.b2 = v)) : null,
+      el('input', { type: 'text', disabled: readOnly, value: cl.text || '', placeholder: 'Your wording (optional)', style: 'flex:1;min-width:200px', oninput: e => { cl.text = e.target.value; } }),
+      readOnly ? null : el('button', { class: 'btn small danger', 'aria-label': `Remove clue ${k + 1}`, onclick: () => { st.clues.splice(k, 1); drawClues(); queueCheck(); } }, '✕'))));
+  }
+  function setSize(k, n) {
+    while (st.categories.length < k) st.categories.push({ name: '', items: [] });
+    st.categories.length = k;
+    st.categories.forEach(c => { while (c.items.length < n) c.items.push(''); c.items.length = n; });
+    st.clues = []; drawCats(); drawClues(); queueCheck();
+  }
+  function queueCheck() { clearTimeout(checkTimer); checkTimer = setTimeout(runCheck, 400); }
+  async function runCheck() {
+    try {
+      const r = await api('POST', '/teacher/logic/check', { categories: st.categories, clues: st.clues });
+      lastOk = r.ok;
+      verdict.className = 'verdict ' + (r.ok ? 'ok' : 'no');
+      verdict.textContent = r.ok ? '✓ Exactly one answer fits these clues — ready to publish.' : r.problem;
+    } catch (e) { verdict.textContent = e.message; }
+  }
+  async function save(publish) {
+    const body = { title: st.title, intro: st.intro, categories: st.categories, clues: st.clues };
+    try {
+      const r = st.id ? await api('PUT', '/teacher/logic/puzzles/' + st.id, body) : await api('POST', '/teacher/logic/puzzles', body);
+      st.id = r.puzzle_id;
+      if (publish) { await api('POST', `/teacher/logic/puzzles/${st.id}/publish`); msg.textContent = 'Published. Open it for a period from the list.'; }
+      else msg.textContent = 'Saved as a draft.';
+      msg.style.color = 'var(--green)'; setTimeout(refresh, 900);
+    } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+  }
+  const k = st.categories.length, n = st.categories[0].items.length;
+  const sizeSel = el('select', { disabled: readOnly, onchange: e => { const [kk, nn] = e.target.value.split('x').map(Number); setSize(kk, nn); } },
+    el('option', { value: '2x3', text: '2 categories × 3 items (3×3)' }), el('option', { value: '2x4', text: '2 categories × 4 items (4×4)' }), el('option', { value: '3x4', text: '3 categories × 4 items' }), el('option', { value: '3x3', text: '3 categories × 3 items' }));
+  sizeSel.value = `${k}x${n}`;
+  main().replaceChildren(el('div', { class: 'card' },
+    el('h2', { text: readOnly ? 'Puzzle (students have worked on it)' : st.id ? 'Edit puzzle' : 'New puzzle' }),
+    el('div', { class: 'form-row' }, el('label', {}, 'Title', el('input', { type: 'text', value: st.title, disabled: readOnly, style: 'min-width:300px', oninput: e => st.title = e.target.value })),
+      el('label', {}, 'Size', sizeSel)),
+    el('label', { class: 'muted', style: 'font-size:0.85rem' }, 'Story / instructions for students (optional)'),
+    el('textarea', { rows: '2', disabled: readOnly, value: st.intro, oninput: e => st.intro = e.target.value }),
+    el('h3', { text: 'Categories and items' }), catsBox,
+    el('h3', { text: 'Clues' }), cluesBox,
+    readOnly ? null : el('button', { class: 'btn', onclick: () => { st.clues.push({ type: 'is', a: null, b: null }); drawClues(); } }, '+ Add clue'),
+    verdict,
+    el('div', { class: 'actions' }, readOnly ? null : el('button', { class: 'btn', onclick: () => save(false) }, 'Save draft'),
+      readOnly ? null : el('button', { class: 'btn primary', onclick: () => { if (!lastOk) { msg.textContent = 'It needs exactly one answer before it can be published.'; msg.style.color = 'var(--amber)'; return; } save(true); } }, 'Save and publish'),
+      el('button', { class: 'btn', onclick: refresh }, 'Back'), msg)));
+  drawCats(); drawClues(); queueCheck();
+}
+
+// ── ACCOMMODATIONS (private) ────────────────────────────────────────────────
+function renderAcc(d) {
+  main().replaceChildren(el('div', { class: 'card' }, el('h2', { text: `Accommodations · Period ${period()}` }),
+    el('p', { class: 'muted', style: 'margin-top:0', text: 'Private: only you see these. They apply silently to that student\'s Oracle Trials and Labyrinth puzzles. The question set is fixed when a student starts a trial; text size and read-aloud apply right away. (Nothing in these activities is timed, so extended time is always on.)' }),
+    el('div', { class: 'scroll' }, el('table', {}, el('thead', {}, el('tr', {}, el('th', { text: 'Student' }), ...Object.values(ACC).map(h => el('th', { class: 'n', text: h })), el('th'))),
+      el('tbody', {}, d.students.map(s => {
+        const status = el('span', { class: 'muted', style: 'font-size:0.8rem' });
+        return el('tr', {}, el('td', { text: s.name }), ...Object.keys(ACC).map(k => el('td', { class: 'n' },
+          el('input', { type: 'checkbox', 'aria-label': `${ACC[k]} for ${s.name}`, checked: s.settings[k], onchange: async e => {
+            s.settings[k] = e.target.checked; status.textContent = 'Saving…';
+            try { await api('PUT', '/teacher/accommodations/' + s.student_id, { settings: s.settings }); status.textContent = 'Saved'; }
+            catch (er) { status.textContent = er.message; e.target.checked = !e.target.checked; } } }))), el('td', {}, status));
+      }))))));
+}
+
+// ── READING DASHBOARD ───────────────────────────────────────────────────────
+function renderDash(d) {
+  const types = d.question_types;
+  const typeCells = bt => types.map(t => { const v = bt[t]; const p = v ? pct(v.correct, v.total) : null;
+    return el('td', { class: 'n' }, p === null ? '—' : el('span', { class: `pct ${pctClass(p)}`, text: p + '%' }), v ? el('div', { class: 'muted', style: 'font-size:0.75rem', text: `${v.correct}/${v.total}` }) : null); });
+  const trialTable = el('table', {}, el('thead', {}, el('tr', {}, el('th', { text: 'Week' }), el('th', { text: 'Trial' }), el('th', { class: 'n', text: 'Turned in' }), el('th', { class: 'n', text: 'Average' }), ...types.map(t => el('th', { class: 'n', text: TYPES[t] })))),
+    el('tbody', {}, d.trials.map(t => el('tr', {}, el('td', { text: t.week ?? '—' }), el('td', {}, t.title, el('div', { class: 'muted', style: 'font-size:0.75rem', text: `${t.source === 'evslin' ? 'Evslin' : 'Cold read'} · ${t.word_count} words · ${t.status}` })),
+      el('td', { class: 'n', text: `${t.submitted}${t.in_progress ? ` (+${t.in_progress} in progress)` : ''}` }),
+      el('td', { class: 'n' }, t.average === null ? '—' : el('span', { class: `pct ${pctClass(t.average)}`, text: t.average + '%' })), ...typeCells(t.by_type)))));
+  const studentTable = el('table', {}, el('thead', {}, el('tr', {}, el('th', { text: 'Student' }), ...d.trials.map(t => el('th', { class: 'n', text: t.week ? `Wk ${t.week}` : t.title.slice(0, 12) })),
+    el('th', { class: 'n', text: 'Change' }), ...types.map(t => el('th', { class: 'n', text: TYPES[t] })), el('th', { class: 'n', text: 'Puzzles solved' }))),
+    el('tbody', {}, d.students.map(s => el('tr', {}, el('td', {}, s.name, el('div', { class: 'muted', style: 'font-size:0.75rem', text: s.alliance_name || '' })),
+      ...d.trials.map(t => { const sc = s.scores[t.trial_id];
+        if (!sc) return el('td', { class: 'n muted', text: '—' });
+        if (sc.status !== 'submitted') return el('td', { class: 'n muted', text: 'started' });
+        return el('td', { class: 'n' }, el('span', { class: `pct ${pctClass(sc.percentage)}`, text: Math.round(sc.percentage) + '%' }), sc.adjusted ? el('span', { title: 'Taken with accommodations', text: ' ⓐ' }) : null,
+          el('div', {}, el('button', { class: 'btn small', title: 'Let this student continue or redo this trial', onclick: async () => {
+            if (!confirm(`Reopen ${s.name}'s ${t.title}? They keep their answers and can change them. Points are not given twice.`)) return;
+            try { await api('POST', `/teacher/oracle/attempts/${sc.attempt_id}/reopen`); refresh(); } catch (e) { alert(e.message); } } }, '↺ reopen'))); }),
+      el('td', { class: 'n' }, s.change === null ? '—' : el('span', { class: s.change > 0 ? 'hi' : s.change < 0 ? 'lo' : '', text: (s.change > 0 ? '+' : '') + s.change })),
+      ...typeCells(s.by_type), el('td', { class: 'n', text: `${s.logic_solved} / ${s.logic_tried}` })))));
+  main().replaceChildren(
+    el('div', { class: 'card' }, el('h2', { text: `Period ${period()} — trials by week` }), d.trials.length ? el('div', { class: 'scroll' }, trialTable) : el('p', { class: 'muted', text: 'No trials assigned to this period yet.' })),
+    el('div', { class: 'card' }, el('h2', { text: 'Students' }),
+      el('p', { class: 'muted', style: 'margin-top:0;font-size:0.85rem', text: 'Green 80%+, amber 60–79%, red below 60%. ⓐ = taken with accommodations. Change = latest trial minus first trial. Question-type columns total every trial so far.' }),
+      el('div', { class: 'scroll' }, studentTable)));
+}
+
+loadPeriods().then(refresh).catch(e => main().replaceChildren(el('div', { class: 'empty', text: e.message })));
+</script>
+</body>
+</html>
