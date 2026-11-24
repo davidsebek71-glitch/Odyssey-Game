@@ -29,10 +29,13 @@ const words = n => Array.from({ length: n }, (_, i) => ['the', 'beast', 'waits',
     await p.goto(B + url); return p;
   }
   const c = await open(C, '/island.html', { name: 'Student C', type: 'student' });
+  // Each quest's pin goes in its own spot, so a tap never lands on an earlier pin
+  // (which would open that pin instead of placing this one)
+  let spot = 0;
   const startQuest = async title => {
     await c.goto(B + '/island.html'); await c.waitForSelector('.quest');
     await c.locator('.quest', { hasText: title }).getByRole('button').click(); await c.waitForSelector('#f-title');
-    const bx = await c.locator('.map-wrap img').boundingBox(); await c.mouse.click(bx.x + bx.width * (0.2 + Math.random() * 0.6), bx.y + bx.height * 0.5);
+    const bx = await c.locator('.map-wrap img').boundingBox(); await c.mouse.click(bx.x + bx.width * (0.2 + 0.3 * spot++), bx.y + bx.height * 0.5);
   };
 
   // ── C builds the Lair in the editor
