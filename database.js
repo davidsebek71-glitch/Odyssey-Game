@@ -681,8 +681,6 @@ async function initDatabase() {
     )
   `);
 
-  // ==================== TRADE SYSTEM TABLES ====================
-
   // Psyche Trials game results (Portal 6: Eros & Psyche)
   db.run(`
     CREATE TABLE IF NOT EXISTS psyche_game_results (
@@ -699,90 +697,6 @@ async function initDatabase() {
       passed INTEGER DEFAULT 0,
       completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Alliance native resource assignments (no shared pool — students buy directly)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS alliance_resources (
-      alliance_id INTEGER PRIMARY KEY,
-      native_resource TEXT NOT NULL,
-      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
-    )
-  `);
-
-  // Student personal resource inventories
-  db.run(`
-    CREATE TABLE IF NOT EXISTS student_resources (
-      student_id INTEGER PRIMARY KEY,
-      olive INTEGER DEFAULT 0,
-      grape INTEGER DEFAULT 0,
-      iron INTEGER DEFAULT 0,
-      grain INTEGER DEFAULT 0,
-      FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Trade records
-  db.run(`
-    CREATE TABLE IF NOT EXISTS trades (
-      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      initiator_id INTEGER NOT NULL,
-      partner_id INTEGER NOT NULL,
-      give_resource TEXT NOT NULL,
-      give_amount INTEGER NOT NULL,
-      receive_resource TEXT NOT NULL,
-      receive_amount INTEGER NOT NULL,
-      status TEXT DEFAULT 'pending',
-      flagged INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      completed_at DATETIME,
-      FOREIGN KEY (initiator_id) REFERENCES students(student_id),
-      FOREIGN KEY (partner_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Resource buy log (student buys native resource directly into personal inventory)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS resource_buys (
-      buy_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      alliance_id INTEGER NOT NULL,
-      resource_type TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      points_spent INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id) REFERENCES students(student_id),
-      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
-    )
-  `);
-
-  // Sell-back records
-  db.run(`
-    CREATE TABLE IF NOT EXISTS resource_sellbacks (
-      sellback_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      alliance_id INTEGER NOT NULL,
-      resource_type TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      market_value REAL NOT NULL,
-      points_earned INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (student_id) REFERENCES students(student_id),
-      FOREIGN KEY (alliance_id) REFERENCES alliances(alliance_id)
-    )
-  `);
-
-  // Trade window status per period (with configurable threshold)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS trade_window (
-      period TEXT PRIMARY KEY,
-      is_open INTEGER DEFAULT 0,
-      opened_at DATETIME,
-      closed_at DATETIME,
-      opened_by INTEGER,
-      resource_threshold INTEGER DEFAULT 150
     )
   `);
 
@@ -834,63 +748,6 @@ async function initDatabase() {
       achieved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (student_id) REFERENCES students(student_id),
       UNIQUE(student_id, tier)
-    )
-  `);
-
-  // Market supply pool (teacher-injected resources for periods missing a producer)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_supply (
-      period TEXT NOT NULL,
-      resource TEXT NOT NULL,
-      amount INTEGER DEFAULT 0,
-      PRIMARY KEY (period, resource)
-    )
-  `);
-
-  // Market auctions (competitive bidding windows for scarce resources)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_auctions (
-      auction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      period TEXT NOT NULL,
-      resource TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      status TEXT DEFAULT 'active',
-      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      ends_at DATETIME NOT NULL,
-      resolved_at DATETIME,
-      winner_bid_id INTEGER
-    )
-  `);
-
-  // Bids on market auctions
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_bids (
-      bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auction_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
-      offer_resource TEXT NOT NULL,
-      offer_amount INTEGER NOT NULL,
-      request_amount INTEGER NOT NULL,
-      ratio REAL NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (auction_id) REFERENCES market_auctions(auction_id),
-      FOREIGN KEY (student_id) REFERENCES students(student_id)
-    )
-  `);
-
-  // Completed market trades (auction winners)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS market_trades (
-      trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auction_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
-      student_gave_resource TEXT NOT NULL,
-      student_gave_amount INTEGER NOT NULL,
-      student_received_resource TEXT NOT NULL,
-      student_received_amount INTEGER NOT NULL,
-      completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (auction_id) REFERENCES market_auctions(auction_id),
-      FOREIGN KEY (student_id) REFERENCES students(student_id)
     )
   `);
 
@@ -1569,21 +1426,6 @@ function seedReferenceData() {
   } catch (e) {
     console.log('Migration note: Demeter question -', e.message);
   }
-  // Trade system schema migration: add resource_threshold, create resource_buys
-  try {
-    const twCols = db.exec("PRAGMA table_info(trade_window)");
-    const twColNames = twCols[0] ? twCols[0].values.map(c => c[1]) : [];
-    if (!twColNames.includes('resource_threshold')) {
-      db.run("ALTER TABLE trade_window ADD COLUMN resource_threshold INTEGER DEFAULT 500");
-      console.log('✅ Added resource_threshold column to trade_window');
-    }
-  } catch (e) { console.log('Migration note: trade_window threshold -', e.message); }
-
-  // V93 FIX: Lower resource threshold from 500 to 200 for all periods
-  try {
-    db.run("UPDATE trade_window SET resource_threshold = 150 WHERE resource_threshold IN (200, 500)");
-  } catch (e) { console.log('Migration note: threshold update -', e.message); }
-
   // V93 FIX: Clear stale scout_status for students whose alliance has already reached that age
   try {
     db.run(`UPDATE students SET scout_status = NULL 
@@ -1603,18 +1445,6 @@ function seedReferenceData() {
     db.run(`UPDATE students SET scout_status = NULL WHERE scout_status = 'Heroic' AND alliance_id IN (SELECT alliance_id FROM alliances WHERE current_age = 'Heroic')`);
     console.log('✅ Cleared stale scout statuses');
   } catch (e) { console.log('Migration note: scout cleanup -', e.message); }
-  
-  try {
-    db.run(`CREATE TABLE IF NOT EXISTS resource_buys (
-      buy_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      alliance_id INTEGER NOT NULL,
-      resource_type TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      points_spent INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-  } catch (e) { console.log('Migration note: resource_buys -', e.message); }
 
   // Icarus scoring correction: Reading Guide 12→5, Quiz 10→17, Creative→20
   try {
@@ -2343,7 +2173,14 @@ function seedReferenceData() {
   
   // Always run badge seeding — has its own internal guard
   seedBadges();
-  
+
+  // Trade System retired (Nov 2026): hide the Trader badges so they no longer
+  // appear in the Hall of Honor or count toward "Legend" (earn all badges).
+  // Students who already earned one keep it in student_badges.
+  try {
+    db.run("UPDATE badges_ref SET is_active = 0 WHERE badge_id IN ('honor_trader', 'class_trader')");
+  } catch (e) { console.log('Migration note: retire trader badges -', e.message); }
+
   if (buildingsExist && choicesExist && sideQuestsExist) {
     console.log('✅ Database already fully seeded');
     return;
@@ -3959,97 +3796,6 @@ function seedClassicalData() {
   }
 
   console.log('🏛️ Classical Age data check complete');
-
-  // V95 FIX: Ensure market auction tables exist (may be missing on persistent volumes)
-  try {
-    const tableCheck = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='market_bids'");
-    if (!tableCheck[0] || tableCheck[0].values.length === 0) {
-      console.log('🔧 Creating missing market auction tables...');
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS market_auctions (
-          auction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          period TEXT NOT NULL,
-          resource TEXT NOT NULL,
-          amount INTEGER NOT NULL,
-          status TEXT DEFAULT 'active',
-          started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          ends_at DATETIME NOT NULL,
-          resolved_at DATETIME,
-          winner_bid_id INTEGER
-        )
-      `);
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS market_bids (
-          bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          offer_resource TEXT NOT NULL,
-          offer_amount INTEGER NOT NULL,
-          request_amount INTEGER NOT NULL,
-          ratio REAL NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS market_trades (
-          trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          student_gave_resource TEXT NOT NULL,
-          student_gave_amount INTEGER NOT NULL,
-          student_received_resource TEXT NOT NULL,
-          student_received_amount INTEGER NOT NULL,
-          completed_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      saveDatabaseNow();
-      console.log('✅ Market auction tables created');
-    }
-  } catch (e) {
-    console.log('Migration note: market tables -', e.message);
-  }
-
-  // V93 FIX: market_bids and market_trades have wrong schema from Classic Age 5 code.
-  // The old tables use bidder_id/resource_wanted/amount_wanted/resource_offered/amount_offered
-  // but current code expects auction_id/student_id/offer_resource/offer_amount/request_amount.
-  // Drop and recreate — no valuable data exists in these tables.
-  try {
-    const colCheck = db.exec("PRAGMA table_info(market_bids)");
-    const colNames = colCheck[0] ? colCheck[0].values.map(r => r[1]) : [];
-    if (colNames.includes('bidder_id') && !colNames.includes('auction_id')) {
-      console.log('🔧 Rebuilding market_bids and market_trades with correct schema...');
-      db.exec('DROP TABLE IF EXISTS market_bids');
-      db.exec('DROP TABLE IF EXISTS market_trades');
-      db.exec(`
-        CREATE TABLE market_bids (
-          bid_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          offer_resource TEXT NOT NULL,
-          offer_amount INTEGER NOT NULL,
-          request_amount INTEGER NOT NULL,
-          ratio REAL NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      db.exec(`
-        CREATE TABLE market_trades (
-          trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          auction_id INTEGER NOT NULL,
-          student_id INTEGER NOT NULL,
-          student_gave_resource TEXT NOT NULL,
-          student_gave_amount INTEGER NOT NULL,
-          student_received_resource TEXT NOT NULL,
-          student_received_amount INTEGER NOT NULL,
-          completed_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      saveDatabaseNow();
-      console.log('✅ market_bids and market_trades rebuilt with correct schema');
-    }
-  } catch (e) {
-    console.log('Migration note: market schema fix -', e.message);
-  }
 }
 
 // Debounced save to prevent EBUSY errors from rapid writes
