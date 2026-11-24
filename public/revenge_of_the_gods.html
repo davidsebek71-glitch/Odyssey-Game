@@ -1251,16 +1251,21 @@ function routeToPhase(phase, round) {
 
     case 'combat':
       // If returning from combat_wave.html with a stored result, show it
+      // Only a FINALIZED result (resolved: true) may be shown directly.
+      // combat-ready also stores combat_result with just the dice rolls; showing
+      // that on a reload displayed "0 points" and skipped the leader's spell /
+      // trivia / finalize steps, leaving the team stuck. Unfinished combat
+      // reopens the combat screen; the server returns the stored rolls, spell
+      // and trivia answer, so the leader resumes where they left off.
+      var storedResult = null;
       if (raceState && raceState.combat_result) {
-        try {
-          const stored = JSON.parse(raceState.combat_result);
-          // Show the combat story screen first so showCombatResult has elements to populate
-          showCombat(round).then(function() {
-            showCombatResult(stored);
-          });
-        } catch(e) {
-          showCombat(round);
-        }
+        try { storedResult = JSON.parse(raceState.combat_result); } catch(e) { storedResult = null; }
+      }
+      if (storedResult && storedResult.resolved === true) {
+        // Show the combat story screen first so showCombatResult has elements to populate
+        showCombat(round).then(function() {
+          showCombatResult(storedResult);
+        });
       } else {
         showCombat(round);
       }
