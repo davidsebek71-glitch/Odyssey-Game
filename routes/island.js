@@ -44,7 +44,7 @@ function cleanVideoUrl(v) {
 }
 
 module.exports = function registerIslandRoutes(app, deps) {
-  const { authenticateToken, query, run, saveDatabase, DATA_DIR } = deps;
+  const { authenticateToken, query, run, saveDatabase, DATA_DIR, monsters } = deps;
   const voyage = require('./voyage_helpers')({ query, run });
   const UPLOAD_DIR = path.join(DATA_DIR, 'uploads', 'pins');
   try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch (e) { console.error('island upload dir:', e.message); }
@@ -235,7 +235,8 @@ module.exports = function registerIslandRoutes(app, deps) {
         map_image: mapRow && mapRow.map_image ? mapRow.map_image : null,
         quests,
         pins: pins.map(p => pinOut(p, true)),
-        feature_types: FEATURE_TYPES
+        feature_types: FEATURE_TYPES,
+        monsters: monsters ? monsters.regionMonsters(me.student_id) : []
       });
     } catch (e) { console.error('island/me:', e); res.status(500).json({ error: 'Could not load your island.' }); }
   });
@@ -253,18 +254,22 @@ module.exports = function registerIslandRoutes(app, deps) {
         `SELECT * FROM island_pins WHERE owner_student_id = ? ${seeAll ? '' : "AND status = 'published'"} ORDER BY pin_id`,
         [ownerId]);
       const mapRow = query('SELECT map_image FROM students WHERE student_id = ?', [ownerId])[0];
+      const regions = monsters ? monsters.regionMonsters(ownerId) : [];
       const out = pins.map(p => {
-        if (access === 'full') return pinOut(p, seeAll);
+        if (access === 'full') return Object.assign(pinOut(p, seeAll), regions.length && monsters.inRegion(p, regions) ? { in_monster_region: true } : {});
         // Visitor: named places are labels anyone may read; quest work stays
-        // locked until this student has visited it.
+        // locked until this student has visited it (and can't be visited
+        // while a monster lurks near it).
         const v = myVisit(req, p.pin_id);
         if (!p.quest_id) return pinOut(p, false);
-        return v ? Object.assign(pinOut(p, false), { visit_id: v.visit_id, visit_status: v.status }) : pinTeaser(p);
+        if (v) return Object.assign(pinOut(p, false), { visit_id: v.visit_id, visit_status: v.status });
+        return Object.assign(pinTeaser(p), regions.length && monsters.inRegion(p, regions) ? { blocked: true } : {});
       });
       res.json({
         owner: { student_id: owner.student_id, name: owner.name, class_period: owner.class_period },
         map_image: mapRow && mapRow.map_image ? mapRow.map_image : null,
         pins: out,
+        monsters: regions,
         access,
         viewer_is_owner: req.user.id === ownerId && !isTeacher(req)
       });

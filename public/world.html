@@ -107,6 +107,8 @@ function render() {
       'Work on your island. Each piece your teacher approves earns your alliance voyage tokens for the next voyage.'));
     if (!teacherPeriod) box.append(el('div', { class: 'muted', text: `Your alliance has ${w.tokens} voyage token${w.tokens === 1 ? '' : 's'} saved.` }));
   }
+  if (w.harbor_blocked_by && !teacherPeriod) box.append(el('div', { style: 'color:#f87171;margin-top:6px' },
+    `👹 ${w.harbor_blocked_by} is guarding your harbor — no voyages until your alliance defeats it. `, el('a', { href: '/monsters.html' }, 'Face it →')));
   if (w.open_visit) box.append(el('div', { class: 'open' }, `You have a visit in progress: "${w.open_visit.pin_title}". `,
     el('a', { href: `/island.html?student=${w.open_visit.owner_student_id}` }, 'Continue it →')));
   document.getElementById('status').replaceChildren(box);

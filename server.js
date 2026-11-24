@@ -487,11 +487,15 @@ function requireDbReady(req, res, next) {
 app.use('/api', requireDbReady);
 
 // Auth middleware
+// Gods & monsters (Stage 4) — god powers, awakened monsters and what they block,
+// battles. See routes/monsters.js. Registered first: islands and voyages ask it
+// about blocks.
+const monsterRoutes = require('./routes/monsters')(app, { authenticateToken, query, run });
 // Islands (Stage 1) — quest sites and story pins. See routes/island.js.
 // Registered here, after requireDbReady, so requests wait for the database.
-const islandRoutes = registerIslandRoutes(app, { authenticateToken, query, run, saveDatabase, DATA_DIR });
+const islandRoutes = registerIslandRoutes(app, { authenticateToken, query, run, saveDatabase, DATA_DIR, monsters: monsterRoutes });
 // Voyages (Stage 2) — world map, build/voyage phases, tokens, visits. See routes/voyage.js.
-require('./routes/voyage')(app, { authenticateToken, query, run, island: islandRoutes });
+require('./routes/voyage')(app, { authenticateToken, query, run, island: islandRoutes, monsters: monsterRoutes });
 // Stage 3 — Oracle Trials, accommodations and the reading dashboard (routes/oracle.js),
 // Labyrinth Logic puzzles (routes/labyrinth.js, solver in lib/logic.js)
 require('./routes/oracle')(app, { authenticateToken, query, run });
@@ -5578,8 +5582,11 @@ function getAllianceBuildingBonus(alliance_id) {
   
   const now = new Date();
   let totalBonus = 0;
+  // Stage 4: a building seized by an awake monster gives no bonus
+  const seized = monsterRoutes ? monsterRoutes.blockedBuildings(alliance_id) : [];
   
   activations.forEach(a => {
+    if (seized.includes(a.building_name)) return;
     if (a.always_active) {
       // Walls don't give point bonuses, only battle bonuses
       return;

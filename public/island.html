@@ -287,6 +287,8 @@ function renderMap() {
   drawFog();
   if (current && editable(current)) {
     setHint(current.x_pct === null ? 'Tap your map where this belongs.' : 'Tap the map to move it, or select the pin and use the arrow keys.', true);
+  } else if ((island.monsters || []).length) {
+    setHint(`${island.monsters.map(m => m.name).join(' and ')} lurks on this island. That region stays in fog${mode === 'own' ? ' until your alliance defeats it (Gods & Monsters)' : ' and can\'t be visited'}.`, true);
   } else if (mode === 'own') {
     setHint('Published work clears the fog around it. Choose a quest to begin.');
   } else {
@@ -314,6 +316,14 @@ function drawFog() {
     const g = c.createRadialGradient(x, y, r * 0.35, x, y, r);
     g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+  });
+  // Stage 4: an awake monster keeps its region in thick fog
+  c.globalCompositeOperation = 'source-over';
+  (island.monsters || []).forEach(m => {
+    const x = m.x_pct / 100 * w, y = m.y_pct / 100 * h, mr = m.radius / 100 * w;
+    c.fillStyle = 'rgba(40, 6, 20, 0.78)'; c.beginPath(); c.arc(x, y, mr, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = 'rgba(248,113,113,0.7)'; c.lineWidth = 2; c.setLineDash([6, 5]); c.stroke(); c.setLineDash([]);
+    c.font = `${Math.max(22, mr * 0.45)}px serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(m.emoji || '👹', x, y);
   });
 }
 
@@ -699,6 +709,8 @@ function voyageBox() {
 function visitBlockReason(p) {
   if (!world) return 'Voyages aren\'t open for you.';
   if (world.mode !== 'voyage') return 'Voyages are closed right now.';
+  if (world.harbor_blocked_by) return `${world.harbor_blocked_by} is guarding your harbor. Defeat it before you can sail.`;
+  if (p.blocked) return 'A monster lurks near this piece. Its alliance must defeat it first.';
   if (!p.has_question) return 'Not ready for visitors yet.';
   if (world.open_visit && world.open_visit.pin_id !== p.pin_id) return 'Finish the visit you already started first.';
   if (world.visits_used >= world.visit_cap) return `You've made ${world.visits_used} of ${world.visit_cap} visits this voyage.`;

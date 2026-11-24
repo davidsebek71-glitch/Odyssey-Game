@@ -23,7 +23,7 @@ const SETTING_KEYS = ['tokens_per_publish', 'visit_cap', 'visitor_points', 'auth
 const MAX_RESPONSE = 3000;
 
 module.exports = function registerVoyageRoutes(app, deps) {
-  const { authenticateToken, query, run, island } = deps;
+  const { authenticateToken, query, run, island, monsters } = deps;
   const voyage = require('./voyage_helpers')({ query, run });
   const { getPin, getStudent, getQuestion, pinOut } = island;
 
@@ -99,6 +99,7 @@ module.exports = function registerVoyageRoutes(app, deps) {
         period, mode: s.mode, visit_cap: s.visit_cap, min_response_words: s.min_response_words,
         my_alliance_id: me ? me.alliance_id : null,
         tokens: me ? voyage.getBalance(me.alliance_id) : null,
+        harbor_blocked_by: me && monsters ? monsters.harborBlockedBy(me.alliance_id) : null,
         visits_used: me ? visitsThisVoyage(me.student_id, s.window_id) : null,
         open_visit: open ? { visit_id: open.visit_id, pin_id: open.pin_id, pin_title: open.pin_title, owner_student_id: open.owner_student_id } : null,
         alliances: out
@@ -119,6 +120,12 @@ module.exports = function registerVoyageRoutes(app, deps) {
       if (!getQuestion(pin.pin_id)) return res.status(409).json({ error: 'This piece has no question yet, so it can\'t be visited.' });
       const s = voyage.getSettings(me.class_period);
       if (s.mode !== 'voyage') return res.status(409).json({ error: 'Voyages are closed right now. Your teacher will open the next voyage.' });
+      // Stage 4 blocks: a monster at your harbor, or one lurking near the piece
+      const harbor = monsters && monsters.harborBlockedBy(me.alliance_id);
+      if (harbor) return res.status(409).json({ error: `${harbor} is guarding your harbor. Defeat it before you can sail.` });
+      if (monsters && monsters.inRegion(pin, monsters.regionMonsters(owner.student_id))) {
+        return res.status(409).json({ error: 'A monster lurks in that part of the island. Its alliance must defeat it first.' });
+      }
       const open = openVisitFor(me.student_id);
       if (open) {
         if (open.pin_id === pin.pin_id) return res.json({ visit: visitOut(getVisit(open.visit_id)), resumed: true });

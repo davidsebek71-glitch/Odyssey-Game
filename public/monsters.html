@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gods & Monsters — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.65);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button, input, textarea { font: inherit; }
+  a { color: var(--gold); }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.25rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn.danger { background: linear-gradient(135deg, #b91c1c, #7f1d1d); border-color: #b91c1c; color: #fff; font-weight: 700; }
+  .btn:focus-visible, .opt:focus-visible, .god:focus-visible, .power:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.1rem; margin: 0 0 10px; }
+  h3 { color: var(--violet); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 0 8px; }
+  .muted { color: var(--muted); }
+  .threat { display: flex; gap: 14px; align-items: center; padding: 12px; border: 1px solid rgba(248,113,113,0.4); background: rgba(127,29,29,0.18); border-radius: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .threat .em { font-size: 2.4rem; }
+  .threat .info { flex: 1; min-width: 220px; line-height: 1.45; }
+  .threat .name { font-family: 'Cinzel', serif; font-weight: 700; font-size: 1.1rem; }
+  .gods { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .god { background: rgba(15,10,30,0.7); border: 1px solid var(--line); border-radius: 10px; padding: 12px; text-align: center; cursor: pointer; color: var(--text); }
+  .god .em { font-size: 1.8rem; } .god .nm { font-weight: 700; margin-top: 4px; } .god .pw { font-size: 0.8rem; color: var(--muted); }
+  .god.earned { border-color: var(--gold); background: rgba(240,199,94,0.1); }
+  .chip { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid; margin-top: 6px; }
+  .chip.approved { color: var(--gold); border-color: var(--gold); } .chip.submitted { color: var(--amber); border-color: var(--amber); }
+  .chip.returned { color: var(--red); border-color: var(--red); } .chip.draft { color: var(--muted); border-color: var(--line); }
+  .chip.effective { color: var(--green); border-color: var(--green); } .chip.neutral { color: var(--muted); border-color: var(--line); } .chip.resisted { color: var(--red); border-color: var(--red); }
+  label.f { display: block; font-weight: 600; margin: 12px 0 6px; }
+  textarea, input[type=text] { width: 100%; background: rgba(10,6,22,0.85); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px; line-height: 1.5; }
+  .banner { border-radius: 8px; padding: 10px 12px; margin: 10px 0; border: 1px solid; line-height: 1.45; }
+  .banner.warn { border-color: var(--amber); background: rgba(251,191,36,0.1); } .banner.bad { border-color: var(--red); background: rgba(248,113,113,0.12); }
+  .banner.good { border-color: var(--green); background: rgba(110,231,160,0.1); }
+  .steps { display: flex; gap: 6px; margin: 6px 0 12px; font-size: 0.82rem; flex-wrap: wrap; }
+  .steps span { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .steps span.on { border-color: var(--gold); color: var(--gold); font-weight: 700; } .steps span.done { border-color: var(--green); color: var(--green); }
+  .powers { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .power { text-align: left; background: rgba(15,10,30,0.7); border: 1px solid var(--line); border-radius: 10px; padding: 12px; cursor: pointer; color: var(--text); }
+  .power:hover { border-color: var(--violet); }
+  .passage { font-family: 'Source Serif 4', Georgia, serif; line-height: 1.75; font-size: 1.05rem; }
+  .opt { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px; border-radius: 8px; cursor: pointer; background: rgba(10,6,22,0.85); color: var(--text); border: 1px solid var(--line); }
+  .opt.right { border-color: var(--green); background: rgba(110,231,160,0.12); } .opt.wrong { border-color: var(--red); background: rgba(248,113,113,0.1); }
+  .opt[disabled] { cursor: default; }
+  .dice { display: flex; gap: 24px; justify-content: center; align-items: center; margin: 14px 0; flex-wrap: wrap; text-align: center; }
+  .dice .n { font-family: 'Cinzel', serif; font-size: 2.6rem; font-weight: 700; }
+  .dice .lab { font-size: 0.85rem; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 850px) { .grid2 { grid-template-columns: 1fr; } }
+  .empty { text-align: center; color: var(--muted); padding: 30px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/student.html" id="back">← Dashboard</a>
+  <h1 id="title">Gods & Monsters</h1>
+  <span class="muted" id="save-state" aria-live="polite"></span>
+</div>
+<main id="main"><div class="empty">Loading…</div></main>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const params = new URLSearchParams(location.search);
+const BATTLE_ID = params.get('battle');
+const STATUS = { approved: 'Power earned ✓', submitted: 'Waiting for approval', returned: 'Returned — see note', draft: 'Draft' };
+const MATCH = { effective: 'Effective (−35% monster)', neutral: 'Neutral (−15%)', resisted: 'Resisted (no effect)' };
+let gods = null, battle = null, poll = null, saveTimer = null;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'value') e.value = v;
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) { const e = new Error(d.error || 'Something went wrong. Try again.'); e.status = r.status; throw e; }
+  return d;
+}
+const main = () => document.getElementById('main');
+const words = t => (t || '').trim().split(/\s+/).filter(Boolean).length;
+
+// ── Hub ─────────────────────────────────────────────────────────────────────
+async function hub() {
+  try {
+    const [g, m] = await Promise.all([api('GET', '/gods'), api('GET', '/monsters/mine')]);
+    gods = g;
+    const threats = m.monsters.length ? m.monsters.map(t => el('div', { class: 'threat' },
+      el('span', { class: 'em', 'aria-hidden': 'true', text: t.emoji }),
+      el('div', { class: 'info' }, el('div', { class: 'name', text: t.name }), el('div', { text: `${t.name} ${t.block_text}.` }),
+        el('div', { class: 'muted', style: 'font-size:0.85rem', text: `From the myth of ${t.myth}${t.last_outcome === 'lost' ? ' · your alliance lost the last battle' : ''}` })),
+      t.can_battle_reason ? el('div', { class: 'muted', style: 'max-width:280px;font-size:0.88rem', text: t.can_battle_reason })
+        : el('button', { class: 'btn danger', onclick: () => startBattle(t) }, t.battle_id ? 'Continue the battle →' : '⚔️ Face it'))) :
+      [el('p', { class: 'muted', style: 'margin:0', text: 'No monsters are threatening your alliance right now.' })];
+    main().replaceChildren(
+      el('div', { class: 'card' }, el('h2', { text: '👹 Threats to your alliance' }), ...threats,
+        m.defeated.length ? el('p', { class: 'muted', style: 'margin-bottom:0', text: `Defeated: ${m.defeated.map(d => d.emoji + ' ' + d.name).join(', ')}` }) : null),
+      el('div', { class: 'card' }, el('h2', { text: '✨ Your alliance\'s god powers' }),
+        g.alliance_powers.length ? el('div', {}, g.alliance_powers.map(p => el('div', { style: 'padding:4px 0' }, `${p.emoji} ${p.power} (${p.name}) — held by ${p.holders.map(h => h.name).join(', ')}`)))
+          : el('p', { class: 'muted', style: 'margin:0', text: 'None yet. Earn one below — every power you earn can be used by your whole alliance.' })),
+      el('div', { class: 'card' }, el('h2', { text: '🏛️ Earn god powers' }),
+        el('p', { class: 'muted', style: 'margin-top:0', text: 'Write an evidence card: a claim about the god and a quotation from the text that proves it. When your teacher approves it, you hold that god\'s power.' }),
+        el('div', { class: 'gods' }, g.gods.map(gd => el('button', { class: 'god' + (gd.card && gd.card.status === 'approved' ? ' earned' : ''), onclick: () => cardEditor(gd) },
+          el('div', { class: 'em', 'aria-hidden': 'true', text: gd.emoji }), el('div', { class: 'nm', text: gd.name }), el('div', { class: 'pw', text: gd.power }),
+          gd.card ? el('span', { class: `chip ${gd.card.status}`, text: STATUS[gd.card.status] }) : null)))));
+  } catch (e) { main().replaceChildren(el('div', { class: 'empty', text: e.message })); }
+}
+
+// ── Evidence card ───────────────────────────────────────────────────────────
+function cardEditor(gd) {
+  const c = gd.card || { claim: '', evidence_text: '', source_note: '', status: 'draft' };
+  const editable = c.status === 'draft' || c.status === 'returned';
+  const why = el('div', { class: 'muted', style: 'color:var(--amber)' });
+  const claim = el('textarea', { rows: '3', disabled: !editable, value: c.claim || '', placeholder: `My claim about ${gd.name}…` });
+  const ev = el('textarea', { rows: '4', disabled: !editable, value: c.evidence_text || '', placeholder: 'Copy the exact words from the text, in quotation marks.' });
+  const src = el('input', { type: 'text', disabled: !editable, value: c.source_note || '', placeholder: 'Where it is (book, page)' });
+  const submit = el('button', { class: 'btn primary', onclick: async () => {
+    await save();
+    try { await api('POST', `/gods/${gd.key}/card/submit`); hub(); } catch (e) { why.textContent = e.message; }
+  } }, c.status === 'returned' ? 'Submit again' : 'Submit to my teacher');
+  function check() {
+    const p = words(claim.value) < 8 ? `Write a full claim (at least 8 words; you have ${words(claim.value)}).` : words(ev.value) < 5 ? 'Add a quotation from the text as your evidence.' : '';
+    why.textContent = p; submit.disabled = !!p;
+  }
+  async function save() {
+    clearTimeout(saveTimer);
+    try { await api('PUT', `/gods/${gd.key}/card`, { claim: claim.value, evidence_text: ev.value, source_note: src.value }); document.getElementById('save-state').textContent = 'Saved'; }
+    catch (e) { document.getElementById('save-state').textContent = e.message; }
+  }
+  [claim, ev, src].forEach(x => x.addEventListener('input', () => { check(); document.getElementById('save-state').textContent = 'Saving…'; clearTimeout(saveTimer); saveTimer = setTimeout(save, 900); }));
+  main().replaceChildren(el('div', { class: 'card' },
+    el('button', { class: 'btn', onclick: hub }, '← Back'),
+    el('h2', { style: 'margin-top:12px', text: `${gd.emoji} ${gd.name} — ${gd.power}` }),
+    c.status === 'approved' ? el('div', { class: 'banner good', text: 'You hold this power. Your alliance can use it against monsters.' }) : null,
+    c.status === 'submitted' ? el('div', { class: 'banner warn', text: 'Waiting for teacher approval.' }) : null,
+    c.status === 'returned' ? el('div', { class: 'banner bad' }, el('strong', { text: 'Returned: ' }), c.teacher_note || '', el('br'), 'Fix it and submit again.') : null,
+    el('p', { style: 'line-height:1.5', text: gd.prompt }),
+    el('label', { class: 'f' }, 'Claim'), claim, el('label', { class: 'f' }, 'Evidence (a quotation from the text)'), ev,
+    el('label', { class: 'f' }, 'Source'), src,
+    editable ? el('div', { style: 'display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap' }, submit, why) : null));
+  if (editable) check();
+}
+
+// ── Battle ──────────────────────────────────────────────────────────────────
+async function startBattle(t) {
+  try { const r = await api('POST', `/monsters/${t.island_monster_id}/battles`); location.href = '/monsters.html?battle=' + r.battle.battle_id; }
+  catch (e) { alert(e.message); hub(); }
+}
+async function loadBattle() {
+  try { battle = (await api('GET', '/monsters/battles/' + BATTLE_ID)).battle; }
+  catch (e) { main().replaceChildren(el('div', { class: 'empty' }, e.message, el('br'), el('a', { href: '/monsters.html', text: 'Back' }))); return; }
+  document.getElementById('back').href = '/monsters.html'; document.getElementById('back').textContent = '← Gods & Monsters';
+  renderBattle();
+  // Teammates follow along: refresh every few seconds until it's over
+  clearInterval(poll);
+  poll = setInterval(async () => {
+    if (battle.status === 'done') return clearInterval(poll);
+    try { const b = (await api('GET', '/monsters/battles/' + BATTLE_ID)).battle;
+      if (b.status !== battle.status || JSON.stringify(b.questions.map(q => q.answer_index)) !== JSON.stringify(battle.questions.map(q => q.answer_index))) { battle = b; renderBattle(); } } catch (e) {}
+  }, 3000);
+}
+async function act(path, body) {
+  document.querySelectorAll('main button').forEach(b => b.disabled = true);
+  try { battle = (await api('POST', `/monsters/battles/${battle.battle_id}/${path}`, body)).battle; }
+  catch (e) { alert(e.message); }
+  renderBattle();
+}
+function renderBattle() {
+  const b = battle, m = b.monster;
+  const stepOf = { choose_power: 1, questions: 2, roll: 3, done: 4 }[b.status];
+  const kids = [el('h2', { text: `${m.emoji} ${m.name}` }), el('div', { class: 'muted', text: `${m.name} ${m.block_text}. No timer — work it out together.` }),
+    el('div', { class: 'steps' }, ['1 Choose a power', '2 Answer', '3 Roll'].map((s, i) => el('span', { class: i + 1 < stepOf ? 'done' : i + 1 === stepOf ? 'on' : '', text: (i + 1 < stepOf ? '✓ ' : '') + s })))];
+
+  if (b.status === 'choose_power') {
+    kids.push(el('p', { text: 'Choose one god power your alliance holds. Some gods work better against this monster than others.' }),
+      el('div', { class: 'powers' }, b.powers.map(p => el('button', { class: 'power', onclick: () => act('power', { god: p.god }) },
+        el('div', { style: 'font-size:1.4rem' }, p.emoji), el('strong', { text: p.power }), el('div', { class: 'muted', style: 'font-size:0.85rem', text: `${p.name} · ${p.holders.map(h => h.name).join(', ')}` }),
+        el('span', { class: `chip ${p.matchup}`, text: MATCH[p.matchup] })))));
+  } else {
+    const pw = b.powers.find(p => p.god === b.power_god);
+    kids.push(el('div', { class: 'banner ' + (b.matchup === 'effective' ? 'good' : b.matchup === 'resisted' ? 'bad' : 'warn') },
+      `${pw ? pw.emoji + ' ' + pw.power : b.power_god} — ${MATCH[b.matchup]}`));
+    kids.push(el('div', { class: 'grid2' },
+      el('div', { class: 'card', style: 'margin:0' }, el('h3', { style: 'margin-top:0', text: `The myth of ${m.myth}` }), el('p', { class: 'passage', text: m.passage })),
+      el('div', {}, ...b.questions.map(q => el('div', { style: 'margin-bottom:14px' },
+        el('div', { style: 'font-weight:600;margin-bottom:6px', text: `${q.index + 1}. ${q.prompt}` }),
+        ...q.options.map((o, i) => {
+          let cls = 'opt';
+          if (q.answer_index !== null) { if (i === q.correct_index) cls += ' right'; else if (i === q.answer_index) cls += ' wrong'; }
+          return el('button', { class: cls, disabled: q.answer_index !== null || b.status !== 'questions', onclick: () => act('answer', { question: q.index, answer_index: i }) }, o);
+        }),
+        q.answer_index !== null ? el('div', { style: `font-size:0.88rem;color:${q.correct ? 'var(--green)' : 'var(--amber)'}`, text: q.correct ? '✓ Right — your alliance grows stronger (+10%)' : 'Not this time. The right answer is marked in green.' }) : null)))));
+  }
+  if (b.status === 'roll') {
+    kids.push(el('div', { class: 'card', style: 'margin-top:14px;text-align:center' },
+      el('p', { text: `${b.questions_correct} of ${b.questions.length} right. Your god power and your answers are ready. Roll the dice!` }),
+      el('button', { class: 'btn primary', style: 'font-size:1.1rem;padding:12px 26px', onclick: () => act('roll') }, '🎲 Roll the dice')));
+  }
+  if (b.status === 'done') {
+    const won = b.outcome === 'won';
+    kids.push(el('div', { class: 'card', style: 'margin-top:14px;text-align:center' },
+      el('div', { class: 'dice' },
+        el('div', {}, el('div', { class: 'lab', text: 'Your alliance' }), el('div', { class: 'n', style: 'color:var(--gold)', text: String(b.alliance_roll) }), el('div', { class: 'lab', text: `out of ${b.alliance_max}` })),
+        el('div', { class: 'n', style: 'font-size:1.4rem', text: 'vs' }),
+        el('div', {}, el('div', { class: 'lab', text: m.name }), el('div', { class: 'n', style: 'color:var(--red)', text: String(b.monster_roll) }), el('div', { class: 'lab', text: `out of ${b.monster_max}` }))),
+      el('div', { class: 'banner ' + (won ? 'good' : 'bad'), text: won ? `Victory! ${m.name} is defeated and the block is lifted. +${b.points_change} points.`
+        : `${m.name} wins this time. ${b.points_change} points. Your alliance can try again next class.` }),
+      el('a', { class: 'btn', href: '/monsters.html' }, 'Back to Gods & Monsters')));
+  }
+  main().replaceChildren(el('div', { class: 'card' }, ...kids));
+}
+
+if (BATTLE_ID) loadBattle(); else hub();
+</script>
+</body>
+</html>

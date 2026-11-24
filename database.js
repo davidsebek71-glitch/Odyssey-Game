@@ -762,11 +762,109 @@ async function initDatabase() {
 
   // Stage 3: Oracle Trials, Labyrinth Logic, accommodations
   ensureStage3Tables();
+
+  // Stage 4: god powers and monster encounters
+  ensureStage4Tables();
   
   // Save database to file
   saveDatabase();
   
   return db;
+}
+
+// ==================== STAGE 4: GOD POWERS + MONSTERS ====================
+// god_powers:       a student's evidence card for a god; approved = power earned
+// island_monsters:  a monster awake against an alliance and what it blocks
+//                   (harbor | building | region). monster_key = built-in monster
+//                   from data/monsters.json; pin_id = a student-made monster.
+// monster_battles:  one battle (power chosen, questions, rolls, outcome)
+// monster_attributes: a student-made monster's four "impossible to escape"
+//                   attributes, each paired with a counter (god power or question)
+// monster_encounters: a visitor's run through a student-made guardian → monster
+function ensureStage4Tables() {
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS god_powers (
+      power_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id    INTEGER NOT NULL,
+      god           TEXT NOT NULL,
+      claim         TEXT DEFAULT '',
+      evidence_text TEXT DEFAULT '',
+      source_note   TEXT DEFAULT '',
+      status        TEXT NOT NULL DEFAULT 'draft',
+      teacher_note  TEXT,
+      submitted_at  DATETIME,
+      reviewed_at   DATETIME,
+      updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (student_id, god)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS island_monsters (
+      island_monster_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      alliance_id       INTEGER NOT NULL,
+      monster_key       TEXT,
+      pin_id            INTEGER,
+      owner_student_id  INTEGER,
+      x_pct             REAL,
+      y_pct             REAL,
+      blocks            TEXT NOT NULL DEFAULT 'harbor',
+      block_target      TEXT,
+      status            TEXT NOT NULL DEFAULT 'awake',
+      awakened_by       TEXT DEFAULT 'teacher',
+      rematch_ok        INTEGER DEFAULT 0,
+      awakened_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      defeated_at       DATETIME
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS monster_battles (
+      battle_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      island_monster_id  INTEGER NOT NULL,
+      alliance_id        INTEGER NOT NULL,
+      started_by         INTEGER,
+      status             TEXT NOT NULL DEFAULT 'choose_power',
+      power_god          TEXT,
+      power_student_id   INTEGER,
+      matchup            TEXT,
+      question_ids       TEXT DEFAULT '[]',
+      answers            TEXT DEFAULT '{}',
+      questions_correct  INTEGER DEFAULT 0,
+      alliance_max       INTEGER,
+      monster_max        INTEGER,
+      alliance_roll      INTEGER,
+      monster_roll       INTEGER,
+      outcome            TEXT,
+      points_change      INTEGER DEFAULT 0,
+      created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+      finished_at        DATETIME
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS monster_attributes (
+      attribute_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+      pin_id         INTEGER NOT NULL,
+      sort_order     INTEGER DEFAULT 0,
+      description    TEXT DEFAULT '',
+      counter_type   TEXT DEFAULT 'question',
+      counter_value  TEXT DEFAULT ''
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS monster_encounters (
+      encounter_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      visitor_student_id  INTEGER NOT NULL,
+      visitor_alliance_id INTEGER,
+      owner_student_id    INTEGER NOT NULL,
+      guardian_pin_id     INTEGER,
+      monster_pin_id      INTEGER NOT NULL,
+      class_period        TEXT,
+      stage               TEXT NOT NULL DEFAULT 'guardian',
+      guardian_attempts   INTEGER DEFAULT 0,
+      results             TEXT DEFAULT '{}',
+      outcome             TEXT,
+      points_awarded      INTEGER DEFAULT 0,
+      started_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+      finished_at         DATETIME
+    )`);
+    // Extra data for special pins: lair dangers, the hero's reward (JSON)
+    const pinCols = (db.exec("PRAGMA table_info(island_pins)")[0] || { values: [] }).values.map(c => c[1]);
+    if (pinCols.length && !pinCols.includes('extra')) db.run("ALTER TABLE island_pins ADD COLUMN extra TEXT DEFAULT '{}'");
+    console.log('✅ Stage 4 tables ready');
+  } catch (e) {
+    console.log('Migration note: stage 4 tables -', e.message);
+  }
 }
 
 // ==================== STAGE 3: ORACLE TRIALS + LABYRINTH LOGIC ====================
