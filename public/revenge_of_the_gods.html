@@ -3069,10 +3069,16 @@ async function showSpellPhase() {
     // No spells — auto skip after brief display (leader only posts to server)
     grid.innerHTML = '<div style="font-family:Cinzel,serif;font-size:0.8rem;color:var(--stone);' +
       'text-align:center;padding:20px 0;">No spells in your arsenal.</div>';
+    // Only the leader may skip; followers see the waiting message instead of the button
+    var fateBtn0 = document.getElementById('btn-accept-fate');
+    var follMsg0 = document.getElementById('spell-follower-msg');
+    if (fateBtn0) fateBtn0.style.display = isLeader ? '' : 'none';
+    if (follMsg0) follMsg0.style.display = isLeader ? 'none' : 'block';
     if (isLeader) {
       setTimeout(function() { skipSpell(); }, 1200);
     }
     // Followers: just wait — polling will advance when damage_after_spell is set
+    startPolling();
     return;
   }
 
@@ -3145,10 +3151,17 @@ async function skipSpell() {
   var fateBtn = document.getElementById('btn-accept-fate');
   if (fateBtn) fateBtn.disabled = true;
   try {
-    await fetch('/api/olympus/combat-spell', {
+    var res = await fetch('/api/olympus/combat-spell', {
       method: 'POST', headers: H, body: JSON.stringify({ spell_id: null })
     });
-  } catch(e) { /* non-fatal, proceed */ }
+    // Refused (not the leader, or the round already moved on): go to wherever the
+    // round really is instead of jumping ahead to trivia on our own
+    if (!res.ok) {
+      await loadState();
+      if (raceState) routeToPhase(raceState.current_phase, raceState.current_round);
+      return;
+    }
+  } catch(e) { /* network hiccup: non-fatal, proceed */ }
   showTriviaPhase();
 }
 
