@@ -45,6 +45,7 @@ function cleanVideoUrl(v) {
 
 module.exports = function registerIslandRoutes(app, deps) {
   const { authenticateToken, query, run, saveDatabase, DATA_DIR } = deps;
+  const voyage = require('./voyage_helpers')({ query, run });
   const UPLOAD_DIR = path.join(DATA_DIR, 'uploads', 'pins');
   try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch (e) { console.error('island upload dir:', e.message); }
 
@@ -96,19 +97,56 @@ module.exports = function registerIslandRoutes(app, deps) {
        WHERE a.student_id = ? AND a.passed = 1 AND p.myth_name = ? LIMIT 1`,
       [studentId, quest.unlock_myth]).length > 0;
   }
-  // Who may open a pin: the teacher, the author/owner, or — once published —
-  // the owner's alliance-mates.
+  // A visit (open or completed) this student made to this pin
+  function myVisit(req, pinId) {
+    if (!req.user || req.user.type !== 'student') return null;
+    return query(`SELECT * FROM island_visits WHERE visitor_student_id = ? AND pin_id = ? AND status IN ('open','completed')`,
+      [req.user.id, pinId])[0] || null;
+  }
+  // How much of someone's island a viewer may see:
+  //  'full'    — teacher, the owner, or the owner's alliance-mates (published work)
+  //  'visitor' — a student in the same period while a voyage is open (or who
+  //              already visited this island): sees the map and what's there,
+  //              but a piece's content only after spending a token to visit it
+  //  null      — nothing
+  function islandAccess(req, ownerId) {
+    if (isTeacher(req)) return 'full';
+    if (req.user.id === ownerId) return 'full';
+    const me = getStudent(req.user.id), owner = getStudent(ownerId);
+    if (!me || !owner) return null;
+    if (me.alliance_id && me.alliance_id === owner.alliance_id) return 'full';
+    if (me.class_period && me.class_period === owner.class_period) {
+      if (voyage.getSettings(me.class_period).mode === 'voyage') return 'visitor';
+      const visited = query(`SELECT 1 FROM island_visits v JOIN island_pins p ON p.pin_id = v.pin_id
+        WHERE v.visitor_student_id = ? AND p.owner_student_id = ? AND v.status IN ('open','completed') LIMIT 1`, [me.student_id, ownerId]);
+      if (visited.length) return 'visitor';
+    }
+    return null;
+  }
+  // Who may open a pin: the teacher and the author/owner always; once it's
+  // published, the owner's alliance-mates and anyone who visited it.
   function canViewPin(req, pin) {
     if (isTeacher(req)) return true;
     if (req.user.id === pin.owner_student_id || req.user.id === pin.author_student_id) return true;
     if (pin.status !== 'published') return false;
-    return canViewIsland(req, pin.owner_student_id);
+    if (islandAccess(req, pin.owner_student_id) === 'full') return true;
+    return !!myVisit(req, pin.pin_id);
   }
-  function canViewIsland(req, ownerId) {
-    if (isTeacher(req)) return true;
-    if (req.user.id === ownerId) return true;
-    const me = getStudent(req.user.id), owner = getStudent(ownerId);
-    return !!(me && owner && me.alliance_id && me.alliance_id === owner.alliance_id);
+  function canViewIsland(req, ownerId) { return !!islandAccess(req, ownerId); }
+
+  function getQuestion(pinId) {
+    const q = query('SELECT * FROM pin_questions WHERE pin_id = ?', [pinId])[0];
+    if (!q) return null;
+    let options = []; try { options = JSON.parse(q.options || '[]'); } catch (e) {}
+    return { prompt: q.prompt, options, correct_index: q.correct_index };
+  }
+  function questionProblem(q) {
+    if (!q) return 'Write a question for visitors about your piece.';
+    if (!q.prompt || q.prompt.trim().length < 5) return 'Write the question visitors will answer.';
+    const opts = (q.options || []).map(o => (o || '').trim()).filter(Boolean);
+    if (opts.length < 2) return 'Give your question at least two answer choices.';
+    if (q.correct_index === null || q.correct_index === undefined || !(q.options[q.correct_index] || '').trim()) return 'Mark which answer is correct.';
+    return null;
   }
   function pinOut(pin, includePrivate) {
     const quest = pin.quest_id ? getQuest(pin.quest_id) : null;
@@ -122,9 +160,19 @@ module.exports = function registerIslandRoutes(app, deps) {
     };
     if (includePrivate) Object.assign(out, {
       teacher_note: pin.teacher_note, submitted_at: pin.submitted_at, reviewed_at: pin.reviewed_at,
-      updated_at: pin.updated_at, points_awarded: pin.points_awarded
+      updated_at: pin.updated_at, points_awarded: pin.points_awarded,
+      question: pin.quest_id ? getQuestion(pin.pin_id) : null
     });
     return out;
+  }
+  // What a visitor sees before visiting: where it is and what it's called
+  function pinTeaser(pin) {
+    const quest = pin.quest_id ? getQuest(pin.quest_id) : null;
+    return {
+      pin_id: pin.pin_id, quest_id: pin.quest_id, quest_title: quest ? quest.title : null,
+      owner_student_id: pin.owner_student_id, x_pct: pin.x_pct, y_pct: pin.y_pct, pin_type: pin.pin_type,
+      title: pin.title, status: pin.status, locked: true, has_question: !!getQuestion(pin.pin_id)
+    };
   }
   // Why a pin cannot be submitted yet (null = ready)
   function submitProblem(pin) {
@@ -139,7 +187,7 @@ module.exports = function registerIslandRoutes(app, deps) {
     if (quest.min_words && words < quest.min_words) return `Write at least ${quest.min_words} words (you have ${words}).`;
     if (quest.min_lines && lines < quest.min_lines) return `Write at least ${quest.min_lines} lines (you have ${lines}).`;
     if (!words && !pin.image_path) return 'Add your writing or a photo of your work.';
-    return null;
+    return questionProblem(getQuestion(pin.pin_id));
   }
   function photoFile(pin) {
     if (!pin.image_path) return null;
@@ -198,16 +246,26 @@ module.exports = function registerIslandRoutes(app, deps) {
       const ownerId = parseInt(req.params.studentId);
       const owner = getStudent(ownerId);
       if (!owner) return res.status(404).json({ error: 'Island not found' });
-      if (!canViewIsland(req, ownerId)) return res.status(403).json({ error: 'You can visit this island in a later voyage.' });
+      const access = islandAccess(req, ownerId);
+      if (!access) return res.status(403).json({ error: 'You can visit this island when your teacher opens a voyage.' });
       const seeAll = isTeacher(req) || req.user.id === ownerId;
       const pins = query(
         `SELECT * FROM island_pins WHERE owner_student_id = ? ${seeAll ? '' : "AND status = 'published'"} ORDER BY pin_id`,
         [ownerId]);
       const mapRow = query('SELECT map_image FROM students WHERE student_id = ?', [ownerId])[0];
+      const out = pins.map(p => {
+        if (access === 'full') return pinOut(p, seeAll);
+        // Visitor: named places are labels anyone may read; quest work stays
+        // locked until this student has visited it.
+        const v = myVisit(req, p.pin_id);
+        if (!p.quest_id) return pinOut(p, false);
+        return v ? Object.assign(pinOut(p, false), { visit_id: v.visit_id, visit_status: v.status }) : pinTeaser(p);
+      });
       res.json({
         owner: { student_id: owner.student_id, name: owner.name, class_period: owner.class_period },
         map_image: mapRow && mapRow.map_image ? mapRow.map_image : null,
-        pins: pins.map(p => pinOut(p, seeAll)),
+        pins: out,
+        access,
         viewer_is_owner: req.user.id === ownerId && !isTeacher(req)
       });
     } catch (e) { console.error('island/view:', e); res.status(500).json({ error: 'Could not load that island.' }); }
@@ -328,6 +386,30 @@ module.exports = function registerIslandRoutes(app, deps) {
     } catch (e) { res.status(500).json({ error: 'Could not remove the photo.' }); }
   });
 
+  // ── The question visitors answer (quest pins; draft/returned only) ────────
+  app.put('/api/island/pins/:id/question', authenticateToken, (req, res) => {
+    try {
+      const me = studentOnly(req, res); if (!me) return;
+      const pin = getPin(parseInt(req.params.id));
+      if (!pin || pin.owner_student_id !== me.student_id) return res.status(404).json({ error: 'Pin not found' });
+      if (!pin.quest_id) return res.status(400).json({ error: 'Named places don\'t need a question.' });
+      if (!EDITABLE.includes(pin.status)) return res.status(409).json({ error: 'This can\'t be changed right now.' });
+      const b = req.body || {};
+      const prompt = cleanText(b.prompt, 300);
+      const options = (Array.isArray(b.options) ? b.options : []).slice(0, 4).map(o => cleanText(o, 150));
+      while (options.length < 2) options.push('');
+      // -1 = the student hasn't marked a correct answer yet (submit will ask for it)
+      let ci = parseInt(b.correct_index);
+      if (!Number.isInteger(ci) || ci < 0 || ci >= options.length) ci = -1;
+      run(`INSERT INTO pin_questions (pin_id, prompt, options, correct_index) VALUES (?,?,?,?)
+           ON CONFLICT(pin_id) DO UPDATE SET prompt=excluded.prompt, options=excluded.options,
+           correct_index=excluded.correct_index, updated_at=CURRENT_TIMESTAMP`,
+        [pin.pin_id, prompt, JSON.stringify(options), ci]);
+      run('UPDATE island_pins SET updated_at=CURRENT_TIMESTAMP WHERE pin_id=?', [pin.pin_id]);
+      res.json({ question: getQuestion(pin.pin_id), problem: questionProblem(getQuestion(pin.pin_id)) });
+    } catch (e) { console.error('island question:', e); res.status(500).json({ error: 'Could not save the question. Try again.' }); }
+  });
+
   // ── Submit for approval ───────────────────────────────────────────────────
   app.post('/api/island/pins/:id/submit', authenticateToken, (req, res) => {
     try {
@@ -399,10 +481,17 @@ module.exports = function registerIslandRoutes(app, deps) {
                VALUES (?,?,?,?,?,?)`,
             [allianceId, pin.owner_student_id, award, 'island_quest', `Island quest approved: ${quest.title}`, req.user.id]);
         }
+        // Voyage tokens for the alliance (Stage 2): once per published quest piece
+        let tokens = 0;
+        if (quest && !pin.tokens_awarded && allianceId) {
+          tokens = voyage.getSettings(owner.class_period).tokens_per_publish;
+          if (tokens > 0) voyage.addTokens(allianceId, tokens);
+        }
         run(`UPDATE island_pins SET status='published', teacher_note=?, reviewed_at=CURRENT_TIMESTAMP,
-             published_at=COALESCE(published_at, CURRENT_TIMESTAMP), points_awarded=points_awarded+?, updated_at=CURRENT_TIMESTAMP
-             WHERE pin_id=?`, [note || null, award, pin.pin_id]);
-        return res.json({ pin: pinOut(getPin(pin.pin_id), true), points_awarded: award });
+             published_at=COALESCE(published_at, CURRENT_TIMESTAMP), points_awarded=points_awarded+?,
+             tokens_awarded=tokens_awarded+?, updated_at=CURRENT_TIMESTAMP
+             WHERE pin_id=?`, [note || null, award, tokens, pin.pin_id]);
+        return res.json({ pin: pinOut(getPin(pin.pin_id), true), points_awarded: award, tokens_awarded: tokens });
       }
       if (action === 'return') {
         if (!note) return res.status(400).json({ error: 'Add a note telling the student what to change.' });
@@ -444,13 +533,17 @@ module.exports = function registerIslandRoutes(app, deps) {
       if ((req.body || {}).confirm_period !== TEST_PERIOD) return res.status(400).json({ error: `confirm_period must be "${TEST_PERIOD}"` });
       const pins = query('SELECT * FROM island_pins WHERE class_period = ?', [TEST_PERIOD]);
       pins.forEach(removePhotoFile);
+      run(`DELETE FROM island_visits WHERE class_period = ? OR pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD, TEST_PERIOD]);
+      run(`DELETE FROM pin_questions WHERE pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD]);
       run('DELETE FROM island_pins WHERE class_period = ?', [TEST_PERIOD]);
+      run(`DELETE FROM voyage_tokens WHERE alliance_id IN (SELECT alliance_id FROM alliances WHERE class_period = ?)`, [TEST_PERIOD]);
+      run(`UPDATE voyage_settings SET mode = 'build', window_id = 0 WHERE class_period = ?`, [TEST_PERIOD]);
       res.json({ reset: true, pins_removed: pins.length });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // Called by server.js once the database is ready
-  return { loadQuestFile };
+  // Called by server.js once the database is ready; the rest is shared with routes/voyage.js
+  return { loadQuestFile, getPin, getQuest, getStudent, getQuestion, pinOut, islandAccess, myVisit, countWords };
 };
 
 module.exports.countWords = countWords;

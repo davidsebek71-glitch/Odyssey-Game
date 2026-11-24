@@ -94,12 +94,29 @@
   .muted { color: var(--muted); }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .err-page { max-width: 600px; margin: 60px auto; text-align: center; }
+  .steps { display: flex; gap: 6px; margin: 8px 0 4px; font-size: 0.8rem; }
+  .steps span { padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .steps span.on { border-color: var(--gold); color: var(--gold); font-weight: 700; }
+  .steps span.done { border-color: var(--green); color: var(--green); }
+  .opt { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px; border-radius: 8px; cursor: pointer;
+         background: rgba(10,6,22,0.85); color: var(--text); border: 1px solid var(--line); }
+  .opt:hover:not([disabled]) { border-color: var(--violet); }
+  .opt.right { border-color: var(--green); background: rgba(110,231,160,0.12); }
+  .opt.wrong { border-color: var(--red); background: rgba(248,113,113,0.1); }
+  .opt[disabled] { cursor: default; }
+  .q-row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  .q-row input[type=text] { flex: 1; }
+  .q-row label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; display: flex; gap: 4px; align-items: center; }
+  .voyage-box { border: 1px solid var(--gold-dim); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.9rem; line-height: 1.5; }
+  .response { border-left: 3px solid var(--violet); padding: 6px 10px; margin: 8px 0; background: rgba(167,139,250,0.06); border-radius: 0 6px 6px 0; }
+  .response .who { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
 </style>
 </head>
 <body>
 <div class="topbar">
   <button class="btn small" onclick="goBack()">← Back</button>
   <h1 id="page-title">My Island</h1>
+  <a class="btn small" href="/world.html" style="text-decoration:none">🌍 World Map</a>
   <span id="topbar-status" class="muted" style="font-size:0.85rem;"></span>
 </div>
 
@@ -130,6 +147,10 @@ let island = null;      // /api/island/me or /api/island/view response
 let mode = 'own';       // 'own' | 'view'
 let current = null;     // pin being edited / viewed
 let saveTimer = null, saving = false, pendingPatch = {};
+let qTimer = null;          // question autosave
+let world = null;           // /api/voyage/world (visitors)
+let visit = null;           // the visit being shown (visitors)
+let myResponses = [];       // approved responses on my pieces (owner)
 const photoUrls = {};   // pin_id -> object URL
 
 if (!token) location.href = '/index.html';
@@ -183,6 +204,12 @@ async function load() {
     if (e.status === 401 || e.status === 403 && !VIEW_ID) { location.href = '/index.html'; return; }
     return fatal(e.message);
   }
+  if (mode === 'view' && island.access === 'visitor') {
+    try { world = await api('GET', '/voyage/world'); } catch (e) { world = null; }
+  }
+  if (mode === 'own') {
+    try { myResponses = (await api('GET', '/voyage/responses/mine')).responses || []; } catch (e) { myResponses = []; }
+  }
   document.getElementById('layout').style.display = '';
   document.getElementById('page-title').textContent = mode === 'view' ? `${island.owner.name}'s Island` : 'My Island';
   renderAll();
@@ -191,7 +218,7 @@ async function load() {
 function pins() { return island.pins || []; }
 function pinById(id) { return pins().find(p => p.pin_id === id); }
 // Fields the student edits locally; a server copy must not overwrite unsaved values.
-const LOCAL_FIELDS = ['title', 'body', 'x_pct', 'y_pct'];
+const LOCAL_FIELDS = ['title', 'body', 'x_pct', 'y_pct', 'question'];
 function applyServerPin(sp) {
   const local = current && current.pin_id === sp.pin_id ? current : null;
   const keep = local ? Object.fromEntries(LOCAL_FIELDS.map(k => [k, local[k]])) : null;
@@ -319,11 +346,27 @@ function renderPanel() {
   if (current) return renderPinPanel(panel);
   if (mode === 'view') {
     const list = pins();
-    panel.replaceChildren(el('h2', { text: 'Published work' }),
-      list.length ? el('div', {}, list.map(p => el('div', { class: 'quest' },
-        el('div', { class: 'row' }, el('span', { text: ICONS[p.pin_type] || '📍' }), el('span', { class: 'title', text: p.title || 'Untitled' })),
-        el('button', { class: 'btn small', onclick: () => openPin(p.pin_id) }, 'Read')))) :
-        el('p', { class: 'muted', text: 'Nothing has been published on this island yet.' }));
+    const kids = [];
+    if (world) kids.push(voyageBox());
+    kids.push(el('h2', { text: 'Published work' }));
+    if (!list.length) kids.push(el('p', { class: 'muted', text: 'Nothing has been published on this island yet.' }));
+    list.forEach(p => {
+      let action;
+      if (p.locked) {
+        const why = visitBlockReason(p);
+        action = el('div', {}, el('button', { class: 'btn small primary', disabled: !!why, onclick: () => openPin(p.pin_id) }, '⛵ Visit (1 voyage token)'),
+          why ? el('div', { class: 'meta', text: why }) : null);
+      } else if (p.visit_status === 'open') {
+        action = el('button', { class: 'btn small primary', onclick: () => openPin(p.pin_id) }, 'Continue your visit');
+      } else {
+        action = el('button', { class: 'btn small', onclick: () => openPin(p.pin_id) }, 'Read');
+      }
+      kids.push(el('div', { class: 'quest' },
+        el('div', { class: 'row' }, el('span', { text: ICONS[p.pin_type] || '📍' }), el('span', { class: 'title', text: p.title || 'Untitled' }),
+          p.visit_status === 'completed' ? el('span', { class: 'chip published', text: 'Visited' }) : null),
+        p.quest_title ? el('div', { class: 'meta', text: p.quest_title }) : null, action));
+    });
+    panel.replaceChildren(...kids);
     return;
   }
   const quests = island.quests || [];
@@ -375,11 +418,18 @@ async function newFeature(type) {
 }
 function openPin(id) {
   const p = pinById(id); if (!p) return;
-  flushSave().then(() => { current = p; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  flushSave().then(async () => {
+    current = p; visit = null;
+    if (mode === 'view' && p.visit_id) {
+      try { visit = (await api('GET', '/voyage/visits/' + p.visit_id)).visit; } catch (e) { visit = null; }
+    }
+    renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 }
 
 function renderPinPanel(panel) {
   const p = current;
+  if (mode === 'view' && (p.locked || (visit && visit.pin_id === p.pin_id && visit.status === 'open'))) return renderVisitPanel(panel, p);
   const q = (island.quests || []).find(x => x.quest_id === p.quest_id) || null;
   const isFeature = !p.quest_id;
   const questTitle = q ? q.title : p.quest_title;
@@ -405,6 +455,21 @@ function renderPinPanel(panel) {
     kids.push(el('div', { class: 'viewer-body', text: p.body || '' }));
     if (p.has_photo) { const box = el('div', { class: 'photo-box' }, el('span', { class: 'muted', text: 'Loading photo…' })); kids.push(box); loadPhoto(p, box); }
     if (p.video_url) kids.push(el('p', {}, el('a', { href: p.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Watch the video')));
+    if (p.question && p.question.prompt) {
+      kids.push(el('h3', { text: 'Question for visitors' }), el('div', {}, p.question.prompt),
+        el('ol', { style: 'margin:6px 0 0;padding-left:22px' }, p.question.options.map((o, i) =>
+          el('li', { style: i === p.question.correct_index ? 'color:var(--green);font-weight:700' : '' }, o + (i === p.question.correct_index ? ' ✓' : '')))));
+    }
+    if (mode === 'view' && visit && visit.status === 'completed') {
+      kids.push(el('div', { class: 'banner good', text: 'You visited this piece. Your response goes to your teacher first, then to the author.' }));
+    }
+    if (mode === 'own' && p.status === 'published' && p.quest_id) {
+      const rs = myResponses.filter(r => r.pin_id === p.pin_id);
+      kids.push(el('h3', { text: 'Responses from visitors' }));
+      if (!rs.length) kids.push(el('p', { class: 'muted', style: 'font-size:0.88rem', text: 'None yet. When visitors respond and your teacher approves it, you\'ll read it here.' }));
+      rs.forEach(r => kids.push(el('div', { class: 'response' },
+        el('div', { class: 'who', text: `${r.visitor_name}${r.visitor_alliance ? ' · ' + r.visitor_alliance : ''}` }), el('div', { style: 'white-space:pre-wrap', text: r.response_text }))));
+    }
     panel.replaceChildren(...kids);
     return;
   }
@@ -425,6 +490,7 @@ function renderPinPanel(panel) {
     kids.push(el('label', { class: 'field', for: 'f-video' }, 'Video link (optional)'),
       el('input', { type: 'url', id: 'f-video', value: p.video_url || '', placeholder: 'https://…',
         onchange: e => queueSave({ video_url: e.target.value.trim() || null }, 0) }));
+    kids.push(questionEditor());
   }
   kids.push(el('div', { class: 'actions' },
     el('button', { class: 'btn primary', id: 'submit-btn', onclick: submitPin }, p.status === 'returned' ? 'Submit again' : 'Submit for approval'),
@@ -457,6 +523,15 @@ function submitProblem(p) {
   if (q && q.min_words && w < q.min_words) return `Write at least ${q.min_words} words (you have ${w}).`;
   if (q && q.min_lines && l < q.min_lines) return `Write at least ${q.min_lines} lines (you have ${l}).`;
   if (!w && !p.has_photo) return 'Add your writing or a photo of your work.';
+  return questionProblem(p.question);
+}
+// Mirrors questionProblem() in routes/island.js
+function questionProblem(q) {
+  if (!q) return 'Write a question for visitors about your piece.';
+  if (!q.prompt || q.prompt.trim().length < 5) return 'Write the question visitors will answer.';
+  const opts = (q.options || []).map(o => (o || '').trim()).filter(Boolean);
+  if (opts.length < 2) return 'Give your question at least two answer choices.';
+  if (q.correct_index === null || q.correct_index === undefined || !((q.options || [])[q.correct_index] || '').trim()) return 'Mark which answer is correct.';
   return null;
 }
 function renderSubmitState() {
@@ -491,6 +566,7 @@ async function doSave() {
 async function flushSave() {
   clearTimeout(saveTimer); saveTimer = null;
   if (Object.keys(pendingPatch).length) await doSave();
+  if (qTimer) { clearTimeout(qTimer); qTimer = null; await saveQuestion(); }
 }
 window.addEventListener('beforeunload', e => { if (Object.keys(pendingPatch).length) { doSave(); e.preventDefault(); e.returnValue = ''; } });
 
@@ -572,6 +648,172 @@ async function deleteDraft() {
     island.pins = island.pins.filter(p => p.pin_id !== current.pin_id);
     (island.quests || []).forEach(q => { if (q.pin_id === current.pin_id) { q.pin_id = null; q.pin_status = null; } });
     current = null; renderAll();
+  } catch (e) { alert(e.message); }
+}
+
+// ── Question editor (author) ─────────────────────────────────────────────────
+function questionEditor() {
+  if (!current.question) current.question = { prompt: '', options: ['', '', '', ''], correct_index: null };
+  const q = current.question;
+  while (q.options.length < 4) q.options.push('');
+  const name = 'correct-' + current.pin_id;
+  const box = el('div', {},
+    el('label', { class: 'field', for: 'q-prompt' }, 'Question for visitors'),
+    el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px',
+      text: 'Students from other alliances answer this after reading your piece. Ask about something in your work. Fill in at least two choices and mark the right one.' }),
+    el('input', { type: 'text', id: 'q-prompt', maxlength: '300', value: q.prompt || '', placeholder: 'e.g. What still waits inside the jar?',
+      oninput: e => { q.prompt = e.target.value; queueQuestionSave(); } }),
+    ...q.options.map((o, i) => el('div', { class: 'q-row' },
+      el('input', { type: 'text', maxlength: '150', value: o || '', placeholder: `Choice ${i + 1}${i > 1 ? ' (optional)' : ''}`, 'aria-label': `Choice ${i + 1}`,
+        oninput: e => { q.options[i] = e.target.value; queueQuestionSave(); } }),
+      el('label', {}, el('input', { type: 'radio', name, checked: q.correct_index === i,
+        onchange: () => { q.correct_index = i; queueQuestionSave(0); } }), 'correct'))));
+  return box;
+}
+function queueQuestionSave(delay = 900) {
+  setSaveState('Saving…'); renderSubmitState();
+  clearTimeout(qTimer); qTimer = setTimeout(() => { qTimer = null; saveQuestion(); }, delay);
+}
+async function saveQuestion() {
+  if (!current || !current.question) return;
+  try {
+    const q = current.question;
+    // Send filled choices in order, keeping the "correct" mark on the same choice
+    const filled = q.options.map((o, i) => ({ o: (o || '').trim(), i })).filter(x => x.o);
+    const ci = filled.findIndex(x => x.i === q.correct_index);
+    await api('PUT', `/island/pins/${current.pin_id}/question`, { prompt: q.prompt, options: filled.map(x => x.o), correct_index: ci < 0 ? null : ci });
+    setSaveState(Object.keys(pendingPatch).length ? 'Saving…' : 'Saved');
+  } catch (e) { setSaveState('Question not saved yet — will retry.', true); clearTimeout(qTimer); qTimer = setTimeout(() => { qTimer = null; saveQuestion(); }, 4000); }
+}
+
+// ── Voyages (visitors) ───────────────────────────────────────────────────────
+function voyageBox() {
+  const w = world;
+  if (w.mode !== 'voyage') return el('div', { class: 'voyage-box', text: '🏗️ Build time. Voyages are closed — your teacher will open the next voyage.' });
+  return el('div', { class: 'voyage-box' },
+    el('div', {}, el('strong', { text: `⛵ Voyage open · ` }), `Your alliance has ${w.tokens} voyage token${w.tokens === 1 ? '' : 's'} · You've made ${w.visits_used} of ${w.visit_cap} visits this voyage.`),
+    w.open_visit ? el('div', { style: 'margin-top:4px;color:var(--amber)' }, `You have a visit in progress: "${w.open_visit.pin_title}". `,
+      w.open_visit.owner_student_id !== island.owner.student_id ? el('a', { href: `/island.html?student=${w.open_visit.owner_student_id}` }, 'Go back to it') : null) : null);
+}
+// Why this piece can't be visited right now (null = it can)
+function visitBlockReason(p) {
+  if (!world) return 'Voyages aren\'t open for you.';
+  if (world.mode !== 'voyage') return 'Voyages are closed right now.';
+  if (!p.has_question) return 'Not ready for visitors yet.';
+  if (world.open_visit && world.open_visit.pin_id !== p.pin_id) return 'Finish the visit you already started first.';
+  if (world.visits_used >= world.visit_cap) return `You've made ${world.visits_used} of ${world.visit_cap} visits this voyage.`;
+  if (world.tokens < 1) return 'Your alliance has no voyage tokens. Publishing approved work earns more.';
+  return null;
+}
+async function startVisit(p) {
+  const btn = document.getElementById('start-visit'); if (btn) { btn.disabled = true; btn.textContent = 'Setting sail…'; }
+  try {
+    const r = await api('POST', '/voyage/visits', { pin_id: p.pin_id });
+    visit = r.visit;
+    const full = Object.assign({}, r.visit.pin, { visit_id: r.visit.visit_id, visit_status: 'open' });
+    island.pins = island.pins.map(x => x.pin_id === p.pin_id ? full : x);
+    current = full;
+    if (world) { if (r.tokens_left !== undefined) world.tokens = r.tokens_left; world.visits_used += r.resumed ? 0 : 1;
+      world.open_visit = { visit_id: visit.visit_id, pin_id: p.pin_id, pin_title: full.title, owner_student_id: island.owner.student_id }; }
+    renderAll();
+  } catch (e) {
+    const m = document.getElementById('visit-msg'); if (m) m.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = '⛵ Spend 1 token and visit'; }
+  }
+}
+function renderVisitPanel(panel, p) {
+  const back = el('button', { class: 'btn small', onclick: goBack }, '← Back to the island');
+  if (p.locked) {
+    const why = visitBlockReason(p);
+    panel.replaceChildren(...[back, world ? voyageBox() : null,
+      el('h2', { style: 'margin-top:12px' }, `${ICONS[p.pin_type] || '📍'} ${p.title || 'Untitled'}`),
+      p.quest_title ? el('div', { class: 'muted', text: p.quest_title }) : el('span'),
+      el('p', { style: 'line-height:1.5', text: `To read this piece, spend one of your alliance's voyage tokens. Then answer ${island.owner.name}'s question and write them a response.` }),
+      el('button', { class: 'btn primary', id: 'start-visit', disabled: !!why, onclick: () => startVisit(p) }, '⛵ Spend 1 token and visit'),
+      el('div', { class: 'why-not', id: 'visit-msg', text: why || '' })].filter(Boolean));
+    return;
+  }
+  const v = visit;
+  // Reading is done once the visit is open; then Answer (2), Respond (3), finished (4)
+  const stepIdx = v.step === 'answer' ? 2 : v.step === 'respond' ? 3 : 4;
+  const kids = [back,
+    el('div', { class: 'steps', 'aria-label': 'Visit steps' }, ['1 Read', '2 Answer', '3 Respond'].map((t, i) =>
+      el('span', { class: i + 1 < stepIdx ? 'done' : i + 1 === stepIdx ? 'on' : '', text: (i + 1 < stepIdx ? '✓ ' : '') + t }))),
+    el('h2', { style: 'margin-top:8px' }, `${ICONS[p.pin_type] || '📍'} ${p.title || 'Untitled'}`),
+    el('div', { class: 'muted', style: 'font-size:0.85rem', text: `by ${v.owner.name}${v.owner.alliance_name ? ' · ' + v.owner.alliance_name : ''}` }),
+    el('div', { class: 'viewer-body', text: v.pin.body || '' })];
+  if (v.pin.has_photo) { const box = el('div', { class: 'photo-box' }, el('span', { class: 'muted', text: 'Loading photo…' })); kids.push(box); loadPhoto(v.pin, box); }
+  if (v.pin.video_url) kids.push(el('p', {}, el('a', { href: v.pin.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Watch the video')));
+
+  // Step 2: the question
+  const q = v.question;
+  const answered = v.answer_correct || v.answer_revealed;
+  kids.push(el('h3', { text: `${v.owner.name}'s question` }), el('div', { style: 'margin-bottom:6px', text: q.prompt }));
+  const fb = el('div', { id: 'answer-msg', style: 'font-size:0.9rem;margin:4px 0', 'aria-live': 'polite' });
+  q.options.forEach((o, i) => {
+    let cls = 'opt';
+    if (answered && i === q.correct_index) cls += ' right';
+    else if (v.answer_index === i && !v.answer_correct) cls += ' wrong';
+    kids.push(el('button', { class: cls, disabled: answered, onclick: () => answerVisit(i) }, o));
+  });
+  if (v.answer_correct) { fb.textContent = '✓ Right!'; fb.style.color = 'var(--green)'; }
+  else if (v.answer_revealed) { fb.textContent = `The answer is "${q.options[q.correct_index]}". You can keep going.`; fb.style.color = 'var(--amber)'; }
+  else if (v.attempts) { fb.textContent = 'Not quite. Read the piece again and try once more.'; fb.style.color = 'var(--amber)'; }
+  kids.push(fb);
+
+  // Step 3: the response
+  if (answered) {
+    const key = 'visit-draft-' + v.visit_id;
+    let saved = ''; try { saved = localStorage.getItem(key) || ''; } catch (e) {}
+    const ta = el('textarea', { id: 'resp', maxlength: '3000', style: 'min-height:140px',
+      placeholder: `Write to ${v.owner.name}: what stood out, what you learned, a connection to the myth…`,
+      oninput: e => { try { localStorage.setItem(key, e.target.value); } catch (er) {} renderRespCount(); } });
+    ta.value = saved;
+    kids.push(el('label', { class: 'field', for: 'resp' }, `Your response to ${v.owner.name}`), ta,
+      el('div', { class: 'counts', id: 'resp-count' }),
+      el('div', { class: 'actions' }, el('button', { class: 'btn primary', id: 'finish-visit', onclick: finishVisit }, 'Finish visit'),
+        el('div', { class: 'why-not', id: 'finish-msg' })));
+  }
+  kids.push(el('p', { style: 'margin-top:18px' }, el('button', { class: 'btn small', onclick: leaveVisit }, 'Leave this visit (your token goes back)')));
+  panel.replaceChildren(...kids);
+  if (answered) renderRespCount();
+}
+function renderRespCount() {
+  const ta = document.getElementById('resp'), box = document.getElementById('resp-count'), btn = document.getElementById('finish-visit');
+  if (!ta || !box) return;
+  const n = countWords(ta.value), min = visit.min_response_words;
+  box.replaceChildren(el('span', { class: n >= min ? 'ok' : 'short' }, `${n} / ${min} words${n >= min ? ' ✓' : ''}`));
+  if (btn) btn.disabled = n < min;
+}
+async function answerVisit(i) {
+  document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+  try { const r = await api('POST', `/voyage/visits/${visit.visit_id}/answer`, { answer_index: i }); visit = r.visit; renderPanel(); }
+  catch (e) { const m = document.getElementById('answer-msg'); if (m) m.textContent = e.message; document.querySelectorAll('.opt').forEach(b => b.disabled = false); }
+}
+async function finishVisit() {
+  const btn = document.getElementById('finish-visit'), msg = document.getElementById('finish-msg');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await api('POST', `/voyage/visits/${visit.visit_id}/complete`, { response_text: document.getElementById('resp').value });
+    try { localStorage.removeItem('visit-draft-' + visit.visit_id); } catch (e) {}
+    visit = r.visit;
+    const p = Object.assign({}, current, { visit_status: 'completed' });
+    island.pins = island.pins.map(x => x.pin_id === p.pin_id ? p : x); current = p;
+    if (world) world.open_visit = null;
+    renderAll();
+    document.getElementById('panel').prepend(el('div', { class: 'banner good', text: `⛵ Visit complete! +${r.visit.points_visitor || 0} points for your alliance.` }));
+  } catch (e) { msg.textContent = e.message; btn.disabled = false; btn.textContent = 'Finish visit'; }
+}
+async function leaveVisit() {
+  if (!confirm('Leave this visit? Your alliance gets its token back, and you can visit again later.')) return;
+  try {
+    const r = await api('POST', `/voyage/visits/${visit.visit_id}/cancel`);
+    const p = pinById(current.pin_id);
+    const teaser = { pin_id: p.pin_id, quest_id: p.quest_id, quest_title: p.quest_title, owner_student_id: p.owner_student_id,
+      x_pct: p.x_pct, y_pct: p.y_pct, pin_type: p.pin_type, title: p.title, status: p.status, locked: true, has_question: true };
+    island.pins = island.pins.map(x => x.pin_id === p.pin_id ? teaser : x);
+    if (world) { world.tokens = r.tokens; world.open_visit = null; world.visits_used = Math.max(0, world.visits_used - 1); }
+    visit = null; current = null; renderAll();
   } catch (e) { alert(e.message); }
 }
 

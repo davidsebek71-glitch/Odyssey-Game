@@ -490,6 +490,8 @@ app.use('/api', requireDbReady);
 // Islands (Stage 1) — quest sites and story pins. See routes/island.js.
 // Registered here, after requireDbReady, so requests wait for the database.
 const islandRoutes = registerIslandRoutes(app, { authenticateToken, query, run, saveDatabase, DATA_DIR });
+// Voyages (Stage 2) — world map, build/voyage phases, tokens, visits. See routes/voyage.js.
+require('./routes/voyage')(app, { authenticateToken, query, run, island: islandRoutes });
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];

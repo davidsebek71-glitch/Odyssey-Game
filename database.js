@@ -822,6 +822,75 @@ function ensureIslandTables() {
     `);
     db.run(`CREATE INDEX IF NOT EXISTS idx_island_pins_owner ON island_pins(owner_student_id)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_island_pins_status ON island_pins(status, class_period)`);
+
+    // ── Stage 2: voyages ────────────────────────────────────────────────────
+    // Voyage tokens granted for a pin (so approving twice never grants twice)
+    const pinCols = (db.exec("PRAGMA table_info(island_pins)")[0] || { values: [] }).values.map(c => c[1]);
+    if (!pinCols.includes('tokens_awarded')) db.run('ALTER TABLE island_pins ADD COLUMN tokens_awarded INTEGER DEFAULT 0');
+
+    // The question a visitor answers about a piece (written by the author,
+    // approved with the piece). options = JSON array of 2-4 strings.
+    db.run(`
+      CREATE TABLE IF NOT EXISTS pin_questions (
+        question_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        pin_id         INTEGER NOT NULL UNIQUE,
+        prompt         TEXT NOT NULL,
+        options        TEXT NOT NULL DEFAULT '[]',
+        correct_index  INTEGER NOT NULL DEFAULT 0,
+        question_type  TEXT DEFAULT 'multiple_choice',
+        updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (pin_id) REFERENCES island_pins(pin_id)
+      )
+    `);
+    // Per-period phase and voyage settings. window_id goes up each time the
+    // teacher opens a new voyage, so the per-voyage visit limit resets.
+    db.run(`
+      CREATE TABLE IF NOT EXISTS voyage_settings (
+        class_period        TEXT PRIMARY KEY,
+        mode                TEXT NOT NULL DEFAULT 'build',
+        window_id           INTEGER NOT NULL DEFAULT 0,
+        tokens_per_publish  INTEGER NOT NULL DEFAULT 2,
+        visit_cap           INTEGER NOT NULL DEFAULT 2,
+        visitor_points      INTEGER NOT NULL DEFAULT 5,
+        author_points       INTEGER NOT NULL DEFAULT 3,
+        min_response_words  INTEGER NOT NULL DEFAULT 15,
+        updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    // Tokens are earned by an alliance and spent by its students
+    db.run(`
+      CREATE TABLE IF NOT EXISTS voyage_tokens (
+        alliance_id  INTEGER PRIMARY KEY,
+        balance      INTEGER NOT NULL DEFAULT 0,
+        updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS island_visits (
+        visit_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        visitor_student_id   INTEGER NOT NULL,
+        visitor_alliance_id  INTEGER,
+        pin_id               INTEGER NOT NULL,
+        class_period         TEXT,
+        window_id            INTEGER NOT NULL DEFAULT 0,
+        answer_index         INTEGER,
+        answer_correct       INTEGER DEFAULT 0,
+        attempts             INTEGER DEFAULT 0,
+        answer_revealed      INTEGER DEFAULT 0,
+        response_text        TEXT,
+        status               TEXT NOT NULL DEFAULT 'open',
+        response_status      TEXT DEFAULT 'pending',
+        points_visitor       INTEGER DEFAULT 0,
+        points_author        INTEGER DEFAULT 0,
+        author_alliance_id   INTEGER,
+        started_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
+        completed_at         DATETIME,
+        reviewed_at          DATETIME,
+        UNIQUE (visitor_student_id, pin_id),
+        FOREIGN KEY (pin_id) REFERENCES island_pins(pin_id)
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_island_visits_visitor ON island_visits(visitor_student_id, status)`);
     console.log('✅ Island tables ready');
   } catch (e) {
     console.log('Migration note: island tables -', e.message);

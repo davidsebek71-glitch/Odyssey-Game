@@ -44,8 +44,19 @@
   th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); font-size: 0.92rem; }
   th { color: var(--violet); font-weight: 600; }
   td.n { text-align: center; }
+  td:first-child { white-space: nowrap; }
   .empty { text-align: center; padding: 40px; color: var(--muted); }
   a { color: var(--gold); }
+  .phase { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+  .phase .btn { padding: 12px 18px; font-weight: 700; }
+  .phase .btn.on { border-color: var(--gold); color: var(--gold); background: rgba(240,199,94,0.12); }
+  .settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin: 10px 0; }
+  .settings label { font-size: 0.85rem; color: var(--muted); display: block; }
+  .settings input { width: 100%; margin-top: 4px; background: rgba(10,6,22,0.9); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; }
+  h2.sec { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.05rem; margin: 0 0 8px; }
+  .q { background: rgba(10,6,22,0.6); border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 0.92rem; }
+  .q ol { margin: 6px 0 0; padding-left: 22px; }
+  .q li.right { color: var(--green); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -55,6 +66,8 @@
   <label class="muted" for="period">Period</label>
   <select id="period" onchange="refresh()"><option value="">All periods</option></select>
   <button class="btn active" id="tab-queue" onclick="setTab('queue')">Waiting for approval</button>
+  <button class="btn" id="tab-responses" onclick="setTab('responses')">Visit responses</button>
+  <button class="btn" id="tab-voyages" onclick="setTab('voyages')">Voyages</button>
   <button class="btn" id="tab-students" onclick="setTab('students')">All islands</button>
 </div>
 <main id="main"></main>
@@ -86,8 +99,7 @@ async function api(method, url, body) {
 }
 function setTab(t) {
   tab = t;
-  document.getElementById('tab-queue').classList.toggle('active', t === 'queue');
-  document.getElementById('tab-students').classList.toggle('active', t === 'students');
+  ['queue', 'responses', 'voyages', 'students'].forEach(x => document.getElementById('tab-' + x).classList.toggle('active', t === x));
   refresh();
 }
 const period = () => document.getElementById('period').value;
@@ -105,6 +117,11 @@ async function refresh() {
   main.replaceChildren(el('div', { class: 'empty', text: 'Loading…' }));
   try {
     if (tab === 'queue') return renderQueue((await api('GET', '/teacher/island/queue' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).pins);
+    if (tab === 'responses') return renderResponses((await api('GET', '/teacher/voyage/responses' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).responses);
+    if (tab === 'voyages') {
+      if (!period()) return main.replaceChildren(el('div', { class: 'empty', text: 'Choose a period above to manage its voyages.' }));
+      return renderVoyages(await api('GET', '/teacher/voyage/overview?period=' + encodeURIComponent(period())));
+    }
     return renderStudents((await api('GET', '/teacher/island/students' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).students);
   } catch (e) { main.replaceChildren(el('div', { class: 'empty', text: e.message })); }
 }
@@ -162,7 +179,9 @@ function renderSubmission(p) {
         el('div', { class: 'body', text: p.body || '(no writing)' }),
         el('div', { class: 'count' }, countPart(p.word_count, p.min_words, 'words'), ' · ', countPart(p.line_count, p.min_lines, 'lines')),
         p.video_url ? el('p', {}, el('a', { href: p.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Open the video link')) : null,
-        photoBox),
+        photoBox,
+        p.question && p.question.prompt ? el('div', { class: 'q' }, el('strong', { text: 'Question for visitors: ' }), p.question.prompt,
+          el('ol', {}, p.question.options.map((o, i) => el('li', { class: i === p.question.correct_index ? 'right' : '' }, o + (i === p.question.correct_index ? ' ✓' : ''))))) : null),
       el('div', {}, el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px', text: 'Where it sits on the island' }), mapBox)),
     p.submit_problem ? el('div', { class: 'warn', text: `Note: ${p.submit_problem}` }) : null,
     note,
@@ -186,6 +205,86 @@ function renderStudents(rows) {
       el('td', { class: 'n', text: s.has_map ? '✓' : '—' }),
       ...['published', 'submitted', 'returned', 'drafts'].map(k => el('td', { class: 'n', text: String(s[k] || 0) })),
       el('td', {}, el('a', { href: `/island.html?student=${s.student_id}`, target: '_blank' }, 'Open island'))))))));
+}
+
+// ── Visit responses: approve before the author can read them ───────────────
+function renderResponses(rows) {
+  const main = document.getElementById('main');
+  if (!rows.length) return main.replaceChildren(el('div', { class: 'empty', text: 'No visit responses are waiting. 🎉' }));
+  main.replaceChildren(el('p', { class: 'muted', text: `${rows.length} waiting · the author reads a response only after you approve it` }), ...rows.map(r => {
+    const card = el('div', { class: 'card' });
+    const msg = el('span', { class: 'msg' });
+    async function act(action) {
+      if (action === 'hide' && !confirm(`Hide this response? The author won't see it, and the visit's points (${r.points_visitor + r.points_author}) are taken back from both alliances.`)) return;
+      card.querySelectorAll('button').forEach(b => b.disabled = true);
+      try {
+        const d = await api('POST', `/teacher/voyage/responses/${r.visit_id}`, { action });
+        card.replaceChildren(el('div', { class: 'sub-head' }, el('span', { class: 'who', text: r.visitor_name }), el('span', { text: `→ ${r.author_name}: "${r.pin_title}"` }),
+          el('span', { style: `color:${action === 'approve' ? 'var(--green)' : 'var(--red)'}`,
+            text: action === 'approve' ? '✓ Approved — the author can read it' : `Hidden · ${d.points_removed} points taken back` })));
+      } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; card.querySelectorAll('button').forEach(b => b.disabled = false); }
+    }
+    const answer = r.answer_correct ? (r.attempts > 1 ? 'answered right on the 2nd try' : 'answered right first try') : 'answer shown after 2 misses';
+    card.append(
+      el('div', { class: 'sub-head' }, el('span', { class: 'who', text: r.visitor_name }), el('span', { class: 'muted', text: r.visitor_alliance || '' }),
+        el('span', { text: `visited ${r.author_name}'s "${r.pin_title}"` }), el('span', { class: 'muted', text: `· Period ${r.class_period} · ${answer}` })),
+      el('div', { class: 'body', style: 'margin-top:10px', text: r.response_text }),
+      el('div', { class: 'count', text: `${r.word_count} words` }),
+      el('div', { class: 'actions' },
+        el('button', { class: 'btn approve', onclick: () => act('approve') }, '✓ Approve — send to the author'),
+        el('button', { class: 'btn return', onclick: () => act('hide') }, 'Hide (takes the points back)'), msg));
+    return card;
+  }));
+}
+
+// ── Voyages: phase, settings, tokens, per-student table ─────────────────────
+const SETTING_LABELS = { tokens_per_publish: 'Tokens per approved piece', visit_cap: 'Visits per student per voyage',
+  visitor_points: 'Points to the visitor\'s alliance', author_points: 'Points to the author\'s alliance', min_response_words: 'Minimum words in a response' };
+function renderVoyages(d) {
+  const main = document.getElementById('main');
+  const s = d.settings;
+  const msg = el('span', { class: 'msg' });
+  async function save(body, okText) {
+    try { await api('POST', '/teacher/voyage/settings', Object.assign({ class_period: period() }, body)); await refresh(); }
+    catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+  }
+  const inputs = {};
+  const phase = el('div', { class: 'card' },
+    el('h2', { class: 'sec', text: `Period ${period()} — ${s.mode === 'voyage' ? '⛵ Voyage open' : '🏗️ Build time'}` }),
+    el('div', { class: 'muted', text: s.mode === 'voyage'
+      ? 'Students can spend their alliance\'s tokens to visit other alliances\' islands.'
+      : 'Students build their islands. Approved pieces still earn tokens for the next voyage.' }),
+    el('div', { class: 'phase' },
+      el('button', { class: `btn${s.mode === 'build' ? ' on' : ''}`, onclick: () => s.mode !== 'build' && save({ mode: 'build' }) }, '🏗️ Build'),
+      el('button', { class: `btn${s.mode === 'voyage' ? ' on' : ''}`, onclick: () => s.mode !== 'voyage' && save({ mode: 'voyage' }) }, '⛵ Voyage'),
+      el('a', { href: `/world.html?period=${encodeURIComponent(period())}`, target: '_blank', style: 'align-self:center' }, 'Preview the world map')),
+    el('div', { class: 'muted', style: 'font-size:0.85rem', text: 'Opening a voyage starts each student\'s visit count over. Visits already in progress can still be finished in build time.' }),
+    el('div', { class: 'settings' }, Object.keys(SETTING_LABELS).map(k => {
+      inputs[k] = el('input', { type: 'number', min: '0', value: String(s[k]) });
+      return el('label', {}, SETTING_LABELS[k], inputs[k]);
+    })),
+    el('div', { class: 'actions' }, el('button', { class: 'btn', onclick: () => {
+      const body = {}; Object.keys(inputs).forEach(k => body[k] = parseInt(inputs[k].value)); save(body);
+    } }, 'Save settings'), msg));
+
+  const tokens = el('div', { class: 'card' }, el('h2', { class: 'sec', text: 'Voyage tokens' }),
+    d.alliances.length ? el('table', {}, el('thead', {}, el('tr', {}, ['Alliance', 'Tokens', ''].map(h => el('th', { text: h })))),
+      el('tbody', {}, d.alliances.map(a => el('tr', {}, el('td', { text: a.alliance_name }), el('td', { class: 'n', text: String(a.tokens) }),
+        el('td', {}, ...[-1, 1].map(n => el('button', { class: 'btn', style: 'padding:3px 10px;margin-right:6px', 'aria-label': `${n > 0 ? 'Add' : 'Remove'} a token for ${a.alliance_name}`,
+          onclick: async () => { try { await api('POST', '/teacher/voyage/tokens', { alliance_id: a.alliance_id, delta: n }); refresh(); } catch (e) { alert(e.message); } } }, n > 0 ? '+1' : '−1'))))))) :
+      el('div', { class: 'muted', text: 'No alliances in this period.' }));
+
+  const students = el('div', { class: 'card' }, el('h2', { class: 'sec', text: 'Students' }),
+    el('table', {}, el('thead', {}, el('tr', {}, ['Student', 'Alliance', 'Pieces published', 'Visits (this voyage / all)', 'Responses approved', 'Responses waiting', 'Times visited', 'Visit in progress']
+      .map(h => el('th', { text: h })))),
+      el('tbody', {}, d.students.map(r => el('tr', {},
+        el('td', { text: r.name }), el('td', { text: r.alliance_name || '—' }), el('td', { class: 'n', text: String(r.published) }),
+        el('td', { class: 'n', text: `${r.visits_this_voyage} / ${r.visits_made}` }), el('td', { class: 'n', text: String(r.responses_left) }),
+        el('td', { class: 'n', text: String(r.responses_waiting) }), el('td', { class: 'n', text: String(r.times_visited) }),
+        el('td', {}, r.open_visit_id ? el('button', { class: 'btn', style: 'padding:3px 10px', onclick: async () => {
+          if (!confirm(`End ${r.name}'s visit in progress? Their alliance gets the token back.`)) return;
+          try { await api('POST', `/teacher/voyage/visits/${r.open_visit_id}/cancel`); refresh(); } catch (e) { alert(e.message); } } }, 'End visit') : '—'))))));
+  main.replaceChildren(phase, tokens, students);
 }
 
 loadPeriods().then(refresh);
