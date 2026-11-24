@@ -15497,23 +15497,42 @@ function getActiveMemberIds(allianceId, raceState = null) {
   return rows.map(r => r.student_id);
 }
 
-function getMajority(allianceId, round, voteType) {
-  // Returns { winner, count, total } or null if no majority
+function getMajority(allianceId, round, voteType, ignoreValues = null) {
+  // Returns { winner, count, total } or null if no majority.
+  // ignoreValues: vote values that can no longer win (e.g. paths another
+  // alliance has already claimed). Those votes still count as "this member
+  // voted" for the all-voted tie-break, but never as a winner.
   const state = getOlympusState(allianceId);
   const total = getActiveMemberIds(allianceId, state).length || 1;
-  const votes = query(
+  const allVotes = query(
     `SELECT vote_value, COUNT(*) as cnt FROM olympus_votes
      WHERE alliance_id = ? AND round_number = ? AND vote_type = ?
-     GROUP BY vote_value ORDER BY cnt DESC`,
+     GROUP BY vote_value ORDER BY cnt DESC, vote_value ASC`,
     [allianceId, round, voteType]
   );
+  const totalVotes = allVotes.reduce((s, v) => s + v.cnt, 0);
+  const votes = ignoreValues
+    ? allVotes.filter(v => !ignoreValues.has(String(v.vote_value)))
+    : allVotes;
   if (!votes.length) return null;
   const needed = Math.floor(total / 2) + 1;
   if (votes[0].cnt >= needed) return { winner: votes[0].vote_value, count: votes[0].cnt, total };
-  // Tie-break: if all members voted and no majority, pick leader vote
-  const totalVotes = votes.reduce((s, v) => s + v.cnt, 0);
+  // Tie-break: if all members voted and no majority, take the most-voted
+  // still-available option (ties broken by lowest value, so it is stable).
   if (totalVotes >= total) return { winner: votes[0].vote_value, count: votes[0].cnt, total, tiebreak: true };
   return null;
+}
+
+// Path indexes already claimed by OTHER alliances this round (same period + version).
+function pathsTakenByOthers(state, allianceId) {
+  const rows = query(
+    `SELECT path_index, alliance_name FROM olympus_path_locks
+     WHERE period=? AND version=? AND round_number=? AND alliance_id != ?`,
+    [state.period, state.version, state.current_round, allianceId]
+  );
+  const taken = new Map();
+  rows.forEach(r => taken.set(String(r.path_index), r.alliance_name));
+  return taken;
 }
 
 // ── GET /api/olympus/state ────────────────────────────────────────────────────
@@ -15819,6 +15838,16 @@ app.post('/api/olympus/vote-path', authenticateToken, (req, res) => {
     if (state.current_phase !== 'path_choice') {
       return res.json({ already_advanced: true, current_phase: state.current_phase });
     }
+    // Refuse a vote for a path another alliance already holds (e.g. the
+    // student's screen was out of date). The page shows the message and
+    // redraws the cards with that path locked.
+    const takenBefore = pathsTakenByOthers(state, alliance.alliance_id);
+    if (takenBefore.has(String(path_index))) {
+      return res.status(409).json({
+        error: `${takenBefore.get(String(path_index))} already took that path. Choose another path.`,
+        path_taken: true
+      });
+    }
     run(
       `INSERT INTO olympus_votes (alliance_id, student_id, round_number, vote_type, vote_value)
        VALUES (?,?,?,'path',?)
@@ -15831,7 +15860,8 @@ app.post('/api/olympus/vote-path', authenticateToken, (req, res) => {
        GROUP BY vote_value`,
       [alliance.alliance_id, state.current_round]
     );
-    const majority = getMajority(alliance.alliance_id, state.current_round, 'path');
+    const majority = getMajority(alliance.alliance_id, state.current_round, 'path',
+      new Set(pathsTakenByOthers(state, alliance.alliance_id).keys()));
 
     // ── Auto-commit when majority reached ────────────────────────────────────
     // Merging the commit into vote-path eliminates the race window where both
@@ -15856,12 +15886,21 @@ app.post('/api/olympus/vote-path', authenticateToken, (req, res) => {
             );
             saveDatabase();
           } catch(lockErr) {
-            // Another request already committed — phase is already 'combat', which is fine
+            // Either a teammate's request already committed (phase is now
+            // 'combat' — fine), or another alliance grabbed this path a moment
+            // earlier. Checked below; never report a commit that didn't happen.
           }
         }
-        // Return the committed path so the client can skip the commit-path call
         const latestState = getOlympusState(alliance.alliance_id);
-        return res.json({ tally, majority, committed: true, path: pathDef, current_phase: latestState ? latestState.current_phase : 'combat' });
+        if (!latestState || latestState.current_phase === 'path_choice') {
+          const takenNow = pathsTakenByOthers(state, alliance.alliance_id);
+          return res.status(409).json({
+            error: `${takenNow.get(String(pathIdx)) || 'Another alliance'} took that path a moment ago. Choose another path.`,
+            path_taken: true
+          });
+        }
+        // Return the committed path so the client can skip the commit-path call
+        return res.json({ tally, majority, committed: true, path: pathDef, current_phase: latestState.current_phase });
       }
     }
 
@@ -15883,7 +15922,8 @@ app.post('/api/olympus/commit-path', authenticateToken, (req, res) => {
     if (state.current_phase !== 'path_choice') {
       return res.json({ already_advanced: true, current_phase: state.current_phase });
     }
-    const majority = getMajority(alliance.alliance_id, state.current_round, 'path');
+    const majority = getMajority(alliance.alliance_id, state.current_round, 'path',
+      new Set(pathsTakenByOthers(state, alliance.alliance_id).keys()));
     if (!majority) return res.status(400).json({ error: 'No majority yet' });
     const pathIdx = parseInt(majority.winner);
     const roundPaths = ROUND_PATHS[state.current_round] || [];

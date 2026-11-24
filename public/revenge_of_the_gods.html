@@ -2133,6 +2133,15 @@ async function commitPath() {
       return;
     }
 
+    if (voteData.path_taken) {
+      // Another alliance holds this path: redraw the cards (it now shows as
+      // locked), then explain. The button stays disabled until a new pick.
+      await showPathChoice(raceState ? raceState.current_round : 1);
+      showPathsError(voteData.error || 'Another alliance took that path. Choose another path.');
+      btn.textContent = 'Commit to This Path';
+      return;
+    }
+
     if (!voteRes.ok) {
       showPathsError(voteData.error || 'Vote failed.');
       btn.disabled = false;
