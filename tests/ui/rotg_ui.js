@@ -112,6 +112,14 @@ const login = async (k, e) => (await (await fetch(`${B}/api/auth/${k}/login`, { 
   console.log('\n== Checks\n' + [...new Set(checks)].join('\n'));
   console.log(`\nfinished: round ${fin.state.current_round} phase ${fin.state.current_phase}, points ${fin.alliance.total_points}, ${Math.round((Date.now() - t0) / 1000)}s`);
   const ok = players.A.done && players.B.done;
+  if (!ok) for (const w of ['A', 'B']) {   // what each screen shows when it stalls
+    const p = players[w].page;
+    await p.screenshot({ path: `${SC}/${w}-STALLED.png`, fullPage: true }).catch(() => {});
+    const screen = await p.evaluate(() => { const s = document.querySelector('.screen.active, [id^="screen-"].active'); const sub = typeof combatSubPhase !== 'undefined' ? combatSubPhase : '?';
+      return `${s ? s.id : 'none'} / combatSubPhase=${sub} / visible buttons: ${[...document.querySelectorAll('button')].filter(b => b.offsetParent).map(b => (b.id || b.textContent.trim().slice(0, 20)) + (b.disabled ? '(disabled)' : '')).join(', ')}`; }).catch(e => e.message);
+    console.log(`  stalled ${w}: ${screen}`);
+  }
+  console.log('  state at stall:', JSON.stringify((await api(tok.A, 'GET', '/olympus/state')).state.combat_state || {}).slice(0, 400));
   console.log(ok ? `✓ both students reached round ${STOP_AT_ROUND} through the page` : `✗ TIMED OUT before both students reached round ${STOP_AT_ROUND}`);
   for (const w of ['A', 'B']) if (players[w].errs.length) console.log(`✗ Student ${w} had page errors`);
   if (!ok) process.exitCode = 1;
