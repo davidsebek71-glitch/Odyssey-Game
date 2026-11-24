@@ -118,7 +118,11 @@ async function refresh() {
   main.replaceChildren(el('div', { class: 'empty', text: 'Loading…' }));
   try {
     if (tab === 'queue') return renderQueue((await api('GET', '/teacher/island/queue' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).pins);
-    if (tab === 'games') return renderGames((await api('GET', '/teacher/games' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).games);
+    if (tab === 'games') {
+      const q = period() ? '?period=' + encodeURIComponent(period()) : '';
+      const [g, ai] = await Promise.all([api('GET', '/teacher/games' + q), api('GET', '/teacher/ai-helper' + q)]);
+      return renderGames(g.games, ai);
+    }
     if (tab === 'responses') return renderResponses((await api('GET', '/teacher/voyage/responses' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).responses);
     if (tab === 'voyages') {
       if (!period()) return main.replaceChildren(el('div', { class: 'empty', text: 'Choose a period above to manage its voyages.' }));
@@ -220,10 +224,39 @@ function renderStudents(rows) {
 // ── Mini games (Stage 7): approve → a teammate play-tests → published ──────
 const G_EVENT = { touches: 'touches', picks_up: 'picks up', enters: 'enters', talks_to: 'talks to', answers: 'answers' };
 const G_DO = { survive: 'reader SURVIVES', perish: 'reader PERISHES', message: 'message', open_path: 'opens a path through', appear: 'makes appear', vanish: 'makes vanish', move: 'moves the reader' };
-function renderGames(rows) {
+// Stage 8: the AI helper switch (per period, off by default) and its log
+function aiHelperCard(ai) {
+  const card = el('div', { class: 'card' }, el('h3', { style: 'margin-top:0', text: '✨ AI helper for mini games' }));
+  const setup = !ai.key_present ? 'Not set up: the server has no ANTHROPIC_API_KEY (the same key Athena grading uses).'
+    : !ai.sdk_ok ? 'Not set up: the server is missing the @anthropic-ai/sdk package (run npm install).' : 'Set up: the server has an API key.';
+  card.append(el('p', { class: 'muted', style: 'margin:0 0 8px', text: 'Students type one sentence describing their game; the helper sends only that sentence to Anthropic\'s Claude API and returns a draft they can change. No names, logins or story text are sent, and drafts still need your approval and a teammate play-test. Before turning it on, check Anthropic\'s data retention terms for API use.' }),
+    el('div', { style: 'margin-bottom:8px;color:' + (ai.key_present && ai.sdk_ok ? 'var(--green)' : 'var(--amber)'), text: setup }));
+  if (!ai.period) card.append(el('div', { class: 'muted', text: 'Choose a period above to turn the helper on or off for that period.' }));
+  else {
+    const msg = el('span', { class: 'msg' });
+    const per = el('select', { 'aria-label': 'Drafts per story' }, [1, 2, 3, 4, 5].map(n => el('option', { value: String(n), text: `${n} per story` })));
+    per.value = String(ai.drafts_per_story);
+    const save = async enabled => {
+      try { const r = await api('POST', '/teacher/ai-helper', { period: period(), enabled, drafts_per_story: parseInt(per.value) }); ai.enabled = r.enabled; ai.drafts_per_story = r.drafts_per_story; refresh(); }
+      catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+    };
+    per.addEventListener('change', () => save(ai.enabled));
+    card.append(el('div', { class: 'actions', style: 'flex-wrap:wrap;align-items:center' },
+      el('strong', { text: `Period ${ai.period}: ${ai.enabled ? 'ON' : 'OFF'}` }),
+      el('button', { class: 'btn ' + (ai.enabled ? 'return' : 'approve'), id: 'ai-toggle', onclick: () => save(!ai.enabled) }, ai.enabled ? 'Turn off' : 'Turn on'),
+      el('label', { class: 'muted' }, 'Drafts: ', per), msg));
+  }
+  if (ai.log && ai.log.length) card.append(el('details', { style: 'margin-top:10px' }, el('summary', { text: `What students sent (${ai.log.length} most recent)` }),
+    el('table', {}, el('thead', {}, el('tr', {}, ['When', 'Student', 'Story', 'Sentence sent', 'Result'].map(h => el('th', { text: h })))),
+      el('tbody', {}, ai.log.map(r => el('tr', {}, el('td', { text: r.created_at }), el('td', { text: r.student_name }), el('td', { text: r.story_title || '' }),
+        el('td', { text: r.description }), el('td', { text: { ok: 'draft made', problems: 'draft with problems', error: 'failed (not counted)' }[r.outcome] || r.outcome })))))));
+  return card;
+}
+function renderGames(rows, ai) {
   const main = document.getElementById('main');
-  if (!rows.length) return main.replaceChildren(el('div', { class: 'empty', text: 'No mini games are waiting. 🎉' }));
-  main.replaceChildren(el('p', { class: 'muted', text: 'Approve → a teammate play-tests it → readers can play. "Publish now" skips the play-test.' }), ...rows.map(g => {
+  const top = ai ? aiHelperCard(ai) : '';
+  if (!rows.length) return main.replaceChildren(top, el('div', { class: 'empty', text: 'No mini games are waiting. 🎉' }));
+  main.replaceChildren(top, el('p', { class: 'muted', text: 'Approve → a teammate play-tests it → readers can play. "Publish now" skips the play-test.' }), ...rows.map(g => {
     const card = el('div', { class: 'card' }), msg = el('span', { class: 'msg' });
     const nm = id => { const t = g.things.find(x => x.id === id); return t ? `${t.emoji} ${t.name}` : '?'; };
     const note = el('input', { type: 'text', maxlength: '500', placeholder: 'Note to the student (needed to return it)', style: 'flex:1;min-width:220px' });

@@ -23,6 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const MG = require('../public/js/minigame.js');
+const AI = require('../lib/ai_game.js');
 const LIMITS = { starter: { maxRules: 10, maxThings: 12 }, builder: { maxRules: 10, maxThings: 12 }, inventor: { maxRules: 8, maxThings: 12 } };
 const EDITABLE = ['draft', 'returned'];
 const PLAYTEST = {
@@ -130,12 +131,12 @@ module.exports = function registerGameRoutes(app, deps) {
     if (!pin) return res.status(404).json({ error: 'Story not found' });
     const g = getGame(pin.pin_id);
     const mine = req.user.type === 'student' && req.user.id === pin.owner_student_id;
-    if (!g) return res.json({ game: null, can_edit: mine && !!pin.quest_id, story: mine ? { title: pin.title, body: pin.body } : undefined });
+    if (!g) return res.json({ game: null, can_edit: mine && !!pin.quest_id, story: mine ? { title: pin.title, body: pin.body } : undefined, ai: mine ? aiInfo(pin) : undefined });
     const play = canPlay(req, g, pin);
     if (!mine && !play) return res.json({ game: null, can_play: false });
     res.json({ game: out(g, pin, req, mine || isTeacher(req)), can_edit: mine, can_play: play,
       can_playtest: g.status === 'approved' && sameAlliance(req, g.owner_student_id),
-      story: (mine || isTeacher(req)) ? { title: pin.title, body: pin.body } : undefined });
+      story: (mine || isTeacher(req)) ? { title: pin.title, body: pin.body } : undefined, ai: mine ? aiInfo(pin) : undefined });
   });
 
   // Save (author; draft or returned). Starting from a template copies it.
@@ -198,6 +199,81 @@ module.exports = function registerGameRoutes(app, deps) {
   });
 
   // ── Teacher ───────────────────────────────────────────────────────────────
+  // ── Stage 8: AI helper ("Help me build this") ─────────────────────────────
+  // Off by default, switched on per period by the teacher. A capped number of
+  // drafts per story. Only the student's one-sentence description is sent.
+  // A draft is never saved by itself: the student chooses to use it, and the
+  // game still goes through the teacher and a teammate play-test.
+  const aiSettings = period => {
+    const r = period ? query('SELECT * FROM ai_helper_settings WHERE class_period = ?', [period])[0] : null;
+    return { enabled: !!(r && r.enabled), drafts_per_story: r ? r.drafts_per_story : 3 };
+  };
+  const draftsUsed = pinId => query(`SELECT COUNT(*) AS n FROM game_ai_drafts WHERE pin_id = ? AND outcome IN ('ok','problems')`, [pinId])[0].n;
+  function aiInfo(pin) {
+    const s = aiSettings(pin.class_period), st = AI.status();
+    if (!s.enabled || !st.ready) return { available: false };
+    return { available: true, left: Math.max(0, s.drafts_per_story - draftsUsed(pin.pin_id)), per_story: s.drafts_per_story };
+  }
+  // Names of people in the class must not be sent to the AI
+  function nameInDescription(text, period) {
+    const words = new Set(norm(text).split(/[^a-z]+/).filter(Boolean));
+    const students = query('SELECT name FROM students WHERE class_period = ?', [period]);
+    for (const s of students) for (const part of String(s.name || '').toLowerCase().split(/[^a-z]+/)) {
+      if (part.length >= 3 && words.has(part) && !MYTH_WORDS.has(part)) return true;
+    }
+    return false;
+  }
+  const MYTH_WORDS = new Set(['student', 'test', 'hero', 'king', 'queen', 'gate', 'key']);
+  const aiBusy = new Set();
+  app.post('/api/games/pin/:pinId/ai-draft', authenticateToken, async (req, res) => {
+    if (req.user.type !== 'student') return res.status(403).json({ error: 'Students only' });
+    const pin = getPin(parseInt(req.params.pinId));
+    if (!pin || pin.owner_student_id !== req.user.id) return res.status(404).json({ error: 'Story not found' });
+    if (!pin.quest_id) return res.status(400).json({ error: 'Mini games go with a story (a quest piece), not a named place.' });
+    const g = getGame(pin.pin_id);
+    if (g && !EDITABLE.includes(g.status)) return res.status(409).json({ error: 'This game is with your teacher or already published. Use "Edit again" to change it.' });
+    const info = aiInfo(pin);
+    if (!info.available) return res.status(403).json({ error: 'The AI helper is turned off.' });
+    if (info.left <= 0) return res.status(429).json({ error: `You've used all ${info.per_story} helper drafts for this story. You can still build it yourself.` });
+    const description = str((req.body || {}).description, 300).replace(/\s+/g, ' ').trim();
+    if (description.split(' ').length < 5) return res.status(400).json({ error: 'Describe your game in one sentence (at least 5 words).' });
+    if (/[\w.+-]+@[\w-]+\.\w+|https?:\/\//i.test(description)) return res.status(400).json({ error: 'Leave out email addresses and links.' });
+    if (nameInDescription(description, pin.class_period)) return res.status(400).json({ error: 'Leave out the names of people in your class. Myth names are fine.' });
+    if (aiBusy.has(pin.pin_id)) return res.status(409).json({ error: 'The helper is already working on this game.' });
+    aiBusy.add(pin.pin_id);
+    const log = outcome => run('INSERT INTO game_ai_drafts (pin_id, student_id, class_period, description, outcome) VALUES (?,?,?,?,?)', [pin.pin_id, req.user.id, pin.class_period, description, outcome]);
+    try {
+      const engineCheck = game => { const r = MG.check(sanitize(game), LIMITS.builder); return { ok: r.ok, problems: r.problems }; };
+      const { game, check } = await AI.draftGame(description, engineCheck);
+      log(check.ok ? 'ok' : 'problems');
+      res.json({ draft: sanitize(game), check, left: info.left - 1 });
+    } catch (e) {
+      log('error');
+      if (e instanceof AI.HelperError) return res.status(502).json({ error: e.message });
+      console.error('ai draft:', e); res.status(500).json({ error: 'The AI helper had a problem. Try again.' });
+    } finally { aiBusy.delete(pin.pin_id); }
+  });
+  app.get('/api/teacher/ai-helper', authenticateToken, (req, res) => {
+    if (!isTeacher(req)) return res.status(403).json({ error: 'Teacher access required' });
+    const period = req.query.period || null;
+    const rows = query(`SELECT d.*, s.name AS student_name, p.title AS story_title FROM game_ai_drafts d
+      JOIN students s ON s.student_id = d.student_id LEFT JOIN island_pins p ON p.pin_id = d.pin_id
+      ${period ? 'WHERE d.class_period = ?' : ''} ORDER BY d.draft_id DESC LIMIT 100`, period ? [period] : []);
+    res.json(Object.assign({ period, log: rows.map(r => ({ student_name: r.student_name, story_title: r.story_title, description: r.description, outcome: r.outcome, created_at: r.created_at })) },
+      AI.status(), period ? aiSettings(period) : {}));
+  });
+  app.post('/api/teacher/ai-helper', authenticateToken, (req, res) => {
+    if (!isTeacher(req)) return res.status(403).json({ error: 'Teacher access required' });
+    const b = req.body || {};
+    if (!b.period) return res.status(400).json({ error: 'Choose a period.' });
+    const cur = aiSettings(b.period);
+    const enabled = b.enabled === undefined ? cur.enabled : !!b.enabled;
+    const per = b.drafts_per_story === undefined ? cur.drafts_per_story : Math.max(1, Math.min(5, parseInt(b.drafts_per_story) || 3));
+    run(`INSERT INTO ai_helper_settings (class_period, enabled, drafts_per_story) VALUES (?,?,?)
+      ON CONFLICT(class_period) DO UPDATE SET enabled = excluded.enabled, drafts_per_story = excluded.drafts_per_story`, [b.period, enabled ? 1 : 0, per]);
+    res.json(aiSettings(b.period));
+  });
+
   app.get('/api/teacher/games', authenticateToken, (req, res) => {
     if (!isTeacher(req)) return res.status(403).json({ error: 'Teacher access required' });
     const period = req.query.period || null;

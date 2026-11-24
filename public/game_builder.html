@@ -28,7 +28,7 @@
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
   h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1rem; margin: 0 0 8px; }
   .muted { color: var(--muted); } .help { font-size: 0.85rem; color: var(--muted); line-height: 1.5; margin: 0 0 8px; }
-  #room { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; background: #1c1236; padding: 6px; border-radius: 10px; }
+  #room, .room-preview { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; background: #1c1236; padding: 6px; border-radius: 10px; }
   .tile { min-width: 0; aspect-ratio: 1; background: #2a1d4a; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 2.4vw, 26px); cursor: pointer; border: none; color: inherit; padding: 0; position: relative; }
   .tile.start { box-shadow: inset 0 0 0 2px var(--green); } .tile.sel { box-shadow: inset 0 0 0 3px var(--gold); }
   .tile .hid { position: absolute; inset: 0; background: rgba(15,10,30,0.55); border-radius: 5px; }
@@ -112,7 +112,8 @@ function renderStart() {
       el('div', { class: 'rowf' }, el('button', { class: 'btn primary', onclick: () => begin({ level: 'starter', from_template: t.key }) }, 'Starter: use this game, change the words'),
         el('button', { class: 'btn', onclick: () => begin({ level: 'builder', from_template: t.key }) }, 'Builder: start from it and change the rules')))),
     el('div', { class: 'tpl' }, el('strong', { text: 'Inventor' }), el('div', { class: 'muted', style: 'margin:4px 0 8px', text: `Start with an empty room and write every rule yourself (up to ${limits.inventor.maxRules} rules).` }),
-      el('button', { class: 'btn', onclick: () => begin({ level: 'inventor', blank: true }) }, 'Start blank'))));
+      el('button', { class: 'btn', onclick: () => begin({ level: 'inventor', blank: true }) }, 'Start blank')),
+    helperCard()));
 }
 async function begin(how) { try { G = (await api('PUT', '/games/pin/' + PIN, how)).game; render(); } catch (e) { alert(e.message); } }
 
@@ -125,6 +126,7 @@ function render() {
   if (G.status === 'returned') left.append(el('div', { class: 'banner bad' }, el('strong', { text: 'Needs changes: ' }), G.teacher_note || '', el('br'), 'Fix it and submit again.'));
   if (!editable()) left.append(el('button', { class: 'btn', style: 'margin-bottom:10px', onclick: async () => { if (!confirm('Change your game? It leaves play until your teacher approves it again.')) return; await api('POST', `/games/pin/${PIN}/edit-again`); G.status = 'draft'; render(); } }, 'Edit again'));
   left.append(roomCard(), thingsCard());
+  if (editable() && info.ai && info.ai.available) right.append(helperCard());
   right.append(clueCard(), rulesCard(), el('div', { class: 'card' }, el('h2', { text: 'Check' }), el('div', { id: 'check' }),
     editable() ? el('div', { class: 'rowf', style: 'margin-top:10px' }, el('button', { class: 'btn primary', id: 'submit', onclick: submit }, 'Submit to my teacher'), el('span', { id: 'submit-msg', class: 'muted' })) : null));
   document.getElementById('main').replaceChildren(left, right);
@@ -227,6 +229,66 @@ function rulesCard() {
   });
   if (canStructure && G.rules.length < limits[G.level].maxRules) box.append(el('button', { class: 'btn small', onclick: () => { G.rules.push({ when: { event: 'touches', thing: '' }, then: { do: 'message', text: '' } }); changed(); } }, '+ Add a rule'));
   return box;
+}
+
+// ── Stage 8: AI helper — one sentence in, a draft game out ──────────────────
+let aiDraft = null, aiBusy = false, aiMsg = '';
+const HELP_EVENT = { touches: 'bumps into', picks_up: 'picks up', enters: 'steps into', talks_to: 'talks to', answers: 'answers' };
+const HELP_DO = { survive: 'the reader SURVIVES', perish: 'the reader PERISHES', message: 'show', open_path: 'open a path through', appear: 'make appear', vanish: 'make vanish', move: 'move the reader' };
+function ruleText(game, r) {
+  const nm = id => { const t = game.things.find(x => x.id === id); return t ? `${t.emoji} ${t.name}` : '?'; };
+  return `When the reader ${HELP_EVENT[r.when.event] || r.when.event} ${nm(r.when.thing)}${r.when.event === 'answers' ? (r.when.answer === 'wrong' ? ' wrongly' : ' correctly') : ''}` +
+    (r.if && r.if.carrying ? ` and is ${r.if.not ? 'NOT ' : ''}carrying ${nm(r.if.carrying)}` : '') +
+    ` → ${HELP_DO[r.then.do] || r.then.do}${r.then.thing ? ' ' + nm(r.then.thing) : ''}${r.then.do === 'message' ? ': "' + (r.then.text || '') + '"' : ''}`;
+}
+function helperCard() {
+  const ai = info.ai;
+  if (!ai || !ai.available) return el('span');
+  const card = el('div', { class: 'card', id: 'helper', style: 'border-color:var(--violet)' }, el('h2', { text: '✨ Help me build this' }));
+  if (aiDraft) {
+    const d = aiDraft.draft;
+    const room = el('div', { class: 'room-preview', 'aria-label': 'The helper\'s draft room', style: 'max-width:520px' });
+    for (let y = 0; y < MiniGame.ROWS; y++) for (let x = 0; x < MiniGame.COLS; x++) {
+      const t = d.things.find(o => o.x === x && o.y === y && !o.hidden);
+      room.append(el('div', { class: 'tile' + (d.start.x === x && d.start.y === y ? ' start' : '') }, d.start.x === x && d.start.y === y ? '🦸' : t ? t.emoji : ''));
+    }
+    card.append(el('p', { class: 'help', text: 'Here is the helper\'s draft. Look it over. If you use it, it replaces what you have now, and you can change anything.' }), room,
+      el('ol', { style: 'margin:8px 0;padding-left:22px;line-height:1.6;font-size:0.9rem' }, d.rules.map(r => el('li', { text: ruleText(d, r) }))),
+      el('div', {}, d.things.filter(t => t.question).map(t => el('div', { class: 'muted', style: 'font-size:0.88rem;margin-bottom:6px', text: `${t.emoji} ${t.name} asks: ${t.question.prompt} (${t.question.options.map((o, i) => i === t.question.correct_index ? o + ' ✓' : o).join(' / ')})` }))),
+      d.things.some(t => t.hidden) ? el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px', text: 'Starts hidden: ' + d.things.filter(t => t.hidden).map(t => `${t.emoji} ${t.name}`).join(', ') }) : null,
+      aiDraft.check.ok ? el('div', { class: 'check ok', text: '✓ Someone can survive this draft.' }) : el('div', { class: 'check no' }, el('strong', { text: 'The draft still has problems you would need to fix:' }), el('ul', {}, aiDraft.check.problems.map(p => el('li', { text: p })))),
+      el('div', { class: 'rowf', style: 'margin-top:10px' },
+        el('button', { class: 'btn primary', onclick: useDraft }, 'Use this draft'),
+        el('button', { class: 'btn', onclick: () => { aiDraft = null; G ? render() : renderStart(); } }, 'No thanks')));
+    return card;
+  }
+  const box = el('textarea', { id: 'ai-desc', maxlength: '300', rows: '2', placeholder: 'e.g. The hero must find the golden fleece and give it to the king to escape.',
+    style: 'width:100%;background:rgba(10,6,22,0.9);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;font:inherit' });
+  card.append(el('p', { class: 'help', text: 'Describe your game in one sentence. The helper makes a first draft you can change. Only this sentence is sent to the helper, so leave out the names of people in your class.' }),
+    box, el('div', { class: 'rowf', style: 'margin-top:8px' },
+      el('button', { class: 'btn primary', id: 'ai-go', disabled: aiBusy || ai.left <= 0, onclick: () => askHelper(box.value) }, aiBusy ? 'The helper is thinking…' : 'Help me build this'),
+      el('span', { class: 'muted', style: 'font-size:0.85rem', text: `${ai.left} of ${ai.per_story} helper drafts left for this story` })),
+    el('div', { id: 'ai-msg', role: 'status', style: 'margin-top:6px;color:var(--amber)', text: aiMsg }));
+  return card;
+}
+async function askHelper(text) {
+  if (aiBusy) return;
+  aiBusy = true; aiMsg = 'The helper is thinking. This can take up to a minute.'; const keep = text;
+  const redraw = () => { const old = document.getElementById('helper'); if (old) { const n = helperCard(); old.replaceWith(n); const t = document.getElementById('ai-desc'); if (t) t.value = keep; } };
+  redraw();
+  try {
+    const r = await api('POST', `/games/pin/${PIN}/ai-draft`, { description: text });
+    info.ai.left = r.left; aiDraft = r; aiMsg = '';
+  } catch (e) { aiMsg = e.message; }
+  aiBusy = false; redraw();
+}
+async function useDraft() {
+  if (G && (G.things.length || G.rules.length) && !confirm('Replace your current game with the helper\'s draft?')) return;
+  const d = aiDraft.draft;
+  try {
+    G = (await api('PUT', '/games/pin/' + PIN, { level: 'builder', template: null, things: d.things, rules: d.rules, start: d.start, clue_text: G ? G.clue_text : '' })).game;
+    aiDraft = null; selected = null; placing = null; render();
+  } catch (e) { aiMsg = e.message; const m = document.getElementById('ai-msg'); if (m) m.textContent = e.message; }
 }
 
 async function load() {

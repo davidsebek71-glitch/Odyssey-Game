@@ -631,6 +631,7 @@ module.exports = function registerIslandRoutes(app, deps) {
       run(`DELETE FROM monster_attributes WHERE pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD]);
       run(`DELETE FROM monster_encounters WHERE class_period = ?`, [TEST_PERIOD]);
       run(`DELETE FROM pin_games WHERE pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD]);
+      run(`DELETE FROM game_ai_drafts WHERE class_period = ?`, [TEST_PERIOD]);
       run('DELETE FROM island_pins WHERE class_period = ?', [TEST_PERIOD]);
       run(`DELETE FROM voyage_tokens WHERE alliance_id IN (SELECT alliance_id FROM alliances WHERE class_period = ?)`, [TEST_PERIOD]);
       run(`UPDATE voyage_settings SET mode = 'build', window_id = 0 WHERE class_period = ?`, [TEST_PERIOD]);

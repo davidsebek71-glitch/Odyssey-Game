@@ -887,6 +887,22 @@ function ensureStage4Tables() {
       published_at     DATETIME,
       updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+    // Stage 8: AI helper for mini games. Off by default, per period.
+    db.run(`CREATE TABLE IF NOT EXISTS ai_helper_settings (
+      class_period     TEXT PRIMARY KEY,
+      enabled          INTEGER NOT NULL DEFAULT 0,
+      drafts_per_story INTEGER NOT NULL DEFAULT 3
+    )`);
+    // Every request sent to the AI (the teacher can read them all)
+    db.run(`CREATE TABLE IF NOT EXISTS game_ai_drafts (
+      draft_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+      pin_id       INTEGER NOT NULL,
+      student_id   INTEGER NOT NULL,
+      class_period TEXT,
+      description  TEXT NOT NULL,
+      outcome      TEXT NOT NULL,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
     // Extra data for special pins: lair dangers, the hero's reward (JSON)
     const pinCols = (db.exec("PRAGMA table_info(island_pins)")[0] || { values: [] }).values.map(c => c[1]);
     if (pinCols.length && !pinCols.includes('extra')) db.run("ALTER TABLE island_pins ADD COLUMN extra TEXT DEFAULT '{}'");
