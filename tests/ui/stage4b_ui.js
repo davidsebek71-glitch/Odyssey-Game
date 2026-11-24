@@ -12,6 +12,13 @@ const words = n => Array.from({ length: n }, (_, i) => ['the', 'beast', 'waits',
   const T = await login('teacher', 'teacher@test.local'), A = await login('student', 'stuA@test.local'), C = await login('student', 'stuC@test.local'), E = await login('student', 'stuE@test.local');
   const cId = (await call(C, 'GET', '/island/me')).student.student_id;
   await call(T, 'POST', '/teacher/island/reset-test', { confirm_period: 'Test' });
+  // C needs an island map (the reset keeps maps, but a fresh database has none)
+  await call(C, 'POST', '/student/upload-map', { map_image: 'data:image/png;base64,' + require('fs').readFileSync(ENV.REPO + '/public/images/classical/Psyche/palace_bg.png').toString('base64') });
+  // The reset clears god powers, so give A an approved Athena power (Stage 4A's flow)
+  await call(A, 'PUT', '/gods/athena/card', { claim: 'Athena helps heroes who use their minds instead of only their strength.', evidence_text: '"Athena gave him a polished shield" and he watched Medusa\'s reflection', source_note: 'p. 42' });
+  await call(A, 'POST', '/gods/athena/card/submit');
+  const card = (await call(T, 'GET', '/teacher/gods/cards?period=Test')).cards.find(c => c.god === 'athena' && c.student_name === 'Student A');
+  await call(T, 'POST', `/teacher/gods/cards/${card.power_id}/review`, { action: 'approve' });
   const br = await chromium.launch();
   async function open(tok, url, who) {
     const ctx = await br.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage(); p.setDefaultTimeout(15000);

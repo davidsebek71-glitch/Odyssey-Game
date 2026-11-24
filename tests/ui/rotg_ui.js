@@ -30,7 +30,20 @@ const login = async (k, e) => (await (await fetch(`${B}/api/auth/${k}/login`, { 
     const page = await ctx.newPage(); page.setDefaultTimeout(5000);
     const errs = [];
     page.on('pageerror', e => errs.push(e.message));
-    page.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
+    // Name the request behind a failed load (the console message alone has no URL)
+    page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push('console: ' + m.text()); });
+    // Two teammates' pages race each other, so the server sometimes answers 400 to
+    // a request the page expects to lose and handles quietly:
+    //   medea-commit "No majority yet" / "already resolved" → the page routes to the current step
+    //   combat-spell "Not in combat phase" for a skip (spell_id null) → ignored by skipSpell()
+    const EXPECTED = [['/api/olympus/medea-commit', /No majority yet|already resolved/], ['/api/olympus/combat-spell', /Not in combat phase/, r => /"spell_id":null/.test(r.request().postData() || '')]];
+    page.on('response', async r => {
+      if (r.status() < 400) return;
+      let why = ''; try { why = (await r.json()).error || ''; } catch (e) {}
+      const path = new URL(r.url()).pathname;
+      if (EXPECTED.some(([p, re, extra]) => p === path && re.test(why) && (!extra || extra(r)))) return;
+      errs.push(`HTTP ${r.status()} ${r.request().method()} ${path} "${why}"`);
+    });
     page.on('dialog', d => { errs.push('ALERT: ' + d.message()); d.dismiss(); });
     await page.goto(B + '/index.html');
     await page.evaluate(t => localStorage.setItem('token', t), tok[who]);

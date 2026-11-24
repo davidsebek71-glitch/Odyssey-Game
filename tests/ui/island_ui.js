@@ -10,6 +10,9 @@ const results = []; const check = (ok, m) => { results.push((ok ? '✓ ' : '✗ 
 (async () => {
   const T = await login('teacher', 'teacher@test.local'), A = await login('student', 'stuA@test.local'), Bt = await login('student', 'stuB@test.local');
   await call(T, 'POST', '/teacher/island/reset-test', { confirm_period: 'Test' });
+  // A needs a map and the Pandora quiz passed (a fresh database has neither)
+  await call(A, 'POST', '/student/upload-map', { map_image: 'data:image/png;base64,' + require('fs').readFileSync(ENV.REPO + '/public/images/classical/Psyche/palace_bg.png').toString('base64') });
+  await call(T, 'POST', '/teacher/force-pass-quiz', { student_name: 'Student A', class_period: 'Test', portal_id: 1, score: 9, total_questions: 10 });
   const br = await chromium.launch();
   async function open(tok, url, viewport = { width: 1280, height: 900 }) {
     const ctx = await br.newContext({ viewport }); const p = await ctx.newPage(); p.setDefaultTimeout(15000);
@@ -48,6 +51,10 @@ const results = []; const check = (ok, m) => { results.push((ok ? '✓ ' : '✗ 
   await a.fill('#f-body', 'Hope stayed in the jar. '.repeat(16).trim() + '\nThe shrine stands on the cliff where Pandora first opened it.\nEpimetheus guards the door.');
   const counts = await a.textContent('#counts');
   check(/\/ 80 words ✓/.test(counts), `live count: "${counts}"`);
+  // Stage 2 made a visitor question part of every story
+  await a.fill('#q-prompt', 'What stayed inside the jar?');
+  await a.fill('input[aria-label="Choice 1"]', 'Hope'); await a.fill('input[aria-label="Choice 2"]', 'Gold');
+  await a.locator('.q-row input[type=radio]').first().check();
   await a.setInputFiles('#f-photo', ENV.REPO + '/public/images/classical/myths/Pandora.png');
   await a.waitForSelector('#photo-box img');
   check(true, 'photo chosen, shrunk in the browser, uploaded and shown');
