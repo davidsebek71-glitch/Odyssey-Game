@@ -633,9 +633,23 @@ module.exports = function registerIslandRoutes(app, deps) {
       run(`DELETE FROM pin_games WHERE pin_id IN (SELECT pin_id FROM island_pins WHERE class_period = ?)`, [TEST_PERIOD]);
       run(`DELETE FROM game_ai_drafts WHERE class_period = ?`, [TEST_PERIOD]);
       run('DELETE FROM island_pins WHERE class_period = ?', [TEST_PERIOD]);
-      run(`DELETE FROM voyage_tokens WHERE alliance_id IN (SELECT alliance_id FROM alliances WHERE class_period = ?)`, [TEST_PERIOD]);
-      run(`UPDATE voyage_settings SET mode = 'build', window_id = 0 WHERE class_period = ?`, [TEST_PERIOD]);
-      res.json({ reset: true, pins_removed: pins.length });
+      // Everything else the islands build stores for Test-period students and
+      // alliances. Shared content (quests, Oracle trials, logic puzzles) stays.
+      const STU = `(SELECT student_id FROM students WHERE class_period = ?)`, ALL = `(SELECT alliance_id FROM alliances WHERE class_period = ?)`;
+      const cleared = {};
+      const del = (table, where, params) => { const n = query(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`, params)[0].n; run(`DELETE FROM ${table} WHERE ${where}`, params); cleared[table] = n; };
+      del('voyage_tokens', `alliance_id IN ${ALL}`, [TEST_PERIOD]);
+      del('voyage_settings', 'class_period = ?', [TEST_PERIOD]);            // back to defaults (build phase)
+      del('monster_battles', `alliance_id IN ${ALL} OR island_monster_id IN (SELECT island_monster_id FROM island_monsters WHERE alliance_id IN ${ALL})`, [TEST_PERIOD, TEST_PERIOD]);
+      del('island_monsters', `alliance_id IN ${ALL}`, [TEST_PERIOD]);
+      del('god_powers', `student_id IN ${STU}`, [TEST_PERIOD]);
+      del('island_terrain', `student_id IN ${STU}`, [TEST_PERIOD]);
+      del('oracle_attempts', `class_period = ? OR student_id IN ${STU}`, [TEST_PERIOD, TEST_PERIOD]);
+      del('logic_attempts', `student_id IN ${STU} OR alliance_id IN ${ALL}`, [TEST_PERIOD, TEST_PERIOD]);
+      del('challenge_assignments', 'class_period = ?', [TEST_PERIOD]);
+      del('student_accommodations', `student_id IN ${STU}`, [TEST_PERIOD]);
+      del('ai_helper_settings', 'class_period = ?', [TEST_PERIOD]);          // AI helper back to off
+      res.json({ reset: true, pins_removed: pins.length, cleared });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 

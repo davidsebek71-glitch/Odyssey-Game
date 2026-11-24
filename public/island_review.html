@@ -208,10 +208,29 @@ function renderSubmission(p) {
   return card;
 }
 
+// Test Period only: wipe everything the islands build stored, for a fresh dress rehearsal
+function resetTestCard() {
+  const msg = el('span', { class: 'msg' });
+  const box = el('input', { type: 'text', id: 'reset-confirm', placeholder: 'Type Test to confirm', 'aria-label': 'Type Test to confirm', style: 'width:180px' });
+  const btn = el('button', { class: 'btn return', id: 'reset-test-btn', onclick: async () => {
+    if (box.value.trim() !== 'Test') { msg.textContent = 'Type Test in the box first.'; msg.style.color = 'var(--red)'; return; }
+    btn.disabled = true;
+    try {
+      const r = await api('POST', '/teacher/island/reset-test', { confirm_period: 'Test' });
+      const n = Object.values(r.cleared || {}).reduce((a, b) => a + b, 0);
+      msg.textContent = `✓ Test Period reset: ${r.pins_removed} pins and ${n} other records removed.`; msg.style.color = 'var(--green)'; box.value = '';
+    } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+    btn.disabled = false;
+  } }, 'Reset Test Period');
+  return el('div', { class: 'card', style: 'border-color:var(--red)' }, el('h3', { style: 'margin-top:0', text: 'Reset Test Period' }),
+    el('p', { class: 'muted', style: 'margin:0 0 8px', text: 'Removes everything the island features stored for Test Period: pins and photos, visits and responses, voyage tokens and settings, god powers, monsters and battles, terrain, Oracle and Labyrinth attempts and assignments, accommodations, mini games, and AI helper settings. Students, alliances, points and the shared quests, trials and puzzles stay. Other periods are never touched.' }),
+    el('div', { class: 'actions', style: 'flex-wrap:wrap;align-items:center' }, box, btn, msg));
+}
 function renderStudents(rows) {
   const main = document.getElementById('main');
-  if (!rows.length) return main.replaceChildren(el('div', { class: 'empty', text: 'No students in this period.' }));
-  main.replaceChildren(el('div', { class: 'card' }, el('table', {},
+  const top = period() === 'Test' ? resetTestCard() : '';
+  if (!rows.length) return main.replaceChildren(top, el('div', { class: 'empty', text: 'No students in this period.' }));
+  main.replaceChildren(top, el('div', { class: 'card' }, el('table', {},
     el('thead', {}, el('tr', {}, ['Student', 'Alliance', 'Period', 'Map', 'Terrain checked', 'Published', 'Waiting', 'Returned', 'Drafts', ''].map(h => el('th', { text: h })))),
     el('tbody', {}, rows.map(s => el('tr', {},
       el('td', { text: s.name }), el('td', { text: s.alliance_name || '—' }), el('td', { text: s.class_period || '—' }),
