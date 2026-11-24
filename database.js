@@ -858,6 +858,16 @@ function ensureStage4Tables() {
       started_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
       finished_at         DATETIME
     )`);
+    // Stage 5: terrain read from a student's map (64 x 48 cells), checked by the student.
+    // grid = 3072 characters, one per cell, row by row: w water, f forest, m mountain, l land
+    db.run(`CREATE TABLE IF NOT EXISTS island_terrain (
+      student_id      INTEGER PRIMARY KEY,
+      grid            TEXT NOT NULL,
+      color_key       TEXT DEFAULT '{}',
+      reviewed        INTEGER DEFAULT 0,
+      map_uploaded_at DATETIME,
+      updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
     // Extra data for special pins: lair dangers, the hero's reward (JSON)
     const pinCols = (db.exec("PRAGMA table_info(island_pins)")[0] || { values: [] }).values.map(c => c[1]);
     if (pinCols.length && !pinCols.includes('extra')) db.run("ALTER TABLE island_pins ADD COLUMN extra TEXT DEFAULT '{}'");

@@ -604,6 +604,7 @@ module.exports = function registerIslandRoutes(app, deps) {
       const rows = query(
         `SELECT s.student_id, s.name, s.class_period, a.alliance_name,
                 CASE WHEN s.map_image IS NOT NULL AND s.map_image != '' THEN 1 ELSE 0 END AS has_map,
+                (SELECT CASE WHEN t.reviewed = 1 AND (t.map_uploaded_at IS s.map_uploaded_at) THEN 1 ELSE 0 END FROM island_terrain t WHERE t.student_id = s.student_id) AS terrain_ok,
                 SUM(CASE WHEN p.status='published' THEN 1 ELSE 0 END) AS published,
                 SUM(CASE WHEN p.status='submitted' THEN 1 ELSE 0 END) AS submitted,
                 SUM(CASE WHEN p.status='returned' THEN 1 ELSE 0 END) AS returned,

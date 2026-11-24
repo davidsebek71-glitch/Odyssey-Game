@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Island Terrain — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.65);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button, input { font: inherit; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.25rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn.on { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 2px rgba(240,199,94,0.3); }
+  .btn.small { padding: 5px 10px; font-size: 0.85rem; }
+  .btn:focus-visible, canvas:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  main { max-width: 1250px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  @media (max-width: 950px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.02rem; margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  .help { font-size: 0.86rem; color: var(--muted); line-height: 1.5; margin: 4px 0 10px; }
+  .key-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .swatch { width: 34px; height: 26px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.4); }
+  .key-row .name { flex: 1; font-weight: 600; }
+  input[type=color] { width: 40px; height: 30px; border: none; background: none; padding: 0; cursor: pointer; }
+  .stage { position: relative; line-height: 0; border-radius: 10px; overflow: hidden; background: #120a24; }
+  #board { width: 100%; height: auto; display: block; touch-action: none; cursor: crosshair; }
+  .brushes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .brushes .btn { display: flex; align-items: center; gap: 8px; justify-content: flex-start; }
+  .dot { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .banner { border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid; line-height: 1.45; }
+  .banner.warn { border-color: var(--amber); background: rgba(251,191,36,0.1); } .banner.good { border-color: var(--green); background: rgba(110,231,160,0.1); }
+  .counts { font-size: 0.85rem; line-height: 1.7; }
+  .empty { text-align: center; color: var(--muted); padding: 40px; grid-column: 1 / -1; }
+  #hint { min-height: 1.3em; font-size: 0.9rem; color: var(--gold); margin: 8px 0 0; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/island.html">← My Island</a>
+  <h1>Island Terrain</h1>
+  <span class="muted" id="status" aria-live="polite"></span>
+</div>
+<main id="main"><div class="empty">Loading…</div></main>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const COLS = 64, ROWS = 48;
+const KINDS = [
+  { code: 'w', name: 'water', label: 'Water', show: '#3b82f6', def: '#4f8fd8' },
+  { code: 'f', name: 'forest', label: 'Forest', show: '#16a34a', def: '#3f8f3a' },
+  { code: 'm', name: 'mountain', label: 'Mountain', show: '#a8a29e', def: '#8b7b6b' },
+  { code: 'l', name: 'land', label: 'Land', show: '#e4c77a', def: '#e9dcb4' }];
+let mapImg = null, full = null;           // the map and a full-size copy for sampling colors
+let key = {};                              // terrain name -> '#rrggbb' (the color key)
+let grid = null;                           // string of COLS*ROWS codes
+let saved = null, picking = null, brush = 'w', size = 1, showTerrain = true, checked = false, dirty = false;
+let cursor = { c: 0, r: 0 }, painting = false;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) throw new Error(d.error || 'Something went wrong. Try again.');
+  return d;
+}
+const status = t => { document.getElementById('status').textContent = t; };
+const hint = t => { const h = document.getElementById('hint'); if (h) h.textContent = t; };
+
+// ── Color math: compare colors the way eyes do (CIE Lab) ────────────────────
+function hexToRgb(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function rgbToHex(r, g, b) { return '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join(''); }
+function lab(r, g, b) {
+  const lin = v => { v /= 255; return v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92; };
+  const [R, G, B] = [lin(r), lin(g), lin(b)];
+  const f = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const x = f((R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047), y = f(R * 0.2126 + G * 0.7152 + B * 0.0722), z = f((R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+
+// Average the map into COLS x ROWS cells, then give each the nearest key color
+function detect() {
+  const sub = 4, w = COLS * sub, h = ROWS * sub;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(mapImg, 0, 0, w, h);
+  const px = ctx.getImageData(0, 0, w, h).data;
+  const refs = KINDS.map(k => ({ code: k.code, lab: lab(...hexToRgb(key[k.name] || k.def)) }));
+  let out = '';
+  for (let r = 0; r < ROWS; r++) for (let col = 0; col < COLS; col++) {
+    let R = 0, G = 0, B = 0;
+    for (let y = 0; y < sub; y++) for (let x = 0; x < sub; x++) { const i = ((r * sub + y) * w + col * sub + x) * 4; R += px[i]; G += px[i + 1]; B += px[i + 2]; }
+    const n = sub * sub, L = lab(R / n, G / n, B / n);
+    let best = refs[0], bd = Infinity;
+    refs.forEach(f => { const d = (L[0] - f.lab[0]) ** 2 + (L[1] - f.lab[1]) ** 2 + (L[2] - f.lab[2]) ** 2; if (d < bd) { bd = d; best = f; } });
+    out += best.code;
+  }
+  return out;
+}
+// Average color of a small patch of the full-size map (for the color key)
+function sample(xFrac, yFrac) {
+  const ctx = full.getContext('2d', { willReadFrequently: true });
+  const x = Math.round(xFrac * full.width), y = Math.round(yFrac * full.height), r = 4;
+  const d = ctx.getImageData(Math.max(0, x - r), Math.max(0, y - r), r * 2 + 1, r * 2 + 1).data;
+  let R = 0, G = 0, B = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) { R += d[i]; G += d[i + 1]; B += d[i + 2]; n++; }
+  return rgbToHex(R / n, G / n, B / n);
+}
+
+// ── Drawing ─────────────────────────────────────────────────────────────────
+function draw() {
+  const cv = document.getElementById('board'); if (!cv) return;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(mapImg, 0, 0, cv.width, cv.height);
+  const cw = cv.width / COLS, ch = cv.height / ROWS;
+  if (grid && showTerrain) {
+    ctx.globalAlpha = 0.5;
+    for (let i = 0; i < grid.length; i++) {
+      ctx.fillStyle = KINDS.find(k => k.code === grid[i]).show;
+      ctx.fillRect((i % COLS) * cw, Math.floor(i / COLS) * ch, Math.ceil(cw), Math.ceil(ch));
+    }
+    ctx.globalAlpha = 0.12; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(c * cw, 0); ctx.lineTo(c * cw, cv.height); ctx.stroke(); }
+    for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r * ch); ctx.lineTo(cv.width, r * ch); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+  if (grid && document.activeElement === cv) {
+    const half = Math.floor(size / 2);
+    ctx.strokeStyle = '#f0c75e'; ctx.lineWidth = 3;
+    ctx.strokeRect((cursor.c - half) * cw, (cursor.r - half) * ch, size * cw, size * ch);
+  }
+}
+function paintAt(c, r) {
+  if (!grid) return;
+  const half = Math.floor(size / 2), a = grid.split('');
+  for (let y = r - half; y <= r + half; y++) for (let x = c - half; x <= c + half; x++)
+    if (x >= 0 && x < COLS && y >= 0 && y < ROWS) a[y * COLS + x] = brush;
+  const next = a.join('');
+  if (next !== grid) { grid = next; dirty = true; checked = false; renderSide(); }
+  draw();
+}
+function cellFromEvent(e) {
+  const cv = document.getElementById('board'), r = cv.getBoundingClientRect();
+  const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+  return { fx, fy, c: Math.min(COLS - 1, Math.max(0, Math.floor(fx * COLS))), r: Math.min(ROWS - 1, Math.max(0, Math.floor(fy * ROWS))) };
+}
+
+// ── Side panel ──────────────────────────────────────────────────────────────
+function renderSide() {
+  const side = document.getElementById('side'); if (!side) return;
+  const counts = {}; if (grid) for (const ch of grid) counts[ch] = (counts[ch] || 0) + 1;
+  side.replaceChildren(
+    el('div', { class: 'card' }, el('h2', { text: '1 · Your color key' }),
+      el('p', { class: 'help', text: 'Tap "Pick", then tap a spot on your map that shows that terrain\'s color. You can also choose the color yourself.' }),
+      ...KINDS.map(k => el('div', { class: 'key-row' },
+        el('span', { class: 'swatch', style: `background:${key[k.name] || k.def}` }), el('span', { class: 'name', text: k.label }),
+        el('button', { class: 'btn small' + (picking === k.name ? ' on' : ''), 'aria-pressed': picking === k.name ? 'true' : 'false',
+          onclick: () => { picking = picking === k.name ? null : k.name; hint(picking ? `Tap a ${k.label.toLowerCase()} spot on your map.` : ''); renderSide(); } }, picking === k.name ? 'Tap the map…' : 'Pick'),
+        el('input', { type: 'color', value: key[k.name] || k.def, 'aria-label': `${k.label} color`, oninput: e => { key[k.name] = e.target.value; renderSide(); } })))),
+    el('div', { class: 'card' }, el('h2', { text: '2 · Find the terrain' }),
+      el('button', { class: 'btn primary', onclick: () => { grid = detect(); dirty = true; checked = false; draw(); renderSide(); hint('Done. Now check it against your map and fix any mistakes.'); } }, grid ? 'Find it again from my key' : 'Find the terrain'),
+      grid ? el('p', { class: 'help', text: 'Finding it again replaces any fixes you made.' }) : null),
+    grid ? el('div', { class: 'card' }, el('h2', { text: '3 · Check and fix' }),
+      el('p', { class: 'help', text: 'Marker drawings never come out perfect. Paint over any wrong squares: choose a terrain, then tap or drag on the map. Keyboard: select the map, arrows move, Space paints, keys 1–4 choose the terrain.' }),
+      el('div', { class: 'brushes' }, KINDS.map((k, i) => el('button', { class: 'btn' + (brush === k.code ? ' on' : ''), 'aria-pressed': brush === k.code ? 'true' : 'false',
+        onclick: () => { brush = k.code; renderSide(); } }, el('span', { class: 'dot', style: `background:${k.show}` }), `${i + 1} ${k.label}`))),
+      el('div', { class: 'row', style: 'margin-top:10px' }, el('span', { class: 'muted', text: 'Brush:' }),
+        ...[1, 3, 5].map(n => el('button', { class: 'btn small' + (size === n ? ' on' : ''), onclick: () => { size = n; renderSide(); draw(); } }, `${n}×${n}`)),
+        el('label', { class: 'muted', style: 'margin-left:auto' }, el('input', { type: 'checkbox', checked: showTerrain, onchange: e => { showTerrain = e.target.checked; draw(); } }), ' show terrain')),
+      el('div', { class: 'counts', style: 'margin-top:10px' }, KINDS.map(k => el('div', {}, el('span', { class: 'dot', style: `background:${k.show};margin-right:6px` }),
+        `${k.label}: ${Math.round((counts[k.code] || 0) / (COLS * ROWS) * 100)}%`)))) : null,
+    grid ? el('div', { class: 'card' }, el('h2', { text: '4 · Save' }),
+      el('label', { style: 'display:flex;gap:8px;align-items:flex-start;line-height:1.4' },
+        el('input', { type: 'checkbox', id: 'checked', checked, onchange: e => { checked = e.target.checked; renderSide(); } }),
+        'I checked the terrain against my map and fixed the mistakes.'),
+      el('div', { class: 'row', style: 'margin-top:10px' }, el('button', { class: 'btn primary', id: 'save', disabled: !checked, onclick: save }, 'Save my terrain'),
+        el('span', { class: 'muted', id: 'save-msg', style: 'font-size:0.88rem' }))) : null);
+}
+async function save() {
+  const msg = document.getElementById('save-msg');
+  try { const r = await api('PUT', '/terrain/me', { grid, color_key: key, reviewed: true }); saved = r.terrain; dirty = false; msg.textContent = '✓ Saved'; msg.style.color = 'var(--green)'; status('Terrain saved'); }
+  catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
+}
+
+// ── Load ────────────────────────────────────────────────────────────────────
+async function load() {
+  const main = document.getElementById('main');
+  let me, t;
+  try { [me, t] = await Promise.all([api('GET', '/island/me'), api('GET', '/terrain/me')]); }
+  catch (e) { main.replaceChildren(el('div', { class: 'empty', text: e.message })); return; }
+  if (!me.map_image) { main.replaceChildren(el('div', { class: 'empty' }, 'Upload your island map first (Dashboard → My Map). Then come back to find its terrain.')); return; }
+  saved = t.terrain;
+  if (saved) { key = Object.assign({}, saved.color_key); grid = saved.grid; checked = saved.reviewed; }
+  mapImg = new Image();
+  await new Promise((res, rej) => { mapImg.onload = res; mapImg.onerror = rej; mapImg.src = me.map_image; });
+  full = document.createElement('canvas'); full.width = mapImg.naturalWidth; full.height = mapImg.naturalHeight;
+  full.getContext('2d').drawImage(mapImg, 0, 0);
+  const cv = el('canvas', { id: 'board', tabindex: '0', role: 'img', 'aria-label': 'Your map with its terrain grid. Use arrow keys to move and Space to paint.' });
+  const scale = Math.min(2, 1200 / mapImg.naturalWidth);
+  cv.width = Math.round(mapImg.naturalWidth * scale); cv.height = Math.round(mapImg.naturalHeight * scale);
+  cv.addEventListener('pointerdown', e => {
+    const p = cellFromEvent(e);
+    if (picking) { key[picking] = sample(p.fx, p.fy); hint(`${picking[0].toUpperCase() + picking.slice(1)} color picked.`); picking = null; renderSide(); return; }
+    painting = true; cv.setPointerCapture(e.pointerId); cursor = { c: p.c, r: p.r }; paintAt(p.c, p.r);
+  });
+  cv.addEventListener('pointermove', e => { if (!painting) return; const p = cellFromEvent(e); cursor = { c: p.c, r: p.r }; paintAt(p.c, p.r); });
+  cv.addEventListener('pointerup', () => { painting = false; });
+  cv.addEventListener('keydown', e => {
+    const mv = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (mv) { e.preventDefault(); cursor = { c: Math.min(COLS - 1, Math.max(0, cursor.c + mv[0])), r: Math.min(ROWS - 1, Math.max(0, cursor.r + mv[1])) }; draw(); return; }
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); paintAt(cursor.c, cursor.r); return; }
+    if (['1', '2', '3', '4'].includes(e.key)) { brush = KINDS[+e.key - 1].code; renderSide(); }
+  });
+  cv.addEventListener('focus', draw); cv.addEventListener('blur', draw);
+  main.replaceChildren(
+    el('div', {},
+      saved && saved.stale ? el('div', { class: 'banner warn', text: 'You uploaded a new map since you saved your terrain. Find the terrain again and check it.' }) :
+      saved && saved.reviewed ? el('div', { class: 'banner good', text: '✓ Your terrain is saved. You can still fix it and save again.' }) :
+      el('div', { class: 'banner warn', text: 'Your island needs its terrain: set your color key, find the terrain, then check it.' }),
+      el('div', { class: 'card' }, el('div', { class: 'stage' }, cv), el('p', { id: 'hint', 'aria-live': 'polite' }))),
+    el('div', { id: 'side' }));
+  renderSide(); draw();
+  window.addEventListener('beforeunload', e => { if (dirty && grid) { e.preventDefault(); e.returnValue = ''; } });
+}
+load();
+</script>
+</body>
+</html>

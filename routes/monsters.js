@@ -367,7 +367,7 @@ module.exports = function registerMonsterRoutes(app, deps) {
     const members = query(`SELECT student_id FROM students WHERE alliance_id = ? AND (is_ghost = 0 OR is_ghost IS NULL) AND map_image IS NOT NULL AND map_image != ''`, [alliance.alliance_id]);
     const awake = awakeFor(alliance.alliance_id);
     let key = b.monster_key, blocks = b.blocks, target = b.block_target || null, owner = b.owner_student_id ? parseInt(b.owner_student_id) : null;
-    let x = b.x_pct !== undefined ? Number(b.x_pct) : null, y = b.y_pct !== undefined ? Number(b.y_pct) : null;
+    let x = b.x_pct !== undefined ? Number(b.x_pct) : null, y = b.y_pct !== undefined ? Number(b.y_pct) : null, placedOnTerrain = false;
     const pick = arr => arr[Math.floor(Math.random() * arr.length)];
     if (b.random) {
       const age = alliance.current_age || 'Archaic';
@@ -393,13 +393,19 @@ module.exports = function registerMonsterRoutes(app, deps) {
     if (blocks === 'region') {
       if (!owner && b.random) owner = pick(members).student_id;
       if (!owner || !members.some(m => m.student_id === owner)) return res.status(400).json({ error: 'Choose a member who has uploaded an island map.' });
-      if (x === null || !Number.isFinite(x)) x = 25 + Math.random() * 50;
-      if (y === null || !Number.isFinite(y)) y = 25 + Math.random() * 50;
+      if (x === null || !Number.isFinite(x) || y === null || !Number.isFinite(y)) {
+        const home = terrain ? terrain.cellsOf(owner, monster(key).terrain) : [];
+        // keep away from the very edge so its region stays on the map
+        const inner = home.filter(c => c.x_pct > 8 && c.x_pct < 92 && c.y_pct > 8 && c.y_pct < 92);
+        const spot = (inner.length ? inner : home)[Math.floor(Math.random() * (inner.length ? inner : home).length)];
+        if (spot) { x = spot.x_pct; y = spot.y_pct; placedOnTerrain = true; }
+        else { x = 25 + Math.random() * 50; y = 25 + Math.random() * 50; }
+      }
     } else { owner = null; x = null; y = null; }
     run(`INSERT INTO island_monsters (alliance_id, monster_key, owner_student_id, x_pct, y_pct, blocks, block_target, status, awakened_by)
          VALUES (?,?,?,?,?,?,?,'awake',?)`, [alliance.alliance_id, key, owner, x, y, blocks, target, b.random ? 'fate' : 'teacher']);
     const im = getIM(query('SELECT last_insert_rowid() AS id')[0].id);
-    res.json({ monster: imOut(im), message: `${monster(key).emoji} ${monster(key).name} awakens and ${blockText(im)}.` });
+    res.json({ monster: imOut(im), placed_on_terrain: placedOnTerrain, message: `${monster(key).emoji} ${monster(key).name} awakens and ${blockText(im)}.${blocks === 'region' ? (placedOnTerrain ? ` It settles on ${monster(key).terrain}.` : '') : ''}` });
   });
 
   // One-click fixes
@@ -419,5 +425,10 @@ module.exports = function registerMonsterRoutes(app, deps) {
     res.json({ rematch_ok: true });
   });
 
-  return { loadContent, blockedBuildings, harborBlockedBy, regionMonsters, inRegion, alliancePowers, god: k => god(k), gods: () => GODS };
+  // Stage 5: place region monsters on their own kind of terrain when the
+  // island's terrain has been checked by its owner
+  let terrain = null;
+  function useTerrain(t) { terrain = t; }
+
+  return { useTerrain, loadContent, blockedBuildings, harborBlockedBy, regionMonsters, inRegion, alliancePowers, god: k => god(k), gods: () => GODS };
 };

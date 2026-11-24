@@ -118,6 +118,7 @@
 <div class="topbar">
   <button class="btn small" onclick="goBack()">← Back</button>
   <h1 id="page-title">My Island</h1>
+  <a class="btn small" href="/terrain.html" id="terrain-link" style="text-decoration:none">⛰️ Terrain</a>
   <a class="btn small" href="/world.html" style="text-decoration:none">🌍 World Map</a>
   <span id="topbar-status" class="muted" style="font-size:0.85rem;"></span>
 </div>
@@ -222,6 +223,7 @@ async function load() {
   }
   document.getElementById('layout').style.display = '';
   document.getElementById('page-title').textContent = mode === 'view' ? `${island.owner.name}'s Island` : 'My Island';
+  if (mode === 'view') document.getElementById('terrain-link').style.display = 'none';
   renderAll();
 }
 

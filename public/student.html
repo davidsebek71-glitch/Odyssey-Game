@@ -6154,7 +6154,7 @@
                             📷 Choose Photo
                         </div>
                     </div>
-                    <input type="file" id="map-file-input" accept="image/*" style="display: none;" onchange="handleMapUpload(event)">
+                    <input type="file" id="map-file-input" accept="image/*,application/pdf" style="display: none;" onchange="handleMapUpload(event)">
                 `;
                 return;
             }
@@ -6325,7 +6325,7 @@
                     <button class="btn btn-secondary" onclick="document.getElementById('map-file-input-replace').click()" style="font-size: 12px; padding: 8px 16px;">
                         📷 Replace Map Image
                     </button>
-                    <input type="file" id="map-file-input-replace" accept="image/*" style="display: none;" onchange="handleMapUpload(event)">
+                    <input type="file" id="map-file-input-replace" accept="image/*,application/pdf" style="display: none;" onchange="handleMapUpload(event)">
                 </div>
             `;
             
@@ -6654,13 +6654,44 @@
             }
         }
         
+        // Stage 5: a PDF map is turned into an image of its first page
+        // (pdf.js, kept in /vendor/pdfjs so school filters can't block it)
+        function loadPdfJs() {
+            if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = '/vendor/pdfjs/pdf.min.js';
+                s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js'; resolve(window.pdfjsLib); };
+                s.onerror = () => reject(new Error('Could not load the PDF reader. Try a photo or screenshot of your map instead.'));
+                document.head.appendChild(s);
+            });
+        }
+        async function pdfFirstPageToBlob(file) {
+            const pdfjs = await loadPdfJs();
+            const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+            const page = await pdf.getPage(1);
+            const base = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: Math.min(3, 1600 / Math.max(base.width, base.height)) });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(viewport.width); canvas.height = Math.round(viewport.height);
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            return await new Promise(r => canvas.toBlob(r, 'image/png'));
+        }
+
         async function handleMapUpload(event) {
-            const file = event.target.files[0];
+            let file = event.target.files[0];
             if (!file) return;
+
+            if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+                if (file.size > 15 * 1024 * 1024) { alert('That PDF is too large. Please use one under 15MB.'); return; }
+                try { file = await pdfFirstPageToBlob(file); }
+                catch (err) { alert('Could not read that PDF: ' + err.message); return; }
+            }
             
             // Check file type
             if (!file.type.startsWith('image/')) {
-                alert('Please select an image file');
+                alert('Please select an image or PDF file');
                 return;
             }
             

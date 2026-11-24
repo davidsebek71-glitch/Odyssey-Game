@@ -206,10 +206,11 @@ function renderStudents(rows) {
   const main = document.getElementById('main');
   if (!rows.length) return main.replaceChildren(el('div', { class: 'empty', text: 'No students in this period.' }));
   main.replaceChildren(el('div', { class: 'card' }, el('table', {},
-    el('thead', {}, el('tr', {}, ['Student', 'Alliance', 'Period', 'Map', 'Published', 'Waiting', 'Returned', 'Drafts', ''].map(h => el('th', { text: h })))),
+    el('thead', {}, el('tr', {}, ['Student', 'Alliance', 'Period', 'Map', 'Terrain checked', 'Published', 'Waiting', 'Returned', 'Drafts', ''].map(h => el('th', { text: h })))),
     el('tbody', {}, rows.map(s => el('tr', {},
       el('td', { text: s.name }), el('td', { text: s.alliance_name || '—' }), el('td', { text: s.class_period || '—' }),
       el('td', { class: 'n', text: s.has_map ? '✓' : '—' }),
+      el('td', { class: 'n', text: s.terrain_ok ? '✓' : '—' }),
       ...['published', 'submitted', 'returned', 'drafts'].map(k => el('td', { class: 'n', text: String(s[k] || 0) })),
       el('td', {}, el('a', { href: `/island.html?student=${s.student_id}`, target: '_blank' }, 'Open island'))))))));
 }
