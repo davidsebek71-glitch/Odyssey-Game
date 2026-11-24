@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Island Approvals — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30, 18, 56, 0.92); --line: rgba(167, 139, 250, 0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.62);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button, select, textarea { font: inherit; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.8);
+            position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.25rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+  .btn:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn.approve { background: linear-gradient(135deg, #16a34a, #15803d); border-color: #16a34a; font-weight: 700; }
+  .btn.return { border-color: var(--red); color: var(--red); }
+  .btn.active { border-color: var(--gold); color: var(--gold); }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  select { background: rgba(10,6,22,0.9); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .sub-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .sub-head .who { font-weight: 700; }
+  .muted { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; margin-top: 10px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .body { white-space: pre-wrap; line-height: 1.6; background: rgba(10,6,22,0.6); border-radius: 8px; padding: 12px; max-height: 420px; overflow: auto; }
+  .count { font-size: 0.85rem; margin-top: 6px; }
+  .count .ok { color: var(--green); } .count .short { color: var(--amber); }
+  .photo img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+  .mini-map { position: relative; line-height: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+  .mini-map img { width: 100%; }
+  .mini-map .dot { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--gold); border: 3px solid #1a0b2e;
+                   transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(240,199,94,0.5); }
+  textarea { width: 100%; min-height: 70px; background: rgba(10,6,22,0.85); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 10px; }
+  .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .warn { color: var(--amber); font-size: 0.88rem; }
+  .msg { font-size: 0.9rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); font-size: 0.92rem; }
+  th { color: var(--violet); font-weight: 600; }
+  td.n { text-align: center; }
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+  a { color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="btn" onclick="location.href='/teacher.html'">← Dashboard</button>
+  <h1>Island Approvals</h1>
+  <label class="muted" for="period">Period</label>
+  <select id="period" onchange="refresh()"><option value="">All periods</option></select>
+  <button class="btn active" id="tab-queue" onclick="setTab('queue')">Waiting for approval</button>
+  <button class="btn" id="tab-students" onclick="setTab('students')">All islands</button>
+</div>
+<main id="main"></main>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const ICONS = { shrine:'🏛️', creature:'🐉', landmark:'🗿', poem:'📜', lair:'🕳️', guardian:'🛡️', monster:'👹', river:'🌊', mountain:'⛰️', city:'🏘️' };
+let tab = 'queue';
+const mapCache = {};
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401 || r.status === 403) { if (!d.error || /teacher/i.test(d.error) || /token/i.test(d.error)) throw new Error('Please log in as the teacher.'); }
+  if (!r.ok) throw new Error(d.error || 'Something went wrong.');
+  return d;
+}
+function setTab(t) {
+  tab = t;
+  document.getElementById('tab-queue').classList.toggle('active', t === 'queue');
+  document.getElementById('tab-students').classList.toggle('active', t === 'students');
+  refresh();
+}
+const period = () => document.getElementById('period').value;
+
+async function loadPeriods() {
+  try {
+    const d = await api('GET', '/teacher/island/students');
+    const sel = document.getElementById('period');
+    (d.periods || []).forEach(p => sel.append(el('option', { value: p, text: p })));
+  } catch (e) { /* shown by refresh */ }
+}
+
+async function refresh() {
+  const main = document.getElementById('main');
+  main.replaceChildren(el('div', { class: 'empty', text: 'Loading…' }));
+  try {
+    if (tab === 'queue') return renderQueue((await api('GET', '/teacher/island/queue' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).pins);
+    return renderStudents((await api('GET', '/teacher/island/students' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).students);
+  } catch (e) { main.replaceChildren(el('div', { class: 'empty', text: e.message })); }
+}
+
+async function studentMap(studentId) {
+  if (!(studentId in mapCache)) {
+    try { mapCache[studentId] = (await api('GET', '/island/view/' + studentId)).map_image; } catch (e) { mapCache[studentId] = null; }
+  }
+  return mapCache[studentId];
+}
+async function photo(pinId, box) {
+  try {
+    const r = await fetch(`/api/island/pins/${pinId}/photo`, { headers: { Authorization: 'Bearer ' + token } });
+    if (!r.ok) throw new Error();
+    box.replaceChildren(el('img', { src: URL.createObjectURL(await r.blob()), alt: 'Student photo' }));
+  } catch (e) { box.replaceChildren(el('span', { class: 'muted', text: 'Photo could not be loaded.' })); }
+}
+
+function renderQueue(pins) {
+  const main = document.getElementById('main');
+  if (!pins.length) return main.replaceChildren(el('div', { class: 'empty', text: 'Nothing is waiting for approval. 🎉' }));
+  main.replaceChildren(el('p', { class: 'muted', text: `${pins.length} waiting · oldest first` }), ...pins.map(renderSubmission));
+}
+
+function renderSubmission(p) {
+  const card = el('div', { class: 'card' });
+  const note = el('textarea', { placeholder: 'Note to the student (required to return it; optional when approving)', 'aria-label': `Note for ${p.student_name}` });
+  const msg = el('span', { class: 'msg' });
+  const countPart = (n, min, unit) => el('span', { class: min ? (n >= min ? 'ok' : 'short') : '' }, min ? `${n} / ${min} ${unit}` : `${n} ${unit}`);
+  const mapBox = el('div', { class: 'mini-map' }, el('span', { class: 'muted', style: 'line-height:1.4;display:block;padding:8px', text: 'Loading map…' }));
+  studentMap(p.owner_student_id).then(src => {
+    if (!src) return mapBox.replaceChildren(el('span', { class: 'muted', style: 'line-height:1.4;display:block;padding:8px', text: 'No map uploaded.' }));
+    mapBox.replaceChildren(...[el('img', { src, alt: `${p.student_name}'s map` }),
+      p.x_pct !== null ? el('span', { class: 'dot', style: `left:${p.x_pct}%;top:${p.y_pct}%` }) : null].filter(Boolean));
+  });
+  const photoBox = p.has_photo ? el('div', { class: 'photo' }, el('span', { class: 'muted', text: 'Loading photo…' })) : null;
+  if (photoBox) photo(p.pin_id, photoBox);
+  async function review(action) {
+    msg.textContent = ''; card.querySelectorAll('button').forEach(b => b.disabled = true);
+    try {
+      const r = await api('POST', `/teacher/island/pins/${p.pin_id}/review`, { action, note: note.value });
+      card.replaceChildren(el('div', { class: 'sub-head' }, el('span', { class: 'who', text: p.student_name }), el('span', { text: p.title }),
+        el('span', { style: `color:${action === 'approve' ? 'var(--green)' : 'var(--red)'}`,
+          text: action === 'approve' ? `✓ Published${r.points_awarded ? ` · +${r.points_awarded} points to ${p.alliance_name || 'the alliance'}` : ''}` : '↩ Returned to the student' })));
+    } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; card.querySelectorAll('button').forEach(b => b.disabled = false); }
+  }
+  card.append(...[
+    el('div', { class: 'sub-head' },
+      el('span', { text: ICONS[p.pin_type] || '📍' }), el('span', { class: 'who', text: p.student_name }),
+      el('span', { class: 'muted', text: `${p.alliance_name || 'No alliance'} · Period ${p.class_period}` }),
+      el('span', { class: 'muted', text: p.quest_title ? `Quest: ${p.quest_title}${p.quest_points ? ` (${p.quest_points} pts)` : ''}` : `Named ${p.pin_type}` })),
+    el('h2', { style: 'font-family:Cinzel,serif;color:var(--gold);font-size:1.1rem;margin:10px 0 0', text: p.title || 'Untitled' }),
+    el('div', { class: 'grid' },
+      el('div', {},
+        el('div', { class: 'body', text: p.body || '(no writing)' }),
+        el('div', { class: 'count' }, countPart(p.word_count, p.min_words, 'words'), ' · ', countPart(p.line_count, p.min_lines, 'lines')),
+        p.video_url ? el('p', {}, el('a', { href: p.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Open the video link')) : null,
+        photoBox),
+      el('div', {}, el('div', { class: 'muted', style: 'font-size:0.85rem;margin-bottom:6px', text: 'Where it sits on the island' }), mapBox)),
+    p.submit_problem ? el('div', { class: 'warn', text: `Note: ${p.submit_problem}` }) : null,
+    note,
+    el('div', { class: 'actions' },
+      el('button', { class: 'btn approve', onclick: () => review('approve') }, '✓ Approve and publish'),
+      el('button', { class: 'btn return', onclick: () => {
+        if (!note.value.trim()) { msg.textContent = 'Write a note telling the student what to change.'; msg.style.color = 'var(--amber)'; note.focus(); return; }
+        review('return'); } }, '↩ Return with note'),
+      el('a', { href: `/island.html?student=${p.owner_student_id}`, target: '_blank' }, 'Open the whole island'),
+      msg)].filter(Boolean));
+  return card;
+}
+
+function renderStudents(rows) {
+  const main = document.getElementById('main');
+  if (!rows.length) return main.replaceChildren(el('div', { class: 'empty', text: 'No students in this period.' }));
+  main.replaceChildren(el('div', { class: 'card' }, el('table', {},
+    el('thead', {}, el('tr', {}, ['Student', 'Alliance', 'Period', 'Map', 'Published', 'Waiting', 'Returned', 'Drafts', ''].map(h => el('th', { text: h })))),
+    el('tbody', {}, rows.map(s => el('tr', {},
+      el('td', { text: s.name }), el('td', { text: s.alliance_name || '—' }), el('td', { text: s.class_period || '—' }),
+      el('td', { class: 'n', text: s.has_map ? '✓' : '—' }),
+      ...['published', 'submitted', 'returned', 'drafts'].map(k => el('td', { class: 'n', text: String(s[k] || 0) })),
+      el('td', {}, el('a', { href: `/island.html?student=${s.student_id}`, target: '_blank' }, 'Open island'))))))));
+}
+
+loadPeriods().then(refresh);
+</script>
+</body>
+</html>

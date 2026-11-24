@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Island Quests — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0a1e; --panel: rgba(30, 18, 56, 0.92); --line: rgba(167, 139, 250, 0.25);
+    --text: #f3eefc; --muted: rgba(243, 238, 252, 0.62); --gold: #f0c75e; --gold-dim: rgba(240, 199, 94, 0.35);
+    --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text);
+         background: linear-gradient(135deg, #0f0a1e 0%, #1a0b2e 50%, #0f0a1e 100%); min-height: 100vh; }
+  button, input, textarea { font: inherit; }
+  a { color: var(--gold); }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line);
+            background: rgba(20, 10, 40, 0.7); position: sticky; top: 0; z-index: 20; }
+  .topbar h1 { font-family: 'Cinzel', serif; font-size: 1.25rem; margin: 0; color: var(--gold); letter-spacing: 0.04em; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px;
+         border-radius: 8px; cursor: pointer; }
+  .btn:hover { border-color: var(--violet); }
+  .btn:focus-visible, .pin:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn.small { padding: 5px 10px; font-size: 0.85rem; }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+
+  /* Map */
+  .map-wrap { position: relative; width: 100%; line-height: 0; border-radius: 10px; overflow: hidden; background: #120a24; }
+  .map-wrap img { width: 100%; height: auto; display: block; user-select: none; -webkit-user-drag: none; }
+  .map-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .map-wrap.placing { cursor: crosshair; }
+  .map-hint { margin: 10px 0 0; color: var(--muted); font-size: 0.9rem; line-height: 1.4; }
+  .map-hint.active { color: var(--gold); font-weight: 600; }
+  .no-map { padding: 40px 20px; text-align: center; color: var(--muted); line-height: 1.6; }
+  .pin { position: absolute; transform: translate(-50%, -100%); width: 38px; height: 38px; border-radius: 50% 50% 50% 0;
+         rotate: -45deg; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--gold);
+         background: rgba(26, 11, 46, 0.92); box-shadow: 0 3px 10px rgba(0,0,0,0.5); padding: 0; z-index: 3; }
+  .pin span { rotate: 45deg; font-size: 18px; line-height: 1; }
+  .pin.draft { border-style: dashed; border-color: var(--muted); opacity: 0.85; }
+  .pin.submitted { border-color: var(--amber); }
+  .pin.returned { border-color: var(--red); }
+  .pin.published { border-color: var(--gold); background: rgba(60, 35, 5, 0.95); }
+  .pin.current { border-width: 3px; box-shadow: 0 0 0 4px rgba(240,199,94,0.45), 0 3px 10px rgba(0,0,0,0.5); z-index: 4; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.8rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid; margin-right: 5px; vertical-align: -2px; }
+
+  /* Side panel */
+  h2 { font-family: 'Cinzel', serif; font-size: 1.05rem; color: var(--gold); margin: 0 0 10px; letter-spacing: 0.03em; }
+  h3 { font-size: 0.95rem; margin: 18px 0 8px; color: var(--violet); text-transform: uppercase; letter-spacing: 0.06em; }
+  .quest { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: rgba(15, 10, 30, 0.6); }
+  .quest .row { display: flex; align-items: flex-start; gap: 8px; }
+  .quest .title { font-weight: 700; flex: 1; }
+  .quest .meta { font-size: 0.8rem; color: var(--muted); margin: 4px 0 8px; }
+  .quest.locked { opacity: 0.6; }
+  .chip { font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; border: 1px solid; }
+  .chip.locked { color: var(--muted); border-color: var(--line); }
+  .chip.ready { color: var(--violet); border-color: var(--violet); }
+  .chip.draft { color: var(--text); border-color: var(--muted); }
+  .chip.submitted { color: var(--amber); border-color: var(--amber); }
+  .chip.returned { color: var(--red); border-color: var(--red); }
+  .chip.published { color: var(--gold); border-color: var(--gold); }
+  .tier { font-size: 0.7rem; color: var(--gold); border: 1px solid var(--gold-dim); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
+  .feature-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .banner { border-radius: 8px; padding: 10px 12px; margin: 10px 0; font-size: 0.92rem; line-height: 1.45; border: 1px solid; }
+  .banner.info { border-color: var(--violet); background: rgba(167,139,250,0.1); }
+  .banner.warn { border-color: var(--amber); background: rgba(251,191,36,0.1); }
+  .banner.bad  { border-color: var(--red); background: rgba(248,113,113,0.12); }
+  .banner.good { border-color: var(--green); background: rgba(110,231,160,0.1); }
+  .directions { color: var(--muted); line-height: 1.55; font-size: 0.93rem; white-space: pre-wrap; }
+  .ref-images { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .ref-images img { max-width: 120px; max-height: 120px; border-radius: 6px; border: 1px solid var(--line); }
+  label.field { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 0.9rem; }
+  input[type=text], input[type=url], textarea { width: 100%; background: rgba(10, 6, 22, 0.85); color: var(--text);
+         border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  textarea { min-height: 220px; resize: vertical; line-height: 1.5; }
+  input[disabled], textarea[disabled] { opacity: 0.7; }
+  .counts { display: flex; gap: 14px; font-size: 0.85rem; margin-top: 6px; color: var(--muted); }
+  .counts .ok { color: var(--green); font-weight: 700; }
+  .counts .short { color: var(--amber); font-weight: 700; }
+  .photo-box { border: 1px dashed var(--line); border-radius: 8px; padding: 10px; text-align: center; }
+  .photo-box img { max-width: 100%; max-height: 320px; border-radius: 6px; display: block; margin: 0 auto 8px; }
+  .save-state { font-size: 0.8rem; color: var(--muted); min-height: 1.2em; }
+  .save-state.bad { color: var(--red); }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+  .why-not { font-size: 0.85rem; color: var(--amber); width: 100%; }
+  .viewer-body { white-space: pre-wrap; line-height: 1.6; margin: 10px 0; }
+  .muted { color: var(--muted); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .err-page { max-width: 600px; margin: 60px auto; text-align: center; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="btn small" onclick="goBack()">← Back</button>
+  <h1 id="page-title">My Island</h1>
+  <span id="topbar-status" class="muted" style="font-size:0.85rem;"></span>
+</div>
+
+<div class="layout" id="layout" style="display:none;">
+  <section class="card">
+    <div id="map-area"></div>
+    <p class="map-hint" id="map-hint" aria-live="polite"></p>
+    <div class="legend" id="legend">
+      <span><i style="border-color:var(--muted);border-style:dashed"></i>Draft</span>
+      <span><i style="border-color:var(--amber)"></i>Waiting for approval</span>
+      <span><i style="border-color:var(--red)"></i>Returned</span>
+      <span><i style="border-color:var(--gold)"></i>Published</span>
+    </div>
+  </section>
+  <aside class="card" id="panel" aria-live="polite"></aside>
+</div>
+<div id="fatal" class="err-page" style="display:none;"></div>
+
+<script>
+const token = localStorage.getItem('token');
+const H = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+const params = new URLSearchParams(location.search);
+const VIEW_ID = params.get('student') ? parseInt(params.get('student')) : null;  // visiting someone's island
+const ICONS = { shrine:'🏛️', creature:'🐉', landmark:'🗿', poem:'📜', lair:'🕳️', guardian:'🛡️', monster:'👹', river:'🌊', mountain:'⛰️', city:'🏘️' };
+const STATUS_TEXT = { draft:'Draft', submitted:'Waiting for approval', returned:'Returned — see note', published:'Published' };
+
+let island = null;      // /api/island/me or /api/island/view response
+let mode = 'own';       // 'own' | 'view'
+let current = null;     // pin being edited / viewed
+let saveTimer = null, saving = false, pendingPatch = {};
+const photoUrls = {};   // pin_id -> object URL
+
+if (!token) location.href = '/index.html';
+
+// Same counting rule as the server (routes/island.js)
+const countWords = t => (t || '').trim().split(/\s+/).filter(Boolean).length;
+const countLines = t => (t || '').split(/\r?\n/).filter(l => l.trim().length > 0).length;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) { const err = new Error(data.error || 'Something went wrong. Try again.'); err.status = r.status; throw err; }
+  return data;
+}
+function goBack() {
+  if (current && mode === 'own') { flushSave().then(() => { current = null; renderAll(); }); return; }
+  if (current) { current = null; renderAll(); return; }
+  // A teacher (or visitor) who opened this from another page goes back there
+  if (mode === 'view' && document.referrer && new URL(document.referrer).origin === location.origin) { history.back(); return; }
+  location.href = '/student.html';
+}
+function fatal(msg) {
+  document.getElementById('layout').style.display = 'none';
+  const f = document.getElementById('fatal'); f.style.display = 'block'; f.replaceChildren(
+    el('h2', { text: msg }), el('p', {}, el('a', { href: '/student.html', text: 'Back to the dashboard' })));
+}
+
+// ── Load ─────────────────────────────────────────────────────────────────────
+async function load() {
+  try {
+    if (VIEW_ID) {
+      island = await api('GET', '/island/view/' + VIEW_ID);
+      mode = island.viewer_is_owner ? 'own' : 'view';
+      if (mode === 'own') island = await api('GET', '/island/me');
+    } else {
+      island = await api('GET', '/island/me');
+    }
+  } catch (e) {
+    if (e.status === 401 || e.status === 403 && !VIEW_ID) { location.href = '/index.html'; return; }
+    return fatal(e.message);
+  }
+  document.getElementById('layout').style.display = '';
+  document.getElementById('page-title').textContent = mode === 'view' ? `${island.owner.name}'s Island` : 'My Island';
+  renderAll();
+}
+
+function pins() { return island.pins || []; }
+function pinById(id) { return pins().find(p => p.pin_id === id); }
+// Fields the student edits locally; a server copy must not overwrite unsaved values.
+const LOCAL_FIELDS = ['title', 'body', 'x_pct', 'y_pct'];
+function applyServerPin(sp) {
+  const local = current && current.pin_id === sp.pin_id ? current : null;
+  const keep = local ? Object.fromEntries(LOCAL_FIELDS.map(k => [k, local[k]])) : null;
+  replacePin(sp);
+  if (keep) Object.assign(current, keep);
+}
+function replacePin(p) {
+  const i = island.pins.findIndex(x => x.pin_id === p.pin_id);
+  if (i >= 0) island.pins[i] = p; else island.pins.push(p);
+  if (current && current.pin_id === p.pin_id) current = p;
+  if (island.quests) {
+    const q = island.quests.find(q => q.quest_id === p.quest_id);
+    if (q) { q.pin_id = p.pin_id; q.pin_status = p.status; }
+  }
+}
+const editable = p => mode === 'own' && p && (p.status === 'draft' || p.status === 'returned');
+
+function renderAll() {
+  renderMap();
+  renderPanel();
+  const counts = { published: 0, submitted: 0, returned: 0 };
+  pins().forEach(p => { if (counts[p.status] !== undefined) counts[p.status]++; });
+  document.getElementById('topbar-status').textContent = mode === 'view'
+    ? `${pins().length} published`
+    : `${counts.published} published · ${counts.submitted} waiting · ${counts.returned} returned`;
+}
+
+// ── Map, pins and fog ────────────────────────────────────────────────────────
+let mapImg = null, fogCanvas = null, mapWrap = null;
+function renderMap() {
+  const area = document.getElementById('map-area');
+  if (!island.map_image) {
+    area.replaceChildren(el('div', { class: 'no-map' },
+      el('div', { style: 'font-size:2rem' }, '🗺️'),
+      mode === 'view' ? 'This island has no map yet.'
+        : el('span', {}, 'Upload your island map first: go to the dashboard and open ', el('strong', { text: 'My Map' }), '. Then come back to place your quests.')));
+    setHint(mode === 'view' ? '' : 'You can read your quests now, but you need a map to place them.');
+    return;
+  }
+  if (!mapWrap) {
+    mapWrap = el('div', { class: 'map-wrap' });
+    mapImg = el('img', { alt: mode === 'view' ? 'Island map' : 'Your island map', draggable: 'false' });
+    fogCanvas = el('canvas', { 'aria-hidden': 'true' });
+    mapWrap.append(mapImg, fogCanvas);
+    mapWrap.addEventListener('click', onMapClick);
+    mapImg.addEventListener('load', drawFog);
+    mapImg.src = island.map_image;
+    new ResizeObserver(drawFog).observe(mapWrap);
+    area.replaceChildren(mapWrap);
+  }
+  mapWrap.querySelectorAll('.pin').forEach(p => p.remove());
+  pins().forEach(p => {
+    if (p.x_pct === null || p.y_pct === null) return;
+    const isCur = current && current.pin_id === p.pin_id;
+    const b = el('button', {
+      class: `pin ${p.status}${isCur ? ' current' : ''}`,
+      style: `left:${p.x_pct}%;top:${p.y_pct}%;`,
+      'aria-label': `${p.title || 'Untitled'} — ${STATUS_TEXT[p.status] || p.status}${isCur && editable(p) ? '. Use arrow keys to move it.' : ''}`,
+      title: p.title || 'Untitled',
+      onclick: e => { e.stopPropagation(); openPin(p.pin_id); },
+      onkeydown: e => nudgePin(e, p)
+    }, el('span', { text: ICONS[p.pin_type] || '📍' }));
+    mapWrap.append(b);
+  });
+  mapWrap.classList.toggle('placing', !!(current && editable(current)));
+  drawFog();
+  if (current && editable(current)) {
+    setHint(current.x_pct === null ? 'Tap your map where this belongs.' : 'Tap the map to move it, or select the pin and use the arrow keys.', true);
+  } else if (mode === 'own') {
+    setHint('Published work clears the fog around it. Choose a quest to begin.');
+  } else {
+    setHint('Select a pin to read it.');
+  }
+}
+function setHint(t, active) { const h = document.getElementById('map-hint'); h.textContent = t; h.classList.toggle('active', !!active); }
+
+// Fog of war: the island starts covered; each PUBLISHED pin reveals the area around it.
+function drawFog() {
+  if (!fogCanvas || !mapImg || !mapImg.complete) return;
+  const w = mapWrap.clientWidth, h = mapWrap.clientHeight;
+  if (!w || !h) return;
+  const dpr = window.devicePixelRatio || 1;
+  fogCanvas.width = w * dpr; fogCanvas.height = h * dpr;
+  const c = fogCanvas.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.globalCompositeOperation = 'source-over';
+  c.fillStyle = mode === 'view' ? 'rgba(12, 8, 26, 0.88)' : 'rgba(12, 8, 26, 0.5)';
+  c.fillRect(0, 0, w, h);
+  c.globalCompositeOperation = 'destination-out';
+  const r = Math.max(w, h) * 0.14;
+  pins().filter(p => p.status === 'published' && p.x_pct !== null).forEach(p => {
+    const x = p.x_pct / 100 * w, y = p.y_pct / 100 * h;
+    const g = c.createRadialGradient(x, y, r * 0.35, x, y, r);
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+  });
+}
+
+function onMapClick(e) {
+  if (!current || !editable(current)) return;
+  const rect = mapImg.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * 100, y = (e.clientY - rect.top) / rect.height * 100;
+  if (x < 0 || x > 100 || y < 0 || y > 100) return;
+  setPosition(x, y);
+}
+function nudgePin(e, p) {
+  if (!current || current.pin_id !== p.pin_id || !editable(p)) return;
+  const step = e.shiftKey ? 5 : 1;
+  const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  setPosition(Math.min(100, Math.max(0, p.x_pct + d[0])), Math.min(100, Math.max(0, p.y_pct + d[1])));
+  const again = mapWrap.querySelector('.pin.current'); if (again) again.focus();
+}
+function setPosition(x, y) {
+  current.x_pct = Math.round(x * 100) / 100; current.y_pct = Math.round(y * 100) / 100;
+  replacePin(current);
+  queueSave({ x_pct: current.x_pct, y_pct: current.y_pct }, 400);
+  renderMap(); renderSubmitState();
+}
+
+// ── Side panel ───────────────────────────────────────────────────────────────
+function renderPanel() {
+  const panel = document.getElementById('panel');
+  if (current) return renderPinPanel(panel);
+  if (mode === 'view') {
+    const list = pins();
+    panel.replaceChildren(el('h2', { text: 'Published work' }),
+      list.length ? el('div', {}, list.map(p => el('div', { class: 'quest' },
+        el('div', { class: 'row' }, el('span', { text: ICONS[p.pin_type] || '📍' }), el('span', { class: 'title', text: p.title || 'Untitled' })),
+        el('button', { class: 'btn small', onclick: () => openPin(p.pin_id) }, 'Read')))) :
+        el('p', { class: 'muted', text: 'Nothing has been published on this island yet.' }));
+    return;
+  }
+  const quests = island.quests || [];
+  const kids = [el('h2', { text: 'Quests' })];
+  if (!quests.length) kids.push(el('p', { class: 'muted', text: 'No island quests yet. Your teacher will add them.' }));
+  ['core', 'optional'].forEach(tier => {
+    const list = quests.filter(q => q.tier === tier);
+    if (!list.length) return;
+    kids.push(el('h3', { text: tier === 'core' ? 'Core quests (required)' : 'Optional quests' }));
+    list.forEach(q => {
+      const status = !q.unlocked ? 'locked' : (q.pin_status || 'ready');
+      const chipText = !q.unlocked ? 'Locked' : q.pin_status ? STATUS_TEXT[q.pin_status] : 'Ready to start';
+      const btnText = !q.unlocked ? null : !q.pin_id ? 'Start' : (q.pin_status === 'draft' || q.pin_status === 'returned') ? 'Continue' : 'View';
+      kids.push(el('div', { class: `quest${q.unlocked ? '' : ' locked'}` },
+        el('div', { class: 'row' }, el('span', { text: ICONS[q.pin_type] || '📍' }),
+          el('span', { class: 'title' }, q.title), el('span', { class: `chip ${status}`, text: chipText })),
+        el('div', { class: 'meta', text: [q.points ? `${q.points} points` : null,
+          q.min_words ? `${q.min_words}+ words` : null, q.min_lines ? `${q.min_lines}+ lines` : null].filter(Boolean).join(' · ') }),
+        !q.unlocked ? el('div', { class: 'meta', text: q.lock_reason }) :
+          el('button', { class: 'btn small' + (q.pin_id ? '' : ' primary'), onclick: () => startQuest(q) }, btnText)));
+    });
+  });
+  kids.push(el('h3', { text: 'Name a place on your map' }),
+    el('p', { class: 'muted', style: 'font-size:0.88rem;margin-top:0', text: 'Label a river, mountain, or city, with one sentence from the text explaining why it is there.' }),
+    el('div', { class: 'feature-row' }, (island.feature_types || []).map(t =>
+      el('button', { class: 'btn small', onclick: () => newFeature(t) }, `${ICONS[t]} ${t[0].toUpperCase() + t.slice(1)}`))));
+  const feats = pins().filter(p => !p.quest_id);
+  if (feats.length) {
+    kids.push(el('div', { style: 'margin-top:10px' }, feats.map(p => el('div', { class: 'quest' },
+      el('div', { class: 'row' }, el('span', { text: ICONS[p.pin_type] }), el('span', { class: 'title', text: p.title || `Unnamed ${p.pin_type}` }),
+        el('span', { class: `chip ${p.status}`, text: STATUS_TEXT[p.status] })),
+      el('button', { class: 'btn small', onclick: () => openPin(p.pin_id) }, editable(p) ? 'Continue' : 'View')))));
+  }
+  panel.replaceChildren(...kids);
+}
+
+async function startQuest(q) {
+  if (q.pin_id) return openPin(q.pin_id);
+  try {
+    const r = await api('POST', '/island/pins', { quest_id: q.quest_id });
+    replacePin(r.pin); openPin(r.pin.pin_id);
+  } catch (e) { alert(e.message); }
+}
+async function newFeature(type) {
+  try {
+    const r = await api('POST', '/island/pins', { feature_type: type });
+    replacePin(r.pin); openPin(r.pin.pin_id);
+  } catch (e) { alert(e.message); }
+}
+function openPin(id) {
+  const p = pinById(id); if (!p) return;
+  flushSave().then(() => { current = p; renderAll(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+}
+
+function renderPinPanel(panel) {
+  const p = current;
+  const q = (island.quests || []).find(x => x.quest_id === p.quest_id) || null;
+  const isFeature = !p.quest_id;
+  const questTitle = q ? q.title : p.quest_title;
+  const kids = [el('button', { class: 'btn small', onclick: goBack }, mode === 'view' ? '← Back to the island' : '← All quests'),
+    el('h2', { style: 'margin-top:12px' }, `${ICONS[p.pin_type] || '📍'} ${questTitle || p.title || 'A ' + p.pin_type + ' on your island'}`)];
+
+  // Status banner — always tells the student what happens next
+  if (mode === 'own') {
+    if (p.status === 'draft') kids.push(el('div', { class: 'banner info', text: 'Draft — saves automatically. Submit it when it\'s ready for your teacher.' }));
+    if (p.status === 'submitted') kids.push(el('div', { class: 'banner warn', text: 'Waiting for teacher approval. You can\'t change it until your teacher reviews it.' }));
+    if (p.status === 'returned') kids.push(el('div', { class: 'banner bad' }, el('strong', { text: 'Returned with a note: ' }), p.teacher_note || '', el('br'), 'Make the changes, then submit again.'));
+    if (p.status === 'published') kids.push(el('div', { class: 'banner good' }, 'Published! Your alliance can read it on your island.',
+      p.teacher_note ? el('div', { style: 'margin-top:6px' }, el('strong', { text: 'Teacher: ' }), p.teacher_note) : null));
+  }
+  if (q && editable(p)) {
+    kids.push(el('div', { class: 'directions', text: q.directions || '' }));
+    if (q.images && q.images.length) kids.push(el('div', { class: 'ref-images' }, q.images.map(src => el('img', { src, alt: 'Reference picture for this quest' }))));
+  }
+
+  if (!editable(p)) {
+    // Read-only view (the work's own title goes under the quest name)
+    if (questTitle) kids.push(el('h3', { text: p.title || 'Untitled' }));
+    kids.push(el('div', { class: 'viewer-body', text: p.body || '' }));
+    if (p.has_photo) { const box = el('div', { class: 'photo-box' }, el('span', { class: 'muted', text: 'Loading photo…' })); kids.push(box); loadPhoto(p, box); }
+    if (p.video_url) kids.push(el('p', {}, el('a', { href: p.video_url, target: '_blank', rel: 'noopener noreferrer' }, '▶ Watch the video')));
+    panel.replaceChildren(...kids);
+    return;
+  }
+
+  // Editor
+  const minW = q ? q.min_words : 3, minL = q ? q.min_lines : 0;
+  kids.push(el('label', { class: 'field', for: 'f-title' }, isFeature ? `Name of the ${p.pin_type}` : 'Title'),
+    el('input', { type: 'text', id: 'f-title', maxlength: '80', value: p.title || '',
+      placeholder: isFeature ? 'e.g. The River Styx' : 'Give your work a title',
+      oninput: e => { current.title = e.target.value; queueSave({ title: current.title }); renderSubmitState(); } }));
+  kids.push(el('label', { class: 'field', for: 'f-body' }, isFeature ? 'Why is it here? Use the text.' : 'Your writing'),
+    el('textarea', { id: 'f-body', maxlength: '5000', placeholder: isFeature ? 'One sentence with evidence from the myth.' : 'Write here. Press Enter for a new line.',
+      oninput: e => { current.body = e.target.value; queueSave({ body: current.body }); renderCounts(); renderSubmitState(); } }),
+    el('div', { class: 'counts', id: 'counts' }));
+  if (!isFeature) {
+    kids.push(el('label', { class: 'field' }, 'Photo of hand-made work (optional)'),
+      el('div', { class: 'photo-box', id: 'photo-box' }));
+    kids.push(el('label', { class: 'field', for: 'f-video' }, 'Video link (optional)'),
+      el('input', { type: 'url', id: 'f-video', value: p.video_url || '', placeholder: 'https://…',
+        onchange: e => queueSave({ video_url: e.target.value.trim() || null }, 0) }));
+  }
+  kids.push(el('div', { class: 'actions' },
+    el('button', { class: 'btn primary', id: 'submit-btn', onclick: submitPin }, p.status === 'returned' ? 'Submit again' : 'Submit for approval'),
+    !p.submitted_at && p.status === 'draft' ? el('button', { class: 'btn small', onclick: deleteDraft }, 'Delete draft') : null,
+    el('span', { class: 'save-state', id: 'save-state', text: 'Saved' }),
+    el('div', { class: 'why-not', id: 'why-not' })));
+  panel.replaceChildren(...kids);
+  document.getElementById('f-body').value = p.body || '';
+  if (!isFeature) renderPhotoBox();
+  renderCounts(); renderSubmitState();
+}
+
+function renderCounts() {
+  const box = document.getElementById('counts'); if (!box || !current) return;
+  const q = (island.quests || []).find(x => x.quest_id === current.quest_id);
+  const w = countWords(current.body), l = countLines(current.body);
+  const minW = q ? q.min_words : (current.quest_id ? 0 : 3), minL = q ? q.min_lines : 0;
+  const part = (n, min, unit) => el('span', { class: min ? (n >= min ? 'ok' : 'short') : '' },
+    min ? `${n} / ${min} ${unit}${n >= min ? ' ✓' : ''}` : `${n} ${unit}`);
+  box.replaceChildren(part(w, minW, 'words'), part(l, minL, 'lines'));
+}
+// Mirrors the server's submitProblem() so the button explains itself
+function submitProblem(p) {
+  if (p.x_pct === null || p.y_pct === null) return 'Tap your map to choose where this goes.';
+  if (!island.map_image) return 'Upload your island map first (Dashboard → My Map).';
+  if (!p.title || !p.title.trim()) return 'Give it a title.';
+  const q = (island.quests || []).find(x => x.quest_id === p.quest_id);
+  const w = countWords(p.body), l = countLines(p.body);
+  if (!p.quest_id) return w < 3 ? 'Write a sentence explaining why this place is here (use the text).' : null;
+  if (q && q.min_words && w < q.min_words) return `Write at least ${q.min_words} words (you have ${w}).`;
+  if (q && q.min_lines && l < q.min_lines) return `Write at least ${q.min_lines} lines (you have ${l}).`;
+  if (!w && !p.has_photo) return 'Add your writing or a photo of your work.';
+  return null;
+}
+function renderSubmitState() {
+  const btn = document.getElementById('submit-btn'), why = document.getElementById('why-not');
+  if (!btn || !current) return;
+  const problem = submitProblem(current);
+  btn.disabled = !!problem; why.textContent = problem || '';
+}
+
+// ── Autosave ─────────────────────────────────────────────────────────────────
+function setSaveState(t, bad) { const s = document.getElementById('save-state'); if (s) { s.textContent = t; s.classList.toggle('bad', !!bad); } }
+function queueSave(patch, delay = 1200) {
+  Object.assign(pendingPatch, patch);
+  setSaveState('Saving…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSave, delay);
+}
+async function doSave() {
+  if (!current || saving || !Object.keys(pendingPatch).length) return;
+  const patch = pendingPatch; pendingPatch = {}; saving = true;
+  const id = current.pin_id;
+  try {
+    const r = await api('PATCH', '/island/pins/' + id, patch);
+    applyServerPin(r.pin);   // keeps anything typed or moved while saving
+    setSaveState(Object.keys(pendingPatch).length ? 'Saving…' : 'Saved');
+  } catch (e) {
+    Object.assign(pendingPatch, patch, pendingPatch);
+    setSaveState(e.status === 400 ? e.message : 'Not saved yet — will retry. Keep this page open.', true);
+    if (e.status !== 400) { clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 4000); }
+  } finally { saving = false; if (Object.keys(pendingPatch).length && !saveTimer) saveTimer = setTimeout(doSave, 800); }
+}
+async function flushSave() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (Object.keys(pendingPatch).length) await doSave();
+}
+window.addEventListener('beforeunload', e => { if (Object.keys(pendingPatch).length) { doSave(); e.preventDefault(); e.returnValue = ''; } });
+
+// ── Photo ────────────────────────────────────────────────────────────────────
+async function loadPhoto(p, box) {
+  try {
+    if (!photoUrls[p.pin_id + ':' + (p.updated_at || '')]) {
+      const r = await fetch(`/api/island/pins/${p.pin_id}/photo`, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error();
+      photoUrls[p.pin_id + ':' + (p.updated_at || '')] = URL.createObjectURL(await r.blob());
+    }
+    box.replaceChildren(el('img', { src: photoUrls[p.pin_id + ':' + (p.updated_at || '')], alt: `Photo for ${p.title || 'this pin'}` }));
+  } catch (e) { box.replaceChildren(el('span', { class: 'muted', text: 'The photo could not be loaded.' })); }
+}
+function renderPhotoBox() {
+  const box = document.getElementById('photo-box'); if (!box) return;
+  const input = el('input', { type: 'file', accept: 'image/*', id: 'f-photo', class: 'sr-only', onchange: e => uploadPhoto(e.target.files[0]) });
+  const pick = el('button', { class: 'btn small', onclick: () => input.click() }, current.has_photo ? 'Replace photo' : '📷 Add a photo');
+  const parts = [];
+  if (current.has_photo) { const holder = el('div'); parts.push(holder); loadPhoto(current, holder); }
+  parts.push(pick, input);
+  if (current.has_photo) parts.push(' ', el('button', { class: 'btn small', onclick: removePhoto }, 'Remove'));
+  parts.push(el('div', { class: 'muted', id: 'photo-msg', style: 'font-size:0.82rem;margin-top:6px' }));
+  box.replaceChildren(...parts);
+}
+// Shrink in the browser (longest side 1600px, JPEG) so uploads stay small on school Wi-Fi
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file isn\'t a photo we can read. Try a JPG or PNG picture.')); };
+    img.src = url;
+  });
+}
+async function uploadPhoto(file) {
+  if (!file) return;
+  const msg = document.getElementById('photo-msg');
+  msg.textContent = 'Uploading…';
+  try {
+    const data = await shrinkImage(file);
+    await flushSave();
+    const r = await api('POST', `/island/pins/${current.pin_id}/photo`, { image_data: data });
+    applyServerPin(r.pin);
+    renderPhotoBox(); renderSubmitState(); renderMap();
+  } catch (e) { msg.textContent = e.message; }
+}
+async function removePhoto() {
+  if (!confirm('Remove this photo?')) return;
+  try { await flushSave(); const r = await api('DELETE', `/island/pins/${current.pin_id}/photo`);
+    applyServerPin(r.pin); renderPhotoBox(); renderSubmitState(); renderMap(); }
+  catch (e) { document.getElementById('photo-msg').textContent = e.message; }
+}
+
+// ── Submit / delete ──────────────────────────────────────────────────────────
+async function submitPin() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    await flushSave();
+    const r = await api('POST', `/island/pins/${current.pin_id}/submit`);
+    replacePin(r.pin); renderAll();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = current.status === 'returned' ? 'Submit again' : 'Submit for approval';
+    document.getElementById('why-not').textContent = e.message;
+  }
+}
+async function deleteDraft() {
+  if (!confirm('Delete this draft? This can\'t be undone.')) return;
+  try {
+    clearTimeout(saveTimer); pendingPatch = {};
+    await api('DELETE', `/island/pins/${current.pin_id}`);
+    island.pins = island.pins.filter(p => p.pin_id !== current.pin_id);
+    (island.quests || []).forEach(q => { if (q.pin_id === current.pin_id) { q.pin_id = null; q.pin_status = null; } });
+    current = null; renderAll();
+  } catch (e) { alert(e.message); }
+}
+
+load();
+</script>
+</body>
+</html>

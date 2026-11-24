@@ -756,11 +756,76 @@ async function initDatabase() {
   
   // Seed initial data
   seedReferenceData();
+
+  // Islands (Stage 1): quest sites and story pins
+  ensureIslandTables();
   
   // Save database to file
   saveDatabase();
   
   return db;
+}
+
+// ==================== ISLANDS (Stage 1) ====================
+// island_quests: quest content, loaded from data/island_quests.json at startup.
+// island_pins:   a student's work placed on their own island map. Also used
+//                for named map features (quest_id NULL, pin_type river/mountain/city).
+// Positions are percentages of the map image so they survive any display size.
+function ensureIslandTables() {
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS island_quests (
+        quest_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+        quest_key    TEXT NOT NULL UNIQUE,
+        title        TEXT NOT NULL,
+        age          TEXT DEFAULT 'Classical',
+        tier         TEXT DEFAULT 'optional',
+        unlock_myth  TEXT,
+        directions   TEXT,
+        images       TEXT DEFAULT '[]',
+        min_words    INTEGER DEFAULT 0,
+        min_lines    INTEGER DEFAULT 0,
+        points       INTEGER DEFAULT 0,
+        pin_type     TEXT DEFAULT 'landmark',
+        test_only    INTEGER DEFAULT 0,
+        active       INTEGER DEFAULT 1,
+        sort_order   INTEGER DEFAULT 0,
+        updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS island_pins (
+        pin_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        quest_id           INTEGER,
+        owner_student_id   INTEGER NOT NULL,
+        author_student_id  INTEGER NOT NULL,
+        alliance_id        INTEGER,
+        class_period       TEXT,
+        x_pct              REAL,
+        y_pct              REAL,
+        pin_type           TEXT NOT NULL,
+        title              TEXT DEFAULT '',
+        body               TEXT DEFAULT '',
+        image_path         TEXT,
+        video_url          TEXT,
+        status             TEXT NOT NULL DEFAULT 'draft',
+        teacher_note       TEXT,
+        points_awarded     INTEGER DEFAULT 0,
+        created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+        submitted_at       DATETIME,
+        reviewed_at        DATETIME,
+        published_at       DATETIME,
+        FOREIGN KEY (quest_id) REFERENCES island_quests(quest_id),
+        FOREIGN KEY (owner_student_id) REFERENCES students(student_id)
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_island_pins_owner ON island_pins(owner_student_id)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_island_pins_status ON island_pins(status, class_period)`);
+    console.log('✅ Island tables ready');
+  } catch (e) {
+    console.log('Migration note: island tables -', e.message);
+  }
 }
 
 // Add missing columns to existing databases
@@ -3890,6 +3955,7 @@ function run(sql, params = []) {
 }
 
 module.exports = {
+  DATA_DIR,
   initDatabase,
   getDatabase,
   saveDatabase,

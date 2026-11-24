@@ -3,7 +3,8 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const { initDatabase, query, run, saveDatabase } = require('./database');
+const { initDatabase, query, run, saveDatabase, DATA_DIR } = require('./database');
+const registerIslandRoutes = require('./routes/island');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +40,9 @@ let dbReady = false;
 initDatabase().then(() => {
   dbReady = true;
   console.log('✅ Database initialized');
+
+  // Islands (Stage 1): load quest content from data/island_quests.json
+  try { islandRoutes.loadQuestFile(); } catch (e) { console.error('❌ island quests:', e.message); }
 
   // ── Heroic Age column migration ───────────────────────────────────────────
   // Runs immediately after DB is ready — before any queries can fire.
@@ -483,6 +487,10 @@ function requireDbReady(req, res, next) {
 app.use('/api', requireDbReady);
 
 // Auth middleware
+// Islands (Stage 1) — quest sites and story pins. See routes/island.js.
+// Registered here, after requireDbReady, so requests wait for the database.
+const islandRoutes = registerIslandRoutes(app, { authenticateToken, query, run, saveDatabase, DATA_DIR });
+
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
