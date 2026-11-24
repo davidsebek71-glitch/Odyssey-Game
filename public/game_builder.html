@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Game Builder — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.65);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button, input, select { font: inherit; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.2rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 7px 13px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn.small { padding: 3px 9px; font-size: 0.85rem; }
+  .btn.on { border-color: var(--gold); color: var(--gold); }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .btn:focus-visible, select:focus-visible, input:focus-visible, .tile:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  select, input[type=text] { background: rgba(10,6,22,0.9); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; max-width: 100%; }
+  select[disabled], input[disabled] { opacity: 0.55; }
+  main { max-width: 1300px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 16px; align-items: start; }
+  @media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 500px) { main { padding: 10px; } .tile { font-size: 15px; } #room { gap: 2px; padding: 4px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1rem; margin: 0 0 8px; }
+  .muted { color: var(--muted); } .help { font-size: 0.85rem; color: var(--muted); line-height: 1.5; margin: 0 0 8px; }
+  #room { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; background: #1c1236; padding: 6px; border-radius: 10px; }
+  .tile { min-width: 0; aspect-ratio: 1; background: #2a1d4a; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 2.4vw, 26px); cursor: pointer; border: none; color: inherit; padding: 0; position: relative; }
+  .tile.start { box-shadow: inset 0 0 0 2px var(--green); } .tile.sel { box-shadow: inset 0 0 0 3px var(--gold); }
+  .tile .hid { position: absolute; inset: 0; background: rgba(15,10,30,0.55); border-radius: 5px; }
+  .thing { border: 1px solid var(--line); border-radius: 10px; padding: 8px; margin-bottom: 8px; }
+  .thing.sel { border-color: var(--gold); }
+  .rowf { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .rule { border: 1px solid var(--line); border-radius: 10px; padding: 8px; margin-bottom: 8px; line-height: 2.1; }
+  .kw { font-weight: 800; color: var(--violet); font-size: 0.8rem; letter-spacing: 0.05em; }
+  .clue { display: inline; cursor: pointer; padding: 2px 3px; border-radius: 4px; line-height: 1.8; }
+  .clue:hover { background: rgba(167,139,250,0.18); } .clue.on { background: rgba(240,199,94,0.28); outline: 1px solid var(--gold); }
+  .check { border-radius: 8px; padding: 10px 12px; border: 1px solid; line-height: 1.5; }
+  .check.ok { border-color: var(--green); background: rgba(110,231,160,0.1); } .check.no { border-color: var(--amber); background: rgba(251,191,36,0.08); }
+  .check ul { margin: 4px 0 0; padding-left: 20px; }
+  .banner { border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid; line-height: 1.45; }
+  .banner.warn { border-color: var(--amber); background: rgba(251,191,36,0.1); } .banner.bad { border-color: var(--red); background: rgba(248,113,113,0.12); } .banner.good { border-color: var(--green); background: rgba(110,231,160,0.1); }
+  .tpl { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px; grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/island.html" id="back">← Back to my story</a>
+  <h1>Mini Game Builder</h1>
+  <span class="muted" id="save-state" aria-live="polite"></span>
+  <a class="btn" id="try" target="_blank">▶ Try it</a>
+</div>
+<main id="main"><div class="empty">Loading…</div></main>
+<script src="/js/minigame.js"></script>
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const PIN = new URLSearchParams(location.search).get('pin');
+const TYPE_LABEL = { item: 'Item (pick up)', character: 'Character (talk to)', obstacle: 'Obstacle (blocks)', place: 'Place (step into)' };
+const EVENT_LABEL = { touches: 'the reader touches', picks_up: 'the reader picks up', enters: 'the reader enters', talks_to: 'the reader talks to', answers: 'the reader answers' };
+const RESULT_LABEL = { survive: 'the reader survives', perish: 'the reader perishes', message: 'show a message', open_path: 'open a path through', appear: 'make appear', vanish: 'make vanish', move: 'move the reader to' };
+let G = null, info = null, templates = [], limits = {}, story = null, selected = null, placing = null, saveTimer = null;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'value') e.value = v;
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) { const e = new Error(d.error || 'Something went wrong.'); e.data = d; throw e; }
+  return d;
+}
+const editable = () => G && (G.status === 'draft' || G.status === 'returned');
+const starter = () => G && G.level === 'starter';
+const sel = (opts, value, onch, attrs = {}) => { const s = el('select', Object.assign({ disabled: !editable(), onchange: e => onch(e.target.value) }, attrs), ...opts.map(([v, t]) => el('option', { value: v, text: t }))); s.value = value ?? ''; return s; };
+const status = t => document.getElementById('save-state').textContent = t;
+
+// ── Saving (autosave after each change) ─────────────────────────────────────
+function changed(rerender = true) {
+  if (rerender) render();
+  status('Saving…'); clearTimeout(saveTimer); saveTimer = setTimeout(save, 700);
+}
+async function save(extra) {
+  try {
+    const r = await api('PUT', '/games/pin/' + PIN, Object.assign({ level: G.level, template: G.template, things: G.things, rules: G.rules, start: G.start, clue_text: G.clue_text }, extra || {}));
+    G = r.game; status('Saved'); renderCheck();
+    if (extra) render();
+  } catch (e) { status(e.message); }
+}
+
+// ── Choosing how to start ───────────────────────────────────────────────────
+function renderStart() {
+  document.getElementById('main').replaceChildren(el('div', { class: 'card', style: 'grid-column:1/-1' },
+    el('h2', { text: 'Make a mini game for your story' }),
+    el('p', { class: 'help', text: 'Readers walk through a small room and must use a clue from your story to survive. Choose how you want to start.' }),
+    ...templates.map(t => el('div', { class: 'tpl' }, el('strong', { text: t.title }), el('div', { class: 'muted', style: 'margin:4px 0 8px', text: t.about }),
+      el('div', { class: 'rowf' }, el('button', { class: 'btn primary', onclick: () => begin({ level: 'starter', from_template: t.key }) }, 'Starter: use this game, change the words'),
+        el('button', { class: 'btn', onclick: () => begin({ level: 'builder', from_template: t.key }) }, 'Builder: start from it and change the rules')))),
+    el('div', { class: 'tpl' }, el('strong', { text: 'Inventor' }), el('div', { class: 'muted', style: 'margin:4px 0 8px', text: `Start with an empty room and write every rule yourself (up to ${limits.inventor.maxRules} rules).` }),
+      el('button', { class: 'btn', onclick: () => begin({ level: 'inventor', blank: true }) }, 'Start blank'))));
+}
+async function begin(how) { try { G = (await api('PUT', '/games/pin/' + PIN, how)).game; render(); } catch (e) { alert(e.message); } }
+
+// ── Main editor ─────────────────────────────────────────────────────────────
+function render() {
+  const left = el('div', {}), right = el('div', {});
+  if (G.status === 'submitted') left.append(el('div', { class: 'banner warn', text: 'Waiting for your teacher to approve your game.' }));
+  if (G.status === 'approved') left.append(el('div', { class: 'banner warn', text: 'Approved! Now a teammate needs to play-test it before visitors can play.' }));
+  if (G.status === 'published') left.append(el('div', { class: 'banner good', text: '✓ Published: readers of your story can play it.' }));
+  if (G.status === 'returned') left.append(el('div', { class: 'banner bad' }, el('strong', { text: 'Needs changes: ' }), G.teacher_note || '', el('br'), 'Fix it and submit again.'));
+  if (!editable()) left.append(el('button', { class: 'btn', style: 'margin-bottom:10px', onclick: async () => { if (!confirm('Change your game? It leaves play until your teacher approves it again.')) return; await api('POST', `/games/pin/${PIN}/edit-again`); G.status = 'draft'; render(); } }, 'Edit again'));
+  left.append(roomCard(), thingsCard());
+  right.append(clueCard(), rulesCard(), el('div', { class: 'card' }, el('h2', { text: 'Check' }), el('div', { id: 'check' }),
+    editable() ? el('div', { class: 'rowf', style: 'margin-top:10px' }, el('button', { class: 'btn primary', id: 'submit', onclick: submit }, 'Submit to my teacher'), el('span', { id: 'submit-msg', class: 'muted' })) : null));
+  document.getElementById('main').replaceChildren(left, right);
+  document.getElementById('try').href = `/game.html?pin=${PIN}`;
+  renderCheck();
+}
+function renderCheck() {
+  const box = document.getElementById('check'); if (!box || !G.check) return;
+  box.replaceChildren(G.check.ok ? el('div', { class: 'check ok', text: `✓ Someone can survive (in ${G.check.winning_moves} moves). Try it yourself, then submit.` })
+    : el('div', { class: 'check no' }, el('strong', { text: 'Before you can submit:' }), el('ul', {}, G.check.problems.map(p => el('li', { text: p })))));
+  const s = document.getElementById('submit'); if (s) s.disabled = !G.check.ok;
+}
+async function submit() {
+  clearTimeout(saveTimer); await save();
+  try { await api('POST', `/games/pin/${PIN}/submit`); G.status = 'submitted'; render(); }
+  catch (e) { document.getElementById('submit-msg').textContent = e.message; }
+}
+
+function roomCard() {
+  const room = el('div', { id: 'room', role: 'grid', 'aria-label': 'Room editor' });
+  for (let y = 0; y < MiniGame.ROWS; y++) for (let x = 0; x < MiniGame.COLS; x++) {
+    const t = G.things.find(o => o.x === x && o.y === y && !o.hidden) || G.things.find(o => o.x === x && o.y === y);
+    const isStart = G.start.x === x && G.start.y === y;
+    room.append(el('button', { class: 'tile' + (isStart ? ' start' : '') + (t && selected === t.id ? ' sel' : ''), 'aria-label': `Square ${x + 1},${y + 1}${isStart ? ', reader starts here' : ''}${t ? ', ' + t.name : ''}`,
+      onclick: () => tileClick(x, y, t) }, isStart ? '🦸' : t ? t.emoji : '', t && t.hidden ? el('span', { class: 'hid' }) : null));
+  }
+  return el('div', { class: 'card' }, el('h2', { text: 'The room' }),
+    el('p', { class: 'help', id: 'room-help', text: placing === 'start' ? 'Tap the square where the reader starts.' : selected ? `Tap a square to move ${G.things.find(t => t.id === selected).name} there.` : 'Choose a thing below (or "Reader starts here"), then tap a square to move it. Faded squares are things that start hidden.' }),
+    room,
+    el('div', { class: 'rowf', style: 'margin-top:8px' }, el('button', { class: 'btn small' + (placing === 'start' ? ' on' : ''), disabled: !editable(), onclick: () => { placing = placing === 'start' ? null : 'start'; selected = null; render(); } }, '🦸 Reader starts here'),
+      el('span', { class: 'muted', style: 'font-size:0.85rem', text: `${G.level[0].toUpperCase() + G.level.slice(1)} level` })));
+}
+function tileClick(x, y, t) {
+  if (!editable()) return;
+  if (placing === 'start') { G.start = { x, y }; placing = null; return changed(); }
+  if (selected) { const s = G.things.find(o => o.id === selected); s.x = x; s.y = y; return changed(); }
+  if (t) { selected = t.id; render(); }
+}
+function thingsCard() {
+  const canStructure = editable() && !starter();
+  const box = el('div', { class: 'card' }, el('h2', { text: 'Things in the room' }));
+  G.things.forEach(t => {
+    const row = el('div', { class: 'thing' + (selected === t.id ? ' sel' : '') },
+      el('div', { class: 'rowf' },
+        sel(MiniGame.EMOJI.map(e => [e, e]), t.emoji, v => { t.emoji = v; changed(); }, { 'aria-label': `Picture for ${t.name}` }),
+        el('input', { type: 'text', maxlength: '40', value: t.name, disabled: !editable(), 'aria-label': 'Name', style: 'flex:1;min-width:120px', oninput: e => { t.name = e.target.value; changed(false); } }),
+        el('button', { class: 'btn small' + (selected === t.id ? ' on' : ''), disabled: !editable(), onclick: () => { selected = selected === t.id ? null : t.id; placing = null; render(); } }, selected === t.id ? 'Tap a square…' : 'Move'),
+        canStructure ? el('button', { class: 'btn small danger', 'aria-label': `Remove ${t.name}`, onclick: () => { G.things = G.things.filter(o => o !== t); G.rules = G.rules.filter(r => r.when.thing !== t.id); changed(); } }, '✕') : null),
+      el('div', { class: 'rowf', style: 'margin-top:6px' },
+        sel(Object.entries(TYPE_LABEL), t.type, v => { t.type = v; if (v !== 'character') delete t.question; changed(); }, { disabled: !canStructure, 'aria-label': 'Kind' }),
+        el('label', { class: 'muted', style: 'font-size:0.85rem' }, el('input', { type: 'checkbox', checked: !!t.hidden, disabled: !canStructure, onchange: e => { t.hidden = e.target.checked; changed(); } }), ' starts hidden'),
+        t.type === 'character' && !t.question && canStructure ? el('button', { class: 'btn small', onclick: () => { t.question = { prompt: '', options: ['', '', ''], correct_index: null }; changed(); } }, '+ Question') : null));
+    if (t.type === 'character' && t.question) {
+      const q = t.question; while (q.options.length < 3) q.options.push('');
+      row.append(el('div', { style: 'margin-top:6px' },
+        el('input', { type: 'text', maxlength: '200', value: q.prompt, disabled: !editable(), placeholder: `What does ${t.name} ask?`, style: 'width:100%', oninput: e => { q.prompt = e.target.value; changed(false); } }),
+        ...q.options.map((o, i) => el('div', { class: 'rowf', style: 'margin-top:4px' },
+          el('input', { type: 'text', maxlength: '80', value: o, disabled: !editable(), placeholder: `Answer ${i + 1}`, style: 'flex:1', oninput: e => { q.options[i] = e.target.value; changed(false); } }),
+          el('label', { class: 'muted', style: 'font-size:0.8rem' }, el('input', { type: 'radio', name: 'q-' + t.id, checked: q.correct_index === i, disabled: !editable(), onchange: () => { q.correct_index = i; changed(false); } }), ' right')))));
+    }
+    box.append(row);
+  });
+  if (canStructure && G.things.length < 12) box.append(el('button', { class: 'btn small', onclick: () => {
+    const id = 't' + Math.random().toString(36).slice(2, 7);
+    let x = 0, y = 0; outer: for (y = 0; y < MiniGame.ROWS; y++) for (x = 0; x < MiniGame.COLS; x++) if (!G.things.some(o => o.x === x && o.y === y) && !(G.start.x === x && G.start.y === y)) break outer;
+    G.things.push({ id, name: 'New thing', emoji: '⭐', type: 'item', x, y, hidden: false }); selected = id; changed(); } }, '+ Add a thing'));
+  return box;
+}
+function clueCard() {
+  const sentences = (story.body || '').split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+  return el('div', { class: 'card' }, el('h2', { text: 'The survival clue' }),
+    el('p', { class: 'help', text: 'Tap the sentence in your story that tells readers how to survive.' }),
+    el('div', { style: 'line-height:1.8' }, sentences.map(s => el('span', { class: 'clue' + (G.clue_text === s ? ' on' : ''), tabindex: editable() ? '0' : '-1', role: 'button', 'aria-pressed': G.clue_text === s ? 'true' : 'false',
+      onclick: () => { if (!editable()) return; G.clue_text = s; changed(); }, onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (editable()) { G.clue_text = s; changed(); } } } }, s + ' '))));
+}
+function rulesCard() {
+  const canStructure = editable() && !starter();
+  const thingOpts = filter => [['', 'choose…'], ...G.things.filter(filter || (() => true)).map(t => [t.id, `${t.emoji} ${t.name}`])];
+  const box = el('div', { class: 'card' }, el('h2', { text: 'Rules' }),
+    el('p', { class: 'help', text: starter() ? 'At Starter level the rules stay as they are; you can change the messages.' : `WHEN something happens THEN something happens. Up to ${limits[G.level].maxRules} rules.` }));
+  G.rules.forEach((r, i) => {
+    const w = r.when, t = r.then;
+    const forEvent = { picks_up: x => x.type === 'item', enters: x => x.type === 'place', talks_to: x => x.type === 'character', answers: x => x.type === 'character' && x.question }[w.event];
+    const cond = r.if && r.if.carrying ? (r.if.not ? 'not:' : 'has:') + r.if.carrying : '';
+    box.append(el('div', { class: 'rule' },
+      el('span', { class: 'kw', text: `${i + 1}. WHEN ` }),
+      sel(Object.entries(EVENT_LABEL), w.event, v => { w.event = v; if (v === 'answers') w.answer = 'correct'; changed(); }, { disabled: !canStructure, 'aria-label': 'When' }), ' ',
+      sel(thingOpts(forEvent), w.thing, v => { w.thing = v; changed(); }, { disabled: !canStructure, 'aria-label': 'Which thing' }), ' ',
+      w.event === 'answers' ? sel([['correct', 'correctly'], ['wrong', 'wrongly']], w.answer, v => { w.answer = v; changed(); }, { disabled: !canStructure }) : null,
+      el('br'), el('span', { class: 'kw', text: 'AND ' }),
+      sel([['', 'always'], ...G.things.filter(x => x.type === 'item').flatMap(x => [['has:' + x.id, `the reader is carrying ${x.name}`], ['not:' + x.id, `the reader is NOT carrying ${x.name}`]])], cond,
+        v => { r.if = v ? { carrying: v.slice(4), not: v.startsWith('not:') } : undefined; changed(); }, { disabled: !canStructure, 'aria-label': 'Only if' }),
+      el('br'), el('span', { class: 'kw', text: 'THEN ' }),
+      sel(Object.entries(RESULT_LABEL), t.do, v => { r.then = { do: v }; changed(); }, { disabled: !canStructure, 'aria-label': 'Then' }), ' ',
+      ['open_path', 'appear', 'vanish'].includes(t.do) ? sel(thingOpts(), t.thing, v => { t.thing = v; changed(); }, { disabled: !canStructure }) : null,
+      t.do === 'message' ? el('input', { type: 'text', maxlength: '200', value: t.text || '', disabled: !editable(), placeholder: 'The message', style: 'width:100%', oninput: e => { t.text = e.target.value; changed(false); } }) : null,
+      t.do === 'move' ? el('span', {}, sel(Array.from({ length: 12 }, (_, i) => [String(i), `column ${i + 1}`]), String(t.x ?? 0), v => { t.x = +v; changed(); }, { disabled: !canStructure }), ' ',
+        sel(Array.from({ length: 8 }, (_, i) => [String(i), `row ${i + 1}`]), String(t.y ?? 0), v => { t.y = +v; changed(); }, { disabled: !canStructure })) : null,
+      canStructure ? el('button', { class: 'btn small danger', style: 'margin-left:6px', 'aria-label': `Remove rule ${i + 1}`, onclick: () => { G.rules.splice(i, 1); changed(); } }, '✕') : null));
+  });
+  if (canStructure && G.rules.length < limits[G.level].maxRules) box.append(el('button', { class: 'btn small', onclick: () => { G.rules.push({ when: { event: 'touches', thing: '' }, then: { do: 'message', text: '' } }); changed(); } }, '+ Add a rule'));
+  return box;
+}
+
+async function load() {
+  try {
+    const [t, g] = await Promise.all([api('GET', '/games/templates'), api('GET', '/games/pin/' + PIN)]);
+    templates = t.templates; limits = t.limits; info = g; story = g.story;
+    if (!g.can_edit) { document.getElementById('main').replaceChildren(el('div', { class: 'empty', text: 'Only the author of this story can build its game.' })); return; }
+    document.getElementById('back').href = `/island.html?pin=${PIN}`;
+    G = g.game;
+    if (!G) renderStart(); else render();
+  } catch (e) { document.getElementById('main').replaceChildren(el('div', { class: 'empty', text: e.message })); }
+}
+load();
+</script>
+</body>
+</html>

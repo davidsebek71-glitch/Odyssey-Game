@@ -506,6 +506,7 @@ function renderPinPanel(panel) {
       rs.forEach(r => kids.push(el('div', { class: 'response' },
         el('div', { class: 'who', text: `${r.visitor_name}${r.visitor_alliance ? ' · ' + r.visitor_alliance : ''}` }), el('div', { style: 'white-space:pre-wrap', text: r.response_text }))));
     }
+    if (p.quest_id) kids.push(gameSlot(p));
     panel.replaceChildren(...kids);
     return;
   }
@@ -535,10 +536,33 @@ function renderPinPanel(panel) {
     !p.submitted_at && p.status === 'draft' ? el('button', { class: 'btn small', onclick: deleteDraft }, 'Delete draft') : null,
     el('span', { class: 'save-state', id: 'save-state', text: 'Saved' }),
     el('div', { class: 'why-not', id: 'why-not' })));
+  if (!isFeature) kids.push(gameSlot(p));
   panel.replaceChildren(...kids);
   document.getElementById('f-body').value = p.body || '';
   if (!isFeature) renderPhotoBox();
   renderCounts(); renderSubmitState();
+}
+
+// Stage 7: the story's mini game (make/edit for the author, play for readers)
+function gameSlot(p) {
+  const box = el('div', { class: 'game-slot', style: 'margin-top:16px' });
+  api('GET', '/games/pin/' + p.pin_id).then(d => {
+    const g = d.game, kids = [];
+    if (d.can_edit) {
+      const st = !g ? 'Readers walk through a little room and need a clue from your story to survive.'
+        : { draft: 'Draft — not submitted yet.', returned: 'Needs changes: ' + (g.teacher_note || ''), submitted: 'Waiting for your teacher.',
+            approved: 'Approved — waiting for a teammate to play-test it.', published: 'Published — readers can play it.' }[g.status] || '';
+      kids.push(el('h3', { text: '🎮 Mini game' }), el('div', { class: 'muted', style: 'font-size:0.88rem;margin-bottom:8px', text: st }),
+        el('a', { class: 'btn small primary', href: `/game_builder.html?pin=${p.pin_id}` }, g ? 'Edit my mini game' : 'Make a mini game'), ' ',
+        g ? el('a', { class: 'btn small', href: `/game.html?pin=${p.pin_id}` }, '▶ Try it') : null);
+    } else if (g && d.can_play) {
+      kids.push(el('h3', { text: '🎮 Mini game' }),
+        el('div', { class: 'muted', style: 'font-size:0.88rem;margin-bottom:8px', text: d.can_playtest ? 'Your teammate asks you to play-test this game.' : 'Can you survive? The story holds the clue.' }),
+        el('a', { class: 'btn small primary', href: `/game.html?pin=${p.pin_id}` }, d.can_playtest ? '🧪 Play-test the mini game' : '▶ Play the mini game'));
+    }
+    box.replaceChildren(...kids);
+  }).catch(() => {});
+  return box;
 }
 
 function renderCounts() {

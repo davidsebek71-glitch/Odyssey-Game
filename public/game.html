@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Game — Odyssey to Olympus</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: rgba(30,18,56,0.92); --line: rgba(167,139,250,0.25); --text: #f3eefc; --muted: rgba(243,238,252,0.65);
+          --gold: #f0c75e; --green: #6ee7a0; --amber: #fbbf24; --red: #f87171; --violet: #a78bfa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', sans-serif; color: var(--text); background: linear-gradient(135deg, #0f0a1e, #1a0b2e 50%, #0f0a1e); min-height: 100vh; }
+  button { font: inherit; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(20,10,40,0.85); position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.2rem; margin: 0; flex: 1; }
+  .btn { background: rgba(167,139,250,0.14); border: 1px solid var(--line); color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn.primary { background: linear-gradient(135deg, #d4a017, #a16207); border-color: #d4a017; color: #1a0b2e; font-weight: 700; }
+  .btn:focus-visible, #room:focus-visible, .opt:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 500px) { main { padding: 10px; } .tile { font-size: 15px; } #room { gap: 2px; padding: 4px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  h2 { font-family: 'Cinzel', serif; color: var(--gold); font-size: 1rem; margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  #room { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; background: #1c1236; padding: 6px; border-radius: 10px; }
+  .tile { min-width: 0; aspect-ratio: 1; background: #2a1d4a; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: clamp(16px, 3.2vw, 30px); cursor: pointer; border: none; color: inherit; padding: 0; }
+  .tile:hover { background: #352559; }
+  .tile.hero { background: #3d3270; box-shadow: inset 0 0 0 2px var(--green); }
+  .msgs div { padding: 8px 10px; border-left: 3px solid var(--violet); background: rgba(167,139,250,0.08); border-radius: 0 6px 6px 0; margin-bottom: 6px; line-height: 1.45; }
+  .opt { display: block; width: 100%; text-align: left; margin: 6px 0; padding: 10px 12px; border-radius: 8px; cursor: pointer; background: rgba(10,6,22,0.85); color: var(--text); border: 1px solid var(--line); }
+  .pad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(2, 42px); gap: 6px; justify-content: center; }
+  .pad button { background: rgba(167,139,250,0.16); border: 1px solid var(--line); color: var(--text); border-radius: 8px; font-size: 1.1rem; cursor: pointer; }
+  .end { text-align: center; padding: 22px; border-radius: 12px; margin-bottom: 12px; }
+  .end.survive { border: 1px solid var(--green); background: rgba(110,231,160,0.1); } .end.perish { border: 1px solid var(--red); background: rgba(248,113,113,0.1); }
+  .end .big { font-family: 'Cinzel', serif; font-size: 1.6rem; margin-bottom: 6px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px; grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="btn" href="/island.html" id="back">← Back to the story</a>
+  <h1 id="title">Mini Game</h1>
+</div>
+<main id="main"><div class="empty">Loading…</div></main>
+<script src="/js/minigame.js"></script>
+<script>
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
+const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+const PIN = new URLSearchParams(location.search).get('pin');
+const HERO = '🦸';
+let game, state, info, log = [], notice = null;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat().forEach(k => { if (k !== null && k !== undefined) e.append(k.nodeType ? k : document.createTextNode(k)); });
+  return e;
+}
+async function api(method, url, body) {
+  const r = await fetch('/api' + url, { method, headers: H, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { location.href = '/index.html'; throw new Error('Please log in.'); }
+  if (!r.ok) throw new Error(d.error || 'Something went wrong.');
+  return d;
+}
+const name = id => (game.things.find(t => t.id === id) || {}).name || id;
+
+function act(next) {
+  state = next;
+  if (state.messages.length) log = state.messages.concat(log).slice(0, 6);
+  render();
+}
+function move(dx, dy) { if (!state.over) act(MiniGame.step(game, state, dx, dy)); }
+function tapTile(x, y) {
+  const dx = Math.sign(x - state.px), dy = Math.sign(y - state.py);
+  if (!dx && !dy) return;
+  // step one square toward the tapped square (sideways first if farther that way)
+  if (Math.abs(x - state.px) >= Math.abs(y - state.py)) move(dx, 0); else move(0, dy);
+}
+function restart() { state = MiniGame.newState(game); log = []; render(); document.getElementById('room').focus(); }
+
+function render() {
+  const room = el('div', { id: 'room', tabindex: '0', role: 'grid', 'aria-label': 'The room. Use the arrow keys to move.' });
+  for (let y = 0; y < MiniGame.ROWS; y++) for (let x = 0; x < MiniGame.COLS; x++) {
+    const hero = state.px === x && state.py === y;
+    const t = MiniGame.thingAt(game, state, x, y);
+    room.append(el('button', { class: 'tile' + (hero ? ' hero' : ''), tabindex: '-1', 'aria-label': hero ? 'You' : t ? t.name : 'empty',
+      title: t ? t.name : '', onclick: () => tapTile(x, y) }, hero ? HERO : t ? t.emoji : ''));
+  }
+  room.addEventListener('keydown', e => {
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (d) { e.preventDefault(); move(d[0], d[1]); }
+  });
+  const side = [];
+  if (state.over) side.push(el('div', { class: 'end ' + state.over },
+    el('div', { class: 'big', text: state.over === 'survive' ? '⭐ You survived!' : 'The story ends here…' }),
+    el('div', { class: 'muted', style: 'margin-bottom:12px', text: state.over === 'survive' ? 'You found the way. Well read!' : 'No harm done — nothing is lost. Look for the clue in the story and try again.' }),
+    el('div', { style: 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap' },
+      el('button', { class: 'btn', onclick: restart }, 'Play again'), el('a', { class: 'btn primary', href: backUrl() }, 'Back to the story'))));
+  if (state.asking && !state.over) {
+    const c = game.things.find(t => t.id === state.asking);
+    side.push(el('div', { class: 'card' }, el('h2', { text: `${c.emoji} ${c.name} asks:` }), el('div', { style: 'margin-bottom:6px', text: c.question.prompt }),
+      ...c.question.options.map((o, i) => String(o || '').trim() ? el('button', { class: 'opt', onclick: () => act(MiniGame.answer(game, state, c.id, i)) }, o) : null)));
+  }
+  side.push(el('div', { class: 'card' }, el('h2', { text: 'What happens' }),
+    log.length ? el('div', { class: 'msgs' }, log.map(m => el('div', { text: m }))) : el('div', { class: 'muted', text: 'Explore. Bump into things, pick things up, step into places.' })));
+  side.push(el('div', { class: 'card' }, el('h2', { text: 'Carrying' }),
+    el('div', { text: state.carrying.length ? state.carrying.map(id => `${(game.things.find(t => t.id === id) || {}).emoji || ''} ${name(id)}`).join(', ') : 'Nothing yet.' })));
+  side.push(el('div', { class: 'card' }, el('div', { class: 'pad' },
+    el('span'), el('button', { 'aria-label': 'Up', onclick: () => move(0, -1) }, '▲'), el('span'),
+    el('button', { 'aria-label': 'Left', onclick: () => move(-1, 0) }, '◀'), el('button', { 'aria-label': 'Down', onclick: () => move(0, 1) }, '▼'), el('button', { 'aria-label': 'Right', onclick: () => move(1, 0) }, '▶')),
+    el('p', { class: 'muted', style: 'font-size:0.82rem;margin:8px 0 0;text-align:center', text: 'Arrow keys, these buttons, or tap a square. No timer.' })));
+  if (info.can_playtest) side.push(el('div', { class: 'card', style: 'border-color:var(--gold)' }, el('h2', { text: '🧪 Play-test for your teammate' }),
+    el('p', { class: 'muted', style: 'margin-top:0;font-size:0.88rem', text: 'Play it, then tell them how it went.' }),
+    ...[['works', '✓ It works — I could survive'], ['cant_survive', 'I couldn\'t find a way to survive'], ['unexpected', 'Something didn\'t happen the way I expected'], ['words', 'Some words need fixing']]
+      .map(([k, label]) => el('button', { class: 'opt', onclick: () => playtest(k) }, label)), el('div', { id: 'pt-msg', class: 'muted' })));
+  document.getElementById('main').replaceChildren(notice ? el('div', { class: 'card', role: 'status', style: 'grid-column:1/-1;border-color:var(--green)', text: notice }) : '', el('div', { class: 'card' }, room), el('div', {}, side));
+  document.getElementById('room').focus();
+}
+async function playtest(result) {
+  try { const r = await api('POST', `/games/pin/${PIN}/playtest`, { result }); info.can_playtest = false;
+    notice = r.status === 'published' ? 'Thanks! The game is now published for visitors.' : 'Thanks! Your teammate will see that it needs work.';
+    render(); } catch (e) { document.getElementById('pt-msg').textContent = e.message; }
+}
+const backUrl = () => `/island.html?student=${game.owner_student_id}&pin=${PIN}`;
+
+async function load() {
+  try { info = await api('GET', '/games/pin/' + PIN); } catch (e) { document.getElementById('main').replaceChildren(el('div', { class: 'empty', text: e.message })); return; }
+  if (!info.game || !info.can_play && !info.can_edit) { document.getElementById('main').replaceChildren(el('div', { class: 'empty', text: 'This mini game isn\'t open to you yet.' })); return; }
+  game = info.game;
+  document.getElementById('title').textContent = `${game.story_title || 'Mini game'}`;
+  document.getElementById('back').href = backUrl();
+  state = MiniGame.newState(game);
+  render();
+}
+load();
+</script>
+</body>
+</html>

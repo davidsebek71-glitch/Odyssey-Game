@@ -499,6 +499,8 @@ require('./routes/voyage')(app, { authenticateToken, query, run, island: islandR
 // Terrain (Stage 5) — terrain grid read from each student's map color key. See routes/terrain.js.
 const terrainRoutes = require('./routes/terrain')(app, { authenticateToken, query, run, island: islandRoutes, monsters: monsterRoutes });
 monsterRoutes.useTerrain(terrainRoutes);
+// Mini games (Stage 7) — WHEN/THEN rule games attached to stories. See routes/games.js and public/js/minigame.js.
+require('./routes/games')(app, { authenticateToken, query, run, island: islandRoutes });
 // Encounters (Stage 4B) — visitors face a student-made Guardian, Lair and Monster. See routes/encounters.js.
 require('./routes/encounters')(app, { authenticateToken, query, run, island: islandRoutes, monsters: monsterRoutes });
 // Stage 3 — Oracle Trials, accommodations and the reading dashboard (routes/oracle.js),

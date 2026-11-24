@@ -868,6 +868,25 @@ function ensureStage4Tables() {
       map_uploaded_at DATETIME,
       updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+    // Stage 7: one mini game per story (pin). things / rules / start are data
+    // run by public/js/minigame.js — never code.
+    db.run(`CREATE TABLE IF NOT EXISTS pin_games (
+      pin_id           INTEGER PRIMARY KEY,
+      owner_student_id INTEGER NOT NULL,
+      level            TEXT NOT NULL DEFAULT 'starter',
+      template         TEXT,
+      things           TEXT NOT NULL DEFAULT '[]',
+      rules            TEXT NOT NULL DEFAULT '[]',
+      start            TEXT NOT NULL DEFAULT '{"x":0,"y":0}',
+      clue_text        TEXT DEFAULT '',
+      status           TEXT NOT NULL DEFAULT 'draft',
+      teacher_note     TEXT,
+      playtested_by    INTEGER,
+      submitted_at     DATETIME,
+      reviewed_at      DATETIME,
+      published_at     DATETIME,
+      updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
     // Extra data for special pins: lair dangers, the hero's reward (JSON)
     const pinCols = (db.exec("PRAGMA table_info(island_pins)")[0] || { values: [] }).values.map(c => c[1]);
     if (pinCols.length && !pinCols.includes('extra')) db.run("ALTER TABLE island_pins ADD COLUMN extra TEXT DEFAULT '{}'");

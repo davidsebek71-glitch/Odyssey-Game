@@ -69,6 +69,7 @@
   <button class="btn" id="tab-responses" onclick="setTab('responses')">Visit responses</button>
   <button class="btn" id="tab-voyages" onclick="setTab('voyages')">Voyages</button>
   <button class="btn" id="tab-students" onclick="setTab('students')">All islands</button>
+  <button class="btn" id="tab-games" onclick="setTab('games')">Mini games</button>
 </div>
 <main id="main"></main>
 
@@ -99,7 +100,7 @@ async function api(method, url, body) {
 }
 function setTab(t) {
   tab = t;
-  ['queue', 'responses', 'voyages', 'students'].forEach(x => document.getElementById('tab-' + x).classList.toggle('active', t === x));
+  ['queue', 'responses', 'voyages', 'students', 'games'].forEach(x => document.getElementById('tab-' + x).classList.toggle('active', t === x));
   refresh();
 }
 const period = () => document.getElementById('period').value;
@@ -117,6 +118,7 @@ async function refresh() {
   main.replaceChildren(el('div', { class: 'empty', text: 'Loading…' }));
   try {
     if (tab === 'queue') return renderQueue((await api('GET', '/teacher/island/queue' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).pins);
+    if (tab === 'games') return renderGames((await api('GET', '/teacher/games' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).games);
     if (tab === 'responses') return renderResponses((await api('GET', '/teacher/voyage/responses' + (period() ? '?period=' + encodeURIComponent(period()) : ''))).responses);
     if (tab === 'voyages') {
       if (!period()) return main.replaceChildren(el('div', { class: 'empty', text: 'Choose a period above to manage its voyages.' }));
@@ -213,6 +215,45 @@ function renderStudents(rows) {
       el('td', { class: 'n', text: s.terrain_ok ? '✓' : '—' }),
       ...['published', 'submitted', 'returned', 'drafts'].map(k => el('td', { class: 'n', text: String(s[k] || 0) })),
       el('td', {}, el('a', { href: `/island.html?student=${s.student_id}`, target: '_blank' }, 'Open island'))))))));
+}
+
+// ── Mini games (Stage 7): approve → a teammate play-tests → published ──────
+const G_EVENT = { touches: 'touches', picks_up: 'picks up', enters: 'enters', talks_to: 'talks to', answers: 'answers' };
+const G_DO = { survive: 'reader SURVIVES', perish: 'reader PERISHES', message: 'message', open_path: 'opens a path through', appear: 'makes appear', vanish: 'makes vanish', move: 'moves the reader' };
+function renderGames(rows) {
+  const main = document.getElementById('main');
+  if (!rows.length) return main.replaceChildren(el('div', { class: 'empty', text: 'No mini games are waiting. 🎉' }));
+  main.replaceChildren(el('p', { class: 'muted', text: 'Approve → a teammate play-tests it → readers can play. "Publish now" skips the play-test.' }), ...rows.map(g => {
+    const card = el('div', { class: 'card' }), msg = el('span', { class: 'msg' });
+    const nm = id => { const t = g.things.find(x => x.id === id); return t ? `${t.emoji} ${t.name}` : '?'; };
+    const note = el('input', { type: 'text', maxlength: '500', placeholder: 'Note to the student (needed to return it)', style: 'flex:1;min-width:220px' });
+    async function act(action) {
+      card.querySelectorAll('button').forEach(b => b.disabled = true);
+      try {
+        const d = await api('POST', `/teacher/games/${g.pin_id}/review`, { action, note: note.value });
+        card.replaceChildren(el('div', { class: 'sub-head' }, el('span', { class: 'who', text: g.student_name }), el('span', { text: `"${g.story_title}"` }),
+          el('span', { style: `color:${action === 'return' ? 'var(--red)' : 'var(--green)'}`, text: { approved: '✓ Approved — a teammate play-tests it next', published: '✓ Published', returned: 'Returned with your note' }[d.status] })));
+      } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; card.querySelectorAll('button').forEach(b => b.disabled = false); }
+    }
+    card.append(
+      el('div', { class: 'sub-head' }, el('span', { class: 'who', text: g.student_name }), el('span', { text: `"${g.story_title}"` }),
+        el('span', { class: 'muted', text: `· Period ${g.class_period} · ${g.level} level · ${g.status === 'approved' ? 'approved, waiting for a teammate play-test' : 'waiting for you'}` })),
+      el('div', { style: 'margin-top:8px' }, el('strong', { text: 'Clue from the story: ' }), el('span', { text: g.clue_text || '—' })),
+      el('div', { style: 'margin-top:6px', class: 'muted', text: 'Things: ' + g.things.map(t => `${t.emoji} ${t.name}`).join(', ') }),
+      el('ol', { style: 'margin:8px 0;padding-left:22px;line-height:1.6' }, g.rules.map(r => el('li', { text:
+        `When the reader ${G_EVENT[r.when.event] || r.when.event} ${nm(r.when.thing)}${r.when.event === 'answers' ? ' ' + (r.when.answer === 'wrong' ? 'wrongly' : 'correctly') : ''}` +
+        (r.if && r.if.carrying ? ` and is ${r.if.not ? 'NOT ' : ''}carrying ${nm(r.if.carrying)}` : '') +
+        ` → ${G_DO[r.then.do] || r.then.do}${r.then.thing ? ' ' + nm(r.then.thing) : ''}${r.then.text ? ': "' + r.then.text + '"' : ''}` }))),
+      g.things.filter(t => t.question && t.question.prompt).map(t => el('div', { class: 'muted', style: 'font-size:0.9rem' },
+        `${t.emoji} ${t.name} asks: ${t.question.prompt} (${t.question.options.filter(o => o).map((o, i) => i === t.question.correct_index ? o + ' ✓' : o).join(' / ')})`)),
+      el('div', { style: `margin-top:6px;color:${g.check.ok ? 'var(--green)' : 'var(--amber)'}`, text: g.check.ok ? `✓ Winnable (${g.check.winning_moves} moves)` : 'Problems: ' + g.check.problems.join(' ') }),
+      el('div', { class: 'actions', style: 'flex-wrap:wrap' },
+        el('a', { class: 'btn', href: `/game.html?pin=${g.pin_id}`, target: '_blank' }, '▶ Play it'),
+        g.status === 'submitted' ? el('button', { class: 'btn approve', onclick: () => act('approve') }, '✓ Approve (teammate play-tests next)') : null,
+        el('button', { class: 'btn approve', onclick: () => act('publish') }, 'Publish now'),
+        note, el('button', { class: 'btn return', onclick: () => act('return') }, 'Return with note'), msg));
+    return card;
+  }));
 }
 
 // ── Visit responses: approve before the author can read them ───────────────
