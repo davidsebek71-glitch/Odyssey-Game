@@ -1,0 +1,36 @@
+const ENV = require('../lib/env');
+const { chromium } = require('playwright'); const B = ENV.BASE;
+const api = async (t, m, p, b) => (await fetch(B + '/api' + p, { method: m, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: b ? JSON.stringify(b) : undefined })).json();
+const login = async (k, e) => (await (await fetch(`${B}/api/auth/${k}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, password: 'pw-test-1' }) })).json()).token;
+(async () => {
+  const T = await login('teacher', 'teacher@test.local'), A = await login('student', 'stuA@test.local'), Bt = await login('student', 'stuB@test.local');
+  await api(T, 'POST', '/olympus/teacher/reset-race', { period: 'Test', confirm_period: 'Test' });
+  await api(T, 'POST', '/teacher/set-points', { alliance_id: 1, new_total: 1000, reason: 'timer test' });
+  await api(T, 'POST', '/olympus/teacher/start-race', { period: 'Test' });
+  await api(A, 'GET', '/olympus/state'); await api(Bt, 'GET', '/olympus/state');
+  for (const t of [A, Bt]) { await api(t, 'POST', '/olympus/title-ready'); await api(t, 'POST', '/olympus/medea-vote', { choice: 'accept' }); }
+  await api(A, 'POST', '/olympus/medea-commit');
+  for (const t of [A, Bt]) await api(t, 'POST', '/olympus/agora-ready');
+  await api(A, 'POST', '/olympus/agora-visited');
+  for (const t of [A, Bt]) await api(t, 'POST', '/olympus/vote-path', { path_index: 0 });
+  await api(Bt, 'POST', '/olympus/combat-ready');
+  const br = await chromium.launch(); const p = await (await br.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+  p.setDefaultTimeout(60000); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto(B + '/index.html'); await p.evaluate(t => localStorage.setItem('token', t), A);
+  await p.goto(B + '/revenge_of_the_gods.html');
+  await p.locator('#fight-btn:not([disabled])').waitFor({ state: 'visible' }); await p.click('#fight-btn');
+  await p.locator('#btn-accept-fate').waitFor({ state: 'visible' }); await p.click('#btn-accept-fate');
+  await p.locator('#trivia-answer-grid button').first().waitFor({ state: 'visible' });
+  console.log('trivia shown; timer elements present:', await p.locator('#trivia-timer-num').count());
+  await p.waitForTimeout(40000);
+  const cs = (await api(A, 'GET', '/olympus/state')).state.combat_state;
+  const enabled = await p.locator('#trivia-answer-grid button:not([disabled])').count();
+  console.log(`after 40s: trivia_answered=${cs.trivia_answered}, enabled answer buttons=${enabled}`);
+  console.log(enabled > 0 && !cs.trivia_answered ? '✓ after 40 seconds the trivia question is still open (no timer)' : '✗ the trivia question closed by itself');
+  await p.screenshot({ path: (require('fs').mkdirSync(ENV.SHOTS, { recursive: true }), ENV.SHOTS + '/notimer.png') });
+  await p.locator('#trivia-answer-grid button').first().click();
+  await p.locator('#btn-continue-combat:not([disabled])').waitFor({ state: 'visible' });
+  console.log('answer accepted after the wait; Accept the Outcome button shown. page errors:', errs.length ? errs : 'none');
+  console.log(errs.length ? '✗ page errors' : '✓ the late answer is accepted, with no page errors');
+  await br.close();
+})().catch(e => { console.error('✗ FAIL', e.message); process.exit(1); });
